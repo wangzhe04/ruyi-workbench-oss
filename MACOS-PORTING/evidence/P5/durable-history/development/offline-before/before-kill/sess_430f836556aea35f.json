@@ -1,0 +1,38 @@
+{
+  "id": "sess_430f836556aea35f",
+  "schemaVersion": 1,
+  "turnSeq": 1,
+  "title": "HISTORY_CRASH_AFTER_PREFIX",
+  "summary": "",
+  "pinned": false,
+  "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-7jNOXt/work",
+  "createdAt": "2026-11-11T11:15:13.768Z",
+  "updatedAt": "2026-11-11T11:15:13.870Z",
+  "claudeSessionId": null,
+  "providerHistoryCursor": 1,
+  "privacyHistoryV1": false,
+  "attachments": [],
+  "engineRoute": {
+    "engine": "openai",
+    "providerId": "fake",
+    "model": "fake-model"
+  },
+  "mission": null,
+  "missionId": "sess_430f836556aea35f",
+  "kind": "quick_ask",
+  "origin": "user",
+  "titleSource": "user",
+  "todos": [],
+  "skills": [],
+  "memories": [],
+  "memoriesExplicit": false,
+  "memoryExclusions": [],
+  "recentUserRequest": {
+    "text": "HISTORY_CRASH_AFTER_PREFIX",
+    "turnSeq": 1,
+    "at": "2026-11-11T11:15:13.870Z"
+  },
+  "storageVersion": 2,
+  "messageCount": 1,
+  "providerHistoryCount": 1
+}

@@ -1,0 +1,53 @@
+PASS workbench up
+PASS runtime token available
+PASS A GET /api/scheduler/tasks 无 token -> 403(实测 403)
+PASS A POST /api/scheduler/tasks 无 token -> 403(实测 403)
+PASS A PATCH /api/scheduler/tasks/sch_nope 无 token -> 403(实测 403)
+PASS A DELETE /api/scheduler/tasks/sch_nope 无 token -> 403(实测 403)
+PASS A POST /api/scheduler/tasks/sch_nope/run-now 无 token -> 403(实测 403)
+PASS A GET /api/scheduler/tasks/sch_nope/runs 无 token -> 403(实测 403)
+PASS A7 带 body token(不带 header)仍 403 —— 任务定义只能由 token 级 API 写入(实测 403)
+PASS A8 那一次真的什么都没建出来
+PASS B1 POST 建任务 200(实测 200)
+PASS B2 服务端派了一个 id(纯函数不造随机,id 由 13s 补)
+PASS B3 K7 前端要的两个键就位:enabled 与 ISO 的 nextRunAt(实测 2026-05-04T10:00:00.000Z)
+PASS B4 name 与 title 同值(K7 那份前向兼容读法两个候选键都给上)
+PASS B5 describeKey + params 就位(实测 scheduler.describe.weekly.weekdays {"time":"18:00"})
+PASS B6 revision 从 0 起、createdBy 缺省 user
+PASS B7 GET 列表读得到它
+PASS B8 列表带 nowMs(与假时钟同源;实测 1777867200000)
+PASS C1 bypass 回落成空(= 跟随全局默认档),不是照收(实测 {"permissionMode":""})
+PASS C2 非 bypass 的档原样留着
+PASS D 载荷带 localCommand -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 env -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 apiKey -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 dataRoot -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 cwd -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D6 坏 cron -> 400(实测 400)
+PASS E1 PATCH 改标题
+PASS E2 revision + 1(实测 1)
+PASS E3 计划没变时 nextRunAt 【不动】—— 改个名字不该把日程往后推
+PASS E4 enabled:false = 暂停
+PASS E5 enabled:true = 恢复
+PASS E6 换了计划时 nextRunAt 才重算,describeKey 跟着变
+PASS E7 改不存在的 id -> 404(实测 404)
+PASS E8 改成非法计划 -> 400,原任务不动(实测 400)
+PASS F1 run-now 当场跑完(实测 200/succeeded)
+PASS F2 「再跑一次」不动 nextRunAt —— 它是计划之外的一个新 occurrence,不是把日程往后推
+PASS F3 那一次的触发模式是 manual(实测 1 条 / manual)
+PASS F4 manual 也有自己的 occurrenceKey
+PASS F5 对不存在的 id run-now -> 404(实测 404)
+PASS F6 两次 run-now 是两个 occurrence(各自 executionGeneration 1),不是同一个的重试(实测 [1,1])
+PASS F7 limit 生效
+PASS G1 DELETE 200
+PASS G2 列表里没有它了
+PASS G3 【删定义不删历史回执】—— runs 仍然读得出那两次(实测 2)
+PASS G4 再删一次 -> 404(实测 404)
+PASS H1 建满 200 条(实测 200,最后一次 HTTP 200)
+PASS H2 第 201 条 -> 409 scheduler.capacity_exceeded(实测 409/scheduler.capacity_exceeded)
+PASS H3 上限之后还是 200 条(实测 200)
+PASS I1 第二份数据根(schedulerEnabledV1:false)的服务起来了
+PASS I2 关着时 GET -> 409 scheduler.disabled(路由清册不因开关变化;实测 409/scheduler.disabled)
+PASS I3 关着时 POST 也 409(实测 409)
+PASS I4 关着时 <data>/scheduler/ 目录一次都没建过(29 号文 §10:零持久化写入)
+ALL PASS

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-12T00:21:29.365840+00:00",
+  "status": "committed_integrated_default_off_selected_balanced_input_qualification_not_full_P5",
+  "productionRuntimeChanged": false,
+  "candidateSourceCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+  "mainCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+  "productionDefault": "off",
+  "productionImplementationCommits": [
+    "f671a00461450b3b144fb6fd93b52badb4141b80",
+    "b7930bde0ad44e4f50f0b5553f206623433f3079"
+  ],
+  "freeze": {
+    "path": "balanced-input-freeze-v4.json",
+    "bytes": 24629,
+    "sha256": "94bc1e70850f2146fdb5ea6edd2c8187b79051b6532088204ceead56d4de0a02"
+  },
+  "sourceArchive": {
+    "path": "balanced-input-source-freeze-v4.tar.gz",
+    "bytes": 4454556,
+    "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085"
+  },
+  "harnessSourceReview": {
+    "path": "root-input-harness-source-review-v4.json",
+    "bytes": 54416,
+    "sha256": "556756da17a6b4276646792d4f1519c3881b1300b234883e0447a01252565e1c"
+  },
+  "fixtureSourceReview": {
+    "path": "balanced-input-window-source-review-v3.json",
+    "bytes": 4567,
+    "sha256": "3387a89ae4e3b367e9d8125f82a2b86e9508e10b34ae411c1ef00508244e223c"
+  },
+  "independentReport": {
+    "path": "independent-balanced-input-v1/report.json",
+    "bytes": 24183,
+    "sha256": "2812387103df5c5043851cfeec441305e2a129530b57f725a49ddd98bc5f31f6"
+  },
+  "primaryCommitBinding": {
+    "path": "balanced-input-commit-binding-v1.json",
+    "bytes": 68824,
+    "sha256": "6a30098e60fe1bd1ecb63eaf72e967ec7d2a3b0f69e0bea16e1f1da6b57953a6"
+  },
+  "independent": {
+    "commands": 1,
+    "assertions": 51,
+    "failed": 0,
+    "skipped": 0,
+    "retries": 0,
+    "beforeAfterCheckpoints": 2,
+    "sourceFiles": 127,
+    "namedArtifacts": 4,
+    "actualInputEvents": 2,
+    "observerIntervals": 3,
+    "rawRoot": "/tmp/rei-HxJJZa",
+    "actualReceiverSha256": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da"
+  },
+  "engineering": {
+    "report": {
+      "path": "balanced-input-final-gates-v2.json",
+      "bytes": 1136,
+      "sha256": "6f0144281b39156397e19eb6ddc5c255d5b44a27107dc04cd248662dd4084d0c"
+    },
+    "commands": 4,
+    "allExit0": true,
+    "syntaxFiles": 1180,
+    "syntaxFail": 0,
+    "unitTests": 2644,
+    "unitPass": 2626,
+    "unitExistingSkip": 18,
+    "unitFail": 0,
+    "fastPass": 80,
+    "fastFail": 0,
+    "fastFlaky": 0,
+    "centralLiveSkip": 14,
+    "buildFresh": true,
+    "beforeAfterCheckpoints": 8,
+    "all127SourcesAnd4ArtifactsMatched": true
+  },
+  "scope": [
+    "Actual same-turn admitted list_windows binds live native worker/owned receiver target;no contextless business call.",
+    "Real default permission exact allow/deny/pending cancel;only allow dispatches actual macro input.sequence then wait.",
+    "Actual independent fsynced receiver two events/sourcePID/birth/neutral/frame/front/hit/TIS plus committed native frame correlation.",
+    "Strict actual result/history ACK before following provider requests;genuine audit reads;single input effect at macrostep0/call/parent attribution.",
+    "Actual mission API and cross-turn fold retain one effect;cold explicit new model request has sameACKs and no input replay."
+  ],
+  "preservedFailures": [
+    {
+      "path": "development-balanced-input-v1.log",
+      "reason": "Strict===true wrongly refused native C integer readiness1 before receiver/provider/GUI/input. Narrow exact true|1 compatibility plus explicit auth/unlocked/no permission request checks;source reviewed."
+    },
+    {
+      "path": "balanced-input-final-fast-v1.log",
+      "reason": "Only exact killOwnTree owner census stale377 vs new actual378. Existing runner automatic repeat also failed;all original logs retained. Updated expected count and comment only,independently reviewed;entire final gates rerun frozenv4."
+    }
+  ],
+  "proofLimits": [
+    "Selected owned passive middle-button receiver and ordinary positive-turn Node serve/provider only;no App/release identity or arbitrary application consumption claim.",
+    "Only allow sends one balanced pair;deny and predispatch pending-permission Stop send no macro/input. No active-input cancellation,fault,held state,hard abort or external rescue qualification.",
+    "Payload at_us40000 is planned relative scheduling. Actual receiver CG interval was28.221708ms independent and28.735875ms development;no measured40ms timing SLA.",
+    "Observer nonce is bookkeeping only;event sourcePID/birth,planned coordinates,flags,frame/hit/front/TIS and actual receipt/history/effect provide separate witnesses.",
+    "Independent readonly receipt/history/journal checks and11observed owned PID exits;no global unobserved process-escape completeness claim.",
+    "Named frozen artifacts4 and separately compiled passive receiver are distinct. Receiver compiled from frozen source before use,hash recorded pre-spawn,and dev/independent actual bytes match.",
+    "All original10local+4external IDs remain. Background/API0/resume/CLI/manual admission,reconciliation/retention/global quotas/delete/rewind,held/rescue,lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain open."
+  ],
+  "phaseStatus": "in_progress",
+  "fullP5Accepted": false,
+  "restoreAutomaticLock": "pending_until_full_P5_acceptance"
+}

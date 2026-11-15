@@ -1,0 +1,278 @@
+{
+  "schema": 1,
+  "kind": "independent_read_only_checkpoint_document_archive_review",
+  "createdAt": "2026-11-11T22:02:33.160179+00:00",
+  "workspace": "/Users/jiming/Documents/ruyi-workbench-mac",
+  "status": "passed_no_blocking_document_or_archive_binding_findings",
+  "actions": {
+    "sourceEdits": false,
+    "documentationEdits": false,
+    "testsExecuted": false,
+    "nativeOrGuiExecuted": false,
+    "systemSettingsOrKeepAwakeTouched": false,
+    "onlyNewReviewArtifact": "/tmp/ruyi-p5-receipts-evidence/foreground-checkpoint-document-review-v1.json"
+  },
+  "implementationBinding": {
+    "mainHead": "f671a00461450b3b144fb6fd93b52badb4141b80",
+    "integratedHeadMatchesClaim": true,
+    "mainSourceFilesMatchedFreezeAndCommitGitBlob": 122,
+    "freezeSha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863",
+    "artifactCount": 3,
+    "archiveMembersVerified": 125,
+    "archiveSha256": "a9f235284180f26f0b03e76b492a158afc700e411edea4f0044ca2941c63ddd5",
+    "archiveMismatchCount": 0,
+    "meaning": "Archived122source+3artifact bytes and current122main source bytes agree with named freeze/commit. Artifact byte verification does not execute or qualify native behavior."
+  },
+  "archivePreservation": {
+    "index": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v8.json",
+      "bytes": 138538,
+      "sha256": "77e3f562b43c57bd7617aaaa02e0f7fe3e2b952a8236278193f4f6799816f430"
+    },
+    "indexedFiles": 728,
+    "indexedBytes": 29136290,
+    "allArchivedFilesRehashed": true,
+    "all728OriginalTempRawFilesByteIdenticalToCopies": true,
+    "mismatches": [],
+    "priorImmutableIndexes": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v2.json",
+        "bytes": 20541,
+        "sha256": "1374dee9615659c92c36b361364403256390b542b80e755bbb07439bf5d796f0",
+        "entriesVerified": 112,
+        "mismatches": 0
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v3.json",
+        "bytes": 26661,
+        "sha256": "cc0cd0e41ff5d7cdc1734a7b75e20a2256c4651738ff4d45b92855edcb8ede1e",
+        "entriesVerified": 144,
+        "mismatches": 0
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v4.json",
+        "bytes": 39847,
+        "sha256": "01650046b68b85469abd810c2b8a89a7e1d997913845f5e34b5d1bec5af94152",
+        "entriesVerified": 215,
+        "mismatches": 0
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v5.json",
+        "bytes": 53735,
+        "sha256": "4130b33cc448473e6172e34b62042d17b8fd0b907041625874c18437f0b2c967",
+        "entriesVerified": 289,
+        "mismatches": 0
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v6.json",
+        "bytes": 78523,
+        "sha256": "976aa690b985dccff5ca08f81b347c3c7126999cb4d93d6845d67ae1a99730f2",
+        "entriesVerified": 418,
+        "mismatches": 0
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v7.json",
+        "bytes": 104117,
+        "sha256": "a848550806d9d750157b4ba0d371253253d500f611f3f84e2365b88763a8aa51",
+        "entriesVerified": 551,
+        "mismatches": 0
+      }
+    ],
+    "priorCheckpointCount": 8,
+    "explicitFailureLogsVerified": [
+      {
+        "path": "development/image-history-unit-v1.log",
+        "reason": "Fixture inspected providerHistoryCount on load-normalized object rather than head; assertion fixed, no production weakening."
+      },
+      {
+        "path": "development/image-history-unit-v4.log",
+        "reason": "New corruption test expected live provider path after intentional .corrupt quarantine; test now verifies preserved quarantined bytes."
+      },
+      {
+        "path": "development/actual-images-v1.log",
+        "reason": "Fixture sent default queue steering but asserted interrupt; explicit mode:interrupt added. Full successful scenarios rerun and independently qualified."
+      },
+      {
+        "path": "development/image-fast-v1.log",
+        "reason": "Facts/README, process cleanup count and session-save call census were stale; updated truthful inventories, then80 fast passed. New4 Mac dependency probes centrally opt-in rather than default pseudo-pass."
+      },
+      {
+        "path": "development/image-legacy-rewind-v1.log",
+        "reason": "Primary orchestration forced RUYI_HOME ahead of legacy fixture WIN_CLAUDE_WORKBENCH_HOME; private persisted outer root had no provider, selected missing CLI. Env-only correction preserves fixture ownership and isolated HOME/AppData/TMP; v2 passed. No production or assertion change."
+      },
+      {
+        "path": "development/subagent-previous-unit-v2.log",
+        "reason": "Null-prototype JSON array iteration issue fixed via Array.from."
+      },
+      {
+        "path": "development/actual-subagents-wait-baseline-v1.log",
+        "reason": "Controlled old-server pending sibling failure; later serial dispatch ticket and publication wait fixed."
+      },
+      {
+        "path": "development/actual-subagents-v5.log",
+        "reason": "Fixture checked API turnSeq at wrong envelope depth; actual API0 refusal/zero dispatch unchanged."
+      },
+      {
+        "path": "development/actual-subagents-v7.log",
+        "reason": "MissingID actual readonly receipt has incomplete+semantic lifecycle_unknown, not top-level outcome. Added malformedID branch."
+      },
+      {
+        "path": "development/subagent-main-dispatch-regression-v2.log",
+        "reason": "Fixture sampled phase after conservative unknown was already committed; original dispatching assertion now captured at actual rejected rename boundary, with additional final unknown assertion. No failure waived."
+      }
+    ],
+    "failureLogsNotReclassifiedAsPass": true
+  },
+  "independentReportReferences": {
+    "allCurrentStateReportShaReferencesVerified": true,
+    "sourceReview": {
+      "path": "evidence/foreground-subagent-source-review-v3.json",
+      "sha256": "370b19a90d90071dc07f23776bd4cf1b0834152b8c54511408d0a93ae252048c"
+    },
+    "sourceCoverage": {
+      "path": "evidence/foreground-subagent-review-coverage-v1.json",
+      "sha256": "0136f55aba352547a32d468bd35549e278ffadffea70f0ba3c56cfaf84c11ab4"
+    },
+    "runtimeReport": {
+      "path": "evidence/independent-foreground-subagent-v1/report.json",
+      "sha256": "90391be7d9b66a5e793f93007ce4af8528605f8242f1499ee860d712a6ee0945"
+    },
+    "archivedInvocationCount": 13,
+    "archivedInvocationsAllExit0Attempt1": true,
+    "checkpointsVerified": 26,
+    "sourceAndArtifactBindingsPerCheckpoint": "122source+3artifact recorded matched; all26checkpoint files independently rehashed against referenced immutable copies",
+    "runtimeWasNotRerun": true,
+    "rawReportHistoricalState": "Independent report describes uncommitted candidate at execution time; immutable report is preserved. Current documentation binds that exact source to later integrated commit via122hashes/Git blobs rather than rewriting historical qualification."
+  },
+  "documentationAssessment": {
+    "taskPhase": "in_progress",
+    "schemaVersion": 5,
+    "featureDefault": "off",
+    "fullP5Accepted": false,
+    "lockRestoration": "pending; only after full_P5_acceptance",
+    "rootReadmeAndP5DocumentOnlyAppend": true,
+    "TASKSDelta": "Adds desktopExecutionReceiptsSlice record with explicit bounded passed scope, fullP5Accepted=false and open requirements; existing task/standing instruction entries retained.",
+    "countsAgreeWithArchivedReports": {
+      "foreground": 117,
+      "images": 26,
+      "dispatch": 32,
+      "context": 38,
+      "pythonControl": 4,
+      "targeted": 78,
+      "commands": 13,
+      "bindingCheckpoints": 26,
+      "legacyFixtures": 5,
+      "legacyPass": 85
+    },
+    "engineerCounts": "Documents2626unit pass+18existing skip,syntax1178,fast80+12explicit live skips as existing engineering evidence. This review did not rerun those checks.",
+    "limitsPreserved": [
+      "Images are fixed synthetic PNG, not native screenshot/OCR acceptance.",
+      "Background/API0/resume/CLI/manual admissions remain open/refused.",
+      "Complete child transcript replay, reconciliation,ACK/global quota retention,held faults and original environmental gates remain open.",
+      "No full-feature/fullP5/default-on claim or automatic-lock restoration is made."
+    ]
+  },
+  "originalRequirements": {
+    "mapping": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    },
+    "mappingByteIdenticalToCommittedHistoricalFile": true,
+    "localCount": 10,
+    "externalCount": 4,
+    "localIDs": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIDs": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "noOriginalRequirementRemovedOrNewWaiverInCheckpoint": true
+  },
+  "lateEvidenceCutoff": {
+    "nativeDesign": "native-capture-receipts-design-review-v1.json was created after v8 cutoff; parent explicitly plans separate copy/hash additionalEvidence. Its absence from immutable728entry index is not a defect and should not mutate that index.",
+    "currentStateObservedAdditionalEvidence": null,
+    "expectedDesignSha256": "0bcf4372ae86e6bbd71fee614637c500194e4b1bcfbbf08a4bdc16cbe8edaca1"
+  },
+  "findings": [],
+  "inputs": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/TASKS.json",
+      "bytes": 105953,
+      "sha256": "9f85af681e44e857f64377b1e92f0b27405c124b8a2f45c1f416585acdd46110"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 12246,
+      "sha256": "cef7dc656d39df5d6bc6243250be553e6779913424ccd599fd69fa264bb1c40c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "bytes": 11076,
+      "sha256": "1672d0a07388d53328eda8370b4d5fd5f59d7fe5fae9a6d34903d9f1fa75ce51"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "bytes": 1573,
+      "sha256": "d97975a7fd13fd32a0074801f4ab4c1d896585de091910a0e7b8442f42b2fb57"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state.json",
+      "bytes": 46827,
+      "sha256": "13a3e807c4ce0222f093c386aa00f1beb7e0d06cc03be7abb2e6be3082e39758"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v8.json",
+      "bytes": 138538,
+      "sha256": "77e3f562b43c57bd7617aaaa02e0f7fe3e2b952a8236278193f4f6799816f430"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-freeze-v3.json",
+      "bytes": 32851,
+      "sha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-foreground-subagent-v1/report.json",
+      "bytes": 51993,
+      "sha256": "90391be7d9b66a5e793f93007ce4af8528605f8242f1499ee860d712a6ee0945"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-review-v3.json",
+      "bytes": 69748,
+      "sha256": "370b19a90d90071dc07f23776bd4cf1b0834152b8c54511408d0a93ae252048c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-review-coverage-v1.json",
+      "bytes": 24238,
+      "sha256": "0136f55aba352547a32d468bd35549e278ffadffea70f0ba3c56cfaf84c11ab4"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-freeze-v3.archive.json",
+      "bytes": 42650,
+      "sha256": "b121cf347b253d6125d84f045538c57811658b30a34159940f98e8d4ab70f7f3"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-freeze-v3.tar.gz",
+      "bytes": 4335322,
+      "sha256": "a9f235284180f26f0b03e76b492a158afc700e411edea4f0044ca2941c63ddd5"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    }
+  ],
+  "proofBoundary": "Document/archive checkpoint review only; no runtime/native/GUI or system-state revalidation. Current source/root foreground stage is bounded default-off; P5 and lock restoration remain open."
+}

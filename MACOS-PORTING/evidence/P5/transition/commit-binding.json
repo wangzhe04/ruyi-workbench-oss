@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "testImplementationCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+  "parentCommit": "f277be4f616c21aadb3f8c56c039ae28ebf10bee",
+  "actualChangedFiles": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/fixtures/macos-capture-motion.m",
+    "dev-harness/macos-capture-transition.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "facts.json"
+  ],
+  "runtimeProductSourceChanged": false,
+  "files": [
+    {
+      "path": "dev-harness/macos-capture-transition.e2e.js",
+      "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+      "bytes": 13297,
+      "gitBlob": "cc7a3eaa50ecf29c9cc4f9f4fa8d00791caac26c",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-capture-motion.m",
+      "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+      "bytes": 5391,
+      "gitBlob": "b396654f5d0b17d833a63427b844153113eceb21",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+      "bytes": 14225,
+      "gitBlob": "726864e13b8379edb54ed2bde2c93b3a1e31fc7c",
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+      "bytes": 65808,
+      "gitBlob": "09c8a6afe32d9760e5dde3fe7fc30eeea1c59792",
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+      "bytes": 72914,
+      "gitBlob": "603460e894d3c78129bbfa79b69664fbecb4aa4d",
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+      "bytes": 1335,
+      "gitBlob": "b6158833c78cd7f1c13609f7808702225ee67a14",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+      "bytes": 207630,
+      "gitBlob": "0f2eea4dc7aec71160b2f374a6a2362865ce1e2e",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+      "bytes": 34115,
+      "gitBlob": "836e0a1fa33ccd4a78ba3099e8e36227322219d2",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/png-grid.js",
+      "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+      "bytes": 5141,
+      "gitBlob": "9e605a8f43c17682f62fb7c2a79d561dd6c5cf4e",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "bytes": 10301,
+      "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "bytes": 7828,
+      "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "bytes": 23083,
+      "gitBlob": "6d32ea70c71a62713cb4c10b27330540a09441a0",
+      "matched": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytes": 291712,
+      "matched": true
+    },
+    {
+      "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+      "bytes": 35520,
+      "matched": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "freeze-v3.json",
+      "bytes": 2790,
+      "sha256": "6f08fb8139c64f60ea981cad75754db98ef239069f4afaab122a0c122fab8628"
+    },
+    {
+      "path": "code-review-v1.json",
+      "bytes": 14413,
+      "sha256": "52194e6d3ac770dd634bcf4b3da708844aa998eef813b18c6de97cfcd7722443"
+    },
+    {
+      "path": "development/report-v1.json",
+      "bytes": 2268,
+      "sha256": "1c238a06560b3602eba0c2b02189378000057ce975278ed3b57c7e4c220c1481"
+    },
+    {
+      "path": "development/engineering-v1/results.json",
+      "bytes": 675,
+      "sha256": "365fa92443ebe8cc140a44c9a43c1b8b2603d1d20bf8f6e8d016466e1bc4a248"
+    },
+    {
+      "path": "development/engineering-v1/source-artifact-checks.json",
+      "bytes": 21493,
+      "sha256": "03001c4d3b2e0eb67b3ce3273d8788dbe31f954dce4d1d41af66da82eba8802a"
+    },
+    {
+      "path": "independent-v1/report.json",
+      "bytes": 12077,
+      "sha256": "bb8c9c6ad5b58f83b8f0532a99817ed07b72b62eb9752ccdce09053d0729c173"
+    },
+    {
+      "path": "independent-v1/execution-report.json",
+      "bytes": 1165,
+      "sha256": "f04fc9e1e76aba7789a34a7227043dfb435fe2fb99005d290187886c06181c29"
+    },
+    {
+      "path": "independent-v1/source-artifact-checks.json",
+      "bytes": 17620,
+      "sha256": "190eed2be6450f7dd2f86a354a5c188b419a2724d461327ed062795bd461f29c"
+    },
+    {
+      "path": "independent-v1/motion-witnesses.json",
+      "bytes": 12166,
+      "sha256": "d333e3b56ca27b43cf1147fc1eca38c63b93a0b88d303bbbc2ed17ce29bd9be5"
+    },
+    {
+      "path": "independent-v1/independent-png-checks.json",
+      "bytes": 3279,
+      "sha256": "d3682c5802ea4e59bcb61719fdf6e9ead99ae80a8248c1e2c66917a16efbc635"
+    },
+    {
+      "path": "independent-v1/native/results.json",
+      "bytes": 162314,
+      "sha256": "1c92b15606073aaf0dbb60c6f6376902ac53584b5c9ca10ec01ff1289b40e455"
+    },
+    {
+      "path": "independent-v1/output.txt",
+      "bytes": 1394,
+      "sha256": "05d38e60a1e132ef65a1bb8397ed9d3c4e8e8ba5ff918d9ffb611bd2b165e7af"
+    }
+  ],
+  "independentAssertions": 18,
+  "motionRequests": 8,
+  "witnessedWindowChangedRefusals": 8,
+  "scope": "Raw production helper and owned horizontal window translation; exact stable controls. No moving-success origin coverage, physical display reconfiguration, input/clipboard/TCC/lock, Workbench/provider/App or Windows runtime claim.",
+  "phaseStatus": "in_progress"
+}

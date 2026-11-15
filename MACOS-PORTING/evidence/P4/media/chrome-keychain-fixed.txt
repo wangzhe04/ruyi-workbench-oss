@@ -1,0 +1,68 @@
+PASS A0 fake-openai（聊天＋ASR 桩）已起
+PASS A0b workbench started
+PASS A1 Edge/Chrome found
+PASS A2 CDP target found
+PASS A3 首屏就绪（config 已到、两个输入框都建好）
+PASS A4 显示判据的三件环境事实都成立（实得 {"secure":true,"gum":true,"opus":true,"wav":false}；audio/wav 录不了是 §1.5 的先验，这里只打印）
+PASS A5 ASR 已配置 → 两个输入框里的麦克风节点都建了
+PASS B0 工作台视角
+PASS B1 工作台：麦克风是 .composer-actions 里紧挨 #sendBtn 前面的 <button>，字形来自 icons.js、自带 .sr-only aria-live=polite 节点（实得 {"nextIsSend":true,"host":"composer-actions","type":"button","label":"语音输入","pressed":"false","glyph":true,"live":{"className":"sr-only","role":"status","ariaLive":"polite"}}）
+FAIL B2a 点一下进入录音态、aria-pressed=true（实得 null）
+FAIL B2b 录音中可见计时 m:ss 在走（实得「」）
+FAIL B2c 恰好一发转写请求：filename=voice.wav、Content-Type 覆盖成 audio/wav、请求体是真 WAV（RIFF 魔数）（实得 []）
+FAIL B2c2 WAV 头就是 16 kHz／单声道／16 bit（实得 riff=null wave=null rate=null ch=null bits=null）
+FAIL B2d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.wav bytes=?（>0，且与请求体 ? 字节相等）
+FAIL B2e 回填在光标处：「前缀 」＋转写＋「后缀」（实得 ""）
+FAIL B2f 光标落在插入之后、焦点回到输入框、aria-pressed 翻回 false（实得 caret=null 期望 3，active=null，pressed=null）
+PASS B2g 不自动发送：发送计数 0（[]）
+FAIL B2h aria-live 节点依次播报「录音中／转写中／已填入」（实得 ["已取消录音，输入框没有改动"]）
+FAIL B3 回填派发了 input 事件：工作台输入框自己的监听器把草稿存成了新值（实得 draft=null）
+PASS C1 从输入框按 Tab 3 下焦点落到麦克风（实得 activeElement=composerVoiceBtn）
+FAIL C2 Space 开始录音，aria-pressed=true（实得 null）
+FAIL C3 Space 结束 → 转写回填到光标处（末尾），aria-pressed=false（实得 null）
+FAIL C4 aria-live 播报过（实得 ["已取消录音，输入框没有改动"]）
+PASS C5 键盘路径同样不自动发送（发送计数增量 0）
+FAIL C6 录音中按 Esc → 回到空闲，aria-pressed=false（实得 {"state":"idle","pressed":"false","title":"语音输入：点一下开始说，再点一下结束；Esc 取消。每停顿一下，刚说的那句就填进输入框，不会自动发送","text":""}）
+FAIL C7 Esc 取消 = 丢弃：零转写请求（增量 0），输入框一个字不变（false）
+PASS C8 播报「已取消」（实得 ["已取消录音，输入框没有改动"]）
+FAIL D1 录满 3 分钟（时钟拨快 181 s）不用再点就自动结束、转写、回填，且不发送（实得 value=null，播报 []）
+PASS E10 设置页选择器切到 upstream500（实得 {"ok":true,"asrModel":"upstream500"}）
+FAIL E11 按钮进错误态：可见短词「null」、title 是本地化原因（实得 null）
+FAIL E12 aria-live 播报「语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动」（实得 ["已取消录音，输入框没有改动"]）
+PASS E13 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+FAIL E1-4 上游 5xx 那一趟确实发出了 1 发转写请求（实得 0）
+PASS E20 设置页选择器切到 emptytext（实得 {"ok":true,"asrModel":"emptytext"}）
+FAIL E21 按钮进错误态：可见短词「null」、title 是本地化原因（实得 null）
+FAIL E22 aria-live 播报「没有听出文字，输入框没有改动」（实得 ["已取消录音，输入框没有改动"]）
+PASS E23 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+FAIL E2-4 转写为空那一趟确实发出了 1 发转写请求（实得 0）
+PASS E3-0 选择器切回 whisper-1（实得 {"ok":true,"asrModel":"whisper-1"}）
+FAIL E31 按钮进错误态：可见短词「null」、title 是本地化原因（实得 null）
+FAIL E32 aria-live 播报「没有拿到麦克风权限，输入框没有改动」（实得 ["已取消录音，输入框没有改动"]）
+PASS E33 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+PASS E3-4 麦克风被拒（桌面壳没放行麦克风是同一条路）→ 零转写请求（实得 0）
+PASS E4 三种失败全程零未捕获异常（CDP exceptionThrown 增量 []；页面 error/unhandledrejection 增量 []）
+FAIL S1 停顿之后第一段的字已经落进输入框，而麦克风【还在录】（实得 null，此刻转写请求 0 发）
+FAIL S2 第一段落在光标处（「头|」与「尾」之间）（实得 ""）
+FAIL S3 整次录音恰好两发转写请求（两段各一发、都是真 WAV）—— 每一秒音频只转一次，不是越录越贵的整段重发（实得 []）
+FAIL S4 第二段接在第一段后面、顺序就是说话的顺序、原来的字一个没动（实得 "头|尾"）
+PASS S5 光标落在最后一段之后、按钮回到可录（实得 caret=2 期望 2）
+PASS S6 切段落字全程不自动发送（发送计数增量 0）
+FAIL S7 说完之后安静着点结束：收尾那段静音不再出一次网（本趟转写请求 0 发，按钮 idle）
+PASS S8 还原响度取样、清掉回填草稿
+PASS J0 把 OfflineAudioContext 换成抛异常的桩（模拟这段字节解不开）
+FAIL J1 转码失败 → 原样发 webm（EBML 魔数、Content-Type 回退 audio/webm）（实得 []）
+FAIL J2 回退路径照样转写成功并回填在光标处（实得 ""）
+PASS J3 还原 OfflineAudioContext
+PASS J4 清掉回填草稿（否则后面的窄屏高度断言量的是两行输入框）
+PASS F0 管家视角
+PASS F1 管家输入行：麦克风紧挨发送键前面，同样自带 aria-live 节点（实得 {"nextIsSend":true,"host":"steward-composer-row","pressed":"false","live":"polite"}）
+E2E ERROR Error: CDP socket not open (readyState=3): Runtime.evaluate
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:131:140
+    at new Promise (<anonymous>)
+    at CdpClient.send (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:127:12)
+    at CdpClient.evaluate (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:136:31)
+    at recordByMouse (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:416:29)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:700:17
+
+COMPOSER VOICE BROWSER E2E: FAIL (error)

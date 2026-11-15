@@ -1,0 +1,39 @@
+── [U] 开关三态 / 上限钳位 ──
+PASS U1 默认配置结果缓存开启(大文件真实门后,显式 false 回退)
+PASS U2 显式 true 生效(上限缺省 200)
+PASS U3 上限 0 → 不缓存(双门之二)
+PASS U4 字符串 "true" 洗回 false(严格布尔)
+PASS U5 上限钳位 [0,2000],坏值落默认 200
+PASS U6 sanitize 钳位同步落盘
+── [U] 行为矩阵(直调 toolCall) ──
+PASS U7 首读冷 miss:结果正常且无 cacheHit 标记
+PASS U8 二读命中:带 cacheHit 诚实标记(不冒称重新执行)
+PASS U9 结果等价:命中结果除 cacheHit 外与冷读逐字节一致
+PASS U10 参数归一:annotate true 与 "true" 同键命中(handler 布尔口径)
+PASS U11 显式 limit 与缺省分键(宁多分段);同键复读命中
+PASS U12 外部写入 → 版本失效重读,内容为新值(不依赖如意写工具监听)
+PASS U13 失效后重存,再次复读命中新内容
+PASS U14 外部删除 → miss 走 ENOENT 现状路径(不供旧缓存)
+PASS U15 错误结果不缓存:再次读仍走真实路径
+PASS U16 删除后重建 → miss 读到新文件
+PASS U17a 预存:允许配置下读成功
+PASS U17b 命中在场时越权 ctx 仍被拒(缓存查找在守卫之后,零内容泄露)
+PASS U17c 拒绝不污染缓存:恢复原 ctx 仍命中
+PASS U18 行模式与字符模式分键(行模式首读 miss)
+PASS U19 会话隔离:同文件异 sessionId 冷 miss(跨会话不共享,22 §6.1 首批范围)
+PASS U20 LRU:上限 2 时最旧条目被淘汰,新条目保留
+PASS U21 中断信号下的结果不缓存(22 §6.1 不缓存中断结果)
+PASS U22 开关关:两次读结果逐字节一致、零缓存字段(现状回退)
+── [E] 集成:两次相同 file_read(开关开 vs 关) ──
+PASS E0a workbench A listening on :60072
+PASS E1 基线:3 次模型调用跑完两次读
+PASS E2 基线:两条配对 tool 消息逐字节一致且无 cacheHit(现状锁定)
+PASS E3 基线:零 exec_result_cache 事件(开关关零开销)
+PASS E0b workbench B listening on :60109
+PASS E4 开关开:3 次模型调用跑完(缓存不改编排)
+PASS E5 第一次读正常执行、第二次读带 cacheHit 标记(诚实来源)
+PASS E6 结果等价:命中消息除 cacheHit 外与首读逐字节一致
+PASS E7 命中落审计账:恰好一条 hit,含 bytes/lookupMs(命中开销口径)
+PASS E8 零命中路径落账:cold miss + store(零命中开销可计量)
+
+EXEC-RESULT-CACHE E2E: ALL PASS

@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-10T11:02:41.369214+00:00",
+  "reason": "Owned browser CDP startup remained hung beyond multiple HTTP timeouts. Cancel only the verified browser so the existing test finally can restore the still-live in-memory clipboard snapshot. Prevent the external runner whole-tree deadline from terminating that snapshot.",
+  "pid": 27351,
+  "expectedParent": 27243,
+  "observedBirth": {
+    "pid": 27351,
+    "ppid": 27243,
+    "created": "1794308329337913"
+  },
+  "signal": "SIGTERM",
+  "sent": true,
+  "scope": "Browser process only. Test runner and clipboard fixture are preserved. No retry or source edit.",
+  "observedCommand": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-background-networking --use-mock-keychain --password-store=basic --window-size=1200,850 --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-be18uU/profile --remote-debugging-port=54391 http://127.0.0.1:54390/",
+  "outerRunnerPaused": {
+    "at": "2026-11-10T11:04:03.353737+00:00",
+    "identity": {
+      "pid": 25456,
+      "ppid": 1675,
+      "created": "1794308198100602"
+    },
+    "reason": "Prevent any whole-tree deadline termination while preserving the live clipboard snapshot and allowing child JS finally."
+  },
+  "escalation": {
+    "at": "2026-11-10T11:04:03.356659+00:00",
+    "signal": "SIGKILL",
+    "reason": "Verified browser did not exit after SIGTERM. Only the browser main process was killed. Test and clipboard fixture remain live.",
+    "identity": {
+      "pid": 27351,
+      "ppid": 27243,
+      "created": "1794308329337913"
+    }
+  },
+  "outerRunnerResumed": {
+    "at": "2026-11-10T11:05:45.843676+00:00",
+    "identity": {
+      "pid": 25456,
+      "ppid": 1675,
+      "created": "1794308198100602"
+    },
+    "reason": "Node case completed its existing finally with clipboard restoration and fixture termination. Resume only to collect the failure and stop at the unexpected outcome."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "launchExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "pid": 33550,
+  "exitCode": null,
+  "signal": null,
+  "targetObserved": false,
+  "elapsedMs": 15004.410417,
+  "injectedNonrespondingEndpoint": true,
+  "reason": "等满 15004 ms 仍没有指向 http://127.0.0.1:55688/ 的 page 目标;进程还活着(= 慢,不是死);/json/list never-responded;最后看到的目标: (一个都没有)",
+  "diagnostics": "[33550:787196:1110/191939.137797:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:55690/devtools/browser/149b1b90-a7b5-451d-aaec-a04a37d23dce\n[33550:787230:1110/191941.777054:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[33550:787230:1110/191941.777630:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[33550:787230:1110/191941.788561:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[33550:787230:1110/191941.922483:ERROR:google_apis/gcm/engine/mcs_client.cc:702]   Error code: 401  Error message: Authentication Failed: wrong_secret\n[33550:787230:1110/191941.922533:ERROR:google_apis/gcm/engine/mcs_client.cc:704] Failed to log in to GCM, resetting connection.\n"
+}

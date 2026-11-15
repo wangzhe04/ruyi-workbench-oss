@@ -1,0 +1,6 @@
+PASS normal Mac registry exposes composed observation, verification and macro replay
+PASS one real observation combines encoded pixels and OCR of the owned counter
+PASS the same observation carries bound native AX references
+PASS observed image mapping preserves actual origin and both logical-point scales
+
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-ozt8oo

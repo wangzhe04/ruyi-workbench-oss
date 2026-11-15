@@ -64,7 +64,8 @@ function providerSseAsCompletion(raw) {
 // 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
 // (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
 // sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
-async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+const ProviderHttpHooks = { beforeModelRequest: async () => {} };
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback, executionSessionId }) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
@@ -72,6 +73,7 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
       body = await PrivacyGateway.beforeModelRequest(body);
       PrivacyGateway.assertPolicyAvailable();
     }
+    await ProviderHttpHooks.beforeModelRequest(executionSessionId);
     const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
     let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }

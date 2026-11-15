@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-11-12T15:23:48.830796+00:00",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-aOxE4v",
+  "removedOnly": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-aOxE4v/ai-computer-control/.venv",
+  "identity": {
+    "dev": 16777234,
+    "ino": 86640341,
+    "uid": 501
+  },
+  "inventoryArchive": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/removed-early-generated-venv-inventory.json",
+  "inventoryCount": 10342,
+  "inventorySha256": "97ea42be427488a2b7bc50c10eaddf749c35022bbbbb18e3b7c66367d326526c",
+  "editableBindings": [
+    {
+      "path": "lib/python3.12/site-packages/__editable__.ai_computer_control-1.9.1.pth",
+      "text": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/src\n"
+    },
+    {
+      "path": "lib/python3.12/site-packages/_virtualenv.pth",
+      "text": "import _virtualenv"
+    }
+  ],
+  "runtimeSource": {
+    "bundle": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-aOxE4v/Ruyi.app",
+    "bundled": false,
+    "workbenchRoot": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-aOxE4v/workbench",
+    "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a"
+  },
+  "scope": "Fourth task-created failed source App fixture; only regenerable development dependency copy. Report/script/App/source and all historical immutable candidate inputs retained. No active process refers to it.",
+  "removed": true
+}

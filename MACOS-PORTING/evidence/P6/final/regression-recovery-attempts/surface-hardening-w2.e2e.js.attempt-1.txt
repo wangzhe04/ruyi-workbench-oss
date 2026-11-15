@@ -1,0 +1,64 @@
+PASS P0 服务起来了
+PASS P0b 取得 token
+PASS N1 HTML 页面带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 app.js带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 模块脚本带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 样式带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 语言包带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 vendor 脚本带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 /health带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 /api/status带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 API 403带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 404带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N1 Host 门 403带 X-Content-Type-Options: nosniff(实得 nosniff)
+PASS N2 SSE 响应(事件流)也带 nosniff,content-type 仍是 text/event-stream
+PASS N3 / 的 content-type 正确(text/html; charset=utf-8)
+PASS N3 /app.js 的 content-type 正确(application/javascript; charset=utf-8)
+PASS N3 /js/chat-render-primitives.js 的 content-type 正确(application/javascript; charset=utf-8)
+PASS N3 /css/tokens.css 的 content-type 正确(text/css; charset=utf-8)
+PASS N3 /locales/zh-CN.json 的 content-type 正确(application/json; charset=utf-8)
+PASS N3 /vendor/marked.min.js 的 content-type 正确(application/javascript; charset=utf-8)
+PASS D1 WebView nested state cannot be read through a native tool
+PASS D2 bypass cannot overwrite WebView state
+PASS D3 data-root search excludes the internal WebView subtree
+PASS D4 an ordinary workspace desktop directory remains readable
+PASS D5 an ordinary workspace desktop directory remains writable
+PASS D6 search still finds ordinary workspace desktop files
+PASS I1 导入会话的 cwd 在工作区之外 → 400 session.import_cwd_not_allowed(实得 400)
+PASS I2 400 响应不回显路径
+PASS I3 导入会话 cwd 指到盘符根 / 根目录 → 400(实得 400)
+PASS I4 导入会话 cwd 在默认工作区子目录内 → 200(实得 200)
+PASS I5 子目录 cwd 原样生效
+PASS I6 导入的每条消息都带 meta.imported:true
+PASS I7 文件自带的 meta(伪造的 origin)被丢掉
+PASS I8 导入不带 cwd → 落在默认工作区
+PASS I9 普通新建会话(不带 messages)带工作区外的 cwd 照旧可用(不误伤既有调用方)
+PASS I10 普通新建会话没有 meta.imported 标记可言(零消息)
+PASS M0 POST /api/config 成功(200)
+PASS M1 config.json 是 0600(实得 600)
+PASS M2 config.json.prev 是 0600
+PASS M3 runtime.json 是 0600(实得 600)
+PASS H1 --host 0.0.0.0 不带 --allow-remote:启动失败并以非零码退出(实得 1)
+PASS H2 输出里说清了原因与解法(点名 --allow-remote 与该地址)
+PASS H3 没写 runtime.json(没有走到启动)
+PASS H4 不落 last-start-error.json(这是用法错误,不是启动故障)
+PASS H5 端口没有被占
+PASS H6 局域网地址同样拒绝
+PASS R1 --host 0.0.0.0 --allow-remote 起来了
+PASS R1b 启动时打出了非回环监听的告警
+PASS R2 本机对端 bootstrap 照旧拿到 token
+PASS R2b 本机非浏览器取页面照旧注入 token(e2e / CLI 兼容)
+PASS R3 非本机对端伪造 Host 也拿不到 bootstrap(403 auth.remote_denied,实得 403)
+PASS R4 非本机对端取页面:token 位置是空的
+PASS R5 非本机对端不带 token 读 open 级接口 → 403(实得 403)
+PASS R6 非本机对端不带 token 的 token-browser 级写接口 → 403(实得 403)
+PASS R7 非本机对端自带正确头 token 仍可用(显式放行的远端靠 token 鉴权,实得 200)
+PASS R8 /health 对远端照常
+PASS P1 实例 A(数据目录 A)在 :53737
+PASS P2 实例 B(另一个数据目录)顺延到了 :53738,没有硬抢 :53737
+PASS P3 :53737 上仍是实例 A(overlayId 没变,没被换掉)
+PASS P4 实例 A 的进程还活着(没被结束)
+PASS P5 B 的输出里记了改用端口的说明
+PASS P6 B 的 runtime.json 记的是自己 PID 与实际端口
+
+SURFACE HARDENING W2 E2E: ALL PASS

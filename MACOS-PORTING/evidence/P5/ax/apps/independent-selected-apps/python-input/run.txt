@@ -1,0 +1,37 @@
+test_ax_observation_failure_is_read_only_but_invoke_is_uncertain (__main__.InputSession.test_ax_observation_failure_is_read_only_but_invoke_is_uncertain) ... ok
+test_concurrent_request_is_refused_without_another_send (__main__.InputSession.test_concurrent_request_is_refused_without_another_send) ... ok
+test_eof_and_response_capacity_close_the_worker (__main__.InputSession.test_eof_and_response_capacity_close_the_worker) ... ok
+test_extra_response_frames_are_rejected (__main__.InputSession.test_extra_response_frames_are_rejected) ... ok
+test_failure_metadata_survives_and_the_session_remains_usable (__main__.InputSession.test_failure_metadata_survives_and_the_session_remains_usable) ... ok
+test_input_limit_and_unicode_are_checked_before_sending (__main__.InputSession.test_input_limit_and_unicode_are_checked_before_sending) ... ok
+test_malformed_response_invalidates_the_worker (__main__.InputSession.test_malformed_response_invalidates_the_worker) ... ok
+test_missing_dependency_is_typed (__main__.InputSession.test_missing_dependency_is_typed) ... ok
+test_read_timeout_has_no_mutation_metadata (__main__.InputSession.test_read_timeout_has_no_mutation_metadata) ... ok
+test_replaced_worker_invalidates_refs_without_replaying (__main__.InputSession.test_replaced_worker_invalidates_refs_without_replaying) ... ok
+test_replacement_during_mutation_is_an_uncertain_result (__main__.InputSession.test_replacement_during_mutation_is_an_uncertain_result) ... ok
+test_requests_reuse_one_worker_with_correlated_ids (__main__.InputSession.test_requests_reuse_one_worker_with_correlated_ids) ... ok
+test_shutdown_serializes_with_an_inflight_request (__main__.InputSession.test_shutdown_serializes_with_an_inflight_request) ... ok
+test_timeout_reaps_and_never_replays_a_mutation (__main__.InputSession.test_timeout_reaps_and_never_replays_a_mutation) ... ERROR
+test_discovery_retracts_each_input_family_independently (__main__.InputTools.test_discovery_retracts_each_input_family_independently) ... ok
+test_exception_envelope_preserves_side_effect_metadata (__main__.InputTools.test_exception_envelope_preserves_side_effect_metadata) ... ok
+test_protected_image_destination_does_not_start_native_work (__main__.InputTools.test_protected_image_destination_does_not_start_native_work) ... ok
+
+======================================================================
+ERROR: test_timeout_reaps_and_never_replays_a_mutation (__main__.InputSession.test_timeout_reaps_and_never_replays_a_mutation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_input.py", line 102, in test_timeout_reaps_and_never_replays_a_mutation
+    self.assertEqual(marker.read_text(), "sent\n")
+                     ^^^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-input-ipc-bz7ufsag/sent'
+
+----------------------------------------------------------------------
+Ran 17 tests in 7.354s
+
+FAILED (errors=1)

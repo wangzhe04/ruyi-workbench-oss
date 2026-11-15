@@ -1,0 +1,6 @@
+{
+  "target": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-V1xIvZ/other-data",
+  "relative": "../../../../../private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-V1xIvZ/other-data",
+  "exitCode": 1,
+  "diagnostics": "Error: Execution ledger requires a trusted directory plus root ownership and live-turn assertions\n    at error (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:9699:55)\n    at need (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:9700:65)\n    at Object.create (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:9801:5)\n    at Object.initialize (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:93186:45)\n    at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72296:5)\n    at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:93591:20)\n"
+}

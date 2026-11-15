@@ -1,0 +1,10 @@
+{
+  "installedAt": "2026-11-13T02:14:52.703Z",
+  "app": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+  "appTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+  "signing": "ad-hoc-internal-trial",
+  "nativeCount": 210,
+  "scope": "Stable test App from exact final Full DMG; future runs must use this immutable App and isolated test data, not rebuild/re-sign it. No system permission changed."
+}

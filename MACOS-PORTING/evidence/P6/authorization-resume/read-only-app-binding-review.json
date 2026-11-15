@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-13T02:27:38.629209+00:00",
+  "kind": "Read-only fixed installed Full App provenance/denial/fixture review; no App or test execution",
+  "result": "installation_and_denials_confirmed_fixture_binding_changes_requested",
+  "reviewedFiles": [
+    {
+      "path": "dev-harness/lib/macos-host-fixture.js",
+      "sha256": "0a7dbe14a73d2a4a14bfd82145e4608a301265218194db0a30ff661ff1231022"
+    },
+    {
+      "path": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "74f561020f639ddef023d4b3d690ea636e15087772df2dc5a925055e24ece339"
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "3a48c87bfc1139b5d3c886c3871242bb0e135e1957b0994af12872437e9c044f"
+    },
+    {
+      "path": "ruyi-workbench/desktop-macos/DesktopService.swift",
+      "sha256": "76e241f2702bcb00a43d9d92bbeae489a5c8b15c0a7adcec6e1f364846d559a8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35"
+    }
+  ],
+  "installedArtifact": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+    "actualTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+    "matchesInstalledManifestAndPriorFullDMGAppTree": true,
+    "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+    "sourceFingerprints": 492,
+    "sourceImageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+    "deepStrictCodesignVerifyExit": 0,
+    "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+    "bundledAutomationHelperSha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69",
+    "bundledHelperMatchesPackageManifest": true,
+    "defaultDevelopmentHelperSha256": "78f172330ef7c0194a51106c9bb66f52db5dd43bead05054a3f81a86d19a0c0c",
+    "note": "Different default/bundled helper bytes are distinct build artifacts; do not infer stale package from this alone. Installed whole-tree hash and package helper manifest bind exact installed bytes."
+  },
+  "denialEvidence": {
+    "captureFirstExit": 1,
+    "captureFailedAssertions": 2,
+    "captureAuthorization": "denied",
+    "captureReasonCode": "permission_denied",
+    "captureDirectoryOffered": false,
+    "capturePNGProduced": false,
+    "inputFirstExit": 1,
+    "inputFailedAssertions": 6,
+    "diagOK": true,
+    "ACCLoadErrors": {},
+    "captureAuthorizationInInputDiag": "denied",
+    "windowAuthorization": "denied",
+    "eventAuthorization": "denied",
+    "sessionLocked": false,
+    "inputActuallyObserved": false,
+    "interpretation": "Current fixed App launch/service/MCP is operational. Native positive authorization remains unpassed. These receipts do not establish that permission was granted to this exact fixed path merely because an old Ruyi UI toggle was on."
+  },
+  "findings": [
+    {
+      "id": "AUTH-FIXTURE-1",
+      "priority": 2,
+      "file": "dev-harness/macos-capture-host.e2e.js",
+      "title": "Capture observer assumes obsolete argument order",
+      "basis": "open --args now places --workbench-root before --acceptance-report, but observer requires command.startsWith(binary+\" --acceptance-report \"+report+\" \"). It therefore cannot register the actual App birth identity for cleanup in this invocation. Ready report returns before the observer branch, so even a fast successful run should explicitly observe before accepting process ownership.",
+      "requestedFix": "Use exact executable prefix plus unique report argument containment, as input-host does. Observe and retain the matched App birth identity/subtree, then verify those identities absent on success and failure. Keep cleanup owned-identity-only."
+    },
+    {
+      "id": "AUTH-FIXTURE-2",
+      "priority": 2,
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "title": "Fixed Full App input still overrides bundled helper with new source build",
+      "basis": "prepareMacAcc correctly selects fixed App bundled Python/ACC, but helper is built under fixture root before prepareMacHost, and external MCP env explicitly sets RUYI_MACOS_AUTOMATION_HELPER to that new helper. Thus input receipt is App->bundled ACC->new source helper, not exact candidate bundled helper. Capture uses normal bundled helper through server runtime.",
+      "requestedFix": "For bundled runtime choose the verified fixed App runtime/macos/ruyi-automation-helper and record its path/hash. Keep fresh helper build for development source-App mode. Guard modes with explicit helper overrides should retain their intended controlled testing scope and must not be called exact bundle acceptance."
+    }
+  ],
+  "additionalChecks": [
+    "DesktopService bundled mode removes inherited PYTHONPATH/PYTHONHOME and native helper overrides before Node startup; bundled ACC path receives no PYTHONPATH override in prepareMacAcc, so no inherited source import issue is inferred here.",
+    "Current input-host observedProcesses and actual serviceInvocation do bind fixed installed App and bundled server. Actual denial is independent of capture observer gap.",
+    "Keep fixed App immutable across authorization, test retries and independent acceptance; do not rebuild or re-sign the target between user grant and verification.",
+    "P6 original formal/clean-user/macOS14/Windows/P5 gates remain open per TASKS; later passing these2 App probes cannot automatically waive them or claim fullOriginalP6Accepted."
+  ],
+  "noExecution": {
+    "testsRun": 0,
+    "appsLaunched": 0,
+    "nativeToolsInvoked": 0,
+    "UIActions": 0,
+    "settingsChanges": 0,
+    "sourceEdits": 0,
+    "readOnlyActions": [
+      "filesystem inventory/tree hashing",
+      "read package/receipt/source metadata",
+      "codesign --verify --deep --strict"
+    ]
+  },
+  "limits": [
+    "UI handoff is pending; no new permission action, input or App test executed by reviewer.",
+    "After user grants target-specific permissions, source changes need review and controlled serial main/independent runs before accepting positive authorization."
+  ]
+}

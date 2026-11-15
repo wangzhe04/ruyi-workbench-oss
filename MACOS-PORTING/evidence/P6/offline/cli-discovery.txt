@@ -1,0 +1,8 @@
+PASS sync and async discovery find the native Claude user install outside PATH
+PASS sync and async discovery find the native Kimi user install outside PATH
+PASS Mac discovery does not probe Windows launchers
+PASS explicit launcher overrides user installations, including Unicode and spaces
+PASS claude launch preserves the native executable and literal argument boundaries
+PASS kimi launch preserves the native executable and literal argument boundaries
+
+MACOS AGENT CLI DISCOVERY E2E: ALL PASS

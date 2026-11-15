@@ -1,0 +1,2 @@
+/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app: valid on disk
+/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app: satisfies its Designated Requirement

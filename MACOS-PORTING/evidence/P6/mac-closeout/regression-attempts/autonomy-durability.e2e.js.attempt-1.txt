@@ -1,0 +1,51 @@
+PASS A atomicWriteJson 可抽取
+PASS A 20 路并发写终稿是完整 JSON(无撕裂),writer=17
+PASS A 无 *.tmp 孤儿(实 0)
+PASS B 原子写调用点 ≥14(全量收编,实 56)
+PASS B 手写 tmp 写点=6(白名单豁免;实 6)
+PASS B saveAgentRun 旧 pid-only tmp 模式已清零
+PASS B 持久化退化阈值常量在(3/8)
+PASS B GET /api/agent-runs 以完整 live 快照叠加进度与 persistenceDegraded
+PASS B 事件日志助手 + ≥10 发射点
+PASS B 幂等跳过不进本轮变更清单
+PASS B 前端共享故障横幅明示持久化退化及重启恢复风险
+PASS C workbench up on :56378
+PASS C runtime token 可读
+PASS C 会话已建 sess_0756193067bb19b1
+PASS C 异步 launch 接受 run_80011f8821205526
+PASS C 续点已含 ≥1 已完成工具步骤(1.5s 节流落盘)
+PASS C 杀前副作用已生效(a.txt)
+PASS C 重启后 workbench up
+PASS C 重启后 run=interrupted(实 interrupted)
+PASS C 节点=interrupted
+PASS C interruptedAttempt=1 已记录
+PASS C 续点存活(attemptId=1, steps=1)
+PASS C 事件日志含 run_interrupted
+PASS C resume 接受
+PASS C 续跑后 run=succeeded(实 succeeded)
+PASS C §5 MTTR<30s(第31波:崩溃->重启->续跑完成 实 6739ms)
+PASS C 成功后续点/中断标记已清理
+PASS C 续跑提示词含【断点续跑】(captured=4, capBefore=3)
+PASS C b.txt/c.txt 都已写出
+PASS C 幂等跳过:a.txt 检查点 create=1/modify=0(实 ["create"])
+PASS C events seq 严格单调(20 条)
+PASS C 事件含 run_created
+PASS C 事件含 node_start
+PASS C 事件含 run_interrupted
+PASS C 事件含 run_resumed
+PASS C 事件含 node_settled
+PASS C 事件含 run_end
+PASS D 第二次异步 launch 接受
+PASS D 节点已 dispatch(running 已落盘)
+PASS D 再次重启 up
+PASS D 重启后 run2=interrupted
+PASS D resume2 接受
+PASS D 0 步续点也能续跑完成(实 succeeded)
+PASS D 无已完成步骤 → 不注入【断点续跑】
+PASS D d.txt 内容正确
+
+AUTONOMY-DURABILITY E2E: ALL PASS
+(node:87357) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/run-health.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

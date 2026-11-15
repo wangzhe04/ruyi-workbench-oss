@@ -1,0 +1,26 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay e668390a088e)
+[wb] UI: http://127.0.0.1:56057/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-usage-claude-cached-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :56057
+PASS got workbench token
+PASS created a session
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-usage-claude-cached-e2e/generated/workbench.mcp.json
+PASS ① 普通主回合写了 engine:claude 的 kind:turn 行
+PASS ① cachedInTok 字段存在且为 0(「缺失按 0」，不是此前那种整个字段不写；got 0)
+PASS ② 出现 cachedInTok > 0 的主回合行(共 2 条 turn 行)
+PASS ② cachedInTok === 600(500 读 + 100 创建相加，读法与 05:761 对齐；got 600)
+PASS ② 费用计算不受影响：inTok(含缓存)/outTok/cost/currency/costTrusted 与既有值一致(1412/214/0.0123 USD trusted；got 1412/214/0.0123/USD/true)
+PASS ③ 子代理工作流已异步启动
+PASS ③ 子代理工作流已终止
+PASS ③ claude 子代理节点成功(status succeeded)
+PASS ③ 出现 kind:subagent 且 engine:claude 的 ledger 行
+PASS ③ 子代理行 cachedInTok === 600(got 600)
+PASS ③ 子代理行费用计算同样不受影响(inTok 含缓存 1412/214/0.0123；got 1412/214/0.0123)
+PASS ④ summary ok:true
+PASS ④ totals.cachedInTok 汇总两行缓存命中之和(1200，got 1200)
+PASS ④ byEngine claude 一行 cachedInTok > 0(此前对 Claude 会话恒为空的那一栏；got 1200)
+PASS ⑤ input < cache:inTok 含缓存(50003)、cachedInTok 不被夹小(50000;got 50003/50000)
+PASS ⑤ 费用仍是 CLI 的 total_cost_usd(got 0.0123)
+
+USAGE-CLAUDE-CACHED E2E: ALL PASS

@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:59:39.156877+00:00",
+  "status": "passed_independent_wait_only_neutral_calibration",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+    "bytes": 7579,
+    "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+  },
+  "counts": {
+    "pass": 12,
+    "fail": 0,
+    "skip": 0
+  },
+  "nativeInvocations": 1,
+  "manualRetries": 0,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "sourceCount": 39,
+  "artifactCount": 2,
+  "observedOuterRootBirth": 1794394573238308,
+  "observedOuterIdentities": 17,
+  "remainingObservedOuterIdentities": [],
+  "remainingRecordedFixtureIdentities": [],
+  "GUIReleased": true,
+  "engineeringRerun": false,
+  "scope": "One approved/pending ordinary wait-only call root-only SIGKILL calibration, zero input. No ACC await-entry ACK or macro invocation/terminal durable-attribution guarantee, no held/release/durable hard-abort total-gate pass. GET-only restart observations only.",
+  "phaseStatus": "in_progress",
+  "automaticRetries": 0,
+  "sourceArtifactCheckpoints": 4,
+  "semanticReview": {
+    "fault": "Single intentional SIGKILL to exact original Workbench root positive PID, no group/tree replacement.",
+    "rootPid": 67986,
+    "rootBirth": "1794394575204080",
+    "rootSignal": "SIGKILL",
+    "rootExitCode": null,
+    "elapsedFromStreamStartMonotonicMs": 1377.043041,
+    "originalObservedTopologyIdentities": 5,
+    "originalObservedTopologyGoneWallMs": 30,
+    "topologyRoles": {
+      "root": {
+        "pid": 67986,
+        "ppid": 67940,
+        "created": "1794394575204080",
+        "name": "",
+        "pgid": 67936,
+        "sid": 67936,
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /private/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/app/server.js serve --port 63182"
+      },
+      "guardian": {
+        "pid": 68010,
+        "ppid": 67986,
+        "created": "1794394575489965",
+        "name": "",
+        "pgid": 68010,
+        "sid": 68010,
+        "command": "/private/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      "primary": {
+        "pid": 68011,
+        "ppid": 68010,
+        "created": "1794394575491524",
+        "name": "",
+        "pgid": 68010,
+        "sid": 68010,
+        "command": "/private/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      "ACC": {
+        "pid": 68012,
+        "ppid": 68011,
+        "created": "1794394575492072",
+        "name": "",
+        "pgid": 68010,
+        "sid": 68010,
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      "native": {
+        "pid": 68019,
+        "ppid": 68012,
+        "created": "1794394575876272",
+        "name": "",
+        "pgid": 68010,
+        "sid": 68010,
+        "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper --input-session"
+      }
+    },
+    "receiverPid": 67954,
+    "receiverPgid": 67936,
+    "receiverOutsideSupervisedGroup": true,
+    "originalDescendantExternalSignals": 0,
+    "allReceiverInputCountsAndReceiptsZero": true,
+    "allObservedHIDAndCombinedLeftModifiersNeutral": true,
+    "inputSourceOrClipboardWritesByFixture": false,
+    "restart": {
+      "HTTPMethodsAfterRestart": [
+        "GET"
+      ],
+      "execution": null,
+      "resumable": {
+        "dangling": true,
+        "kind": "user",
+        "turnSeq": 1,
+        "historyLength": 1
+      },
+      "modelRequestsBefore": 1,
+      "modelRequestsAfter": 1,
+      "replayObserved": false
+    },
+    "normalFinalCleanup": "Separate owned restart root cleanup receipt and graceful receiver quit are recorded as fixture cleanup; these are not additional injected root faults or evidence of original descendant automatic cleanup.",
+    "archiveErrors": []
+  },
+  "durableOutcome": {
+    "classification": "open_dispatch_wait_entry_and_macro_terminal_attribution_gap",
+    "permissionRequestedMacroAndArgumentsPersisted": true,
+    "permissionAllowedPersisted": true,
+    "sessionAndProviderBodiesOnlyUser": true,
+    "accAuditFilesObserved": 0,
+    "ACCWaitEntryAckObserved": false,
+    "dispatchConfirmedMacroInvocationPersisted": false,
+    "macroTerminalOutcomePersisted": false,
+    "restartDanglingKind": "user",
+    "hardAbortTotalGate": "open_not_accepted",
+    "analysis": {
+      "path": "durable-analysis.json",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4"
+    }
+  },
+  "engineeringReuse": {
+    "syntaxFiles": 1156,
+    "buildFresh": true,
+    "unitPass": 2499,
+    "unitExistingSkipped": 18,
+    "fastV1": {
+      "pass": 79,
+      "fail": 1,
+      "routeCoverageMetadataFailure": true,
+      "builtInRetryRetained": true
+    },
+    "fastV2": {
+      "pass": 80,
+      "fail": 0,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "includesRepeatedUnitPreflight": true
+    },
+    "original37SourcesAnd2ArtifactsCheckpoints": 8,
+    "final39SourcesAnd2ArtifactsCheckpoints": 2,
+    "independentEngineeringReruns": 0,
+    "history": "Generated route coverage metadata was corrected after primary fast failure. Primary full fast then reran its own unit preflight. Independent native fixture ran once; no claim of overall zero engineering retries/reruns.",
+    "binding": {
+      "path": "engineering-reuse.json",
+      "bytes": 4853,
+      "sha256": "70472af25317e6fd5a1eedc907461edd76e2158128f469e76417c7ed820fb5ab"
+    }
+  },
+  "originalExecutionReport": {
+    "path": "execution-report.json",
+    "bytes": 1140,
+    "sha256": "e9fb42d213e502ce63033ce31be97cc13cb2ee4142bdd3cf4eeb46683b33773f"
+  },
+  "evidenceFiles": [
+    {
+      "path": "counts.json",
+      "bytes": 43,
+      "sha256": "a369fd877beb1fea9071527d6c98e3e950a1864283c23bf49e603c8da64ce986"
+    },
+    {
+      "path": "durable-analysis.json",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4"
+    },
+    {
+      "path": "engineering-reuse.json",
+      "bytes": 4853,
+      "sha256": "70472af25317e6fd5a1eedc907461edd76e2158128f469e76417c7ed820fb5ab"
+    },
+    {
+      "path": "execution-report.json",
+      "bytes": 1140,
+      "sha256": "e9fb42d213e502ce63033ce31be97cc13cb2ee4142bdd3cf4eeb46683b33773f"
+    },
+    {
+      "path": "invocation.json",
+      "bytes": 1497,
+      "sha256": "62c2c4f831a417e2266f80425fe75927cfc328e9af8b4cfc1e4a5099aff18d00"
+    },
+    {
+      "path": "native/initial-service-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "native/initial-service-stdout.txt",
+      "bytes": 266,
+      "sha256": "a7648095eb934aa94bdde2a99c8168417bb0af7f4a24da6407afbfb7b8e40107"
+    },
+    {
+      "path": "native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1"
+    },
+    {
+      "path": "native/post-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+    },
+    {
+      "path": "native/post-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+    },
+    {
+      "path": "native/post-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+    },
+    {
+      "path": "native/post-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+    },
+    {
+      "path": "native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4"
+    },
+    {
+      "path": "native/post-restart/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833"
+    },
+    {
+      "path": "native/post-restart/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+    },
+    {
+      "path": "native/post-restart/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+    },
+    {
+      "path": "native/post-restart/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+    },
+    {
+      "path": "native/post-restart/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+    },
+    {
+      "path": "native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1"
+    },
+    {
+      "path": "native/pre-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+    },
+    {
+      "path": "native/pre-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+    },
+    {
+      "path": "native/pre-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+    },
+    {
+      "path": "native/pre-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+    },
+    {
+      "path": "native/read-only-restart-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "native/read-only-restart-stdout.txt",
+      "bytes": 200,
+      "sha256": "35aceb74586aa7fde244addff37ab17df2d85cadd0508fb4c190f23b230b4d4a"
+    },
+    {
+      "path": "native/results.json",
+      "bytes": 30784,
+      "sha256": "7f9b75026564a67e68b96b4bb8afa5fa24e180462ed4e454092c0762d1b2be71"
+    },
+    {
+      "path": "native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4"
+    },
+    {
+      "path": "native/terminal/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833"
+    },
+    {
+      "path": "native/terminal/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+    },
+    {
+      "path": "native/terminal/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+    },
+    {
+      "path": "native/terminal/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+    },
+    {
+      "path": "native/terminal/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+    },
+    {
+      "path": "observed-identities.json",
+      "bytes": 1329,
+      "sha256": "3b9a5038119d7c8f4254f7802959cc23458a3d5bdc8444bc74198876a9a68504"
+    },
+    {
+      "path": "output.txt",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307"
+    },
+    {
+      "path": "preflight.json",
+      "bytes": 1206,
+      "sha256": "e1d1a294f19e91770cc9cb0c210e3e94a477a05e8d740999a44ff9b6c20f1f14"
+    },
+    {
+      "path": "runner.py",
+      "bytes": 9457,
+      "sha256": "22bd91ee01c90270227674ea5732151a90e0962e2cd3643b9ee11000d3270add"
+    },
+    {
+      "path": "signatures.json",
+      "bytes": 1100,
+      "sha256": "412992b308630848dca80c4c3351dbffa11b5766d5de1f7fbf20727982f17fdf"
+    },
+    {
+      "path": "source-artifact-checks.json",
+      "bytes": 51172,
+      "sha256": "e2d15d537d0a682759643404b5508dc50373f32631347abb5747d0e7760d55f4"
+    }
+  ],
+  "claimLimits": [
+    "12 assertions pass only the recorded approved/pending ordinary wait-only root-termination calibration. No actual ACC await-entry ACK is claimed.",
+    "Permission intent with macro name/args survives, but dispatch/started invocation and macro terminal durable attribution are unconfirmed; missing audit is not proof of not-dispatched.",
+    "Zero input was scheduled/observed; no held state, release, rescue or previous recovery was executed or qualified.",
+    "GET-only restart observation spans the recorded interval and includes normal cache/log writes; no indefinite replay guarantee is inferred.",
+    "Observed born-identity disappearance is separate from product durable cleanup receipts and excludes arbitrary unobserved transient/reparented/system processes.",
+    "No physical input/display, App/Windows/minimum-OS/formal identity, real TCC revoke or OS lock acceptance."
+  ]
+}

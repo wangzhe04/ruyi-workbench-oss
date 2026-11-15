@@ -1,0 +1,85 @@
+PASS M1b SSE frame exposes live generated title
+PASS M1 generated title visible in head/list before first turn settles
+PASS M2 manual rename immediately wins during streaming
+PASS M3 final save preserves manual title and generated brief
+PASS M4 agent cannot replace manual title
+PASS M5 explicit agent update is immediately visible
+PASS M6 delayed initial naming and final save preserve newer automatic title
+PASS M7 title-only objective change clears obsolete gist
+PASS M8 pre-rewind asynchronous title does not publish to head/list
+PASS M9 dynamic snapshot pause reached
+PASS M10 dynamic refuses to replace new manual authority
+PASS M11 dynamic retains manual title after resuming stale snapshot
+PASS M9 first naming snapshot pause reached
+PASS M10 first naming refuses to replace new manual authority
+PASS M11 first naming retains manual title after resuming stale snapshot
+── (A) 首轮之后自动起名字 ──
+PASS A1 首轮之后 threadBrief 落盘
+PASS A2 title 是任务的名字(got "AMD 收盘分析")
+PASS A3 gist 是一句人话概括
+PASS A4 五字段齐且 stage 是首回合那次(got {"schema":1,"at":true,"model":"fake-model","stage":"first_turn"})
+PASS A5 常见路径【只调一次】模型(got 1;修前首回合与收工两条路各调一次,因为落盘被延后到 settle 之后、收工钩子看见的还是空的)
+PASS A6 红线:session.title 仍是用户原话,brief 绝不改写它
+PASS A7 sessionMeta 带出 brief(经典壳侧栏与 113b 会话搜索共用这一份)
+PASS A8 没改过名的线程不带 titleSource(载荷只在需要时扩张)
+PASS A9 sessionDisplayTitle 用生成的名字
+PASS A9b 索引条目形态也认(快路径喂进来的是它)
+── (B) 第二回合不再调 ──
+PASS B1 第二回合零调用(got 0)
+PASS B2 原来的 brief 一字未动
+── (C) 用户改名 ──
+PASS C1 改名落下 titleSource:'user'
+PASS C2 显示优先级:人起的名字 > 生成的名字
+PASS C3 brief 本身不被删(只是不再显示)
+PASS C4 索引条目同口径
+── (D) 模型吐非 JSON ──
+PASS D1 红线:摘要失败绝不阻塞回合(回合照常收工)
+PASS D2 首回合机会性的一发 + 收工那次的三发 = 4 次后放弃(got 4)
+PASS D3 解析不出就留空,绝不拿整段原文当名字
+PASS D4 brief 缺席时显示回落到原话
+── (E) 开关关 ──
+PASS E1 零调用(got 0)
+PASS E2 零字段
+PASS E3 sessionMeta 载荷逐字节不变(brief 键根本不出现)
+── (F) 管家会话 ──
+PASS F1 管家会话不是线程,不起名字也不调模型
+── (G) 端点解析 ──
+PASS G1 配了 stewardProviderId 照常生成
+PASS G2 模型跟 stewardModel(got brief-model)
+PASS G3 配了却不在 providers 列表 -> 不生成(fail-closed,不静默换成别的端点;got 0)
+PASS G4 零字段
+── (H) aux 台账 ──
+PASS H1 起名字的调用进了用量台账(got 10 行)
+PASS H2 记的是 kind:'aux'(与 playbook-draft / json-repair 同款)
+PASS H3 **不是** steward —— 它不是管家回合,不该进管家日费用熔断
+── (I) parseThreadBrief ──
+PASS I1 代码围栏容忍
+PASS I2 前后杂字容忍
+PASS I3 单元素数组被拆开(与围栏同一条宽容:少一次失败就少两次模型调用)
+PASS I3b 多元素数组仍是失败(切出来的不是合法 JSON)
+PASS I4 没有 title 不算成功
+PASS I5 只有 title 也算成功(概括可以空)
+PASS I6 空/非法一律 null
+PASS I7 空白折叠
+── (J) 字数上限 ──
+PASS J1 title 落盘时就夹到 24 字(got 24)
+PASS J2 gist 落盘时就夹到 80 字(got 80)
+── (K) 消费面 ──
+PASS K0 事项线程同样起名字(摘要不挑 kind,只挑「有没有人给的名字」)
+PASS K1 卡片带服务端算好的显示名(got "AMD 收盘分析")
+PASS K2 卡片的 title 仍是原话(它是权威,也是壳层的 hover 全文)
+PASS K3 卡片带那句概括(抽屉与搜索结果要用)
+PASS K4 线程搜索结果带 brief(got {"title":"AMD 收盘分析","gist":"拉 AMD 最新行情与新闻,给博物影业格式的结论"})
+PASS K5 线程搜索的 title 仍是原话 —— 管家要凭它认出用户当时的原始说法,压过的名字只是【多】给的
+── (L) 占位标题 + 有正文 → 首条用户消息摘录 ──
+PASS L1 占位标题 + 有首条用户消息 → 前 24 字 + …(got "帮我把这个季度的销售数据整理成一张表,并给出三条…")
+PASS L2 中文占位符同样认;不到 24 字不加省略号
+PASS L3 换行折成空格(标题是一行)
+PASS L4 占位标题 + 拿不到正文(只有会话头/索引条目的调用面)→ 仍是占位,不去多读一次正文
+PASS L5 正文里没有用户消息 → 仍是占位
+PASS L6 红线:用户手改的标题一律不动(titleSource 为 user 时第一行就返回了)
+PASS L7 优先级不变:生成的名字仍压过摘录(摘录只是占位符的兜底)
+PASS L8 companion:raw 不是占位符时,摘录一步都不走(既有的「生成的名字 > 原话」逐字不变)
+PASS L9 索引条目形态(brief)照旧认
+
+THREAD BRIEF E2E: ALL PASS

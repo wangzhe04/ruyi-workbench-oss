@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_implementation_commit_and_archived_gate_binding",
+  "remainingCodeFindings": 0,
+  "method": "Independent read-only inspection of the implementation commit, SHA-256 calculation for all declared files against both current working files and git-show commit blobs, archived closeout log checks, and comparison with the prior frozen source/native bindings. No tests, UI or production edits were performed.",
+  "implementation": {
+    "commit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+    "parent": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "branch": "codex/p4-macos-desktop",
+    "fingerprintFile": "implementation-source-fingerprint.json",
+    "commitChangedFiles": 43,
+    "fingerprintFiles": 43,
+    "commitFileSetEqualsFingerprintFileSet": true,
+    "extraCommitFiles": [],
+    "extraFingerprintFiles": [],
+    "workingFileHashMismatches": 0,
+    "commitBlobHashMismatches": 0,
+    "inventoryAudit": "The 43-file implementation commit contains the declared Mac host/bridge/build sources, shared frontend/backend integration, isolated acceptance probes and regressions, generated route/locale artifacts and relevant readmes. The added files are the expected source, harness and README files. No unrelated or unknown file was found in this commit's file inventory. P4 phase documentation and evidence remain outside this implementation commit for the subsequent documentation commit.",
+    "workingTreeAtReview": "Only MACOS-PORTING phase/tracking/README/TASKS documents and the P4 evidence directory remained uncommitted."
+  },
+  "priorEvidenceContinuity": {
+    "frozenSnapshot": "frozen-local-regression/source-fingerprint.json",
+    "files": 39,
+    "unchanged": 38,
+    "soleDifference": "ruyi-workbench/desktop-macos/README.md",
+    "differenceScope": "The reviewed final host documentation update is included in the implementation commit. The production/test sources retain the prior frozen-test fingerprints.",
+    "currentDistNativeBuildInputs": 6,
+    "nativeBuildInputMismatches": 0,
+    "reviews": [
+      "frozen-local-regression/review.json",
+      "media/physical/reporting-delay/review.json",
+      "bridge/native-drop/review.json",
+      "local-closeout-review.json"
+    ]
+  },
+  "latestArchivedGate": {
+    "executionActor": "Implementation agent",
+    "command": "node dev-harness/run-all.js --fast",
+    "unitLog": "frozen-local-regression/closeout-unit.txt",
+    "staticLog": "frozen-local-regression/closeout-static.txt",
+    "unitSummaryIndependentlyChecked": {
+      "tests": 2509,
+      "passed": 2491,
+      "failed": 0,
+      "skipped": 18,
+      "cancelled": 0
+    },
+    "staticSummaryIndependentlyChecked": {
+      "passed": 80,
+      "failed": 0,
+      "liveExcluded": 7,
+      "individualPassRows": 80,
+      "remainingTestBrowsers": 0
+    },
+    "buildFreshness": "The static log records fresh generated output.",
+    "recordedExitCode": 0,
+    "exitCodeSource": "local-closeout.json latestPostDocumentationGate",
+    "reviewerReranGate": false,
+    "scope": "Archived result content was independently checked. Natural exit and command exit status are recorded by the implementation agent. Earlier independently executed native/browser/workspace suites retain their original logs and reviewed candidate binding."
+  },
+  "acceptanceState": {
+    "localDelivery": "done_current_mac_scope",
+    "P4Phase": "in_progress",
+    "implementationCommitRecordedInTASKSAndCloseout": true,
+    "formalIdentity": "deferred_by_user",
+    "macOS14": "unverified_O2_P6_carryover",
+    "Windows": "same_candidate_unverified_no_P4_waiver_recorded",
+    "pendingUserScopeAnswer": "The implementation agent has requested the user's P4 Windows acceptance entry point or this-round scope. No answer is assumed in this review.",
+    "retainedLimitations": "The reviewed cancellation snapshot limit, short physical sleep scope, origin-layer microphone refusal/retry scope, CFT148 browser scope and three unexecuted notification conditionals remain applicable."
+  },
+  "remainingDeliveryWork": [
+    "Finalize the documentation/evidence fingerprint record and subsequent documentation commit.",
+    "Retain full-phase pending acceptance until an actual result or explicit applicable user scope decision is recorded."
+  ],
+  "conclusion": "All 43 declared implementation files match the implementation commit and current files byte for byte. The archived closeout gate summaries agree with the recorded passing engineering result. The local implementation commit is supported by the reviewed evidence, and full P4 acceptance remains pending the explicitly recorded external scope."
+}

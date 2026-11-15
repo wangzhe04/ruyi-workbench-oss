@@ -1,0 +1,73 @@
+test_audit_failure_never_replaces_cancellation (__main__.CancellationAudit.test_audit_failure_never_replaces_cancellation) ... ok
+test_generic_cancel_is_audited_once_with_unknown_effects (__main__.CancellationAudit.test_generic_cancel_is_audited_once_with_unknown_effects) ... ok
+test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible (__main__.CancellationAudit.test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible) ... ok
+test_nested_audited_calls_each_record_their_own_cancellation_once (__main__.CancellationAudit.test_nested_audited_calls_each_record_their_own_cancellation_once) ... ok
+test_non_audited_cancellation_stays_unlogged (__main__.CancellationAudit.test_non_audited_cancellation_stays_unlogged) ... ok
+test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads (__main__.CancellationAudit.test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads) ... ok
+test_audit_failure_never_replaces_cancellation (__main__.MacCancellationAudit.test_audit_failure_never_replaces_cancellation) ... [11/11/26 00:04:01] WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_failed_writer
+ok
+test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes (__main__.MacCancellationAudit.test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes) ... FAIL
+test_cancel_before_capture_audits_not_dispatched_and_posts_nothing (__main__.MacCancellationAudit.test_cancel_before_capture_audits_not_dispatched_and_posts_nothing) ... ok
+test_generic_cancel_is_audited_once_with_unknown_effects (__main__.MacCancellationAudit.test_generic_cancel_is_audited_once_with_unknown_effects) ... [11/11/26 00:04:02] WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_generic
+ok
+test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible (__main__.MacCancellationAudit.test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible) ...                     WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_normal
+ok
+test_nested_audited_calls_each_record_their_own_cancellation_once (__main__.MacCancellationAudit.test_nested_audited_calls_each_record_their_own_cancellation_once) ...                     WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_inner
+                    WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_outer
+ok
+test_non_audited_cancellation_stays_unlogged (__main__.MacCancellationAudit.test_non_audited_cancellation_stays_unlogged) ...                     WARNING  Tool already exists:             tool_manager.py:70
+                             cancel_audit_readonly
+ok
+test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads (__main__.MacCancellationAudit.test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads) ... ok
+test_timeout_after_dispatch_audits_known_sent_state (__main__.MacCancellationAudit.test_timeout_after_dispatch_audits_known_sent_state) ... FAIL
+
+======================================================================
+FAIL: test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes (__main__.MacCancellationAudit.test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_audit_cancellation.py", line 179, in test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes
+    asyncio.run(run())
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_audit_cancellation.py", line 164, in run
+    self.assertTrue(await asyncio.to_thread(entered.wait, 1))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_timeout_after_dispatch_audits_known_sent_state (__main__.MacCancellationAudit.test_timeout_after_dispatch_audits_known_sent_state)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_audit_cancellation.py", line 222, in test_timeout_after_dispatch_audits_known_sent_state
+    asyncio.run(run())
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_audit_cancellation.py", line 216, in run
+    self.assertEqual(result['code'], 'verification_timeout')
+AssertionError: 'dependency_missing' != 'verification_timeout'
+- dependency_missing
++ verification_timeout
+
+
+----------------------------------------------------------------------
+Ran 15 tests in 1.241s
+
+FAILED (failures=2)

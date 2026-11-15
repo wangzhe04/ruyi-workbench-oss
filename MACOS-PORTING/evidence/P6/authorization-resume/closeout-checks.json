@@ -1,0 +1,15 @@
+{
+  "jsonFilesParsed": 55,
+  "compositeRowsWithExistingEvidence": 594,
+  "historicalInternalSkipFiles": 32,
+  "archivedPositiveLogsVerified": 6,
+  "frozenSourceFilesMatch": 54,
+  "newReadmeLinksExist": true,
+  "statusAndScopeConsistent": true,
+  "historicalFailureReferencesExist": true,
+  "gitDiffCheckExitCode": 0,
+  "checkedAt": "2026-11-13T03:47:17.084922+00:00",
+  "scope": "Documentation/evidence checks only; no app launch, rebuild or business test rerun.",
+  "currentPermissionGateConsistent": true,
+  "credentialPatternFindings": 0
+}

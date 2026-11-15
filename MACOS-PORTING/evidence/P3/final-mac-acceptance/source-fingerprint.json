@@ -1,0 +1,9 @@
+{
+  "candidateCommit": "aa2d78464ac117dea547a247676022964066feb6",
+  "files": {
+    "MACOS-PORTING/probes/accept-mac-workflow.cjs": "8a5a3da28edd4df79d8cf553a3bfd4eff0bce7fbc75fb4946be3eeb041fe50c0",
+    "ruyi-workbench/app/server.js": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "32e2db5769cb61910cb5ee91864b4ed166e09a36e0d0e5822488a3fa7291d57e",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f"
+  }
+}

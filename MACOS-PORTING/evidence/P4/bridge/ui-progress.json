@@ -1,0 +1,94 @@
+{
+  "date": "2026-11-07",
+  "status": "partial_interactive_acceptance",
+  "method": "CUA native accessibility and screenshot observations",
+  "verified": [
+    {
+      "case": "Cmd-O normal workspace entry",
+      "result": "native NSOpenPanel shown after shared net.api hook repair",
+      "initialFailure": "composition-only API wrapper missed domain imports; real UI returned Windows-only picker error",
+      "resolution": "register native picker adapter on shared net.api transport",
+      "regression": "macos-desktop-bridge.e2e direct-import net.api case"
+    },
+    {
+      "case": "Chinese workspace folder selection",
+      "result": "native panel selected P4 选择目标文件夹; workbench title and file tree changed to target; Cmd-N new session inherited that workspace"
+    },
+    {
+      "case": "Cmd-N",
+      "result": "visible task count increased from 1 to 2, new unnamed session shown"
+    },
+    {
+      "case": "native single-file picker",
+      "result": {
+        "ok": true,
+        "selectedFile": "P4 选择目标文件夹/P4 选择验收文件.txt"
+      }
+    },
+    {
+      "case": "Finder visible selected object V10",
+      "result": "Finder window P4 原生交互工作区 visibly selected P4 Finder 可见定位.txt, status selected 1 of 2",
+      "fixtureHome": "ruyi-e2e-home-ZKE1yM"
+    },
+    {
+      "case": "safe editor actual document",
+      "result": "Visual Studio Code window P4-editor.py displayed answer = 42",
+      "fixtureHome": "ruyi-e2e-home-ipsXH1",
+      "initialFailure": "editor CLI exited 0 without opening fixture document under isolated HOME",
+      "resolution": "explicit known App LaunchServices handoff; real URL and content visually verified"
+    },
+    {
+      "case": "Cmd-comma",
+      "result": "settings modal opened with notification controls"
+    },
+    {
+      "case": "real OS notification refusal",
+      "result": {
+        "permission": "denied",
+        "nativeResponseOk": true
+      },
+      "systemSettings": "Notifications > 如意工作台, allow-notifications off"
+    }
+  ],
+  "pending": [
+    {
+      "case": "notification allow/recovery and delivery",
+      "status": "screen_locked_during_restore_toggle",
+      "latestPermissionAfterAttempt": "not_verified",
+      "userActionRequested": "manually unlock Mac"
+    },
+    {
+      "case": "menu-bar status item click",
+      "status": "pending_visible_interaction"
+    },
+    {
+      "case": "positive external URL handoff and actual IDE diff",
+      "status": "pending_visible_interaction"
+    },
+    {
+      "case": "LaunchServices Documents authorization and successful startup",
+      "status": "awaiting_manual_unlock_and_explicit_folder_authorization",
+      "reason": "development App reads repository under Documents; missing usage string repaired; no folder permission granted by agent"
+    }
+  ],
+  "userAuthorization": {
+    "scope": "notification allow/refuse recovery and microphone capture up to 3 seconds, local isolated audio and fake ASR endpoint",
+    "status": "authorized"
+  },
+  "latestCandidate": "Final native candidate adds Documents usage, one-shot failed acceptance exit, script/serialization failure reports and trusted-main-frame microphone prompting. Visible permission recovery remains pending.",
+  "knownObservations": [
+    {
+      "case": "workspace favorite aliases",
+      "observation": "NSOpenPanel may return /private/var while existing fixture favorites use /var; lexical UI keys may add a duplicate favorite",
+      "status": "closed_local_by_domain_and_persistence_e2e",
+      "scope": "observed fixture path alias; does not change native data-root lock or WebKit profile identity",
+      "resolution": "reuse configured favorite by filesystem identity, preserve authoritative permissions, bounded I/O and serialized latest selection",
+      "evidence": "workspace-alias/independent-final.txt"
+    }
+  ],
+  "desktopRecheck": {
+    "date": "2026-11-07",
+    "method": "CUA getState",
+    "result": "Mac remains locked; no native apps available; manual unlock still required"
+  }
+}

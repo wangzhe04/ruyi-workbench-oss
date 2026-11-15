@@ -1,0 +1,25 @@
+PASS TextEdit document belongs to a newly created fixture process
+PASS real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document
+PASS TextEdit exposes exactly one writable native AX text area in the owned document
+PASS real TextEdit AXValue edit and normal save persist the exact owned UTF-8 document
+PASS saved TextEdit fixture window closes with verified AX absence
+PASS only the observed new TextEdit process is reaped
+PASS nonactivating fixture preserves the pre-browser clipboard
+PASS browser and descendant creation identities belong to the controlled profile
+PASS active-window query agrees with the actual Chromium window despite decorated AX titles
+PASS real Chromium consumes multiline Chinese Cmd+V and preserves prior clipboard formats
+PASS native logical-point click reaches the Chromium DOM as a trusted event
+PASS Chromium native address field confirms AXValue edit and Escape returns to the controlled page
+PASS complete Chromium traversal reports the absent page AX surface separately from a zero-match selector
+PASS real Chromium scroll position confirms native vertical wheel direction
+PASS real Chromium scroll position confirms positive horizontal wheel input moves right
+PASS two real Chromium windows have the same title and exact observed geometry
+PASS prior input reference session is fully reaped before the ambiguity check
+PASS fresh decorated-title binding refuses equal-geometry Chromium ambiguity before any focus action
+PASS all recorded browser and descendant identities are absent before profile removal
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+PASS selected-app fixture restores the pre-test clipboard
+PASS controlled browser profile is removed after its processes exit
+
+MACOS INPUT APPS E2E: ALL PASS

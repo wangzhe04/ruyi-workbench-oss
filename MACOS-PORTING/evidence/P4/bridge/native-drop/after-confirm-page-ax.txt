@@ -1,0 +1,152 @@
+Window: "如意工作台", App: 如意工作台.
+0 standard window 如意工作台, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 如意工作台, URL: 127.0.0.1:8766/
+			3 button 跳到输入框
+			4 container
+				5 container 视角
+					6 toggle button 管家, Value: off
+					7 toggle button 工作台, Value: on
+				8 pop up button 新线程默认权限：智能自动
+				9 pop up button 设置
+			10 container
+				11 heading 任务 2, Value: 2
+					12 text 任务
+				13 toggle button 看板密度, Value: off
+				14 search text field (settable) 搜索线程
+					15 text 搜索线程
+				16 button 新线程, Help: 开一条线程，自成一个任务
+				17 button (expanded) 新开的, Secondary Actions: Collapse
+				18 text 2
+				19 container 未命名线程
+					20 button 未命名线程
+					21 text 还没开始 刚刚
+				22 container P4 原生交互验收
+					23 button P4 原生交互验收
+					24 text 还没开始 10小时前
+				25 container 口袋
+					26 button 定时任务
+					27 button 行动流水
+					28 button 记得的关于你
+					29 button 体检 · 用量 · 有 2 项可以更好
+			30 container
+				31 container 未命名线程
+					32 text 未命名线程
+				33 text 在「P4 选择目标文件夹」里干活
+				34 container 我开的
+				35 container 交给管家盯
+					36 checkbox 交给管家盯, Value: 0
+					37 text 交给管家盯
+				38 button 回到管家
+				39 button 选择工作文件夹, Help: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹
+				40 button 工具面板
+				41 container 线程配置
+					42 pop up button 权限 跟随全局
+					43 pop up button 模型 默认
+					44 pop up button 引擎 Claude Code
+				45 pop up button 上下文用量（点击查看、设置上限或立即压缩）, Help: 一条线程能记住的内容有上限；快满时，较早的内容会自动压缩成摘要。
+当前线程尚无上下文用量；点击可提前选择上下文上限。
+上限来源:按名称推测
+				46 text 未找到 Claude Code（请在设置的 Agent CLI 页配置）
+				47 text 已改用端口 8766（原来的 8765 被别的程序占着）。功能不受影响。
+				48 button 关闭
+				49 tab group (selectable) 中栏主视图
+					50 tab (selected) 对话
+					51 tab (selectable) 班组
+				52 container 对话记录
+					53 heading 直接开始工作, Value: 2
+						54 text 直接开始工作
+					55 text 当前引擎：Claude Code · 默认
+					56 text 发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。
+					57 button 设置 Agent CLI 路径
+					58 text 一键任务
+					59 button 🗂️ 按内容归档文件
+读懂一堆杂乱文件的内容,自动分类到有意义的子文件夹里
+					60 button 🏷️ 批量重命名文件
+按统一规则给一个文件夹里的文件重新命名(加前缀、编号、日期等)
+					61 button 🧹 清洗 CSV 数据
+按明确规则清洗 CSV，并输出变更统计和异常清单
+					62 button 🧹 清理下载文件夹
+找出下载文件夹里的安装包、重复文件和陈旧文件,给出清理建议
+					63 button 🔍 对比两份文档
+按主题对比两份文档，列出新增、删除、冲突与影响
+					64 button 📋 生成文件夹清单表
+把一个文件夹的内容清点成一张表格(文件名/类型/大小/修改时间)
+					65 button 📋 整理会议纪要
+把录音转写或零散笔记整理成结论、行动项和待定问题
+					66 button 🎯 生成汇报大纲
+把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑
+					67 button 🗓️ 定时汇总一个文件夹
+到点把指定文件夹里新攒下的记录汇总成一份摘要,适合挂到定时任务上每天或每周自动跑
+					68 button 🌐 翻译一份文档
+翻译文档并保持标题、列表、表格、数字和专有名词结构
+					69 button 📝 写周报草稿
+把这一周的零散记录整理成一份条理清晰的周报草稿
+					70 text 🖱️ 打开应用并操作 启动一个桌面应用,并在里面完成一件指定的事(点击、输入、保存等)
+					71 text 需要桌面控制（未检测到 ai-computer-control）
+					72 text 📊 合并多个 Excel 表格 把一个文件夹里的多个 xlsx 表格按列对齐合并成一个总表
+					73 text 需要配置
+					74 container
+						75 text ⛔  需要桌面控制（未检测到 ai-computer-control）
+					76 text 🔍 扫描件 OCR 转文字 把扫描件图片通过 OCR 识别成可编辑文字；带文字层的 PDF 直接提取文字
+					77 text 需要桌面控制（未检测到 ai-computer-control）
+					78 text 📄 PDF 文本汇总 把一个文件夹里的多份 PDF 提取文本,逐份摘要并汇总成一份总览
+					79 text 需要配置
+					80 container
+						81 text ⛔  需要桌面控制（未检测到 ai-computer-control）
+					82 text 🌐 打开网页填表 在浏览器里打开一个网页,按说明把表单字段填好(填完先给你看,不自动提交)
+					83 text 需要配置
+					84 container
+						85 text ⛔  需要桌面控制（未检测到 ai-computer-control）
+				86 text P4 Finder 可见定位.txt · 31 B
+				87 button 移除附件, Help: 移除
+				88 text entry area (settable) Value: [text entry area], Placeholder: 说你想做什么, Secondary Actions: Show Writing Tools
+					89 text 说你想做什么
+				90 toggle button Agent 团队, Help: 为下一条消息启用代理团队：强制 AI 调用代理编排（orchestrate_agents），并优先使用已配置的代理端点与模型, Value: off
+				91 button 技能库, Help: 技能库：启用技能 / 命令 / 一键任务 (/)
+				92 container 添加文件
+				93 toggle button 语音输入, Help: 语音输入还没开启：点这里去设置里选一个语音识别模型, Value: off
+				94 button 发送
+			95 container
+				96 text 工作区
+				97 heading 项目与进度, Value: 2
+					98 text 项目与进度
+				99 button 关闭工作区
+				100 text 查看文件、交付物和 Ruyi 的工作记录
+				101 tab group (selectable) 工作区视图
+					102 tab (selected) 文件
+					103 tab (selectable) 产物
+					104 tab (selectable) 改动
+					105 tab (selectable) 记忆
+					106 tab (selectable) AI 工作
+				107 heading 工作文件夹, Value: 3
+					108 text 工作文件夹
+				109 text 单击文件即可安全预览
+				110 button 刷新
+				111 container 常用工作区
+					112 button P4 原生交互工作区, Help: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区
+					113 button P4 选择目标文件夹, Help: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹
+				114 text 📂 P4 选择目标文件夹
+				115 button P4 选择验收文件.txt
+				116 button @ 提及：把相对路径插入输入框
+				117 text 需要找内容或读取文件？直接在对话里告诉 Ruyi，它会自动选择合适的工具。
+			118 splitter 拖动调整右栏宽度,双击切换档位, Help: 拖动调整右栏宽度 · 双击切档, Value: 50
+			119 button 选择验收文件
+			120 button 定位验收文件
+			121 button 打开验收编辑器
+			122 button 打开验收差异
+			123 button 发送验收通知
+			124 button 读取通知权限
+			125 button 读取唤醒状态
+			126 button 读取拖放状态
+			127 link 打开验收外链, Value: 127.0.0.1:49559/p4-external-handoff
+			128 container {"events":[{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":[
+				129 text {"events":[{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":[
+	130 close button
+	131 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	132 minimize button
+	133 text 如意工作台
+134 menu bar
+	135 如意工作台
+	136 编辑
+	137 文件

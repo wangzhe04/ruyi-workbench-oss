@@ -1,0 +1,42 @@
+(node:32866) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/host-bridge.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS ordinary browser picker keeps existing HTTP transport
+PASS native API adapter preserves conditional GET entry
+PASS normal picker API maps to structured native request with literal Unicode values
+PASS native messages carry version and unique request identity
+PASS domain modules importing net.api directly use the registered native picker
+PASS all other workbench API calls keep their HTTP entry
+PASS native picker failures retain stable codes and localized recovery text
+PASS native picker timeout has a stable error code and localized recovery message
+PASS already-aborted native picker never starts a request
+PASS old permission refresh cannot overwrite a newer authorization result
+PASS focus during permission prompt shares the pending authorization and preserves refusal
+PASS late authorization result cannot override the latest user choice to disable reminders
+PASS Mac editor opens a literal file through an explicit LaunchServices application
+PASS Mac VSCode-family diff retains both literal paths and fixed launch arguments
+PASS safe TextEdit fallback retains explicit application handoff
+PASS complete native workbench bridge acceptance exits normally 
+PASS trusted complete workbench receives native host marker
+PASS notification state comes from the real OS
+PASS actual denied OS authorization completes without a stale default state
+PASS real denied permission updates workbench recovery guidance for macOS
+PASS native rejects malformed message schema
+PASS native rejects malformed message schema
+PASS native rejects malformed message schema
+PASS native rejects malformed message schema
+PASS native bridge has no generic execution method
+PASS native picker rejects unexpected parameter keys
+PASS native picker rejects non-string filter parameters
+PASS native notification rejects oversized payload fields
+PASS ungranted OS permission refuses notification delivery
+PASS same-origin child frame cannot acquire the main-frame native bridge
+PASS script-initiated remote navigation cannot replace trusted workbench
+PASS concurrent native picker requests are rejected explicitly
+PASS native sheet cancellation resolves its original request cleanly
+PASS normal native picker API AbortSignal cancels its sheet
+PASS native acceptance returned all required bridge assertions
+Native bridge reports /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-bridge-J55hh4
+
+MACOS DESKTOP BRIDGE E2E: ALL PASS

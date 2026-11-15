@@ -1,0 +1,14 @@
+PASS LaunchServices Ruyi App owns the actual workbench service
+App input readiness {"capabilities":{"applicationReady":true,"authorization":"granted","clipboardReady":true,"eventAuthorization":"denied","inputReady":false,"installed":true,"locked":false,"pointerQueryReady":true,"queryReady":true,"ready":true,"reasonCode":"","supported":true,"windowAuthorization":"denied","windowQueryReady":true,"windowReady":false},"diagOK":true,"unavailable":true}
+FAIL App-launched ACC has its own actual Accessibility and event authorization
+FAIL normal App HTTP tool route focuses the exact owned receiver
+FAIL normal App HTTP tool route sends Chinese Unicode events
+FAIL App launch chain sends guarded pointer and wheel events
+FAIL real receiver confirms the App-originated Chinese text
+FAIL real receiver confirms the App-originated balanced click and wheel events
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS self-owned App event receiver is reaped
+
+MACOS INPUT HOST E2E: FAIL (6)

@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "at": "2026-11-11T23:10:01.630591+00:00",
+  "commit": "56c970cf885de4a249c637fe10d3419115ffa979",
+  "parent": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "freeze": "native-capture-freeze-v2.json",
+  "scope": "Default-off native capture/Vision receipt slice, not fullP5",
+  "independentCommands": 18,
+  "independentFailures": 0
+}

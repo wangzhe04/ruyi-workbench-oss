@@ -1,0 +1,35 @@
+{
+  "isolation": "/tmp/rc-pwsnopvh",
+  "rows": [
+    {
+      "name": "smoke_native_receipts",
+      "code": 0,
+      "elapsed": 0.05789395800093189,
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_native_receipts-v1.log"
+    },
+    {
+      "name": "smoke_execution_required",
+      "code": 0,
+      "elapsed": 0.07950250001158565,
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_required-v1.log"
+    },
+    {
+      "name": "smoke_execution_journal",
+      "code": 0,
+      "elapsed": 0.12635354200028814,
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_journal-v1.log"
+    },
+    {
+      "name": "smoke_execution_control",
+      "code": 0,
+      "elapsed": 0.44468408401007764,
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_control-v1.log"
+    },
+    {
+      "name": "smoke_macos_receipt_session",
+      "code": 1,
+      "elapsed": 1.9267682079807855,
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_macos_receipt_session-v1.log"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS new conversation is visible directly in conversation header
+PASS HTTP reset rejects an invalid token
+PASS reset is POST only
+PASS old provider stream is in flight before clicking reset
+PASS real UI click completes HTTP reset and shows exact context-cleared receipt
+PASS old streamed reply and queued UI rows never refill new conversation
+PASS composer is ready after reset
+PASS HTTP session is truly empty after UI reset
+PASS new conversation receives a fresh reply
+PASS browser has no uncaught exceptions
+
+STEWARD NEW CONVERSATION BROWSER E2E: ALL PASS

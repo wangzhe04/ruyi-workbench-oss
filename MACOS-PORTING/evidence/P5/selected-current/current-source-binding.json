@@ -1,0 +1,1055 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "runtimeImplementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "executionHead": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "newProductOrFixtureCode": false,
+  "files": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+      "bytes": 3434,
+      "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "854b681c7eefdf423fd33d2292b83c64deeef128",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "854b681c7eefdf423fd33d2292b83c64deeef128"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/fake-claude-long-process.jsonl",
+      "bytes": 8269,
+      "sha256": "1166f76a605ca0927d618e99e65f4892d8007415f3bd4d6eb4ab91b28e8c49eb",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e4dbaebf500dc4ec92821df13eedd4ab82fe0204",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e4dbaebf500dc4ec92821df13eedd4ab82fe0204"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-audit-cancel-server.py",
+      "bytes": 1265,
+      "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "05e6c032edcceeeab78e6421e8c6d79c7a0ebcc9",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "05e6c032edcceeeab78e6421e8c6d79c7a0ebcc9"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ax-window.m",
+      "bytes": 11136,
+      "sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "dd462e7b5fee5755144af4871a64b560d5885c5f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "dd462e7b5fee5755144af4871a64b560d5885c5f"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-capture-window.m",
+      "bytes": 6245,
+      "sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "dc52ef99395a9084c890619e7debaf5c64aeadbf",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "dc52ef99395a9084c890619e7debaf5c64aeadbf"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "66157f31a6d4182bf74c94135294977b5f80786b",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "66157f31a6d4182bf74c94135294977b5f80786b"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-finder-identity.m",
+      "bytes": 7537,
+      "sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "169bad4eb1a5c747a504ac3c265fd2515a590708",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "169bad4eb1a5c747a504ac3c265fd2515a590708"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "fbf9031954580f6eddf3eef3546fc6c97fc83290"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ocr-window.m",
+      "bytes": 7227,
+      "sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "bb9f6d0b1bb01529ed30a44e3d669b4410226c9c",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "bb9f6d0b1bb01529ed30a44e3d669b4410226c9c"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/provider-wire-stream.golden.json",
+      "bytes": 81206,
+      "sha256": "4c240f7c570971b02581da3eee971c7859a9787c638ced50ce620115c4615219",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "0cd33c723254ba8c163138265f8b6886dfe63340",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "0cd33c723254ba8c163138265f8b6886dfe63340"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/summary-task-evidence-candidate.json",
+      "bytes": 5243,
+      "sha256": "f9f3bbe17617a3a991d5415799a9421bec12fa13ba2c4fe3d8210dbd3b57dcb7",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "ac84df7a4846ed6044f8c305ad526e0084a8f447",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "ac84df7a4846ed6044f8c305ad526e0084a8f447"
+      }
+    },
+    {
+      "path": "dev-harness/fixtures/summary-task-evidence-real-maps.json",
+      "bytes": 62586,
+      "sha256": "72d5ffb102259d97c003ec295357b9f070df1b32c57842a77a60be7be550cac1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "f63161d76528238dd01661d926226aac3ab3fd52",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "f63161d76528238dd01661d926226aac3ab3fd52"
+      }
+    },
+    {
+      "path": "dev-harness/lib/browser-fixture.js",
+      "bytes": 21509,
+      "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "7c21a90b5e7d425c2634411d24629d19ff07c3da",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "7c21a90b5e7d425c2634411d24629d19ff07c3da"
+      }
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "874a60ed1fb52690573a90fed8bb7b32375ba419"
+      }
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "468c909bfa921a3ef6115c5409443cc651820d11",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "468c909bfa921a3ef6115c5409443cc651820d11"
+      }
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "2121418a003fd170a93fce278da1c2a6140733e5",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "2121418a003fd170a93fce278da1c2a6140733e5"
+      }
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5ce3c7076746a13ece00dd005a21fc2558bbddfd",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5ce3c7076746a13ece00dd005a21fc2558bbddfd"
+      }
+    },
+    {
+      "path": "dev-harness/macos-ax-finder.e2e.js",
+      "bytes": 11628,
+      "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "9ac4a59198e29454c0a30bd9851533e738252325",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "9ac4a59198e29454c0a30bd9851533e738252325"
+      }
+    },
+    {
+      "path": "dev-harness/macos-input-apps.e2e.js",
+      "bytes": 29397,
+      "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5e647e46a740e0addba70f63b257e26a537c2017",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5e647e46a740e0addba70f63b257e26a537c2017"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "bytes": 189,
+      "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "02d8d0a4fc394dbcae463b0510da0c3522e4857c",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "02d8d0a4fc394dbcae463b0510da0c3522e4857c"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__main__.py",
+      "bytes": 397,
+      "sha256": "e3532ff41fd74c729b5e42abcf6c411e4f5d7e2216c1136609028d9d08128d26",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "395ff05253187d937611241b698b18ae387e52b6",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "395ff05253187d937611241b698b18ae387e52b6"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "bytes": 1539,
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e73b7590536c6a903fb225d4bffbf42c2da2325c",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e73b7590536c6a903fb225d4bffbf42c2da2325c"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "d37c4b1b395f562cb75425249ac6d2c0238fd44f"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/__init__.py",
+      "bytes": 44,
+      "sha256": "cec602ce29f18d99ea1af22336ed5739f0634191d65f57a01f8256fc5d867d3d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "63f3dcf869a86c90b8c1754563115a74dba6a3e7",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "63f3dcf869a86c90b8c1754563115a74dba6a3e7"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "bytes": 11509,
+      "sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "db45db3b6657f63d3dfde4a0a1c4952441fcd1ca",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "db45db3b6657f63d3dfde4a0a1c4952441fcd1ca"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/application.py",
+      "bytes": 16076,
+      "sha256": "0665d296c1266b726b91ce103d68d8c1447924570dcdc0b92a6048911fad7981",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6a131c30ff661ea4f45dd23757723ea0c41cd0e5",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6a131c30ff661ea4f45dd23757723ea0c41cd0e5"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audio.py",
+      "bytes": 2295,
+      "sha256": "aad83f7a7e8afc8c425c9b211d4fe86eaca9d804da947c968a6b7b0179ab5bab",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6837ec4b98cf7e717dccf0a969ea0ce7eb626e69",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6837ec4b98cf7e717dccf0a969ea0ce7eb626e69"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 9948,
+      "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "870c38d5670223c39e769bb8403c190e78a98f0e",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "870c38d5670223c39e769bb8403c190e78a98f0e"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "bytes": 29505,
+      "sha256": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "9af98daa5d0f5158bb703c8e6cc0b38ec747ed56",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "9af98daa5d0f5158bb703c8e6cc0b38ec747ed56"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+      "bytes": 4060,
+      "sha256": "cd25a59226edbe4ba0e6a0998da214a8a9f314233d8240e592f607d4dc93f3f1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "340979286d73992da63f456b02122f1e8d747f5b",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "340979286d73992da63f456b02122f1e8d747f5b"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/clipboard.py",
+      "bytes": 2853,
+      "sha256": "645d0be19ad9237f4ce8bbe3cd4f35874dbd5b38029d1329f85422ffe862d282",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "614e9fb0c4946e3f10ad7342ba9f39c4b1fccd0a",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "614e9fb0c4946e3f10ad7342ba9f39c4b1fccd0a"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+      "bytes": 13544,
+      "sha256": "518a3134f71e6e6132b0c9538ce4614e2163aca897b757b11e0b18c361fc3a5e",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "142485cde0881b70e46c4851af90b0c131cd56dc",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "142485cde0881b70e46c4851af90b0c131cd56dc"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11463,
+      "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "dd767af5ce0179180ab5e068ff79ab32db7225b5",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "dd767af5ce0179180ab5e068ff79ab32db7225b5"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/dialog.py",
+      "bytes": 5855,
+      "sha256": "fee53572527b3388e13a93b60f593d22447841b1de45a2472c495ae926f383a8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e26c1730f39a6bc0cc48803c4b3a2ef8ae7422f4",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e26c1730f39a6bc0cc48803c4b3a2ef8ae7422f4"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+      "bytes": 79168,
+      "sha256": "6ca80952eac12ad9c3d11a50c06d6c7a9f51fa59fc255fe1f953a2847c09f456",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "15f2db9aa062314a52d27ff9e559f278113f0823",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "15f2db9aa062314a52d27ff9e559f278113f0823"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/editing.py",
+      "bytes": 14944,
+      "sha256": "26bcaea431dda18240fb590a3bd847d981fc254c3ee74ddaaee4f6a88f935e1a",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "b6e8fd0cec94a481eb94617c86e7154639da939d",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "b6e8fd0cec94a481eb94617c86e7154639da939d"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/filesystem.py",
+      "bytes": 21680,
+      "sha256": "e58c29268ef58063b49857170f2c33700461d72928f17aacbe9a6578d5c2ae6e",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "8523dfd8e35ad71d33d75e7108095b5d62a9f4eb",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "8523dfd8e35ad71d33d75e7108095b5d62a9f4eb"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/image_tools.py",
+      "bytes": 8342,
+      "sha256": "4160ce9528e037f531ec2d015279d5438ebb5a00ad8885d6eba4f8667a21f981",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "8b0fa806bc98449c0a164355a1373aa41820a4cf",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "8b0fa806bc98449c0a164355a1373aa41820a4cf"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "bytes": 9275,
+      "sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "2737d3eff6a8d8604e1e250e4a075fcf6f519333",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "2737d3eff6a8d8604e1e250e4a075fcf6f519333"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "bytes": 12096,
+      "sha256": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "d50835cd1588019d7fa32b5bbfa10c391b767a80",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "d50835cd1588019d7fa32b5bbfa10c391b767a80"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "bytes": 1685,
+      "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "3bd217b70d02483d4e684c406de816a7414c77de",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "3bd217b70d02483d4e684c406de816a7414c77de"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "bytes": 3163,
+      "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "f860a5472938b7204527c3eda03a37c37aaa2064",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "f860a5472938b7204527c3eda03a37c37aaa2064"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "7071e92279c9c124136f5e083e52bfdbdb3184e4",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "7071e92279c9c124136f5e083e52bfdbdb3184e4"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11174,
+      "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "1c8fbadf0d417f501fe4299e520999f0e3537dd4",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "1c8fbadf0d417f501fe4299e520999f0e3537dd4"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "bytes": 5512,
+      "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "fc47faa73e1a5f4a5fa0e0578f27342d8d13adfc",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "fc47faa73e1a5f4a5fa0e0578f27342d8d13adfc"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "bytes": 9182,
+      "sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5138ab05e87c0a9f75c537509b0c63eedd922d62",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5138ab05e87c0a9f75c537509b0c63eedd922d62"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "bytes": 6119,
+      "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "bb5d0b2d4867230a519ca944d4c6056bf973ab63",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "bb5d0b2d4867230a519ca944d4c6056bf973ab63"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "bytes": 7462,
+      "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "a45ce42f36029c27e97d41de7d23109b79e588d9",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "a45ce42f36029c27e97d41de7d23109b79e588d9"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "bytes": 6903,
+      "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "ee4b4a06e0d52e5e0d53879e68d194da10a8ca85",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "ee4b4a06e0d52e5e0d53879e68d194da10a8ca85"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/memory.py",
+      "bytes": 8459,
+      "sha256": "2f076a102656f7604106e6597340f5bd3063a6128048b678ba583e03a2b124d8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "38d56d7200b0100484fbb72d38ae19a0b4042280",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "38d56d7200b0100484fbb72d38ae19a0b4042280"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+      "bytes": 8369,
+      "sha256": "c4264670c233c5ba137cf6ee6792bcd2f2e55adfbaf46deff10f071e47b47b7a",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "44d4dbd56e00ba43cdb53718bc0cb0f139f789b5",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "44d4dbd56e00ba43cdb53718bc0cb0f139f789b5"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+      "bytes": 19005,
+      "sha256": "1d1e425effc00ff81e77856bdfcb2b3b0c25db4defb279a17e6ad75b5c45a014",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "3640169241a11431b7da4607c4a3a5b56825d7ac",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "3640169241a11431b7da4607c4a3a5b56825d7ac"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "bytes": 32996,
+      "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6cc90752f4532f3b98db9a4e99062e06971d3de5",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6cc90752f4532f3b98db9a4e99062e06971d3de5"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+      "bytes": 28272,
+      "sha256": "e5cce5766a751dc4f14d64bc705dfb1ff19392ca0c54b5f6b80fd717f811b7cb",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "8214a326444152eb56d5b32393f340f8ceb0ec2c",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "8214a326444152eb56d5b32393f340f8ceb0ec2c"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_excel.py",
+      "bytes": 26972,
+      "sha256": "7e9cdef2d030366a8c07728656e647f3e801f0dfda463119345a6d4f53bc3510",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5f24da4e8bc1054bddde7d052976efe6d2d9bd5f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5f24da4e8bc1054bddde7d052976efe6d2d9bd5f"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_io.py",
+      "bytes": 5526,
+      "sha256": "4952c2f0f92bbd62095770cbeb8a4cafd85aa45fddaecfb364920a5a4b09b809",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "84951c52b777cd57cfa741dddf5a5ac36a5b9f4a",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "84951c52b777cd57cfa741dddf5a5ac36a5b9f4a"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_markup.py",
+      "bytes": 10629,
+      "sha256": "fdad4422fb2256950e8a2382ad99b6b00edffe0341a79aab39aaf6989da3d694",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5562c5bebe89c6a741a754105d42fa4fe53319e1",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5562c5bebe89c6a741a754105d42fa4fe53319e1"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_pptx.py",
+      "bytes": 53982,
+      "sha256": "aba8f918bc20d5aad1d900bbcec73001e4b3305600ec4e0f6a0a5c2e8c76442e",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "7e606bcd761155dddf594556f874c9966765ef69",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "7e606bcd761155dddf594556f874c9966765ef69"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+      "bytes": 23601,
+      "sha256": "433d93acf6ee8756a9d121c925d4c7942ec4461fffdc4ee7329e73274cac28e4",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "06d0ad55870b8c525ae331bab91a49969aea5666",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "06d0ad55870b8c525ae331bab91a49969aea5666"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+      "bytes": 18523,
+      "sha256": "5d40e1d164ebb65ec244a9cc989f91143f66c9f0e8ffe277607a379c70327bf7",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "60b12258f0f481117107be3d19d548ec2adc5cc9",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "60b12258f0f481117107be3d19d548ec2adc5cc9"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "bytes": 14860,
+      "sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "cd3364109e01b5e6bf966c8bde680d74addb0105",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "cd3364109e01b5e6bf966c8bde680d74addb0105"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py",
+      "bytes": 13745,
+      "sha256": "ed7a288074843768dba0b2745d706dc2d98819e6e2257ce62ce60a2679aeed5d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "eb2cc085c469faf2d1ead5a688eaee44ff29ed5d",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "eb2cc085c469faf2d1ead5a688eaee44ff29ed5d"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+      "bytes": 9651,
+      "sha256": "79ebf4919b496a6f04e3bb6fdfaa33c9e92db9b88ecc6705b8531ae040297e5c",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "76011d077383a5a6acda8ff0ac7f711b22140456",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "76011d077383a5a6acda8ff0ac7f711b22140456"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/shell.py",
+      "bytes": 14779,
+      "sha256": "32cd73b1a9a560c05b5a5646c3b4a6b49c698e6d1520e107caa51caa2e99397e",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "770c227ef735bab35e6d0030f11e73a9cbf85b53",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "770c227ef735bab35e6d0030f11e73a9cbf85b53"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/sync.py",
+      "bytes": 3308,
+      "sha256": "e43d02ca8c24ee294ea9cede367035c443c492257f0929ff45a56df8dc948869",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "112cf2158ca87775463a08441bdc613ec1cf5cbe",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "112cf2158ca87775463a08441bdc613ec1cf5cbe"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/system.py",
+      "bytes": 2723,
+      "sha256": "b18bff083ba9225ffa941a9f6544fba5feff1889c4549a3510e40a4e8a79925f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "a8ae88a6da034310f9759061e3e83b19c359b824",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "a8ae88a6da034310f9759061e3e83b19c359b824"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/thinking.py",
+      "bytes": 3807,
+      "sha256": "b76b1ef426037f09703b2c13498a90d64dc48887790d4d6e6d9795c895c339c3",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "99adcc08d2ab0c4e8b71019e4593215e4849c0e1",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "99adcc08d2ab0c4e8b71019e4593215e4849c0e1"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+      "bytes": 29605,
+      "sha256": "9cf7e0d407310311443a40d2e8bd21e6e9b1cacc2d2e9a6e4efeef85043810e8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "8c7f726df144905143fcd0ad2d77824db0c862c8",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "8c7f726df144905143fcd0ad2d77824db0c862c8"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "bytes": 11015,
+      "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "95aba596b0c654c126d55d5614ef12e93b25fd74",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "95aba596b0c654c126d55d5614ef12e93b25fd74"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/web_fetch.py",
+      "bytes": 21827,
+      "sha256": "80cc46522129594c0371254962f8f22c698ff761a72ebe81f5a34fdc87b96afd",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "d715344d0f8ada960b1da464cdc93457042165cd",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "d715344d0f8ada960b1da464cdc93457042165cd"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+      "bytes": 16785,
+      "sha256": "edce6d3fc4b1dca8d4839378c1ea8e0a9c34ac8c70b57b7215094229c6ee9af4",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "dc930ae609d1fef993bab5bcaa64ddf9f20a0c90",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "dc930ae609d1fef993bab5bcaa64ddf9f20a0c90"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/__init__.py",
+      "bytes": 23,
+      "sha256": "ed29dbc69c4a10d2bed9e7142f935f9d9f6890623b08e298c38585e3ad7bd873",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "183c974fd4ca1925d6278be86ffb6bc13652aaac",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "183c974fd4ca1925d6278be86ffb6bc13652aaac"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+      "bytes": 7011,
+      "sha256": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "c3fcca4bb4de35e894d4d60bee5f966c7fff8ed6",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "c3fcca4bb4de35e894d4d60bee5f966c7fff8ed6"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/geometry.py",
+      "bytes": 2214,
+      "sha256": "65cb954c065e2b95d6582b4ecf007343653d77e9e17135738a97a780d002c7b5",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "06671b30be6ef2aa4f6963fabb316f95cced5a8b",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "06671b30be6ef2aa4f6963fabb316f95cced5a8b"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/image.py",
+      "bytes": 10458,
+      "sha256": "c4b76a4f6fde5bb3ecb1d735bc3228a8aee3ca8d308ff5e27319a7e9dc830505",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "fb64c01f82bdb1c0437a5949b9e027dc09ebcdfe",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "fb64c01f82bdb1c0437a5949b9e027dc09ebcdfe"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13332,
+      "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "fccd070ef03c66c146415843b3ad81bda9355804",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "fccd070ef03c66c146415843b3ad81bda9355804"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "bytes": 4493,
+      "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "dfa1410655484266f0dc23b127b8fa12cee37dcb",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "dfa1410655484266f0dc23b127b8fa12cee37dcb"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 11734,
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "72602dc77eccf01d1a965972af09d1d616d9cbac",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "72602dc77eccf01d1a965972af09d1d616d9cbac"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "bytes": 7972,
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "2a95114a510c4f711244133bee2a99c5b1bc5840",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "2a95114a510c4f711244133bee2a99c5b1bc5840"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "0af7a4f592209710d0f6831ead2291c8cd45465f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "0af7a4f592209710d0f6831ead2291c8cd45465f"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "bytes": 4104,
+      "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "f018957486411e7c479b0aa6aaaf45daeffeac87",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "f018957486411e7c479b0aa6aaaf45daeffeac87"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "bytes": 3620,
+      "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5990cbfd3fb8181c1464b19c9fe15ee2d4aeed8f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5990cbfd3fb8181c1464b19c9fe15ee2d4aeed8f"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "bytes": 8532,
+      "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "8bb46dbfd561a85e959e2cc02cc448935f9129d3",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "8bb46dbfd561a85e959e2cc02cc448935f9129d3"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "bytes": 8643,
+      "sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "65188e6d7000c8242470a23933ab83d715440c1d",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "65188e6d7000c8242470a23933ab83d715440c1d"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/optional.py",
+      "bytes": 1032,
+      "sha256": "e1cac86b06d1be9068c8cac87683b6e317a5a4d53bdc655c6b076703a9174857",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "44a1a0fbfe29a1a7f3a9b00ce1a7f69f29696b27",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "44a1a0fbfe29a1a7f3a9b00ce1a7f69f29696b27"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "bytes": 3820,
+      "sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "21ccc7d4792137dd9ed97495b78a2a3224357927",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "21ccc7d4792137dd9ed97495b78a2a3224357927"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "bytes": 2694,
+      "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "328e184bbbfebabe0405c1f67068905f0b721ff2",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "328e184bbbfebabe0405c1f67068905f0b721ff2"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "bytes": 5321,
+      "sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "854804f8e190f2d4798f9034740c71e5cddcf309",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "854804f8e190f2d4798f9034740c71e5cddcf309"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/waits.py",
+      "bytes": 1047,
+      "sha256": "dd34a7fd06832568d8f78e2b3e89946432d57111500bc0347bdd4d4c438beccf",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "cb6d2696db553bf8dfbf46657197dc1bd836586e",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "cb6d2696db553bf8dfbf46657197dc1bd836586e"
+      }
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/wincap.py",
+      "bytes": 12947,
+      "sha256": "e464ae003b3f1a47c2c9aa604cda09a4f90f9cc6cb60317f3b3726f03133d9fb",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6a190d1d87a814726080fc63fee7097133a36c6e",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6a190d1d87a814726080fc63fee7097133a36c6e"
+      }
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6777831,
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7"
+      }
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301569,
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6db073d14b937603173ae2b4dd65ae6366bdf57d"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "82ab216b0568f56d92662356d6f0990b33f897d0",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "82ab216b0568f56d92662356d6f0990b33f897d0"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6d32ea70c71a62713cb4c10b27330540a09441a0",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6d32ea70c71a62713cb4c10b27330540a09441a0"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "d17d67f9ac2a3a10791a53c3c706a67efc626e60",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "d17d67f9ac2a3a10791a53c3c706a67efc626e60"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "5d0c13e99777641a62cb58ad5ace0f0432e423ca",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "5d0c13e99777641a62cb58ad5ace0f0432e423ca"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4588,
+      "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e2e80381d56c82e80a81778420876898cb92544b",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e2e80381d56c82e80a81778420876898cb92544b"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-keychain-helper.m",
+      "bytes": 4717,
+      "sha256": "1e1dfdea92eca0f86fccc52016db14576878e2f1bbc90bbe8257638fc36d5615",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "e690724c5dc2e536ec4fdfe2ea465f22785d48eb",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "e690724c5dc2e536ec4fdfe2ea465f22785d48eb"
+      }
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f"
+      }
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+      "commits": {
+        "5e24634307e2b5a3301409e5c8a1f2efa670cbe0": "c177ca6ed174c2efa7b42a7da1c90d5e89b506be",
+        "76248e2be527d74f38b227a7dc8158e4b59dbbc6": "c177ca6ed174c2efa7b42a7da1c90d5e89b506be"
+      }
+    }
+  ],
+  "scenarioSourceChecks": [
+    {
+      "path": "development/default-v1/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "development/default-v1/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "development/renderer-v1/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "development/renderer-v1/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "development/finder-v2/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "development/finder-v2/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/default/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/default/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/renderer/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/renderer/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/finder/source-before.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/finder/source-after.json",
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+      "matched": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "observer-code-review-v1.json",
+      "sha256": "81321c330850455c8ef2212886debca7bfe5b22853e520158bc77997540a7cc0",
+      "bytes": 7589
+    },
+    {
+      "path": "development/report.json",
+      "sha256": "e73aba4a59bb64ae4c6235390bbcf7ff6e33ba691a034b8307e6ef20c2c7397a",
+      "bytes": 2827
+    },
+    {
+      "path": "independent-v1/acceptance-review.json",
+      "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+      "bytes": 14970
+    },
+    {
+      "path": "independent-v1/finder-acceptance-review.json",
+      "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5",
+      "bytes": 10103
+    },
+    {
+      "path": "independent-v1/aggregate-v2.json",
+      "sha256": "c00cdbb98b1af10c4db630aa9fe01797ab5d501c2c9db50435e633070faf5f92",
+      "bytes": 3416
+    }
+  ],
+  "scope": "Current-source selected scenes refresh only,106 checked native/Python/backend/fixture files and actual helper complete bytes excluding UUID/signature compared to accepted default1cc. No full old350 suite rerun or raw helper/TCC identity claim. Existing renderer action limitation and external P5 gates remain.",
+  "acceptedIndependentAssertions": 74,
+  "phaseStatus": "in_progress"
+}

@@ -1,0 +1,43 @@
+PASS ⑥ server.js NATIVE_TOOL_TIER git_commit === 'exec'
+PASS ⑥ server.js git_diff/git_log === 'read'
+PASS ⑥ server.js git_status === 'read'
+PASS ⑥ TOOL_REQUIRES git_commit requires Git and process supervision
+PASS ⑥ server.js GIT_SAFE_FLAGS 含 core.fsmonitor=(中和 fsmonitor RCE)
+PASS ⑥ runGit 对所有 git 调用前置 GIT_SAFE_FLAGS
+PASS ⑥ gitDiff 加 --no-ext-diff --no-textconv(封 diff.external/textconv 面)
+PASS ⑥ GIT_SAFE_FLAGS 不含空 diff.external=(会破坏正常 diff)
+PASS ⑥ app.js 定义 renderDiffView('diff-view')
+PASS ⑥ renderDiffView 逐行以 row.textContent 赋值
+PASS ⑥ renderDiffView 内不使用 innerHTML
+PASS ⑥ styles.css 存在 .diff-add 规则
+PASS ⑥ styles.css 存在 .diff-del 规则
+PASS ⑥ .diff-add 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-del 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-add 用 var(--ok-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+PASS ⑥ .diff-del 用 var(--danger-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+PASS workbench listening
+PASS UI token scraped
+PASS ① git_status ok
+PASS ① git_status 报告 untracked >= 1 (got 1)
+PASS ① git_status 人话摘要含 分支/改动 (got "分支 main(还没有任何提交) · 1 个改动(含 1 个未跟踪)")
+PASS ② git_commit ok (已提交 d13cc70 「e2e: first commit」)
+PASS ② git_commit 返回 hash (got "d13cc70")
+PASS ② git_log 返回 commits
+PASS ② git_log 含该 commit message
+PASS ② git_log 携带 author
+PASS ③ git_diff ok
+PASS ③ git_diff 含 + 新行 (+HELLO WORLD)
+PASS ③ git_diff 含 - 旧行 (-hello world)
+PASS ④ 走私探针 git_diff 未崩溃(返回 ok)
+PASS ④ 走私目标文件未被创建(`--` 分隔防御生效)
+PASS ⑤ 仓库外 git_status ok:false(非崩溃)
+PASS ⑤ 人话引导错误含「Git 仓库」(got "这个文件夹还不是 Git 仓库")
+PASS ⑤b 工作区外的仓库:读类 git 拒(got {"ok":false,"error":"这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」","code":"not-allowed","cwd":"/var)
+   (⑥ 控制组:裸 git status 触发了 hook — 已武装,以下加固断言有效)
+PASS ⑦ git_status(恶意仓库)未崩溃
+PASS ⑦ 恶意 core.fsmonitor 未经 git_status 工具执行(GIT_SAFE_FLAGS 中和)
+PASS ⑦ 恶意 core.fsmonitor 未经 git_diff 工具执行
+PASS ⑦ git_diff(恶意 diff.external 仓库)仍正常产出 diff(--no-ext-diff 未破坏)
+PASS ⑦ 恶意 diff.external 未经 git_diff 工具执行(--no-ext-diff 中和)
+
+GIT E2E: ALL PASS

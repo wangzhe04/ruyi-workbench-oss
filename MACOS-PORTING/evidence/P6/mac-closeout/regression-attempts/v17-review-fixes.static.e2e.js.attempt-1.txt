@@ -1,0 +1,31 @@
+PASS S1: serveStatic 用 pathWithinRoot 段比较
+PASS S1: startsWith 前缀判定已移除
+PASS S2: 权属 sidecar 文件存在
+PASS S2: 上次同步值追踪(prevSyncedModel)
+PASS S2: 无条件 else delete settings.model 绝迹
+PASS S2: 仅权属可证时才删除
+PASS S3: processCommandLine 取证助手存在
+PASS S3: node.exe 需命令行佐证(image:node+cmdline)
+PASS S3: 裸 image:node 处死分支绝迹
+PASS S4: 模型给定 outputPath 过 guardFileToolPath 写闸
+PASS S5: uiMode 非法值回退 'simple'
+PASS S5: 回退 'pro' 绝迹
+PASS S6: orchestrate_agents schema maxItems=64
+PASS S6: schema maxItems:32 绝迹
+PASS S7: D6 按 TOOL_REQUIRES 目录可用判定
+PASS S8: window_screenshot 输出路径 protected 护栏
+PASS S8: get_clipboard_image 保存路径 protected 护栏
+PASS S8: audit 值级脱敏在
+PASS S8: read_file 二进制读(真字节预算)
+PASS S8: read_file 字符读旧实现绝迹
+PASS S8: launch_application 独立 wait_timeout
+PASS S8: ocr_click nth 越界自矛盾包络绝迹
+PASS S8: update.bat 双布局探测
+PASS S9: 端口唯一性审计真身在(lib/port-audit.js)且 run-all 引用
+PASS S9: capabilities 已从 KNOWN_FAILURE 毕业
+PASS U: 根内子路径 → true
+PASS U: 根自身 → true
+PASS U: 兄弟前缀目录(public-evil 形) → false(prefix bug 核心)
+PASS U: .. 逃逸 → false
+
+V17-REVIEW-FIXES STATIC E2E: ALL PASS

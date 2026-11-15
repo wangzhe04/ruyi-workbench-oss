@@ -1,0 +1,27 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay d5d7464a3492)
+[wb] UI: http://127.0.0.1:49647/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-help-viewer-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :49647
+PASS bootstrap 换到 token
+PASS ① id=user-guide 命中白名单 -> 200 ok
+PASS ① 信封含 {ok,id,lang,markdown}
+PASS ① 正文是真手册(含一级标题「如意 Ruyi 用户手册」)
+PASS ① 正文含真实 ## 小节标题(前端目录跳转的取材面): ## 1. 三分钟上手
+PASS ① title 取自正文一级标题
+PASS ① available 列出该文档的两种语言(前端据此决定要不要显示切换器)
+PASS ① 手册未超 512KB 上限,truncated=false 且 bytes 与磁盘一致
+PASS ② lang=en-US 取到英文本
+PASS ② 非法 lang 回落(config.locale=auto -> zh-CN),不报错
+PASS ② 不传 lang 时跟随 config.locale
+PASS ③ 未知 id -> 404 + 结构化信封 help.doc_unknown
+PASS ④ 穿越/绝对路径/裸文件名/空 id 一律 404(请求串永不进 path.join)
+PASS ④ lang 也走白名单:穿越串被当作非法值回落,不参与拼路径
+PASS ⑤ 无 token -> 403(ROUTE_AUTH token 级)
+PASS ⑤ 错 token -> 403
+PASS ⑥ id=admin-guide 走同一条通道
+PASS ⑦ POST 同路径不被本路由服务(status=403)
+PASS ⑧ 源码含缺文件降级分支 help.doc_missing(精简包不带 docs/ 时不 500)
+PASS ⑧ 白名单是源码常量,handler 里唯一的 path.join 是 (helpDocsDir(), fileName),请求串不参与拼路径
+
+HELP VIEWER E2E: ALL PASS

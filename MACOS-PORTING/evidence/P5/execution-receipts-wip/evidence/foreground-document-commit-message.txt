@@ -1,0 +1,12 @@
+docs(macos): archive qualified execution-receipt slice and open P5 gates
+
+Bind f671a004 to the independently qualified frozen source, exact archived
+source/artifact bytes, all raw successes/failures and immutable evidence indexes.
+Keep all original ten local and four external requirements, P5 in_progress,
+default-off activation and restore-lock-after-full-acceptance instructions.
+
+Independent checkpoint/document review: foreground-checkpoint-document-review-v1.json
+SHA62d9dbcc52ebdcb456b971d6206bf92f61d47a99ddd79282329762c021825a5a.
+Native capture/OCR design is separately reviewed and not runtime-qualified here.
+Raw failure logs retain original diagnostic whitespace; documentation/JSON and
+other files pass diff --check. No raw evidence was normalized or weakened.

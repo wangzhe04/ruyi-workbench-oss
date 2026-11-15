@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T12:12:46.532010+00:00",
+  "scope": "Independent read-only raw evidence and source review. Only this JSON written; no archived durable-history reacceptance.",
+  "parentReport": "MACOS-PORTING/evidence/P5/tool-effect-audit/current-entry-gap-v1.json",
+  "candidate": "7f95d654",
+  "verdict": "confirmed_original_P5_irreversible_classification_gap",
+  "phaseStatus": "in_progress",
+  "phaseCompletionRecommended": false,
+  "finding": "Both archived normal-entry allow turns return successful macro_run with input_sequence action_sent=true/event_count=2, but the same-trace turn_summary.irreversible is empty. Existing 31-case approval/receiver/audit assertions passed without testing this classification requirement.",
+  "evidence": [
+    {
+      "executor": "primary",
+      "path": "MACOS-PORTING/evidence/P5/durable-history/development/entry-v1/native/results.json",
+      "bytes": 210689,
+      "sha256": "9791c9e01e11055cf0244505c4c518cf795485995131dc01814fdfc37e1f2106",
+      "label": "ENTRY_APPROVAL_allow",
+      "sessionId": "sess_164e566856ebbebf",
+      "callId": "call_ENTRY_APPROVAL_allow",
+      "proxyName": "tool_invoke_exec",
+      "actualToolName": "ai_computer_control__macro_run",
+      "macroResult": {
+        "ok": true,
+        "success": true,
+        "completed": 2,
+        "failed": 0
+      },
+      "actualReturnedInputSequence": {
+        "step": 1,
+        "tool": "input_sequence",
+        "ok": true,
+        "result": {
+          "acted": true,
+          "action_sent": true,
+          "device_capabilities_normalized": false,
+          "event_count": 2,
+          "ok": true,
+          "pointer_profile": "exact",
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        }
+      },
+      "toolResultEventIndex": 9,
+      "summaryEventIndex": 15,
+      "summary": {
+        "type": "turn_summary",
+        "turnSeq": 1,
+        "filesChanged": [],
+        "commands": 0,
+        "artifacts": [],
+        "irreversible": [],
+        "traceId": "trace_0a009e13f6d62bae",
+        "ts": "2026-11-11T11:43:40.709Z"
+      },
+      "matchingTrace": true,
+      "confirmedGap": true,
+      "existingLog": {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/development/entry-v1/entry.txt",
+        "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+        "passLines": 31,
+        "receiverNeutralAndNativeAuditPassRecorded": true
+      }
+    },
+    {
+      "executor": "independent",
+      "path": "MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/native/results.json",
+      "bytes": 210588,
+      "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691",
+      "label": "ENTRY_APPROVAL_allow",
+      "sessionId": "sess_0778849607757eda",
+      "callId": "call_ENTRY_APPROVAL_allow",
+      "proxyName": "tool_invoke_exec",
+      "actualToolName": "ai_computer_control__macro_run",
+      "macroResult": {
+        "ok": true,
+        "success": true,
+        "completed": 2,
+        "failed": 0
+      },
+      "actualReturnedInputSequence": {
+        "step": 1,
+        "tool": "input_sequence",
+        "ok": true,
+        "result": {
+          "acted": true,
+          "action_sent": true,
+          "device_capabilities_normalized": false,
+          "event_count": 2,
+          "ok": true,
+          "pointer_profile": "exact",
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        }
+      },
+      "toolResultEventIndex": 9,
+      "summaryEventIndex": 15,
+      "summary": {
+        "type": "turn_summary",
+        "turnSeq": 1,
+        "filesChanged": [],
+        "commands": 0,
+        "artifacts": [],
+        "irreversible": [],
+        "traceId": "trace_521f4ad684a09e59",
+        "ts": "2026-11-11T11:48:56.006Z"
+      },
+      "matchingTrace": true,
+      "confirmedGap": true,
+      "existingLog": {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/output.txt",
+        "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+        "passLines": 31,
+        "receiverNeutralAndNativeAuditPassRecorded": true
+      }
+    }
+  ],
+  "sourceBindings": [
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "bytes": 11929,
+      "sha256": "3c70968cafa4bbf09ea7d71b993ee5cc01a9c95c29f31bc4f0e1372bf1536bec",
+      "gitBlobAt7f95": "f3b1884533f1e2e92b1f08a4cde898a5d800d75b",
+      "workingBytesMatch7f95": true,
+      "classificationUnchangedFrom96db": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 412191,
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41",
+      "gitBlobAt7f95": "4ced84405e24eed04d6139acfa06a5d8db1836d0",
+      "workingBytesMatch7f95": true,
+      "classificationUnchangedFrom96db": true
+    }
+  ],
+  "mechanism": {
+    "classification": "02f-turn-effect-kinds.js IRREVERSIBLE_BRIDGED_KIND omits macro_run, batch_actions, input_sequence and focus_window; irreversibleToolKind returns empty for these names. Bare nested tool names also fail its bare!==original bridge guard.",
+    "summary": "02-session-store.js:3035-3050 unwraps only the tool_invoke proxy, calls noteIrreversible once with outer macro name, and never examines actual returned results steps. Result parsing only sets row ok after a name has matched.",
+    "compoundSchema": "batch.py _run_batch caps requests at200 and returns results[{step,tool,ok,result|error}]. Returned records include validation failures as well as invoked steps, so presence or ok:false alone is not dispatched-action proof.",
+    "preexisting": "02f entire file and buildTurnSummary body are unchanged between96db15f6 and7f95d654. This gap predates the provider-history fix.",
+    "displayBoundary": "09-workflow.js:3580-3582 stores boundToolResultForDisplay output in toolCalls; line3882 builds the summary from that display copy. Compound evidence may be truncated before classification."
+  },
+  "boundedFixRecommendation": {
+    "scope": "Support direct input_sequence and actual returned macro_run/batch_actions steps through known ACC schemas; do not label every compound tool desktop just by outer name.",
+    "evidenceSource": "Derive a small bounded effect projection from original execution results before destructive display shrinking; never infer completed steps from requested macro args. Alternatively report evidence incomplete/unknown when only a truncated result remains.",
+    "bounds": "Allowlist ACC envelopes and leaf kinds; cap parsed bytes/depth/steps and output rows (existing50 ledger rows), preserve step/call attribution, avoid double counting. Handle bare nested names only in the verified compound context, not arbitrary objects named tool.",
+    "positive": "Known action_sent=true remains a desktop effect even when enclosing macro or verification later fails/cancels. Include other known successful desktop leaves such as focus_window only using their own truthful executed/acted contract.",
+    "negative": "Pure wait, readonly-only, empty, prevalidation-rejected, denied, pending-cancel before dispatch and explicit not_dispatched calls must produce no confirmed desktop-action row. A named step or ok:false by itself proves neither dispatch nor no effect.",
+    "unknown": "Preserve explicit uncertain/partial outcomes as possible effects with unknown status; never silently turn unknown into no-effect or completed-success. action_sent=false alone is not universal proof against another leaf effect or completed prefix. Unknown/truncated results must not invent confirmed leaves.",
+    "ledgerMeaning": "User-facing irreversible ledger describes known or explicitly possible effects outside journal rollback. It is not proof of application-level success, an exhaustive effect history, or a promise that desktop actions can be globally undone. Preserve that distinction through session folds/UI instead of reducing unknown to ok:true.",
+    "futureValidationOnly": [
+      "Actual same-turn summary for direct input_sequence and macro input plus focus",
+      "Wait/readonly/empty macros and deny/pending-cancel/not_dispatched: no confirmed desktop row",
+      "Failed/cancelled compound after known dispatched input: preserve effect",
+      "Unknown or truncated compound: explicit possible/incomplete evidence, no fabricated success",
+      "Bounds, bridge/proxy/bare nested attribution and summary folding preserve unknown semantics"
+    ]
+  },
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "newInputPosted": 0,
+    "processSignals": 0,
+    "processSnapshots": 0,
+    "signatureActions": 0,
+    "productSourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexEdits": 0,
+    "onlyWrite": "MACOS-PORTING/evidence/P5/tool-effect-audit/independent-gap-review-v1.json"
+  }
+}

@@ -1,0 +1,55 @@
+PASS A1 schedulerEnabledV1:false -> startScheduler 立即返回 false
+PASS A2 关着时既没有 interval 也没有 enabled 标
+PASS A3 关着时 <data>/scheduler/ 目录都不建(29 号文 §10:零后台开销、零持久化写入)
+PASS A4 开着时 startScheduler 返回 true
+PASS A5 开着但【零任务】时不起 interval(实测 taskCount=0 timerActive=false)
+PASS A6 零任务时仍然一个字节都不写
+PASS A7[WCW_SCHEDULER_CLOCK_FILE] 整个 src/ 里只有 13s 的一处 process.env 读取点(实测 ["13s-scheduler.js x1"])
+PASS A7[WCW_SCHEDULER_TICK_MS] 整个 src/ 里只有 13s 的一处 process.env 读取点(实测 ["13s-scheduler.js x1"])
+PASS A7[WCW_SCHEDULER_ASK_WAIT_MS] 整个 src/ 里只有 13s 的一处 process.env 读取点(实测 ["13s-scheduler.js x1"])
+PASS A7[WCW_SCHEDULER_CRASH_AT] 整个 src/ 里只有 13s 的一处 process.env 读取点(实测 ["13s-scheduler.js x1"])
+PASS A7[WCW_SCHEDULER_TIMEOUT_MS] 整个 src/ 里只有 13s 的一处 process.env 读取点(实测 ["13s-scheduler.js x1"])
+PASS A8[WCW_SCHEDULER_CLOCK_FILE] 本进程没设这个旗 —— 下面那条断言才算数
+PASS A8[WCW_SCHEDULER_TICK_MS] 本进程没设这个旗 —— 下面那条断言才算数
+PASS A8[WCW_SCHEDULER_ASK_WAIT_MS] 本进程没设这个旗 —— 下面那条断言才算数
+PASS A8[WCW_SCHEDULER_CRASH_AT] 本进程没设这个旗 —— 下面那条断言才算数
+PASS A8[WCW_SCHEDULER_TIMEOUT_MS] 本进程没设这个旗 —— 下面那条断言才算数
+PASS A9 不带旗时 tick 是生产默认 30 s(实测 30000)
+PASS workbench up
+PASS runtime token available
+PASS B1 建一条 once reminder
+PASS B2 到点【只】触发一次(registered 恰 1 条;实测 1)
+PASS B3 结果 succeeded、触发模式 ontime(实测 succeeded/ontime)
+PASS B4 occurrenceKey = taskId@dueIso
+PASS B5 once 跑过之后 nextRunAt 变空(它没有下一次)
+PASS B6 再拨三天也不会第二次触发(过期的 once 不复活)
+PASS H1 reminder 载荷【不开会话】(前 0 后 0)
+PASS H2 reminder 载荷零用量台账(实测 0 行)
+PASS H3 reminder 的 fires 行不带 sessionId
+PASS C1 建一条 daily
+PASS C2 连推两天 -> 恰两次(实测 2)
+PASS C3 两次的 dueAt 正好差 24 小时(本地墙钟同一时刻)
+PASS D1 建一条 */1 cron
+PASS D2 拨过三分钟 -> 三次(实测 3)
+PASS E1 两条任务的下次触发时刻逐字相同(同刻到点)
+PASS E2 C18:同拍里排在慢任务后面的快任务(reminder)在慢任务(3000ms)完成前就已 reconciled(实测耗时 163ms;fires 里 eFast reconciled 行数 1)
+PASS E3 慢任务最终自己也跑完了,只是不再挡道(实测 succeeded)
+PASS I1 建一条 prompt 任务
+PASS I2 prompt 载荷跑完 outcome=succeeded(实测 succeeded / undefined)
+PASS I3 fires 行带 sessionId(产出线程直达)
+PASS I4 产出线程的 origin 是 'schedule'(02:2819 为本波留的第三值;实测 schedule)
+PASS I5 launchedBy 仍是 steward —— 13i 第四源按它收 done/failed,这条路不能断
+PASS I6 prompt 载荷【有】用量台账(与 H2 的 reminder 零用量成对)
+PASS J1 建一条会撞权限的 prompt 任务
+PASS J2 无人值守遇 ask:等满 900 ms 后【拒】,本次记 needs_you(实测 needs_you / permission_denied)
+PASS J3 【子集律】那个文件一个字节都没被写出来 —— 到时是拒,永不放行
+PASS J4 任务 state.lastResult 也是 needs_you(用户回来「立即运行」重跑)
+PASS G1 建一条 maxRunsPerDay:1 的每分钟任务
+PASS G2 第二次撞单任务日上限 -> skipped/task_daily_cap(实测 succeeded/ skipped/task_daily_cap)
+PASS G3 撞上限那一次【没有】 registered 行 —— 它压根没起来
+PASS F1 建一条注定失败的 prompt 任务
+PASS F2 连着三次 failed(实测 failed,failed,failed)
+PASS F3 第三次那行带 tripped(熔断)
+PASS F4 熔断把任务关掉(enabled=false consecutiveFailures=3)
+PASS F5 熔断之后再拨时钟也不再触发(熔断优先于重试)
+ALL PASS

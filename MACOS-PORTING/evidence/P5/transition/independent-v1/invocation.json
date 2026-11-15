@@ -1,0 +1,26 @@
+{
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:09:35.180505+00:00",
+  "pid": 43726,
+  "argv": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-capture-transition.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-transition-worktree",
+  "environment": {
+    "HOME": "/tmp/p5ti-nr94a678/h",
+    "USERPROFILE": "/tmp/p5ti-nr94a678/u",
+    "APPDATA": "/tmp/p5ti-nr94a678/a",
+    "LOCALAPPDATA": "/tmp/p5ti-nr94a678/l",
+    "WCW_DATA_DIR": "/tmp/p5ti-nr94a678/w",
+    "RUYI_HOME": "/tmp/p5ti-nr94a678/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5ti-nr94a678/c",
+    "TMPDIR": "/tmp/p5ti-nr94a678/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_P5_TRANSITION_REQUIRED": "1",
+    "RUYI_P5_TRANSITION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_TRANSITION_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/independent-v1/native",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "attempt": 1
+}

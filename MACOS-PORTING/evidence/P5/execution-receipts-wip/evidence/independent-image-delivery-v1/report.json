@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T19:54:23.026099+00:00",
+  "status": "paused_before_first_test_start_freeze_v1_invalidated_by_parent",
+  "verdict": "not_executed_not_qualified",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "freezeObserved": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/image-delivery-freeze-v1.json",
+    "bytes": 28435,
+    "sha256": "5397acf58e2436cef24a27e86dffcb8e89f3df674a8a0c07a5446777bb9e1948",
+    "expectedAtRead": "5397acf58e2436cef24a27e86dffcb8e89f3df674a8a0c07a5446777bb9e1948",
+    "sourceCount": 112,
+    "artifactCount": 3
+  },
+  "readOnlyPreparation": "Read freeze, macos-execution-images fixture and existing primary targeted/regression logs. Resolved target62 and17-file grouping. No test runner or native command was started.",
+  "invalidationFromParent": [
+    "Three stale inventory/README counts found in pure fast gate: docs600/288, killowners375, session-save13ac1",
+    "Source review found rewindBump head-publication/lost-ack path can incorrectly roll back highwater; production fix and new unit require v2 freeze"
+  ],
+  "plannedSequenceOnly": [
+    "Actual synthetic image root/provider/SDK fixture26",
+    "Original actual read-only dispatch31",
+    "desktop-image-history/dispatch/runtime/ledger targeted62",
+    "Actual required-context38",
+    "desktop-execution-dispatch+desktop-execution-runtime regression17",
+    "Module/route/durable static and buildcheck"
+  ],
+  "execution": {
+    "testCommandsStarted": 0,
+    "nativeOrGuiStarted": 0,
+    "inFlightOwnProcesses": 0,
+    "sourceArtifactExecutionCheckpoints": 0,
+    "passed": null,
+    "failed": null,
+    "skipped": null,
+    "productOrTestEdits": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "scopeBoundary": "Synthetic PNG delivery/protected storage only, not native screenshot, user-history restoration, input/held/lock/TCC or full P5. No v1 runtime result exists to transfer to v2.",
+  "next": "Wait for explicit v2 freeze and source review completion; qualify the changed source with the newly specified suites, preserving this unexecuted v1 record.",
+  "phaseStatus": "in_progress",
+  "fullP5Acceptance": false
+}

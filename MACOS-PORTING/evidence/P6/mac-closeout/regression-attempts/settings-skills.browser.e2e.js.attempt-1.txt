@@ -1,0 +1,66 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS K0 种下用户一键任务 e2e-pb-a
+PASS K0 种下用户一键任务 e2e-pb-b
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS K1a 设置弹窗打开了
+PASS K1b 点「技能与模板」页签切过去了
+PASS K1c「技能」段在，是 section.settings-section 且有 h4.settings-subhead（实见 {"section":true,"head":"技能"}）
+PASS K1c「一键任务」段在，是 section.settings-section 且有 h4.settings-subhead（实见 {"section":true,"head":"一键任务"}）
+PASS K1c「提示词模板」段在，是 section.settings-section 且有 h4.settings-subhead（实见 {"section":true,"head":"提示词模板"}）
+PASS K1d 一键任务段列出了两条用户一键任务
+PASS K1e 页面上没有漏出的 i18n 键或未替换的占位（干净）
+PASS K2a 技能段列出了用户技能
+PASS K2b 用户技能有「删除」键
+PASS K2c 其余（内置）技能没有删除键（20 行，带删除键 0）
+PASS K2d 每行有 role=switch 的「常驻」开关
+PASS K2e 打开「常驻」→ residentSkills 落盘（0 → 1）
+PASS K2f 开关回显为开，并且「已常驻 n / 8 个」跟着变
+PASS K2g 关掉「常驻」→ 从 residentSkills 摘掉
+PASS K2h「打开技能库」打开了现有 #skillModal
+PASS K3a 点「删除」弹出确认框（沿用技能库那一份确认件）
+PASS K3b 第一下点确认只是 arm（按钮变成「再次点击确认删除」）
+PASS K3c arm 之后技能还在服务端
+PASS K3d 第二下才真删：服务端注册表里没有这个技能了
+PASS K3e 技能目录也从磁盘上没了
+PASS K3f 设置页里那一行没了
+PASS K3g 删完没有顺手把技能库弹窗打开
+PASS K4a 内置一键任务（16 个）不列成行，只在说明里报个数
+PASS K4b 行里只有用户的两条
+PASS K4c 点「改名」后该行变成输入框
+PASS K4d 输入框里是当前名字
+PASS K4e 空名字不会存（服务端名字没变）
+PASS K4f 改名后服务端同 id 的 title 变了
+PASS K4g 改名没碰其它字段（promptTemplate/desc/inputs/icon 原样）
+PASS K4h 页面上那一行显示新名字
+PASS K4i 同 id 覆盖，没有多出一条
+PASS K4j 点「删除」弹出确认框，点取消
+PASS K4k 取消 → 一键任务还在服务端
+PASS K4l 再点「删除」，这次确认
+PASS K4m 确认后服务端读不到这条了
+PASS K4n 页面上那一行没了
+PASS K4o 另一条没被连带删掉
+PASS K4p 删最后一条
+PASS K4q 服务端也没了
+PASS K4r 用户一键任务删光后出空态句（p.setcat-empty.muted）
+PASS K4s 服务端用户一键任务确实是零
+PASS K5a 切走再切回「技能与模板」页签（模板每次进来重读）
+PASS K5b 模板段列出了两条
+PASS K5c 注明了只保存在这台电脑的这个浏览器里
+PASS K5d 点「编辑」后该行变成名称输入框＋内容文本框
+PASS K5e 名称留空不会存
+PASS K5f 改名＋改内容落回 localStorage，另一条没动
+PASS K5g 页面上显示新名字
+PASS K5h 删除先弹确认，点取消
+PASS K5i 取消 → 两条都在
+PASS K5j 再删，这次确认
+PASS K5k localStorage 里只剩「翻译」
+PASS K5l 页面上只剩一行
+PASS K5n 把最后一条也删了
+PASS K5o 模板删光后出空态句（p.setcat-empty.muted）
+PASS K6a 页面没有未捕获异常（无）
+PASS K6b 页面没有 console.error（无）
+
+SETTINGS SKILLS BROWSER E2E: ALL PASS

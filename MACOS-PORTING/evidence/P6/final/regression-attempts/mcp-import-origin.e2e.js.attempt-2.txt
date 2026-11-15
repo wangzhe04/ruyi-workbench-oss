@@ -1,0 +1,28 @@
+PASS 第一次启动:workbench up
+PASS 第一次启动:X 被 autoImportClaudeCodeMcp 拉进 config
+PASS 第一次启动:X.origin === 'claude-code'（实得 "claude-code"）
+PASS Y（用户自己写在 config 里的）不带 origin —— 缺省即 Ruyi 所有
+PASS 第二次启动:workbench up
+PASS 第二次启动:日志里【没有】mcp add-json origin-x（日志：""）
+FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）
+PASS 第三次启动（显式再导入前）:workbench up
+PASS 显式再导入 origin-x 成功（200 {
+  "ok": true,
+  "added": [],
+  "updated": [
+    "origin-x"
+  ],
+  "skipped": []
+}）
+PASS 显式再导入之后 X 的 origin 被清掉（实得 undefined）
+PASS 第四次启动（显式再导入后）:workbench up
+FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：""）
+PASS s sanitizeExternalMcpServer 只放行白名单 origin 值(claude-code/ruyi/codex/kimi)，其它丢弃（缺省不补字段＝存量视为 ruyi）
+PASS s autoImportClaudeCodeMcp 给新导入条目按来源打 origin(~/.claude.json 来的是 claude-code)
+PASS s syncMcpServersToClaude 跳过 claude-code 来源
+PASS s /api/mcp upsert 落盘时清掉 origin（用户接管）
+PASS s Kimi 同步只跳过 kimi 来源(从 Kimi 导进来的不写回),claude-code 来源照常同步(1 处 origin)
+
+MCP IMPORT ORIGIN E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0UEUiK

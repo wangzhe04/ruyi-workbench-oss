@@ -1,0 +1,4 @@
+External handoff fixture http://127.0.0.1:49559/p4-external-handoff
+Interactive fixture /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-9cgx8H
+Interactive fixture ready /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-9cgx8H
+{"code":0,"signal":null}

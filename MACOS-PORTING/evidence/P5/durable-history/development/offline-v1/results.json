@@ -1,0 +1,267 @@
+{
+  "targetServer": "/private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/app/server.js",
+  "serverSha256": "817ae75eb847e7af3f68d171f39735eb89ef5f61bb62e85107b93586ad97bd35",
+  "turns": [
+    {
+      "label": "HISTORY_CRASH_AFTER_PREFIX",
+      "id": "sess_4d8503091b5b1403",
+      "calls": [
+        {
+          "name": "tool_invoke_edit",
+          "args": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work/owned.txt",
+              "content": "completed prefix"
+            }
+          },
+          "id": "call_1"
+        },
+        {
+          "name": "request_user_input",
+          "args": {
+            "questions": [
+              {
+                "question": "Offline pending barrier",
+                "options": [
+                  "a",
+                  "b"
+                ]
+              }
+            ]
+          },
+          "id": "call_2"
+        }
+      ],
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_4d8503091b5b1403",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "HISTORY_CRASH_AFTER_PREFIX",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work",
+            "createdAt": "2026-11-11T11:13:51.014Z",
+            "updatedAt": "2026-11-11T11:13:51.015Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_4d8503091b5b1403",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "ed5e8fcab556",
+            "driverRunId": "drun_357c63119a1ff0dc",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T11:13:51.116Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:63791/v1",
+          "args": [],
+          "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work",
+          "model": "fake-model",
+          "permissionMode": "bypass",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 47,
+          "availableTools": 73,
+          "bridgedTools": 0,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core",
+            "files_read",
+            "files_write",
+            "code"
+          ],
+          "toolSchemaTokens": 12900,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.391Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.393Z"
+        },
+        {
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "type": "context_estimate",
+          "contextTokens": 15640,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T11:13:51.395Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_edit\",\"arguments\":\"{\\\"name\\\":\\\"file_write\\\",\\\"arguments\\\":{\\\"path\\\":\\\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work/owned.txt\\\",\\\"content\\\":\\\"completed prefix\\\"}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.400Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"call_2\",\"type\":\"function\",\"function\":{\"name\":\"request_user_input\",\"arguments\":\"{\\\"questions\\\":[{\\\"question\\\":\\\"Offline pending barrier\\\",\\\"options\\\":[\\\"a\\\",\\\"b\\\"]}]}\"}}]},\"finish_reason\":null}]}",
+          "seq": 1,
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.401Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 2,
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.401Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_1",
+          "name": "tool_invoke_edit",
+          "input": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work/owned.txt",
+              "content": "completed prefix"
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.403Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_1",
+          "content": {
+            "ok": true,
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG/work/owned.txt",
+            "op": "create",
+            "bytes": 16,
+            "sourceLineEnding": "none",
+            "writtenLineEnding": "none",
+            "encoding": "utf8",
+            "proxyNote": "file_write 已在你的工具表里:下次直接调用 file_write,不要再经 tool_invoke_*"
+          },
+          "isError": false,
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.416Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_2",
+          "name": "request_user_input",
+          "input": {
+            "questions": [
+              {
+                "question": "Offline pending barrier",
+                "options": [
+                  "a",
+                  "b"
+                ]
+              }
+            ]
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.418Z"
+        },
+        {
+          "type": "ask_user",
+          "id": "question_69c6a157e75488a2",
+          "questionId": "question_69c6a157e75488a2",
+          "toolUseId": "call_2",
+          "questions": [
+            {
+              "id": "question_1",
+              "header": "",
+              "question": "Offline pending barrier",
+              "answerMode": "single",
+              "multiSelect": false,
+              "allowOther": true,
+              "otherLabel": "",
+              "otherPlaceholder": "",
+              "options": [
+                {
+                  "id": "option_1",
+                  "label": "a",
+                  "description": ""
+                },
+                {
+                  "id": "option_2",
+                  "label": "b",
+                  "description": ""
+                }
+              ]
+            }
+          ],
+          "deadlineAt": 1796542631417,
+          "timeoutMs": 2147000000,
+          "traceId": "trace_87899fd2a4fd6bd6",
+          "ts": "2026-11-11T11:13:51.418Z"
+        }
+      ],
+      "sent": true
+    }
+  ],
+  "snapshots": [],
+  "cleanups": [
+    {
+      "killed": [
+        71162
+      ],
+      "terminated": 1,
+      "alreadyExited": 0,
+      "unconfirmed": 0,
+      "scope": "observed-tree",
+      "incomplete": false
+    }
+  ],
+  "observed": [
+    {
+      "pid": 71162,
+      "ppid": 71159,
+      "created": "1794395630874852",
+      "name": ""
+    }
+  ],
+  "retainedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-Xz1RSG",
+  "scope": "Offline real file effect/pending control call, actual root-only process death and GET-only restart. No desktop input or ACC dispatch/wait-entry/terminal receipt acceptance."
+}

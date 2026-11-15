@@ -1,0 +1,34 @@
+PASS 静态扫〔带 RUYI_HOME 的 spawn-family 调用〕扫到了东西(226 处 >= 下限 100)
+PASS 件数锁定:226 处 == 常量 226(新增/删除夹具后请同步常量并注明来路;其中 *.e2e.js 内 220 处)
+PASS 每一处都 spread process.env —— 隔离子进程的家目录只有这一条来路
+PASS 守卫覆盖 child_process.spawn
+PASS 守卫覆盖 child_process.spawnSync
+PASS 守卫覆盖 child_process.execFile
+PASS 守卫覆盖 child_process.execFileSync
+PASS 判据源从 RUYI_REAL_HOME 取真机家(run-all 注入后夹具看不见真机家)
+PASS run-all 引入了判据源 lib/fixture-home
+PASS run-all 给夹具子进程按【每件独立】注入临时家(fixtureChildEnv({ perTest: true }))
+PASS run-all 以 --require 把守卫装进每件夹具
+PASS 反向:NODE_OPTIONS 那套没被误用(它吃引号/反斜杠,本仓路径含空格必挂)
+PASS 探针①(绿)带 RUYI_HOME 且家目录同指临时家 -> 放行(status=0)
+PASS 探针②(红)不 spread process.env -> 守卫当场红退出(status=1)
+PASS 探针③(红)USERPROFILE 指向真机家 /Users/jiming -> 守卫当场红退出(status=1)
+PASS 探针④(绿)不带 RUYI_HOME 的子进程照常放行(status=0)
+PASS 本件语境自洽:真机家 /Users/jiming 与探针临时家不同
+PASS Mac browser fixture verifies actual owned processes/profiles and cleans its own external tree
+PASS 开浏览器的夹具扫得到（实得 31 件；扫不到 = 本条静默失效）
+PASS 每一件都收尸（stopRuyiTestBrowsers）—— 漏的会攒断头 Edge，把后面所有件的冷启动拖慢
+PASS 公共夹具 lib/browser-fixture 的 close() 收浏览器（killTree ＋ 按本件 profile 收尸）
+PASS 用公共夹具的件扫得到（实得 67 件）
+PASS 每一件用公共夹具的都 await 过 .close()
+PASS run-all 的 PARALLEL_EXCLUSIVE 名单扫得到（扫不到 = 本条静默失效）
+PASS 自己算 P95 的夹具扫得到（实得 2 件；扫不到 = 本条静默失效）
+PASS 每一件都排进独占桶 —— 墙钟判据在并行桶里量的是调度噪声，不是产品
+PASS 一次性启动浏览器清册为 dom-smoke 一件（实得 dom-smoke.e2e.js）
+PASS 每一件都排进独占桶 —— 把启动结果当断言的件对启动期抢占最敏感
+PASS 写死墙钟上界的夹具扫得到（实得 31 件 63 处；扫不到 = 本条静默失效）
+PASS 件数锁定：31 件 == 常量 31（新增／改判后请同步常量并注明来路；实得 agent-deadlock-watchdog.e2e.js、agent-loop.e2e.js、agent-mode-v2.e2e.js、agent-node-limits.e2e.js、asr-warmup.e2e.js、autonomy-durability.e2e.js、boot-listen-budget.e2e.js、boot-resume-parallel.e2e.js、bridge-cancel-timeout.e2e.js、budget-guard.e2e.js、cli-probe-stall.e2e.js、composer-voice-warmup.browser.e2e.js、desktop-probe-status.e2e.js、event-stream-client.browser.e2e.js、event-stream.e2e.js、focus-rail.browser.e2e.js、long-tool-liveness-steer.e2e.js、mission-index-scale.e2e.js、one-workbench-frame.browser.e2e.js、perf.e2e.js、scheduler-ready-queue.e2e.js、scheduler.e2e.js、session-permission-mode.e2e.js、steward-board.e2e.js、steward-deferred-permission.e2e.js、steward-guardrails.e2e.js、steward-viewing-gate.e2e.js、summary-parallel-cap.e2e.js、thread-arbiter.e2e.js、turn-stop-supersede.e2e.js、workspace-resolve.e2e.js）
+PASS 每一处要么所在文件进独占桶，要么就地写了「墙钟上界豁免：理由」—— 写死的秒数窗口在并行桶里量的是调度噪声
+PASS 没有孤儿豁免（每句「墙钟上界豁免」都挂在一处真被扫到的断言上，理由至少 12 个字）
+
+FIXTURE HOME STATIC E2E: ALL PASS

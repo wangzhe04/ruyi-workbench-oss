@@ -1,0 +1,3748 @@
+{
+  "ok": true,
+  "coordinate_space": "macos_global_points",
+  "element_ttl_seconds": 60,
+  "nodes": 142,
+  "nodes_scanned": 142,
+  "protocolVersion": 1,
+  "scope": "window",
+  "success": true,
+  "tree": {
+    "actions": [
+      "AXRaise"
+    ],
+    "automation_id": "FinderWindow",
+    "bounds": {
+      "height": 436,
+      "width": 920,
+      "x": 395,
+      "y": 172
+    },
+    "center": [
+      855,
+      390
+    ],
+    "children": [
+      {
+        "actions": [],
+        "bounds": {
+          "height": 436,
+          "width": 920,
+          "x": 395,
+          "y": 172
+        },
+        "center": [
+          855,
+          390
+        ],
+        "children": [
+          {
+            "actions": [
+              "AXScrollLeftByPage",
+              "AXScrollRightByPage",
+              "AXScrollUpByPage",
+              "AXScrollDownByPage"
+            ],
+            "automation_id": "_NS:61",
+            "bounds": {
+              "height": 384,
+              "width": 140,
+              "x": 395,
+              "y": 224
+            },
+            "center": [
+              465,
+              416
+            ],
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu"
+                ],
+                "automation_id": "_NS:8",
+                "bounds": {
+                  "height": 948,
+                  "width": 142,
+                  "x": 394,
+                  "y": 223
+                },
+                "center": [
+                  465,
+                  697
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 224
+                    },
+                    "center": [
+                      465,
+                      244
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 224
+                        },
+                        "center": [
+                          465,
+                          244
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 234
+                            },
+                            "center": [
+                              480,
+                              244.5
+                            ],
+                            "element_ref": "FF68A6D7-6CDB-44CA-BB9D-E46EA9DCD7EB",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 234
+                            }
+                          }
+                        ],
+                        "element_ref": "12512976-6C30-4BD4-B2C5-423B268408E7",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 224
+                        }
+                      }
+                    ],
+                    "element_ref": "97CF70CB-F480-43EF-9B33-39DDB8576438",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 224
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 264
+                    },
+                    "center": [
+                      465,
+                      284
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 264
+                        },
+                        "center": [
+                          465,
+                          284
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 274
+                            },
+                            "center": [
+                              480,
+                              284.5
+                            ],
+                            "element_ref": "A5D4AA2E-A6CC-45A4-AF00-7F33EDC0820B",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 274
+                            }
+                          }
+                        ],
+                        "element_ref": "697F4EB1-0A16-43D0-B441-756DAF045A84",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 264
+                        }
+                      }
+                    ],
+                    "element_ref": "77FA2B5E-BFBA-4CE3-BA48-7DCF222CFD48",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 264
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 19,
+                      "width": 140,
+                      "x": 395,
+                      "y": 317
+                    },
+                    "center": [
+                      465,
+                      326.5
+                    ],
+                    "children": [
+                      {
+                        "actions": [],
+                        "bounds": {
+                          "height": 19,
+                          "width": 120,
+                          "x": 405,
+                          "y": 317
+                        },
+                        "center": [
+                          465,
+                          326.5
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "automation_id": "xSidebarHeader",
+                            "bounds": {
+                              "height": 21,
+                              "width": 122,
+                              "x": 410,
+                              "y": 316
+                            },
+                            "center": [
+                              471,
+                              326.5
+                            ],
+                            "element_ref": "510F0894-7F33-46C6-B1F0-CE07BB2B7248",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 122,
+                              "x": 410,
+                              "y": 316
+                            }
+                          }
+                        ],
+                        "element_ref": "C13895BD-BA73-454D-9CBB-9E67E521BACA",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 19,
+                          "width": 120,
+                          "x": 405,
+                          "y": 317
+                        }
+                      }
+                    ],
+                    "element_ref": "D77911D9-73BA-477E-A35F-7F9ECA70D4AB",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 19,
+                      "width": 140,
+                      "x": 395,
+                      "y": 317
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 336
+                    },
+                    "center": [
+                      465,
+                      356
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 336
+                        },
+                        "center": [
+                          465,
+                          356
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 346
+                            },
+                            "center": [
+                              480,
+                              356.5
+                            ],
+                            "element_ref": "76001AB2-5429-44BA-8B4D-A3DF1D7B74B7",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 346
+                            }
+                          }
+                        ],
+                        "element_ref": "4BFB721B-5121-47D4-AE33-D4E910DA7D62",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 336
+                        }
+                      }
+                    ],
+                    "element_ref": "13198410-A509-4F45-80C7-9972A83033F3",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 336
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 376
+                    },
+                    "center": [
+                      465,
+                      396
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 376
+                        },
+                        "center": [
+                          465,
+                          396
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 386
+                            },
+                            "center": [
+                              480,
+                              396.5
+                            ],
+                            "element_ref": "0549FEFC-A437-4F38-BD98-00C7F607B98A",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 386
+                            }
+                          }
+                        ],
+                        "element_ref": "EA8B266B-958D-48F0-893C-000F0FEBD479",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 376
+                        }
+                      }
+                    ],
+                    "element_ref": "003EBC3D-0868-4981-A573-4C5536854EC7",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 376
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 416
+                    },
+                    "center": [
+                      465,
+                      436
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 416
+                        },
+                        "center": [
+                          465,
+                          436
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 426
+                            },
+                            "center": [
+                              480,
+                              436.5
+                            ],
+                            "element_ref": "F3C51052-0A19-4F8D-9ED0-A5FAB82A1E58",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 426
+                            }
+                          }
+                        ],
+                        "element_ref": "FCD155F0-844C-4545-BBFB-5E83FFB7D9A9",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 416
+                        }
+                      }
+                    ],
+                    "element_ref": "A09C9753-2CB8-4242-A941-5B67755C9527",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 416
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 456
+                    },
+                    "center": [
+                      465,
+                      476
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 456
+                        },
+                        "center": [
+                          465,
+                          476
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 466
+                            },
+                            "center": [
+                              480,
+                              476.5
+                            ],
+                            "element_ref": "3AE2E6EB-F611-419C-916F-F27C7433C4C1",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 466
+                            }
+                          }
+                        ],
+                        "element_ref": "83A8E16A-E60F-4F8F-A5E3-A8CBAF41287D",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 456
+                        }
+                      }
+                    ],
+                    "element_ref": "F92A7E85-E197-4772-9C9F-5F5FEE29ABA7",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 456
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 19,
+                      "width": 140,
+                      "x": 395,
+                      "y": 509
+                    },
+                    "center": [
+                      465,
+                      518.5
+                    ],
+                    "children": [
+                      {
+                        "actions": [],
+                        "bounds": {
+                          "height": 19,
+                          "width": 120,
+                          "x": 405,
+                          "y": 509
+                        },
+                        "center": [
+                          465,
+                          518.5
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "automation_id": "xSidebarHeader",
+                            "bounds": {
+                              "height": 21,
+                              "width": 122,
+                              "x": 410,
+                              "y": 508
+                            },
+                            "center": [
+                              471,
+                              518.5
+                            ],
+                            "element_ref": "57C69794-B91A-4ECB-9496-D89CB456618E",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 122,
+                              "x": 410,
+                              "y": 508
+                            }
+                          }
+                        ],
+                        "element_ref": "921921C4-19AF-4BAA-A297-3BFDF4E7B7F1",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 19,
+                          "width": 120,
+                          "x": 405,
+                          "y": 509
+                        }
+                      }
+                    ],
+                    "element_ref": "9C3BF592-CC36-46DA-BADD-54F53237CEB0",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 19,
+                      "width": 140,
+                      "x": 395,
+                      "y": 509
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 528
+                    },
+                    "center": [
+                      465,
+                      548
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 528
+                        },
+                        "center": [
+                          465,
+                          548
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 538
+                            },
+                            "center": [
+                              480,
+                              548.5
+                            ],
+                            "element_ref": "C52ECFDD-F5E4-4ED7-9C63-282B080EE88A",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 538
+                            }
+                          }
+                        ],
+                        "element_ref": "958DF0E7-17DC-4D68-80EC-FB089A2AEFAF",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 528
+                        }
+                      }
+                    ],
+                    "element_ref": "FCA8A1D1-CC57-4F7D-84FE-93E7F6C2D504",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 528
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 568
+                    },
+                    "center": [
+                      465,
+                      588
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 568
+                        },
+                        "center": [
+                          465,
+                          588
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 578
+                            },
+                            "center": [
+                              480,
+                              588.5
+                            ],
+                            "element_ref": "F19259E2-2AED-4B46-B137-54E5E1F16828",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": 0,
+                            "type": "AXStaticText",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 578
+                            }
+                          }
+                        ],
+                        "element_ref": "219EE03B-A950-4754-9B2A-B13103EEFD87",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 568
+                        }
+                      }
+                    ],
+                    "element_ref": "A13C1738-5F46-413B-A2FC-3ADADA863086",
+                    "offscreen": 0,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 568
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 608
+                    },
+                    "center": [
+                      465,
+                      628
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 608
+                        },
+                        "center": [
+                          465,
+                          628
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 618
+                            },
+                            "center": [
+                              480,
+                              628.5
+                            ],
+                            "element_ref": "502126D4-A820-4020-B4CD-271DECBB929B",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "D7262DA7-B497-475E-B12A-39C81CEC65C8",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "4D4DBAF7-D971-42C7-912D-DC49B2D59504",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 648
+                    },
+                    "center": [
+                      465,
+                      668
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 648
+                        },
+                        "center": [
+                          465,
+                          668
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 658
+                            },
+                            "center": [
+                              480,
+                              668.5
+                            ],
+                            "element_ref": "C32B806B-03CF-414D-970F-EFA254002CA1",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "5C2AFD9E-547E-4761-BBD3-A7A3DE7664E3",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "1320038E-9B17-4E47-8F1C-4067857EC4BF",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 688
+                    },
+                    "center": [
+                      465,
+                      708
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 688
+                        },
+                        "center": [
+                          465,
+                          708
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 698
+                            },
+                            "center": [
+                              480,
+                              708.5
+                            ],
+                            "element_ref": "A4385E24-B753-45EA-9FD3-84C58FD97290",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "92191BD3-83D9-47F4-8DAD-0CF15ADDF8AC",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "AE11E7A0-D3A3-4081-AF02-E98FE7D33994",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 19,
+                      "width": 140,
+                      "x": 395,
+                      "y": 741
+                    },
+                    "center": [
+                      465,
+                      750.5
+                    ],
+                    "children": [
+                      {
+                        "actions": [],
+                        "bounds": {
+                          "height": 19,
+                          "width": 120,
+                          "x": 405,
+                          "y": 741
+                        },
+                        "center": [
+                          465,
+                          750.5
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "automation_id": "xSidebarHeader",
+                            "bounds": {
+                              "height": 21,
+                              "width": 122,
+                              "x": 410,
+                              "y": 740
+                            },
+                            "center": [
+                              471,
+                              750.5
+                            ],
+                            "element_ref": "3B9F4820-29F7-4378-BD26-C6547AABBF1C",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "CE4BDD8E-0DB2-4814-8A4F-12C3D8FDD3E0",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "593A4104-A18F-49FC-9D37-D3E509EFA0D7",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 760
+                    },
+                    "center": [
+                      465,
+                      780
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 760
+                        },
+                        "center": [
+                          465,
+                          780
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 770
+                            },
+                            "center": [
+                              480,
+                              780.5
+                            ],
+                            "element_ref": "A41DEA01-DB87-4105-A627-E16A5FD022F0",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "E99A97F0-10C8-450B-99F5-126308AA6056",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "A00041D7-B76E-474D-9711-BF05D8C2B742",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 800
+                    },
+                    "center": [
+                      465,
+                      820
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 800
+                        },
+                        "center": [
+                          465,
+                          820
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 810
+                            },
+                            "center": [
+                              480,
+                              820.5
+                            ],
+                            "element_ref": "C52806B9-D4A7-4A11-B6D9-3168B4B63DA9",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "D9DE47E5-91C3-4507-BAA3-747B4ACCB943",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "F23C8906-4638-4CA8-831A-9A0E404DC703",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 840
+                    },
+                    "center": [
+                      465,
+                      860
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 840
+                        },
+                        "center": [
+                          465,
+                          860
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 850
+                            },
+                            "center": [
+                              480,
+                              860.5
+                            ],
+                            "element_ref": "AAF34ED8-2548-4DC2-9836-94C1C6C05061",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "084B9CC4-C268-4565-9D0A-03C5B53CCBD9",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "F34987C4-E0DA-44BF-A41E-77C2DF62754E",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 880
+                    },
+                    "center": [
+                      465,
+                      900
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 880
+                        },
+                        "center": [
+                          465,
+                          900
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 890
+                            },
+                            "center": [
+                              480,
+                              900.5
+                            ],
+                            "element_ref": "522DB865-B232-4C00-8735-8E3BC22AF209",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "AE6DCE6A-6635-4965-BCC6-703B402505AE",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "8D215446-9304-4612-AABA-7C5073233191",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 920
+                    },
+                    "center": [
+                      465,
+                      940
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 920
+                        },
+                        "center": [
+                          465,
+                          940
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 930
+                            },
+                            "center": [
+                              480,
+                              940.5
+                            ],
+                            "element_ref": "F6ABF778-C28D-4CFD-B263-274CA6B7A526",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "2FA8C832-3A85-455A-AC34-C30A5D4272BE",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "0D03894D-8E05-4711-B09A-26D2F6EBEC17",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 960
+                    },
+                    "center": [
+                      465,
+                      980
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 960
+                        },
+                        "center": [
+                          465,
+                          980
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 970
+                            },
+                            "center": [
+                              480,
+                              980.5
+                            ],
+                            "element_ref": "CB6F3DD2-F773-46E1-B1CF-4FE42AF9AD1D",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "256F31B6-076E-4001-9660-7DFBEB028AA1",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "9C9DABED-9EF0-4247-B0B1-5EA901A210D3",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 1000
+                    },
+                    "center": [
+                      465,
+                      1020
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 1000
+                        },
+                        "center": [
+                          465,
+                          1020
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 1010
+                            },
+                            "center": [
+                              480,
+                              1020.5
+                            ],
+                            "element_ref": "856F0C16-A459-4742-9962-56AB0CC831F5",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "ADB5D0DC-95FC-46A7-87D0-A43F8D05E931",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "F5D0ECE6-D691-4645-83EC-2D9903143AC3",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 1040
+                    },
+                    "center": [
+                      465,
+                      1060
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 1040
+                        },
+                        "center": [
+                          465,
+                          1060
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 1050
+                            },
+                            "center": [
+                              480,
+                              1060.5
+                            ],
+                            "element_ref": "37D649FD-0B87-43A7-ACD8-48B2974CBC2B",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "C49CE570-DFA7-4707-A436-ABB32C70185E",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "DFBA744F-1956-4BF0-9AD4-51606F20A449",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 1080
+                    },
+                    "center": [
+                      465,
+                      1100
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 1080
+                        },
+                        "center": [
+                          465,
+                          1100
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 1090
+                            },
+                            "center": [
+                              480,
+                              1100.5
+                            ],
+                            "element_ref": "8C706656-4B7E-4F05-84EC-7CEAF4AD932A",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "15855289-69AE-4355-8D89-E2F069E35689",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "CD87ADA4-6E6C-459A-8C93-E5CED000D0C1",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "bounds": {
+                      "height": 40,
+                      "width": 140,
+                      "x": 395,
+                      "y": 1120
+                    },
+                    "center": [
+                      465,
+                      1140
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXOpen"
+                        ],
+                        "bounds": {
+                          "height": 40,
+                          "width": 120,
+                          "x": 405,
+                          "y": 1120
+                        },
+                        "center": [
+                          465,
+                          1140
+                        ],
+                        "children": [
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 21,
+                              "width": 76,
+                              "x": 442,
+                              "y": 1130
+                            },
+                            "center": [
+                              480,
+                              1140.5
+                            ],
+                            "element_ref": "E6CAAF40-3270-48FB-85D7-C72F6ADBDCC3",
+                            "enabled": true,
+                            "focused": false,
+                            "offscreen": true,
+                            "type": "AXStaticText",
+                            "visibility": "outside_clip"
+                          }
+                        ],
+                        "element_ref": "B3890C23-3883-484C-8481-02490F6062B7",
+                        "enabled": true,
+                        "focused": true,
+                        "offscreen": true,
+                        "selected": false,
+                        "type": "AXCell",
+                        "visibility": "outside_clip"
+                      }
+                    ],
+                    "element_ref": "5C8F041B-D01F-4AB4-BA49-3D0E033B9F8C",
+                    "offscreen": true,
+                    "selected": false,
+                    "subrole": "AXOutlineRow",
+                    "type": "AXRow",
+                    "visibility": "outside_clip"
+                  },
+                  {
+                    "actions": [],
+                    "automation_id": "AutomaticTableColumnIdentifier.0",
+                    "bounds": {
+                      "height": 946,
+                      "width": 120,
+                      "x": 405,
+                      "y": 224
+                    },
+                    "center": [
+                      465,
+                      697
+                    ],
+                    "element_ref": "CF726669-41FD-4A7C-8415-AC3EE46E13EF",
+                    "offscreen": 0,
+                    "selected": false,
+                    "type": "AXColumn",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 384,
+                      "width": 120,
+                      "x": 405,
+                      "y": 224
+                    }
+                  }
+                ],
+                "description": "边栏",
+                "element_ref": "8C4D866A-4DA1-48BA-9500-50D2E83B7BA4",
+                "enabled": true,
+                "focused": false,
+                "name": "边栏",
+                "offscreen": 0,
+                "type": "AXOutline",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 384,
+                  "width": 140,
+                  "x": 395,
+                  "y": 224
+                }
+              },
+              {
+                "actions": [],
+                "automation_id": "_NS:70",
+                "bounds": {
+                  "height": 386,
+                  "width": 19,
+                  "x": 517,
+                  "y": 223
+                },
+                "center": [
+                  526.5,
+                  416
+                ],
+                "children": [
+                  {
+                    "actions": [],
+                    "bounds": {
+                      "height": 165,
+                      "width": 6,
+                      "x": 526,
+                      "y": 227
+                    },
+                    "center": [
+                      529,
+                      309.5
+                    ],
+                    "element_ref": "A08DB04A-A30F-48FF-A412-DB259E2302A0",
+                    "offscreen": 0,
+                    "type": "AXValueIndicator",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 165,
+                      "width": 6,
+                      "x": 526,
+                      "y": 227
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "element_ref": "785E5E51-296E-439E-AD3B-82A7696CD230",
+                    "offscreen": 1,
+                    "subrole": "AXIncrementArrow",
+                    "type": "AXButton",
+                    "visibility": "offscreen"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "element_ref": "4912F13A-6E59-42EE-B2E6-9076128A2CF5",
+                    "offscreen": 1,
+                    "subrole": "AXDecrementArrow",
+                    "type": "AXButton",
+                    "visibility": "offscreen"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "bounds": {
+                      "height": 212.5,
+                      "width": 6,
+                      "x": 526,
+                      "y": 392.5
+                    },
+                    "center": [
+                      529,
+                      498.75
+                    ],
+                    "element_ref": "B405FA10-DFA6-4831-A141-C25CB86E4068",
+                    "offscreen": 0,
+                    "subrole": "AXIncrementPage",
+                    "type": "AXButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 212.5,
+                      "width": 6,
+                      "x": 526,
+                      "y": 392.5
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "element_ref": "A12B3DAC-AA4E-4857-9763-05B69FA22909",
+                    "offscreen": 1,
+                    "subrole": "AXDecrementPage",
+                    "type": "AXButton",
+                    "visibility": "offscreen"
+                  }
+                ],
+                "element_ref": "830D9F62-D26A-4A15-B669-9E481D4F7592",
+                "enabled": true,
+                "focused": false,
+                "hidden": false,
+                "offscreen": 0,
+                "type": "AXScrollBar",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 384,
+                  "width": 18,
+                  "x": 517,
+                  "y": 224
+                }
+              }
+            ],
+            "element_ref": "37C8FFE6-54C5-40C0-A0C3-A5A57546F48B",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXScrollArea",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 384,
+              "width": 140,
+              "x": 395,
+              "y": 224
+            }
+          },
+          {
+            "bounds": {
+              "height": 384,
+              "width": 0.5,
+              "x": 535,
+              "y": 224
+            },
+            "center": [
+              535.25,
+              416
+            ],
+            "element_ref": "9DCA7A89-734E-4820-8996-1D63D25DB406",
+            "enabled": false,
+            "expanded": false,
+            "focused": false,
+            "hidden": false,
+            "offscreen": 0,
+            "selected": false,
+            "type": "AXSplitter",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 384,
+              "width": 0.5,
+              "x": 535,
+              "y": 224
+            }
+          },
+          {
+            "actions": [],
+            "bounds": {
+              "height": 436,
+              "width": 920,
+              "x": 395,
+              "y": 172
+            },
+            "center": [
+              855,
+              390
+            ],
+            "children": [
+              {
+                "actions": [
+                  "AXScrollLeftByPage",
+                  "AXScrollRightByPage",
+                  "AXScrollUpByPage",
+                  "AXScrollDownByPage"
+                ],
+                "automation_id": "_NS:188",
+                "bounds": {
+                  "height": 384,
+                  "width": 780,
+                  "x": 535,
+                  "y": 224
+                },
+                "center": [
+                  925,
+                  416
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXShowMenu"
+                    ],
+                    "automation_id": "ListView",
+                    "bounds": {
+                      "height": 358,
+                      "width": 782,
+                      "x": 534,
+                      "y": 251
+                    },
+                    "center": [
+                      925,
+                      430
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXShowDefaultUI",
+                          "AXShowAlternateUI"
+                        ],
+                        "bounds": {
+                          "height": 30,
+                          "width": 780,
+                          "x": 535,
+                          "y": 257
+                        },
+                        "center": [
+                          925,
+                          272
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXOpen"
+                            ],
+                            "bounds": {
+                              "height": 30,
+                              "width": 359,
+                              "x": 561,
+                              "y": 257
+                            },
+                            "center": [
+                              740.5,
+                              272
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 26,
+                                  "x": 561,
+                                  "y": 259
+                                },
+                                "center": [
+                                  574,
+                                  272
+                                ],
+                                "element_ref": "809C4BF7-FB55-4D00-BAD0-3DD86D3E83F1",
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXImage",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 26,
+                                  "x": 561,
+                                  "y": 259
+                                }
+                              },
+                              {
+                                "actions": [
+                                  "AXOpen",
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 120,
+                                  "x": 591,
+                                  "y": 259
+                                },
+                                "center": [
+                                  651,
+                                  272
+                                ],
+                                "element_ref": "94CAE822-3495-4D08-9614-A23593219A59",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "selected": false,
+                                "type": "AXTextField",
+                                "value_settable": true,
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 120,
+                                  "x": 591,
+                                  "y": 259
+                                }
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "automation_id": "NSOutlineViewDisclosureButtonKey",
+                                "bounds": {
+                                  "height": 32,
+                                  "width": 15,
+                                  "x": 546,
+                                  "y": 256
+                                },
+                                "center": [
+                                  553.5,
+                                  272
+                                ],
+                                "element_ref": "BAC95734-B518-4615-B0DD-84C50F1B2118",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXDisclosureTriangle",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 32,
+                                  "width": 15,
+                                  "x": 546,
+                                  "y": 256
+                                }
+                              }
+                            ],
+                            "element_ref": "E0A3FF94-0EB0-4CBD-895E-8B16D54E07BE",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 359,
+                              "x": 561,
+                              "y": 257
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 181,
+                              "x": 906,
+                              "y": 257
+                            },
+                            "center": [
+                              996.5,
+                              272
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 169,
+                                  "x": 912,
+                                  "y": 259
+                                },
+                                "center": [
+                                  996.5,
+                                  272
+                                ],
+                                "element_ref": "78D2436E-50B2-442C-A150-2ADBEB345DF6",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 169,
+                                  "x": 912,
+                                  "y": 259
+                                }
+                              }
+                            ],
+                            "element_ref": "003145E4-74F8-447C-B5F0-46083DCF9AE8",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 181,
+                              "x": 906,
+                              "y": 257
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 257
+                            },
+                            "center": [
+                              1135.5,
+                              272
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 20,
+                                  "x": 1158,
+                                  "y": 259
+                                },
+                                "center": [
+                                  1168,
+                                  272
+                                ],
+                                "element_ref": "D1FEDDE4-E733-4E26-8849-065742594CA4",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 20,
+                                  "x": 1158,
+                                  "y": 259
+                                }
+                              }
+                            ],
+                            "element_ref": "DF2678E0-3676-4882-88DC-D2CE18996284",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 257
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 115,
+                              "x": 1184,
+                              "y": 257
+                            },
+                            "center": [
+                              1241.5,
+                              272
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 60,
+                                  "x": 1190,
+                                  "y": 259
+                                },
+                                "center": [
+                                  1220,
+                                  272
+                                ],
+                                "element_ref": "F3845EEF-BCB4-4FDB-B6F1-DF15B7C0208F",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 60,
+                                  "x": 1190,
+                                  "y": 259
+                                }
+                              }
+                            ],
+                            "element_ref": "4BDD7B6C-C26D-4AD9-B01D-E8C77D3F31FF",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 115,
+                              "x": 1184,
+                              "y": 257
+                            }
+                          }
+                        ],
+                        "element_ref": "EF413CD0-6F56-4DCE-9D5F-1B9C1E8E4E3D",
+                        "offscreen": 0,
+                        "selected": false,
+                        "subrole": "AXOutlineRow",
+                        "type": "AXRow",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 30,
+                          "width": 780,
+                          "x": 535,
+                          "y": 257
+                        }
+                      },
+                      {
+                        "actions": [
+                          "AXShowDefaultUI",
+                          "AXShowAlternateUI"
+                        ],
+                        "bounds": {
+                          "height": 30,
+                          "width": 780,
+                          "x": 535,
+                          "y": 287
+                        },
+                        "center": [
+                          925,
+                          302
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXOpen"
+                            ],
+                            "bounds": {
+                              "height": 30,
+                              "width": 345,
+                              "x": 561,
+                              "y": 287
+                            },
+                            "center": [
+                              733.5,
+                              302
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 26,
+                                  "x": 561,
+                                  "y": 289
+                                },
+                                "center": [
+                                  574,
+                                  302
+                                ],
+                                "element_ref": "0617BB2F-A846-4DF2-9F77-799E82BC933D",
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXImage",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 26,
+                                  "x": 561,
+                                  "y": 289
+                                }
+                              },
+                              {
+                                "actions": [
+                                  "AXOpen",
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 108,
+                                  "x": 591,
+                                  "y": 289
+                                },
+                                "center": [
+                                  645,
+                                  302
+                                ],
+                                "element_ref": "4367500A-D8D0-4BD1-9431-B137A9D4FE00",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "selected": false,
+                                "type": "AXTextField",
+                                "value_settable": true,
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 108,
+                                  "x": 591,
+                                  "y": 289
+                                }
+                              }
+                            ],
+                            "element_ref": "90635284-6CEA-451E-8716-E0D2565981DB",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 345,
+                              "x": 561,
+                              "y": 287
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 181,
+                              "x": 906,
+                              "y": 287
+                            },
+                            "center": [
+                              996.5,
+                              302
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 169,
+                                  "x": 912,
+                                  "y": 289
+                                },
+                                "center": [
+                                  996.5,
+                                  302
+                                ],
+                                "element_ref": "F4EB50EB-6171-49F3-8C88-3CBE59CFA423",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 169,
+                                  "x": 912,
+                                  "y": 289
+                                }
+                              }
+                            ],
+                            "element_ref": "EDFA15C6-F962-4C11-B5F8-14839260F2ED",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 181,
+                              "x": 906,
+                              "y": 287
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 287
+                            },
+                            "center": [
+                              1135.5,
+                              302
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 70,
+                                  "x": 1109,
+                                  "y": 289
+                                },
+                                "center": [
+                                  1144,
+                                  302
+                                ],
+                                "element_ref": "1629C2A4-1F87-40EB-89C6-D8A93DC7580C",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 70,
+                                  "x": 1109,
+                                  "y": 289
+                                }
+                              }
+                            ],
+                            "element_ref": "D1C7AFE9-D559-49D8-B7BA-98A2EF393D65",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 287
+                            }
+                          },
+                          {
+                            "actions": [],
+                            "bounds": {
+                              "height": 30,
+                              "width": 115,
+                              "x": 1184,
+                              "y": 287
+                            },
+                            "center": [
+                              1241.5,
+                              302
+                            ],
+                            "children": [
+                              {
+                                "actions": [],
+                                "bounds": {
+                                  "height": 26,
+                                  "width": 102,
+                                  "x": 1190,
+                                  "y": 289
+                                },
+                                "center": [
+                                  1241,
+                                  302
+                                ],
+                                "element_ref": "920B72F6-679C-474F-A1CD-0866D4C6BECA",
+                                "enabled": true,
+                                "focused": false,
+                                "offscreen": 0,
+                                "type": "AXStaticText",
+                                "visibility": "geometric",
+                                "visible_bounds": {
+                                  "height": 26,
+                                  "width": 102,
+                                  "x": 1190,
+                                  "y": 289
+                                }
+                              }
+                            ],
+                            "element_ref": "8BFC7A88-0D04-4976-9C49-3B913CF67E15",
+                            "enabled": true,
+                            "focused": true,
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXCell",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 30,
+                              "width": 115,
+                              "x": 1184,
+                              "y": 287
+                            }
+                          }
+                        ],
+                        "element_ref": "6633E472-9E5D-4841-BECD-B808D4A7DB71",
+                        "offscreen": 0,
+                        "selected": false,
+                        "subrole": "AXOutlineRow",
+                        "type": "AXRow",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 30,
+                          "width": 780,
+                          "x": 535,
+                          "y": 287
+                        }
+                      },
+                      {
+                        "actions": [],
+                        "automation_id": "name",
+                        "bounds": {
+                          "height": 356,
+                          "width": 361,
+                          "x": 545,
+                          "y": 252
+                        },
+                        "center": [
+                          725.5,
+                          430
+                        ],
+                        "element_ref": "0525FC42-D08D-4A3E-83EE-AEF13E50F94D",
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXColumn",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 356,
+                          "width": 361,
+                          "x": 545,
+                          "y": 252
+                        }
+                      },
+                      {
+                        "actions": [],
+                        "automation_id": "dateModified",
+                        "bounds": {
+                          "height": 356,
+                          "width": 181,
+                          "x": 906,
+                          "y": 252
+                        },
+                        "center": [
+                          996.5,
+                          430
+                        ],
+                        "element_ref": "FE5B4A75-D6F0-4D1E-AF3E-2D6AA84BC7B3",
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXColumn",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 356,
+                          "width": 181,
+                          "x": 906,
+                          "y": 252
+                        }
+                      },
+                      {
+                        "actions": [],
+                        "automation_id": "size",
+                        "bounds": {
+                          "height": 356,
+                          "width": 97,
+                          "x": 1087,
+                          "y": 252
+                        },
+                        "center": [
+                          1135.5,
+                          430
+                        ],
+                        "element_ref": "99229589-3CAB-4991-A480-60E7B4424461",
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXColumn",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 356,
+                          "width": 97,
+                          "x": 1087,
+                          "y": 252
+                        }
+                      },
+                      {
+                        "actions": [],
+                        "automation_id": "kind",
+                        "bounds": {
+                          "height": 356,
+                          "width": 121,
+                          "x": 1184,
+                          "y": 252
+                        },
+                        "center": [
+                          1244.5,
+                          430
+                        ],
+                        "element_ref": "01C82F4E-AC16-4C60-B8E9-B1184F35DADB",
+                        "offscreen": 0,
+                        "selected": false,
+                        "type": "AXColumn",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 356,
+                          "width": 121,
+                          "x": 1184,
+                          "y": 252
+                        }
+                      },
+                      {
+                        "actions": [],
+                        "automation_id": "ListViewHeader",
+                        "bounds": {
+                          "height": 28,
+                          "width": 780,
+                          "x": 535,
+                          "y": 224
+                        },
+                        "center": [
+                          925,
+                          238
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "automation_id": "name",
+                            "bounds": {
+                              "height": 28,
+                              "width": 361,
+                              "x": 545,
+                              "y": 224
+                            },
+                            "center": [
+                              725.5,
+                              238
+                            ],
+                            "description": "名称",
+                            "element_ref": "8847E3FF-A5B7-453D-A2F1-CAED5D1C382B",
+                            "enabled": true,
+                            "expanded": false,
+                            "focused": false,
+                            "hidden": false,
+                            "name": "名称",
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXButton",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 28,
+                              "width": 361,
+                              "x": 545,
+                              "y": 224
+                            }
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "automation_id": "dateModified",
+                            "bounds": {
+                              "height": 28,
+                              "width": 181,
+                              "x": 906,
+                              "y": 224
+                            },
+                            "center": [
+                              996.5,
+                              238
+                            ],
+                            "description": "修改日期",
+                            "element_ref": "27C79390-42E7-48A0-9D14-126075D3DE82",
+                            "enabled": true,
+                            "expanded": false,
+                            "focused": false,
+                            "hidden": false,
+                            "name": "修改日期",
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXButton",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 28,
+                              "width": 181,
+                              "x": 906,
+                              "y": 224
+                            }
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "automation_id": "size",
+                            "bounds": {
+                              "height": 28,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 224
+                            },
+                            "center": [
+                              1135.5,
+                              238
+                            ],
+                            "description": "大小",
+                            "element_ref": "E611B48F-E952-444E-9A81-4E94AD2BE8BB",
+                            "enabled": true,
+                            "expanded": false,
+                            "focused": false,
+                            "hidden": false,
+                            "name": "大小",
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXButton",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 28,
+                              "width": 97,
+                              "x": 1087,
+                              "y": 224
+                            }
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "automation_id": "kind",
+                            "bounds": {
+                              "height": 28,
+                              "width": 121,
+                              "x": 1184,
+                              "y": 224
+                            },
+                            "center": [
+                              1244.5,
+                              238
+                            ],
+                            "description": "种类",
+                            "element_ref": "1AFA2220-CF24-4ADF-A93F-B28785BAA64D",
+                            "enabled": true,
+                            "expanded": false,
+                            "focused": false,
+                            "hidden": false,
+                            "name": "种类",
+                            "offscreen": 0,
+                            "selected": false,
+                            "type": "AXButton",
+                            "visibility": "geometric",
+                            "visible_bounds": {
+                              "height": 28,
+                              "width": 121,
+                              "x": 1184,
+                              "y": 224
+                            }
+                          }
+                        ],
+                        "element_ref": "0B4DC739-9F95-40A0-9EFD-850A4E745CDB",
+                        "focused": false,
+                        "offscreen": 0,
+                        "type": "AXGroup",
+                        "visibility": "geometric",
+                        "visible_bounds": {
+                          "height": 28,
+                          "width": 780,
+                          "x": 535,
+                          "y": 224
+                        }
+                      }
+                    ],
+                    "description": "列表视图",
+                    "element_ref": "FFD5F0D5-8C2A-41F2-A67B-23F5C64DA0D2",
+                    "enabled": true,
+                    "focused": true,
+                    "name": "列表视图",
+                    "offscreen": 0,
+                    "type": "AXOutline",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 357,
+                      "width": 780,
+                      "x": 535,
+                      "y": 251
+                    }
+                  }
+                ],
+                "element_ref": "33483D2D-98B2-45CF-9750-3FD7D840D80B",
+                "focused": false,
+                "offscreen": 0,
+                "type": "AXScrollArea",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 384,
+                  "width": 780,
+                  "x": 535,
+                  "y": 224
+                }
+              },
+              {
+                "actions": [],
+                "automation_id": "statusBar",
+                "bounds": {
+                  "height": 28,
+                  "width": 780,
+                  "x": 535,
+                  "y": 608
+                },
+                "center": [
+                  925,
+                  622
+                ],
+                "children": [
+                  {
+                    "actions": [],
+                    "automation_id": "statusBarText",
+                    "bounds": {
+                      "height": 16,
+                      "width": 135,
+                      "x": 852,
+                      "y": 614
+                    },
+                    "center": [
+                      919.5,
+                      622
+                    ],
+                    "element_ref": "28CEC1DA-90E0-4321-B062-8B375EF3476F",
+                    "enabled": true,
+                    "focused": false,
+                    "offscreen": true,
+                    "type": "AXStaticText",
+                    "visibility": "outside_clip"
+                  }
+                ],
+                "element_ref": "1B3DCB74-B9E3-4E74-A55B-9B16E195506D",
+                "focused": false,
+                "offscreen": true,
+                "type": "AXUnknown",
+                "visibility": "outside_clip"
+              }
+            ],
+            "element_ref": "863438AA-DCF8-43CE-A64F-07C0126CA67A",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXSplitGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 436,
+              "width": 920,
+              "x": 395,
+              "y": 172
+            }
+          }
+        ],
+        "element_ref": "DB344EC4-4F1A-4FB4-83AB-4351887D52AE",
+        "focused": false,
+        "offscreen": 0,
+        "type": "AXSplitGroup",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 436,
+          "width": 920,
+          "x": 395,
+          "y": 172
+        }
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 52,
+          "width": 920,
+          "x": 395,
+          "y": 172
+        },
+        "center": [
+          855,
+          198
+        ],
+        "children": [
+          {
+            "actions": [
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 81,
+              "x": 539,
+              "y": 172
+            },
+            "center": [
+              579.5,
+              198
+            ],
+            "children": [
+              {
+                "actions": [],
+                "automation_id": "_NS:51",
+                "bounds": {
+                  "height": 38,
+                  "width": 75,
+                  "x": 542,
+                  "y": 179
+                },
+                "center": [
+                  579.5,
+                  198
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 36,
+                      "x": 544,
+                      "y": 181
+                    },
+                    "center": [
+                      562,
+                      199
+                    ],
+                    "description": "返回",
+                    "element_ref": "FCD4A7F2-6F9C-42B7-81DD-1562604E9E60",
+                    "enabled": false,
+                    "focused": false,
+                    "name": "返回",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 36,
+                      "x": 544,
+                      "y": 181
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 37,
+                      "x": 580,
+                      "y": 181
+                    },
+                    "center": [
+                      598.5,
+                      199
+                    ],
+                    "description": "前进",
+                    "element_ref": "02396774-0E82-4737-A895-12187E210F94",
+                    "enabled": false,
+                    "focused": false,
+                    "name": "前进",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 37,
+                      "x": 580,
+                      "y": 181
+                    }
+                  }
+                ],
+                "description": "返回/前进",
+                "element_ref": "25AF694C-5443-4410-8A0B-BA930CB1A655",
+                "enabled": true,
+                "focused": false,
+                "name": "返回/前进",
+                "offscreen": 0,
+                "type": "AXGroup",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 38,
+                  "width": 75,
+                  "x": 542,
+                  "y": 179
+                }
+              }
+            ],
+            "element_ref": "B0C08282-0CAE-45F7-A97A-6FF46E7A6FED",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 81,
+              "x": 539,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 164,
+              "x": 925,
+              "y": 172
+            },
+            "center": [
+              1007,
+              198
+            ],
+            "children": [
+              {
+                "actions": [],
+                "bounds": {
+                  "height": 38,
+                  "width": 162,
+                  "x": 928,
+                  "y": 179
+                },
+                "center": [
+                  1009,
+                  198
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 929,
+                      "y": 181
+                    },
+                    "center": [
+                      949.25,
+                      199
+                    ],
+                    "description": "图标视图",
+                    "element_ref": "17301EA0-DC27-4BB4-8C59-F60A094BDE2B",
+                    "enabled": true,
+                    "focused": false,
+                    "name": "图标视图",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXRadioButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 929,
+                      "y": 181
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 969.5,
+                      "y": 181
+                    },
+                    "center": [
+                      989.75,
+                      199
+                    ],
+                    "description": "列表视图",
+                    "element_ref": "31FC6113-2D00-4D73-AE16-9988D1F7BABF",
+                    "enabled": true,
+                    "focused": false,
+                    "name": "列表视图",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXRadioButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 969.5,
+                      "y": 181
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 1010,
+                      "y": 181
+                    },
+                    "center": [
+                      1030.25,
+                      199
+                    ],
+                    "description": "分栏视图",
+                    "element_ref": "41181E7C-8366-44C6-87DC-6036B8B2E286",
+                    "enabled": true,
+                    "focused": false,
+                    "name": "分栏视图",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXRadioButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 1010,
+                      "y": 181
+                    }
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 1050.5,
+                      "y": 181
+                    },
+                    "center": [
+                      1070.75,
+                      199
+                    ],
+                    "description": "画廊视图",
+                    "element_ref": "35CAE7C6-C45D-4617-A334-44F744819E67",
+                    "enabled": true,
+                    "focused": false,
+                    "name": "画廊视图",
+                    "offscreen": 0,
+                    "subrole": "AXSegment",
+                    "type": "AXRadioButton",
+                    "visibility": "geometric",
+                    "visible_bounds": {
+                      "height": 36,
+                      "width": 40.5,
+                      "x": 1050.5,
+                      "y": 181
+                    }
+                  }
+                ],
+                "element_ref": "63120BE8-066C-41EA-936F-4C8B22B85BB4",
+                "enabled": true,
+                "focused": false,
+                "offscreen": 0,
+                "type": "AXRadioGroup",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 38,
+                  "width": 162,
+                  "x": 928,
+                  "y": 179
+                }
+              }
+            ],
+            "element_ref": "16A5622F-003D-4170-AF77-E6CBE7C1B6F8",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 164,
+              "x": 925,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress",
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 47,
+              "x": 1097,
+              "y": 172
+            },
+            "center": [
+              1120.5,
+              198
+            ],
+            "description": "群组",
+            "element_ref": "E250280F-B689-48B3-9072-5F0191C8071C",
+            "enabled": true,
+            "focused": false,
+            "name": "群组",
+            "offscreen": 0,
+            "type": "AXMenuButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 47,
+              "x": 1097,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "AXPress",
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 36,
+              "x": 1152,
+              "y": 172
+            },
+            "center": [
+              1170,
+              198
+            ],
+            "description": "共享",
+            "element_ref": "295E44F0-5EBC-4575-A6DE-818942973CCF",
+            "enabled": false,
+            "focused": false,
+            "name": "共享",
+            "offscreen": 0,
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 36,
+              "x": 1152,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "AXPress",
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 38,
+              "x": 1188,
+              "y": 172
+            },
+            "center": [
+              1207,
+              198
+            ],
+            "description": "编辑标签",
+            "element_ref": "9AE233F7-88AA-4CCF-89DA-3B5C512BE59D",
+            "enabled": false,
+            "focused": false,
+            "name": "编辑标签",
+            "offscreen": 0,
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 38,
+              "x": 1188,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress",
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:移到下一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 37,
+              "x": 1226,
+              "y": 172
+            },
+            "center": [
+              1244.5,
+              198
+            ],
+            "description": "操作",
+            "element_ref": "343C24D9-4465-4C5F-B6A1-DF2CD1F8D688",
+            "enabled": true,
+            "focused": false,
+            "name": "操作",
+            "offscreen": 0,
+            "type": "AXMenuButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 37,
+              "x": 1226,
+              "y": 172
+            }
+          },
+          {
+            "actions": [
+              "Name:移到上一项\nTarget:0x0\nSelector:(null)",
+              "Name:从工具栏移除\nTarget:0x0\nSelector:(null)"
+            ],
+            "bounds": {
+              "height": 52,
+              "width": 40,
+              "x": 1271,
+              "y": 172
+            },
+            "center": [
+              1291,
+              198
+            ],
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "bounds": {
+                  "height": 38,
+                  "width": 38,
+                  "x": 1270,
+                  "y": 179
+                },
+                "center": [
+                  1289,
+                  198
+                ],
+                "description": "搜索",
+                "element_ref": "6D80995F-8D53-4051-94D0-CAED92EB0421",
+                "enabled": true,
+                "focused": false,
+                "name": "搜索",
+                "offscreen": 0,
+                "subrole": "AXSearchField",
+                "type": "AXButton",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 38,
+                  "width": 38,
+                  "x": 1270,
+                  "y": 179
+                }
+              }
+            ],
+            "element_ref": "42AD1FA0-EE34-4EE0-8B7A-727643714ADF",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 52,
+              "width": 40,
+              "x": 1271,
+              "y": 172
+            }
+          }
+        ],
+        "element_ref": "E6798DE5-1B74-458D-848D-B2332B468147",
+        "focused": false,
+        "offscreen": 0,
+        "type": "AXToolbar",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 52,
+          "width": 920,
+          "x": 395,
+          "y": 172
+        }
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 413,
+          "y": 190
+        },
+        "center": [
+          421,
+          198
+        ],
+        "element_ref": "04D005E8-206B-4574-882F-0A694184CA7E",
+        "enabled": true,
+        "focused": false,
+        "offscreen": 0,
+        "subrole": "AXCloseButton",
+        "type": "AXButton",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 413,
+          "y": 190
+        }
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXZoomWindow",
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 459,
+          "y": 190
+        },
+        "center": [
+          467,
+          198
+        ],
+        "children": [
+          {
+            "actions": [],
+            "bounds": {
+              "height": 14,
+              "width": 14,
+              "x": 460,
+              "y": 191
+            },
+            "center": [
+              467,
+              198
+            ],
+            "children": [
+              {
+                "actions": [],
+                "bounds": {
+                  "height": 14,
+                  "width": 14,
+                  "x": 460,
+                  "y": 191
+                },
+                "center": [
+                  467,
+                  198
+                ],
+                "element_ref": "66BA5CB0-45CA-4D4F-9427-D660D8CEDBC1",
+                "focused": false,
+                "offscreen": 0,
+                "type": "AXGroup",
+                "visibility": "geometric",
+                "visible_bounds": {
+                  "height": 14,
+                  "width": 14,
+                  "x": 460,
+                  "y": 191
+                }
+              }
+            ],
+            "element_ref": "0928A070-4F84-4DEA-8484-F775BF24F5A2",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 14,
+              "width": 14,
+              "x": 460,
+              "y": 191
+            }
+          }
+        ],
+        "element_ref": "959E7602-12AD-4C5F-8F84-E258F61FBB2A",
+        "enabled": true,
+        "focused": false,
+        "offscreen": 0,
+        "subrole": "AXFullScreenButton",
+        "type": "AXButton",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 459,
+          "y": 190
+        }
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 436,
+          "y": 190
+        },
+        "center": [
+          444,
+          198
+        ],
+        "element_ref": "FC0C0F49-72F3-49BB-BB7A-EC57CA7EC119",
+        "enabled": true,
+        "focused": false,
+        "offscreen": 0,
+        "subrole": "AXMinimizeButton",
+        "type": "AXButton",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 16,
+          "width": 16,
+          "x": 436,
+          "y": 190
+        }
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "bounds": {
+          "height": 52,
+          "width": 305,
+          "x": 620,
+          "y": 172
+        },
+        "center": [
+          772.5,
+          198
+        ],
+        "element_ref": "6419933A-EFB2-4F18-8EDD-8D6F746213B2",
+        "enabled": true,
+        "focused": false,
+        "offscreen": 0,
+        "type": "AXStaticText",
+        "visibility": "geometric",
+        "visible_bounds": {
+          "height": 52,
+          "width": 305,
+          "x": 620,
+          "y": 172
+        }
+      }
+    ],
+    "element_ref": "705DD171-E418-4816-A310-AC43490FA7E2",
+    "focused": false,
+    "name": "Ruyi P5 Finder 中文 7550",
+    "offscreen": 0,
+    "subrole": "AXStandardWindow",
+    "type": "AXWindow",
+    "visibility": "geometric",
+    "visible_bounds": {
+      "height": 436,
+      "width": 920,
+      "x": 395,
+      "y": 172
+    }
+  },
+  "truncated": 0,
+  "truncated_by": [],
+  "window": {
+    "application": "访达",
+    "handle": 5027,
+    "height": 436,
+    "pid": 692,
+    "process_start": "1794279862:311950",
+    "target": {
+      "bounds": {
+        "height": 436,
+        "width": 920,
+        "x": 395,
+        "y": 172
+      },
+      "handle": 5027,
+      "pid": 692,
+      "process_start": "1794279862:311950",
+      "ref": "9B233811-7F25-46ED-88A9-62CB48766D04"
+    },
+    "title": "Ruyi P5 Finder 中文 7550",
+    "visible": true,
+    "width": 920,
+    "x": 395,
+    "y": 172
+  }
+}

@@ -1,0 +1,59 @@
+PASS workspace picker appends a newly selected folder to favorite workspaces
+PASS workspace switch persists recent + favorites + default in one awaited config write
+PASS workspace switch has no racing recent-only fire-and-forget write
+PASS A4 styles.css 无 var(--fg) 残留(→ --ink)
+PASS A4 styles.css 无 var(--text) 残留(→ --ink)
+PASS A4 无 var(--x,#hex) 防御字面量(工作流区去尾成纯 var())
+PASS A5 审计徽标无硬编码 #2f6fb0(→ var(--accent))
+PASS A5 审计徽标无硬编码 #c9772f(→ var(--warn))
+PASS A5 工作台审计徽标以 var(--accent) 着色
+PASS A5 桌面审计徽标以 var(--warn*) 语义色着色（P1:-fg/-bg 接线）
+PASS A5 app.js engineVisual:Agent CLI（Claude/Kimi）引擎色 = var(--accent)
+PASS A5 工作流 token 未动:--wf-claude=accent / --wf-provider=eng-claude(赭,保持)
+PASS A1 存在 ≤760px 媒体查询
+PASS A1 ≤760 顶栏 height:auto + min-height:54px(不定高裁切)
+PASS A1 ≤760 顶栏允许换行(flex-wrap:wrap)
+PASS A1 工作台 chip 降级只留图标(隐藏 .wp-name)
+PASS A1 顶栏 model/perm chip 两族 CSS 零残留（K5 退役、K8 清族）
+PASS A2 折叠侧栏整条路径已退役(两个函数、.sidebar-collapsed 类、wcw.sidebarCollapsed 偏好都零残留)
+PASS A2b 窄档由 §7.3 的容器查询接管:≤980 左栏折成 56px 图标栏
+PASS A3 存在 @media (hover:none) 块
+PASS A3 hover:none 块覆盖 msg-actions / steward-board-actions / ftree-at
+PASS A3 触屏常显透明度 .75
+PASS B1 简单模式 #skillBtn 隐藏规则已删(技能入口显性)
+PASS B1 index.html 技能按钮为 btn-ic(图标由 icons.js 注入,无 ✨/⌘ 硬编码)
+PASS B1 ✨ 技能 文案已全部去除(html + app.js)
+PASS B1 app.js 技能徽标用 sparkles SVG(无 ⌘ 残留)
+PASS B2 简单模式隐藏「用量」「审计」页签按钮
+PASS B2 AI 工作面板顶部 mini 链接行(agent-runs-subnav)
+PASS B2 用量/审计 mini 链接元素存在
+PASS B2 mini 链接 wire 到 switchTab(usage/audit)
+PASS B2 applyUiMode 把 agent-runs 页签改为本地化「AI 工作」
+PASS B4 var(--tap-min) 出现次数 ≥6(实际 21)
+PASS B4 button 基类挂 min-height:var(--tap-min)
+PASS B4 icon-btn 尺寸随 tap-min(下限 32)
+PASS B4 pool-actions 审批按钮补 tap-min
+PASS B5 body 样式块不再硬编码 font-size
+PASS B5 :root 显式设 font-size:14px(pro 基线)
+PASS B5 简单模式 :root 覆盖 font-size:15px
+PASS C1 --elev-1 已定义
+PASS C1 --elev-2 已定义
+PASS C1 --elev-3 已定义
+PASS C1 .popover 用 var(--elev-2)
+PASS C1 .modal 用玻璃投影(50b 玻璃化:--glass-highlight+--glass-shadow)
+PASS C1 .pb-card 用 var(--elev-1)
+PASS playbook cards override global button nowrap so localized text can wrap
+PASS playbook card titles shrink and wrap within the grid
+PASS playbook descriptions wrap before their two-line clamp
+PASS C1 亮色主题覆写 elev(深浅双主题)
+PASS C2 .pb-card hover translateY(-2px)+elev-2
+PASS C3 云纹水印 opacity .04→.07
+PASS C4 buildMsgAvatar 头像构建器存在
+PASS C4 messageShell 调用 buildMsgAvatar
+PASS C4 旧字母方块头像(你/C/S)已移除
+PASS C4 系统头像无底色(⚙ 弱化)
+PASS C6 运行态发送按钮换 stop 线性 SVG + 已本地化的“停止”(P1 §2.15)
+PASS B3 内置技能目录数 ≥16(实际 20)
+PASS B3 全部内置 SKILL.md 均有中文 name + description frontmatter
+
+UI V3 WAVE1 STATIC E2E: ALL PASS

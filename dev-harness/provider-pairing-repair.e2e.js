@@ -267,7 +267,8 @@ try {
   // 会话可见修复说明(诚实告知,同 🗜 压缩消息先例)。
   const get1 = await getJson(WB_PORT, '/api/sessions/' + encodeURIComponent(sid));
   const msgs1 = (get1 && get1.session && get1.session.messages) || [];
-  ok(msgs1.some(m => m && m.source === 'repair' && /补 1 条丢失的工具结果/.test(m.content || '')), 'L6 会话出现 🛠 修复系统消息(补 1 条)');
+  ok(msgs1.some(m => m && m.source === 'repair' && /1 项工具调用未保存结果/.test(m.content || '')
+    && /是否执行及影响未确认/.test(m.content || '') && /避免重复操作/.test(m.content || '')), 'L6 修复系统消息准确说明1项未保存结果、影响未确认且避免重复操作');
 
   // 第二回合:历史已愈合,strict fake 依旧放行(不反弹)。
   const events2 = await postStream(WB_PORT, { message: '再确认一下', sessionId: sid });

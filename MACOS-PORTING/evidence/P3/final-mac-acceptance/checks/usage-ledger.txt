@@ -1,0 +1,55 @@
+[fakeB] [fake-openai] listening on 57491
+[fakeA] [fake-openai] listening on 57490
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 5fd971564c58)
+[wb] UI: http://127.0.0.1:57492/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-ledger-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :57492
+PASS got workbench token
+PASS config.usageBudget round-trips
+PASS config.claudePricing round-trips
+PASS provider pricing round-trips cache and model overrides
+PASS empty summary ok:true (status 200)
+PASS empty summary turns=0
+PASS empty summary byProvider=[]
+PASS summary without token -> 403 (got 403)
+PASS created 3 sessions
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-ledger-e2e/generated/workbench.mcp.json
+PASS ledger has 3 lines (got 3)
+PASS priced rows use exact-model rates plus cached-input rate
+PASS no-usage row: estimated=true, cost null, inTok>0
+PASS month summary turns=3 (got 3)
+PASS month summary estimatedTurns=1
+PASS month summary planBasedTurns=0
+PASS month CNY total = 2×perTurn (0.1404), got 0.1404
+PASS only one currency bucket (CNY)
+PASS byProvider priced aggregates cache hits and model-specific cost
+PASS byProvider noprice: 1 turn, no CNY cost
+PASS byEngine openai turns=3
+PASS bySession carries the session title from the index
+PASS range=all includes old-month row (turns=4)
+PASS range=all CNY includes old row (+5)
+PASS range=month excludes old-month row (turns=3)
+PASS corrupt line skipped; planBased claude row counted (turns=4)
+PASS planBasedTurns=1 (the ark row)
+PASS planBased cost stays OUT of costsByCurrency (still 2×perTurn)
+PASS third-party endpoint labelled by its host tag — no vendor presets (claude-endpoint:coding.example.com)
+PASS ark entry planBased=true (front-end badges 计划内计费)
+PASS priced entry planBased=false (real cost shown)
+PASS byEngine claude turns=1, planBased=true
+PASS budget monthly/currency echoed
+PASS budget spentThisMonth = 2×perTurn (0.1404), got 0.1404
+PASS ⑪ summary 返回带 byModel 数组(4 组)
+PASS ⑪ byModel 每项带齐 {model,provider,engine,turns,inTok,outTok,lastAt} 且 lastAt 可解析
+PASS ⑪ byModel 与账本逐行重算一致(接口 4 组 / 重算 4 组)
+PASS ⑪ 只有注入的 2 条空 model 行(真回合都带 model,got 2)
+PASS ⑪ Σ byModel.turns = Σ byEngine.turns − 空 model 行数 (7 = 9 − 2)
+PASS ⑪ 空 model 行不进 byModel(不记成空串组)
+PASS ⑪ lastAt 取该模型最近一条行的 ts(2026-11-07T04:46:29.018Z === 2026-11-07T04:46:29.018Z)
+PASS ⑪ byModel 按 lastAt 倒序返回(不靠 Map 插入序)
+PASS ⑪ 历史行被聚合:range=all 的 priced/fake-model 比 range=month 多 2020-01 那一回合
+PASS ⑪ byModel 沿用 finishGroup:计划内计费行 planBased=true 且不进 costsByCurrency
+PASS ⑪ byModel 复用同一套成本/缓存口径(priced/fake-model 本月 = 2×perTurn)
+PASS ⑫ 兜底分支与成功分支的 by* 维度键逐个对齐(成功 byDay,byEngine,byModel,byProvider,bySession;兜底缺 无,多 无)
+
+USAGE-LEDGER E2E: ALL PASS

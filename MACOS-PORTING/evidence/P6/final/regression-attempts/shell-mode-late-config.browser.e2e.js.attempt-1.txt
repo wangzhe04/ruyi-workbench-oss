@@ -1,0 +1,34 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 线程已建（sess_3558cda2ecf2daf7）
+PASS A0d 四个回合都落盘了（对话区有真内容可滚）
+PASS A0e Edge/Chrome found
+PASS A0f browser target available
+PASS A1 /api/status 已被扣住，延迟窗开着（拦到 1 发、尚未放行）
+PASS A1b config 还没到，顶栏分段钮已经在屏幕上、也已经绑好（bindEvents 早于 bootData）
+PASS A2 四下分段钮都点到了真按钮（每下点完的实况 ["classic","classic","classic","classic"]）
+PASS A3 草稿已经打进输入框（51 字）
+PASS A3b 焦点在输入框上（实得 promptInput）
+PASS A3c 到这里 /api/status 还扣着（上面这些动作确实发生在延迟窗里）
+PASS A4 放行后首屏就绪（config 到了、boot 走完）
+PASS A4b /api/status 真的被扣了 1501 ms（≥1500）
+PASS A5 视角是最后一次显式选择（classic；实得 classic）—— config 到达那一下没有把它翻掉
+PASS A5b 本机偏好也是最后一次显式选择（classic；实得「classic」）
+PASS A6 草稿逐字相等（实得 相等）
+PASS A7 焦点没被抢走（仍在 promptInput；实得 promptInput）
+PASS B0 对话区真的能滚（scrollHeight − clientHeight > 200）
+PASS B0b 对话区已滚到中段（scrollTop=1171）
+PASS B0c 焦点在输入框（实得 promptInput）
+PASS B0d 静置下来的滚动位置本身是稳的（1171 → 1171，差 ≤2 px；scrollHeight 2870→2870）—— B6 的前提
+PASS B1 设置里的视角下拉在屏幕上（本组的产品入口）
+PASS B1b 起点是工作台视角（实得 classic）
+PASS B2 第一次意图（steward）的写回调**确实被视图过渡推迟了** —— 派完 change 之后属性仍是 classic（实得 classic）。这一条不成立的话本组量的就不是乱序，而是两次同步写
+PASS B2b 第二次意图（classic）走同步支、当场落地（实得 classic）
+PASS B3 排队的 steward 写回调落地之后，视角仍是最后一次意图 classic（实得 classic）—— 这就是 §2.1 的意图序号
+PASS B3b 本机偏好仍是 classic（实得「classic」）
+PASS B3c 设置里的下拉也对到 classic（实得「classic」）—— 作废的意图连控件都不许对
+PASS B4 草稿逐字相等（实得 相等）
+PASS B5 焦点没被抢走（实得 promptInput）—— 作废的意图不许落焦到 stewardShell
+PASS B6 对话区滚动位置纹丝不动（前 1171 → 后 1171，差 ≤2 px；scrollHeight 2870→2870）
+
+SHELL MODE LATE CONFIG BROWSER E2E: ALL PASS

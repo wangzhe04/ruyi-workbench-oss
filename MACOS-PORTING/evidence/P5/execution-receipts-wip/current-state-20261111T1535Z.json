@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 2,
+  "at": "2026-11-11T15:37:27.561039+00:00",
+  "phaseStatus": "in_progress",
+  "featureStatus": "uncommitted_WIP_not_integrated_not_formally_accepted",
+  "mainHead": "f4f8ba23b1100f48b0c54335b37a3b859fab5d75",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "branch": "codex/p5-execution-receipts",
+  "base": "f4f8ba23",
+  "previousCheckpoint": "current-state-20261111T140216Z.json",
+  "originalRequirementMapping": "../remaining-resolution-2026-11-11-effects.json",
+  "originalLocalIDsPreserved": 10,
+  "originalExternalIDsPreserved": 4,
+  "sourceSnapshot": {
+    "archive": "source-snapshot-20261111T153507Z.tar.gz",
+    "sha256": "06e24acbebff6c1c3ba68ec4ee026d51ada746e7fbef33cd989fbcc71fdbd01a",
+    "manifest": "source-snapshot-20261111T153507Z.json",
+    "files": 28
+  },
+  "sources": [
+    {
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86",
+      "gitBlob": "ae4b32700165d1195f42042d9865a10031978003"
+    },
+    {
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "bytes": 12078,
+      "sha256": "7c25eef6e345b52f995ef3ea2c45973a0dc8771843057bd86790bc0d56f86ce3",
+      "gitBlob": "79c2b025afd03eb429bc2e3b9c44bd75aa1ba806"
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874",
+      "gitBlob": "28e2addbb6fc12cc07d493cf27beeca3484f0e41"
+    },
+    {
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4538,
+      "sha256": "de6eced6d8e3eebf8515fe97ec299fce019a0d67befcf10a9221dd5c356edb49",
+      "gitBlob": "0a45b8050941ba4809b0c6f60c3ef73293401617"
+    },
+    {
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8",
+      "gitBlob": "4905e390e78a6ada688e148751d8c9210b821395"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b",
+      "gitBlob": "ddee26d77746c0881cea591ae59571d9605ec329"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 10779,
+      "sha256": "1656bb895ae8d5c9e21e8a3d5de541e3e12958b3e6ae7b29aeb94d8674f34eab",
+      "gitBlob": "6366b5d2c41fcec263d9a0bdf2aa143758f79367"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2",
+      "gitBlob": "7ec7f6ccfaeba0e518f4363452d73ed48880836a"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d",
+      "gitBlob": "ab749f99f2ac35188dccdff7d3fe88e0e15a5e1f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 11277,
+      "sha256": "840a68cf894af6b123019bcb941e793490aee9a33098fb18f6c8824d9ebb1901",
+      "gitBlob": "0bff20117fe54d4763ef340b5772b58ecc37f7f1"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 18677,
+      "sha256": "959d5141f09bd2f75dcecb1f8aca9d8f47b46551aa3e4d9771855ffc23adc699",
+      "gitBlob": "91f5b525300cce0bc499c3a3bde63c96d4c88797"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19893,
+      "sha256": "9ee32da54e86a439b60ce8e9a9fcabc34df9b9198cbcab1922cace2be063087b",
+      "gitBlob": "d08d85a18da19cc0ed014ad374c89aed15561fff"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "gitBlob": "6020317c850e54e696524d544e4b79693462a90f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "gitBlob": "f8b66192a931e5207dce9341ce0c4f5f6b168b1c"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9151,
+      "sha256": "0faea33fe37d7b60302af09162a712d3b7f1511484864caf3148567c7cabe5a7",
+      "gitBlob": "6c9e197d27686e94d975772792d2f69997b913b8"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5",
+      "gitBlob": "14fa52a52ef3fd93d33d3f37001206ffefe92af1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 11524,
+      "sha256": "79110dbaf5c0d836fb056139feec5863ed6184f7139156688559c24d9bafcb4a",
+      "gitBlob": "2e6ca07a1e2f5ce64dbeaf6d2ba3ba884307b2c4"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a",
+      "gitBlob": "9796d0b3212f0aa8b6eef82b4bde8d26b22e5ce1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1",
+      "gitBlob": "14b995a4ea0050e5f415d80df28d3bc7c1ba13bd"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097",
+      "gitBlob": "bbc6fc25e09d7e7b3e4c0ef88058f6011225be10"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6800288,
+      "sha256": "3482cb91422349025fe7acbadf07e00a42ee8de0958a17061fd064a8053276d8",
+      "gitBlob": "039bb414545e12b5b2e3789b653e9dbdab645e12"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 6192,
+      "sha256": "5f8900407070b0afb4237de335768b7929779db4fd4a3d828f4c8756d72e98df",
+      "gitBlob": "ef9e328ff9c5cc7c84a6bc57d4def8b31120ebd8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197473,
+      "sha256": "9b4a7639a1909d9d54e41e7b9a304a0f801e998da186dbc0b4ee41cad32b38d7",
+      "gitBlob": "8f2e260972984042a387663a65c64a7ce3b295af"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 24052,
+      "sha256": "dfc019c1c941d613b814db994c8fd2e04235664cd5330b26acc00839a857de59",
+      "gitBlob": "079ed96b46c889b9da9b6ec9bacf6205db37b5c3"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "gitBlob": "b5b4c5305653330d7abdc3c877f30fbe3b421580"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "gitBlob": "f03fead3cd0a5b0f4d29de8a88a330ef24cef632"
+    }
+  ],
+  "independentlyQualifiedScopes": [
+    {
+      "scope": "Native negotiated protocol and strict decoder, feature/read-only mouse-position only",
+      "parser": 14,
+      "nativeReadOnly": 23,
+      "binding": {
+        "path": "evidence/protocol-freeze-v1.json",
+        "sha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c"
+      },
+      "report": {
+        "path": "evidence/independent-protocol-v1/report.json",
+        "sha256": "4c54d131f44de93329c112b2be014cf94b950d48fdb3df1029d28552bbfd4e2b"
+      }
+    },
+    {
+      "scope": "Journal primitive plus product native adapter with injected operation context",
+      "journal": 16,
+      "adapterReadOnly": 15,
+      "binding": {
+        "path": "evidence/adapter-freeze-v1.json",
+        "sha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899"
+      },
+      "report": {
+        "path": "evidence/independent-adapter-v1/report.json",
+        "sha256": "771ca535fbdaf6ae178c8b21e4b725fc9f2725594163c6e610027f3435c335ed"
+      }
+    },
+    {
+      "scope": "Actual Node MCP client to SDK metadata to wrappers/batch and read-only native receipts; numeric codec and safe transport probe",
+      "nodeUnit": 6,
+      "python": 4,
+      "actualContext": 29,
+      "binding": {
+        "path": "evidence/context-freeze-v1.json",
+        "sha256": "4553072c22e5477ca681493ee26447651708b3189431481d04bf34386003ed1e"
+      },
+      "report": {
+        "path": "evidence/independent-context-v1/report.json",
+        "sha256": "9e45c3bdc0895703e9f410b44a652c08ab4b8046b64248357266386620b9e8ae"
+      },
+      "currentSourceDriftSinceQualification": [
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/02g-desktop-executions.js",
+        "ruyi-workbench/app/src/manifest.json"
+      ],
+      "limit": "Earlier freeze remains historical; later helper/source changes do not inherit whole runtime acceptance."
+    },
+    {
+      "scope": "Standalone strict graph/private-blob reader and immutable JSON argument preparation; not activated in product dispatch/reader",
+      "nodeUnit": 12,
+      "python": 24,
+      "binding": {
+        "path": "evidence/validation-preparation-freeze-v1.json",
+        "sha256": "b619a4d3b6bbf3c2fdb8c9bc396015f9e5211088f4cd6b6995383ad630226645"
+      },
+      "report": {
+        "path": "evidence/independent-validation-preparation-v1/report.json",
+        "sha256": "2d6a103ed43b3aad6f3d345c3fc8cb319700dde8938f474034dc8d8de022b7b7"
+      },
+      "limit": "72 source/3 artifact hashes bound; no context/native/GUI rerun and no runtime artifact execution."
+    }
+  ],
+  "sourceReviews": [
+    {
+      "path": "evidence/context-source-review-v2.json",
+      "sha256": "1fa943da1719b917edbc675c1336bbab7d19866ca52a2016ee43a7c8d2be5f24"
+    },
+    {
+      "path": "evidence/validation-preparation-source-review-v1.json",
+      "sha256": "d05ceb62b987feab55c3058de6d2c181bac0077acdaecbc73859833c2bc4d9ce"
+    }
+  ],
+  "implementedInWorktree": [
+    "Native actual handler-entry challenge/raw-frame SHA/continue barrier and strict parser, legacy session default preserved.",
+    "Product macos_session adapter commits prepared/entered/continue/terminal evidence under actual operation context; cancel monitor and worker quarantine.",
+    "Actual SDK transport reserved metadata to request/wrapper scopes, defaults/raw arguments, batch parent/step IDs, raw Thread copy_context and independent reader.",
+    "ruyi-sdk-json-v1 matches exact SDK-decoded arbitrary-precision integers versus binary64 float values; old f64 integer collision corrected. This does not prove original wire numeric lexeme equality.",
+    "Actual safe transport probe checks fresh nonce, decoded-value digest and ACC worker incarnation rather than an SDK shape flag alone.",
+    "Standalone typed causal graph and descriptor-based private-blob reader distinguishes lifecycle completeness from reported flags; neither implies effects/application confirmation/replay safety.",
+    "Standalone final-boundary argument preparation copies descriptor values, rejects unsupported conversions, freezes null-prototype arrays/objects and derives matching JSON/hash/fingerprint."
+  ],
+  "engineeringChecks": {
+    "syntax": {
+      "files": 1166,
+      "failures": 0,
+      "log": "evidence/development/syntax-wip-v1.log"
+    },
+    "buildCheck": {
+      "passed": true,
+      "log": "evidence/development/build-wip-v1.log"
+    },
+    "fullUnitFastRelatedE2EInventories": "Not yet completed for unfinished full feature; no implementation commit/integration claimed."
+  },
+  "developmentFailuresPreserved": [
+    "context-v4/v5 both stopped at the probe check that wrongly compared ACC PID with ProcessRuntime guardian/root child PID. v5 raw result proves nonce/digest returned. Empty-base assertion was corrected by source inspection before v6, not observed as a separate failed run.",
+    "validation-v1 incorrectly required a tool-terminal ok field to exist; absent flag is now lifecycle unknown. Subsequent earlier passes do not hide four independent semantic findings.",
+    "Independent review found missing top-level wrapper, terminal ancestor late descendants, impossible native-frame snapshot, contradictory root non-dispatch, and inherited array toJSON; all five fixed and independently source-reviewed/pure-qualified. Historical logs/reports remain unchanged."
+  ],
+  "nextRequiredWork": [
+    "Integrate standalone graph/blob validation into product reader and qualify it on actual receipt traces.",
+    "Implement root-owned strict Node durable preparation and actual direct/proxy/subagent/CLI dispatch; immutable helper is not yet invoked by these paths.",
+    "Activate owned-ACC required-context refusal so dropped metadata cannot silently fall back into legacy mutations; re-probe and bind each actual client incarnation.",
+    "Reconcile after restart and block unsafe automatic mutation replay/model or steward continuation on unknown calls.",
+    "Implement acknowledged retention/global capacity/session deletion/rewind and private-blob lifecycle; unresolved traces never silently pruned.",
+    "Cover one-shot native capture/OCR route; current receipts cover input-session only.",
+    "Run ordinary owned actions and cancellation/storage/crash windows; raw Thread source propagation is not yet real input-sequence acceptance.",
+    "Run full engineering/inventory gates plus final independent review/acceptance before commit and integration.",
+    "Qualify independent bounded out-of-tree rescue before any held-state root fault. Original TCC/lock/layout/physical displays/macOS14/Windows/App/release identity gates remain open."
+  ],
+  "nextStageDesign": {
+    "path": "evidence/next-implementation-plan-v1.json",
+    "sha256": "45ce244099e448a2be6b26e7b539749f907c01eb9a34e0196b177331b7546fca"
+  },
+  "standingInstructions": {
+    "unattended": true,
+    "restoreAutomaticLockOnlyAfter": "full_P5_acceptance",
+    "originalScreensaverIdleTime": 300,
+    "originalSettingProvenance": "../manual/development/sequence/current-source-v2.json settings.screensaver_idleTime_before",
+    "lastObservedIdleTime": 0,
+    "caffeinatePid": 31171,
+    "caffeinateElapsedAtLastRead": "05:46:51 of12h",
+    "noIntentionalLockWithoutSpecificChoice": true,
+    "noMorePhysical你好DragOrFinderSetup": true,
+    "originalHelperUnchanged": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "runtime": {
+    "candidateHelper": "/tmp/ruyi-p5-receipts-helper",
+    "python": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "caffeinatePid": 31171
+  },
+  "fullP5Completion": "not_proved_open_gates_remain",
+  "proofLimits": [
+    "No full feature/P5 acceptance or implementation commit.",
+    "No provider Node durable prepared record/restart/replay guard activation.",
+    "No new held/TCC/lock/physical topology/macOS14/Windows/release App validation.",
+    "Automatic lock restoration is pending full-P5 acceptance."
+  ]
+}

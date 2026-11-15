@@ -1,0 +1,5 @@
+#import <AppKit/AppKit.h>
+#import <ApplicationServices/ApplicationServices.h>
+int main(void) { @autoreleasepool {
+    printf("hid=%llu combined=%llu shift-left=%d shift-right=%d mouse-left=%d\n", CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState), CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState), CGEventSourceKeyState(kCGEventSourceStateHIDSystemState,56), CGEventSourceKeyState(kCGEventSourceStateHIDSystemState,60), CGEventSourceButtonState(kCGEventSourceStateHIDSystemState,0));
+} }

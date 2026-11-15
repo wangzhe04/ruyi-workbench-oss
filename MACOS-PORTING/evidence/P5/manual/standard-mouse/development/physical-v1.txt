@@ -1,0 +1,3 @@
+PHYSICAL CAPTURE READY
+PHYSICAL RECORD AND REPLAY: ALL PASS
+{"status":"passed","evidence":"/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1","cleanupErrors":[]}

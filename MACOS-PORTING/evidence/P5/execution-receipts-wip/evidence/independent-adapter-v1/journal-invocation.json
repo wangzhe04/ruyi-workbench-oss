@@ -1,0 +1,20 @@
+{
+  "label": "journal",
+  "argv": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T14:26:18.346243+00:00",
+  "freezeSha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899",
+  "attempt": 1,
+  "finishedAt": "2026-11-11T14:26:18.490083+00:00",
+  "elapsedSeconds": 0.14376449999690522,
+  "exitCode": 0,
+  "logSha256": "8a77220dffb7758817abcd4dead693917b4a4c07de44517439560fb9f6f14b7f"
+}

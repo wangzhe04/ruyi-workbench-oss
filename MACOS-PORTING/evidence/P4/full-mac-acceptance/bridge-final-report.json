@@ -1,0 +1,1490 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 0,
+  "nativePID" : 41564,
+  "page" : {
+    "additional" : {
+      "cancellation" : {
+        "after" : {
+          "config" : {
+            "actionArgumentModelViewV1" : false,
+            "activeProvider" : "",
+            "additionalDirectories" : [
+
+            ],
+            "agentAutoModelTiering" : false,
+            "agentAutoWake" : true,
+            "agentCliType" : "claude",
+            "agentNodeWrapUpMs" : 1800000,
+            "agentRoleOverrides" : [
+
+            ],
+            "agentTaskPoolAutoCap" : 3,
+            "agentTaskPoolPolicy" : "manual",
+            "agentWorkflowMaxNodes" : 48,
+            "allowCommandTools" : true,
+            "allowDesktopTools" : true,
+            "allowOutsideWorkspace" : false,
+            "appendSystemPrompt" : "",
+            "asrFixMode" : "auto",
+            "asrFixModel" : "",
+            "asrFixProviderId" : "",
+            "asrModel" : "",
+            "asrProviderId" : "",
+            "asrStreamModel" : "",
+            "asrStreamProviderId" : "",
+            "autoCompactThreshold" : 0.80000000000000004,
+            "autoImportClaudeCodeMcp" : false,
+            "autonomyAutoResume" : false,
+            "autonomyPauseOnTimeout" : false,
+            "autonomyPauseTtlMs" : 2700000,
+            "autoResumeClaudeSessions" : true,
+            "betaInterleavedThinking" : false,
+            "boundedReadConcurrencyV1" : 4,
+            "boundedReadSchedulerV1" : false,
+            "bridgedToolTiers" : {
+
+            },
+            "bridgeExternalToolsToProvider" : true,
+            "browserAutomation" : {
+              "cdpUrl" : "http:\/\/127.0.0.1:9222",
+              "executable" : "",
+              "mode" : "system"
+            },
+            "budgetGuardTurnTokensV1" : 0,
+            "budgetGuardWarnRatioV1" : 0.80000000000000004,
+            "capabilityProbeUrl" : "",
+            "claudeAuthMode" : "auto",
+            "claudePath" : "",
+            "claudePricing" : null,
+            "claudeThinkingEffort" : "",
+            "compactModel" : "",
+            "compactProviderId" : "",
+            "configExplicitKeysV1" : [
+              "autoImportClaudeCodeMcp",
+              "defaultWorkspace",
+              "desktopMcp",
+              "enableMcpDropIn",
+              "includeWorkbenchMcp",
+              "locale",
+              "recentWorkspaces",
+              "schedulerEnabledV1",
+              "stewardEnabledV1",
+              "workspaces"
+            ],
+            "configSchema" : 14,
+            "contextWindowOverrides" : {
+
+            },
+            "coreMemoryCharBudgetV1" : 16000,
+            "coreMemoryMaxItemsV1" : 200,
+            "credentialEncryptionV1" : false,
+            "defaultWorkspace" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+            "desktopMcp" : {
+              "args" : [
+
+              ],
+              "autodetect" : false,
+              "command" : "",
+              "cwd" : "",
+              "enabled" : false
+            },
+            "discoverModelsFromProxy" : true,
+            "dismissedMcpIds" : [
+
+            ],
+            "enableMcpDropIn" : false,
+            "enableToolRequiresProbe" : false,
+            "engineMode" : "interactive",
+            "execResultCacheMaxEntriesV1" : 200,
+            "externalMcpServers" : [
+
+            ],
+            "extraClaudeArgs" : [
+
+            ],
+            "extraModels" : [
+
+            ],
+            "importAgentInstructions" : true,
+            "includePartialMessages" : true,
+            "includeWorkbenchMcp" : false,
+            "killOnDisconnect" : false,
+            "killPortOnStart" : true,
+            "kimiPath" : "",
+            "knownModels" : [
+
+            ],
+            "lastUsedEngineRoute" : null,
+            "locale" : "zh-CN",
+            "maxTurns" : "",
+            "mcpCommandMode" : "auto",
+            "memoryFixedSelectionMaxV1" : 64,
+            "memoryIndexCharCapV1" : 6000,
+            "memoryRelevanceMaxV1" : 8,
+            "metaToolHintsV1" : false,
+            "migrationSeenKeys" : [
+
+            ],
+            "model" : "",
+            "modelsApiBase" : "",
+            "modelsApiKey" : "",
+            "monitorIncremental" : true,
+            "newThreadEngine" : "last",
+            "onboarding" : null,
+            "openaiMaxToolIterations" : 100,
+            "outputStyle" : "detailed",
+            "permissionBridge" : true,
+            "permissionMode" : "auto",
+            "permissionTimeoutMs" : 0,
+            "privacyModeV1" : "off",
+            "privacyPolicyRecoveryRequiredV1" : false,
+            "privacyTechnicalV1" : false,
+            "providers" : [
+
+            ],
+            "questionTimeoutMs" : 0,
+            "quietCardSnoozeMinutes" : 30,
+            "recentWorkspaces" : [
+
+            ],
+            "residentSkills" : [
+
+            ],
+            "runtimeAppendOnlyToolSchemasV1" : true,
+            "runtimeBudgetGuardV1" : false,
+            "runtimeEstimateBucketsV1" : true,
+            "runtimeEvaporateBudgetBoundaryV1" : false,
+            "runtimeExecResultCacheV1" : true,
+            "runtimeFailureTelemetryV1" : false,
+            "runtimeHistoryReadDedupV1" : true,
+            "runtimeMemoryVectorRecallV1" : true,
+            "runtimeObservationRecallV1" : true,
+            "runtimeObservationReducerV1" : true,
+            "runtimeOptimizationShadowV1" : true,
+            "runtimeReseedReattachFilesV1" : false,
+            "runtimeReseedTailUnitsV1" : true,
+            "runtimeSessionNotesInjectV1" : true,
+            "runtimeSessionNotesMergeV1" : true,
+            "runtimeSessionNotesV1" : true,
+            "runtimeSummaryEntityCheckV1" : true,
+            "runtimeSummaryFactTableV1" : true,
+            "runtimeSummaryPromptI18nV1" : true,
+            "runtimeSummaryRefineV1" : false,
+            "runtimeSummarySingleShotV1" : true,
+            "runtimeToolRetrievalV1" : false,
+            "runtimeToolTimeBudgetShadowV1" : false,
+            "runtimeToolTimeBudgetV1" : false,
+            "runtimeVolatileTailLayoutV1" : false,
+            "schedulerAskWaitMinutes" : 30,
+            "schedulerEnabledV1" : false,
+            "searchBackend" : {
+              "apiKey" : "",
+              "baseUrl" : "",
+              "hasKey" : false,
+              "type" : "builtin"
+            },
+            "searchBackendMigrated" : true,
+            "sessionSearchIndexV1" : true,
+            "shellSessionMax" : 3,
+            "stewardAutoActions" : {
+              "answer" : false,
+              "continueUnfinished" : true,
+              "newThread" : true,
+              "relay" : true,
+              "resume" : null,
+              "retry" : true
+            },
+            "stewardContextBudgetRatio" : 0.59999999999999998,
+            "stewardContextBudgetTokens" : 200000,
+            "stewardConversationRetention" : "24h",
+            "stewardEnabledV1" : false,
+            "stewardExemptDelegationV1" : true,
+            "stewardGlobalMaxCostPerDay" : 50,
+            "stewardGlobalMaxTurnsPerHour" : 120,
+            "stewardManagedWorkspaces" : [
+
+            ],
+            "stewardMaxCostPerDay" : 5,
+            "stewardMaxParallelThreads" : 5,
+            "stewardMaxTurnsPerHour" : 30,
+            "stewardModel" : "",
+            "stewardNotifyPerHour" : 6,
+            "stewardPersonaName" : "",
+            "stewardPersonaStyle" : "",
+            "stewardPollMs" : 5000,
+            "stewardProviderId" : "",
+            "stewardReadBudgetChars" : 48000,
+            "stewardThreadBriefV1" : true,
+            "stewardThreadModels" : {
+              "fast" : {
+                "model" : "",
+                "providerId" : ""
+              },
+              "strong" : {
+                "model" : "",
+                "providerId" : ""
+              }
+            },
+            "stewardVisitIdleMinutes" : 60,
+            "stewardWorkspaceRoot" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/Ruyi",
+            "storagePolicy" : {
+              "agentRunEventsCompressDays" : 14,
+              "engineTranscriptDays" : 30,
+              "logsKeepDays" : 30,
+              "webcacheMaxEntries" : 0
+            },
+            "subagentBudgetMigrated" : true,
+            "subagentMaxConcurrent" : 8,
+            "subagentMaxPerTurn" : 32,
+            "subagentPreferredModel" : "",
+            "subagentPreferredProvider" : "",
+            "summaryFactTableMaxSamplesV1" : 64,
+            "summarySingleShotMaxOverridesV1" : {
+
+            },
+            "summarySingleShotMaxTokensV1" : 32768,
+            "theme" : "system",
+            "thinkingBudget" : "",
+            "threadIndexRecent" : 30,
+            "toolAllowRules" : {
+
+            },
+            "toolbox" : {
+              "autoDiscover" : true,
+              "disabled" : [
+
+              ],
+              "seen" : [
+
+              ]
+            },
+            "toolByteBudgetShadowBytesV1" : 0,
+            "toolCatalogCacheTtlMs" : 60000,
+            "toolEconomicsShadowV1" : true,
+            "toolLoadingMode" : "auto",
+            "toolTimeBudgetHardMsV1" : 0,
+            "toolTimeBudgetWarnMsV1" : 0,
+            "turnIdleTimeoutMs" : 600000,
+            "uiMode" : "simple",
+            "usageBudget" : null,
+            "version" : "3.0.1",
+            "workspaces" : [
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+                "read" : true,
+                "write" : true
+              },
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/P4 取消目标",
+                "read" : true,
+                "write" : true
+              }
+            ]
+          },
+          "currentConfig" : {
+            "actionArgumentModelViewV1" : false,
+            "activeProvider" : "",
+            "additionalDirectories" : [
+
+            ],
+            "agentAutoModelTiering" : false,
+            "agentAutoWake" : true,
+            "agentCliType" : "claude",
+            "agentNodeWrapUpMs" : 1800000,
+            "agentRoleOverrides" : [
+
+            ],
+            "agentTaskPoolAutoCap" : 3,
+            "agentTaskPoolPolicy" : "manual",
+            "agentWorkflowMaxNodes" : 48,
+            "allowCommandTools" : true,
+            "allowDesktopTools" : true,
+            "allowOutsideWorkspace" : false,
+            "appendSystemPrompt" : "",
+            "asrFixMode" : "auto",
+            "asrFixModel" : "",
+            "asrFixProviderId" : "",
+            "asrModel" : "",
+            "asrProviderId" : "",
+            "asrStreamModel" : "",
+            "asrStreamProviderId" : "",
+            "autoCompactThreshold" : 0.80000000000000004,
+            "autoImportClaudeCodeMcp" : false,
+            "autonomyAutoResume" : false,
+            "autonomyPauseOnTimeout" : false,
+            "autonomyPauseTtlMs" : 2700000,
+            "autoResumeClaudeSessions" : true,
+            "betaInterleavedThinking" : false,
+            "boundedReadConcurrencyV1" : 4,
+            "boundedReadSchedulerV1" : false,
+            "bridgedToolTiers" : {
+
+            },
+            "bridgeExternalToolsToProvider" : true,
+            "browserAutomation" : {
+              "cdpUrl" : "http:\/\/127.0.0.1:9222",
+              "executable" : "",
+              "mode" : "system"
+            },
+            "budgetGuardTurnTokensV1" : 0,
+            "budgetGuardWarnRatioV1" : 0.80000000000000004,
+            "capabilityProbeUrl" : "",
+            "claudeAuthMode" : "auto",
+            "claudePath" : "",
+            "claudePricing" : null,
+            "claudeThinkingEffort" : "",
+            "compactModel" : "",
+            "compactProviderId" : "",
+            "configExplicitKeysV1" : [
+              "autoImportClaudeCodeMcp",
+              "defaultWorkspace",
+              "desktopMcp",
+              "enableMcpDropIn",
+              "includeWorkbenchMcp",
+              "locale",
+              "schedulerEnabledV1",
+              "stewardEnabledV1",
+              "workspaces"
+            ],
+            "configSchema" : 14,
+            "contextWindowOverrides" : {
+
+            },
+            "coreMemoryCharBudgetV1" : 16000,
+            "coreMemoryMaxItemsV1" : 200,
+            "credentialEncryptionV1" : false,
+            "defaultWorkspace" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+            "desktopMcp" : {
+              "args" : [
+
+              ],
+              "autodetect" : false,
+              "command" : "",
+              "cwd" : "",
+              "enabled" : false
+            },
+            "discoverModelsFromProxy" : true,
+            "dismissedMcpIds" : [
+
+            ],
+            "enableMcpDropIn" : false,
+            "enableToolRequiresProbe" : false,
+            "engineMode" : "interactive",
+            "execResultCacheMaxEntriesV1" : 200,
+            "externalMcpServers" : [
+
+            ],
+            "extraClaudeArgs" : [
+
+            ],
+            "extraModels" : [
+
+            ],
+            "importAgentInstructions" : true,
+            "includePartialMessages" : true,
+            "includeWorkbenchMcp" : false,
+            "killOnDisconnect" : false,
+            "killPortOnStart" : true,
+            "kimiPath" : "",
+            "knownModels" : [
+
+            ],
+            "lastUsedEngineRoute" : null,
+            "locale" : "zh-CN",
+            "maxTurns" : "",
+            "mcpCommandMode" : "auto",
+            "memoryFixedSelectionMaxV1" : 64,
+            "memoryIndexCharCapV1" : 6000,
+            "memoryRelevanceMaxV1" : 8,
+            "metaToolHintsV1" : false,
+            "migrationSeenKeys" : [
+
+            ],
+            "model" : "",
+            "modelsApiBase" : "",
+            "modelsApiKey" : "",
+            "monitorIncremental" : true,
+            "newThreadEngine" : "last",
+            "onboarding" : null,
+            "openaiMaxToolIterations" : 100,
+            "outputStyle" : "detailed",
+            "permissionBridge" : true,
+            "permissionMode" : "auto",
+            "permissionTimeoutMs" : 0,
+            "privacyModeV1" : "off",
+            "privacyPolicyRecoveryRequiredV1" : false,
+            "privacyTechnicalV1" : false,
+            "providers" : [
+
+            ],
+            "questionTimeoutMs" : 0,
+            "quietCardSnoozeMinutes" : 30,
+            "recentWorkspaces" : [
+
+            ],
+            "residentSkills" : [
+
+            ],
+            "runtimeAppendOnlyToolSchemasV1" : true,
+            "runtimeBudgetGuardV1" : false,
+            "runtimeEstimateBucketsV1" : true,
+            "runtimeEvaporateBudgetBoundaryV1" : false,
+            "runtimeExecResultCacheV1" : true,
+            "runtimeFailureTelemetryV1" : false,
+            "runtimeHistoryReadDedupV1" : true,
+            "runtimeMemoryVectorRecallV1" : true,
+            "runtimeObservationRecallV1" : true,
+            "runtimeObservationReducerV1" : true,
+            "runtimeOptimizationShadowV1" : true,
+            "runtimeReseedReattachFilesV1" : false,
+            "runtimeReseedTailUnitsV1" : true,
+            "runtimeSessionNotesInjectV1" : true,
+            "runtimeSessionNotesMergeV1" : true,
+            "runtimeSessionNotesV1" : true,
+            "runtimeSummaryEntityCheckV1" : true,
+            "runtimeSummaryFactTableV1" : true,
+            "runtimeSummaryPromptI18nV1" : true,
+            "runtimeSummaryRefineV1" : false,
+            "runtimeSummarySingleShotV1" : true,
+            "runtimeToolRetrievalV1" : false,
+            "runtimeToolTimeBudgetShadowV1" : false,
+            "runtimeToolTimeBudgetV1" : false,
+            "runtimeVolatileTailLayoutV1" : false,
+            "schedulerAskWaitMinutes" : 30,
+            "schedulerEnabledV1" : false,
+            "searchBackend" : {
+              "apiKey" : "",
+              "baseUrl" : "",
+              "hasKey" : false,
+              "type" : "builtin"
+            },
+            "searchBackendMigrated" : true,
+            "sessionSearchIndexV1" : true,
+            "shellSessionMax" : 3,
+            "stewardAutoActions" : {
+              "answer" : false,
+              "continueUnfinished" : true,
+              "newThread" : true,
+              "relay" : true,
+              "resume" : null,
+              "retry" : true
+            },
+            "stewardContextBudgetRatio" : 0.59999999999999998,
+            "stewardContextBudgetTokens" : 200000,
+            "stewardConversationRetention" : "24h",
+            "stewardEnabledV1" : false,
+            "stewardExemptDelegationV1" : true,
+            "stewardGlobalMaxCostPerDay" : 50,
+            "stewardGlobalMaxTurnsPerHour" : 120,
+            "stewardManagedWorkspaces" : [
+
+            ],
+            "stewardMaxCostPerDay" : 5,
+            "stewardMaxParallelThreads" : 5,
+            "stewardMaxTurnsPerHour" : 30,
+            "stewardModel" : "",
+            "stewardNotifyPerHour" : 6,
+            "stewardPersonaName" : "",
+            "stewardPersonaStyle" : "",
+            "stewardPollMs" : 5000,
+            "stewardProviderId" : "",
+            "stewardReadBudgetChars" : 48000,
+            "stewardThreadBriefV1" : true,
+            "stewardThreadModels" : {
+              "fast" : {
+                "model" : "",
+                "providerId" : ""
+              },
+              "strong" : {
+                "model" : "",
+                "providerId" : ""
+              }
+            },
+            "stewardVisitIdleMinutes" : 60,
+            "stewardWorkspaceRoot" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/Ruyi",
+            "storagePolicy" : {
+              "agentRunEventsCompressDays" : 14,
+              "engineTranscriptDays" : 30,
+              "logsKeepDays" : 30,
+              "webcacheMaxEntries" : 0
+            },
+            "subagentBudgetMigrated" : true,
+            "subagentMaxConcurrent" : 8,
+            "subagentMaxPerTurn" : 32,
+            "subagentPreferredModel" : "",
+            "subagentPreferredProvider" : "",
+            "summaryFactTableMaxSamplesV1" : 64,
+            "summarySingleShotMaxOverridesV1" : {
+
+            },
+            "summarySingleShotMaxTokensV1" : 32768,
+            "theme" : "system",
+            "thinkingBudget" : "",
+            "threadIndexRecent" : 30,
+            "toolAllowRules" : {
+
+            },
+            "toolbox" : {
+              "autoDiscover" : true,
+              "disabled" : [
+
+              ],
+              "seen" : [
+
+              ]
+            },
+            "toolByteBudgetShadowBytesV1" : 0,
+            "toolCatalogCacheTtlMs" : 60000,
+            "toolEconomicsShadowV1" : true,
+            "toolLoadingMode" : "auto",
+            "toolTimeBudgetHardMsV1" : 0,
+            "toolTimeBudgetWarnMsV1" : 0,
+            "turnIdleTimeoutMs" : 600000,
+            "uiMode" : "simple",
+            "usageBudget" : null,
+            "version" : "3.0.1",
+            "workspaces" : [
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+                "read" : true,
+                "write" : true
+              },
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/P4 取消目标",
+                "read" : true,
+                "write" : true
+              }
+            ]
+          },
+          "currentSession" : {
+            "attachments" : [
+
+            ],
+            "claudeSessionId" : null,
+            "createdAt" : "2026-11-08T06:53:07.523Z",
+            "cwd" : "\/private\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/trailing space ",
+            "engineRoute" : {
+              "agentCliType" : "claude",
+              "engine" : "agent",
+              "model" : ""
+            },
+            "id" : "sess_7529c53a488dcfa4",
+            "kind" : "quick_ask",
+            "memories" : [
+
+            ],
+            "memoriesExplicit" : false,
+            "memoryExclusions" : [
+
+            ],
+            "messages" : [
+
+            ],
+            "mission" : null,
+            "missionId" : "sess_7529c53a488dcfa4",
+            "origin" : "user",
+            "pinned" : false,
+            "privacyHistoryV1" : false,
+            "providerHistory" : [
+
+            ],
+            "providerHistoryCursor" : 0,
+            "schemaVersion" : 1,
+            "skills" : [
+
+            ],
+            "summary" : "",
+            "title" : "P4目录字符",
+            "titleSource" : "user",
+            "todos" : [
+
+            ],
+            "turnSeq" : 0,
+            "updatedAt" : "2026-11-08T06:53:07.619Z"
+          },
+          "session" : {
+            "attachments" : [
+
+            ],
+            "claudeSessionId" : null,
+            "createdAt" : "2026-11-08T06:53:07.523Z",
+            "cwd" : "\/private\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/trailing space ",
+            "engineRoute" : {
+              "agentCliType" : "claude",
+              "engine" : "agent",
+              "model" : ""
+            },
+            "id" : "sess_7529c53a488dcfa4",
+            "kind" : "quick_ask",
+            "memories" : [
+
+            ],
+            "memoriesExplicit" : false,
+            "memoryExclusions" : [
+
+            ],
+            "messages" : [
+
+            ],
+            "mission" : null,
+            "missionId" : "sess_7529c53a488dcfa4",
+            "origin" : "user",
+            "pinned" : false,
+            "privacyHistoryV1" : false,
+            "providerHistory" : [
+
+            ],
+            "providerHistoryCursor" : 0,
+            "schemaVersion" : 1,
+            "skills" : [
+
+            ],
+            "summary" : "",
+            "title" : "P4目录字符",
+            "titleSource" : "user",
+            "todos" : [
+
+            ],
+            "turnSeq" : 0,
+            "updatedAt" : "2026-11-08T06:53:07.619Z"
+          }
+        },
+        "before" : {
+          "config" : {
+            "actionArgumentModelViewV1" : false,
+            "activeProvider" : "",
+            "additionalDirectories" : [
+
+            ],
+            "agentAutoModelTiering" : false,
+            "agentAutoWake" : true,
+            "agentCliType" : "claude",
+            "agentNodeWrapUpMs" : 1800000,
+            "agentRoleOverrides" : [
+
+            ],
+            "agentTaskPoolAutoCap" : 3,
+            "agentTaskPoolPolicy" : "manual",
+            "agentWorkflowMaxNodes" : 48,
+            "allowCommandTools" : true,
+            "allowDesktopTools" : true,
+            "allowOutsideWorkspace" : false,
+            "appendSystemPrompt" : "",
+            "asrFixMode" : "auto",
+            "asrFixModel" : "",
+            "asrFixProviderId" : "",
+            "asrModel" : "",
+            "asrProviderId" : "",
+            "asrStreamModel" : "",
+            "asrStreamProviderId" : "",
+            "autoCompactThreshold" : 0.80000000000000004,
+            "autoImportClaudeCodeMcp" : false,
+            "autonomyAutoResume" : false,
+            "autonomyPauseOnTimeout" : false,
+            "autonomyPauseTtlMs" : 2700000,
+            "autoResumeClaudeSessions" : true,
+            "betaInterleavedThinking" : false,
+            "boundedReadConcurrencyV1" : 4,
+            "boundedReadSchedulerV1" : false,
+            "bridgedToolTiers" : {
+
+            },
+            "bridgeExternalToolsToProvider" : true,
+            "browserAutomation" : {
+              "cdpUrl" : "http:\/\/127.0.0.1:9222",
+              "executable" : "",
+              "mode" : "system"
+            },
+            "budgetGuardTurnTokensV1" : 0,
+            "budgetGuardWarnRatioV1" : 0.80000000000000004,
+            "capabilityProbeUrl" : "",
+            "claudeAuthMode" : "auto",
+            "claudePath" : "",
+            "claudePricing" : null,
+            "claudeThinkingEffort" : "",
+            "compactModel" : "",
+            "compactProviderId" : "",
+            "configExplicitKeysV1" : [
+              "autoImportClaudeCodeMcp",
+              "defaultWorkspace",
+              "desktopMcp",
+              "enableMcpDropIn",
+              "includeWorkbenchMcp",
+              "locale",
+              "recentWorkspaces",
+              "schedulerEnabledV1",
+              "stewardEnabledV1",
+              "workspaces"
+            ],
+            "configSchema" : 14,
+            "contextWindowOverrides" : {
+
+            },
+            "coreMemoryCharBudgetV1" : 16000,
+            "coreMemoryMaxItemsV1" : 200,
+            "credentialEncryptionV1" : false,
+            "defaultWorkspace" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+            "desktopMcp" : {
+              "args" : [
+
+              ],
+              "autodetect" : false,
+              "command" : "",
+              "cwd" : "",
+              "enabled" : false
+            },
+            "discoverModelsFromProxy" : true,
+            "dismissedMcpIds" : [
+
+            ],
+            "enableMcpDropIn" : false,
+            "enableToolRequiresProbe" : false,
+            "engineMode" : "interactive",
+            "execResultCacheMaxEntriesV1" : 200,
+            "externalMcpServers" : [
+
+            ],
+            "extraClaudeArgs" : [
+
+            ],
+            "extraModels" : [
+
+            ],
+            "importAgentInstructions" : true,
+            "includePartialMessages" : true,
+            "includeWorkbenchMcp" : false,
+            "killOnDisconnect" : false,
+            "killPortOnStart" : true,
+            "kimiPath" : "",
+            "knownModels" : [
+
+            ],
+            "lastUsedEngineRoute" : null,
+            "locale" : "zh-CN",
+            "maxTurns" : "",
+            "mcpCommandMode" : "auto",
+            "memoryFixedSelectionMaxV1" : 64,
+            "memoryIndexCharCapV1" : 6000,
+            "memoryRelevanceMaxV1" : 8,
+            "metaToolHintsV1" : false,
+            "migrationSeenKeys" : [
+
+            ],
+            "model" : "",
+            "modelsApiBase" : "",
+            "modelsApiKey" : "",
+            "monitorIncremental" : true,
+            "newThreadEngine" : "last",
+            "onboarding" : null,
+            "openaiMaxToolIterations" : 100,
+            "outputStyle" : "detailed",
+            "permissionBridge" : true,
+            "permissionMode" : "auto",
+            "permissionTimeoutMs" : 0,
+            "privacyModeV1" : "off",
+            "privacyPolicyRecoveryRequiredV1" : false,
+            "privacyTechnicalV1" : false,
+            "providers" : [
+
+            ],
+            "questionTimeoutMs" : 0,
+            "quietCardSnoozeMinutes" : 30,
+            "recentWorkspaces" : [
+
+            ],
+            "residentSkills" : [
+
+            ],
+            "runtimeAppendOnlyToolSchemasV1" : true,
+            "runtimeBudgetGuardV1" : false,
+            "runtimeEstimateBucketsV1" : true,
+            "runtimeEvaporateBudgetBoundaryV1" : false,
+            "runtimeExecResultCacheV1" : true,
+            "runtimeFailureTelemetryV1" : false,
+            "runtimeHistoryReadDedupV1" : true,
+            "runtimeMemoryVectorRecallV1" : true,
+            "runtimeObservationRecallV1" : true,
+            "runtimeObservationReducerV1" : true,
+            "runtimeOptimizationShadowV1" : true,
+            "runtimeReseedReattachFilesV1" : false,
+            "runtimeReseedTailUnitsV1" : true,
+            "runtimeSessionNotesInjectV1" : true,
+            "runtimeSessionNotesMergeV1" : true,
+            "runtimeSessionNotesV1" : true,
+            "runtimeSummaryEntityCheckV1" : true,
+            "runtimeSummaryFactTableV1" : true,
+            "runtimeSummaryPromptI18nV1" : true,
+            "runtimeSummaryRefineV1" : false,
+            "runtimeSummarySingleShotV1" : true,
+            "runtimeToolRetrievalV1" : false,
+            "runtimeToolTimeBudgetShadowV1" : false,
+            "runtimeToolTimeBudgetV1" : false,
+            "runtimeVolatileTailLayoutV1" : false,
+            "schedulerAskWaitMinutes" : 30,
+            "schedulerEnabledV1" : false,
+            "searchBackend" : {
+              "apiKey" : "",
+              "baseUrl" : "",
+              "hasKey" : false,
+              "type" : "builtin"
+            },
+            "searchBackendMigrated" : true,
+            "sessionSearchIndexV1" : true,
+            "shellSessionMax" : 3,
+            "stewardAutoActions" : {
+              "answer" : false,
+              "continueUnfinished" : true,
+              "newThread" : true,
+              "relay" : true,
+              "resume" : null,
+              "retry" : true
+            },
+            "stewardContextBudgetRatio" : 0.59999999999999998,
+            "stewardContextBudgetTokens" : 200000,
+            "stewardConversationRetention" : "24h",
+            "stewardEnabledV1" : false,
+            "stewardExemptDelegationV1" : true,
+            "stewardGlobalMaxCostPerDay" : 50,
+            "stewardGlobalMaxTurnsPerHour" : 120,
+            "stewardManagedWorkspaces" : [
+
+            ],
+            "stewardMaxCostPerDay" : 5,
+            "stewardMaxParallelThreads" : 5,
+            "stewardMaxTurnsPerHour" : 30,
+            "stewardModel" : "",
+            "stewardNotifyPerHour" : 6,
+            "stewardPersonaName" : "",
+            "stewardPersonaStyle" : "",
+            "stewardPollMs" : 5000,
+            "stewardProviderId" : "",
+            "stewardReadBudgetChars" : 48000,
+            "stewardThreadBriefV1" : true,
+            "stewardThreadModels" : {
+              "fast" : {
+                "model" : "",
+                "providerId" : ""
+              },
+              "strong" : {
+                "model" : "",
+                "providerId" : ""
+              }
+            },
+            "stewardVisitIdleMinutes" : 60,
+            "stewardWorkspaceRoot" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/Ruyi",
+            "storagePolicy" : {
+              "agentRunEventsCompressDays" : 14,
+              "engineTranscriptDays" : 30,
+              "logsKeepDays" : 30,
+              "webcacheMaxEntries" : 0
+            },
+            "subagentBudgetMigrated" : true,
+            "subagentMaxConcurrent" : 8,
+            "subagentMaxPerTurn" : 32,
+            "subagentPreferredModel" : "",
+            "subagentPreferredProvider" : "",
+            "summaryFactTableMaxSamplesV1" : 64,
+            "summarySingleShotMaxOverridesV1" : {
+
+            },
+            "summarySingleShotMaxTokensV1" : 32768,
+            "theme" : "system",
+            "thinkingBudget" : "",
+            "threadIndexRecent" : 30,
+            "toolAllowRules" : {
+
+            },
+            "toolbox" : {
+              "autoDiscover" : true,
+              "disabled" : [
+
+              ],
+              "seen" : [
+
+              ]
+            },
+            "toolByteBudgetShadowBytesV1" : 0,
+            "toolCatalogCacheTtlMs" : 60000,
+            "toolEconomicsShadowV1" : true,
+            "toolLoadingMode" : "auto",
+            "toolTimeBudgetHardMsV1" : 0,
+            "toolTimeBudgetWarnMsV1" : 0,
+            "turnIdleTimeoutMs" : 600000,
+            "uiMode" : "simple",
+            "usageBudget" : null,
+            "version" : "3.0.1",
+            "workspaces" : [
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+                "read" : true,
+                "write" : true
+              },
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/P4 取消目标",
+                "read" : true,
+                "write" : true
+              }
+            ]
+          },
+          "currentConfig" : {
+            "actionArgumentModelViewV1" : false,
+            "activeProvider" : "",
+            "additionalDirectories" : [
+
+            ],
+            "agentAutoModelTiering" : false,
+            "agentAutoWake" : true,
+            "agentCliType" : "claude",
+            "agentNodeWrapUpMs" : 1800000,
+            "agentRoleOverrides" : [
+
+            ],
+            "agentTaskPoolAutoCap" : 3,
+            "agentTaskPoolPolicy" : "manual",
+            "agentWorkflowMaxNodes" : 48,
+            "allowCommandTools" : true,
+            "allowDesktopTools" : true,
+            "allowOutsideWorkspace" : false,
+            "appendSystemPrompt" : "",
+            "asrFixMode" : "auto",
+            "asrFixModel" : "",
+            "asrFixProviderId" : "",
+            "asrModel" : "",
+            "asrProviderId" : "",
+            "asrStreamModel" : "",
+            "asrStreamProviderId" : "",
+            "autoCompactThreshold" : 0.80000000000000004,
+            "autoImportClaudeCodeMcp" : false,
+            "autonomyAutoResume" : false,
+            "autonomyPauseOnTimeout" : false,
+            "autonomyPauseTtlMs" : 2700000,
+            "autoResumeClaudeSessions" : true,
+            "betaInterleavedThinking" : false,
+            "boundedReadConcurrencyV1" : 4,
+            "boundedReadSchedulerV1" : false,
+            "bridgedToolTiers" : {
+
+            },
+            "bridgeExternalToolsToProvider" : true,
+            "browserAutomation" : {
+              "cdpUrl" : "http:\/\/127.0.0.1:9222",
+              "executable" : "",
+              "mode" : "system"
+            },
+            "budgetGuardTurnTokensV1" : 0,
+            "budgetGuardWarnRatioV1" : 0.80000000000000004,
+            "capabilityProbeUrl" : "",
+            "claudeAuthMode" : "auto",
+            "claudePath" : "",
+            "claudePricing" : null,
+            "claudeThinkingEffort" : "",
+            "compactModel" : "",
+            "compactProviderId" : "",
+            "configExplicitKeysV1" : [
+              "autoImportClaudeCodeMcp",
+              "defaultWorkspace",
+              "desktopMcp",
+              "enableMcpDropIn",
+              "includeWorkbenchMcp",
+              "locale",
+              "schedulerEnabledV1",
+              "stewardEnabledV1",
+              "workspaces"
+            ],
+            "configSchema" : 14,
+            "contextWindowOverrides" : {
+
+            },
+            "coreMemoryCharBudgetV1" : 16000,
+            "coreMemoryMaxItemsV1" : 200,
+            "credentialEncryptionV1" : false,
+            "defaultWorkspace" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+            "desktopMcp" : {
+              "args" : [
+
+              ],
+              "autodetect" : false,
+              "command" : "",
+              "cwd" : "",
+              "enabled" : false
+            },
+            "discoverModelsFromProxy" : true,
+            "dismissedMcpIds" : [
+
+            ],
+            "enableMcpDropIn" : false,
+            "enableToolRequiresProbe" : false,
+            "engineMode" : "interactive",
+            "execResultCacheMaxEntriesV1" : 200,
+            "externalMcpServers" : [
+
+            ],
+            "extraClaudeArgs" : [
+
+            ],
+            "extraModels" : [
+
+            ],
+            "importAgentInstructions" : true,
+            "includePartialMessages" : true,
+            "includeWorkbenchMcp" : false,
+            "killOnDisconnect" : false,
+            "killPortOnStart" : true,
+            "kimiPath" : "",
+            "knownModels" : [
+
+            ],
+            "lastUsedEngineRoute" : null,
+            "locale" : "zh-CN",
+            "maxTurns" : "",
+            "mcpCommandMode" : "auto",
+            "memoryFixedSelectionMaxV1" : 64,
+            "memoryIndexCharCapV1" : 6000,
+            "memoryRelevanceMaxV1" : 8,
+            "metaToolHintsV1" : false,
+            "migrationSeenKeys" : [
+
+            ],
+            "model" : "",
+            "modelsApiBase" : "",
+            "modelsApiKey" : "",
+            "monitorIncremental" : true,
+            "newThreadEngine" : "last",
+            "onboarding" : null,
+            "openaiMaxToolIterations" : 100,
+            "outputStyle" : "detailed",
+            "permissionBridge" : true,
+            "permissionMode" : "auto",
+            "permissionTimeoutMs" : 0,
+            "privacyModeV1" : "off",
+            "privacyPolicyRecoveryRequiredV1" : false,
+            "privacyTechnicalV1" : false,
+            "providers" : [
+
+            ],
+            "questionTimeoutMs" : 0,
+            "quietCardSnoozeMinutes" : 30,
+            "recentWorkspaces" : [
+
+            ],
+            "residentSkills" : [
+
+            ],
+            "runtimeAppendOnlyToolSchemasV1" : true,
+            "runtimeBudgetGuardV1" : false,
+            "runtimeEstimateBucketsV1" : true,
+            "runtimeEvaporateBudgetBoundaryV1" : false,
+            "runtimeExecResultCacheV1" : true,
+            "runtimeFailureTelemetryV1" : false,
+            "runtimeHistoryReadDedupV1" : true,
+            "runtimeMemoryVectorRecallV1" : true,
+            "runtimeObservationRecallV1" : true,
+            "runtimeObservationReducerV1" : true,
+            "runtimeOptimizationShadowV1" : true,
+            "runtimeReseedReattachFilesV1" : false,
+            "runtimeReseedTailUnitsV1" : true,
+            "runtimeSessionNotesInjectV1" : true,
+            "runtimeSessionNotesMergeV1" : true,
+            "runtimeSessionNotesV1" : true,
+            "runtimeSummaryEntityCheckV1" : true,
+            "runtimeSummaryFactTableV1" : true,
+            "runtimeSummaryPromptI18nV1" : true,
+            "runtimeSummaryRefineV1" : false,
+            "runtimeSummarySingleShotV1" : true,
+            "runtimeToolRetrievalV1" : false,
+            "runtimeToolTimeBudgetShadowV1" : false,
+            "runtimeToolTimeBudgetV1" : false,
+            "runtimeVolatileTailLayoutV1" : false,
+            "schedulerAskWaitMinutes" : 30,
+            "schedulerEnabledV1" : false,
+            "searchBackend" : {
+              "apiKey" : "",
+              "baseUrl" : "",
+              "hasKey" : false,
+              "type" : "builtin"
+            },
+            "searchBackendMigrated" : true,
+            "sessionSearchIndexV1" : true,
+            "shellSessionMax" : 3,
+            "stewardAutoActions" : {
+              "answer" : false,
+              "continueUnfinished" : true,
+              "newThread" : true,
+              "relay" : true,
+              "resume" : null,
+              "retry" : true
+            },
+            "stewardContextBudgetRatio" : 0.59999999999999998,
+            "stewardContextBudgetTokens" : 200000,
+            "stewardConversationRetention" : "24h",
+            "stewardEnabledV1" : false,
+            "stewardExemptDelegationV1" : true,
+            "stewardGlobalMaxCostPerDay" : 50,
+            "stewardGlobalMaxTurnsPerHour" : 120,
+            "stewardManagedWorkspaces" : [
+
+            ],
+            "stewardMaxCostPerDay" : 5,
+            "stewardMaxParallelThreads" : 5,
+            "stewardMaxTurnsPerHour" : 30,
+            "stewardModel" : "",
+            "stewardNotifyPerHour" : 6,
+            "stewardPersonaName" : "",
+            "stewardPersonaStyle" : "",
+            "stewardPollMs" : 5000,
+            "stewardProviderId" : "",
+            "stewardReadBudgetChars" : 48000,
+            "stewardThreadBriefV1" : true,
+            "stewardThreadModels" : {
+              "fast" : {
+                "model" : "",
+                "providerId" : ""
+              },
+              "strong" : {
+                "model" : "",
+                "providerId" : ""
+              }
+            },
+            "stewardVisitIdleMinutes" : 60,
+            "stewardWorkspaceRoot" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/Ruyi",
+            "storagePolicy" : {
+              "agentRunEventsCompressDays" : 14,
+              "engineTranscriptDays" : 30,
+              "logsKeepDays" : 30,
+              "webcacheMaxEntries" : 0
+            },
+            "subagentBudgetMigrated" : true,
+            "subagentMaxConcurrent" : 8,
+            "subagentMaxPerTurn" : 32,
+            "subagentPreferredModel" : "",
+            "subagentPreferredProvider" : "",
+            "summaryFactTableMaxSamplesV1" : 64,
+            "summarySingleShotMaxOverridesV1" : {
+
+            },
+            "summarySingleShotMaxTokensV1" : 32768,
+            "theme" : "system",
+            "thinkingBudget" : "",
+            "threadIndexRecent" : 30,
+            "toolAllowRules" : {
+
+            },
+            "toolbox" : {
+              "autoDiscover" : true,
+              "disabled" : [
+
+              ],
+              "seen" : [
+
+              ]
+            },
+            "toolByteBudgetShadowBytesV1" : 0,
+            "toolCatalogCacheTtlMs" : 60000,
+            "toolEconomicsShadowV1" : true,
+            "toolLoadingMode" : "auto",
+            "toolTimeBudgetHardMsV1" : 0,
+            "toolTimeBudgetWarnMsV1" : 0,
+            "turnIdleTimeoutMs" : 600000,
+            "uiMode" : "simple",
+            "usageBudget" : null,
+            "version" : "3.0.1",
+            "workspaces" : [
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/工作 区",
+                "read" : true,
+                "write" : true
+              },
+              {
+                "execute" : true,
+                "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/P4 取消目标",
+                "read" : true,
+                "write" : true
+              }
+            ]
+          },
+          "currentSession" : {
+            "attachments" : [
+
+            ],
+            "claudeSessionId" : null,
+            "createdAt" : "2026-11-08T06:53:07.523Z",
+            "cwd" : "\/private\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/trailing space ",
+            "engineRoute" : {
+              "agentCliType" : "claude",
+              "engine" : "agent",
+              "model" : ""
+            },
+            "id" : "sess_7529c53a488dcfa4",
+            "kind" : "quick_ask",
+            "memories" : [
+
+            ],
+            "memoriesExplicit" : false,
+            "memoryExclusions" : [
+
+            ],
+            "messages" : [
+
+            ],
+            "mission" : null,
+            "missionId" : "sess_7529c53a488dcfa4",
+            "origin" : "user",
+            "pinned" : false,
+            "privacyHistoryV1" : false,
+            "providerHistory" : [
+
+            ],
+            "providerHistoryCursor" : 0,
+            "schemaVersion" : 1,
+            "skills" : [
+
+            ],
+            "summary" : "",
+            "title" : "P4目录字符",
+            "titleSource" : "user",
+            "todos" : [
+
+            ],
+            "turnSeq" : 0,
+            "updatedAt" : "2026-11-08T06:53:07.619Z"
+          },
+          "session" : {
+            "attachments" : [
+
+            ],
+            "claudeSessionId" : null,
+            "createdAt" : "2026-11-08T06:53:07.523Z",
+            "cwd" : "\/private\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/trailing space ",
+            "engineRoute" : {
+              "agentCliType" : "claude",
+              "engine" : "agent",
+              "model" : ""
+            },
+            "id" : "sess_7529c53a488dcfa4",
+            "kind" : "quick_ask",
+            "memories" : [
+
+            ],
+            "memoriesExplicit" : false,
+            "memoryExclusions" : [
+
+            ],
+            "messages" : [
+
+            ],
+            "mission" : null,
+            "missionId" : "sess_7529c53a488dcfa4",
+            "origin" : "user",
+            "pinned" : false,
+            "privacyHistoryV1" : false,
+            "providerHistory" : [
+
+            ],
+            "providerHistoryCursor" : 0,
+            "schemaVersion" : 1,
+            "skills" : [
+
+            ],
+            "summary" : "",
+            "title" : "P4目录字符",
+            "titleSource" : "user",
+            "todos" : [
+
+            ],
+            "turnSeq" : 0,
+            "updatedAt" : "2026-11-08T06:53:07.619Z"
+          }
+        },
+        "defaultPrevented" : true,
+        "entryReads" : 2,
+        "isTrusted" : false,
+        "resolutions" : [
+          {
+            "body" : {
+              "children" : [
+                "P4 取消目录指纹.txt"
+              ],
+              "name" : "P4 取消目标"
+            },
+            "result" : {
+              "matches" : [
+                {
+                  "path" : "\/var\/folders\/r3\/pmqdt9dn18d2mgcqxzydrl1c0000gn\/T\/ruyi-e2e-home-Mby2k3\/P4 取消目标",
+                  "score" : 1
+                }
+              ],
+              "ok" : true,
+              "truncated" : false
+            },
+            "status" : 200
+          }
+        ],
+        "sends" : 0,
+        "synthetic" : true,
+        "writes" : [
+
+        ]
+      },
+      "results" : [
+        {
+          "label" : "Mac path resolver reuses the existing favorite for POSIX and symlink aliases",
+          "ok" : true
+        },
+        {
+          "label" : "normal workspace switch removes stored alias duplicates and keeps the preferred spelling",
+          "ok" : true
+        },
+        {
+          "label" : "alias deduplication preserves existing favorite permissions",
+          "ok" : true
+        },
+        {
+          "label" : "stale client favorites inherit the authoritative server permissions",
+          "ok" : true
+        },
+        {
+          "label" : "Mac workspace persistence distinguishes literal trailing backslashes from their sibling directory",
+          "ok" : true
+        },
+        {
+          "label" : "Mac workspace label displays literal backslashes as filename characters",
+          "ok" : true
+        },
+        {
+          "label" : "native Mac directory selection and config persistence preserve trailing whitespace",
+          "ok" : true
+        },
+        {
+          "label" : "existing-session workspace switch persists the exact Mac directory including trailing whitespace",
+          "ok" : true
+        },
+        {
+          "label" : "Mac favorite keys preserve distinct case-sensitive paths",
+          "ok" : true
+        },
+        {
+          "label" : "directory resolution cannot apply an old selection to a different session",
+          "ok" : true
+        },
+        {
+          "label" : "late directory resolution cannot replace the latest workspace selection",
+          "ok" : true
+        },
+        {
+          "label" : "workspace writes serialize while an earlier session patch is in flight",
+          "ok" : true
+        },
+        {
+          "label" : "late session patch completion cannot overwrite newer workspace preferences",
+          "ok" : true
+        },
+        {
+          "label" : "synthetic cancellation starts with an explicit current session and different cwd, default and recent workspaces",
+          "ok" : true
+        },
+        {
+          "label" : "synthetic directory drop reads its fingerprint and uses the real resolver for the fixture target",
+          "ok" : true
+        },
+        {
+          "label" : "normal directory drop shows its target and unchecked default option in the actual confirmation modal",
+          "ok" : true
+        },
+        {
+          "label" : "directory Cancel preserves the exact selected session, complete server config and frontend workspace state",
+          "ok" : true
+        },
+        {
+          "label" : "directory Cancel issues no selectedPath resolution, session\/config mutation or automatic send",
+          "ok" : true
+        },
+        {
+          "label" : "trusted complete workbench receives native host marker",
+          "ok" : true
+        },
+        {
+          "label" : "notification state comes from the real OS",
+          "ok" : true
+        },
+        {
+          "label" : "native rejects malformed message schema",
+          "ok" : true
+        },
+        {
+          "label" : "native rejects malformed message schema",
+          "ok" : true
+        },
+        {
+          "label" : "native rejects malformed message schema",
+          "ok" : true
+        },
+        {
+          "label" : "native rejects malformed message schema",
+          "ok" : true
+        },
+        {
+          "label" : "native bridge has no generic execution method",
+          "ok" : true
+        },
+        {
+          "label" : "native picker rejects unexpected parameter keys",
+          "ok" : true
+        },
+        {
+          "label" : "native picker rejects non-string filter parameters",
+          "ok" : true
+        },
+        {
+          "label" : "native notification rejects oversized payload fields",
+          "ok" : true
+        },
+        {
+          "label" : "same-origin child frame cannot acquire the main-frame native bridge",
+          "ok" : true
+        },
+        {
+          "label" : "script-initiated remote navigation cannot replace trusted workbench",
+          "ok" : true
+        },
+        {
+          "label" : "concurrent native picker requests are rejected explicitly",
+          "ok" : true
+        },
+        {
+          "label" : "native sheet cancellation resolves its original request cleanly",
+          "ok" : true
+        },
+        {
+          "label" : "normal native picker API AbortSignal cancels its sheet",
+          "ok" : true
+        }
+      ]
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 1,
+  "profileIdentifier" : "4E2248D3-A9DF-CF07-3EAD-DCAC39A6E71A",
+  "servicePID" : 41568,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

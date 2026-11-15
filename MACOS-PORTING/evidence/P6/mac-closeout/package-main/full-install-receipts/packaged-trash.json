@@ -1,0 +1,19 @@
+{
+  "helperSha256": "8bae7181a27f2e91c7eda75702837200d616147b8d3747d0b8db38280cee0b1b",
+  "originalApp": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-trash-e2e-oic2TV/旧 如意😀;$(literal).app",
+  "originalIdentity": {
+    "dev": 16777234,
+    "ino": 87293247
+  },
+  "appTreeSha256": "b14df128bf188e0785abc7723643454f7c0a1854401f59830cb5ae010f6fb812",
+  "nativeResult": {
+    "ok": true,
+    "root": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-trash-e2e-oic2TV/旧 如意😀;$(literal).app/Contents/Resources/workbench",
+    "version": "fixture-old",
+    "via": "macos-trash",
+    "trashedPath": "/Users/jiming/.Trash/旧 如意😀;$(literal).app"
+  },
+  "restored": true,
+  "failures": 0,
+  "scope": "production migration handler, native FileManager Trash, test-owned App only; restored before cleanup"
+}

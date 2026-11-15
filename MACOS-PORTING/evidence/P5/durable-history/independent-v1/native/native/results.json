@@ -1,0 +1,1206 @@
+{
+  "scope": "Neutral root-only SIGKILL calibration during a real wait-only macro; no input was dispatched. No held-state fault, rescue input, clipboard, TCC/lock or App acceptance.",
+  "helper": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+  "serviceOutput": [
+    {
+      "label": "initial service",
+      "channel": "stdout",
+      "path": "initial-service-stdout.txt",
+      "startedAt": 1794397731224,
+      "closedAt": 1794397732820
+    },
+    {
+      "label": "initial service",
+      "channel": "stderr",
+      "path": "initial-service-stderr.txt",
+      "startedAt": 1794397731224,
+      "closedAt": 1794397732820
+    },
+    {
+      "label": "read-only restart",
+      "channel": "stdout",
+      "path": "read-only-restart-stdout.txt",
+      "startedAt": 1794397732874,
+      "closedAt": 1794397733072
+    },
+    {
+      "label": "read-only restart",
+      "channel": "stderr",
+      "path": "read-only-restart-stderr.txt",
+      "startedAt": 1794397732874,
+      "closedAt": 1794397733072
+    }
+  ],
+  "helperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+  "finalHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+  "sessionId": "sess_112edc1b1aac56bc",
+  "spec": {
+    "label": "P5_NEUTRAL_ABORT_10b6befbdcf7a944",
+    "callId": "call_neutral_abort",
+    "args": {
+      "delay_ms": 0,
+      "steps": [
+        {
+          "tool": "wait",
+          "args": {
+            "seconds": 30
+          }
+        }
+      ]
+    },
+    "sent": true
+  },
+  "reports": [
+    {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397731128.358,
+      "event": "ready",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732717.977,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732784.7542,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732846.6658,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397733017.947,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    }
+  ],
+  "events": [
+    {
+      "type": "session",
+      "session": {
+        "id": "sess_112edc1b1aac56bc",
+        "schemaVersion": 1,
+        "turnSeq": 0,
+        "title": "P5 neutral hard-abort calibration",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/tmp/p5abort-PG0tRN/work",
+        "createdAt": "2026-11-11T11:48:52.330Z",
+        "updatedAt": "2026-11-11T11:48:52.331Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 0,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_112edc1b1aac56bc",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "messages": [],
+        "providerHistory": []
+      },
+      "execution": {
+        "serverInstanceId": "f566d175502e",
+        "driverRunId": "drun_75260fb9c7fa35fa",
+        "phase": "starting"
+      },
+      "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "ts": "2026-11-11T11:48:52.428Z"
+    },
+    {
+      "type": "meta",
+      "command": "fake · http://127.0.0.1:50115/v1",
+      "args": [],
+      "cwd": "/tmp/p5abort-PG0tRN/work",
+      "model": "fake-model",
+      "permissionMode": "default",
+      "engine": "openai",
+      "providerLabel": "fake",
+      "tools": 19,
+      "availableTools": 113,
+      "bridgedTools": 39,
+      "toolLoadingMode": "auto",
+      "toolPacks": [
+        "core"
+      ],
+      "toolSchemaTokens": 4827,
+      "memoryCheck": {
+        "mode": "default",
+        "enabled": true,
+        "checked": true,
+        "candidateCount": 0,
+        "matchCount": 0,
+        "ruleFillCount": 0,
+        "projectMatches": 0,
+        "globalMatches": 0,
+        "excludedCount": 0,
+        "coreActiveCount": 0
+      },
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.586Z"
+    },
+    {
+      "type": "process",
+      "state": "running",
+      "pid": null,
+      "interactive": false,
+      "engine": "openai",
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.588Z"
+    },
+    {
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "type": "context_estimate",
+      "contextTokens": 7506,
+      "contextWindow": 1000000,
+      "estimated": true,
+      "contextEngine": "openai",
+      "contextProviderId": "fake",
+      "contextModel": "fake-model",
+      "ts": "2026-11-11T11:48:52.589Z"
+    },
+    {
+      "type": "raw_line",
+      "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_neutral_abort\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_exec\",\"arguments\":\"{\\\"name\\\":\\\"ai_computer_control__macro_run\\\",\\\"arguments\\\":{\\\"delay_ms\\\":0,\\\"steps\\\":[{\\\"tool\\\":\\\"wait\\\",\\\"args\\\":{\\\"seconds\\\":30}}]}}\"}}]},\"finish_reason\":null}]}",
+      "seq": 0,
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.593Z"
+    },
+    {
+      "type": "raw_line",
+      "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+      "seq": 1,
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.593Z"
+    },
+    {
+      "type": "tool_use",
+      "id": "call_neutral_abort",
+      "name": "tool_invoke_exec",
+      "input": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "batchId": "openai-batch-1",
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.595Z"
+    },
+    {
+      "type": "permission_request",
+      "requestId": "perm_3bed877efb6dbd09",
+      "toolName": "tool_invoke_exec",
+      "input": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "tier": "exec",
+      "revertible": false,
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.595Z"
+    },
+    {
+      "type": "permission_decision",
+      "requestId": "perm_3bed877efb6dbd09",
+      "behavior": "allow",
+      "traceId": "trace_abf9bfd2933bbb1b",
+      "ts": "2026-11-11T11:48:52.597Z"
+    }
+  ],
+  "calls": [
+    {
+      "name": "list_windows",
+      "status": 200,
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 5360,
+            "height": 328,
+            "pid": 92113,
+            "process_start": "1794397730:193760",
+            "target": {
+              "bounds": {
+                "height": 328,
+                "width": 480,
+                "x": 220,
+                "y": 599
+              },
+              "handle": 5360,
+              "pid": 92113,
+              "process_start": "1794397730:193760",
+              "ref": "01360AE5-92AD-4A5B-AD97-B3F09B04FEDE"
+            },
+            "title": "Ruyi P5 Neutral Abort 92113",
+            "visible": true,
+            "width": 480,
+            "x": 220,
+            "y": 599
+          }
+        ],
+        "observedWindowCount": 5
+      }
+    },
+    {
+      "name": "permission",
+      "decision": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_112edc1b1aac56bc",
+          "interventionId": "perm_3bed877efb6dbd09",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "name": "audit_tail",
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/p5abort-PG0tRN/acc/logs"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "label": "before root kill",
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732717.977,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "label": "immediately before fault",
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732784.7542,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "label": "after root kill",
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732846.6658,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    {
+      "label": "after read-only restart",
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397733017.947,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    }
+  ],
+  "samples": [
+    {
+      "label": "receiver birth",
+      "wall_ms": 1794397730197,
+      "rows": [
+        {
+          "pid": 92113,
+          "ppid": 92095,
+          "created": "1794397730193760",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "initial service",
+      "wall_ms": 1794397731227,
+      "rows": [
+        {
+          "pid": 92134,
+          "ppid": 92095,
+          "created": "1794397731224239",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "pre-fault full owned topology",
+      "wall_ms": 1794397732750,
+      "rows": [
+        {
+          "pid": 92134,
+          "ppid": 92095,
+          "created": "1794397731224239",
+          "name": ""
+        },
+        {
+          "pid": 92151,
+          "ppid": 92134,
+          "created": "1794397731493310",
+          "name": ""
+        },
+        {
+          "pid": 92152,
+          "ppid": 92151,
+          "created": "1794397731494728",
+          "name": ""
+        },
+        {
+          "pid": 92153,
+          "ppid": 92152,
+          "created": "1794397731495060",
+          "name": ""
+        },
+        {
+          "pid": 92160,
+          "ppid": 92153,
+          "created": "1794397731879347",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "read-only restart",
+      "wall_ms": 1794397732877,
+      "rows": [
+        {
+          "pid": 92216,
+          "ppid": 92095,
+          "created": "1794397732874312",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "final service cleanup",
+      "wall_ms": 1794397733047,
+      "rows": [
+        {
+          "pid": 92216,
+          "ppid": 92095,
+          "created": "1794397732874312",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "external receiver cleanup",
+      "wall_ms": 1794397733072,
+      "rows": [
+        {
+          "pid": 92113,
+          "ppid": 92095,
+          "created": "1794397730193760",
+          "name": ""
+        }
+      ]
+    }
+  ],
+  "snapshots": [
+    {
+      "label": "pre-kill",
+      "wall_ms": 1794397732784,
+      "nonAtomicCrossFileSnapshot": true,
+      "files": [
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.json",
+          "bytes": 1419,
+          "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.messages.ndjson",
+          "bytes": 165,
+          "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.provider.ndjson",
+          "bytes": 420,
+          "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 2985,
+          "sha256": "621b60ccf557d520631d6d280e9993e1bc5bdbc1928a7e71f65294a70b13d26c"
+        }
+      ]
+    },
+    {
+      "label": "post-kill",
+      "wall_ms": 1794397732873,
+      "nonAtomicCrossFileSnapshot": true,
+      "files": [
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.json",
+          "bytes": 1419,
+          "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.messages.ndjson",
+          "bytes": 165,
+          "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.provider.ndjson",
+          "bytes": 420,
+          "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 2985,
+          "sha256": "621b60ccf557d520631d6d280e9993e1bc5bdbc1928a7e71f65294a70b13d26c"
+        }
+      ]
+    },
+    {
+      "label": "post-restart",
+      "wall_ms": 1794397733017,
+      "nonAtomicCrossFileSnapshot": true,
+      "files": [
+        {
+          "path": "sessions/.pretender/projection-index.json",
+          "bytes": 2606,
+          "sha256": "0527ccd688209908a8d9b409aa3712a635ad82d622911996d24f0e7fb2a3267d"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.json",
+          "bytes": 1419,
+          "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.messages.ndjson",
+          "bytes": 165,
+          "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.provider.ndjson",
+          "bytes": 420,
+          "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 3092,
+          "sha256": "f8e01f7ae74aa6ff0bb066d9ebb3b96c57c549eddf30fbe2b42f0b73a99d7620"
+        }
+      ]
+    },
+    {
+      "label": "terminal",
+      "wall_ms": 1794397733114,
+      "nonAtomicCrossFileSnapshot": true,
+      "files": [
+        {
+          "path": "sessions/.pretender/projection-index.json",
+          "bytes": 2606,
+          "sha256": "0527ccd688209908a8d9b409aa3712a635ad82d622911996d24f0e7fb2a3267d"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.json",
+          "bytes": 1419,
+          "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.messages.ndjson",
+          "bytes": 165,
+          "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+        },
+        {
+          "path": "sessions/sess_112edc1b1aac56bc.provider.ndjson",
+          "bytes": 420,
+          "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 3092,
+          "sha256": "f8e01f7ae74aa6ff0bb066d9ebb3b96c57c549eddf30fbe2b42f0b73a99d7620"
+        }
+      ]
+    }
+  ],
+  "fault": {
+    "at": 1794397732816,
+    "root": {
+      "pid": 92134,
+      "ppid": 92095,
+      "created": "1794397731224239",
+      "name": ""
+    },
+    "topology": [
+      {
+        "pid": 92134,
+        "ppid": 92095,
+        "created": "1794397731224239",
+        "name": "",
+        "pgid": 91809,
+        "sid": 91809,
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/app/server.js serve --port 50116"
+      },
+      {
+        "pid": 92151,
+        "ppid": 92134,
+        "created": "1794397731493310",
+        "name": "",
+        "pgid": 92151,
+        "sid": 92151,
+        "command": "/private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 92152,
+        "ppid": 92151,
+        "created": "1794397731494728",
+        "name": "",
+        "pgid": 92151,
+        "sid": 92151,
+        "command": "/private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 92153,
+        "ppid": 92152,
+        "created": "1794397731495060",
+        "name": "",
+        "pgid": 92151,
+        "sid": 92151,
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 92160,
+        "ppid": 92153,
+        "created": "1794397731879347",
+        "name": "",
+        "pgid": 92151,
+        "sid": 92151,
+        "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper --input-session"
+      }
+    ],
+    "before": {
+      "id": 5360,
+      "downs": 0,
+      "receipts": [],
+      "ups": 0,
+      "hidLeft": false,
+      "wall_ms": 1794397732784.7542,
+      "event": "state",
+      "hidModifiers": 0,
+      "input_source": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "frontmost": 1,
+      "title": "Ruyi P5 Neutral Abort 92113",
+      "combinedLeft": false,
+      "frame": {
+        "y": 599,
+        "x": 220,
+        "width": 480,
+        "height": 328
+      },
+      "point": {
+        "x": 460,
+        "y": 777
+      },
+      "otherInput": 0,
+      "geometryOK": true,
+      "pid": 92113,
+      "pgid": 91809,
+      "combinedModifiers": 0
+    },
+    "injectedSignal": "SIGKILL",
+    "scope": "root-only",
+    "audit": [],
+    "pending": {
+      "ok": true,
+      "execution": {
+        "serverInstanceId": "f566d175502e",
+        "driverRunId": "drun_75260fb9c7fa35fa",
+        "phase": "running"
+      },
+      "executionObservation": {
+        "serverInstanceId": "f566d175502e",
+        "lastDriverRunId": "drun_75260fb9c7fa35fa",
+        "evictionGeneration": 0
+      },
+      "session": {
+        "id": "sess_112edc1b1aac56bc",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "P5 neutral hard-abort calibration",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/tmp/p5abort-PG0tRN/work",
+        "createdAt": "2026-11-11T11:48:52.330Z",
+        "updatedAt": "2026-11-11T11:48:52.594Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 1,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_112edc1b1aac56bc",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "P5_NEUTRAL_ABORT_10b6befbdcf7a944",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:48:52.428Z"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "P5_NEUTRAL_ABORT_10b6befbdcf7a944",
+            "attachments": [],
+            "turnSeq": 1,
+            "traceId": "trace_abf9bfd2933bbb1b",
+            "createdAt": "2026-11-11T11:48:52.428Z"
+          }
+        ],
+        "providerHistory": [
+          {
+            "role": "user",
+            "content": "P5_NEUTRAL_ABORT_10b6befbdcf7a944\n\n[本条消息发送于 2026-11-11 19:48 周三(本地时间 UTC+08:00)]"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_neutral_abort",
+                "type": "function",
+                "function": {
+                  "name": "tool_invoke_exec",
+                  "arguments": "{\"name\":\"ai_computer_control__macro_run\",\"arguments\":{\"delay_ms\":0,\"steps\":[{\"tool\":\"wait\",\"args\":{\"seconds\":30}}]}}"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "resumable": {
+        "dangling": false,
+        "kind": null,
+        "turnSeq": 1,
+        "historyLength": 2,
+        "live": true
+      },
+      "displayTitle": "P5 neutral hard-abort calibration",
+      "liveTail": {
+        "text": "",
+        "tool": "tool_invoke_exec",
+        "updatedAt": "2026-11-11T11:48:52.595Z",
+        "full": "",
+        "truncated": false,
+        "startedAt": "2026-11-11T11:48:52.431Z",
+        "iterations": 1,
+        "tools": [
+          {
+            "name": "tool_invoke_exec",
+            "status": "running",
+            "startedAt": "2026-11-11T11:48:52.595Z",
+            "endedAt": ""
+          }
+        ]
+      },
+      "liveTurn": {
+        "segments": [
+          {
+            "id": "segment-1",
+            "type": "tool",
+            "toolCallId": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "batchId": "openai-batch-1",
+            "status": "running"
+          },
+          {
+            "id": "segment-2",
+            "type": "permission",
+            "requestId": "perm_3bed877efb6dbd09",
+            "toolName": "tool_invoke_exec",
+            "tier": "exec",
+            "revertible": false,
+            "status": "allowed"
+          }
+        ],
+        "toolCalls": [
+          {
+            "id": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "inputPreview": "",
+            "status": "running"
+          }
+        ],
+        "truncated": false,
+        "startedAt": "2026-11-11T11:48:52.431Z",
+        "iterations": 1
+      },
+      "relay": {
+        "channel": "steer"
+      }
+    },
+    "elapsedMs": 397.4303749999999,
+    "exitCode": null,
+    "signalCode": "SIGKILL",
+    "observedGoneAt": 1794397732846,
+    "stream": {
+      "error": "terminated"
+    }
+  },
+  "restart": {
+    "view": {
+      "status": 200,
+      "json": {
+        "ok": true,
+        "execution": null,
+        "executionObservation": {
+          "serverInstanceId": "db03c4b248b9",
+          "lastDriverRunId": null,
+          "evictionGeneration": 0
+        },
+        "session": {
+          "id": "sess_112edc1b1aac56bc",
+          "schemaVersion": 1,
+          "turnSeq": 1,
+          "title": "P5 neutral hard-abort calibration",
+          "summary": "",
+          "pinned": false,
+          "cwd": "/tmp/p5abort-PG0tRN/work",
+          "createdAt": "2026-11-11T11:48:52.330Z",
+          "updatedAt": "2026-11-11T11:48:52.594Z",
+          "claudeSessionId": null,
+          "providerHistoryCursor": 1,
+          "privacyHistoryV1": false,
+          "attachments": [],
+          "engineRoute": {
+            "engine": "openai",
+            "providerId": "fake",
+            "model": "fake-model"
+          },
+          "mission": null,
+          "missionId": "sess_112edc1b1aac56bc",
+          "kind": "quick_ask",
+          "origin": "user",
+          "titleSource": "user",
+          "todos": [],
+          "skills": [],
+          "memories": [],
+          "memoriesExplicit": false,
+          "memoryExclusions": [],
+          "toolSchemaNames": [
+            "workbench_memory_list",
+            "workbench_memory_read",
+            "workbench_memory_propose",
+            "observation_recall",
+            "shell_run",
+            "web_search",
+            "web_fetch",
+            "request_user_input",
+            "todo_write",
+            "mission_update",
+            "workbench_self_status",
+            "thread_title_update",
+            "scratchpad_write",
+            "list_tools",
+            "tool_search",
+            "tool_load",
+            "tool_invoke_read",
+            "tool_invoke_edit",
+            "tool_invoke_exec"
+          ],
+          "backgroundJobSeen": [],
+          "recentUserRequest": {
+            "text": "P5_NEUTRAL_ABORT_10b6befbdcf7a944",
+            "turnSeq": 1,
+            "at": "2026-11-11T11:48:52.428Z"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "P5_NEUTRAL_ABORT_10b6befbdcf7a944",
+              "attachments": [],
+              "turnSeq": 1,
+              "traceId": "trace_abf9bfd2933bbb1b",
+              "createdAt": "2026-11-11T11:48:52.428Z"
+            }
+          ],
+          "providerHistory": [
+            {
+              "role": "user",
+              "content": "P5_NEUTRAL_ABORT_10b6befbdcf7a944\n\n[本条消息发送于 2026-11-11 19:48 周三(本地时间 UTC+08:00)]"
+            },
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_neutral_abort",
+                  "type": "function",
+                  "function": {
+                    "name": "tool_invoke_exec",
+                    "arguments": "{\"name\":\"ai_computer_control__macro_run\",\"arguments\":{\"delay_ms\":0,\"steps\":[{\"tool\":\"wait\",\"args\":{\"seconds\":30}}]}}"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "resumable": {
+          "dangling": true,
+          "kind": "tool_calls",
+          "turnSeq": 1,
+          "historyLength": 2
+        },
+        "displayTitle": "P5 neutral hard-abort calibration"
+      }
+    },
+    "providerCountBefore": 1,
+    "providerCountAfter": 1,
+    "scope": "Calibration only; inspect raw durable records for missing/inaccurate invocation attribution before any held-state fault."
+  },
+  "cleanups": [
+    {
+      "label": "final service cleanup",
+      "receipt": {
+        "killed": [
+          92216
+        ],
+        "terminated": 1,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      }
+    },
+    {
+      "label": "external receiver cleanup",
+      "graceful": true
+    }
+  ],
+  "archiveErrors": [],
+  "failures": 0,
+  "retainedRoot": null
+}

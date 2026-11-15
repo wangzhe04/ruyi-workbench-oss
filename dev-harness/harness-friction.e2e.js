@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib 头注)
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 (async () => {
 'use strict';
 // E2E(61 号文:模型自评的 harness 摩擦点):真服务进程 + 脚本化假 provider + 假 MCP,走主回合工具循环(09 runOpenAiTurn)。
@@ -107,9 +108,12 @@ const startServer = async () => {
 };
 const stopServer = async () => {
   if (!wb) return;
-  const exited = new Promise(resolve => { if (wb.exitCode !== null) resolve(); else wb.once('exit', resolve); });
-  try { killOwnTree(wb.pid); } catch { /* gone */ }
+  const exited = new Promise(resolve => { if (wb.exitCode !== null || wb.signalCode !== null) resolve(); else wb.once('exit', resolve); });
+  const cleanup = killOwnTree(wb);
   await Promise.race([exited, sleep(5000)]);
+  ok((wb.exitCode !== null || wb.signalCode !== null) && !cleanup.skipped
+    && (process.platform !== 'darwin' || (cleanup.incomplete === false && cleanup.scope === 'observed-tree')),
+    'owned workbench and observed MCP process tree cleanup is confirmed');
   wb = null;
 };
 const getText = p => new Promise((resolve, reject) => {
@@ -198,7 +202,7 @@ try {
   // ── [K] list_tools 带 tiers ──
   await stream({ message: 'SCN-LIST 你好' });
   const kres = parseJson(toolMsg(reqsOf('LIST')[1], 'k1'));
-  ok(kres && kres.tiers && Array.isArray(kres.tiers.edit) && kres.tiers.edit.includes('file_write') && Array.isArray(kres.tiers.exec) && kres.tiers.exec.includes('powershell_run') && !('read' in kres.tiers),
+  ok(kres && kres.tiers && Array.isArray(kres.tiers.edit) && kres.tiers.edit.includes('file_write') && Array.isArray(kres.tiers.exec) && kres.tiers.exec.includes(shellTool) && !('read' in kres.tiers),
     `K1 list_tools 按档列出非 read 的名字(got ${JSON.stringify(kres && kres.tiers).slice(0, 300)})`);
 
   // ── [R] 代理档低报只升不降地改道 ──

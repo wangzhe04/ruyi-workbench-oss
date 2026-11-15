@@ -1,0 +1,79 @@
+{
+  "checkedAt": "2026-11-12T09:13:44.477063+00:00",
+  "reports": [
+    {
+      "file": "runs/independent-full/acceptance.json",
+      "pids": [
+        98893,
+        98900,
+        98941,
+        98945
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/independent-full/offline/host.json",
+      "pids": [
+        99124,
+        99127
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/independent-slim/acceptance.json",
+      "pids": [
+        99199,
+        99203,
+        99233,
+        99236
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/independent-slim/offline/host.json",
+      "pids": [
+        99291,
+        99294
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/main-full/acceptance.json",
+      "pids": [
+        6960,
+        6966,
+        6999,
+        7002
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/main-full/offline/host.json",
+      "pids": [
+        7186,
+        7189
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/main-slim/acceptance.json",
+      "pids": [
+        7263,
+        7282,
+        7312,
+        7315
+      ],
+      "stillPresent": []
+    },
+    {
+      "file": "runs/main-slim/offline/host.json",
+      "pids": [
+        7365,
+        7368
+      ],
+      "stillPresent": []
+    }
+  ],
+  "ownedMountedImages": [],
+  "pass": true
+}

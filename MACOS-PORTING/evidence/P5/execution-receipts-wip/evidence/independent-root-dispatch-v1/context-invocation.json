@@ -1,0 +1,49 @@
+{
+  "label": "context",
+  "argv": [
+    "node",
+    "dev-harness/macos-execution-context.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-14cbbpk6/home",
+    "USERPROFILE": "/tmp/rd-14cbbpk6/userprofile",
+    "APPDATA": "/tmp/rd-14cbbpk6/appdata",
+    "LOCALAPPDATA": "/tmp/rd-14cbbpk6/localappdata",
+    "RUYI_HOME": "/tmp/rd-14cbbpk6/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-14cbbpk6/data",
+    "WCW_DATA_DIR": "/tmp/rd-14cbbpk6/acc-data",
+    "TMPDIR": "/tmp/rd-14cbbpk6/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-14cbbpk6/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-14cbbpk6/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_EXECUTION_CONTEXT_REQUIRED": "1",
+    "RUYI_EXECUTION_CONTEXT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context"
+  },
+  "startedAt": "2026-11-11T18:27:48.944693+00:00",
+  "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T18:27:49.554759+00:00",
+  "elapsedSeconds": 0.6099568749777973,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context.log",
+    "bytes": 3183,
+    "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+  }
+}

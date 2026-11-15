@@ -1,0 +1,2 @@
+{"file":"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":false,"status":0,"out":"arm64\n","err":""}
+{"file":"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":true,"status":null,"error":"ETIMEDOUT","out":"","err":""}

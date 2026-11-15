@@ -1,0 +1,30 @@
+{
+  "case": "finder",
+  "command": [
+    "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+    "dev-harness/macos-ax-finder.e2e.js"
+  ],
+  "environment": {
+    "HOME": "/tmp/p5sa-0rwzmtml/h",
+    "USERPROFILE": "/tmp/p5sa-0rwzmtml/h",
+    "APPDATA": "/tmp/p5sa-0rwzmtml/a",
+    "LOCALAPPDATA": "/tmp/p5sa-0rwzmtml/l",
+    "WCW_DATA_DIR": "/tmp/p5sa-0rwzmtml/w",
+    "RUYI_HOME": "/tmp/p5sa-0rwzmtml/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5sa-0rwzmtml/r",
+    "TMPDIR": "/tmp/p5sa-0rwzmtml/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_INPUT_REQUIRED": "1",
+    "RUYI_P5_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder",
+    "RUYI_E2E_BROWSER": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "RUYI_P5_FINDER_REQUIRED": "1"
+  },
+  "base": "/tmp/p5sa-0rwzmtml",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "startedAt": "2026-11-11T08:33:22.592489+00:00",
+  "scope": "Primary execution of unchanged selected-app scenes. Sampler only observes identities and copies signed helper bytes; it never injects input or closes applications."
+}

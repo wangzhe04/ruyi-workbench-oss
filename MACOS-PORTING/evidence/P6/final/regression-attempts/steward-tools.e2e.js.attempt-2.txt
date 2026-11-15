@@ -1,0 +1,207 @@
+── (A) 开关关 ──
+PASS A1 开关关时 19 个工具全部返回 steward.disabled
+PASS A2 开关关时 <data>/steward 目录不存在(零写入)
+── (B) 普通会话越权 ──
+PASS B1 普通会话 ctx 下 19 个工具全部返回 steward.forbidden
+PASS B2 无 ctx(桥接/子进程路径)同样 fail-closed forbidden
+PASS B3 越权调用不写决策日志
+── (C) 观察族正向 ──
+PASS C1 steward_self_status 复用 108c 装配并带 steward 段(config 掩码 + 收件箱状态)
+PASS C1b steward 段只回显白名单管家键,不含任何密钥字段
+PASS C1c section:'steward' 只带身份 + 管家段(省上下文)
+PASS C2 steward_health 返回体检项数组
+PASS C3 steward_audit_tail 返回条目数组(limit 越界夹取不报错)
+PASS C4 steward_usage 返回总量 + 管家自身开销单列 + 按日切片
+PASS C5 steward_inbox_read 委托 116b 原始读取器
+PASS C6 steward_runs_status 返回班组 digest 数组
+PASS C7 steward_threads_search 无命中返回空数组
+PASS C8 steward_thread_status 目标不存在 -> not_found
+PASS C9 steward_thread_read 目标不存在 -> not_found
+PASS C12 steward_missions 返回事项数组
+PASS C12b 每个事项行带 missionId/aggregateState/acceptance/threads
+PASS C12c 没有事项文件时全部是「未归类」派生视图(存量零迁移)
+PASS C12d 子线程带 sessionId/五态,最后一句 ≤120 字
+── (D) 委托书 ──
+PASS D1 steward_thread_new 返回 {ok,sessionId,missionId,undoRef}
+PASS D1b thread_new 的 undoRef 带 rewindTargetTurnSeq === 1(委托书那一回合)
+PASS D2 新线程落盘为 kind:mission,missionId 自成事项
+PASS D3 sessionMeta.brief 落盘:原话与管家补充分开存(供 117 显示与「改一下」)
+PASS D3b 委托书记下引用的管家记忆条目 id
+PASS D4 委托书作为首条用户消息落盘
+PASS D5 用户原话【逐字】在最前(尖括号原样保留,不被中和)
+PASS D6 管家补充在 <steward-brief added-by="steward"> 围栏内
+PASS D7 围栏内补充的尖括号被中和(128f-⑦ 起是全角 ＜＞,不再是方括号)
+PASS D8 验收项/约束等段进入补充
+PASS D9 委托书交出去后回合真的跑起来了(fake-openai 收到请求)
+PASS D10 决策日志记下 thread_new 一行(含 undoRef)
+── (E) 递话 ──
+PASS E1 thread_continue 返回 undoRef 锚在递话前 turnSeq(1)
+PASS E1b thread_continue 的 undoRef.rewindTargetTurnSeq === turnSeq + 1(2,整单回退的锚点)
+PASS E2 同一目标线程已有在途回合 -> 走插话通道(不再是 steward.busy;got ok=true channel=steer)
+PASS E2b companion:插话没有再开一个回合(turnSeq 仍是递话那一回合的 2;got 2)
+PASS E2c companion:这句话真的进了在途回合的插话队列(queued=1 injected=false)
+PASS E3 递话原话直递(逐字,不加任何管家注解)
+PASS E4 目标不存在 -> not_found
+PASS E5 thread_rename 返回旧标题作 undoRef
+PASS C10 steward_thread_status 返回五态/权限档/待决摘要/最后一句(≤200 字)
+PASS C10b 五态取值落在真值表内
+PASS C10c thread_status 带 mission:{missionId,title,aggregateState}
+PASS C10d 未归类事项的聚合态 === 该线程五态,threadCount=1
+PASS C11 steward_threads_search 能按标题/内容找到线程
+PASS C11b 搜索结果永不包含管家自己的会话
+── (F) 读预算 ──
+PASS F1 thread_read 正向返回回合原话行 + 配额账面
+PASS F1b 工具调用只给一行摘要与结果长度(不给工具输出全文)
+PASS F1c 入参提示已脱敏:整份结果搜不到明文 key、那一行留着「Authorization: Bearer «redacted»」的形状(got "[工具] powershell_run {\"command\":\"curl -H \\\"Authorization: Bearer «redacted»\\\" https://h/v1/x\"} → 4 字符 (id=call_s1)")
+PASS F2 每回合第 7 次深读 -> quota_exceeded
+PASS F3 读满 stewardReadBudgetChars(4000)后 -> budget_exceeded(第 4 次;got budget_exceeded)
+PASS F4 深读是只读动作:不写决策日志、不落任何持久化
+── (G) 决策矩阵 ──
+PASS G1 default(每步都问):edit 级 permission -> propose_required
+PASS G1b propose_required 不落决策日志(没做决定就没有决定可记)
+PASS G2 plan(只做计划):一律 propose_required
+PASS G3 acceptEdits:edit 级 permission 通过档位门(进入命令核心)
+PASS G4 acceptEdits:exec 级 permission -> propose_required
+PASS G5 auto(全自动):exec 级 permission 也通过档位门
+PASS G6 永久豁免(send_email)在全自动档仍 propose_required —— 管家不得替用户按不可撤销的动作
+PASS G7 错误 interventionId -> not_found
+PASS G8 版本冲突 -> version_conflict(稳定信封,由命令核心 CAS 判定)
+PASS G9 错误 missionId -> not_found
+── (H) 班组动作 ──
+PASS H1 改文件不问档:resume(失败处置类)过档位门,由核心判定(got run_action_failed)
+PASS H1b 每步都问档:resume -> propose_required
+PASS H1c 改文件不问档:steer_node(改指令类)仍需全自动 -> propose_required
+PASS H2 pause(收紧类)任何档都放行到核心(run 不存在 -> run_action_failed)
+PASS H3 全自动档:resume 通过档位门
+PASS H4 未知动作 -> invalid_request
+── (I) 管家记忆 ──
+PASS I0 找到一条带 turnSeq 的用户消息作为合法来源
+PASS I1 来源回合里没有用户消息(工具输出/助手回合)-> source_not_user
+PASS I2 密钥样文本 -> sensitive_rejected(复用工作台记忆的敏感过滤)
+PASS I3 首次写入返回 {ok,id,merged:false,undoRef}
+PASS I3b 记忆落 <data>/steward/memory-v1.json(schema 1)
+PASS I4 同义条目合并到既有条目而非新增(词项 Jaccard ≥0.8)
+PASS I5 memory_search 词法命中
+PASS I6 memory_veto 置 vetoed 并带 undoRef.prev
+PASS I7 默认检索不含 vetoed 条目
+PASS I7b includeVetoed:true 时能看到被否决的条目
+PASS I8 被否决过的同义内容拒绝写回 -> vetoed_duplicate
+PASS I9 kind 不在白名单 -> invalid_request
+PASS I10 (info) 助手回合存在
+── (J) 决策日志 ──
+PASS J1 每个写动作一行决策日志(共 7 行)
+PASS J2 每行字段齐整 {seq,at,tool,args,targetSessionId,permissionMode,mayAct,undoRef,basis}
+PASS J3 线程族与记忆族的写动作都落了账
+PASS J4 记忆写入的 basis 记下 memoryIds(事后可解释「因为你上次说…」)
+── (K) 四个 offer 面 ──
+PASS K1 面 1 buildOpenAiTools(普通会话)零 steward_*
+PASS K1b 面 1 管家会话拿到全部 43 个(含交付原件读取)(got 43)
+PASS K1c offer 出去的那一份与 12 的注册表【逐名】相同(缺: 无;多: 无)
+PASS K1d 117m-A4:线程级停止真的 offer 给了管家(否则模型手里仍然只有 run_action)
+PASS K2 面 3 adaptive 目录(普通会话)零 steward_*
+PASS K3 面 2 MCP 子进程返回完整 tools/list
+PASS K3b 面 2 MCP tools/list(未注入 WCW_SESSION_KIND)零 steward_* 工具名
+PASS K4 面 4 /api/status 返回工具清单
+PASS K4b 面 4 /api/status 工具清单零 steward_*(它是给用户看的会话工具目录)
+── (N) cwd 校验先行 ──
+PASS N1 省略 cwd 仍然照常开线程
+PASS N2 省略 cwd -> 线程 cwd == <Ruyi 根>/<slug(标题)>(want /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit)
+PASS N2b 省略 cwd 不再落在 defaultWorkspace 上(这一刀改掉的正是它)
+PASS N2c 派生出来的目录真的建出来了
+PASS N2d 派生目录登记进 stewardManagedWorkspaces【末尾】(带登记时刻、未收编;got {"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit","at":"2026-11-12T11:06:26.926Z"})
+PASS N2e 常用工作区(workspaces[])一行没多,用户那三行原样(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-alpha","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-beta"])
+PASS N2f 派生目录进表之后,把它当 cwd 传回来 -> 命中表内(闭环)
+PASS N2g 回执带 cwdSource:'explicit' 与工作区名字(got ["explicit","cwd 锁 omit"])
+PASS N3 表内路径 -> 线程 cwd 等于表里那个归一化值
+PASS N4 表内路径换正斜杠/尾斜杠写法 -> 仍命中,cwd 归一到 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-beta(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-beta)
+PASS N5 (非 win32)大小写不同视为两个目标 -> invalid_request
+PASS N6 表外路径 -> invalid_request(reason cwd_not_in_workspaces;got "invalid_request")
+PASS N6b 错误文案列出表内候选的末段名(got "cwd 不在已知工作区里(不要自己编路径)。现有:ruyi-steward-tools-bJhBLo、ws-alpha、ws-beta、cwd 锁 omit。cwd 填其中一个的名字;要用别处请先请用户在设置里把那个文件夹加成工作区;跟哪个都不沾边就【省掉 cwd】,不要重试同一个值。")
+PASS N6c 被拒时零副作用:没有建目录、没有开线程
+PASS N7 cwd 传 '~' -> invalid_request(`~` 不是合法值)
+PASS N7b cwd 传 os.homedir() -> invalid_request(主目录不在表里就不许用;got "invalid_request")
+PASS N8 只在 recentWorkspaces 里的路径 -> invalid_request(打开过 ≠ 授权过;got "invalid_request")
+PASS N9 清单里的名字(ws-alpha)-> 换成那个工作区的绝对路径(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-alpha)
+PASS N9b 名字不分大小写(清单造名字时就按不分大小写去撞车)
+PASS N9c 不是任何一个名字的相对路径 -> invalid_request
+PASS N10 quick_ask 表外路径 -> invalid_request(与 thread_new 同一份校验)
+PASS N10b quick_ask 传 '~' -> invalid_request
+PASS N10c quick_ask 表内路径 -> 线程 cwd 等于表里那一行(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-beta)
+PASS N10d quick_ask 省略 cwd -> 同样派生子工作区(问题原话当标题,冒号被换成 _;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁_省略)
+PASS N11a(护栏)派生路径落在 Ruyi 根之下,清空它才是安全的(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit)
+PASS N11 同标题第二条 -> <slug>-2(want /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit-2;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit-2)
+PASS N11b -2 目录真的建出来了
+PASS N12 第一条目录清空后再开 -> 【复用】第一条,不长 -3(want /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/cwd 锁 omit)
+PASS N12b 没有凭空长出 -3
+PASS N12c 复用同一个目录不重复登记进 stewardManagedWorkspaces(got 1 行)
+PASS N13 标题全非法字符 -> thread-<id 8 位>(want /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/thread-601297e3;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/thread-601297e3)
+PASS N13b 派生出来的目录名里零 Windows 非法字符
+PASS N13c 中文标题原样进目录名(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi/英伟达分析)
+PASS N14 cwdWarning(<Ruyi 根>/<slug>) === null(它是主目录的子目录,不是 03 点名的四个根之一)
+PASS N14a 反向:cwdWarning(主目录) 仍然报警 —— 这条锁没被写成恒 null
+PASS N14b defaultWorkspace 仍然等于 workspaces[0].path(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo / /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo)
+PASS N14c 派生了这么多次,用户的默认工作区一个字都没变
+PASS N14d 常用工作区里零如意目录(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-alpha","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/ws-beta"])
+PASS N14e 派生目录全在如意那张表里、全在 Ruyi 根下(got 5 行)
+PASS N14f 用户原有那三行没有被加上 note
+── (O) 工作区候选表进上下文 ──
+PASS O1 管家上下文(易变层)里有工作区候选表
+PASS O1b 表里逐行是路径的【末段名】
+PASS O1c 表在【易变层】,不在 stable —— stable 是版本级常量,吃前缀缓存,工作区是用户随时会改的东西
+PASS O2 write:false 的行标「只读」(got "· ws-readonly(只读)")
+PASS O2b 可写的行不标只读(反向)
+PASS O2c note 跟在末段名后面(got "· ws-noted(股票资料)")
+PASS O3 候选表里零「allowOutsideWorkspace」
+PASS O3b 整段易变层里零「allowOutsideWorkspace」
+PASS O3 候选表里零「additionalDirectories」
+PASS O3b 整段易变层里零「additionalDirectories」
+PASS O3 候选表里零「recentWorkspaces」
+PASS O3b 整段易变层里零「recentWorkspaces」
+PASS O3c 表里只有末段名,没有任何一条全路径
+PASS O4 只在 recentWorkspaces 里的目录不进表(打开过 ≠ 授权过)
+PASS O8 默认工作区那一行标「默认」,并带着最近在那儿干过的线程名(got "· ruyi-steward-tools-bJhBLo(默认):「英伟达分析」 近期诉求:看一下英伟达;「＜＞:\"/\\|?*」 近期诉求:全是非法字符的标题 末回复:好的，已经看过了。;「cwd 锁 omit」 近期诉求:cwd 锁 omit 末回复:好的，已经看过了。")
+PASS O8b 每行最多 3 条线程(事项名另占引号,至多翻倍)
+PASS O8c 清单尾巴给出选目录的顺序(点名 > 事项/相关线程 > 名字 > 新开)
+PASS O5 表最多 20 行(got 20)
+PASS O5b 超出的 5 个折叠成一句,不截断(got "…另有 5 个工作区未列出(到访层有字数预算)。")
+PASS O5c 折叠是从尾部折的(前 20 行按表里的优先级顺序原样列出)
+PASS O6(前提)夹具真有 20 行进了配置(got 20)
+PASS O6a 20 行表 + 表外 cwd 仍然被拒
+PASS O6 拒绝文案列出的候选数 == 候选表的行数 == 20(文案 20 / 表 20)
+PASS O6b 20 行【正好】不触发折叠 —— 两处的边界也是同一个数(任一处改小,上一条与这一条一起红)
+PASS O7(前提)configSchema ≥ 10 时空表【不】被 defaultWorkspace 播种回去
+PASS O7b 表为空 + 表外 cwd -> 仍是同一个稳定信封
+PASS O7c 空表那支文案说清「一个都没有,请省掉 cwd」,不甩空清单(got "cwd 不在已知工作区里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。")
+PASS O7d 空表时投影明说「还没有登记任何工作区」
+── (P) 工作区表行数帽子 ──
+PASS P1 63 行的表原样通过清洗(got 63;修前帽子 20)
+PASS P1b 65 行被截到 64(帽子仍在,只是抬高了;got 64)
+PASS P2 63 行表 + 省略 cwd -> 照常开线程(got undefined)
+PASS P2a 线程 cwd == <Ruyi 根>/<slug>(want /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 63;got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 63)
+PASS P2b 派生目录真的建出来了
+PASS P2c 常用工作区仍是 63 行,派生目录登记在如意那张表里(常用 63 行;如意 [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 63","at":"2026-11-12T11:06:28.161Z"}])
+PASS P3 常用工作区满员 + 省略 cwd -> 照常派生(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 64")
+PASS P3b 反向:退役的 workspace_table_full 不再出现
+PASS P3c 常用工作区仍是 64 行,一行没多(got 64)
+PASS P3d 派生目录落在如意那张表里
+PASS P4 quick_ask 省略 cwd + 常用工作区满员 -> 同样照常派生(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子满了的速查")
+PASS P4b 速查回执说清目录是新开的(got "new")
+PASS P4c 常用工作区满员 + 表内 cwd -> 照常开线程(got undefined)
+PASS P5 25 行的表【经得过 normalizeConfig】(got 25;修前 20)
+PASS P5b 管家上下文里真的出现折叠句(got "…另有 5 个工作区未列出(到访层有字数预算)。")
+PASS P5c 到访层仍然只印 20 行 —— 抬的是存储帽子,不是投影预算(got 20)
+PASS P6 64 行时 defaultWorkspace 仍等于 workspaces[0].path(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1 / /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1)
+PASS P6b 同步的是【第一行】,不是最后追加的那一行
+PASS P7a 两条线程都开成了(got [null,null])
+PASS P7b 常用工作区仍是 63 行 —— 并发派生没往里写(got 63)
+PASS P7c 两条各拿到自己的派生目录(甲 "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态甲" / 乙 "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态乙")
+PASS P7d 两行都落在如意那张表里,一行没丢(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态甲","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态乙"])
+FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了
+PASS P8a 落盘失败不挡开线程(got undefined)
+FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1,没拿那个没登记成的目录(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/写不下去")
+FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸
+FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)
+
+STEWARD TOOLS E2E: 4 FAILURE(S)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-sJQUfo

@@ -1,0 +1,36 @@
+PASS workbench listening on :52802
+PASS three sessions created
+PASS ① GET /api/sessions → 3 sessions
+PASS ① sessions/index.json written with 3 entries
+PASS ① index id-set == real session files
+PASS ① index titles match the real files
+PASS ① search cache and stale index never appear as a session
+PASS ① stale index rebuilt without the search cache
+PASS ① fresh scan also excludes the search cache
+PASS ② after a turn, list messageCount == file (2)
+PASS ② index.json messageCount updated by saveSession
+PASS ② PATCH title/pinned reflected in list
+PASS ② index.json reflects the PATCHed title
+PASS ② pinned session sorts first
+PASS ⑦ immediate list shows the new title (merge closes the ~200ms dirty-read window)
+PASS ⑦ on-disk index.json still stale at that instant → fresh value came from the pending merge, not disk
+PASS ⑦ on-disk index converges to the new title after the flush
+PASS ③ index.json removed from disk
+PASS ③ list still returns 3 with NO index (fallback to file scan)
+PASS ③ fallback scan preserves correct fields
+PASS ③ index.json rebuilt after the fallback scan
+PASS ④ garbage index → list still 200 with 3 (no crash)
+PASS ④ wrong-shape index → list still 200 with 3
+PASS ④ index.json rebuilt to a valid array
+PASS ⑤ directly-added session file detected (id-set mismatch → scan)
+PASS ⑤ index rebuilt to include the drifted session
+PASS ⑥ deleted session gone from list
+PASS ⑥ session file unlinked
+PASS ⑥ deleted session gone from index.json (after the debounced flush)
+PASS final index id-set == real session files (consistent)
+PASS ⑧ planted a crash-stale index (id-set intact, one title wrong)
+PASS ⑧ workbench restarted on :52802
+PASS ⑧ after restart the boot rebuild heals the crash-stale title (got "Alpha-Immediate-1794492896203", file truth "Alpha-Immediate-1794492896203")
+PASS ⑧ index.json rebuilt from truth on boot (stale title gone)
+
+SESSION-INDEX E2E: ALL PASS

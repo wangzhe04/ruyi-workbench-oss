@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T11:40:49.534Z",
+  "verdict": "passed_independent_save_census_metadata_review",
+  "scope": "只读补审既有session-save-census清册09数量11→12及分类说明，比较freeze-v2/v3来源与产物。未运行测试/GUI/构建/签名/进程采样，未修改产品、测试源或原始日志；只写本报告。",
+  "worktree": "/tmp/ruyi-p5-durable-history-worktree",
+  "findings": [],
+  "unresolvedFindings": [],
+  "census": {
+    "path": "dev-harness/session-save-census.static.e2e.js",
+    "bytes": 9150,
+    "sha256": "af5529b5dd8b6e19bd34bc521ca6cb768fc54153f357db955b55a6b0259e1be7",
+    "diff": "单行清册数字11→12并追加persistToolHistory分类注释；git diff统计1插入/1删除。",
+    "previousSaveSessionLexicalSites": 11,
+    "currentSaveSessionLexicalSites": 12,
+    "countingRule": "只读按清册既有规则检查源码：去掉//尾注释、排除function saveSession声明，计数saveSession(调用位置。12是静态调用点，不是运行时调用次数。",
+    "addedSite": {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 3100,
+      "code": "await saveSession(session, { ...turnSaveOpts, requirePersisted: true });"
+    },
+    "classification": "persistToolHistory位于runOpenAiTurn活回合闭包，保存同一session的调用意图/结果；通过turnSaveOpts携带executionOwner与dropIfTurnSuperseded，并明确requirePersisted。它不属于外部请求/后台重新load→mutate→save的可重放修改，列为live turn自存准确。",
+    "failureSemantics": "requirePersisted在任何dropped上抛出，保存失败阻断后续本地调用；不应把此屏障改成自动重放mutateSession。既有source review的该结论未变。",
+    "currentSourceSites": [
+      {
+        "line": 1693,
+        "code": "await saveSession(session, { mergeMissionFromDisk: true, executionOwner });"
+      },
+      {
+        "line": 1710,
+        "code": "await saveSession(session, { executionOwner });"
+      },
+      {
+        "line": 2710,
+        "code": "await saveSession(session, turnSaveOpts);"
+      },
+      {
+        "line": 2720,
+        "code": "await saveSession(session, turnSaveOpts);"
+      },
+      {
+        "line": 2943,
+        "code": "await saveSession(session, turnSaveOpts).catch(() => {});"
+      },
+      {
+        "line": 2957,
+        "code": "await saveSession(session, turnSaveOpts).catch(() => {});"
+      },
+      {
+        "line": 2990,
+        "code": "await saveSession(session, turnSaveOpts);"
+      },
+      {
+        "line": 3009,
+        "code": "await saveSession(session, turnSaveOpts);"
+      },
+      {
+        "line": 3036,
+        "code": "await saveSession(session, turnSaveOpts);"
+      },
+      {
+        "line": 3100,
+        "code": "await saveSession(session, { ...turnSaveOpts, requirePersisted: true });"
+      },
+      {
+        "line": 3443,
+        "code": "onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session, turnSaveOpts).catch(() => {}); },"
+      },
+      {
+        "line": 3700,
+        "code": "await saveSession(session, turnSaveOpts);   // persist the growing tool trace"
+      }
+    ],
+    "authoredWhitespaceCheckExitCode": 0
+  },
+  "freezeComparison": {
+    "freezeV2": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v2.json",
+      "bytes": 23370,
+      "sha256": "8ef30ad431d17c0c3c217dc9309055e161b240f0d89d333bbf03f8ed3a60b989"
+    },
+    "freezeV3": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v3.json",
+      "bytes": 23550,
+      "sha256": "8804365cc4c97b34c4b1e6e6cb0f4e0abbf403fe57a177371b69d9c29f7109b3"
+    },
+    "previousSources": 126,
+    "currentSources": 127,
+    "artifacts": 2,
+    "addedSource": {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "bytes": 9150,
+      "sha256": "af5529b5dd8b6e19bd34bc521ca6cb768fc54153f357db955b55a6b0259e1be7"
+    },
+    "removedSources": [],
+    "changedCommonSourceRows": [],
+    "common126RowsByteAndHashIdentical": true,
+    "all127CurrentSourceBytesMatch": true,
+    "all2CurrentArtifactsMatch": true,
+    "artifactsUnchanged": true,
+    "note": "freeze-v3仅把已有清册测试加入绑定范围；没有删除来源、改写原126行或改变两份实际产物。此处逐行比较与重读现有文件，不是重新运行测试或产物。",
+    "sourceDigest": "两份声明的sourceDigest随来源集合增加而不同；本审查依靠逐来源字节数/SHA及实际文件一致性，不把digest名称误当整个候选已重验。"
+  },
+  "priorSourceClosure": {
+    "report": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/code-review-v1.json",
+      "bytes": 23388,
+      "sha256": "f0c0550fac6d54babadee4ea6448a12120e6ae1d34644211e98180f9f7382c3d"
+    },
+    "unchangedProductAndImplementationTests": true,
+    "verifiedPaths": [
+      "ruyi-workbench/app/src/02-session-store.js",
+      "ruyi-workbench/app/src/09-workflow.js",
+      "ruyi-workbench/app/src/10-context-governance.js",
+      "ruyi-workbench/app/server.js",
+      "ruyi-workbench/app/src/manifest.json",
+      "dev-harness/provider-tool-history.e2e.js",
+      "dev-harness/unit/session-required-persistence.test.js"
+    ],
+    "status": "DHC1/DHC2闭合保持；未修改原code-review-v1.json，也不重新解释其有限scope。"
+  },
+  "engineeringEvidence": {
+    "existingV1Logs": {
+      "syntax.txt": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/syntax.txt",
+        "bytes": 60,
+        "sha256": "566ae8ceea74732a46f7942b05213c10f96de0988168325ae544e73922f359d2",
+        "tail": "# syntax-gate: 1158 files checked, 0 failed (node v24.15.0)"
+      },
+      "build.txt": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/build.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "tail": "build --check: 产物与 src 一致(新鲜),manifest 行区间自洽"
+      },
+      "unit.txt": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/unit.txt",
+        "bytes": 394700,
+        "sha256": "0d4a08921e09c3484eb17c473e5a591d2c651daf3e1091c85204e64f17dd1ecf",
+        "tail": "ℹ tests 2526\nℹ suites 192\nℹ pass 2508\nℹ fail 0\nℹ cancelled 0\nℹ skipped 18\nℹ todo 0\nℹ duration_ms 111329.921166"
+      },
+      "fast.txt": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/fast.txt",
+        "bytes": 8421,
+        "sha256": "a6f67fec3f877b2132f7acefe6233061280bb4e0cdb5df074f3b836572d04e99",
+        "tail": "PASS ④ 会话笔记旁车:陈旧对象不写\nPASS ④ 历史快照:陈旧对象不写\nPASS ④ 任务驱动器:陈旧对象收手\nPASS ⑤ 裸串 'rewind_superseded' 归一成稳定码 session.rewind_superseded\nPASS ⑤ 工作台与管家抽屉都给这三个码配了人话键\nPASS ⑤ 四份 locale 都有这三句人话\nSESSION SAVE CENSUS STATIC E2E: FAIL (1)\n[fixture home 保留取证] /tmp/p5hist-_kr6zdle/t/ruyi-e2e-home-1UkHot"
+      }
+    },
+    "actualV1Result": {
+      "syntaxFiles": 1158,
+      "syntaxFailed": 0,
+      "buildExitCode": 0,
+      "unitTests": 2526,
+      "unitPassed": 2508,
+      "unitFailed": 0,
+      "unitExistingSkipped": 18,
+      "fastPassed": 79,
+      "fastFailed": 1,
+      "fastFlaky": 0,
+      "fastLiveSkipped": 7,
+      "fastExitCode": 1
+    },
+    "failure": "session-save-census旧表09=11，实际12；fast内建重试仍失败。原始失败记录保留；不是运行时产品失败，也不能删去或描述为首次全绿。",
+    "correctedSingleCensus": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v5/save-census.txt",
+      "bytes": 1906,
+      "sha256": "3b78743dcb63f5d2ea9b8e69fe9e74e6c05acf8427249a06d0c22bc4a8fa2b86",
+      "summary": "SESSION SAVE CENSUS STATIC E2E: ALL PASS",
+      "reviewerRerun": false
+    },
+    "v2AtReadTime": "execution.json仅已有syntax退出0记录，fast完整通道仍进行中；本报告不抢先判定v2 fast通过。",
+    "reuseBoundary": "产品/生成server/相关实现测试hash未变，build和主执行已完成的单独unit门可按原字节及既有checkpoint显式复用；新增清册变更需在完整fast中实际覆盖。v2 fast自身仍带unit前置，应明确重复执行，不能声称总体无重跑。",
+    "reviewerTestsStarted": 0
+  },
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "signatures": 0,
+    "processSampling": 0,
+    "sourceEdits": 0,
+    "testEdits": 0,
+    "rawEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/durable-history/metadata-review-v1.json"
+    ]
+  },
+  "claimLimits": [
+    "本报告只接受清册计数/分类及freeze新增绑定，不能代替最终工程或独立离线运行验收。",
+    "不关闭actual dispatch/actual args/ACC-entry/terminal、held释放/救援或UI/模型/自动续跑防重发门。",
+    "完整hard-abort和P5仍开放。"
+  ],
+  "hardAbortGateStatus": "open",
+  "phaseStatus": "in_progress"
+}

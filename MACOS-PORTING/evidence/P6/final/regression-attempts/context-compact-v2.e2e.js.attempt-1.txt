@@ -1,0 +1,52 @@
+── [U] 45d 估算自校准/窗口学习 ──
+PASS U1 样本<3 因子=1(门)
+PASS U2 样本≥3 EMA 因子≈1.5
+PASS U3 因子 clamp ≤3
+PASS U4 窗口学习 = 失败时估算 ×0.9
+PASS U5 只降不升(更大失败值不覆盖)
+PASS U6 providerContextWindow 咽喉点应用学习上限(manual 200K → 90K)
+PASS U7 无学习的 provider 不受影响
+── [A] 45a 摘要载荷预算化 ──
+PASS A1 小历史单次摘要成功
+PASS A1a 摘要提示词要求可交接的当前执行状态
+PASS A1a-1 缺当前执行状态的旧四节摘要被拒绝
+PASS A1a-2 含状态四项的五节摘要通过校验
+PASS A1b 约31K 摘要仍为单发
+PASS A1c 约33K 摘要强制 map-reduce（分段＋总汇）
+PASS A1d 固定尾部保留近期完整 user 回合并受 16K 上限约束
+PASS A1e 固定尾部不拆 tool_call/tool_result 配对
+PASS A1f 超大最近回合不半截保留，交给摘要以维持固定尾部预算
+PASS A2 超大历史摘要成功(预算化内核不 400)
+PASS A2 摘要请求已落盘(10 个)
+PASS A3 摘要 payload 受预算约束(最大 176226B < 250KB;旧内核会发 ~600KB)
+PASS A4 超预算不丢中段，必须 map-reduce ≥2(4 段/10 请求)
+PASS A5 fit 不 mutate 调用方 history
+PASS A6 截断保头(原始目标)保尾(最近回合)
+PASS A7 超长单回合无损拆分且每段严格不超预算
+PASS A8 超长单回合保留首尾及中后段（不再逐消息截断）
+── [D] 通用压缩窗口路由隔离 ──
+PASS D workbench up
+PASS D1 摘要实际由本地压缩 provider 执行
+PASS D2 压缩后面板上限保持后续对话模型 1M（非压缩模型 128K）
+PASS D3 压缩用量携带主会话路由身份，切换 provider 后可判旧值失效
+PASS D4 手动窗口通过真实 config API 持久化
+PASS D5 provider 面板读数与服务端会话 override 一致
+PASS D6 未知 CLI 模型采用手动 1M，不受本地 128K 摘要模型影响 ({"value":1000000,"source":"manual","engine":"agent","agentCliType":"claude","provider":"","model":"ark-code-latest"})
+PASS D7 切换模型不继承原模型手动窗口
+PASS D8 选自动清除手动窗口，状态接口不继续报告旧 1M
+── [B] 45b 主回合 400 强压重试 ──
+PASS B workbench up
+PASS B1 出现 forced_400 压缩事件(服务端 400 → 自动强压)
+PASS B1b forced_400 事件序列 started → completed,前后同一口径([["started",9276,null],["completed",9276,9465]])
+PASS B2 强压后重试成功,回合 ok(旧行为 = 回合失败)
+PASS B3 providerHistory 含摘要重播种条目
+PASS B4 窗口学习落盘(cap=8348)
+── [C] 45c 子代理 over_window 分类 ──
+PASS C1 over-window → retry:true/over_window(新鲜重试)
+PASS C2 有进展(tool×2)→ progress_made 不重试(防重放铁律不变)
+PASS C3 auth 仍 definitive 不重试(分类拆分不扩大重试面)
+PASS C4 真实报文形态(prompt is too long: N > M)命中 over_window
+PASS C5 result 帧形态的错误文本也能命中(resultText 扫描)
+PASS C6 非超窗 result 错误仍 clean_error_result 不重试
+
+CONTEXT-COMPACT-V2 E2E: ALL PASS

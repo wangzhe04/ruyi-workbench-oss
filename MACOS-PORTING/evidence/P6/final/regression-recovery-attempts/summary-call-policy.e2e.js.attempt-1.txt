@@ -1,0 +1,13 @@
+SUMMARY CALL POLICY E2E
+PASS U1 DeepSeek V4 Responses 选用 minimal
+PASS U2 Responses map 输出候选 4096→6144
+PASS U3 Chat reduce 输出候选 6144→8192
+PASS U4 未知模型不发送 reasoning/max-output 控制
+PASS U5 Provider reasoning max 归一化保留
+PASS A1 参数拒绝只做一次兼容重试并成功
+PASS A2 重试只移除被拒字段且保留兼容字段
+PASS A3 能力降级结果落在返回元数据
+PASS A4 incomplete 只升一档后成功
+PASS A5 输出上限按 6144→8192 有界升级
+PASS A6 未知端点请求体保持最低兼容形状
+SUMMARY CALL POLICY E2E: ALL PASS

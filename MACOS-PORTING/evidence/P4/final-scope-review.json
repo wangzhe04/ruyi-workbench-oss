@@ -1,0 +1,101 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_user_approved_current_Mac_scope",
+  "remainingNecessaryCorrections": 0,
+  "method": "Independent read-only review of the six final scope documents and metadata, TASKS assertions, implementation/working-file/native-build SHA-256 bindings, archived evidence continuity and Git whitespace diagnostics. No UI, media capture, system sleep or test suites were run for this final scope review.",
+  "scopeDecision": {
+    "userInstruction": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+    "date": "2026-11-08",
+    "approvedScope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App implementation and independent acceptance",
+    "approvedScopeComplete": true,
+    "originalAllEnvironmentGatesComplete": false
+  },
+  "commits": {
+    "implementation": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+    "evidence": "f5c5d4c553103cc9af0c145ed34e13cfc5cfb066",
+    "branch": "codex/p4-macos-desktop",
+    "finalScopeDocumentation": "Reviewed working-tree changes, pending the final documentation commit."
+  },
+  "documentSHA256": {
+    "MACOS-PORTING/05-P4-DESKTOP-APP.md": "af2177dd6ab618bfef9ca652b32d0a87e5c9032f0d297a3abd9f96fc46cb6bff",
+    "MACOS-PORTING/08-VALIDATION.md": "b92892a105abd0c7b83c52f905cc76d21800c281fd74c1ce03e2181971d8bdfa",
+    "MACOS-PORTING/10-TRACKING.md": "2d8e46f2aa1b7bb66c86be43b0c768f5e7290f31a9fc5b44d2baefbcf04f54b2",
+    "MACOS-PORTING/README.md": "50d01c47744dd37e9913d239cc4dc03628fa5ff74cda3f212e8b8b9c17b0280d",
+    "MACOS-PORTING/TASKS.json": "7531410c2b033bb33d5866f28737c1be2022d1ceeedc0169c9836b59c95413c1",
+    "MACOS-PORTING/evidence/P4/local-closeout.json": "cb865ba1867bedda2d2c05de9627aa47133fe672514f34c7cccc63d45707b3c7"
+  },
+  "documentFingerprintScope": "The six modified documents and metadata listed here were hashed directly. This review file is intentionally excluded from its own fingerprint record.",
+  "independentBindings": {
+    "implementationFingerprintFile": "implementation-source-fingerprint.json",
+    "declaredFiles": 43,
+    "commitChangedFiles": 43,
+    "fileSetMatches": true,
+    "currentFileHashMismatches": 0,
+    "implementationGitBlobHashMismatches": 0,
+    "nativeBuildInputs": 6,
+    "nativeBuildInputMismatches": 0,
+    "nativeBuildMetadata": "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+    "nativeScope": "Existing frozen arm64 ad-hoc development App inputs remain matched. No new native build is claimed.",
+    "frozen39SourceComparison": "The previously reviewed sole documentation difference is desktop-macos/README.md. Production and test sources retain the frozen engineering candidate fingerprints."
+  },
+  "stateAudit": {
+    "P4": "done_in_user_approved_current_Mac_scope",
+    "packages": {
+      "P4-01": "done",
+      "P4-02": "done",
+      "P4-03": "done",
+      "P4-04": "done"
+    },
+    "TASKSAssertions": "All four task states, approvedScopeComplete true, fullPhaseComplete false, explicit Windows deferral, formal identity deferral and macOS14 unverified carryover independently checked.",
+    "documentsAgree": true,
+    "fullPhaseCompleteMeaning": "The original complete environment/formal-identity matrix remains incomplete. The user-approved current Mac scope is complete.",
+    "deferredAcceptance": {
+      "Windows": "deferred_by_user_this_round_same_candidate_unverified",
+      "formalIdentity": "deferred_by_user; formal Keychain/TCC and upgrade access remain unverified",
+      "macOS14": "unverified; O2/P6 carryover"
+    }
+  },
+  "historicalEvidenceAudit": {
+    "oldReviewsPreserved": true,
+    "workingTreeScope": "Before adding this review, only the six documents and metadata hashed above differed from the evidence commit. Prior raw logs, candidate fingerprints and historical reviewer records were unchanged.",
+    "interpretation": "Earlier in-progress states and no-P4-waiver observations retain their original chronology. The final scope documents explicitly supersede those states using the new user decision. Earlier failed runs remain attributed to their original candidates.",
+    "latestEngineeringEvidence": "The prior commit-binding review independently checked the archived closeout-unit/static summaries, 2491 passed and 18 skipped with zero failures, and 80 static passes. This review reuses those bound results and does not claim a new test execution."
+  },
+  "whitespaceAudit": {
+    "baseline": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "headAtCheck": "f5c5d4c553103cc9af0c145ed34e13cfc5cfb066",
+    "fullCommittedRange": {
+      "command": "git diff --check d97db57bef80ef96a5f5141003237f1826a6e84a HEAD",
+      "exitCode": 2,
+      "diagnostics": 36,
+      "trailingWhitespace": 34,
+      "newBlankLineAtEOF": 2,
+      "scope": "All diagnostics are in raw .txt files under MACOS-PORTING/evidence/P4, including terminal test/build output, system power logs and AX/page text exports.",
+      "fullRangePassClaimed": false
+    },
+    "excludingP4Evidence": {
+      "command": "git diff --check d97db57bef80ef96a5f5141003237f1826a6e84a HEAD -- . ':(exclude)MACOS-PORTING/evidence/P4/**'",
+      "exitCode": 0
+    },
+    "excludingOnlyRawP4Text": {
+      "command": "git diff --check d97db57bef80ef96a5f5141003237f1826a6e84a HEAD -- . ':(glob,exclude)MACOS-PORTING/evidence/P4/**/*.txt'",
+      "exitCode": 0,
+      "scope": "This check also retains authored Markdown/JSON and other evidence files in its checked range."
+    },
+    "pendingScopeDocuments": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "preservation": "Raw evidence bytes were retained. The implementation agent reported that the evidence-commit batch continued after the whitespace diagnostics. The final documents disclose this and do not label the full range as passing."
+  },
+  "retainedAcceptanceLimits": [
+    "Real directory cancellation is user reported and supported by trace counts and the source handler. No current-session cwd snapshot was taken immediately before cancellation.",
+    "Physical sleep covers one approximately 2.816-second Software Sleep/DarkWake cycle with scheduler disabled in that physical fixture. Separate automated lifecycle/scheduler and owned-process coverage remains distinct.",
+    "Physical microphone success establishes an OS-level grant, valid 647.5ms PCM and bounded track/native stop completion. Real refusal/retry evidence is at the WebKit origin layer.",
+    "Browser media regressions pass in CFT148. The ordinary Chrome156 native fake-getUserMedia hang remains recorded.",
+    "The current bridge47 run did not execute three notification denied/ungranted conditional assertions. Prior evidence retains its candidate attribution."
+  ],
+  "remainingDeliveryWork": "Commit the six scope documents and this final review. No additional mandatory implementation, UI or expensive test correction was identified for the user-approved current Mac scope.",
+  "conclusion": "The user's approved current Mac P4 scope is complete and supported by the independently reviewed implementation, native inputs and evidence. Windows, formal identity and actual macOS14 execution remain explicitly unverified. The scoped completion record and preservation of raw-log whitespace diagnostics are accurate."
+}

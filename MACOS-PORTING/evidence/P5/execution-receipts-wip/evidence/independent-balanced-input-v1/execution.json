@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-12T00:12:57.229399+00:00",
+  "endedAt": "2026-11-12T00:13:02.235436+00:00",
+  "elapsedSeconds": 5.006037582992576,
+  "exitCode": 0,
+  "executions": 1,
+  "automaticRetries": 0,
+  "logPassCount": 51,
+  "allPassSentinel": true,
+  "rawRoots": [
+    "/tmp/rei-HxJJZa"
+  ],
+  "beforeAllMatched": true,
+  "afterAllMatched": true,
+  "resultExists": true
+}

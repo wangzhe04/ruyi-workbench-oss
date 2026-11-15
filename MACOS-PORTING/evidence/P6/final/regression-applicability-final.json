@@ -1,0 +1,1262 @@
+{
+  "schemaVersion": 1,
+  "selected": 594,
+  "covered": 594,
+  "processPassed": 558,
+  "processFailed": 36,
+  "passedAfterRetry": 3,
+  "internalSkipFiles": 27,
+  "liveExcluded": 14,
+  "categoryCounts": {
+    "windows_fixture_or_platform_contract": 30,
+    "stale_inventory_or_source_contract": 1,
+    "missing_development_rg_and_windows_fixture": 1,
+    "mac_gui_qualification_environment": 2,
+    "other_fixture_contract": 2
+  },
+  "newFailingFilesComparedWithBaseline": [],
+  "fullRegressionPassed": false,
+  "failures": [
+    {
+      "file": "agent-mode-v2.e2e.js",
+      "currentLog": "regression-attempts/agent-mode-v2.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "The parallel-parent and notice-first prerequisites use a real powershell_run pause; platform rejection removes the intended delay and changes timing/delivery order. Keep as Windows prerequisite failure rather than claiming agent delivery passed on Mac.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/agent-mode-v2.e2e.js",
+          "line": 106,
+          "snippet": "      CMD_NOTICE6: [{ name: 'orchestrate_agents', args: { task: '瞬时后台收件', agentKey: 'instbg', toolTier: 'read', background: true } }, { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output parent-paused', timeoutMs: 20000 } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件(通知先到)。' }],",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "01afe1f1e68f232462b989ac5e5be50f59829be3ed24036882aef7d00f1b8ff6"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL B a new turn completes normally while the agent is still running",
+        "FAIL F2 precondition: the parent powershell_run pause really ran — {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。\"}",
+        "FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {\"kind\":\"agent_envelope\"}",
+        "FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1",
+        "FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)",
+        "FAIL F3 parent context carries exactly two distinct notices in total (first run + notice-first run)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "artifacts.e2e.js",
+      "currentLog": "regression-attempts/artifacts.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Unit section feeds C:\\ws Windows absolute paths into host-POSIX path functions, including collectBridgedWriteTarget. It then dereferences a null result; this does not exercise a valid Mac artifact path.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/artifacts.e2e.js",
+          "line": 164,
+          "snippet": "    const abs = 'C:\\\\ws\\\\a.docx';",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "9728e106dfd2128cca95d197a2e653ddafa2b488ce3dc6b5dd9c907c90ca0812"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (unit) pathWithinRoot: nested → true",
+        "FAIL (unit) pathWithinAnyRoot: any root matches",
+        "FAIL (T3 unit) write_docx {path} → {write, abs}",
+        "FAIL (T3 unit) write_document 识别"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "audit-w23.e2e.js",
+      "currentLog": "regression-attempts/audit-w23.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "stale_inventory_or_source_contract",
+      "baselineBasis": "Three structural assertions require retired killChildTree(child.pid), old saveSession atomicWriteJson/sessionWriteChains spelling, and exact node.degraded assignment. Current implementation moved ownership/persistence/degraded handling. No behavior failure established by these regexes; adapt using runtime invariants.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 130,
+          "snippet": "    ok(/killChildTree\\(child\\.pid\\)/.test(slice), 'P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        },
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 156,
+          "snippet": "    ok(/atomicWriteJson\\(finalPath, payload\\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        },
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 167,
+          "snippet": "  ok(/node\\.degraded = !!\\(sub && sub\\.degraded\\);/.test(src), 'P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程",
+        "FAIL P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)",
+        "FAIL P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "autonomy-benchmark.e2e.js",
+      "currentLog": "regression-attempts/autonomy-benchmark.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Fake provider constructs file_write/file_read paths by appending backslashes to POSIX WS; expected files checked with path.join are different filenames. Missing output assertions are caused by the fixture path contract.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/autonomy-benchmark.e2e.js",
+          "line": 99,
+          "snippet": "        if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\\\app.js', content: 'function add(a, b) { return a - b; }\\n' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b9e9aaf95bc1cf9e75bd2dfa41b7fee4a754d54457426a2bc70967dfeb08a7af"
+        },
+        {
+          "path": "dev-harness/autonomy-benchmark.e2e.js",
+          "line": 109,
+          "snippet": "      if (turnTools === 0) return streamToolCall(rs, 'file_read', { path: WS + '\\\\src\\\\' + src + '.txt' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b9e9aaf95bc1cf9e75bd2dfa41b7fee4a754d54457426a2bc70967dfeb08a7af"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL 任务1 四个重构文件都已写出",
+        "FAIL 任务2 三份汇编片段都已写出"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "background-completion.e2e.js",
+      "currentLog": "regression-attempts/background-completion.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Success command is PowerShell Start-Sleep/Write-Output, but Mac shell_start executes bash; failed background status is expected for that invalid command.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/background-completion.e2e.js",
+          "line": 78,
+          "snippet": "    const success = await start('Start-Sleep -Seconds 2; Write-Output BACKGROUND_RESULT');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "9c21698d6d3908b89b613e5554a3db5353ddc39b5e09844e7ddaab34a7790a5e"
+        }
+      ],
+      "observedFailureLines": [],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "bridge-cancel-timeout.e2e.js",
+      "currentLog": "regression-attempts/bridge-cancel-timeout.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "C2 checks live PIDs via Windows tasklist (catch=>false on Mac); A2 locks the old Chinese process-cleanup phrase. Do not claim Mac process cleanup from this test: C1 can be vacuously true when tasklist is absent. Echo/reconnect success is separately visible in log.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+          "line": 72,
+          "snippet": "    const out = cp.execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8', windowsHide: true });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "11d0f9b6ea88213d5d3653a64f333959441991913ebb3cf5f6d17922424d3974"
+        },
+        {
+          "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+          "line": 136,
+          "snippet": "    ok(/桥接进程树已终止/.test(slowText), 'A2 错误文本如实告知\"桥接进程树已终止\"(无僵尸执行)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "11d0f9b6ea88213d5d3653a64f333959441991913ebb3cf5f6d17922424d3974"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL A2 错误文本如实告知\"桥接进程树已终止\"(无僵尸执行)",
+        "FAIL C2 重连的新 fake-mcp 活着(pid 65396,回合并发期间应在线)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "currentLog": "regression-attempts/budget-guard.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Failing real-time budget sections use powershell_run with Start-Sleep/Write-Output. Mac returns unavailable immediately (observed468ms vs expected8s); these cannot qualify native Mac shell deadlines.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/budget-guard.e2e.js",
+          "line": 206,
+          "snippet": "    const T1 = await launchStack('t1', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 30' } }]) }, WB_FAST);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b7a5100114b2d1110a80e904d91305432db7cc18f884679df652bae52ced19f5"
+        },
+        {
+          "path": "dev-harness/budget-guard.e2e.js",
+          "line": 226,
+          "snippet": "    const T2 = await launchStack('t2', { runtimeToolTimeBudgetShadowV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000, toolByteBudgetShadowBytesV1: 10 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: \"Start-Sleep -Seconds 8; Write-Output ('x'*50)\" } }]) }, WB_FAST);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b7a5100114b2d1110a80e904d91305432db7cc18f884679df652bae52ced19f5"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL E19 软警告 tool_progress(budget_soft)已发",
+        "FAIL E20 硬终态 tool_progress(budget_hard)已发",
+        "FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)",
+        "FAIL E22 tool_result 带预算中断标记(不冒称正常结束)",
+        "FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)",
+        "FAIL E24 shadow 不动作:命令自然跑完(墙钟 458ms ≥ 8s 命令时长)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "claude-cmdline-guard.e2e.js",
+      "currentLog": "regression-attempts/claude-cmdline-guard.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "A1 constructs a Windows .cmd launcher and compares its cmd.exe length formula against platform-specific batchSafeSpawn; live B/C guard cases otherwise pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/claude-cmdline-guard.e2e.js",
+          "line": 104,
+          "snippet": "    const s = srv.batchSafeSpawn('C:\\\\npm\\\\claude.cmd', sampleArgs);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "49ca629c75c217b966ca86f6938d1a9de091ca7f06965ddf0088fd872f52e309"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (A1) spawnCmdLineLength === batchSafeSpawn 真实命令行长度 (456)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "currentLog": "regression-attempts/claude-exe-resolve.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Test synthesizes Windows npm .cmd shims and expects their .exe resolution; Mac CLI discovery follows POSIX launchers instead.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/claude-exe-resolve.e2e.js",
+          "line": 2,
+          "snippet": "// E2E (P1: cmd8191 根治 — npm shim → 真身 claude.exe 解析): claude.cmd 只是转发 shim,经 cmd.exe",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "da97034c924779007a5a71ed9490c24afecb643b566c36c4978dc0ab7d257c00"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/claude.cmd",
+        "FAIL (A6) normalizeConfig 替换 claudePath → exe",
+        "FAIL (A7) memoize 一致"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "cli-probe-stall.e2e.js",
+      "currentLog": "regression-attempts/cli-probe-stall.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Slow fake CLIs are .cmd files with Windows batch bodies and PATH=System32. Mac cannot use them, invalidating C1/C3/C4. Health latency assertions themselves pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/cli-probe-stall.e2e.js",
+          "line": 47,
+          "snippet": "const CLAUDE_CLI = slowCli('claude-slow.cmd', path.join(WORK, 'claude-never.flag'));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "f97ce4c8a8aa5095023c965b93f67724fbec5d9d42d3c2c6ef7564e455be0228"
+        },
+        {
+          "path": "dev-harness/cli-probe-stall.e2e.js",
+          "line": 72,
+          "snippet": "      PATH: sysDir, Path: sysDir, APPDATA: EMPTY, LOCALAPPDATA: EMPTY, ProgramFiles: EMPTY,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "f97ce4c8a8aa5095023c965b93f67724fbec5d9d42d3c2c6ef7564e455be0228"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )",
+        "FAIL C3 过期期间答旧值,不是空串(claude  / kimi )",
+        "FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "desktop-mcp-smoke.e2e.js",
+      "currentLog": "regression-attempts/desktop-mcp-smoke.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Two failed discovery assertions hardcode Windows python_embed/python.exe and C:\\portable-full. The optional real smoke additionally skips after local Python dependency import failure; no Full packaged-runtime defect is established.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+          "line": 44,
+          "snippet": "  ok(offlineCandidate && offlineCandidate.command === path.join(REPO, 'python_embed', 'python.exe'), 'repo detection includes the verified offline python_embed runtime');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c572c1f75ec4d9aad528cd3411fbfd69e3e42e58696872b5b4e28491a6d33cc"
+        },
+        {
+          "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+          "line": 45,
+          "snippet": "  const distributionCandidates = desktopPythonCandidates('C:\\\\portable-full\\\\mcp\\\\ai-computer-control');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c572c1f75ec4d9aad528cd3411fbfd69e3e42e58696872b5b4e28491a6d33cc"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL repo detection includes the verified offline python_embed runtime",
+        "FAIL portable Full package Python is ordered before machine-local installed runtimes",
+        "FAIL hotkey accepts the MCP `keys` keyword and validates its value"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "engine-env-runtime.e2e.js",
+      "currentLog": "regression-attempts/engine-env-runtime.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "missing_development_rg_and_windows_fixture",
+      "baselineBasis": "Baseline source tree contains rg.exe but no Mac app/vendor-bin/rg. Thus bundled-rg status is absent in that developer worktree; B1 additionally uses unsupported powershell_run. Final offline candidate must separately prove its bundled Mach-O rg, not inherit this source-checkout failure or be waived without payload validation.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/engine-env-runtime.e2e.js",
+          "line": 13,
+          "snippet": "//   (B) fake provider 回合里:powershell_run 跑 `rg --version` 成功(stdout 含 ripgrep);shell_start 起的",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "92dec17b037d9cf1003d83dd9694e390aea2c7b36ac1a4f5589dc5fef04c9234"
+        },
+        {
+          "path": "dev-harness/engine-env-runtime.e2e.js",
+          "line": 5,
+          "snippet": "// 取证结论:随包 rg.exe 在 app/vendor-bin,而修前 probeRg 找的是 appRoot()/vendor-bin(产品根下,不存在),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "92dec17b037d9cf1003d83dd9694e390aea2c7b36ac1a4f5589dc5fef04c9234"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL A0 随包 app/vendor-bin/rg 在仓里",
+        "FAIL A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({\"rg\":false,\"rgSource\":null})",
+        "FAIL A3 体检 search-ripgrep 报随包来源且终端可用 ({\"id\":\"search-ripgrep\",\"ok\":false,\"detail\":\"absent: file_search falls back to the built-in scanner; no rg in shell\"})",
+        "FAIL B1 powershell_run `rg --version` 成功 ({\"ok\":false,\"stdout\":\"\",\"stderr\":\"\"})",
+        "FAIL B2 shell_start 起的交互 shell 里 `rg --version` 成功 (\"/bin/bash: line 8: rg: command not found\\n\")",
+        "FAIL B4 provider 易变层:能力行写明终端可直接用 rg + 当前权限档含义"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "harness-friction.e2e.js",
+      "currentLog": "regression-attempts/harness-friction.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Only K1 fails: test requires powershell_run in list_tools exec tier, but Mac correctly offers shell_run and omits unsupported Windows PowerShell.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/harness-friction.e2e.js",
+          "line": 201,
+          "snippet": "  ok(kres && kres.tiers && Array.isArray(kres.tiers.edit) && kres.tiers.edit.includes('file_write') && Array.isArray(kres.tiers.exec) && kres.tiers.exec.includes('powershell_run') && !('read' in kres.tiers),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a5738710163ff244d229d4d1f215bb7e0a58a31ea2b056eb6acb7a4033c13a71"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL K1 list_tools 按档列出非 read 的名字(got {\"exec\":[\"orchestrate_agents\",\"git_commit\",\"tool_invoke_exec\",\"desktop_screenshot\",\"fake__add\",\"fake__echo\",\"fake__image_resize\",\"fake__slow_task\",\"audio_transcribe\",\"fake__copy_file\",\"fake__delete_file\",\"fake__edit_file\",\"fake__move_file\",\"fake__write_file\",\"mcp_configure\",\"fake__memory_delete\",\"fa)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "macos-capture-host.e2e.js",
+      "currentLog": "regression-attempts/macos-capture-host.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "mac_gui_qualification_environment",
+      "baselineBasis": "The App launches and service starts, but its helper capture authorization is not granted and HTTP capture fails. A newly built/worktree App/helper identity is not the already qualified main-checkout identity. This is a real current-environment qualification failure; do not count capture as passed or label it a new P6 production regression without identity/TCC evidence.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/macos-capture-host.e2e.js",
+          "line": 26,
+          "snippet": "    const bundle=process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing)?existing:buildMacDesktop(path.join(root,'Ruyi.app')));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594"
+        },
+        {
+          "path": "dev-harness/macos-capture-host.e2e.js",
+          "line": 67,
+          "snippet": "    t.ok(extra.capture?.ready===true && extra.capture.authorization==='granted','App-launched helper has its own verified capture authorization');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL Error: App acceptance timed out"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false,
+      "currentObservation": "Existing dist/Ruyi.app LaunchServices acceptance script did not produce a ready report before timeout; root cause is not established. This does not prove permission denial.",
+      "qualification": "unverified P5 App capture/input qualification; final DMG basic startup does not substitute for it"
+    },
+    {
+      "file": "macos-input-host.e2e.js",
+      "currentLog": "regression-attempts/macos-input-host.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "mac_gui_qualification_environment",
+      "baselineBasis": "Actual receiver text/pointer checks and App worktree/owned identity/Accessibility assertions fail. The copied/default worktree runtime and helper identity plus absent developer ACC venv are different from the qualified main workspace. Preserve as unqualified current environment; neither grant nor correct candidate launch is established.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 125,
+          "snippet": "    const bundle = process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing) ? existing : buildMacDesktop(path.join(root, 'Ruyi.app')));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 131,
+          "snippet": "    const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 329,
+          "snippet": "      'the authorized App launches the server from this exact candidate worktree');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL Error: Controlled App input acceptance timed out"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false,
+      "currentObservation": "Existing dist/Ruyi.app LaunchServices acceptance script did not produce a ready report before timeout; root cause is not established. This does not prove permission denial.",
+      "qualification": "unverified P5 App capture/input qualification; final DMG basic startup does not substitute for it"
+    },
+    {
+      "file": "mcp-import-origin.e2e.js",
+      "currentLog": "regression-attempts/mcp-import-origin.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Synthetic Claude launcher is a Windows claude.cmd; missing add-json capture on Mac does not prove origin provenance filtering failed. Import/ownership assertions pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/mcp-import-origin.e2e.js",
+          "line": 75,
+          "snippet": "  const fakeClaude = path.join(HOME, 'claude.cmd');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "51a6dfcbe4c70ba6adccbdccbde17d8e41b68f3901f6b0e9678332bcf06450ff"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）",
+        "FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：\"\"）"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "mission-driver.e2e.js",
+      "currentLog": "regression-attempts/mission-driver.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Fake provider uses WS + backslash + milestone.txt, while checks use path.join(WS, milestone.txt); backslash is not a POSIX directory separator.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/mission-driver.e2e.js",
+          "line": 101,
+          "snippet": "    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\\\' + mk + '.txt', content: mk + ' 完成' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "316694d120fbef95c6bfed392b38cd82538d25b127b23670a50aff75e2c05890"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL A 三个里程碑文件都已写出"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "overlay-update-core.e2e.js",
+      "currentLog": "regression-attempts/overlay-update-core.e2e.js.attempt-2.txt",
+      "status": 2,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Direct Windows PowerShell overlay integration cannot run on Mac; failure is powershell.exe ENOENT. Mac overlay unsupported behavior has separate passing macos-overlay-boundary coverage.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/overlay-update-core.e2e.js",
+          "line": 76,
+          "snippet": "    const out = cp.execFileSync('powershell', args, { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024 });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "22fec8bdb953341a4b1a09664a34a2358d5324c594adc534793f0a452b807dfd"
+        }
+      ],
+      "observedFailureLines": [],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "permission-plain.browser.e2e.js",
+      "currentLog": "regression-attempts/permission-plain.browser.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "The exec modal phase requests powershell_run/Get-Date, unavailable on Mac, so its permission DOM is null. Earlier real file-write modal and approval checks pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/permission-plain.browser.e2e.js",
+          "line": 50,
+          "snippet": "          if (!last || last.role !== 'tool') { ctx.toolCall('powershell_run', { command: 'Get-Date' }); return; }",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c0568a1c5b7681ea4ad1edcb9e0ca365cf10d4416ad4111802e3d590de99769"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）",
+        "FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "privacy-gateway.e2e.js",
+      "currentLog": "regression-attempts/privacy-gateway.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "H1 is before the outer non-Windows skip and spawns typed-turn-recovery-repro, which hardcodes powershell_run with Add-Content/Write-Output. The child rejects on Mac; this does not establish portable privacy corruption. Raw nested child result is not printed by the parent, so the final release run should retain it if adapting the fixture.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/privacy-gateway.e2e.js",
+          "line": 20,
+          "snippet": "      const typed = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'privacy-31/typed-turn-recovery-repro.js'), '--protocol=' + protocol], { encoding: 'utf8', windowsHide: true, timeout: 45000 });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a8c5f9c96a5196e918c9f0781a65e56b193ed0b971833ee895fa8064950b0110"
+        },
+        {
+          "path": "dev-harness/privacy-31/typed-turn-recovery-repro.js",
+          "line": 60,
+          "snippet": "    const command = \"Add-Content -LiteralPath './counter.txt' -Value '1'; Write-Output '\" + source + \"'\";",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b60a85597a7a2040e47f37f552122f4e5297b903664c2aaa9e31e116c86d4a07"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals",
+        "FAIL fixture failure: typed_recovery_regression_failed_chat"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "currentLog": "regression-recovery-attempts/repo-hygiene.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "other_fixture_contract",
+      "baselineBasis": "Two fixture issues: secret scan flags repeated deterministic key-shaped values printed in historical unit evidence (trace to steward-config-tier.test.js synthetic sk- plus a.repeat(40)); add-json capture uses Windows claude.cmd. This review classifies only the reported hits after checking their origin, not all arbitrary future matches, and does not claim a blanket clean scan.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/unit/steward-config-tier.test.js",
+          "line": 328,
+          "snippet": "  const mixed = stewardActConfirmSpec('steward_config_set', { patch: { [confirmKey]: 'x', [freeKey]: 'y', modelsApiKey: 'sk-' + 'a'.repeat(40) } });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1016a4054f27ccb55cb811de06fe2033067a4a730659e4672dab20f943cad764"
+        },
+        {
+          "path": "dev-harness/repo-hygiene.e2e.js",
+          "line": 307,
+          "snippet": "    const fakeClaude = path.join(MCP_HOME, 'claude.cmd');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "84fcc516bf4bc851a130e3dc1d2f2b56c1e5e0171df18985e3214f3c1c1c5189"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (b) no real secret-pattern hits — HITS: MACOS-PORTING/evidence/P6/final/baseline-unit-final.txt:3152, MACOS-PORTING/evidence/P6/final/unit-before-locale-sync.txt:3157, MACOS-PORTING/evidence/P6/final/unit-final.txt:3158, MACOS-PORTING/evidence/P0/unit-full.txt:13030, MACOS-PORTING/evidence/P1/capabilities/unit-final.txt:2999, MACOS-PORTING/evidence/P1/capabilities/unit-first.txt:3000, MACOS-PORTING/evidence/P1/capabilities/unit.txt:2999, MACOS-PORTING/evidence/P1/cli-model-probe/unit.txt:2999, MACOS-PORTING/evidence/P1/discovery-ui/unit-final.txt:2999, MACOS-PORTING/evidence/P1/document-reader/unit.txt:2999, MACOS-PORTING/evidence/P1/executable-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/files/unit-final.txt:2999, MACOS-PORTING/evidence/P1/files/unit-first.txt:2999, MACOS-PORTING/evidence/P1/files/unit-fixture-regression.txt:234, MACOS-PORTING/evidence/P1/git-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-gate/unit.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-first.txt:2999, MACOS-PORTING/evidence/P1/media-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/opener-completion/unit.txt:2999, MACOS-PORTING/evidence/P1/overlay-boundary/unit.txt:2999, MACOS-PORTING/evidence/P1/ownership/review-unit-full.txt:2998, MACOS-PORTING/evidence/P1/ownership/unit-final.txt:2993, MACOS-PORTING/evidence/P1/ownership/unit-full.txt:2992, MACOS-PORTING/evidence/P1/path-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/process-handles/unit.txt:2999, MACOS-PORTING/evidence/P1/process-integration/unit-final.txt:2999, MACOS-PORTING/evidence/P1/processes/exit-confirmation-unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-full.txt:2998, MACOS-PORTING/evidence/P1/python-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/rg-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/search-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/shell/unit-final.txt:2999, MACOS-PORTING/evidence/P1/supervisor/unit-final.txt:2998, MACOS-PORTING/evidence/P1/synchronous-probe-audit/unit.txt:2999, MACOS-PORTING/evidence/P1/synchronous-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/unit-final-source.txt:2988, MACOS-PORTING/evidence/P1/worktree-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/write-queue-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P2/bots/unit.txt:2998, MACOS-PORTING/evidence/P2/cli-live/unit.txt:2998, MACOS-PORTING/evidence/P2/cli/unit-first.txt:2999, MACOS-PORTING/evidence/P2/cli/unit.txt:2999, MACOS-PORTING/evidence/P2/core/unit.txt:2997, MACOS-PORTING/evidence/P2/final-acceptance/unit.txt:2998, MACOS-PORTING/evidence/P2/keychain/unit-first.txt:2997, MACOS-PORTING/evidence/P2/keychain/unit.txt:2997, MACOS-PORTING/evidence/P3/acc-shared/unit.txt:2998, MACOS-PORTING/evidence/P3/browser/unit.txt:2998, MACOS-PORTING/evidence/P3/final-mac-acceptance/checks/unit.txt:2999, MACOS-PORTING/evidence/P3/office/unit.txt:2998, MACOS-PORTING/evidence/P3/templates/unit-first.txt:2998, MACOS-PORTING/evidence/P3/templates/unit.txt:2999, MACOS-PORTING/evidence/P4/bridge/workspace-alias/unit-final.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/closeout-unit.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/unit.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-final.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-fixed.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit.txt:2999, MACOS-PORTING/evidence/P4/media/physical/new-unit-final.txt:2999, MACOS-PORTING/evidence/P4/media/unit-final.txt:2999, MACOS-PORTING/evidence/P5/audit/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-final-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/unit-final.txt:2999, MACOS-PORTING/evidence/P5/ax/unit.txt:2999, MACOS-PORTING/evidence/P5/capture/unit.txt:2999, MACOS-PORTING/evidence/P5/composed/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/unit.txt:3016, MACOS-PORTING/evidence/P5/entry/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/input/events/unit-accepted.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-current.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-final.txt:2999, MACOS-PORTING/evidence/P5/input/unit.txt:2999, MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-unit-first.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v3/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v4/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v5/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fullunit.txt:3007, MACOS-PORTING/evidence/P5/ocr/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/record/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/transition/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P6/internal-trial/unit-all.txt:3152, MACOS-PORTING/evidence/P6/offline/unit-all.txt:3144, MACOS-PORTING/evidence/P6/offline/unit-release.txt:3147",
+        "FAIL (f③) claude mcp add-json from this save got the real env/args (0 call(s))"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "settings-wave1.browser.e2e.js",
+      "currentLog": "regression-recovery-attempts/settings-wave1.browser.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Only overlay rollback/file-picker message assertions fail; Mac overlay UI is intentionally unavailable. These Windows UI paths should be tested on Windows, while Mac must preserve its explicit unsupported boundary.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/settings-wave1.browser.e2e.js",
+          "line": 219,
+          "snippet": "    ok(rollbackHint === ENVELOPE_MESSAGE, `W3a 回滚失败的提示是 message 原句(实测 ${JSON.stringify(rollbackHint)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d7a7bd4ee48dc42230ed8b7423e9da264d6a1768e59e75976590067894c2f5ad"
+        },
+        {
+          "path": "dev-harness/settings-wave1.browser.e2e.js",
+          "line": 224,
+          "snippet": "    ok(Boolean(pickToast) && !String(pickToast).includes('[object Object]'), `W3b 选 zip 失败的 toast 是 message 原句(实测 ${JSON.stringify(pickToast)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d7a7bd4ee48dc42230ed8b7423e9da264d6a1768e59e75976590067894c2f5ad"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL W3a 回滚失败的提示是 message 原句(实测 \" \")",
+        "FAIL W3b 选 zip 失败的 toast 是 message 原句(实测 null)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "shell-mcp-guard.e2e.js",
+      "currentLog": "regression-attempts/shell-mcp-guard.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Only comparison expects powershell_run to succeed in MCP child; Mac intentionally rejects that Windows tool, while shell_start/shell_send MCP-child guards pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/shell-mcp-guard.e2e.js",
+          "line": 59,
+          "snippet": "    ok(ps.result && ps.result.isError === false && psOut.includes('OK123'), 'powershell_run still works in MCP child (guard is shell-specific)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "6386605af33092edbd524b95cbc68246d853feb65249e582f68b871c192aa741"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL powershell_run still works in MCP child (guard is shell-specific)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "shell-session.e2e.js",
+      "currentLog": "regression-attempts/shell-session.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Fixture runs PowerShell syntax Get-Location/Write-Output/Set-Location in default interactive shell and requires powershell_run; Mac default bash and unsupported PowerShell invalidate these checks. f4 also compares /var vs /private/var strings rather than canonical directory identity.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/shell-session.e2e.js",
+          "line": 9,
+          "snippet": "//  (a) SEQUENCE [shell_start{shellId:'s1'}(不传 cwd), shell_send{input:'(Get-Location).Path'}] in ONE turn whose",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "63cf6752195ca88dd2ea54a76b28ec4975d9777341c53181d358cd1a1a3fbef8"
+        },
+        {
+          "path": "dev-harness/shell-session.e2e.js",
+          "line": 18,
+          "snippet": "//      shell_start／powershell_run／script_run 缺省 cwd 却起在家目录。经 /api/tools 带 sessionId(进程内分发,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "63cf6752195ca88dd2ea54a76b28ec4975d9777341c53181d358cd1a1a3fbef8"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (a) shell_send ok",
+        "FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK\")",
+        "FAIL (f1) (Get-Location).Path prints the session cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK\")",
+        "FAIL (f2) shell_start with explicit cwd prints that cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\")",
+        "FAIL (f3) powershell_run without cwd runs in the session cwd (got: \"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\")",
+        "FAIL (f4) script_run without cwd runs in the session cwd (got: \"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd\")"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-decisions.browser.e2e.js",
+      "currentLog": "regression-attempts/steward-decisions.browser.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Pending fixture requests powershell_run, unavailable on Mac, so only plan/question pending rows exist and the permission fixture never becomes ready.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-decisions.browser.e2e.js",
+          "line": 16,
+          "snippet": "        else if (text.includes('DECISION_PERMISSION')) ctx.toolCall('powershell_run', { command: 'Write-Output decision-fixture' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a7b10964e6bd26146bff6e30b4af0b922c59f8737c40368c248dd57580f1c86c"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL Error: pending fixtures not ready [{\"id\":\"plan_c1eaa49b4647bc69\",\"type\":\"plan\",\"sessionId\":\"sess_5396f9d10600ca62\",\"missionId\":\"mission_3a46787cf31eed5a\",\"requestedAt\":\"2026-11-12T10:56:11.547Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"\",\"questions\":[],\"context\":\"\",\"planSummary\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":0,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n完整计划结尾\",\"detailsComplete\":true},{\"id\":\"question_9b7c3a6ddfa3a496\",\"type\":\"question\",\"sessionId\":\"sess_5cb2e13bc26a8cd2\",\"missionId\":\"mission_c341d651aef70105\",\"requestedAt\":\"2026-11-12T10:56:11.549Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796627971549,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false},{\"id\":\"question_eafd08968a186dca\",\"type\":\"question\",\"sessionId\":\"sess_9cfc4ae635aa18c8\",\"missionId\":\"mission_c341d651aef70105\",\"requestedAt\":\"2026-11-12T10:56:11.551Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796627971551,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false}]"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-deferred-permission.e2e.js",
+      "currentLog": "regression-attempts/steward-deferred-permission.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Provider only emits the permission fixture when offered names contain powershell_run; Mac omits it, so both threads complete without the requested exec pending state.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-deferred-permission.e2e.js",
+          "line": 55,
+          "snippet": "  } else if (names.includes('powershell_run') && last && last.role === 'user') {",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "22dbe246510d88795245b33270c49f4a2da7e79611b70c036fc54a9221202567"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL P0d 两条线程都停在一条 exec 权限请求上",
+        "FAIL 未捕获异常: Error: no pending permission"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-exempt-delegation.e2e.js",
+      "currentLog": "regression-recovery-attempts/steward-exempt-delegation.e2e.js.attempt-2.txt",
+      "status": null,
+      "timedOut": true,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Fixture repeatedly requires real PowerShell execution and pending requests (Remove-Item, git push via powershell_run); Mac platform refusal prevents those prerequisites and causes timeout. Portable exemption policy coverage is not proven by this failed process.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-delegation.e2e.js",
+          "line": 12,
+          "snippet": "//       ① powershell_run `Remove-Item .\\tmp -Recurse`  —— 停下来问 → 轮询(15 s)→ 去抖(5 s)→ 管家收件箱回合 →",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "175a070ff77a7494a012cfe11f4eb3ca5c5cd818498cb9d25631726d636583b4"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\\tmp -Recurse 停下来问了(实得 null)",
+        "FAIL R11 ① 没有任何人按:轮询 → 管家收件箱回合 → steward_decide 代批落定,tmp 真被删了(实得 status=null tmpExists=true decidedBy=null)",
+        "FAIL R12 ① 工具结果告诉模型:代批了、是「删数据」类(实得 null)",
+        "FAIL R20 前提:web_fetch 之后的 git push 停下来问了(实得 null)",
+        "FAIL R21 ② 同一回合读过网页再 git push → 不代批 blockedBy:tainted, taintBy:turn:web_fetch(实得 null)",
+        "FAIL R22 管家没批的那条仍在等用户 —— 夹具以用户身份拒掉(实得 null)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-exempt-no-swap.e2e.js",
+      "currentLog": "regression-attempts/steward-exempt-no-swap.e2e.js.attempt-2.txt",
+      "status": null,
+      "timedOut": true,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "All failing prerequisite/decision/replay checks target powershell_run; unavailable Mac execution never creates the expected pending command and the fixture times out.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-no-swap.e2e.js",
+          "line": 92,
+          "snippet": "    // 原生回合给的是自适应工具表(tool_search/tool_invoke_* 那一套),powershell_run 不在表里;",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "0e60573dac2ab6fdaf376418114ce56ee7c46018fa5535da7c26bce5a902ad66"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)",
+        "FAIL H-ctl 用户放行被受理(实得 null)",
+        "FAIL H-ctl 对照组:用户自己的放行保留 updatedInput —— 替换命令真的执行了(swapped=false, orig=false);没有这一条,下面三条「swapped 不在」可能只是消费者不认 updatedInput",
+        "FAIL H-ctl 对照组:带 updatedInput 的决定落盘指纹 ≠ 纯 {action:allow} 的指纹(指纹这把尺子认得出载荷里多了东西)",
+        "FAIL act 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)",
+        "FAIL H-act ① 管家放行落定,回执如实列出被剥掉的 updatedInput 与 scope(实得 null)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-exempt-shell-send.e2e.js",
+      "currentLog": "regression-attempts/steward-exempt-shell-send.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Fixture deliberately sends PowerShell commands into shell_send; on Mac its default shell is bash. The missing marker/flush is a fixture language mismatch, not proof exemption or literal shell_send authorization is broken.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-shell-send.e2e.js",
+          "line": 8,
+          "snippet": "// powershell_run/run_command 不命中名字,走的是命令文本扫描。方向是反的。",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "c725502e9359b6c1dfc8dcc6a14160d7a1e7acbb1763f8ca4f5606761f2be2b4"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)",
+        "FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-guardrails.e2e.js",
+      "currentLog": "regression-attempts/steward-guardrails.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "O10/R2b require exactly two native desktop tools (desktop_screenshot,keyboard_send_keys) to reappear solely from session toggle. Mac correctly gates screenshot readiness and omits unsupported keyboard_send_keys; session toggle cannot grant native capabilities.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-guardrails.e2e.js",
+          "line": 985,
+          "snippet": "    const DESK = ['desktop_screenshot', 'keyboard_send_keys'];",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "000f1f7076f8b80a9330478ef5cfe3825b66ebfc195c3356fbecffc113b3abd0"
+        },
+        {
+          "path": "dev-harness/steward-guardrails.e2e.js",
+          "line": 1130,
+          "snippet": "    const NATIVE_DESK = ['desktop_screenshot', 'keyboard_send_keys'];",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "000f1f7076f8b80a9330478ef5cfe3825b66ebfc195c3356fbecffc113b3abd0"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got [])",
+        "FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "steward-tools.e2e.js",
+      "currentLog": "regression-attempts/steward-tools.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "other_fixture_contract",
+      "baselineBasis": "P8 attempts to simulate Windows read-only replacement failure by chmod(config.json,0444). On POSIX a writable parent permits atomic rename over a read-only file, so the explicit failure precondition does not hold. No failure-path rollback behavior was exercised.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/steward-tools.e2e.js",
+          "line": 1105,
+          "snippet": "      fs.chmodSync(cfgPath, 0o444);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "30dc985848924ae6bdb11800821a65d4fc53def8520098120f74898280273fbb"
+        },
+        {
+          "path": "dev-harness/steward-tools.e2e.js",
+          "line": 1097,
+          "snippet": "    // 造法:把 config.json 设成只读(Windows 的 +R 属性),写链的 tmp -> rename 覆盖会失败。",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "30dc985848924ae6bdb11800821a65d4fc53def8520098120f74898280273fbb"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了",
+        "FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1,没拿那个没登记成的目录(got \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/写不下去\")",
+        "FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸",
+        "FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "tool-audit-fixes.e2e.js",
+      "currentLog": "regression-recovery-attempts/tool-audit-fixes.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "M6 expects Windows .bat association behavior. Mac returns ENOENT for a nonexistent local target before its unsafe-extension path, still refuses execution. Verify the Mac opener using existing macos-runtime-start boundary cases.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-fixes.e2e.js",
+          "line": 160,
+          "snippet": "  ok(exe.ok === false && /只打开网址/.test(String(exe.error || '')), `M6 browser_open 不把 .bat 交给系统关联(got ${JSON.stringify(exe).slice(0, 120)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "639b691bc0457a11381c365d93e665076b4e0e1fec0de2203030f194d5c7949a"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL M6 browser_open 不把 .bat 交给系统关联(got {\"ok\":false,\"code\":\"ENOENT\",\"error\":\"无法解析要打开的本地浏览器路径\",\"target\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-to)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "tool-audit-r2-meta.e2e.js",
+      "currentLog": "regression-attempts/tool-audit-r2-meta.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Metadata sweep requires unsupported Windows tools powershell_run, script_run, keyboard_send_keys plus unconditional screenshot availability. Missing schema then causes TypeError. A platform-aware sweep must check actual catalog and retain portable descriptions.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-r2-meta.e2e.js",
+          "line": 164,
+          "snippet": "    powershell_run: ['command', 'timeoutMs'], shell_send: ['shellId', 'input'], shell_poll: ['shellId'], script_run: ['language', 'code', 'timeoutMs'],",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d9dce1eaccaa53a1c4e9d2ca0523c23483db1d90ded2f31c7cf259b6197dc09e"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))",
+        "FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "tool-audit-r2-netexec.e2e.js",
+      "currentLog": "regression-recovery-attempts/tool-audit-r2-netexec.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "N7/N5 hardcode legacy windows_only and assume no PowerShell means screenshot/script/shell unavailable. Mac now intentionally provides native screenshot and bash while rejecting Windows-only tools.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+          "line": 118,
+          "snippet": "      `N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got ${JSON.stringify(shot0).slice(0, 220)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1b3803a14deda1872a3dc0b06862cfbecfdc9edabe1b2337dc7ab29b249b57aa"
+        },
+        {
+          "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+          "line": 126,
+          "snippet": "    ok(sh0.ok === false && sh0.code === 'windows_only', `N5d shell_start 无 PowerShell → ok:false(修前 ok:true 的死会话;got ${JSON.stringify(sh0).slice(0, 160)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1b3803a14deda1872a3dc0b06862cfbecfdc9edabe1b2337dc7ab29b249b57aa"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got {\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-43ZZvA/generated/screenshot-1794483427330.png\",\"width\":3420,\"height\":2214,\"origin\":{\"x\":0,\"y\":0},\"scale\":2,\"scale_y\":2,\"coordinate_space\":\"ma)",
+        "FAIL N7b keyboard_send_keys 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'keyboard_send_keys' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具)",
+        "FAIL N7c script_run 缺省 powershell 无 PowerShell → windows_only 且指路 python/node(got {\"ok\":true,\"code\":0,\"timedOut\":false,\"interrupted\":false,\"cleanupScope\":\"owned-group-and-observed\",\"cleanupIncomplete\":false,\"cleanupEscapeCoverage\":\"observed-only\",\"cleanupUnconfirmed\":0,\"stderr\":\"\",)",
+        "FAIL N7d powershell_run 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可)",
+        "FAIL N5d shell_start 无 PowerShell → ok:false(修前 ok:true 的死会话;got {\"ok\":true,\"shellId\":\"dead1\",\"name\":\"dead1\",\"cwd\":\"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-Xm1IbX\",\"mode\":\"interactive\",\"shell\":\")",
+        "FAIL N5e 起不来的 shell 不留空壳会话(got [{\"shellId\":\"dead1\",\"name\":\"dead1\",\"cwd\":\"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-Xm1IbX\",\"running\":true,\"exitCode\":null,\"mode\":\"interactive\",\"timedOut\":false,\"startedAt\":\"2026-11-12T11:37:07.715Z\",\"lastUsedAt\":\"2026-11-12T11:37:07.715Z\",\"bytes\":0}])"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "tool-invoke-promote.e2e.js",
+      "currentLog": "regression-recovery-attempts/tool-invoke-promote.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Only initial-tool-list expectation insists powershell_run is available; actual Mac list has shell_run. Proxy promotion and append-order cases otherwise pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/tool-invoke-promote.e2e.js",
+          "line": 147,
+          "snippet": "  ok(r1 && ['web_search', 'web_fetch', 'powershell_run'].every(n => toolNames(r1).includes(n)), `P6 第一发就带起手工具(got ${r1 && toolNames(r1).join(',')})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "dd98f8f1bcc0101dfb9069c7f3f41268ad1f9e8d5b315578682466e174b88ad4"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL P6 第一发就带起手工具(got workbench_memory_list,workbench_memory_read,workbench_memory_propose,observation_recall,shell_run,web_search,web_fetch,request_user_input,todo_write,mission_update,workbench_self_status,thread_title_update,scratchpad_write,list_tools,tool_search,tool_load,tool_invoke_read,tool_invoke_edit,tool_invoke_exec)"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    },
+    {
+      "file": "vision-loop.e2e.js",
+      "currentLog": "regression-attempts/vision-loop.e2e.js.attempt-2.txt",
+      "status": 1,
+      "timedOut": false,
+      "category": "windows_fixture_or_platform_contract",
+      "baselineBasis": "Only Windows visual/text desktop regimen strings fail; production explicitly emits desktop.sharedMac for darwin. Actual image attachment, OCR, taint fences and compressed-image transport assertions pass.",
+      "baselineSourceEvidence": [
+        {
+          "path": "dev-harness/vision-loop.e2e.js",
+          "line": 163,
+          "snippet": "    ok(sysA && /桌面操控\\(视觉路径\\)/.test(String(sysA.content || '')), '(a) system prompt has 桌面操控(视觉路径) regimen');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "85b1a5208a5b4f57f94cf70b8b699ae3c10e2ab522b4ade63b588463612e952f"
+        },
+        {
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "line": 2111,
+          "snippet": "      lines.push(getPromptPack(config && config.locale).desktop.sharedMac);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a614752d7de7fae66120c52262f03c0b23c650c8c8cebf856a599dd5512a07bf"
+        }
+      ],
+      "observedFailureLines": [
+        "FAIL (a) system prompt has 桌面操控(视觉路径) regimen",
+        "FAIL (d) system prompt has 桌面操控(文本路径) regimen"
+      ],
+      "acceptedAsPassed": false,
+      "fileAlreadyFailedInBaseline": true,
+      "assertionLevelSameCauseEstablished": false
+    }
+  ],
+  "internalSkips": [
+    {
+      "file": "bridged-prefix-tolerance.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/bridged-prefix-tolerance.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP (B) real ACC not bridged (python/deps missing?) bridgedTools=0"
+      ]
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "processOk": false,
+      "log": "regression-attempts/claude-exe-resolve.e2e.js.attempt-2.txt",
+      "reasons": [
+        "SKIP (B) 集成层 — 仅 Windows 有 cmd shim 问题"
+      ]
+    },
+    {
+      "file": "credential-vault.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/credential-vault.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP Windows DPAPI fixture; Mac Keychain has its own isolated runtime e2e"
+      ]
+    },
+    {
+      "file": "estimate-buckets.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/estimate-buckets.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H 项目真实历史夹具缺失(不影响白盒门)"
+      ]
+    },
+    {
+      "file": "external-bot-credentials.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/external-bot-credentials.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP Windows DPAPI runtime (env-only behavior is covered in unit tests)"
+      ]
+    },
+    {
+      "file": "external-bot-setup.browser.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/external-bot-setup.browser.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP EXTERNAL BOT SETUP BROWSER: real Windows DPAPI journey"
+      ]
+    },
+    {
+      "file": "launcher-spaced-path.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/launcher-spaced-path.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP launcher spaced-path: Windows only (cmd.exe + Windows PowerShell 5.1)"
+      ]
+    },
+    {
+      "file": "macos-ax-finder.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-ax-finder.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP opt in with RUYI_P5_FINDER_REQUIRED=1 on an otherwise windowless Finder"
+      ]
+    },
+    {
+      "file": "macos-browser-runtime.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-browser-runtime.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP set RUYI_BROWSER_CACHE_SOURCE and install the browser test runtime; RUYI_BROWSER_REQUIRED=1 makes this mandatory"
+      ]
+    },
+    {
+      "file": "macos-capture-transition.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-capture-transition.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP opt-in real capture/window transition"
+      ]
+    },
+    {
+      "file": "macos-native-entry.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-native-entry.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP opt-in real Mac session entry validation"
+      ]
+    },
+    {
+      "file": "macos-native-readiness.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-native-readiness.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP opt-in real Mac readiness/hidden-registry validation"
+      ]
+    },
+    {
+      "file": "macos-neutral-abort.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-neutral-abort.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP opt-in neutral Mac root-abort calibration"
+      ]
+    },
+    {
+      "file": "macos-offline-package.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-offline-package.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP live offline-package acceptance requires macOS and RUYI_OFFLINE_CANDIDATE"
+      ]
+    },
+    {
+      "file": "macos-platform-templates.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-platform-templates.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP real template probe needs prepared ACC/browser cache"
+      ]
+    },
+    {
+      "file": "macos-trial-install.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-trial-install.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP real DMG install requires macOS and RUYI_TRIAL_DISTRIBUTION"
+      ]
+    },
+    {
+      "file": "macos-upgrade-rollback.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/macos-upgrade-rollback.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP actual upgrade/rollback requires old and new Mac trial distributions"
+      ]
+    },
+    {
+      "file": "observation-recall-realhistory.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/observation-recall-realhistory.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP 全部 realhist-fixtures/checkpoints 不在当前环境(需要外部数据)"
+      ]
+    },
+    {
+      "file": "observation-recall-replay.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/observation-recall-replay.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP 全部 realhist-fixtures history-25 不在当前环境(需要外部数据)"
+      ]
+    },
+    {
+      "file": "privacy-channels.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/privacy-channels.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP production channel persistence requires Windows DPAPI"
+      ]
+    },
+    {
+      "file": "privacy-protocols.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/privacy-protocols.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP production privacy fixture requires Windows DPAPI; portable gateway behavior is covered by unit tests"
+      ]
+    },
+    {
+      "file": "session-notes-inject.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/session-notes-inject.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H1-H3 realhist fixture 不在当前环境"
+      ]
+    },
+    {
+      "file": "session-notes-merge.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/session-notes-merge.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H1-H4 realhist fixture 不在当前环境"
+      ]
+    },
+    {
+      "file": "session-notes.e2e.js",
+      "processOk": true,
+      "log": "regression-recovery-attempts/session-notes.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H1-H3 realhist fixture 不在当前环境(需要外部数据)"
+      ]
+    },
+    {
+      "file": "summary-entity-check.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/summary-entity-check.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H1-H3 本机无真实 checkpoints 快照(CI/他机显式跳过,不计通过)"
+      ]
+    },
+    {
+      "file": "summary-fact-table.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/summary-fact-table.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H history-24 fixture 缺失"
+      ]
+    },
+    {
+      "file": "summary-single-shot.e2e.js",
+      "processOk": true,
+      "log": "regression-attempts/summary-single-shot.e2e.js.attempt-1.txt",
+      "reasons": [
+        "SKIP H-sim history-24 fixture 缺失"
+      ]
+    }
+  ],
+  "conclusion": "All 594 selected files have actual attempt evidence after recovering the 50 unrecorded cases; process success is not full functional qualification. All 36 failures and every internal skip remain explicit and unaccepted."
+}

@@ -1,0 +1,124 @@
+{
+  "nativePID": 24636,
+  "servicePID": 24662,
+  "launch": "LaunchServices",
+  "bundle": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "bundled": true,
+  "workbenchRoot": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench",
+  "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "observedProcesses": [
+    {
+      "pid": 24636,
+      "ppid": 1,
+      "created": "1794539063447454",
+      "name": ""
+    },
+    {
+      "pid": 24662,
+      "ppid": 24636,
+      "created": "1794539063678457",
+      "name": ""
+    },
+    {
+      "pid": 24686,
+      "ppid": 24662,
+      "created": "1794539063812471",
+      "name": ""
+    },
+    {
+      "pid": 24685,
+      "ppid": 24662,
+      "created": "1794539063811586",
+      "name": ""
+    },
+    {
+      "pid": 24690,
+      "ppid": 24686,
+      "created": "1794539063814038",
+      "name": ""
+    },
+    {
+      "pid": 24688,
+      "ppid": 24685,
+      "created": "1794539063812746",
+      "name": ""
+    },
+    {
+      "pid": 24767,
+      "ppid": 24662,
+      "created": "1794539064201380",
+      "name": ""
+    },
+    {
+      "pid": 24792,
+      "ppid": 24662,
+      "created": "1794539064329986",
+      "name": ""
+    },
+    {
+      "pid": 24821,
+      "ppid": 24662,
+      "created": "1794539064379061",
+      "name": ""
+    },
+    {
+      "pid": 24823,
+      "ppid": 24821,
+      "created": "1794539064380283",
+      "name": ""
+    },
+    {
+      "pid": 24824,
+      "ppid": 24823,
+      "created": "1794539064380633",
+      "name": ""
+    },
+    {
+      "pid": 25107,
+      "ppid": 24662,
+      "created": "1794539065555548",
+      "name": ""
+    },
+    {
+      "pid": 25106,
+      "ppid": 24662,
+      "created": "1794539065551351",
+      "name": ""
+    },
+    {
+      "pid": 25108,
+      "ppid": 25107,
+      "created": "1794539065558124",
+      "name": ""
+    },
+    {
+      "pid": 25152,
+      "ppid": 24662,
+      "created": "1794539065677776",
+      "name": ""
+    },
+    {
+      "pid": 25165,
+      "ppid": 24662,
+      "created": "1794539065800014",
+      "name": ""
+    }
+  ],
+  "capture": {
+    "authorization": "granted",
+    "coordinate_space": "macos_global_points",
+    "installed": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true
+  },
+  "offered": true,
+  "shot": {
+    "coordinate_space": "macos_global_points",
+    "height": 2214,
+    "ok": true,
+    "scale": 2,
+    "scale_y": 2,
+    "width": 3420
+  }
+}

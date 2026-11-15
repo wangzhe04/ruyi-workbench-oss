@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-10T05:13:36.629Z",
+  "scope": "Self-owned P5-02 input event fixture",
+  "evidence": "cancellation-first.txt",
+  "observed": "The test failed to locate the native worker by immediate parent/name. It then cleaned the MCP subtree while the Cmd+V request was still pending, and fixture clipboard restoration reported false.",
+  "impact": "The clipboard snapshot existed only in the exited fixture memory. The pre-run clipboard could not be restored from that run. No clipboard contents were written to evidence.",
+  "userNotified": true,
+  "fix": "The controlled-stop fixture resolves the worker within the verified owned subtree using its exact invocation, always awaits the pending input request in finally, and observes clipboard restoration before process cleanup.",
+  "subsequentEvidence": [
+    "cancellation-descendants.txt",
+    "cancellation-command.txt"
+  ],
+  "subsequentResult": "The first rerun still failed worker lookup, but the new finally restored the pre-run clipboard. Exact-command lookup then passed real SIGTERM paste/drag, clipboard restoration, no-held state and final original-snapshot restoration."
+}

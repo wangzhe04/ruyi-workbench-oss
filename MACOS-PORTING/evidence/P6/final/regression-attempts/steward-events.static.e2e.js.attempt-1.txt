@@ -1,0 +1,67 @@
+PASS D1 找到 02-session-store.js 的 MISSION_CHANGE_TYPES 集合(扫描锚点)
+PASS D1 扫到 14 种 mission change type(下界 8,防扫描器悄悄失灵)
+PASS D1 mission change 14 种全部登记且无僵尸
+PASS D2 扫到 24 种 run 事件 type(下界 20,防扫描器悄悄失灵)
+PASS D2 扫描器认得三元表达式的两支(node_requeued / node_settled)
+PASS D2 非 type 字面量豁免恰 1 条且已写明理由: queued
+PASS D2 agent run 24 种全部登记且无僵尸
+PASS D3 扫到 5 种待决 type(下界 4:permission/question/plan/pool)
+PASS D3 intervention 5 种全部登记且无僵尸
+PASS D3 表里出现的 kind 全在五类白名单内: adopted/budget/failed/needs_you/stalled
+PASS D4 manifest 含 13g-steward.js
+PASS D4 管家族六个模块连续且按依赖方向排列(13i-steward-inbox.js -> 13j-steward-tool-base.js -> 13aa-steward-delivery.js -> 13k-steward-threads.js -> 13l-steward-ops.js -> 13g-steward.js -> 13m-steward-runner-base.js -> 13n-steward-arbiter.js -> 13o-steward-runner-prompt.js -> 13p-steward-runner-actions.js -> 13q-steward-runner-turn.js -> 13h-steward-runner.js;实得 ["13i-steward-inbox.js","13j-steward-tool-base.js","13aa-steward-delivery.js","13k-steward-threads.js","13l-steward-ops.js","13g-steward.js","13m-steward-runner-base.js","13n-steward-arbiter.js","13o-steward-runner-prompt.js","13p-steward-runner-actions.js","13q-steward-runner-turn.js","13h-steward-runner.js"])
+PASS D4 管家族紧跟 13e-pretender-index.js 之后
+PASS D4 13g 紧跟 13l-steward-ops.js 之后(117 波 T1 重钉)
+PASS D4 管家族 12 个文件都在 src/ 里
+PASS D4 13g 之后是 T2 的运行器族、以 13h 收尾(116f/T2 重钉)
+PASS D4 14-main.js 仍是组合根(最后一个模块)
+PASS D4 13g-steward.js 文件存在
+PASS D5 13-http-router 经 StewardHooks.handleApiRoutes 挂路由
+PASS D5 13-http-router 关服收尾经 StewardHooks.stopInbox 停轮询
+PASS D5 13-http-router 不含 handleStewardApiRoutes 字面量(直接引用 13g = 新前向边,红线)
+PASS D5 13-http-router 不直接引用 startStewardInbox
+PASS D5 13g 用 Object.assign(StewardHooks, {...}) 延迟绑定填充
+PASS D5 开关关(stewardEnabledV1 !== true)时 startStewardInbox 立即返回:零 interval、零目录、零写入
+PASS D5 模块加载期不起任何 interval(轮询只能由 startStewardInbox 起)
+PASS D5 <data>/steward 不进 paths 常量表(否则 ensureDirs 会在开关关时也建目录)
+PASS D5 inbox 追加复用 session-changes 同款 NDJSON 原语(不新造)
+PASS D5 游标经 atomicWriteJson 落盘
+PASS D5 14-main 在 startServer 返回后调用 startStewardInbox(config)
+PASS D5 ROUTE_AUTH /api/steward/start = token 级
+PASS D5 ROUTE_AUTH /api/steward/stop = token 级
+PASS D5 ROUTE_AUTH /api/steward/state = token 级
+PASS D5 ROUTE_AUTH /api/steward/inbox = token 级
+PASS D6 change type 'stalled' → 五类的 stalled
+PASS D6 change type 'budget_tripped' → 五类的 budget
+PASS D6 既有 change type 'budget' 仍是心跳(丢弃)——新 type 不改既有语义
+PASS D6 run 事件 'run_stalled' → 五类的 stalled
+PASS D6 run 事件 'run_budget_tripped' → 五类的 budget
+PASS D6 adaptive_tool_budget 登记在 sseOnly 且为 null(进度,不入箱)
+PASS D6 adaptive_tool_budget 不在 agentRun 子表(它没有 appendAgentRunEvent 写入端,放进去会变僵尸条目)
+PASS D6 08 有 run_stalled / run_budget_tripped 的写入端
+PASS D6 09 的节点事件壳与节点跑者调用了两个写入端
+PASS D6 02 有 stalled / budget_tripped 的账本写入端
+PASS D6 频控在写入端(同 run/会话 5 分钟一条),不是读取端去重
+PASS D6 budget_tripped 每回合最多一条(按 turnSeq 去重)
+PASS D7 sessionTurn.turn_settled 登记为 '@sessionTurn'(语义由会话头上的 stewardLastTurn 决定)
+PASS D7 解析器 stewardResolveSessionTurnKind 在 13i
+PASS D7 解析器登记进 STEWARD_KIND_RESOLVERS
+PASS D7 判据:账上 ok:false 且不是用户主动停 -> failed;其余(含账缺席)-> done
+PASS D7 「管家关心哪些会话」的三条判据单点在 06i(速查 / launchedBy / 别人事项里的线程)
+PASS D7 121-K3:stewardWatch 两个方向都认(true 恒盯 / false 恒不盯,对管家自己开的线程也生效)
+PASS D7 121-K3:显式开关排在原三条判据【之前】(否则写 false 收不回管家开的线程)
+PASS D7 13i 只【消费】那份判据,不留第二份实现
+PASS D7 13e 仍然消费同一份 watched 判据(117r-D1:看板与收件箱同一条线)
+PASS D7 121-K3:13e 的卡片产生条件用 06i 的 threadVisible(可见与关心是两个判据,不是一个)
+PASS D7 第四源的收集点排在「不活跃就 continue」之前(否则第二轮起就再也看不到速查线程)
+PASS D7 游标落盘带上 sessionTurns 段
+PASS D7 游标 schema 号仍是 1(向后兼容,不做迁移)
+PASS D7 管家族里恰好一处回合成败的落盘写入端(stewardRecordLaunchOutcome)
+PASS D7 两条建线程的路径(quick_ask / thread_new)都就地写了 launchedBy
+PASS D7 settle 之后的那次落盘同时补 launchedBy(覆盖递话给用户自己会话的那条路)
+PASS D7 成败取【内层】result.result.ok —— 外层 ok 只表示这次调用完成了(一条 HTTP 500 的回合外层仍是 ok:true)
+PASS D7 02 的元数据白名单只认 'steward' 这一个字面量(PATCH /api/sessions 的调用方拿不到别的值)
+PASS D7 stewardLastTurn 严格归一成固定五字段(与 stewardQuick 同纪律)
+PASS D7 117p① 活回合分支的基线是「这一回合之前」那个号(Math.max(0, turnSeq - 1)),不是正在跑的那个 turnSeq
+PASS D7 117p② 首见分支(known == null)里有 stewardLastTurn 的 in-flight 判据,且被 backfill && inFlight 一起把关
+STEWARD EVENTS STATIC E2E: ALL PASS

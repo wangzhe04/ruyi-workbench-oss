@@ -1,0 +1,11 @@
+{
+  "desktop-macos/DesktopService.swift": "93d865770d762fde93fe91a40b630fa87c4f5c2a965e1fb7d9a8cc291985d6d9",
+  "desktop-macos/MacHostBridge.swift": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5",
+  "desktop-macos/RuyiDesktop.swift": "d57d760d590354b82f7b1305ecaf448d47860abb416788ae8356b389f025b59b",
+  "desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+  "desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+  "tools/build-macos-desktop.js": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+  "../MACOS-PORTING/probes/accept-mac-microphone.cjs": "effb55509219550413f904a794317d7022c517c5803374fd6042dda96780aabe",
+  "app/server.js": "901c8be11967be86d678929a51ee8f796791d7e041abfd3e7eeb2fddac1848e2",
+  "app/public/js/composer-voice.js": "b830764d31cfe361a1b08aa3c5047e6128177895cb2eba5f2e528e2d6265678d"
+}

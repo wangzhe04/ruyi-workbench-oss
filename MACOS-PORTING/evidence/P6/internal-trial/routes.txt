@@ -1,0 +1,1 @@
+# route-inventory 已生成: 175 判定点(exact 152/prefix 11/regex 12),ROUTE_AUTH 161 条,未覆盖判定点 5,告警 0

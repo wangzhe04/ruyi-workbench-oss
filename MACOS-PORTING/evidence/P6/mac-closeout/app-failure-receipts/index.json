@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-11-12T14:50:34.168159+00:00",
+  "files": [
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-hWXyp8/report.json",
+      "archived": "app-failure-receipts/capture-attempt-2/report.json",
+      "bytes": 1010,
+      "sha256": "ce318910bdf5d0f8eeff994597064420ff1703067b39bcf8e75c8ac5177b9827"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-hWXyp8/runtime-source.json",
+      "archived": "app-failure-receipts/capture-attempt-2/runtime-source.json",
+      "bytes": 295,
+      "sha256": "fbe6b97b5e916019e6611d9c6add0f243f4560acaf06bcf547a493e187eb90ce"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-hWXyp8/script.js",
+      "archived": "app-failure-receipts/capture-attempt-2/script.js",
+      "bytes": 624,
+      "sha256": "04f2c106118b0c52395465705ce615877d34fd88c81778fb324db78d3c352a0e"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/report.json",
+      "archived": "app-failure-receipts/input-attempt-2/report.json",
+      "bytes": 8763,
+      "sha256": "1a24289d3d2f0b0b712f4054c2133ab5c8f7d421fcf2cad737e8dd2f219d7b65"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/runtime-source.json",
+      "archived": "app-failure-receipts/input-attempt-2/runtime-source.json",
+      "bytes": 307,
+      "sha256": "f5024afafae77e9582d2179a1218c7ce8aa924f90b16cedf695c54515aabad4c"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/acc-runtime-source.json",
+      "archived": "app-failure-receipts/input-attempt-2/acc-runtime-source.json",
+      "bytes": 285,
+      "sha256": "f4a3697df2d82ed3611c1d189ae4edefa45202009b77178fbe670e4a4afede4c"
+    },
+    {
+      "original": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/script.js",
+      "archived": "app-failure-receipts/input-attempt-2/script.js",
+      "bytes": 6345,
+      "sha256": "d196c036dc69d37dcd9fb794552c70aeb1d4750ec73a12b1531caf0419b0b269"
+    }
+  ],
+  "failedFixtureTrees": "Retained; dependency clones and generated app bytes are not copied into git."
+}

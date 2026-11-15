@@ -1,0 +1,70 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS B0 seed authenticated inbox connection
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS B1 real authenticated callback messages show first page of 50
+PASS B2 external markup stays text, no script/image nodes
+PASS B3 earlier messages exposes message 51 and 52
+PASS B4 failed refresh preserves real list and marks stale
+PASS B5 existing user draft is protected
+PASS B6 real received message enters composer as attributed quote
+PASS B7 explicit read action persists readAt
+PASS B8 no automatic send/relay/thread creation from inbox or draft import
+PASS B11 pending upload blocks external draft import
+PASS B12 uploaded attachment stays intact and blocks overwrite
+PASS B13a production target picker established a selected target
+PASS B13 manually selected target stays intact and blocks overwrite
+PASS B13b empty explicitly new target blocks external draft overwrite
+PASS C1 local confirmation is mandatory for remote control binding
+PASS C2 confirmation explains shared Steward identity and group reply visibility
+PASS C3 cancelling does not enable or persist remote control
+PASS C4 confirmed owner binding persists through production API
+PASS C5 confirmation is root management metadata, distinct from connection fields
+PASS C6a authenticated owner instruction enters real worker
+PASS C6b real worker calls Steward tool, observes receipt and completes platform reply through offline official API
+PASS C6c reply is bound to this original platform message
+PASS C6d persisted remote owner input and reply synchronize into the local Steward feed
+PASS C6e real execution and delivery facts display separately
+PASS C6 explicit disable persists
+PASS C7 execution completion and unknown reply delivery remain distinct safe text facts
+PASS B9 late preroute cannot retarget imported external draft
+PASS D1 the panel offers the app-credential discovery form
+PASS D2 a real fixed-host probe prepares a second connection
+PASS D3 the prepared connection carries the discovered identity and stays disabled
+PASS D4 the app secret is cleared from the page as soon as it is sent
+PASS D5 the discovered connection opens its setup guide
+PASS D6 the page probed only the fixed official identity endpoints
+PASS D7 the secret never leaves the token endpoint
+PASS D8 no secret text is left anywhere in the page
+PASS V zh-CN/dark/1440 real locale journey relabels section navigation
+PASS V zh-CN/dark/1440 no horizontal overflow
+PASS V zh-CN/dark/768 real locale journey relabels section navigation
+PASS V zh-CN/dark/768 no horizontal overflow
+PASS V zh-CN/dark/390 real locale journey relabels section navigation
+PASS V zh-CN/dark/390 no horizontal overflow
+PASS V zh-CN/light/1440 real locale journey relabels section navigation
+PASS V zh-CN/light/1440 no horizontal overflow
+PASS V zh-CN/light/768 real locale journey relabels section navigation
+PASS V zh-CN/light/768 no horizontal overflow
+PASS V zh-CN/light/390 real locale journey relabels section navigation
+PASS V zh-CN/light/390 no horizontal overflow
+PASS V en-US/dark/1440 real locale journey relabels section navigation
+PASS V en-US/dark/1440 no horizontal overflow
+PASS V en-US/dark/768 real locale journey relabels section navigation
+PASS V en-US/dark/768 no horizontal overflow
+PASS V en-US/dark/390 real locale journey relabels section navigation
+PASS V en-US/dark/390 no horizontal overflow
+PASS V en-US/light/1440 real locale journey relabels section navigation
+PASS V en-US/light/1440 no horizontal overflow
+PASS V en-US/light/768 real locale journey relabels section navigation
+PASS V en-US/light/768 no horizontal overflow
+PASS V en-US/light/390 real locale journey relabels section navigation
+PASS V en-US/light/390 no horizontal overflow
+PASS V control checkbox stays adjacent to its label
+SCREENSHOTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-WvyW89/ruyi-external-bots-shots-1794492266616
+PASS B10 no uncaught browser errors
+PROVIDER_CALLS 2
+
+EXTERNAL BOTS BROWSER E2E: ALL PASS

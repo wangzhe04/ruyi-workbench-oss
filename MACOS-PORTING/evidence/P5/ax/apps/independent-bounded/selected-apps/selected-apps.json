@@ -1,0 +1,32 @@
+{
+  "textEdit": {
+    "pid": 32513,
+    "ownDocumentExact": true,
+    "closed": true,
+    "version": "1.21",
+    "bundleID": "com.apple.TextEdit"
+  },
+  "chromium": {
+    "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-selected-apps-0fxwf7jq/CFT wrapper",
+    "launchExecutable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-selected-apps-0fxwf7jq/CFT wrapper",
+    "product": "Chrome/148.0.7778.96",
+    "pid": 32565,
+    "windowTitle": "Ruyi P5 Chromium 32451",
+    "bounds": {
+      "height": 850,
+      "width": 1200,
+      "x": 22,
+      "y": 56
+    },
+    "clipboardRestored": true,
+    "trustedClick": true,
+    "scrollY": 160,
+    "scrollX": 120,
+    "ambiguousRebindRefused": true,
+    "bundleID": null,
+    "observedCommand": null,
+    "rendererAccessibilityRequested": false
+  },
+  "nativeAXScenariosRequested": false,
+  "axResults": {}
+}

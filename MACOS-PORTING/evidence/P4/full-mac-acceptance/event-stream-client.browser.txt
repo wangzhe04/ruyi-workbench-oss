@@ -1,0 +1,8 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 并行 Node SSE 客户端连上（服务端时刻的来源；实得 200）
+PASS A4 侧条里的两条会话已建（sess_36537dd391d04a2d / sess_6f77bde3540a0801）
+PASS A5 Edge/Chrome found
+FAIL A6 browser target available
+FAIL 夹具异常: CDP target unavailable
+EVENT STREAM CLIENT BROWSER E2E: FAIL (2)

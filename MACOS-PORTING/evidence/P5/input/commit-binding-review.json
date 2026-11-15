@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T04:44:42.005Z",
+  "workPackage": "P5-02",
+  "scope": "Window and clipboard first-slice implementation commit binding and document-only closeout",
+  "implementationCommit": "fc74153d145acba7519fb5c133691017ab00964e",
+  "sourceFingerprint": "source-fingerprint.json",
+  "sourceFiles": 37,
+  "allCommittedSourceHashesMatch": true,
+  "allWorkingSourceHashesMatch": true,
+  "sourceChecks": {
+    "dev-harness/fixtures/macos-capture-window.m": {
+      "expected": "b7464ddc324363e0e75832ae87b3bfc7de4f9546db4f600bc2d1df0668782ad2",
+      "committed": "b7464ddc324363e0e75832ae87b3bfc7de4f9546db4f600bc2d1df0668782ad2",
+      "working": "b7464ddc324363e0e75832ae87b3bfc7de4f9546db4f600bc2d1df0668782ad2",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-acc-shared.e2e.js": {
+      "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+      "committed": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+      "working": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-capabilities.e2e.js": {
+      "expected": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "committed": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "working": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-capture-contract.e2e.js": {
+      "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "committed": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "working": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-capture-host.e2e.js": {
+      "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "committed": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "working": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-capture.e2e.js": {
+      "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+      "committed": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+      "working": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-mcp-capabilities.e2e.js": {
+      "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "committed": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "working": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/macos-window-clipboard.e2e.js": {
+      "expected": "a63cf68b138c30b65c82951fa50694bbe2f781b5352af54ff71416fd80e898f8",
+      "committed": "a63cf68b138c30b65c82951fa50694bbe2f781b5352af54ff71416fd80e898f8",
+      "working": "a63cf68b138c30b65c82951fa50694bbe2f781b5352af54ff71416fd80e898f8",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/process-safety.static.e2e.js": {
+      "expected": "2474b73afb906e6d10c1e2160a3af3d4d15b7028c5dc69480bd6c458bdbe36ca",
+      "committed": "2474b73afb906e6d10c1e2160a3af3d4d15b7028c5dc69480bd6c458bdbe36ca",
+      "working": "2474b73afb906e6d10c1e2160a3af3d4d15b7028c5dc69480bd6c458bdbe36ca",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "dev-harness/unit/tool-dispatch-hardening.test.js": {
+      "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "committed": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "working": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "docs/architecture/module-dependency-graph.json": {
+      "expected": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "committed": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "working": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "docs/architecture/route-inventory.json": {
+      "expected": "8bd537c9f333ea62e2b15175c90b10993a4e06925d9ed7ef88f5eded0493671a",
+      "committed": "8bd537c9f333ea62e2b15175c90b10993a4e06925d9ed7ef88f5eded0493671a",
+      "working": "8bd537c9f333ea62e2b15175c90b10993a4e06925d9ed7ef88f5eded0493671a",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "facts.json": {
+      "expected": "715ac8a96427a4898ec4abade7b20d47b2af14db16e8fb615b6d72b7b99205d1",
+      "committed": "715ac8a96427a4898ec4abade7b20d47b2af14db16e8fb615b6d72b7b99205d1",
+      "working": "715ac8a96427a4898ec4abade7b20d47b2af14db16e8fb615b6d72b7b99205d1",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+      "expected": "b6fe5eb94b3f7d9f650c1162df8d7fd3c41056de8ee3a3cc2ede18185bc1e9c6",
+      "committed": "b6fe5eb94b3f7d9f650c1162df8d7fd3c41056de8ee3a3cc2ede18185bc1e9c6",
+      "working": "b6fe5eb94b3f7d9f650c1162df8d7fd3c41056de8ee3a3cc2ede18185bc1e9c6",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+      "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+      "committed": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+      "working": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+      "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "committed": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "working": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py": {
+      "expected": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "committed": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "working": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+      "expected": "d79d90deadb53b4ea2599e8ab42e931181db00f7f687aeb1dcc4fa146b38717a",
+      "committed": "d79d90deadb53b4ea2599e8ab42e931181db00f7f687aeb1dcc4fa146b38717a",
+      "working": "d79d90deadb53b4ea2599e8ab42e931181db00f7f687aeb1dcc4fa146b38717a",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": {
+      "expected": "f4896ff6197bba31322ba770fcb9bca0ea130e37745dccba5313adbd34870954",
+      "committed": "f4896ff6197bba31322ba770fcb9bca0ea130e37745dccba5313adbd34870954",
+      "working": "f4896ff6197bba31322ba770fcb9bca0ea130e37745dccba5313adbd34870954",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+      "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "committed": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "working": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_input.py": {
+      "expected": "c3a7fa8fdbf27d28831213dd9b3cd2f69e77fef56050af1204fe1b65ac649a67",
+      "committed": "c3a7fa8fdbf27d28831213dd9b3cd2f69e77fef56050af1204fe1b65ac649a67",
+      "working": "c3a7fa8fdbf27d28831213dd9b3cd2f69e77fef56050af1204fe1b65ac649a67",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+      "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+      "committed": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+      "working": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/server.js": {
+      "expected": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "committed": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "working": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/01h-process-runtime.js": {
+      "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "committed": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "working": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/01n-desktop-automation.js": {
+      "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "committed": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "working": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/06-provider-engine.js": {
+      "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "committed": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "working": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/07-autonomy.js": {
+      "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "committed": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "working": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/12-tool-dispatch.js": {
+      "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "committed": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "working": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/13-http-router.js": {
+      "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "committed": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "working": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+      "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "committed": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "working": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/manifest.json": {
+      "expected": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "committed": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "working": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/app/src/module-contracts.json": {
+      "expected": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "committed": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "working": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/resources/macos-automation-helper.m": {
+      "expected": "74d68c058d5f454a550578951a18cadaeae68031608ec024959d056270520024",
+      "committed": "74d68c058d5f454a550578951a18cadaeae68031608ec024959d056270520024",
+      "working": "74d68c058d5f454a550578951a18cadaeae68031608ec024959d056270520024",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/resources/macos-automation-input.m": {
+      "expected": "3c5644437722d56ef23df2f219fca9bdf8da4de9e8a1668bd1f706a7fc164396",
+      "committed": "3c5644437722d56ef23df2f219fca9bdf8da4de9e8a1668bd1f706a7fc164396",
+      "working": "3c5644437722d56ef23df2f219fca9bdf8da4de9e8a1668bd1f706a7fc164396",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/resources/macos-automation-session.m": {
+      "expected": "cfe45be23aba280117f3cab21ae2285c01a5e4d5d6ddb954b86822464e2407f8",
+      "committed": "cfe45be23aba280117f3cab21ae2285c01a5e4d5d6ddb954b86822464e2407f8",
+      "working": "cfe45be23aba280117f3cab21ae2285c01a5e4d5d6ddb954b86822464e2407f8",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/resources/macos-automation.h": {
+      "expected": "05997182be0e063d16558b20ab7b33d460a236d09d8268eda661314804c1127b",
+      "committed": "05997182be0e063d16558b20ab7b33d460a236d09d8268eda661314804c1127b",
+      "working": "05997182be0e063d16558b20ab7b33d460a236d09d8268eda661314804c1127b",
+      "commitMatch": true,
+      "workingMatch": true
+    },
+    "ruyi-workbench/tools/build-macos-automation-helper.js": {
+      "expected": "37fc48c8b77ad367c6ed8e5160c268e04e24ae2e3d7a5de2fc30ab72df4560f9",
+      "committed": "37fc48c8b77ad367c6ed8e5160c268e04e24ae2e3d7a5de2fc30ab72df4560f9",
+      "working": "37fc48c8b77ad367c6ed8e5160c268e04e24ae2e3d7a5de2fc30ab72df4560f9",
+      "commitMatch": true,
+      "workingMatch": true
+    }
+  },
+  "documentCloseout": {
+    "approved": true,
+    "changedFiles": [
+      "MACOS-PORTING/10-TRACKING.md",
+      "MACOS-PORTING/TASKS.json",
+      "MACOS-PORTING/evidence/P5/input/README.md"
+    ],
+    "documentHashes": {
+      "MACOS-PORTING/10-TRACKING.md": "c89457434e6e6326f1ec6068212f0dd907a2c84812c41c8d974739c59370d5bc",
+      "MACOS-PORTING/TASKS.json": "9a6bea1f9c5f1437a0e22946ef520fb5d18fe05fa8578f4283d7144cda2dad3a",
+      "MACOS-PORTING/evidence/P5/input/README.md": "a5957dc376b56d34f5a5434912b22d908de7e58bb1060d2ee6e73029ec45c1f7"
+    },
+    "phaseStatus": "in_progress",
+    "taskStatus": "in_progress",
+    "firstSliceStatus": "committed_current_host",
+    "conclusion": "All three document changes bind the already accepted first-slice implementation to its actual commit. P5 and P5-02 remain in_progress, and the current-host acceptance scope and pending work remain unchanged."
+  },
+  "existingIndependentReviewModified": false,
+  "sourceFingerprintModified": false,
+  "testsRerun": false,
+  "conclusion": "Implementation commit matches all 37 independently accepted source fingerprints. Document-only closeout is approved for commit."
+}

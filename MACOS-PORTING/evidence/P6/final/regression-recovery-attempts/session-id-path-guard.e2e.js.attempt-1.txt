@@ -1,0 +1,37 @@
+PASS workbench up
+PASS P1 /api/chat/stream ../config 不回显配置({
+  "ok": false,
+  "error": {
+    "code": "session.id_invalid",
+    "params": {},
+    "message": "invalid sessionId"
+  }
+})
+PASS P2 /api/session/skills ../config → 404(404 { "ok": false, "error": { "code": "session.not_found", "params": {}, "message": "ses)
+PASS P2 /api/session/memories ../config → 404(404 { "ok": false, "error": { "code": "session.not_found", "params": {}, "message": "ses)
+PASS P2 config.json 没被当成会话改写或隔离,持久凭据准确保留
+PASS P2 配置内容前后一致
+PASS 建会话(sess_311b64e570d9d294)
+PASS 搜索可用(200)
+PASS 搜索索引与侧栏索引都已落盘
+PASS P3 GET /api/sessions/_search-index-v1 → 404(404 { "ok": false, "error": { "code": "session.not_found", "params": {},)
+PASS P3 搜索索引原样、没长出正文/备份()
+PASS P3 DELETE /api/sessions/index → 400,index.json 还在(400)
+PASS P4 /api/status?sessionId= 照常回(200)
+PASS P4 /api/models?sessionId= 照常回(200)
+PASS P4 开放读口没有回写会话头(修前 load_normalize 回写 + 推 updatedAt)
+PASS P4 /api/status?sessionId=保留名 不长出任何文件
+PASS P5 GET /api/sessions/anything/at/all/<id> → 404(404)
+PASS P5 GET /api/sessions/<id>/ → 404(404)
+PASS P5 DELETE /api/sessions/zzz/<id> 不删会话(404)
+PASS P5 GET /api/sessions/<id> 照常(200)
+PASS P5 子路由 /api/sessions/<id>/background 照常(200)
+PASS P5b GET /api/missions/anything/at/all/<id> → 404(404)
+PASS P5b GET /api/missions/<id>/ → 404(404)
+PASS P5b GET /api/missions/<id> 照常(200)
+PASS P5b GET /api/interventions/anything/at/all/<id> → 404(404)
+PASS P5b GET /api/interventions/<id>/ → 404(404)
+PASS P5b GET /api/interventions/<id> 照常(200)
+PASS P6 messages:[null,…] → 200,只留合形条目(200)
+
+SESSION ID PATH GUARD E2E: ALL PASS

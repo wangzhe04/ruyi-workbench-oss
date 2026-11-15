@@ -1,0 +1,17 @@
+{
+  "mode": "targeted",
+  "cwd": "/tmp/ruyi-p5-durable-history-worktree",
+  "outerRoot": "/tmp/p5hist-u34uy3rq",
+  "environment": {
+    "HOME": "/tmp/p5hist-u34uy3rq/h",
+    "TMPDIR": "/tmp/p5hist-u34uy3rq/t",
+    "USERPROFILE": "/tmp/p5hist-u34uy3rq/u",
+    "APPDATA": "/tmp/p5hist-u34uy3rq/a",
+    "LOCALAPPDATA": "/tmp/p5hist-u34uy3rq/l",
+    "WCW_DATA_DIR": "/tmp/p5hist-u34uy3rq/w",
+    "RUYI_HOME": "/tmp/p5hist-u34uy3rq/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5hist-u34uy3rq/c",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_TOOL_HISTORY_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/provider-native"
+  }
+}

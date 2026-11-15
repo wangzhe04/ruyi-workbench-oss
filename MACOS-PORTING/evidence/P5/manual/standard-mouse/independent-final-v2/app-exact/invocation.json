@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-input-host.e2e.js"
+  ],
+  "pid": 62040,
+  "startedAt": "2026-11-11T06:32:36.421214+00:00",
+  "cwd": "/tmp/ruyi-p5-touch-worktree",
+  "environment": {
+    "HOME": "/tmp/ruyi-sm2-g-zdvt4let/h",
+    "USERPROFILE": "/tmp/ruyi-sm2-g-zdvt4let/u",
+    "APPDATA": "/tmp/ruyi-sm2-g-zdvt4let/a",
+    "LOCALAPPDATA": "/tmp/ruyi-sm2-g-zdvt4let/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-sm2-g-zdvt4let/w",
+    "RUYI_HOME": "/tmp/ruyi-sm2-g-zdvt4let/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-sm2-g-zdvt4let/c",
+    "TMPDIR": "/tmp/ruyi-sm2-g-zdvt4let/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-touch-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_APP_MANUAL": "1",
+    "RUYI_P5_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact",
+    "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app",
+    "RUYI_P5_APP_POINTER_PROFILE": "exact"
+  },
+  "tmpdirPathBytes": 26
+}

@@ -15,12 +15,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   try {
     if (process.platform !== 'darwin') { console.log('SKIP Mac capability integration requires macOS'); return; }
     const S = loadServerInternals(['ProcessRuntime', 'ProcessRuntimeHooks', 'getCapabilities', 'toolRequirementsMet',
-      'buildOpenAiTools', 'buildProviderSystemPrompt', 'defaultConfig', 'computeHealth', 'doctorHealthSeverity', 'toolCall'], { withEval: true });
+      'buildOpenAiTools', 'buildProviderSystemPrompt', 'defaultConfig', 'computeHealth', 'doctorHealthSeverity', 'toolCall', 'MacDesktopAutomationHooks'], { withEval: true });
+    S.MacDesktopAutomationHooks.helperPath = () => path.join(root,'missing-capture-helper');
     const realHelper = S.ProcessRuntimeHooks.helperPath();
     const helper = path.join(root, 'helper');
     fs.copyFileSync(realHelper, helper); fs.chmodSync(helper, 0o700);
     S.ProcessRuntimeHooks.helperPath = () => helper;
-    const config = { ...S.defaultConfig(), permissionMode: 'bypass' };
+    const config = { ...S.defaultConfig(), permissionMode: 'bypass', desktopMcp:{enabled:false,autodetect:false},
+      enableMcpDropIn:false, externalMcpServers:[] };
     // Keep unrelated network/desktop capabilities warm; helper readiness must refresh independently.
     S.__eval('_capCache = { at: Date.now(), value: { network: {online:true}, binaries:{git:true}, gitCli:true, desktopMcp:{present:false}, engine:"openai" } };');
     const ready = await S.getCapabilities(config);
@@ -33,12 +35,15 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     for (const tool of readyTools.filter(tool => ['shell_run', 'shell_start', 'script_run'].includes(tool.function.name))) {
       t.ok(!tool.function.parameters.properties.language.enum.includes('powershell'), tool.function.name + ' schema advertises only implemented Mac languages');
     }
-    for (const name of ['powershell_run', 'desktop_screenshot', 'keyboard_send_keys']) {
+    for (const name of ['powershell_run', 'keyboard_send_keys']) {
       t.ok(!readyNames.includes(name), name + ' is not offered on Mac even with command and desktop settings enabled');
       const rejected = await S.toolCall(name, {}, { config });
       t.ok(!rejected.ok && rejected.code === 'tool-disabled' && rejected.error.includes('platform.unsupported'),
         name + ' stale direct invocation is rejected before reaching its Windows handler');
     }
+    t.ok(!readyNames.includes('desktop_screenshot'), 'capture is not offered without the Mac capture helper');
+    const noCapture = await S.toolCall('desktop_screenshot',{}, {config});
+    t.ok(!noCapture.ok && noCapture.code==='dependency_missing', 'stale capture invocation reports the missing Mac backend');
     t.ok(!S.toolRequirementsMet('shell_run', {}, false, config).met, 'unknown Mac supervisor state cannot advertise execution readiness');
     fs.unlinkSync(helper);
     const missing = await S.getCapabilities(config);
@@ -66,7 +71,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     const count = path.join(root, 'probe-count');
     const report = { protocolVersion: 2, guardian: true, supervise: true, privateFd: true, identityCleanup: true, escapeCoverage: 'observed-only' };
-    const slow = '#!' + process.execPath + '\n' + `require('fs').appendFileSync(${JSON.stringify(count)},'x');setTimeout(()=>console.log(${JSON.stringify(JSON.stringify(report))}),150);`;
+    const quote = value => "'" + String(value).replace(/'/g, "'\\''") + "'";
+    // Keep the measured delay in the helper body. Node-shebang startup can exhaust the fixed probe
+    // deadline before that body executes on this Mac, obscuring the asynchronous I/O contract.
+    const slow = '#!/bin/sh\nprintf x >> ' + quote(count) + '\n/bin/sleep 0.15\nprintf \'%s\\n\' '
+      + quote(JSON.stringify(report)) + '\n';
     fs.writeFileSync(helper, slow, { mode: 0o700 });
     let ticks = 0;
     const timer = setInterval(() => { ticks++; }, 10);
@@ -75,10 +84,10 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     t.ok(snapshots.every(snapshot => snapshot.capabilities['process.supervisor'].ready) && ticks > 2,
       'cold asynchronous capability probes keep the event loop responsive');
     t.ok(fs.readFileSync(count, 'utf8') === 'x', 'concurrent capability consumers share one helper probe');
-    fs.writeFileSync(helper, slow + '\n// refreshed fixture');
+    fs.writeFileSync(helper, slow + '\n# refreshed fixture');
     const pending = S.ProcessRuntime.helperCapabilityAsync();
     await sleep(30);
-    fs.writeFileSync(helper, '#!' + process.execPath + '\nconsole.log("{}");');
+    fs.writeFileSync(helper, '#!/bin/sh\nprintf \'%s\\n\' \'{}\'\n');
     const changed = await pending;
     t.ok(!changed.ready && changed.reasonCode === 'platform.dependency_changed', 'helper replacement during asynchronous probe cannot publish stale readiness');
     fs.copyFileSync(realHelper, helper); fs.chmodSync(helper, 0o700);

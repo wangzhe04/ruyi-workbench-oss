@@ -1,0 +1,28 @@
+{
+  "canonicalSame": false,
+  "inodeSame": true,
+  "packages": [
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 1
+    },
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/REAL/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 0
+    }
+  ],
+  "result": {
+    "ok": false,
+    "error": "referenced",
+    "status": 409,
+    "refs": [
+      {
+        "id": "d6c14a266c53",
+        "file": "~/.claude.json",
+        "entry": "old",
+        "action": "rewrite"
+      }
+    ]
+  },
+  "helperInvocations": []
+}

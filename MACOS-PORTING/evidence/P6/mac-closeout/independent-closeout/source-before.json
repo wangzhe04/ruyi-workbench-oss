@@ -1,0 +1,274 @@
+{
+  "files": [
+    {
+      "file": "README.md",
+      "expected": "763672f14997e3e96b111295d181531e0b47650cf2c755e28ecad0ff4ae529ff",
+      "sha256": "763672f14997e3e96b111295d181531e0b47650cf2c755e28ecad0ff4ae529ff"
+    },
+    {
+      "file": "README_EN.md",
+      "expected": "f0486f928b6840f15d7182c7b8af9a8ea4c762c902d3f582aeb64c876f9cf3cb",
+      "sha256": "f0486f928b6840f15d7182c7b8af9a8ea4c762c902d3f582aeb64c876f9cf3cb"
+    },
+    {
+      "file": "dev-harness/agent-mode-v2.e2e.js",
+      "expected": "af9ab4ccc2be15a996a3becc87b3ca70dcc59839b1bd2cbb69b4198d58381090",
+      "sha256": "af9ab4ccc2be15a996a3becc87b3ca70dcc59839b1bd2cbb69b4198d58381090"
+    },
+    {
+      "file": "dev-harness/artifacts.e2e.js",
+      "expected": "5c808e1294f66651fcea49e527bde9768285c2f3e81a72c17f8db6c1e22fd55c",
+      "sha256": "5c808e1294f66651fcea49e527bde9768285c2f3e81a72c17f8db6c1e22fd55c"
+    },
+    {
+      "file": "dev-harness/audit-desktop-records.e2e.js",
+      "expected": "3006f68754ec353a596bdbad674f6e2a48ebff6d6a77821d312d0f7917d95311",
+      "sha256": "3006f68754ec353a596bdbad674f6e2a48ebff6d6a77821d312d0f7917d95311"
+    },
+    {
+      "file": "dev-harness/audit-w23.e2e.js",
+      "expected": "93be6b1e20bc2415b67e52bbc56c55fb3fd6f78bf50097ea228269e896b0e2da",
+      "sha256": "93be6b1e20bc2415b67e52bbc56c55fb3fd6f78bf50097ea228269e896b0e2da"
+    },
+    {
+      "file": "dev-harness/autonomy-benchmark.e2e.js",
+      "expected": "ccb581b0d3a692561a3d5297d6b66e1b30aaf9d8a43ec0778c72d12f1a13be54",
+      "sha256": "ccb581b0d3a692561a3d5297d6b66e1b30aaf9d8a43ec0778c72d12f1a13be54"
+    },
+    {
+      "file": "dev-harness/background-completion.e2e.js",
+      "expected": "daa8e5468d61e04fcb7ef11107bb975ba2b79f9e81d9113cb236cf3ec6897894",
+      "sha256": "daa8e5468d61e04fcb7ef11107bb975ba2b79f9e81d9113cb236cf3ec6897894"
+    },
+    {
+      "file": "dev-harness/bridge-cancel-timeout.e2e.js",
+      "expected": "1eeb1f8e978aeb7195252d9d8eb71203b72918d5ff9359f8e2e33034efa1188c",
+      "sha256": "1eeb1f8e978aeb7195252d9d8eb71203b72918d5ff9359f8e2e33034efa1188c"
+    },
+    {
+      "file": "dev-harness/budget-guard.e2e.js",
+      "expected": "b3ed38a45dfdbb16da0f4019f61f121c718144326d63963d167729a987090770",
+      "sha256": "b3ed38a45dfdbb16da0f4019f61f121c718144326d63963d167729a987090770"
+    },
+    {
+      "file": "dev-harness/claude-cmdline-guard.e2e.js",
+      "expected": "8b2d91baf8472be0125cc9a28cc4b113b5ef632fee66171dae62386422f185af",
+      "sha256": "8b2d91baf8472be0125cc9a28cc4b113b5ef632fee66171dae62386422f185af"
+    },
+    {
+      "file": "dev-harness/claude-exe-resolve.e2e.js",
+      "expected": "c1755bfb9b0d74e79cf923346393a0db36af73ff914e4276a49716e36a610775",
+      "sha256": "c1755bfb9b0d74e79cf923346393a0db36af73ff914e4276a49716e36a610775"
+    },
+    {
+      "file": "dev-harness/cli-probe-stall.e2e.js",
+      "expected": "49ab34e94a1b6103ca827b8c7a38e8d253b76353d2463ce276ce716677b4f8bd",
+      "sha256": "49ab34e94a1b6103ca827b8c7a38e8d253b76353d2463ce276ce716677b4f8bd"
+    },
+    {
+      "file": "dev-harness/desktop-mcp-smoke.e2e.js",
+      "expected": "8ce177f39ad0d6fd2b0e4d1f4cbe447c7533cd0d64d626c97342e28886af23ff",
+      "sha256": "8ce177f39ad0d6fd2b0e4d1f4cbe447c7533cd0d64d626c97342e28886af23ff"
+    },
+    {
+      "file": "dev-harness/engine-env-runtime.e2e.js",
+      "expected": "8ee238ce999e6a089b20eb521ff02aa0666bc7821d87e7756535fd24765d5bce",
+      "sha256": "8ee238ce999e6a089b20eb521ff02aa0666bc7821d87e7756535fd24765d5bce"
+    },
+    {
+      "file": "dev-harness/harness-friction.e2e.js",
+      "expected": "2a887f4f3dd178030fde3e0253d02fae340a679b64cc786f13e8cf4d71a92257",
+      "sha256": "2a887f4f3dd178030fde3e0253d02fae340a679b64cc786f13e8cf4d71a92257"
+    },
+    {
+      "file": "dev-harness/lib/macos-host-fixture.js",
+      "expected": "0a7dbe14a73d2a4a14bfd82145e4608a301265218194db0a30ff661ff1231022",
+      "sha256": "0a7dbe14a73d2a4a14bfd82145e4608a301265218194db0a30ff661ff1231022"
+    },
+    {
+      "file": "dev-harness/lib/platform-shell-fixture.js",
+      "expected": "2d7e4974c21d6fa0f181df200e0096e5f24928a29662fa6a59d30a7e57500cad",
+      "sha256": "2d7e4974c21d6fa0f181df200e0096e5f24928a29662fa6a59d30a7e57500cad"
+    },
+    {
+      "file": "dev-harness/macos-capture-host.e2e.js",
+      "expected": "74f561020f639ddef023d4b3d690ea636e15087772df2dc5a925055e24ece339",
+      "sha256": "74f561020f639ddef023d4b3d690ea636e15087772df2dc5a925055e24ece339"
+    },
+    {
+      "file": "dev-harness/macos-input-events.e2e.js",
+      "expected": "cac37f7d9212d5b08209b838842d4ee82776717f4f33de0247d6d1a163cc65a4",
+      "sha256": "cac37f7d9212d5b08209b838842d4ee82776717f4f33de0247d6d1a163cc65a4"
+    },
+    {
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "expected": "3a48c87bfc1139b5d3c886c3871242bb0e135e1957b0994af12872437e9c044f",
+      "sha256": "3a48c87bfc1139b5d3c886c3871242bb0e135e1957b0994af12872437e9c044f"
+    },
+    {
+      "file": "dev-harness/macos-observe.e2e.js",
+      "expected": "a10be5ffd9f15d38edd8ed603b1bd32df16f7c96e57dc60aa51bc16e3c86742a",
+      "sha256": "a10be5ffd9f15d38edd8ed603b1bd32df16f7c96e57dc60aa51bc16e3c86742a"
+    },
+    {
+      "file": "dev-harness/macos-ocr.e2e.js",
+      "expected": "0f211a20c8f052570ec0d68c963abc48cfdb6d67e70b6739426ef055c1d397df",
+      "sha256": "0f211a20c8f052570ec0d68c963abc48cfdb6d67e70b6739426ef055c1d397df"
+    },
+    {
+      "file": "dev-harness/mcp-import-origin.e2e.js",
+      "expected": "421f2a47fc31e8c8b81f8c52a0aa4ee7ebd5abe20e8f5980269a5237cb92b5b3",
+      "sha256": "421f2a47fc31e8c8b81f8c52a0aa4ee7ebd5abe20e8f5980269a5237cb92b5b3"
+    },
+    {
+      "file": "dev-harness/memory-batch-proposal.e2e.js",
+      "expected": "abe27f8392920723e8f8f192e606e24e2ef17e0f523a7b5023c1b86d430eb42f",
+      "sha256": "abe27f8392920723e8f8f192e606e24e2ef17e0f523a7b5023c1b86d430eb42f"
+    },
+    {
+      "file": "dev-harness/memory-scope.e2e.js",
+      "expected": "82a9bfa61d6196071da3bac63bd9d96c0f8f161d83833676453fe2fd94e29c55",
+      "sha256": "82a9bfa61d6196071da3bac63bd9d96c0f8f161d83833676453fe2fd94e29c55"
+    },
+    {
+      "file": "dev-harness/mission-driver.e2e.js",
+      "expected": "ac32c31d4825942249a55c048d03888f32ab4efd40295d1d6045691740d9ccd1",
+      "sha256": "ac32c31d4825942249a55c048d03888f32ab4efd40295d1d6045691740d9ccd1"
+    },
+    {
+      "file": "dev-harness/overlay-update-core.e2e.js",
+      "expected": "b00bfd3befbb27a43a7dc25f0adc32dce456f774c879507d55a1d947d266fb93",
+      "sha256": "b00bfd3befbb27a43a7dc25f0adc32dce456f774c879507d55a1d947d266fb93"
+    },
+    {
+      "file": "dev-harness/permission-plain.browser.e2e.js",
+      "expected": "f2379e57564c1d714fd8fc9b1fc76931c34ba382b53ee655cd3deb64d5e490e8",
+      "sha256": "f2379e57564c1d714fd8fc9b1fc76931c34ba382b53ee655cd3deb64d5e490e8"
+    },
+    {
+      "file": "dev-harness/playbook-skill-tools.e2e.js",
+      "expected": "3aec0057b4101de1447b9807b8a37a641d73e7df7db88a2a8ef44ad502791d04",
+      "sha256": "3aec0057b4101de1447b9807b8a37a641d73e7df7db88a2a8ef44ad502791d04"
+    },
+    {
+      "file": "dev-harness/privacy-31/typed-turn-recovery-repro.js",
+      "expected": "7205d428d9d22742ac7512c823ca512946a987cec6cabb8b085ed9297eba4d3f",
+      "sha256": "7205d428d9d22742ac7512c823ca512946a987cec6cabb8b085ed9297eba4d3f"
+    },
+    {
+      "file": "dev-harness/repo-hygiene.e2e.js",
+      "expected": "4332835292245165d65133328a81c3a45f4e1ecbf7dd43bbf64baf88d4cd8702",
+      "sha256": "4332835292245165d65133328a81c3a45f4e1ecbf7dd43bbf64baf88d4cd8702"
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "expected": "37d0c6ce3ff26fc3dcf1b139e09d137168a00e2a4b270ef029f7deacb9ddd88d",
+      "sha256": "37d0c6ce3ff26fc3dcf1b139e09d137168a00e2a4b270ef029f7deacb9ddd88d"
+    },
+    {
+      "file": "dev-harness/settings-wave1.browser.e2e.js",
+      "expected": "5614027bf14fde9e09e93f28a98af62082929df988f17ac00f07732884a9a08b",
+      "sha256": "5614027bf14fde9e09e93f28a98af62082929df988f17ac00f07732884a9a08b"
+    },
+    {
+      "file": "dev-harness/shell-mcp-guard.e2e.js",
+      "expected": "e391585d0ff40bd654dd3336406af705f953025758c7609025ad12d661b8291c",
+      "sha256": "e391585d0ff40bd654dd3336406af705f953025758c7609025ad12d661b8291c"
+    },
+    {
+      "file": "dev-harness/shell-session.e2e.js",
+      "expected": "0f58ff077cb6589d83daa49579dc094d9514e40b0e230a7160a458cd5badf9b0",
+      "sha256": "0f58ff077cb6589d83daa49579dc094d9514e40b0e230a7160a458cd5badf9b0"
+    },
+    {
+      "file": "dev-harness/steward-decisions.browser.e2e.js",
+      "expected": "dd3d3034e141f48b05fec1736bc3f8b0000ddeb7c22b34452bdaf48aea02f2e9",
+      "sha256": "dd3d3034e141f48b05fec1736bc3f8b0000ddeb7c22b34452bdaf48aea02f2e9"
+    },
+    {
+      "file": "dev-harness/steward-deferred-permission.e2e.js",
+      "expected": "a4e73a64f4d481dd6c0a6f11ec8461837c3e406b7457919c73afe3335c22b282",
+      "sha256": "a4e73a64f4d481dd6c0a6f11ec8461837c3e406b7457919c73afe3335c22b282"
+    },
+    {
+      "file": "dev-harness/steward-exempt-delegation.e2e.js",
+      "expected": "6cb76100542705c64de52f5f4350127beef2d5b682336a2c833fa35146c408bc",
+      "sha256": "6cb76100542705c64de52f5f4350127beef2d5b682336a2c833fa35146c408bc"
+    },
+    {
+      "file": "dev-harness/steward-exempt-no-swap.e2e.js",
+      "expected": "6c8a7a92098cd44364703136047cfdbf8e165c5a2c1e7ffd562b5c602fc685d6",
+      "sha256": "6c8a7a92098cd44364703136047cfdbf8e165c5a2c1e7ffd562b5c602fc685d6"
+    },
+    {
+      "file": "dev-harness/steward-exempt-shell-send.e2e.js",
+      "expected": "1440adf80538afd9a30bb288e8750c5ab0c86f2a5795f438c023afe248bf72bd",
+      "sha256": "1440adf80538afd9a30bb288e8750c5ab0c86f2a5795f438c023afe248bf72bd"
+    },
+    {
+      "file": "dev-harness/steward-guardrails.e2e.js",
+      "expected": "bc9dc0d22d2ff7d6edf1d953ee38ad452216705d2010d30097ffccb1184c1ce2",
+      "sha256": "bc9dc0d22d2ff7d6edf1d953ee38ad452216705d2010d30097ffccb1184c1ce2"
+    },
+    {
+      "file": "dev-harness/steward-tools.e2e.js",
+      "expected": "59962546f2493d3eaec454b18c2122148746678d10c7c408a914f5f30bc33eea",
+      "sha256": "59962546f2493d3eaec454b18c2122148746678d10c7c408a914f5f30bc33eea"
+    },
+    {
+      "file": "dev-harness/tool-audit-fixes.e2e.js",
+      "expected": "443abeee80b4fc147435efc2d202764ec61f17187b75a1a58f6792fc64f158d0",
+      "sha256": "443abeee80b4fc147435efc2d202764ec61f17187b75a1a58f6792fc64f158d0"
+    },
+    {
+      "file": "dev-harness/tool-audit-r2-meta.e2e.js",
+      "expected": "4cb0c66035e2829d2c86cc2a576c8cbec19ad590f26dd86f22070b364ec77a38",
+      "sha256": "4cb0c66035e2829d2c86cc2a576c8cbec19ad590f26dd86f22070b364ec77a38"
+    },
+    {
+      "file": "dev-harness/tool-audit-r2-netexec.e2e.js",
+      "expected": "8aa6f128a466f2b68420df8e2dc222492fb2148683da76521bccf94b2381d791",
+      "sha256": "8aa6f128a466f2b68420df8e2dc222492fb2148683da76521bccf94b2381d791"
+    },
+    {
+      "file": "dev-harness/tool-dispatch-hardening.e2e.js",
+      "expected": "6ec9607a182d1107125e345e13269e155f3f74d0143255227a5c598fcdbfe445",
+      "sha256": "6ec9607a182d1107125e345e13269e155f3f74d0143255227a5c598fcdbfe445"
+    },
+    {
+      "file": "dev-harness/tool-invoke-promote.e2e.js",
+      "expected": "4cfca66efb03c4dfbfccaff28c00f6266d76e6c41c8cae39605b2b7b6da70ced",
+      "sha256": "4cfca66efb03c4dfbfccaff28c00f6266d76e6c41c8cae39605b2b7b6da70ced"
+    },
+    {
+      "file": "dev-harness/tool-result-bounds.e2e.js",
+      "expected": "4137399990aae470a3ffb56b1cc1c0b3082eaff115c532894be42fa3c8fa9b8a",
+      "sha256": "4137399990aae470a3ffb56b1cc1c0b3082eaff115c532894be42fa3c8fa9b8a"
+    },
+    {
+      "file": "dev-harness/unit/platform-shell-fixture.test.js",
+      "expected": "c0993cf09d42a499e3d47ffb5a7fbf0115344b8dcfcbfe4d543b302892dcdbed",
+      "sha256": "c0993cf09d42a499e3d47ffb5a7fbf0115344b8dcfcbfe4d543b302892dcdbed"
+    },
+    {
+      "file": "dev-harness/vision-loop.e2e.js",
+      "expected": "02312994a0dfbc1f880783518266d2317159dc516a7bc97d00e63189b780ce9b",
+      "sha256": "02312994a0dfbc1f880783518266d2317159dc516a7bc97d00e63189b780ce9b"
+    },
+    {
+      "file": "facts.json",
+      "expected": "18af59e366c93d05476792ea5c40528eddc31d9eae05054066e6ff8d61b1df9e",
+      "sha256": "18af59e366c93d05476792ea5c40528eddc31d9eae05054066e6ff8d61b1df9e"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-events.m",
+      "expected": "cf024af694fabc4dfa75cb374b9068e2ea21e0ecdb4e4d0dcbe5f05c00ccb0f0",
+      "sha256": "cf024af694fabc4dfa75cb374b9068e2ea21e0ecdb4e4d0dcbe5f05c00ccb0f0"
+    }
+  ],
+  "helper": {
+    "file": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "expected": "78f172330ef7c0194a51106c9bb66f52db5dd43bead05054a3f81a86d19a0c0c",
+    "sha256": "78f172330ef7c0194a51106c9bb66f52db5dd43bead05054a3f81a86d19a0c0c"
+  }
+}

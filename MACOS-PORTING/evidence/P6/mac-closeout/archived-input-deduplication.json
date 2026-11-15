@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-11-12T15:35:55.503001+00:00",
+  "rows": [
+    {
+      "unpackedDuplicate": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+      "originalArchiveRetained": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip",
+      "originalArchiveSha256": "94d16a931137548ff19064c72acb2b082431711f8e0a115bb25ef38c2493d605",
+      "originalArchiveBytes": 551162472,
+      "manifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "appTreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "verifiedAppEntries": 9790,
+      "zipManifestExactlyMatches": true,
+      "everyArchiveAndDiskPayloadByteModeAndSymlinkMatches": true,
+      "identity": {
+        "dev": 16777234,
+        "ino": 84856665,
+        "uid": 501
+      },
+      "scope": "Only the unpacked duplicate is removed; the original published ZIP and SHA sidecar retain every accepted frozen input byte and can restore it. Current b662/74d57 raw candidates, old/new DMGs and assets untouched.",
+      "unpackedDuplicateRemoved": true
+    },
+    {
+      "unpackedDuplicate": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01-b33",
+      "originalArchiveRetained": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01-b33.zip",
+      "originalArchiveSha256": "f3c7cf3c4006930cda499e754111a71a3354d98b146b0df1868a1f3cd419620d",
+      "originalArchiveBytes": 551162419,
+      "manifestSha256": "e0bf0a457719813270b75e9841543606145cb9a8e6e0f95f6e480e7bd39d7804",
+      "sourceCommit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139",
+      "appTreeSha256": "f86a806de30c53415898e720b5a7e03090835af6d9fabe3ce37c07dad2dd92e5",
+      "verifiedAppEntries": 9790,
+      "zipManifestExactlyMatches": true,
+      "everyArchiveAndDiskPayloadByteModeAndSymlinkMatches": true,
+      "identity": {
+        "dev": 16777234,
+        "ino": 84796674,
+        "uid": 501
+      },
+      "scope": "Only the unpacked duplicate is removed; the original published ZIP and SHA sidecar retain every accepted frozen input byte and can restore it. Current b662/74d57 raw candidates, old/new DMGs and assets untouched.",
+      "unpackedDuplicateRemoved": true
+    }
+  ]
+}

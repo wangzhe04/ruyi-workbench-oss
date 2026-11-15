@@ -1,0 +1,27 @@
+PASS F1 createTurnSegmentBuilder 在 session store 源码
+PASS F2 healStalePendingSegments 在 session store 源码
+PASS F3 finalizeAll 报告 3 处悬空段 (got 3)
+PASS F3a 运行中工具 -> cancelled
+PASS F3b cancelled 段带中断 note
+PASS F3c 已完成工具不被触碰 (仍 done)
+PASS F3d 已出错工具不被触碰 (仍 error)
+PASS F3e 运行中 subagent -> cancelled
+PASS F3f 运行中 workflow -> cancelled
+PASS F4 未 finalize 的运行段保持 running (证明 finalizeAll 是显式收尾,不是副作用)
+PASS F4 正常 tool_result 仍把 running -> done
+PASS F5 healStalePendingSegments 报告有修复
+PASS F5a 存量 running 工具 -> cancelled
+PASS F5b 已完成工具不动
+PASS F5c 存量 running subagent -> cancelled
+PASS F5d 存量 running workflow -> cancelled
+PASS F5e 存量 paused workflow -> cancelled
+PASS F5f 存量 pending permission 仍被修 (回归保护)
+PASS F6 活待决 permission 不被误标 (决策仍会到达)
+PASS F7 桥超时表 + 函数在源码
+PASS F7 bridgedToolTimeoutMs 可调用
+PASS F7a wait -> 310000ms (got 310000)
+PASS F7b run_command -> 650000ms
+PASS F7c 未知长工具默认 -> 900000ms
+PASS F7d WCW_BRIDGED_TIMEOUT_OVERRIDE 覆盖 wait -> 5000ms
+
+FINALIZE-SEGMENTS STATIC: ALL PASS

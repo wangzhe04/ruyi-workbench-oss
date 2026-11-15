@@ -1,0 +1,32 @@
+PASS provider workbench starts
+PASS five-class economics events persisted (got 8 rows)
+PASS model_call started/completed both present
+PASS model_call_started carries required fields
+PASS model_call_completed carries required fields
+PASS every completed pairs with a started modelCallId
+PASS assistant_tool_batch carries batch id, width, names hash
+PASS assistant_tool_batch links to its modelCallId
+PASS tool_call_completed rows carry per-call ledger fields
+PASS all tool_call_completed rows share the same assistantBatchId
+PASS tool_phase_completed reports parallel strategy + critical path
+PASS tool_phase_completed shares the batch id
+PASS economics events leak no raw args or paths
+PASS sampling keeps full coverage for short turns
+PASS provider usage deltas are non-negative
+PASS E1 report aggregates the real e2e events
+PASS E1 report pairing closed on real events
+PASS E1 report sees the parallel read phase
+PASS E1 report finds no solo meta batch in this fixture
+PASS E1 report leaks no raw args or paths
+PASS exactly one econ_call_totals row persisted (got 1)
+PASS unsampled attempts == sampled logged rows on a short fully-sampled turn
+PASS unsampled tool-action total reconciles with detail universe
+PASS batch/phase logged counters reconcile with ledger rows
+PASS cap accounting present with zero drops in this fixture
+PASS totals carry terminal state, duration, apiStyle
+PASS totals events leak no raw args or paths
+PASS calibrated report takes unsampled totals as truth source
+PASS live ledger reconciliation closes
+PASS fully covered window reports zero unknowns
+
+ECONOMICS-SHADOW E2E: ALL PASS

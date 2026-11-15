@@ -1,0 +1,16 @@
+PASS S0 记忆夹具落盘(1 核心偏好 + 1 教训)
+PASS S0b 子代理节点跑完(succeeded)
+PASS S0c 抓到了子代理的第一发请求
+PASS S1 子代理工具表没有记忆写工具(无)
+PASS S1b 只读的 list / read 还在
+PASS S2 子代理系统提示里有核心胶囊(用户的核心偏好到得了子代理)
+PASS S2b 系统提示里没有相关索引(只带核心)
+PASS S3 工作流节点任务正文里有检索回执 + 相关索引,行是 [id](scope)
+PASS S3b 任务正文里没有核心胶囊(已在系统提示里,同一次请求不出现两遍)
+PASS S3c 节点索引指示 workbench_memory_read、不带记忆文件路径
+PASS S4 凭记忆硬调 propose → 分发点拒绝({"ok":false,"error":"子代理不能提议或修订工作台记忆(候选槽属于主线程);请把值得长期记住的结论写进)
+PASS S4b 父线程的候选槽纹丝不动(子代理没有占它)
+PASS S5a 会话级关闭记忆
+PASS S5 关闭记忆后子代理没有核心胶囊
+
+MEMORY SUBAGENT E2E: ALL PASS

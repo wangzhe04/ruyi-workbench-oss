@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T05:06:41.861340+00:00",
+  "verdict": "passed_frozen_v5_source_review_for_pointer_subtype_and_association_boundaries",
+  "scope": "Independent static review of the ordinary pointer subtype followup and pressure-association guard in frozen manual candidate v5, including the MouseMoved AppKit getter repair, test-source coverage and tool documentation. Source hashes bind all 34 frozen files; this review does not re-certify every unrelated subsystem or independently execute runtime acceptance.",
+  "candidateWorktree": "/tmp/ruyi-p5-manual-worktree",
+  "candidateBranch": "codex/p5-manual-events",
+  "candidateBaseCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+  "mainHeadAtFreeze": "057878f2e769abedbf12f4b133c5eab688e9536e",
+  "frozenSource": {
+    "manifest": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v5.json",
+    "manifestSha256": "35aa117b5d71d70332e5add20ba0d383dbf4246590293201379700d174dd0616",
+    "sourceFiles": 34,
+    "sourceBytes": 7622953,
+    "all34FileHashesAndSizesMatch": true,
+    "changedFromV4": [
+      "dev-harness/macos-manual-record.e2e.js",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "ruyi-workbench/resources/macos-automation-sequence.m"
+    ],
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 65808,
+        "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "README_EN.md",
+        "bytes": 72914,
+        "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "dev-harness/macos-input-host.e2e.js",
+        "bytes": 30786,
+        "sha256": "6ec4a0dcd8f78f51a912b8ecb8ac34793955d8b191eb92458941fc858aa213a0",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "dev-harness/macos-manual-record.e2e.js",
+        "bytes": 36738,
+        "sha256": "d1d4e395ee39e3bd6dbe9f02031e42bd01e68bedca85807c792fee1ea35f37c6",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "bytes": 13981,
+        "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "dev-harness/unit/acc-capability-gates.test.js",
+        "bytes": 11806,
+        "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "facts.json",
+        "bytes": 1335,
+        "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "bytes": 11254,
+        "sha256": "a5179b34e9eb35e159393d928ead56f588c96e01ba18d4147e1913bc6cf12371",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "bytes": 10463,
+        "sha256": "fb00debe5ae501b61766816bee82bf65d5cd0c9e22a539bb52b4d18c059e8fab",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+        "bytes": 6719,
+        "sha256": "8fbddaafc101e64e86ae2bdad646a3113e12098d2645f6eba0efad671cd284f0",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "bytes": 13250,
+        "sha256": "2b002325ef6efb0542de7a0e73ed3e456734239dfa63a726c9d0f40df21ea03a",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+        "bytes": 10652,
+        "sha256": "8f1a36b85f9666285d54dddd9bb3eac7266718feac31d137d6fc5764ccd9a985",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+        "bytes": 6854,
+        "sha256": "8570e33661adbb00c5e143479f9ac0fd2e81d663eca5f57d282c1c7f37176254",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+        "bytes": 8718,
+        "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+        "bytes": 16622,
+        "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+        "bytes": 22572,
+        "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+        "bytes": 12599,
+        "sha256": "ab35418d581b3d4edac0a2a1e9215558a92ce6c2c67d1663a47d3acd81a0d658",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 6777726,
+        "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+        "bytes": 18239,
+        "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/07-autonomy.js",
+        "bytes": 234136,
+        "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "bytes": 45245,
+        "sha256": "48915e558801171ac84a7411de00735f875d2dcc518186dee83dd88edca73c5f",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "bytes": 22929,
+        "sha256": "9756dee4907a51f796631e0128b61682959c0e60b229cd0d137bd7dc0eecad31",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+        "bytes": 9833,
+        "sha256": "edfe30c2b695d0d2b2c6fa353283a2ebfc3f123d18db26e4a4704e1e1b0c8bfe",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record.m",
+        "bytes": 13471,
+        "sha256": "1ab08de02dea64fec3888fdee2afab37cc5830dff95deca917490542909d8544",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+        "bytes": 22721,
+        "sha256": "1ef0caa19a535007e07f4a9c60fc154b2efeb87d02ad9f91e4c4effc711b7b12",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "bytes": 4185,
+        "sha256": "434cd007a7bdb2d8c3a40872f756a1262e711cc67d3432bd3f194f3e16eda75c",
+        "matchesFrozenV5": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+        "matchesFrozenV5": true
+      }
+    ],
+    "temporaryHelpers": [
+      {
+        "path": "/tmp/ruyi-p5-manual-native-helper",
+        "sha256": "f52989e84bfd1d2552108a44d84adb1b0db872d6b9ee2511169e27c3cd1293d5",
+        "matchesFrozenV5": true
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "V5-POINTER-SUBTYPE-SEMANTICS",
+      "status": "closed_in_reviewed_v5_source",
+      "problem": "Rejecting every nonzero subtype excluded ordinary mouse-touch events. Accepting subtype 3 without guarding AppKit associations could silently lose a pressure-dependent application path.",
+      "resolution": [
+        "SDK NX_SUBTYPE_MOUSE_TOUCH=3 is accepted only for the existing ordinary move/down/up/drag types; optional subtype 0 preserves older schema 2 rows. Tablet 1/2 and unknown subtypes remain refused. Native and Python validators agree on the optional subtype field and {0,3} allowed values.",
+        "The builder explicitly restores kCGMouseEventSubtype. Capture rebuilds the row and compares NSEvent subtype; for button events it also compares the entire associatedEventsMask and refuses any Pressure bit. Nil conversions or missing clone cause refusal.",
+        "A refused row returns pointer_semantics_unsupported, Capture ends the recording with that reason, and record.stop exposes complete=false. The failure is not converted to a successful recording.",
+        "Tool docstrings explicitly limit support to ordinary mouse/mouse-touch, exclude tablet/multitouch/Force Touch pressure-stage semantics and tell recording callers to keep pointer movement inside target bounds. Existing target, source, whole-recording preflight, balance, cancellation and cleanup gates were not changed."
+      ],
+      "conclusion": "The previously reported association-loss boundary is closed for the declared ordinary mouse scope. No requirement for subtype 3-specific tablet fields was found in the inspected public SDK declarations; this is not a claim of complete multitouch or Force Touch reconstruction."
+    },
+    {
+      "id": "V5-APPKIT-MOVED-GETTER",
+      "status": "closed_in_reviewed_v5_source",
+      "problem": "The first isolated guard called associatedEventsMask for MouseMoved, and an actual memory-only development run aborted with NSInternalInconsistencyException. The earlier static approval did not discover that actual AppKit getter restriction and does not stand as runtime approval.",
+      "resolution": [
+        "MouseMoved never calls associatedEventsMask; it compares reconstructed NSEvent subtype. Only the nine supported left/right/other button down/up/drag types query associations.",
+        "Association and subtype getter access is inside @try/@catch; a thrown NSException sets comparable=false and returns pointer_semantics_unsupported after releasing the clone. Conversion returning nil also refuses. The report does not claim the eventWithCGEvent conversion calls themselves are inside that @try.",
+        "The native memory-only matrix now covers five subtype values times ten event types (50 cases), including all three button families and MouseMoved. The historical abort artifact is preserved separately from the later successful logs."
+      ],
+      "conclusion": "The demonstrated MouseMoved crash path is removed; the getter boundary now matches the observed host behavior. The final source review supersedes the prior isolated-guard static pass only for this repaired scope."
+    }
+  ],
+  "unclosedConcreteSourceFindings": [],
+  "testSourceReview": {
+    "nativeContract": "RUYI_AUTOMATION_TESTING-only test_pointer_subtypes creates and rebuilds events without dispatch. It has 50 matrix cases plus a separate pressure-association refusal result. The test flag ORs Pressure into the actual read value and is reset after the call; the flag and test operation are excluded from production compilation.",
+    "e2e": "The manual E2E requires exactly 50 matched matrix rows and the pressure refusal result. Existing modified drag, scroll/momentum, double-click gestures remain, with subtype 3 click/drag/up/move capture/replay coverage retained.",
+    "limitation": "The synthetic association injection proves the refusal decision at the boundary; it is not physical Force Touch hardware acceptance. Existing logged runs were inspected, never rerun by this reviewer."
+  },
+  "developmentEvidenceInspected": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v1-error.json",
+      "bytes": 1328,
+      "sha256": "c3a41093c2c9dcbd5cd4f2f418b4ee0f376d7fad6f36a1947f9265c86ba18946",
+      "reviewerExecuted": false,
+      "exitCode": null,
+      "signal": "SIGABRT",
+      "classification": "preserved historical failure of the first isolated guard; not a passing test",
+      "observedException": "NSInternalInconsistencyException from NSEvent.associatedEventsMask on MouseMoved",
+      "stdoutEmpty": true,
+      "evidenceSaysNoInputDispatched": true
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v2.json",
+      "bytes": 4366,
+      "sha256": "ad58d70a9311a54cc3e7e15b71bca760e6a6fae9f4bd7b3bac8b466d39b57af2",
+      "reviewerExecuted": false,
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stderrEmpty": true,
+      "cases": 20,
+      "allMatched": true,
+      "supportedCases": 8,
+      "refusedCases": 12,
+      "subtypes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "nativeEventTypes": [
+        1,
+        2,
+        5,
+        6
+      ],
+      "pressureAssociationRefusedRaw": 1
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v3.json",
+      "bytes": 10715,
+      "sha256": "f3f38d27399f3f477ada06f4a295dc27f78b124be44247dc5a3e86e9c98625fb",
+      "reviewerExecuted": false,
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stderrEmpty": true,
+      "cases": 50,
+      "allMatched": true,
+      "supportedCases": 20,
+      "refusedCases": 30,
+      "subtypes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "nativeEventTypes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        25,
+        26,
+        27
+      ],
+      "pressureAssociationRefusedRaw": 1
+    }
+  ],
+  "developmentEvidenceBindingLimit": "The inspected JSON files preserve outer process status and inner native results. This reviewer did not rebuild the testing helper or independently reconstruct the executed testing-binary/source binding. The frozen production helper hash was independently checked against v5. Later GUI, App and independent runtime acceptance remain separate evidence.",
+  "publicSemanticsReferences": [
+    {
+      "url": "https://developer.apple.com/documentation/appkit/nsevent/associatedeventsmask.md",
+      "supports": "Mouse button application behavior may depend on whether the device can simultaneously issue pressure events. The host failure artifact, not the broad documentation wording, determines the practical MouseMoved getter restriction."
+    },
+    {
+      "url": "https://developer.apple.com/documentation/appkit/nsevent/touches(matching:in:).md",
+      "supports": "Touch objects are documented for gesture events, so subtype 3 support alone does not establish gesture/contact reconstruction."
+    },
+    {
+      "url": "https://developer.apple.com/documentation/coregraphics/cgeventfield/mouseeventsubtype.md",
+      "supports": "kCGMouseEventSubtype is the public integer subtype field."
+    },
+    {
+      "path": "/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hidsystem/IOLLEvent.h",
+      "sha256": "d4678012e68b7738e460693441ef82d271828a0632f844757c69b5b662287377",
+      "supports": "NX_SUBTYPE_MOUSE_TOUCH=3 is declared among mouse/move subtypes; tablet point/proximity remain distinct."
+    }
+  ],
+  "supplementalPhysicalControllerStaticReview": {
+    "partOfFrozen34Files": false,
+    "controllerPath": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/controller.js",
+    "controllerSha256": "453939927133024ecbf17cffef1e025daf7a5ab8d4177d09af2eba100aa8bcc3",
+    "currentTmpControllerSha256": "453939927133024ecbf17cffef1e025daf7a5ab8d4177d09af2eba100aa8bcc3",
+    "receiverPath": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/receiver.m",
+    "receiverSha256": "8f1c14bb7f1599a3f5769e5c0f5c3fb0bfb8519f0e79cb98249914920efbeb4b",
+    "observations": [
+      "Programmatic positioning mouse_move occurs before record_start and is recorded as outside-capture. It moves to the blue pad center without injecting capture-time keyboard or pointer events.",
+      "The completion condition uses trim() only to recognize the demonstrated text. Replay still compares the exact demonstrated.text, including any original trailing newline; the captured recording is replayed without rewriting its text.",
+      "Capture-time fixture commands remain state/title; the final record_stop collects the recording. Quiet detection retains counts, cursor coordinates and HID flags.",
+      "Raw pointer diagnostics query associatedEventsMask only for the logged left-button down/up/drag events and report 0 for MouseMoved; this zero is a deliberate non-query placeholder, not an observed association mask.",
+      "Success remains cleanup-pending until MCP cleanup, receiver exit 0 and input-source restoration checks complete."
+    ],
+    "physicalReportOrOutcomeReviewed": false,
+    "limitation": "The parent owns the ongoing physical demonstration. This is source inspection only and neither certifies nor infers its physical result."
+  },
+  "verification": {
+    "method": "Read frozen files, recompute SHA256 and lengths, inspect control flow and test code, parse existing nested JSON development logs.",
+    "gitDiffCheckExitCode": 0,
+    "guiUsedByReviewer": false,
+    "runtimeTestsExecutedByReviewer": false,
+    "buildsExecutedByReviewer": false,
+    "candidateSourceOrTestsModifiedByReviewer": false
+  },
+  "remainingAcceptance": [
+    "Fresh final-candidate independent runtime acceptance and delivery/commit binding remain outside this source review.",
+    "Physical demonstration outcome and subsequent GUI/App outcomes are separate and are not inferred from manifest pending-status text.",
+    "The v3 independent 36-scenario run does not cover these v4/v5 modifications.",
+    "Original P5 remaining-audit requirements and environment gates remain open."
+  ],
+  "fullP5Completion": false,
+  "conclusion": "No unclosed concrete source finding remains in the v5 pointer subtype and pressure-association review scope. This is a frozen-source review plus inspection of retained development artifacts, not full P5 acceptance."
+}

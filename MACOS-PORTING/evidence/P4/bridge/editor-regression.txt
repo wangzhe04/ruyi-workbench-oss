@@ -1,0 +1,20 @@
+PASS association command extracts the executable without evaluating placeholders
+PASS WScript file association is rejected
+PASS VS Code family diff uses a shell-free argv array
+PASS change center exposes per-file and per-turn native diff actions
+PASS native diff actions and outcomes are localized
+PASS turn baseline records native/out-of-dispatch source edits
+PASS turn baseline stores the exact pre-turn content
+PASS workspace baseline degrades explicitly when its startup budget expires
+PASS partial baseline records only paths with an exact pre-turn snapshot
+PASS Git workspace uses the lightweight baseline path
+PASS Git baseline excludes pre-existing user changes from the turn diff
+PASS workbench listening
+PASS fixture session created
+PASS external editor route requires token
+PASS external diff route succeeds
+PASS route hands current source path to native editor
+PASS route materializes exact before snapshot for native diff
+PASS open action uses the current code file in the preferred editor
+
+EXTERNAL-CODE-DIFF E2E: ALL PASS

@@ -1,0 +1,18 @@
+PASS fake provider and workbench start
+PASS run1 launch ok
+PASS run1 batch succeeds on first attempt
+PASS run1 stable candidate ids = exactly the three slots
+PASS run1 every slot carries the full field set
+PASS run1 decide consumes the batch result
+PASS run2 missing slot triggers exactly one whole-node retry
+PASS run2 missing slot is rejected after retry
+PASS run2 partial result stays visible with the valid slots marked
+PASS run2 failure names the missing slot
+PASS run2 per-item fallback nodes take over on failure
+PASS run2 fallback slot carries its own stable shape
+PASS run2 success-path branch stays skipped
+PASS run2 decide completes via all_settled fan-in
+PASS run3 wrong-typed slot rejected without retry
+PASS run3 continue policy unlocks the child in degraded mode
+PASS run4 undeclared extra candidate rejected by closed schema
+ALL PASS

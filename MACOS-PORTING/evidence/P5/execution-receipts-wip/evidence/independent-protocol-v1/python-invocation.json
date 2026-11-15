@@ -1,0 +1,20 @@
+{
+  "label": "python",
+  "argv": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "mcp/ai-computer-control/tests/smoke_native_receipts.py"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T13:41:11.363448+00:00",
+  "freezeSha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c",
+  "attempt": 1,
+  "finishedAt": "2026-11-11T13:41:11.416221+00:00",
+  "elapsedSeconds": 0.052709499999764375,
+  "exitCode": 0,
+  "logSha256": "ac6e9da8bd627c0143d4f0935a2191f667799eff6766b01790f29565bc679b61"
+}

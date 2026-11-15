@@ -1,0 +1,102 @@
+{
+  "name": "offline",
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/checkpoint-proxy-session.e2e.js"
+  ],
+  "startedAt": "2026-11-11T08:03:29.162191+00:00",
+  "elapsedSeconds": 2.16,
+  "exitCode": 0,
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/offline/output.txt",
+  "logDigest": {
+    "bytes": 1438,
+    "sha256": "634d3cd0b0ce509c1cd3b2b03acc2c90c9d75c3ca653f5c56a796d86de8907da"
+  },
+  "passLines": 13,
+  "failLines": 0,
+  "skipLines": 0,
+  "environment": {
+    "HOME": "/tmp/ruyi-ei1-2vbf36hs/h",
+    "USERPROFILE": "/tmp/ruyi-ei1-2vbf36hs/u",
+    "APPDATA": "/tmp/ruyi-ei1-2vbf36hs/a",
+    "LOCALAPPDATA": "/tmp/ruyi-ei1-2vbf36hs/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-ei1-2vbf36hs/w",
+    "RUYI_HOME": "/tmp/ruyi-ei1-2vbf36hs/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-ei1-2vbf36hs/c",
+    "TMPDIR": "/tmp/ruyi-ei1-2vbf36hs/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-entry-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_ENTRY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+  },
+  "tmpdirPathBytes": 24,
+  "observedOwnedIdentities": [
+    {
+      "pid": 96891,
+      "ppid": 96884,
+      "birth": "Wed Nov 11 16:03:29 2026",
+      "command": "/Users/jiming/.local/bin/node dev-harness/checkpoint-proxy-session.e2e.js"
+    },
+    {
+      "pid": 96895,
+      "ppid": 96891,
+      "birth": "Wed Nov 11 16:03:29 2026",
+      "command": "<defunct>"
+    },
+    {
+      "pid": 96930,
+      "ppid": 96891,
+      "birth": "Wed Nov 11 16:03:30 2026",
+      "command": "(ruyi-process-hel)"
+    }
+  ],
+  "remainingObservedOwnedIdentities": [],
+  "processObservationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be sampled. The fixtures separately record and confirm exact owned birth identities at cleanup.",
+  "passed": true,
+  "cleanupReceipts": [
+    {
+      "receipt": {
+        "killed": [
+          96910,
+          96911,
+          96909,
+          96895
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "observed": [
+        {
+          "pid": 96895,
+          "ppid": 96891,
+          "created": "1794384209260951",
+          "name": ""
+        },
+        {
+          "pid": 96909,
+          "ppid": 96895,
+          "created": "1794384209655296",
+          "name": ""
+        },
+        {
+          "pid": 96910,
+          "ppid": 96909,
+          "created": "1794384209657423",
+          "name": ""
+        },
+        {
+          "pid": 96911,
+          "ppid": 96910,
+          "created": "1794384209658241",
+          "name": ""
+        }
+      ]
+    }
+  ]
+}

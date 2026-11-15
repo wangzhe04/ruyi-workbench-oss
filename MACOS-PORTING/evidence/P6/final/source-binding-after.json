@@ -1,0 +1,301 @@
+{
+  "checkedAt": "2026-11-12T11:57:02.252Z",
+  "count": 49,
+  "checks": [
+    {
+      "file": "README.md",
+      "expected": "21d65cf728a6a95e0f10e81569a4305d65c29d64e9dfc153793be9f5455953e9",
+      "current": "21d65cf728a6a95e0f10e81569a4305d65c29d64e9dfc153793be9f5455953e9",
+      "pass": true
+    },
+    {
+      "file": "README_EN.md",
+      "expected": "f6ee0fe8cbaf40942261bbdac0f85b1d30bd316c1be5aa31e44b333eefbcab61",
+      "current": "f6ee0fe8cbaf40942261bbdac0f85b1d30bd316c1be5aa31e44b333eefbcab61",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/fixture-home.static.e2e.js",
+      "expected": "3df73be728b1be9fc77a6992853fa10123c3e3d01f48dce3cbbe5ae023886f33",
+      "current": "3df73be728b1be9fc77a6992853fa10123c3e3d01f48dce3cbbe5ae023886f33",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/long-tool-liveness-steer.e2e.js",
+      "expected": "d6340c57f7b0ba1be31e028f3e18a91226403888c3ae367deb1f93de4d34c89c",
+      "current": "d6340c57f7b0ba1be31e028f3e18a91226403888c3ae367deb1f93de4d34c89c",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-migration-trash.e2e.js",
+      "expected": "5415d8c42ad6dd66b8f2e77b71a794bb0f8bf3a50d2775e3901f1343f795b5bf",
+      "current": "5415d8c42ad6dd66b8f2e77b71a794bb0f8bf3a50d2775e3901f1343f795b5bf",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-runtime-start.e2e.js",
+      "expected": "b3e4566684d5b8a0a9c5aecbac08e6a3db75f43a1b8fdb193715941259643be3",
+      "current": "b3e4566684d5b8a0a9c5aecbac08e6a3db75f43a1b8fdb193715941259643be3",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-trial-install.e2e.js",
+      "expected": "abe06c2235818e36a3ff5b6bbd1a507aff7d08498ba3fd17285b5ddee036fb71",
+      "current": "abe06c2235818e36a3ff5b6bbd1a507aff7d08498ba3fd17285b5ddee036fb71",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-upgrade-rollback.e2e.js",
+      "expected": "5c8d76169b39dc8a614dd7d7dc71d9e96331829cc111e43427ac76e11a80a443",
+      "current": "5c8d76169b39dc8a614dd7d7dc71d9e96331829cc111e43427ac76e11a80a443",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/mcp-resource-config-mask.e2e.js",
+      "expected": "27749aed64527746657aede72f36469b811559b41422ff6ea14d4a5eff361e7a",
+      "current": "27749aed64527746657aede72f36469b811559b41422ff6ea14d4a5eff361e7a",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/process-safety.static.e2e.js",
+      "expected": "f423ff92239ada99e5d68b43732a338369523e6b44c29515c435269eb19e1f9f",
+      "current": "f423ff92239ada99e5d68b43732a338369523e6b44c29515c435269eb19e1f9f",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/provider-pairing-repair.e2e.js",
+      "expected": "d4f3189d74306be39184514758b773898021f935e83b660231e3000e0078b9d1",
+      "current": "d4f3189d74306be39184514758b773898021f935e83b660231e3000e0078b9d1",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "expected": "18a4f4512a596aa575e2eb20e9374d29587fc9edc862276b217938c118a1156a",
+      "current": "18a4f4512a596aa575e2eb20e9374d29587fc9edc862276b217938c118a1156a",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/steer-interrupt.e2e.js",
+      "expected": "252d2fdc6328363e1c42dec519018605f77ddfcd6366c6de4d62527bc77159c4",
+      "current": "252d2fdc6328363e1c42dec519018605f77ddfcd6366c6de4d62527bc77159c4",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/subagent-net-tools.e2e.js",
+      "expected": "d53746866486cc7db3f95b39c4d043c74beb7b303f56381bbd5f00a19a6b7c7c",
+      "current": "d53746866486cc7db3f95b39c4d043c74beb7b303f56381bbd5f00a19a6b7c7c",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/tool-dispatch.e2e.js",
+      "expected": "c806b43b8a78d06a952eb67ba4a1109f4148f3faa0fc702b3add7c9654e9a12c",
+      "current": "c806b43b8a78d06a952eb67ba4a1109f4148f3faa0fc702b3add7c9654e9a12c",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/unit/macos-migration-trash.test.js",
+      "expected": "43eda5394fab34d3ff6b0f9b3581eedca9a5250c7ef1ec11e4aadd0fcaefe607",
+      "current": "43eda5394fab34d3ff6b0f9b3581eedca9a5250c7ef1ec11e4aadd0fcaefe607",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/unit/macos-offline-package.test.js",
+      "expected": "845c5db9b3ecc31f6da94ebb15debf3290dc61c0fad4881076aa3ef7031dfc03",
+      "current": "845c5db9b3ecc31f6da94ebb15debf3290dc61c0fad4881076aa3ef7031dfc03",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/unit/mcp-bridge-hardening.test.js",
+      "expected": "a44973c28e269097ad351a9208a25f571cc18d61d17cd11f38d9cceb03aefa41",
+      "current": "a44973c28e269097ad351a9208a25f571cc18d61d17cd11f38d9cceb03aefa41",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/workbench-self-status.e2e.js",
+      "expected": "07ae44c4e8a72eb96030444e23368b88dcdb491ebedd64bccba1ca782d56d8ad",
+      "current": "07ae44c4e8a72eb96030444e23368b88dcdb491ebedd64bccba1ca782d56d8ad",
+      "pass": true
+    },
+    {
+      "file": "docs/architecture/module-dependency-graph.json",
+      "expected": "07034a7b71f2549c73ea51a99bac7a69a400bfc5fa70cff8015822832a720003",
+      "current": "07034a7b71f2549c73ea51a99bac7a69a400bfc5fa70cff8015822832a720003",
+      "pass": true
+    },
+    {
+      "file": "docs/architecture/module-dependency-graph.md",
+      "expected": "805450e2c79a07b05e00665c573df021283e4e73c914021d5f7cab4be7589612",
+      "current": "805450e2c79a07b05e00665c573df021283e4e73c914021d5f7cab4be7589612",
+      "pass": true
+    },
+    {
+      "file": "docs/i18n/locales/en-US.json",
+      "expected": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+      "current": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+      "pass": true
+    },
+    {
+      "file": "docs/i18n/locales/zh-CN.json",
+      "expected": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+      "current": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+      "pass": true
+    },
+    {
+      "file": "facts.json",
+      "expected": "90b39409d8cbe54cdca8bec286bd8757ebc51359f6b887159287adee89b75fe5",
+      "current": "90b39409d8cbe54cdca8bec286bd8757ebc51359f6b887159287adee89b75fe5",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/en-US.json",
+      "expected": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+      "current": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "expected": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+      "current": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "expected": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+      "current": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/00-boot.js",
+      "expected": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25",
+      "current": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "expected": "9149f3f80140d172b9655fd14aecd41a64c501ced110a9afe137715031771f03",
+      "current": "9149f3f80140d172b9655fd14aecd41a64c501ced110a9afe137715031771f03",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/13u-migration-center.js",
+      "expected": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+      "current": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "expected": "c6bfb7eab109ea2e1252e7e9d64857ff0b7b60b187b80772b25d02bc64ea882b",
+      "current": "c6bfb7eab109ea2e1252e7e9d64857ff0b7b60b187b80772b25d02bc64ea882b",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "expected": "caa920ecae24acc5cedf2a85fe5cff67f03dc574505d74da1e1c1af8f6fc2d3b",
+      "current": "caa920ecae24acc5cedf2a85fe5cff67f03dc574505d74da1e1c1af8f6fc2d3b",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/INTERNAL-TRIAL.md",
+      "expected": "373728b27f9d3125791a6007f73b158349b285b7ac1021cd9f3fedf11122c751",
+      "current": "373728b27f9d3125791a6007f73b158349b285b7ac1021cd9f3fedf11122c751",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt",
+      "expected": "f59ccf7ee2e1f46c83b3c14034417873737ed92c4883ee971881addc279c1e01",
+      "current": "f59ccf7ee2e1f46c83b3c14034417873737ed92c4883ee971881addc279c1e01",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt",
+      "expected": "a148250bbf240628e503a06f5f64a4b432e8f64dd59b1b43cc551149066632a7",
+      "current": "a148250bbf240628e503a06f5f64a4b432e8f64dd59b1b43cc551149066632a7",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/MACOS-RELEASE_CN.md",
+      "expected": "d91646c68fed94ea15b832a1d73cf2dea00132933769416135d4bb2c7adf8b72",
+      "current": "d91646c68fed94ea15b832a1d73cf2dea00132933769416135d4bb2c7adf8b72",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/MACOS-RELEASE_EN.md",
+      "expected": "a6da9baa91e5397ec943e04522d6b90925e1c63cf65f11e61c07ad122041554f",
+      "current": "a6da9baa91e5397ec943e04522d6b90925e1c63cf65f11e61c07ad122041554f",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md",
+      "expected": "60649d68c710e79223adc8a17daea23d29858cf7bdf3a109a7396276c83457fe",
+      "current": "60649d68c710e79223adc8a17daea23d29858cf7bdf3a109a7396276c83457fe",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md",
+      "expected": "c7f63cc4d5c0f862781f350d1ae8a1b0f2537194235cbdeb92ce0a7b2aa42e39",
+      "current": "c7f63cc4d5c0f862781f350d1ae8a1b0f2537194235cbdeb92ce0a7b2aa42e39",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md",
+      "expected": "316df8beddadc03e331a25c0db1db9661de9b52c1c0799b377c51d45e6c37a92",
+      "current": "316df8beddadc03e331a25c0db1db9661de9b52c1c0799b377c51d45e6c37a92",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md",
+      "expected": "9b228d2c9526312aaf55a568cb3c87b1a38c64acc21af6a1cfdc24134136ea7e",
+      "current": "9b228d2c9526312aaf55a568cb3c87b1a38c64acc21af6a1cfdc24134136ea7e",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/USER-GUIDE_CN.md",
+      "expected": "1a8e8d756fadf50b1f96c75fd2eda17f3a135639a81bf70ed42fe67031904004",
+      "current": "1a8e8d756fadf50b1f96c75fd2eda17f3a135639a81bf70ed42fe67031904004",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/USER-GUIDE_EN.md",
+      "expected": "9d8d5837df0fbec10abf4e26386416bf15b141587db60dcf40ad80df6781b50d",
+      "current": "9d8d5837df0fbec10abf4e26386416bf15b141587db60dcf40ad80df6781b50d",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-trash-helper.m",
+      "expected": "8b7cf348e803ef98d66624d96586a016fd36b652dc74d22a680e3eab8f88d53d",
+      "current": "8b7cf348e803ef98d66624d96586a016fd36b652dc74d22a680e3eab8f88d53d",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-trash-helper.js",
+      "expected": "e3ec0b78424a79f2d477fe9bbaa520f9478fede9eb1be6c4b32eaff7b1d22d0d",
+      "current": "e3ec0b78424a79f2d477fe9bbaa520f9478fede9eb1be6c4b32eaff7b1d22d0d",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/tools/macos-offline-lib.js",
+      "expected": "f1963208359447f5603225564b1bca1a82240f1ed3c03665973cd547073aac9d",
+      "current": "f1963208359447f5603225564b1bca1a82240f1ed3c03665973cd547073aac9d",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/tools/package-macos-offline.js",
+      "expected": "f6fda5a2d3c9858bd2b213b85ed5df116bd033612ce9b9d66bc50b4719b7b560",
+      "current": "f6fda5a2d3c9858bd2b213b85ed5df116bd033612ce9b9d66bc50b4719b7b560",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "expected": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+      "current": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-offline-package.e2e.js",
+      "expected": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23",
+      "current": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23",
+      "pass": true
+    }
+  ],
+  "pass": true
+}

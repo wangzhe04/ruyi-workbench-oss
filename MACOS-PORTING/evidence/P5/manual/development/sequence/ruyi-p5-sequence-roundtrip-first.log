@@ -1,0 +1,496 @@
+RECORDED pinyin {'actions': [{'at': 0.248381249664817, 'ended': 0.6772385416625184, 'events': [{'at_us': 0, 'flags': 0, 'keyboard_type': 91, 'keycode': 45, 'repeat': 0, 'type': 'key_down'}, {'at_us': 67967, 'flags': 0, 'keyboard_type': 91, 'keycode': 45, 'repeat': 0, 'type': 'key_up'}, {'at_us': 100935, 'flags': 0, 'keyboard_type': 91, 'keycode': 34, 'repeat': 0, 'type': 'key_down'}, {'at_us': 110968, 'flags': 0, 'keyboard_type': 91, 'keycode': 34, 'repeat': 0, 'type': 'key_up'}, {'at_us': 151258, 'flags': 0, 'keyboard_type': 91, 'keycode': 4, 'repeat': 0, 'type': 'key_down'}, {'at_us': 188439, 'flags': 0, 'keyboard_type': 91, 'keycode': 4, 'repeat': 0, 'type': 'key_up'}, {'at_us': 228413, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_down'}, {'at_us': 269319, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_up'}, {'at_us': 308065, 'flags': 0, 'keyboard_type': 91, 'keycode': 31, 'repeat': 0, 'type': 'key_down'}, {'at_us': 351258, 'flags': 0, 'keyboard_type': 91, 'keycode': 31, 'repeat': 0, 'type': 'key_up'}, {'at_us': 388176, 'flags': 0, 'keyboard_type': 91, 'keycode': 49, 'repeat': 0, 'type': 'key_down'}, {'at_us': 428857, 'flags': 0, 'keyboard_type': 91, 'keycode': 49, 'repeat': 0, 'type': 'key_up'}], 'op': 'input.sequence'}], 'application': {'bundle_id': '', 'executable': '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver'}, 'bounds': {'height': 528, 'width': 760, 'x': 180, 'y': 492}, 'complete': True, 'coordinate_space': 'macos_global_points', 'end_reason': 'stopped', 'input_source': {'id': 'com.apple.inputmethod.SCIM.ITABC', 'type': 'TISTypeKeyboardInputMode'}, 'platform': 'darwin', 'schema': 2, 'source': 'native_window_events'}
+RECORDED ascii-override {'actions': [{'at': 0.021476499663549475, 'ended': 0.06298162466555368, 'events': [{'at_us': 0, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_down', 'unicode': 'z'}, {'at_us': 41505, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_up'}], 'op': 'input.sequence'}], 'application': {'bundle_id': '', 'executable': '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver'}, 'bounds': {'height': 528, 'width': 760, 'x': 180, 'y': 492}, 'complete': True, 'coordinate_space': 'macos_global_points', 'end_reason': 'stopped', 'input_source': {'id': 'com.apple.keylayout.ABC', 'type': 'TISTypeKeyboardLayout'}, 'platform': 'darwin', 'schema': 2, 'source': 'native_window_events'}
+RECORDED emoji-override {'actions': [{'at': 0.016038707995903678, 'ended': 0.0622131249983795, 'events': [{'at_us': 0, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_down', 'unicode': '😀'}, {'at_us': 46174, 'flags': 0, 'keyboard_type': 91, 'keycode': 0, 'repeat': 0, 'type': 'key_up'}], 'op': 'input.sequence'}], 'application': {'bundle_id': '', 'executable': '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver'}, 'bounds': {'height': 528, 'width': 760, 'x': 180, 'y': 492}, 'complete': True, 'coordinate_space': 'macos_global_points', 'end_reason': 'stopped', 'input_source': {'id': 'com.apple.keylayout.ABC', 'type': 'TISTypeKeyboardLayout'}, 'platform': 'darwin', 'schema': 2, 'source': 'native_window_events'}
+{
+  "source_tree": "/tmp/ruyi-p5-manual-worktree",
+  "results": [
+    {
+      "name": "pinyin",
+      "recording": {
+        "actions": [
+          {
+            "at": 0.248381249664817,
+            "ended": 0.6772385416625184,
+            "events": [
+              {
+                "at_us": 0,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 67967,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 100935,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 110968,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 151258,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 188439,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 228413,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 269319,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 308065,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 351258,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 388176,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 428857,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_up"
+              }
+            ],
+            "op": "input.sequence"
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      },
+      "before": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 6,
+          "key_up": 6
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "你好",
+        "title": "Ruyi P5 Input 40170"
+      },
+      "replay": {
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 12,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ],
+        "ok": true
+      },
+      "after": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 12,
+          "key_up": 12
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "你好",
+        "title": "Ruyi P5 Input 40170"
+      }
+    },
+    {
+      "name": "ascii-override",
+      "recording": {
+        "actions": [
+          {
+            "at": 0.021476499663549475,
+            "ended": 0.06298162466555368,
+            "events": [
+              {
+                "at_us": 0,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_down",
+                "unicode": "z"
+              },
+              {
+                "at_us": 41505,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_up"
+              }
+            ],
+            "op": "input.sequence"
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.keylayout.ABC",
+          "type": "TISTypeKeyboardLayout"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      },
+      "before": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 13,
+          "key_up": 13
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.keylayout.ABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "z",
+        "title": "Ruyi P5 Input 40170"
+      },
+      "replay": {
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 2,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ],
+        "ok": true
+      },
+      "after": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 14,
+          "key_up": 14
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.keylayout.ABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "z",
+        "title": "Ruyi P5 Input 40170"
+      }
+    },
+    {
+      "name": "emoji-override",
+      "recording": {
+        "actions": [
+          {
+            "at": 0.016038707995903678,
+            "ended": 0.0622131249983795,
+            "events": [
+              {
+                "at_us": 0,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_down",
+                "unicode": "😀"
+              },
+              {
+                "at_us": 46174,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_up"
+              }
+            ],
+            "op": "input.sequence"
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-roundtrip-jju__5ec/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.keylayout.ABC",
+          "type": "TISTypeKeyboardLayout"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      },
+      "before": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 15,
+          "key_up": 15
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.keylayout.ABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "😀",
+        "title": "Ruyi P5 Input 40170"
+      },
+      "replay": {
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 2,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ],
+        "ok": true
+      },
+      "after": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": false,
+        "clipboardVersion": 559,
+        "counts": {
+          "key_down": 16,
+          "key_up": 16
+        },
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 540
+        },
+        "event": "state",
+        "id": 4054,
+        "inputSource": "com.apple.keylayout.ABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 830
+        },
+        "pid": 40170,
+        "temporaryClipboardOwned": false,
+        "text": "😀",
+        "title": "Ruyi P5 Input 40170"
+      }
+    }
+  ],
+  "target_pid": 40170
+}

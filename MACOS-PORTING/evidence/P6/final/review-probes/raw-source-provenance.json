@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "checkedAt": "2026-11-12T11:06:46.345Z",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "scope": "Read-only Full/Slim frozen raw source candidates, every file/mode/symlink manifest verified, source fingerprints compared to commit using git filters, native magic inventory scanned; no code object executed, no signature tool, no mounts or E2E.",
+  "results": [
+    {
+      "variant": "full",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final-source",
+      "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "manifestSha256": "7d920ae2637089143fd56607eccd0b1af08ee1017ed5c3580e69f1be676e4031",
+      "appTreeSha256": "bae172acde168ed0d9f647b65b4815508024d66690b148c1b8bade22d3003816",
+      "sourceFingerprintCount": 492,
+      "sourceFingerprintFailures": [],
+      "nativeCount": 210,
+      "actualMachOCount": 210,
+      "helperSha256": "552a834d0f31a1297ebff7941a97d8d8f68312a65a9e081962c807c1fa2ddec9",
+      "checks": {
+        "sourceCommit": true,
+        "sourceFingerprint": true,
+        "variant": true,
+        "developmentSigning": true,
+        "nativeTrash": true,
+        "nativeInventoryExact": true,
+        "nativeCount": true,
+        "helperNative": true,
+        "helperExecutable": true,
+        "manifestSidecar": true
+      },
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-final-source",
+      "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "manifestSha256": "7c13294acd56edcba81f121db5e3e006bdc780e8549e896e3cb03f235d485cb4",
+      "appTreeSha256": "4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0",
+      "sourceFingerprintCount": 492,
+      "sourceFingerprintFailures": [],
+      "nativeCount": 7,
+      "actualMachOCount": 7,
+      "helperSha256": "4f4bffbef3a19ac559b2eb9fd15309bc75164fc616d8e50b12da784b90de673c",
+      "checks": {
+        "sourceCommit": true,
+        "sourceFingerprint": true,
+        "variant": true,
+        "developmentSigning": true,
+        "nativeTrash": true,
+        "nativeInventoryExact": true,
+        "nativeCount": true,
+        "helperNative": true,
+        "helperExecutable": true,
+        "manifestSidecar": true
+      },
+      "pass": true
+    }
+  ],
+  "pass": true
+}

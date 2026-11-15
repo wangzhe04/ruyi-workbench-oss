@@ -1,0 +1,658 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T12:47:56.279Z",
+  "verdict": "passed_final_source_review_all_EFA1_EFA5_closed",
+  "scope": "独立最终源码diff闭合复核，绑定207来源/2产物候选冻结；仅最终阶段运行一次纯源码函数复测，累计三次纯命令。未加载/启动server、MCP或GUI，不运行完整套件、发送输入、探测进程或修改产品/测试/原证据/index。",
+  "worktree": "/tmp/ruyi-p5-effect-worktree",
+  "baseCommit": "e529d3706a57d1bf759bd34162f3cf542708ffdb",
+  "previousReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/code-review-v1.json",
+    "bytes": 25532,
+    "sha256": "b323cf0181782c4b2f13bf6985f9ff5a35a32adffd2bc37b5b616b12060608e7"
+  },
+  "previousReviewPreservedUnchanged": true,
+  "candidateFreeze": {
+    "path": "/tmp/ruyi-p5-effect-evidence/candidate-freeze.json",
+    "bytes": 52367,
+    "sha256": "1ee76254e3fb45c325761b9778393840f3f07ee69bddd8f38a75f98fc73e276d"
+  },
+  "freezeVerification": {
+    "sourceCount": 207,
+    "artifactCount": 2,
+    "allSourceBytesSha256AndGitBlobIdsMatch": true,
+    "allArtifactBytesAndSha256Match": true,
+    "scope": "当前工作树及实际产物只读字节绑定，不是构建/签名或运行验收。"
+  },
+  "reviewedSources": [
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 420694,
+      "sha256": "57e91b3b75d74b50d11c9aa69c8283404add1276b6eb1f57548c4246c97b976d",
+      "gitBlob": "6d449ce5ce3d5b284d2e79a90df17f9a43ba18fd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "bytes": 12107,
+      "sha256": "2bcf11e9fc95243da83addd0410efeede47ea2577aadd2849cb6c8000673509e",
+      "gitBlob": "e204fe9de5f65368ab35a69f2a92d1809b73977e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 360194,
+      "sha256": "feb6aa2e6396fa701e0fe0cbf44c96e23ab1561a903a4fe2a44d2b1b9945fa25",
+      "gitBlob": "ce2ffabf19f13ba895aebac3aafe8848fa7c4019"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301854,
+      "sha256": "7ab2a8d8b576bdbd3cf1cb2426487fdbfab105f846fe938e00c3088aded01902",
+      "gitBlob": "a527f7abcf8bfc9b9b90d82493a70d749f26b593"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "bytes": 190248,
+      "sha256": "95049eea61eec401efd65432f44f1831b5092bf180c681c3437ae8b419d1295e",
+      "gitBlob": "05d914b0ae69b82736068b9ca72a80e0b738cdc0"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11351,
+      "sha256": "b4b650c2ffe9eacb5ea7384f561905cafb2074d775718f15ab387719a14649fb",
+      "gitBlob": "ade29a1c42a24d97ab591427a799108e33890f51"
+    },
+    {
+      "path": "dev-harness/compound-effect-audit.e2e.js",
+      "bytes": 10535,
+      "sha256": "654f53099d03b9e45b5619e8534b35d200c659321e53c1157c28d29d30cce922",
+      "gitBlob": "22b8dbafeec1c22600998afd32a68026d08a3453"
+    },
+    {
+      "path": "dev-harness/fixtures/effect-audit-mcp.js",
+      "bytes": 2269,
+      "sha256": "550b63f37685cb104a79a43fc0423378af3c9490bd640046bc9a9b0726ed9686",
+      "gitBlob": "20f9c823366f8a82467534f0135b1712a86e3ba1"
+    },
+    {
+      "path": "dev-harness/unit/compound-effect-audit.test.js",
+      "bytes": 11125,
+      "sha256": "41d6f8d85f2bc3eefe1fdc349fbbfbbcdeb07a541bb804334087d25639cdee04",
+      "gitBlob": "eba7c5703db7d64f78708122361d056f6d734714"
+    },
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 23040,
+      "sha256": "0ff3118106addde25b2c10fdda8c88756e48c755ddab39254c550a934c2517a7",
+      "gitBlob": "936f609c97b714c97917b9244c6aa729aa4447f7"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_batch_invocation.py",
+      "bytes": 3882,
+      "sha256": "e0d7bbb3b2eb92ca8d47aac1fa8df7597a919dd57a70b1e0f517bea915c453a0",
+      "gitBlob": "c164c11f9254f141354471b509099cf4d889c1e5"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6791822,
+      "sha256": "9318fde4792dbf9f82cf474ca13b4198f435c9000c4a7d0e48c01ad44ce0c146",
+      "gitBlob": "81b141252ca581afda28e06f29f5ff5c77500622"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "efd179eff5a1922aa9dd62fcff91eafb20b3ca9614926e43340ef69f7600be64",
+      "gitBlob": "957177e487b9da5a8ac0555e65dba90471ecc0e0"
+    }
+  ],
+  "actualArtifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "realpath": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "402d561d3800362a490336055a559625797c0ca7b50f25f26a08a03d4acdd2af"
+    }
+  ],
+  "findings": [
+    {
+      "id": "EFA1",
+      "status": "closed",
+      "resolution": "input_sequence/act_and_verify只有明确action_sent/acted正面证据可reported；缺字段或action_sent=false但无法排除影响时unknown，nested action_result遵循input_sequence规则，明确not_dispatched才none。最终纯复测三反例均unknown/ok=false。"
+    },
+    {
+      "id": "EFA2",
+      "status": "closed",
+      "resolution": "schema1逐步invocation_attempted=false与存在result冲突时产生conflicting_invocation_result unknown并incomplete；不再输出确定空账。合法预校验false仍可排除。"
+    },
+    {
+      "id": "EFA3",
+      "status": "closed",
+      "resolution": "长call ID不伪造截断ID，改存完整ID的SHA-256 callIdHash；短ID保持精确callId；fold白名单保留hash。最终同前缀长ID产生不同hash，未输出假ID。"
+    },
+    {
+      "id": "EFA4",
+      "status": "closed",
+      "resolution": "离线e2e顶层catch设置retained=true；清理仍按owned流程执行，失败不会走rmSync(root)。finally已打印Retained failed fixture: <root>，同次完整stdout可精确定位保留现场；无需额外诊断字段，未要求改变已冻结源码。",
+      "validation": "只读控制流确认；未为了该简单修正再注入一次服务故障。"
+    },
+    {
+      "id": "EFA5",
+      "status": "closed",
+      "resolution": "返回prefix逐行核对step===数组index；缺号或乱序保留合法返回子步，但标incomplete并追加unknown总项，不从缺失位置编造动作。stdio partial fixture改为合法0/1前缀。最终step7和乱序纯反例均保留unknown/incomplete。"
+    }
+  ],
+  "unresolvedFindings": [],
+  "newFindings": [],
+  "finalAdditionalReview": {
+    "enclosingOutcome": "外层unknown/unconfirmed/rolled_back且有已返回prefix时，保留已知reported子步，再添compound_outcome_unknown；不把整个宏改作成功。",
+    "contradiction": "outer not_dispatched与已返回效果冲突时标incomplete并保留unknown总项，未据此抹掉正面prefix。",
+    "caps": "每投影最多50条、最多200个子步，超界显式incomplete；旧native账填满50后遇更多项目也标incomplete。fold的200项及各API切片继续保留不完整标志。",
+    "parsingAndPrivacy": "MCP文本解析按UTF-8累计字节限2MiB、分段和子步上限200；原始对象只按已知结构取小字段。bridge投影detail固定空，不复制输入/OCR/剪贴板文字或图片。",
+    "classification": "特殊动作看动作证据；条件OCR/vision保留boolean/object/null点击契约；读/wait和明确本地拒绝不报已执行；未知旧版错误不靠错误字符串猜派发。",
+    "attribution": "只对认可的macro/batch实际返回结果按step归属；未知嵌套compound不递归猜动作。callId/hash与parentTool/step、effectStatus/outcome/reason经fold及mission API保留。",
+    "localBoundaries": "09/12回调标记本地MCP调用尝试；Python标记紧邻_invoke且位于取消yield之后。均不称native dispatch、ACC await-entry或独立终局收据。",
+    "noUnreportedBehaviorChangeIdentified": "本轮Python变化为版本化attempt元数据及说明，未增加输入派发或改变合法批次的执行顺序/停止规则。"
+  },
+  "testSourceReview": {
+    "newUnit": "新增13项包括reported/unknown、typed false/旧版错误、等待只读、解析和caps、取消、fold、三项初始反例、step7/outer unknown/global cap。旧版batch([null])构造器自身异常保留为测试历史，不据此判产品故障。",
+    "offline": "真实HTTP/stdio/disk/mission路径，MCP响应明确synthetic。覆盖proxy/direct raw大结果、default deny无MCP调用、合法连续部分失败前缀、unknown和input_sequence叶子。失败根与完整stdout保留规则已确认。",
+    "python": "5个无桌面契约测试直接调用真实_run_batch并patch registry/sleep；覆盖预校验false、成功/异常true、stop前缀、调用前取消。",
+    "nativeEntry": "原入口测试新增allow同回合focus/input两行及准确call/step，deny/cancel为空账并继续验证既有receiver/audit拒绝边界；本轮该夹具已变更并列入207-source冻结，未称其仍是旧版未改extra fixture。",
+    "limits": "本审查只读这些测试及作者日志，没有运行GUI、完整Node/Python套件或真实入口。"
+  },
+  "finalPureReproduction": {
+    "command": "node - <<'JS'\nconst fs=require('fs'),crypto=require('crypto'),path=require('path');\nconst {functionBlock}=require('./dev-harness/lib/source-slice');\nconst src=fs.readFileSync('ruyi-workbench/app/src/02-session-store.js','utf8');\nconst kinds=fs.readFileSync('ruyi-workbench/app/src/02f-turn-effect-kinds.js','utf8');\nconst region=src.slice(src.indexOf('const IRREVERSIBLE_COMPOUND_TOOLS'),src.indexOf('\\nfunction buildTurnSummary'));\nconst {project,summary}=new Function('crypto','Buffer','path',kinds+'\\n'+functionBlock(src,'asResultObject')+'\\n'+region+'\\n'+functionBlock(src,'buildTurnSummary')+'\\nreturn {project:projectBridgedIrreversible,summary:buildTurnSummary};')(crypto,Buffer,path);\nconst call=(tool,result,id='call')=>({id,name:'ai_computer_control__'+tool,input:{},result});\nconst positives={ok:true,action_sent:true};\nconst leaf=(step)=>({step,tool:'input_sequence',invocation_attempted:true,result:positives});\nconst envelope=results=>({step_invocation_schema:1,completed:results.length,failed:0,results});\nconst cases=[\n ['sequence_missing',call('input_sequence',{ok:true})],\n ['sequence_false',call('input_sequence',{ok:true,action_sent:false})],\n ['verify_missing',call('act_and_verify',{ok:false,action_result:{ok:true}})],\n ['contradictory_attempt',call('macro_run',envelope([{...leaf(0),invocation_attempted:false}]))],\n ['nonprefix_step',call('macro_run',envelope([leaf(7)]))],\n ['out_of_order',call('macro_run',envelope([leaf(1),leaf(0)]))],\n ['outer_unknown',call('macro_run',{...envelope([leaf(0)]),outcome:'unknown',action_sent:false})],\n ['outer_not_dispatched_conflict',call('macro_run',{...envelope([leaf(0)]),outcome:'not_dispatched'})]\n].map(([name,input])=>({name,input,output:project(input,true)}));\nconst get=name=>cases.find(x=>x.name===name).output;\nfor(const name of ['sequence_missing','sequence_false','verify_missing']) if(get(name).items[0]?.effectStatus!=='unknown') throw new Error(name);\nfor(const name of ['contradictory_attempt','nonprefix_step','out_of_order','outer_not_dispatched_conflict']) if(!get(name).incomplete||!get(name).items.some(x=>x.effectStatus==='unknown')) throw new Error(name);\nif(get('outer_unknown').items.map(x=>x.effectStatus).join(',')!=='reported,unknown') throw new Error('outer_unknown');\nconst longIdItems=['x'.repeat(120)+'A','x'.repeat(120)+'B'].map(id=>project(call('input_sequence',positives,id),true).items[0]);\nif(longIdItems.some(x=>x.callId)||longIdItems[0].callIdHash===longIdItems[1].callIdHash) throw new Error('long IDs');\nconst cap=summary(1,Array.from({length:51},()=>({name:'script_run',result:{ok:true}})),'openai',[]);\nif(cap.irreversible.length!==50||cap.irreversibleIncomplete!==true) throw new Error('global cap');\nconsole.log(JSON.stringify({sourceSha256:crypto.createHash('sha256').update(src).digest('hex'),pureSourceFunctionsOnly:true,serverNotLoaded:true,allAssertionsPassed:true,cases,longIdItems,globalCap:{rows:cap.irreversible.length,incomplete:cap.irreversibleIncomplete}},null,2));\nJS",
+    "cwd": "/tmp/ruyi-p5-effect-worktree",
+    "executionCountThisClosure": 1,
+    "cumulativePureCommandsAcrossReviews": 3,
+    "exitCode": 0,
+    "sourceSha256": "57e91b3b75d74b50d11c9aa69c8283404add1276b6eb1f57548c4246c97b976d",
+    "allAssertionsPassed": true,
+    "output": {
+      "sourceSha256": "57e91b3b75d74b50d11c9aa69c8283404add1276b6eb1f57548c4246c97b976d",
+      "pureSourceFunctionsOnly": true,
+      "serverNotLoaded": true,
+      "allAssertionsPassed": true,
+      "cases": [
+        {
+          "name": "sequence_missing",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "sequence_false",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true,
+              "action_sent": false
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "verify_missing",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__act_and_verify",
+            "input": {},
+            "result": {
+              "ok": false,
+              "action_result": {
+                "ok": true
+              }
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__act_and_verify",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "contradictory_attempt",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "invocation_attempted": false,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 0,
+                "reason": "conflicting_invocation_result"
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_results_incomplete"
+              }
+            ],
+            "incomplete": true
+          }
+        },
+        {
+          "name": "nonprefix_step",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 7,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 7
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_results_incomplete"
+              }
+            ],
+            "incomplete": true
+          }
+        },
+        {
+          "name": "out_of_order",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 2,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 1,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                },
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 1
+              },
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 0
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_results_incomplete"
+              }
+            ],
+            "incomplete": true
+          }
+        },
+        {
+          "name": "outer_unknown",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ],
+              "outcome": "unknown",
+              "action_sent": false
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 0
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_outcome_unknown",
+                "outcome": "unknown"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "outer_not_dispatched_conflict",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ],
+              "outcome": "not_dispatched"
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 0
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_results_incomplete"
+              }
+            ],
+            "incomplete": true
+          }
+        }
+      ],
+      "longIdItems": [
+        {
+          "kind": "desktop",
+          "name": "ai_computer_control__input_sequence",
+          "detail": "",
+          "ok": true,
+          "effectStatus": "reported",
+          "callIdHash": "dafe4649f67b9e6674e24367ff2c123cc8a72d2f3d91d3ff712bd3f9ef0d3a8f"
+        },
+        {
+          "kind": "desktop",
+          "name": "ai_computer_control__input_sequence",
+          "detail": "",
+          "ok": true,
+          "effectStatus": "reported",
+          "callIdHash": "a484731b00df06ddd43ffacee0e8ddef0555dd4e434aa3e68215be4a5b498d76"
+        }
+      ],
+      "globalCap": {
+        "rows": 50,
+        "incomplete": true
+      }
+    },
+    "meaning": "从真实源码提取纯函数；验证缺动作字段、矛盾attempt、step7/乱序、outer unknown/not_dispatched冲突、长ID和50项cap。不是完整server、native或GUI验收。"
+  },
+  "primaryDevelopmentHistory": {
+    "logs": [
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/unit-v2.log",
+        "bytes": 1357,
+        "sha256": "c820d207e785a315c0744d8c5db68d3143e7dd6c27e1b4a681a422f8df0895f1"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/unit-v3.log",
+        "bytes": 1455,
+        "sha256": "5990e4054e3564b704590c0160e63cf9a526f693aafc51e14307e73419ec81b5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/python-v1.log",
+        "bytes": 103,
+        "sha256": "d08ea8705dcd42609d6064ea71e74be53941ebf6ed6bad4a9a2ba27ef966b8f6"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v1.log",
+        "bytes": 479,
+        "sha256": "1b3b311943cbc8ec721fcbe1fee3cd365b8207d1c5685343bc7fcbe70a69da8d"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v1-recovery.json",
+        "bytes": 358,
+        "sha256": "8853bf18ae35595e256e7b1ba84954d5084d41b861842efb0cd85e39fc416d99"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v2.log",
+        "bytes": 990,
+        "sha256": "ec2182369d589d2bb95f88d74cb08bd5b5bff4eb5e25cf3ec85e1235b1a04eb9"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v3.log",
+        "bytes": 990,
+        "sha256": "ec2182369d589d2bb95f88d74cb08bd5b5bff4eb5e25cf3ec85e1235b1a04eb9"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/native-v1.log",
+        "bytes": 2459,
+        "sha256": "aafadb7288e72af1e39ceb30a929f90a66a67c216e25a777ffa27988c40559c5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/syntax.log",
+        "bytes": 60,
+        "sha256": "6982adb3f08e293865d888c93d508ea92ce5080bea60ef660ea9b0b7b60bf93a"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/build.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/unit.log",
+        "bytes": 395050,
+        "sha256": "bbd902a4183a4d9b37a938f1211d5dc618823817d3d8a6285ef82f47af1752da"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/fast.log",
+        "bytes": 9109,
+        "sha256": "54c3ce549adb0a6c8adfdf00fb5b1a376798666c805b92dc50173aa1003a3617"
+      }
+    ],
+    "observedCompleteLogs": "作者unit-v3为13/13、Python-v1为5项OK、offline-v3及native-v1均ALL PASS；这里只读，未作为审查者独立运行计数。",
+    "firstOfflineFailure": "offline-v1缺新工作树process helper导致bridge为空和Missing owned service identity清理失败。原log及受控身份恢复记录保留；后来构建helper并重跑，不称首次全绿。",
+    "firstEngineeringFailure": "gates-v1语法1161、构建新鲜度及单元2520/18既有skip通过，fast79/80因README旧总数/unit数不一致而失败，内建重试仍失败。旧日志保留，不能替代最终冻结字节的后续四门。",
+    "metadataCorrection": "README595 E2E/默认588/7 live、281 unit文件/37 smoke与当前只读目录盘点一致；事实生成文件和中英文README已更新。",
+    "readOnlyCensus": {
+      "e2e": 595,
+      "unitFiles": 281,
+      "smokeFiles": 37
+    },
+    "finalEngineeringAndIndependentAcceptance": "作者将对本次冻结运行最终四门并做独立验收；本报告不提前声称完成。"
+  },
+  "sourceWhitespaceCheckExitCode": 0,
+  "acceptanceBoundary": "源码审查闭合仅接受有界、工具回报的复合副作用摘要及元数据保留；不证明所有工具的完整副作用历史、应用层成功或全局可撤销性。",
+  "openGates": [
+    "最终冻结候选工程/独立运行验收及实施提交绑定。",
+    "实际ACC/native单调用dispatch/执行参数/await-entry/terminal独立归属。",
+    "未知调用后续模型/管家自动重发防护。",
+    "held-state根强杀监督释放、qualified rescue、实际锁屏/TCC及原环境/App门。"
+  ],
+  "actionsThisClosure": {
+    "pureSourceCommands": 1,
+    "GUIActions": 0,
+    "serverStarts": 0,
+    "MCPStarts": 0,
+    "toolDispatches": 0,
+    "processSnapshots": 0,
+    "signatures": 0,
+    "pngDecodes": 0,
+    "sourceEdits": 0,
+    "testEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/tool-effect-audit/code-review-closed-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "hardAbortGateStatus": "open"
+}

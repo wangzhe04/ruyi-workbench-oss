@@ -87,6 +87,7 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     let released = false;
     return {
       canonical, endpoint,
+      isHeld() { return !released && server.listening; },
       release() {
         if (released) return Promise.resolve();
         released = true; // A delayed/repeated old release can only close this captured handle.
@@ -215,8 +216,17 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
       try { await Promise.all(legacy.map(handle => handle.release())); } finally { fsModule.closeSync(fd); }
       throw error;
     }
+    const identity = fsModule.fstatSync(fd);
     let releasePromise;
-    return { canonical, endpoint, release() {
+    return { canonical, endpoint, isHeld() {
+      if (releasePromise || !legacy.every(handle => handle.isHeld())) return false;
+      try {
+        const current = fsModule.fstatSync(fd), named = fsModule.lstatSync(endpoint);
+        return current.isFile() && named.isFile() && !named.isSymbolicLink()
+          && current.nlink === 1 && current.uid === process.getuid() && !(current.mode & 0o077)
+          && sameFile(identity, current) && sameFile(current, named);
+      } catch { return false; }
+    }, release() {
       if (!releasePromise) releasePromise = Promise.resolve().then(async () => {
         try { await Promise.all(legacy.map(handle => handle.release())); } finally { fsModule.closeSync(fd); }
       });
@@ -257,16 +267,33 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     const startupFds = [];
     const closeStartup = () => { for (const fd of startupFds.splice(0)) fsModule.closeSync(fd); };
     const handles = [];
+    const identities = new Map();
+    const rootAliases = new Map();
+    const retiredRoots = new Set();
     let canonical;
+    const rootMatches = root => {
+      if (retiredRoots.has(root)) return false;
+      const expected = identities.get(root);
+      if (!expected) return identities.has(root); // absent leaf is protected by startup + canonical gates
+      try { const stat = fsModule.statSync(root, { bigint: true });
+        return stat.isDirectory() && stat.dev === expected.dev && stat.ino === expected.ino && stat.birthtimeNs === expected.birthtimeNs;
+      } catch { return false; }
+    };
     try {
       // Every Mac startup respects this gate, including roots that appeared during another
       // startup's recursive mkdir. Missing names have no stable filesystem spelling yet.
       if (process.platform === 'darwin') startupFds.push(await acquireMacStartupLock());
       const resolved = await Promise.all(roots.map(resolveRoot));
+      for (let index = 0; index < roots.length; index++) rootAliases.set(pathModule.resolve(roots[index]), resolved[index].canonical);
       canonical = [...new Set(resolved.map(root => root.canonical))].sort();
+      for (const root of canonical) {
+        identities.set(root, resolved.some(item => item.canonical === root && !item.missing)
+          ? await fsModule.promises.stat(root, { bigint: true }) : null);
+      }
       for (const root of canonical) {
         handles.push(await bind(root, resolved.filter(item => item.canonical === root).map(item => item.legacy)));
       }
+      if (!canonical.every(rootMatches)) throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '取得启动锁时数据目录发生变化。 / Data directory changed during ownership acquisition.');
       // Old releases have no kernel file gate. A live or uncertain PID blocks recovery.
       for (const root of canonical) await checkLegacyRuntime(root);
       if (!resolved.some(root => root.missing)) closeStartup();
@@ -278,10 +305,41 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     return Object.freeze({
       roots: Object.freeze(canonical),
       portable: handles.some(handle => handle.endpoint.endsWith('.sock')),
+      isHeld() { return !releasePromise && handles.length > 0 && handles.every(handle => handle.isHeld()); },
+      isRootCurrent(root) { return !releasePromise && handles.every(handle => handle.isHeld()) && rootMatches(root); },
+      async confirmRoot(root, migratedFrom) {
+        if (releasePromise || !handles.every(handle => handle.isHeld())) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '服务所有权或数据目录身份已经失效。 / Ownership or data directory identity changed.');
+        }
+        const resolved = await resolveRoot(root);
+        if (resolved.missing || !identities.has(resolved.canonical) || retiredRoots.has(resolved.canonical)) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '初始化的数据目录不属于当前服务。 / Initialized root is not owned.');
+        }
+        if (!identities.get(resolved.canonical)) {
+          if (process.platform !== 'darwin' || !startupFds.length) throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '创建目录的启动锁已经释放。 / Root creation startup gate is no longer held.');
+          const actual = await fsModule.promises.stat(resolved.canonical, { bigint: true });
+          if (migratedFrom !== undefined) {
+            // Migration can leave a legacy junction pointing at the destination. Use the
+            // pre-move alias captured at acquisition, not today's symlink resolution.
+            const source = rootAliases.get(pathModule.resolve(migratedFrom)), expected = identities.get(source);
+            if (!expected || retiredRoots.has(source) || actual.dev !== expected.dev || actual.ino !== expected.ino || actual.birthtimeNs !== expected.birthtimeNs) {
+              throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '迁移后的目录不是原服务持有的数据目录。 / Migrated directory identity changed.');
+            }
+            retiredRoots.add(source);
+          }
+          identities.set(resolved.canonical, actual);
+        }
+        if (releasePromise || !handles.every(handle => handle.isHeld()) || !rootMatches(resolved.canonical)) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '确认时数据目录身份发生变化。 / Data directory changed during confirmation.');
+        }
+      },
       async releaseStartup() {
         if (!startupFds.length) return;
-        const finalRoots = await Promise.all(roots.map(resolveRoot));
-        if (finalRoots.some(root => root.missing || !canonical.includes(root.canonical))) {
+        // A confirmed rename may intentionally leave no legacy junction. Only source roots
+        // whose original inode was verified at the destination may be omitted here.
+        const retained = roots.filter(root => !retiredRoots.has(rootAliases.get(pathModule.resolve(root))));
+        const finalRoots = await Promise.all(retained.map(resolveRoot));
+        if (finalRoots.some(root => root.missing || !canonical.includes(root.canonical) || !rootMatches(root.canonical))) {
           throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '初始化后的数据目录身份发生变化，请重新启动。 / Initialized data directory identity changed.');
         }
         closeStartup();

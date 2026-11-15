@@ -44,19 +44,102 @@ if sys.platform == "win32":
 import functools
 import inspect
 import time
+import asyncio
+from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP
 
-from ai_computer_control.utils.errors import exc_text, hint_for
+from ai_computer_control.utils.errors import exc_text, hint_for, ToolCancelled
 
 VERSION = "1.9.1"
 
-mcp = FastMCP(
+@asynccontextmanager
+async def _tool_lifespan(_server):
+    try:
+        yield {}
+    finally:
+        native_input = sys.modules.get("ai_computer_control.utils.macos_session")
+        if native_input is not None:
+            native_input.close_input_session()
+        # Normal stdio EOF must release browsers before the server exits. Never
+        # import optional toolsets while shutting down a minimal installation.
+        browser = sys.modules.get("ai_computer_control.tools.browser")
+        if browser is not None:
+            import anyio
+            with anyio.move_on_after(10, shield=True) as scope:
+                result = await browser.shutdown_browser()
+                if result.get("cleanupIncomplete"):
+                    raise RuntimeError("browser cleanup incomplete: " + result["error"])
+            if scope.cancel_called:
+                raise RuntimeError("browser cleanup timed out")
+
+
+class PlatformMCP(FastMCP):
+    async def call_tool(self, name, arguments):
+        from ai_computer_control.utils.execution_context import request_scope
+        from ai_computer_control.utils.macos import DesktopError
+        # The SDK owns this context. Model arguments are never merged into transport metadata.
+        try:
+            factory = getattr(self, 'get_context', None)
+            context = factory() if callable(factory) else None
+            request = getattr(context, 'request_context', None)
+            meta = getattr(request, 'meta', None)
+        except (ValueError, LookupError, AttributeError):
+            meta = None
+        try:
+            with request_scope(meta, name, arguments) as execution:
+                try:
+                    result = await super().call_tool(name, arguments)
+                except BaseException as error:
+                    if execution:
+                        try:
+                            execution.finish(returned=False)
+                        except Exception:
+                            if not isinstance(error, asyncio.CancelledError):
+                                raise
+                    raise
+                if execution:
+                    execution.finish(returned=True)
+                return result
+        except DesktopError as error:
+            return _fail_envelope(error, name)
+
+    async def list_tools(self):
+        tools = await super().list_tools()
+        if sys.platform != "darwin":
+            return tools
+        from ai_computer_control.utils import macos
+        state = await asyncio.to_thread(macos.capability)
+        return [info for info in tools
+                if (info.name not in macos.CAPTURE_TOOLS or state["ready"])
+                and (info.name not in macos.DISPLAY_TOOLS or state.get("queryReady"))
+                and (info.name not in macos.WINDOW_TOOLS or state.get("windowReady"))
+                and (info.name not in macos.WINDOW_QUERY_TOOLS or state.get("windowQueryReady"))
+                and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))
+                and (info.name not in macos.INPUT_TOOLS or state.get("inputReady"))
+                and (info.name != "input_sequence" or state.get("inputSequenceReady"))
+                and (info.name != "record_start" or state.get("recordReady"))
+                and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
+                and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))
+                and (info.name not in macos.AX_TOOLS or state.get("axReady"))
+                and (info.name != "observe" or state.get("ready"))
+                and (info.name != "act_and_verify" or (state.get("ready") and state.get("inputReady")))
+                and (info.name not in macos.OCR_LOCAL_TOOLS or state.get("ocrReady"))
+                and (info.name not in macos.OCR_SCREEN_TOOLS or (state.get("ocrReady") and state.get("ready")))
+                and (info.name not in macos.VISION_TOOLS or (state.get("ready") and getattr(
+                    sys.modules.get("ai_computer_control.tools.macos_vision"), "_AVAILABLE", False)))]
+
+
+mcp = PlatformMCP(
     "AI Computer Control",
-    instructions="A comprehensive toolkit for AI agents to control Windows computers. "
+    instructions="A comprehensive toolkit for AI agents to control Windows and macOS computers. "
     "Provides screen capture, mouse/keyboard control, window management, "
     "file operations, browser automation, document editing, and more. "
-    "Every tool returns a dict with a boolean 'ok' field.",
+    "Every tool returns a dict with a boolean 'ok' field. "
+    "On macOS implemented shared and native desktop tools are registered according to current readiness. "
+    "Mac input and accessibility require a complete current window target. AX actions also require a private "
+    "element_ref from a recent observation and exact foreground focus. Diagnostics reports unsupported backends.",
+    lifespan=_tool_lifespan,
 )
 
 # The original FastMCP decorator; our wrapper below registers through it.
@@ -165,6 +248,11 @@ def _fail_envelope(e: BaseException, tool: str | None = None) -> dict:
     """Envelope for an exception that escaped a tool: 'Type: message' + a hint when one applies."""
     text = exc_text(e)
     out = {"ok": False, "error": text}
+    if sys.platform == "darwin":
+        from ai_computer_control.utils.macos import DesktopError
+        if isinstance(e, DesktopError):
+            out["code"] = e.code
+            out.update(e.details)
     h = hint_for(text, tool)
     if h:
         out["hint"] = h
@@ -212,7 +300,7 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
             if do_audit:
                 _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True),
                             None if out.get("ok", True) else out.get("error"),
-                            int((time.monotonic() - t0) * 1000))
+                            int((time.monotonic() - t0) * 1000), outcome=out)
 
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
@@ -220,6 +308,12 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                 t0 = time.monotonic()
                 try:
                     out = _normalize(await fn(*args, **kwargs), tool_name)
+                except asyncio.CancelledError as error:
+                    out = error.result if isinstance(error, ToolCancelled) and error.tool_name == tool_name else {
+                        'ok': False, 'code': 'cancelled', 'error': 'Tool execution cancelled',
+                        'cancelled': True, 'outcome': 'unknown'}
+                    _record(out, args, kwargs, t0)
+                    raise
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
                     out = _fail_envelope(e, tool_name)
                 _record(out, args, kwargs, t0)
@@ -235,7 +329,9 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                 _record(out, args, kwargs, t0)
                 return out
 
-        registered = _raw_tool(*d_args, **d_kwargs)(wrapper)
+        from ai_computer_control.utils.execution_context import wrap_tool
+        receipt_wrapper = wrap_tool(wrapper, tool_name, sig, _fail_envelope)
+        registered = _raw_tool(*d_args, **d_kwargs)(receipt_wrapper)
         _slim_registered_schema(d_kwargs.get("name") or (d_args[0] if d_args and isinstance(d_args[0], str)
                                                          else tool_name))
         return registered
@@ -243,11 +339,11 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
     return decorator
 
 
-def _audit_safe(tool_name, args, ok, error=None, ms=None):
+def _audit_safe(tool_name, args, ok, error=None, ms=None, outcome=None):
     """Call the audit logger without ever letting it raise into the tool path."""
     try:
         from ai_computer_control.tools.audit import log_action
-        log_action(tool_name, args, ok, error, ms)
+        log_action(tool_name, args, ok, error, ms, outcome=outcome)
     except Exception:
         pass
 
@@ -281,6 +377,42 @@ _TOOLSET_MODULES = {
 }
 _ALWAYS_MODULES = ["audit", "diagnostics"]
 
+# P5 registers Mac capture, window and clipboard backends separately. Remaining
+# desktop modules stay absent until their Mac work packages have real backends.
+_MAC_UNSUPPORTED_TOOLSETS = frozenset({
+    "desktop", "uia", "ocr", "vision", "macro", "observe", "audio", "sync",
+})
+_UNSUPPORTED_MODULES = {
+    module: "platform.unsupported: macOS desktop backend is not implemented"
+    for group in _MAC_UNSUPPORTED_TOOLSETS for module in _TOOLSET_MODULES[group]
+} if sys.platform == "darwin" else {}
+if sys.platform == "darwin":
+    _UNSUPPORTED_MODULES.pop("screen", None)
+    _UNSUPPORTED_MODULES.pop("capture", None)
+    _UNSUPPORTED_MODULES.pop("window", None)
+    _UNSUPPORTED_MODULES.pop("clipboard", None)
+    _UNSUPPORTED_MODULES.pop("keyboard", None)
+    _UNSUPPORTED_MODULES.pop("mouse", None)
+    _UNSUPPORTED_MODULES.pop("application", None)
+    _UNSUPPORTED_MODULES.pop("uia", None)
+    _UNSUPPORTED_MODULES.pop("ocr", None)
+    _UNSUPPORTED_MODULES.pop("vision", None)
+    _UNSUPPORTED_MODULES.pop("observe", None)
+    _UNSUPPORTED_MODULES.pop("act_and_verify", None)
+    _UNSUPPORTED_MODULES.pop("batch", None)
+    _UNSUPPORTED_MODULES.pop("record", None)
+
+
+def _platform_modules(modules: list[str]) -> list[str]:
+    active = [module for module in modules if module not in _UNSUPPORTED_MODULES]
+    if sys.platform == "darwin":
+        replacements = {"screen": "macos_capture", "capture": "macos_capture",
+                        "window": "macos_input", "clipboard": "macos_input",
+                        "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application",
+                        "uia": "macos_ax", "ocr": "macos_ocr", "vision": "macos_vision", "observe": "macos_observe", "act_and_verify": "macos_act_and_verify", "record": "macos_record"}
+        active = [replacements.get(module, module) for module in active]
+    return list(dict.fromkeys(active))
+
 
 def _active_modules() -> list[str]:
     hide_memory = _os.environ.get("ACC_HIDE_MEMORY", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -289,7 +421,7 @@ def _active_modules() -> list[str]:
         mods = []
         for group in _TOOLSET_MODULES.values():
             mods.extend(group)
-        return _ALWAYS_MODULES + [m for m in mods if not (hide_memory and m == "memory")]
+        return _platform_modules(_ALWAYS_MODULES + [m for m in mods if not (hide_memory and m == "memory")])
     mods = list(_ALWAYS_MODULES)
     unknown = []
     for name in (p.strip().lower() for p in raw.split(",")):
@@ -308,7 +440,7 @@ def _active_modules() -> list[str]:
         if m not in seen:
             seen.add(m)
             out.append(m)
-    return [m for m in out if not (hide_memory and m == "memory")]
+    return _platform_modules([m for m in out if not (hide_memory and m == "memory")])
 
 
 import importlib as _importlib  # noqa: E402

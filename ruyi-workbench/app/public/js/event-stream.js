@@ -76,7 +76,7 @@ export function parseEventStreamBlock(block) {
 }
 
 export function createEventStream({
-  // 在场信号的两个读口（组合根注入：视角读 data-shell-mode，会话读 state.currentSession）。
+  // 在场信号的两个读口（组合根注入当前视角与 state.currentSession）。
   lensProvider = () => '',
   sessionIdProvider = () => '',
   // 2026-10：第三个在场读口 —— 此刻摆在用户面前、且人在跟前的那几条线程（js/presence-viewing.js 判），
@@ -338,6 +338,9 @@ export function createEventStream({
     // 直接复用既有的 `start()`（内部就是 `bind()`(已绑过，no-op) + `connect()`/退避），不写第二条。
     if (globalThis.addEventListener) globalThis.addEventListener('pageshow', event => {
       if (event && event.persisted) start();
+    });
+    if (globalThis.addEventListener) globalThis.addEventListener('ruyi:host-wake', () => {
+      if (started) { retryMs = EVENT_STREAM_RETRY_MIN_MS; void connect(); }
     });
     return true;
   }

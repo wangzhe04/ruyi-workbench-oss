@@ -1,0 +1,11 @@
+{
+  "path": "MACOS-PORTING/evidence/P5/record/development/pure-first.txt",
+  "reason": "git diff --check rejects unittest subtest header trailing whitespace. Only line-end spaces/tabs are normalized in the readable log. Original raw bytes remain exactly reconstructable from base64.",
+  "raw_base64": "MACOS-PORTING/evidence/P5/record/development/pure-first.raw.base64",
+  "raw_sha256": "031e4e4e7354964d4c3309da29db056f8c07fcefe4772492be92f91c0490eb64",
+  "normalized_sha256": "6b33a7b720b23e2d6e68a4e9da5ae7387dd73de42d2f8f7e7f12240eea12532c",
+  "normalized_lines": [
+    6
+  ],
+  "raw_roundtrip_verified": true
+}

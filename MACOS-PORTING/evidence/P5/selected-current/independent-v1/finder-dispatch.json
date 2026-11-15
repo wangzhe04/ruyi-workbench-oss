@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-11T08:33:22.549967+00:00",
+  "executor": "/root/p5_acceptance",
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+    "finder",
+    "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder"
+  ],
+  "pid": 7841,
+  "attempt": 1,
+  "policy": "First unexpected failure stops; no retry."
+}

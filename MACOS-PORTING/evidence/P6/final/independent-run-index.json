@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "full",
+    "kind": "install",
+    "source": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-K7WOHb",
+    "archive": "/tmp/ruyi-p603-review/runs/independent-full-install",
+    "files": [
+      "acceptance.json",
+      "cleanup.json",
+      "gatekeeper-assessment.json",
+      "launch-services.json",
+      "native.json",
+      "offline",
+      "offline-journey.txt",
+      "packaged-trash.json",
+      "packaged-trash.txt"
+    ]
+  },
+  {
+    "variant": "full",
+    "kind": "upgrade",
+    "source": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-L6ROr2",
+    "archive": "/tmp/ruyi-p603-review/runs/independent-full-upgrade",
+    "files": [
+      "acceptance.json",
+      "cleanup.json",
+      "new-after.json",
+      "old-before.json",
+      "old-restored.json"
+    ]
+  },
+  {
+    "variant": "slim",
+    "kind": "install",
+    "source": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-gc8qVq",
+    "archive": "/tmp/ruyi-p603-review/runs/independent-slim-install",
+    "files": [
+      "acceptance.json",
+      "cleanup.json",
+      "gatekeeper-assessment.json",
+      "launch-services.json",
+      "native.json",
+      "offline",
+      "offline-journey.txt",
+      "packaged-trash.json",
+      "packaged-trash.txt"
+    ]
+  },
+  {
+    "variant": "slim",
+    "kind": "upgrade",
+    "source": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-LNjSbq",
+    "archive": "/tmp/ruyi-p603-review/runs/independent-slim-upgrade",
+    "files": [
+      "acceptance.json",
+      "cleanup.json",
+      "new-after.json",
+      "old-before.json",
+      "old-restored.json"
+    ]
+  }
+]

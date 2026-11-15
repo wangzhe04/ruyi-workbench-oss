@@ -1,5 +1,8 @@
 # 离线部署说明
 
+Mac arm64 本地／内部试用版的依赖、安装、整包升级、回退和凭据迁移见[Mac 离线部署说明](MACOS-RELEASE_CN.md)。以下安装脚本和压缩包约定面向 Windows。
+
+
 ## 目标机器要求
 
 - Windows 10/11 或 Windows Server。

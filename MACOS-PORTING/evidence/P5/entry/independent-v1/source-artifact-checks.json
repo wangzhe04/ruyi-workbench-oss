@@ -1,0 +1,1122 @@
+[
+  {
+    "label": "initial",
+    "at": "2026-11-11T08:03:29.110038+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "offline-before",
+    "at": "2026-11-11T08:03:29.146525+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "offline-after",
+    "at": "2026-11-11T08:03:31.328304+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "native-before",
+    "at": "2026-11-11T08:03:31.335234+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "native-after",
+    "at": "2026-11-11T08:03:36.638400+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "fast-before",
+    "at": "2026-11-11T08:03:36.644654+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "fast-after",
+    "at": "2026-11-11T08:05:40.828388+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  },
+  {
+    "label": "final",
+    "at": "2026-11-11T08:05:40.864229+00:00",
+    "files": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+        "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "bytes": 505584,
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matched": true
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "bytes": 1038,
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matched": true
+      }
+    ],
+    "fileCount": 15,
+    "artifactCount": 3,
+    "allMatched": true,
+    "freezeUnchanged": true,
+    "reviewUnchanged": true,
+    "processHelperUnchanged": true
+  }
+]

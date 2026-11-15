@@ -101,9 +101,16 @@ function fenceBalance(text) {
     // ============================== (A) 单元层 ==============================
     // A1: spawnCmdLineLength 与 batchSafeSpawn 的真实构造严格同构 —— 预算核算的就是 cmd 实际收到的那一行。
     const sampleArgs = ['-p', '--output-format', 'stream-json', '--append-system-prompt', '含 空格与"引号"与中文'.repeat(30), '--add-dir', 'C:\\some dir\\x'];
-    const s = srv.batchSafeSpawn('C:\\npm\\claude.cmd', sampleArgs);
+    const windowsSpawn = process.platform === 'win32' ? srv : require('./lib/server-internals').loadServerInternals(
+      ['batchSafeSpawn', 'spawnCmdLineLength'], { testPlatform: 'win32' });
+    const s = windowsSpawn.batchSafeSpawn('C:\\npm\\claude.cmd', sampleArgs);
     const realLine = `${s.command} ${s.args.join(' ')}`;
-    ok(srv.spawnCmdLineLength('C:\\npm\\claude.cmd', sampleArgs) === realLine.length, '(A1) spawnCmdLineLength === batchSafeSpawn 真实命令行长度 (' + realLine.length + ')');
+    ok(windowsSpawn.spawnCmdLineLength('C:\\npm\\claude.cmd', sampleArgs) === realLine.length, '(A1) Windows公式与batchSafeSpawn命令行长度严格同构 (' + realLine.length + ')');
+    if (process.platform !== 'win32') {
+      const native = srv.batchSafeSpawn(process.execPath, sampleArgs);
+      ok(native.command === process.execPath && native.args === sampleArgs && !native.opts.windowsVerbatimArguments,
+        '(A1 Mac) executable and argv pass through without cmd wrapping');
+    }
     // A2: 预算分档 —— .cmd → 7900;直启 → 32000;测试缝覆盖;非 Windows → 0。
     const seamEnv = process.env.WCW_CLAUDE_CMDLINE_BUDGET;
     delete process.env.WCW_CLAUDE_CMDLINE_BUDGET;

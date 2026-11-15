@@ -1,0 +1,43 @@
+PASS N1 TurnSegmentBuilder 在 session store(产物导出)
+PASS N2 文本→工具→工具→文本顺序持久化
+PASS N3 同响应工具共享 batchId 且结果回填
+PASS N4 plan 语义段替换重复文本
+PASS N4b plan 决定状态持久化
+PASS N4c 权限/提问/工作流/Mission 进入同一语义序列
+PASS N4d 低频过程事件最终状态可静态复原
+PASS N5 Claude CLI 持久化 segments
+PASS N6 OpenAI 兼容引擎持久化 segments
+PASS N7 OpenAI 同响应批次标识
+PASS N8 静态重进走同一有序叙事渲染器
+PASS N9 流式工具边界封存当前文本段
+PASS N10 回合尾部工具索引可定位过程
+PASS N10b 尾部定位逐层展开过程组与工具，并给出键盘焦点和可见反馈
+PASS N10c 消息区 role=log 且助手回合使用 article
+PASS N10d keyed 消息更新与滚动锚点已拆入叙事模块
+PASS N10e Claude 与兼容引擎的连续工具从第 2 项起自动收成工具组，运行项留在组外
+PASS N10e2 长思考与工具交替阶段自动收成一行过程记录
+PASS N10e3 流式思考框与消息区统一走粘性控制器(无事件期位置快照)
+PASS N10f 思考片段使用冷色线性轨迹图标且无脑形 emoji
+PASS N10g 思考面板只在新叙事段落处结算，遥测事件不再拆段
+PASS N10h 思考摘要降级为紧凑无整框样式
+PASS N10i 工具片段为紧凑默认收起行，失败项也不自动展开
+PASS N11 全屏聊天宽度提升至 min(1320px,94%)
+PASS N12 双语键 chat.turnRecord
+PASS N12 双语键 chat.jumpToTool
+PASS N12 双语键 chat.processStage
+PASS N12 双语键 chat.planSegment
+PASS N12 双语键 chat.questionSegment
+PASS N12 双语键 chat.conversationAria
+PASS N12 双语键 chat.assistantTurnAria
+PASS N12 双语键 narrative.permission
+PASS N12 双语键 narrative.workflow
+PASS N12 双语键 narrative.mission
+PASS N12 双语键 narrative.status.answered
+PASS N13 双主题像素回归门 v2 与基线已落地
+PASS N14 后台节点 / 工作流卡落在思考中途:思考仍是一段(文本 ABC)
+PASS N14b 后台卡本身照常记账(只是不再切开思考)
+PASS N14c 前台子代理卡仍是切分点(只有后台卡是环境卡)
+PASS N14d 父回合自己的工具仍把思考隔成两段
+PASS N14e 正文段照旧被后台卡按事件顺序隔开(环境卡规则只对思考生效)
+
+TURN NARRATIVE STATIC E2E: ALL PASS

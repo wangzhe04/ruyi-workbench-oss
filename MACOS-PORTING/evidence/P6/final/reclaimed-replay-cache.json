@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-11-12T10:06:34.971Z",
+  "replay": "/tmp/ruyi-p6-assets-replayed",
+  "primary": "/tmp/ruyi-p6-assets",
+  "replayTreeSha256": "7f85965ad5442cccc656d60472b681ddd23befc96624304679c1103e7159777d",
+  "entries": 8174,
+  "differences": [],
+  "removed": true,
+  "reason": "Exact subset of preserved primary offline build cache; reproducible replay cache only"
+}

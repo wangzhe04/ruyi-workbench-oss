@@ -1,0 +1,14 @@
+FAIL Error: Finder identity observation failed {"applicationBuild":"1865","error":"Finder ownership tree exceeds its limit","applicationVersion":"27.0","ok":false,"pid":692,"bundleID":"com.apple.finder"}
+
+    at snapshot (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:41:31)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:73:16
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:178:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+MACOS AX FINDER E2E: FAIL (1)

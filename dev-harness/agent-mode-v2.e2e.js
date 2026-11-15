@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 (async () => {
 'use strict';
 // E2E:代理模式 v2(2026-09-24)—— 单一入口 orchestrate_agents + 交付信封隔离 + 后台解耦与一次投递 + agent_result 取全文
@@ -103,15 +104,15 @@ try {
       // F1(wait 先到):节点里 Start-Sleep 3 → wait_agents 开始等时 run 还活着。
       CMD_WAIT6: [{ name: 'orchestrate_agents', args: { task: '慢速后台收件', agentKey: 'slowbg', toolTier: 'exec', background: true } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件。' }],
       // F2(通知先到):节点瞬时完成;父回合先自己睡 2s(迭代边界在这之后把信封作通知注入)再 wait。
-      CMD_NOTICE6: [{ name: 'orchestrate_agents', args: { task: '瞬时后台收件', agentKey: 'instbg', toolTier: 'read', background: true } }, { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output parent-paused', timeoutMs: 20000 } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件(通知先到)。' }],
+      CMD_NOTICE6: [{ name: 'orchestrate_agents', args: { task: '瞬时后台收件', agentKey: 'instbg', toolTier: 'read', background: true } }, { name: shellTool, args: { command: delay(2, 'parent-paused'), timeoutMs: 20000 } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件(通知先到)。' }],
       CMD_CHAT7: [{ text: '第七回合完成。' }],
       CMD_STOP8: [{ name: 'orchestrate_agents', args: { task: '超长后台分析', agentKey: 'long', toolTier: 'exec', background: true } }, { text: '已后台启动长任务。' }],
     },
     sub: [],
     subStepsByTask: {
-      '慢速大产出分析': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 4; Write-Output slow-done', timeoutMs: 30000 } }],
-      '超长后台分析': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 60; Write-Output long-done', timeoutMs: 90000 } }],
-      '慢速后台收件': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 3; Write-Output slowbg-done', timeoutMs: 30000 } }],
+      '慢速大产出分析': [{ name: shellTool, args: { command: delay(4, 'slow-done'), timeoutMs: 30000 } }],
+      '超长后台分析': [{ name: shellTool, args: { command: delay(60, 'long-done'), timeoutMs: 90000 } }],
+      '慢速后台收件': [{ name: shellTool, args: { command: delay(3, 'slowbg-done'), timeoutMs: 30000 } }],
     },
     subText: BIG,
     subTextByTask: { '快速同步分析': '同步节点结论:' + 'S'.repeat(3000), '慢速后台收件': '后台慢节点结论。', '瞬时后台收件': '后台瞬时节点结论。', 'MCP 快任务': 'MCP 节点结论。' },
@@ -221,7 +222,7 @@ try {
   const runId6B = rcpt && rcpt.runId;
   ok(evF2b.find(e => e.type === 'result' && e.ok === true) && /^run_/.test(runId6B || ''), 'F2 notice-first turn completes');
   // 时序前提:父回合的 powershell_run 真的睡了 2s(工具存在且成功),否则「通知先到」的前提不成立。
-  const psUse = evF2b.find(e => e.type === 'tool_use' && !e.subagentId && e.name === 'powershell_run');
+  const psUse = evF2b.find(e => e.type === 'tool_use' && !e.subagentId && e.name === shellTool);
   const psRes = psUse && evF2b.find(e => e.type === 'tool_result' && !e.subagentId && e.id === psUse.id);
   const run6B = await jsonRequest('GET', `/api/agent-runs/${encodeURIComponent(runId6B)}?sessionId=${encodeURIComponent(sid)}`, null, auth).catch(() => null);
   const r6 = run6B && run6B.run;

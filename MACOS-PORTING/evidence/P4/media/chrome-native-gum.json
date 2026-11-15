@@ -1,0 +1,7 @@
+{
+  "nativeCode": "function getUserMedia() { [native code] }",
+  "url": "http://127.0.0.1:51736/",
+  "secure": true,
+  "elapsed": 3001.399999856949,
+  "outcome": "pending_after_3000ms"
+}

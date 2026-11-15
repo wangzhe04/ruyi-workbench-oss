@@ -1,0 +1,21 @@
+PASS workbench listening on :58647
+PASS UI token scraped
+PASS (a) foo → ok:true, err=undefined
+PASS (a) foo definitionCount=1 (got 1)
+PASS (a) foo 定义为 function@line1
+PASS (a) foo referenceCount=2 (got 2)
+PASS (d) files[] 文件级聚合:seed.js def=1 ref=2
+PASS (b) 元字符 symbol=(( 不崩(转义为字面), err=undefined)
+PASS (c) kind=definition 只返回定义(def=1 ref=0)
+PASS (c) kind=reference 只返回引用(def=0 ref=2)
+PASS (c) kind=definition 时 files[].references 全 0(与顶层 referenceCount=0 一致)
+PASS (a2) Python def calc_total:def=1 ref=1 (子目录遍历)
+PASS (a2) calc_total 定义为 function 且位于 nested.py
+PASS (e) 不存在的符号返回 0 命中(不幻觉)
+PASS (e) note 诚实标注 grep-level
+PASS (g) 越界 root 被工作区读闸拒绝(code=not-allowed, got not-allowed)
+PASS (h) $dollarVar → variable 定义(字面转义精确命中)
+PASS (f) 缺 symbol 被人话拒绝
+PASS (f) 非法 kind 被人话拒绝
+
+CODEBASE-SYMBOL-SEARCH E2E: ALL PASS

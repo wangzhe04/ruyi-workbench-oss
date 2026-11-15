@@ -1,0 +1,20 @@
+PASS isolated workbench creates a real session for checkpoint ownership
+PASS real workbench MCP proxy completes chart_image
+PASS Mac chart resolves a real CJK font without a fallback warning
+PASS real workbench MCP proxy completes write_document
+PASS real workbench MCP proxy completes write_excel
+PASS real workbench MCP proxy completes excel_chart
+PASS real workbench MCP proxy completes write_pptx
+PASS real workbench MCP proxy completes write_pdf
+PASS PDF selects a readable Mac TrueType font without a reader-font fallback
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes excel_read
+FAIL Error: pdf_read_pages: {"ok":false,"text":"Error executing tool pdf_read_pages: 1 validation error for pdf_read_pagesArguments\npages\n  Input should be a valid string [type=string_type, input_value=[1], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type","code":"invalid-arguments","argsGuide":"path*:string; pages?:string; max_chars_per_page?:integer; max_chars?:integer"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-office-artifacts.e2e.js:84:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-office-artifacts.e2e.js:104:21
+
+PASS owned workbench process exits during fixture cleanup
+
+MACOS OFFICE ARTIFACTS E2E: FAIL (1)

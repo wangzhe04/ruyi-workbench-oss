@@ -1,0 +1,39 @@
+{
+  "at": "2026-11-11T18:27:49.554565+00:00",
+  "rootPid": 83599,
+  "observedIdentities": [
+    {
+      "pid": 83599,
+      "ppid": 83598,
+      "created": "1794421668945040"
+    },
+    {
+      "pid": 83603,
+      "ppid": 83599,
+      "created": "1794421669035319"
+    },
+    {
+      "pid": 83604,
+      "ppid": 83603,
+      "created": "1794421669036619"
+    },
+    {
+      "pid": 83605,
+      "ppid": 83604,
+      "created": "1794421669037207"
+    },
+    {
+      "pid": 83612,
+      "ppid": 83605,
+      "created": "1794421669306040"
+    },
+    {
+      "pid": 83615,
+      "ppid": 83605,
+      "created": "1794421669424322"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

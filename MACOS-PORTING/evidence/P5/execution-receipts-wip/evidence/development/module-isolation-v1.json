@@ -1,0 +1,19 @@
+{
+  "summary": {
+    "modules": 92,
+    "providedSymbols": 3909,
+    "requiredSymbols": 3524,
+    "edges": 649,
+    "forwardEdges": 67,
+    "duplicateProvides": 0,
+    "stronglyConnectedComponents": 1
+  },
+  "scc": [
+    {
+      "size": 31,
+      "newModules": []
+    }
+  ],
+  "newCycles": [],
+  "newForward": []
+}

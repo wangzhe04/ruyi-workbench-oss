@@ -1,0 +1,16 @@
+PASS L1 后台发起重复节点 id → 照实回错({"ok":false,"startedCount":0,"error":{"code":"api.request_failed","params":{},"message":"节点 id 重复: a"}})
+PASS L1 没有留下运行记录
+PASS L2 前提:正常的后台发起被受理
+PASS L2 前提:后台 run 跑完(succeeded)
+PASS L2 retry_node 未知节点 → 照实回错({"ok":false,"runId":"run_443e3c22df95d552","error":{"code":"api.request_failed","params":{},"message":"节点不存在: nope"}})
+PASS L3 暂停后立刻恢复:8 轮里卡死 0 轮(应为 0)
+PASS L4 前提:回合内起了一个活 run
+PASS L4 前提:run 进入 paused
+PASS L4 暂停中按回合的停止 → 聊天流收尾(修前一直挂着)
+PASS L4 run 不再是活的(succeeded)
+PASS L5 前提:重启后 run 处于未完成态(interrupted)
+PASS L5 resume 被受理
+PASS L5 续跑跑完(succeeded)
+PASS L5 续跑完成后交付信封送达(修前续跑不送)
+
+AGENT RUN LIFECYCLE E2E: ALL PASS

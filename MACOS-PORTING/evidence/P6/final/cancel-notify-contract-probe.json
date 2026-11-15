@@ -1,0 +1,48 @@
+{
+  "reviewedAt": "2026-11-12T10:25:38.626Z",
+  "sourceSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "mode": "Real McpStdioClient with synthetic in-memory stdin and kill seam only; no child process, service, E2E, UI, Trash or mount",
+  "checks": {
+    "realAbortProducesFailedResult": true,
+    "matchingRequestId": true,
+    "reasonUserSteer": true,
+    "notifyWrittenBeforeImmediateKill": true,
+    "cleanupNotDelayed": true
+  },
+  "events": [
+    {
+      "kind": "write",
+      "packet": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+          "name": "slow",
+          "arguments": {}
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "packet": {
+        "jsonrpc": "2.0",
+        "method": "notifications/cancelled",
+        "params": {
+          "requestId": 1,
+          "reason": "user_steer"
+        }
+      }
+    },
+    {
+      "kind": "kill"
+    }
+  ],
+  "result": {
+    "ok": false,
+    "cleanupScope": "synthetic-review",
+    "cleanupIncomplete": false,
+    "error": "工具已因用户插话中断；已核验的桥接子进程已终止，模型将立即处理新指令",
+    "steerInterrupted": true
+  },
+  "pass": true
+}

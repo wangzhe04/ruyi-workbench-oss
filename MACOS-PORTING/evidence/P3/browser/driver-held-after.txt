@@ -1,0 +1,2 @@
+{"driver_allocated_before_start_returns": true, "driver_alive_after_tool_cancel": false, "playwright_global_assigned": false, "captured_owned_driver_pid": 27127, "last_start_error": "CancelledError; cleanup incomplete: driver startup cleanup: TimeoutError; "}
+{"driver_alive_after_fixture_cleanup": false}

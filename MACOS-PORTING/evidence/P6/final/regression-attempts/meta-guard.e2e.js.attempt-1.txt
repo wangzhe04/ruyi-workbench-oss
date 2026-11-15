@@ -1,0 +1,55 @@
+PASS A README 中英能力标题使用同一版本轴（version 或 current master）
+PASS A README 能力版本标签 === package.json 主次版本 v3.0
+PASS A (info) README 版本一致
+PASS B README 含可机器核对的 e2e 声明(找到 3 处)
+PASS B README e2e 声明数 ≤ 实际 608 件(虚高: [])
+PASS B README e2e 声明数未过时低估(< 实际半数,实际 608,声明 [608,608,608])
+PASS C ACC server.py VERSION 可读到(1.9.1)
+PASS C ADMIN-GUIDE 引用的 ACC 版本 === server.py 1.9.1
+PASS D ROUTE_AUTH 表区块可定位
+PASS D 敏感路由 /api/sessions 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/skills 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/config 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/provider/test 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/file/preview 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/file/reveal 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/audit 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/checkpoints/ 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/agent-runs 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/tools/ 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/memory 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/agent-roles 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/agent-workflows 已在 ROUTE_AUTH 表被分类
+PASS D 敏感路由 /api/playbooks 已在 ROUTE_AUTH 表被分类
+PASS D sessions GET 标 token-browser
+PASS D skills GET 标 token-browser
+PASS D agent-roles GET 标 token-browser(第33波收紧)
+PASS D agent-workflows GET 标 token-browser(第33波收紧)
+PASS D playbooks GET 标 token-browser(第33波收紧)
+PASS D authorizeRoute deny-by-default 未匹配路由拒绝
+PASS E buildOrchestrateHint 定义存在(两引擎共用的编排提示构造)
+PASS E 提示含【意图触发】编排指引(非仅"形状匹配时"被动)
+PASS E 提示含意图→模板映射示例
+PASS E 提示含"简单任务别套模板"护栏(防过度编排)
+PASS E buildOrchestrateHint 被定义 + 两引擎各一次调用(≥3 处,实 3)
+PASS E Claude 引擎(runClaudeTurn)注入模板提示 ← 修两引擎不对称的关键
+PASS E Claude 侧编排提示走 stdin 索引注入(indexSecs,第35波 P2)且受 subagentMaxPerTurn 开关门控
+PASS E Provider 引擎(runOpenAiTurn)也注入模板提示(对称)
+PASS F buildMissionPromptSection 定义存在(两引擎共用的账本 digest 构造)
+PASS F digest 含 <mission-ledger> 围栏
+PASS F digest 声明「不得覆盖守则」(不可信参考带纪律;51c-b/52a 外置后文本在 registry mission.header,函数体引用即合规)
+PASS F digest fits-or-drop(超预算整段丢,不中截毁围栏)
+PASS F buildMissionPromptSection 被定义 + 两引擎各一次调用(≥3 处,实 4)
+PASS F digest 文本全局含「不得覆盖」(51c-b 外置后文本在 PROMPT_ZH.mission.header,仍须存在)
+PASS F Claude 引擎(runClaudeTurn)注入账本 digest
+PASS F Claude 侧走 --append-system-prompt 且 fits-or-drop 合并(同记忆契约)
+PASS F Provider 引擎(runOpenAiTurn)也传 session.mission 注入(对称;51d C1b 后走 buildVolatileParts)
+PASS G answerShape 经 getPromptPack 取用 ≥2 处(两个引擎各一次;实 2)
+PASS G answerShape 在提示词包里恰好两份定义(中文包 + 英文包;实 2)
+PASS G 抓到 CLI 侧 appendSys 装配块(它就是 --append-system-prompt 的载荷来源)
+PASS G Claude/Kimi CLI 引擎(runClaudeTurn)注入结论先行 ← 修 117v-V3 漏的那一路
+PASS G CLI 侧走 --append-system-prompt 的 appendSys(与四层工具协议同一段,不另开信道)
+PASS G CLI 侧结论先行在无条件前缀里(排在 sectionLimit 之前,不参与 fits-or-drop;降级一律从尾部切)
+PASS G Provider 引擎(buildStableSystemPrompt)也注入结论先行,且仍受 !identityOnly 门控(对称)
+
+META-GUARD E2E: ALL PASS

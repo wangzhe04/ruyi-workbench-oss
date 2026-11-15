@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-11T05:34:44.020Z",
+  "implementationCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+  "artifacts": {
+    "ruyi-workbench/runtime/macos/ruyi-automation-helper": {
+      "sha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+      "bytes": 237024
+    },
+    "ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop": {
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "bytes": 505584
+    },
+    "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json": {
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "bytes": 1038
+    }
+  }
+}

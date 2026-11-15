@@ -35,6 +35,7 @@ font_chain() below (probing C:\\Windows\\Fonts at call time).
 """
 
 import os
+import sys
 
 # ---------------------------------------------------------------------------------------------
 # The token tables. Each style is a flat dict so consumers can read keys directly.
@@ -216,7 +217,13 @@ def get_style(style: str | None) -> dict:
     key = (style or DEFAULT_STYLE)
     if not isinstance(key, str) or key not in STYLES:
         key = DEFAULT_STYLE
-    return dict(STYLES[key])
+    tokens = dict(STYLES[key])
+    if sys.platform == "darwin":
+        for family, regular, _bold in mac_font_candidates():
+            if os.path.isfile(regular):
+                tokens["body_font"] = tokens["title_font"] = family
+                break
+    return tokens
 
 
 def style_names() -> list[str]:
@@ -252,6 +259,19 @@ def rgb_tuple(color: str) -> tuple[int, int, int]:
 # write_pdf font chain in document.py. Cached after first resolution.
 _FONT_CHAIN_CACHE: dict | None = None
 
+
+def mac_font_candidates() -> list:
+    """System font files only; no downloads or redistribution of Apple fonts.
+
+    Office resolves family names, matplotlib discovers the collection's actual
+    first-face name, and ReportLab subsets a readable TrueType face into the PDF.
+    """
+    return [
+        ("Heiti SC", "/System/Library/Fonts/STHeiti Light.ttc", "/System/Library/Fonts/STHeiti Medium.ttc"),
+        ("PingFang SC", "/System/Library/Fonts/PingFang.ttc", None),
+        ("Arial Unicode MS", "/System/Library/Fonts/Supplemental/Arial Unicode.ttf", None),
+    ]
+
 # (family-name-for-matplotlib, absolute font file). family-name is what we set into rcParams AND what
 # FontProperties uses; we register the file under that name so the two always agree.
 def _font_candidates() -> list:
@@ -278,8 +298,9 @@ def _font_candidates() -> list:
             ("Noto Sans CJK SC", "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
             ("WenQuanYi Zen Hei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
             ("WenQuanYi Micro Hei", "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
-            ("PingFang SC", "/System/Library/Fonts/PingFang.ttc"),
         ]
+    if sys.platform == "darwin":
+        out += [(family, regular) for family, regular, _bold in mac_font_candidates()]
     return out
 
 
@@ -310,6 +331,6 @@ def font_chain() -> dict:
     _FONT_CHAIN_CACHE = {
         "family": None,
         "path": None,
-        "warning": "未找到中文字体（msyh/simhei/simsun），图中中文可能显示为方块",
+        "warning": "未找到可用中文字体（Windows/Linux/macOS 系统字体），图中中文可能显示为方块",
     }
     return _FONT_CHAIN_CACHE

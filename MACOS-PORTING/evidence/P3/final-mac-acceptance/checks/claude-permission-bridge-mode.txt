@@ -1,0 +1,10 @@
+PASS workbench up on :57697
+PASS session created
+PASS A1 CLI 按回合解析档 default 起、带权限桥(got default / mcp__ruyi__permission_prompt)
+PASS A2 桥按 default 判 edit 档 → 发出 permission_request 让人决定,而不是按全局 auto 放行(got 1 条)
+PASS A3 假 CLI 收到的是用户的拒绝(got {"behavior":"deny","message":"user said no"})
+PASS A4 回合流正常返回
+PASS B1 不收紧时 CLI 按全局 auto 起(got auto)
+PASS B2 auto 档 edit 请求照旧直接放行、不弹窗(got 0 条 / {"behavior":"allow","updatedInput":{"file_path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-claude-perm-bridge-695ef7/work/x.txt","content":"x"}})
+
+CLAUDE PERMISSION BRIDGE MODE E2E: ALL PASS

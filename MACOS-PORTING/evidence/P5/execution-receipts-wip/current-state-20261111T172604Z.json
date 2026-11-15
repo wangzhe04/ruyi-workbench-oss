@@ -1,0 +1,601 @@
+{
+  "schemaVersion": 3,
+  "at": "2026-11-11T17:26:04.362009+00:00",
+  "phaseStatus": "in_progress",
+  "featureStatus": "uncommitted_WIP_not_integrated_not_formally_accepted",
+  "mainHead": "f4f8ba23b1100f48b0c54335b37a3b859fab5d75",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "branch": "codex/p5-execution-receipts",
+  "base": "f4f8ba23",
+  "previousCheckpoint": "current-state-20261111T154754Z.json",
+  "originalRequirementMapping": "../remaining-resolution-2026-11-11-effects.json",
+  "originalLocalIDsPreserved": 10,
+  "originalExternalIDsPreserved": 4,
+  "sourceSnapshot": {
+    "archive": "source-snapshot-20261111T172604Z.tar.gz",
+    "sha256": "753df32d71b317a1af940d5413bf4ba6e2d0db83bad219b9afca71ff31f06dfd",
+    "manifest": "source-snapshot-20261111T172604Z.json",
+    "files": 43
+  },
+  "sources": [
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "bytes": 52256,
+      "sha256": "0fa23b3120641c4285ecd3327efd41804a0017ff76e5c5082866765c93533769",
+      "gitBlob": "7d8e77f3248ffdfec828539e809b73873e9432fa"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86",
+      "gitBlob": "ae4b32700165d1195f42042d9865a10031978003"
+    },
+    {
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "bytes": 15107,
+      "sha256": "3908494da794c88118f42ad0d2c472f0e4ac40d654396007f55719d0010cb85d",
+      "gitBlob": "98aa54bbd4b52478c275c4da26c5b97909dcb368"
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874",
+      "gitBlob": "28e2addbb6fc12cc07d493cf27beeca3484f0e41"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "bytes": 12099,
+      "sha256": "ec4d059cfbe207a92bab40d6bd81868e286cebbfd02d72c36564f5273e0bb47b",
+      "gitBlob": "48fbaa681207d2d65e8ac19873ecdf9791c2b929"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 22113,
+      "sha256": "056661b8f8f3b3b224d7cd4d09e14167e583945fb81b282724129d96733dc3be",
+      "gitBlob": "102bae2b73a409171c1e27e58642170680282a47"
+    },
+    {
+      "path": "dev-harness/unit/durable-json-bounded.test.js",
+      "bytes": 9396,
+      "sha256": "84f0f2e9a9f6660ea672cc7bbab318060824e6c08c916558a191382fa3784fb1",
+      "gitBlob": "def785997eacf9b4a2ffb56d152192187c217943"
+    },
+    {
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4739,
+      "sha256": "9f48f8e37717b2af02675c8f2e70ec6fad7f86fa30f0c08fb35ed994fe640c3f",
+      "gitBlob": "fe72c4b6434e5dde252c11fb4d3bff3f7ec89899"
+    },
+    {
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8",
+      "gitBlob": "4905e390e78a6ada688e148751d8c9210b821395"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "bytes": 60899,
+      "sha256": "6407eeecf4f25d6cf005d4b13176be112f25ca8119d379f8dab5a7829ddf144e",
+      "gitBlob": "4583f2e55c7e6ddbcd1aba45e097783f3c95f3b7"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "bytes": 44154,
+      "sha256": "972d4f2fa88e1e7de543bdc145ff2d7e2f1871890aad5bbf1c221d93a7b94a5b",
+      "gitBlob": "b15fc11fd101fe0eef6d40be2a998d773b390025"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 928349,
+      "sha256": "4c2a0c8cf770a8e154a7087984fe371201d680d6db270ea320af4e05da9d3f14",
+      "gitBlob": "57da0ccaacf530b59098c6f9d2110ca6762b18ff"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 123744,
+      "sha256": "eada66ce8d45bef8cc165f199f0206c191cc40f2ac44a072792f188ed2a7a6c4",
+      "gitBlob": "af713ba0679267e8b7bd2a4c4b4e21edce3ce1d6"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b",
+      "gitBlob": "ddee26d77746c0881cea591ae59571d9605ec329"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11166,
+      "sha256": "d821887a8867abdd710b8a61ae3d03376dc5ce17940a1c0450449bcad420f15d",
+      "gitBlob": "0d906038c5602d672b27a0fa94d22bfbe8606ebd"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2",
+      "gitBlob": "7ec7f6ccfaeba0e518f4363452d73ed48880836a"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d",
+      "gitBlob": "ab749f99f2ac35188dccdff7d3fe88e0e15a5e1f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12053,
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d",
+      "gitBlob": "a0ec9c055eba14cee65d55a0ce36ae99d6c46abd"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "gitBlob": "f7e5d0ad3e45c499dab73e86ffcbed753c9e4759"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19877,
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d",
+      "gitBlob": "fd12f48fa5789d1651a3317891c0c54dc85f9dee"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13682,
+      "sha256": "1780b14886fb1feb71bc9b11dcae8a5f27907675c36a17af12a9262a386eab13",
+      "gitBlob": "8d4d9fbf57eae237210f048a424d10eb6ec431c4"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "gitBlob": "6020317c850e54e696524d544e4b79693462a90f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "gitBlob": "f8b66192a931e5207dce9341ce0c4f5f6b168b1c"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb",
+      "gitBlob": "c3d02bf7477b38f1dbd4e3bb487745f18dc2d44f"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5",
+      "gitBlob": "14fa52a52ef3fd93d33d3f37001206ffefe92af1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 12714,
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798",
+      "gitBlob": "be4706549924f5889eb5d2758dff77e557402d5c"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a",
+      "gitBlob": "9796d0b3212f0aa8b6eef82b4bde8d26b22e5ce1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "bytes": 5472,
+      "sha256": "c1b47239b8443b892578867e69be2fef392c4947cf62d216dcd3daf3a7870bc6",
+      "gitBlob": "1fd2ca9b7f5ed8106e22879a06b1adbe7f2443d1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1",
+      "gitBlob": "14b995a4ea0050e5f415d80df28d3bc7c1ba13bd"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097",
+      "gitBlob": "bbc6fc25e09d7e7b3e4c0ef88058f6011225be10"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6830697,
+      "sha256": "853bea624d05d4d0c7e3bcd3aae7e70ee9ec5b8f2815c701d3f270099fb09432",
+      "gitBlob": "4b95f3be8524549c5e6cd830cec9fb5f1875ee90"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 102345,
+      "sha256": "6ca0168bb4e8fed36074d93bff81a1f21c311a2df50620327ab69873aa3577ea",
+      "gitBlob": "522454f7a3fa8fd4f37e25e285ed25064cd41f20"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 296227,
+      "sha256": "36ebe66a701261130bfb2fef1ea40b1afce00e3f59b3aebb8fe97aafd5d75453",
+      "gitBlob": "0bf26bdb0ce9de6e2ed18aeb4abe221564fc9e94"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 1017,
+      "sha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be",
+      "gitBlob": "b88f49d63e8fb924e6a40a89100005c0e6d4a057"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 24211,
+      "sha256": "ffe334f18fa1a1fdc668e705c892e197c8708c90f11b4d48d19d16ec419a07d8",
+      "gitBlob": "7143d5260ccaef234426661510b79133ea846c05"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197607,
+      "sha256": "50d3de20279e2cf47ec25a4a53d08b05e71b0517849841db3c0bda95a09030d8",
+      "gitBlob": "3521a90d62dd6a1137bc2886b0e336a98ed673b3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234157,
+      "sha256": "2e1929164f57f94b52bfbb811991b94bc10e33c917a0c7d13325a192c0075ac2",
+      "gitBlob": "d073db8f07502fa499bd1d1986a42366a594143d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 24260,
+      "sha256": "c99fa68bb942aa3947a7cf60eccfce645e9fa3bcf6736d4fa296c6d67bf890a1",
+      "gitBlob": "e9ec66d12ea6ceb7268f68101e09a84b12881a78"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 700751,
+      "sha256": "9c30f16af96422ce7e0a8cf42cd153909ae78c0ee5684bcd1287136add846b2b",
+      "gitBlob": "95de9e4a633b5f430664586b0af231d12c6e2230"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "gitBlob": "b5b4c5305653330d7abdc3c877f30fbe3b421580"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "gitBlob": "f03fead3cd0a5b0f4d29de8a88a330ef24cef632"
+    }
+  ],
+  "independentlyQualifiedScopes": [
+    {
+      "scope": "Native negotiated protocol and strict decoder, feature/read-only mouse-position only",
+      "parser": 14,
+      "nativeReadOnly": 23,
+      "binding": {
+        "path": "evidence/protocol-freeze-v1.json",
+        "sha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c"
+      },
+      "report": {
+        "path": "evidence/independent-protocol-v1/report.json",
+        "sha256": "4c54d131f44de93329c112b2be014cf94b950d48fdb3df1029d28552bbfd4e2b"
+      },
+      "currentSourceDriftSinceQualification": [
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py"
+      ]
+    },
+    {
+      "scope": "Journal primitive plus product native adapter with injected operation context",
+      "journal": 16,
+      "adapterReadOnly": 15,
+      "binding": {
+        "path": "evidence/adapter-freeze-v1.json",
+        "sha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899"
+      },
+      "report": {
+        "path": "evidence/independent-adapter-v1/report.json",
+        "sha256": "771ca535fbdaf6ae178c8b21e4b725fc9f2725594163c6e610027f3435c335ed"
+      },
+      "currentSourceDriftSinceQualification": [
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+      ]
+    },
+    {
+      "scope": "Actual Node MCP client to SDK metadata to wrappers/batch and read-only native receipts; numeric codec and safe transport probe",
+      "nodeUnit": 6,
+      "python": 4,
+      "actualContext": 29,
+      "binding": {
+        "path": "evidence/context-freeze-v1.json",
+        "sha256": "4553072c22e5477ca681493ee26447651708b3189431481d04bf34386003ed1e"
+      },
+      "report": {
+        "path": "evidence/independent-context-v1/report.json",
+        "sha256": "9e45c3bdc0895703e9f410b44a652c08ab4b8046b64248357266386620b9e8ae"
+      },
+      "currentSourceDriftSinceQualification": [
+        "dev-harness/macos-execution-context.e2e.js",
+        "dev-harness/unit/execution-arguments.test.js",
+        "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/02g-desktop-executions.js",
+        "ruyi-workbench/app/src/04-permission-runtime.js",
+        "ruyi-workbench/app/src/manifest.json"
+      ],
+      "limit": "Earlier freeze remains historical; later helper/source changes do not inherit whole runtime acceptance."
+    },
+    {
+      "scope": "Standalone strict graph/private-blob reader and immutable JSON argument preparation; not activated in product dispatch/reader",
+      "nodeUnit": 12,
+      "python": 24,
+      "binding": {
+        "path": "evidence/validation-preparation-freeze-v1.json",
+        "sha256": "b619a4d3b6bbf3c2fdb8c9bc396015f9e5211088f4cd6b6995383ad630226645"
+      },
+      "report": {
+        "path": "evidence/independent-validation-preparation-v1/report.json",
+        "sha256": "2d6a103ed43b3aad6f3d345c3fc8cb319700dde8938f474034dc8d8de022b7b7"
+      },
+      "limit": "72 source/3 artifact hashes bound; no context/native/GUI rerun and no runtime artifact execution.",
+      "currentSourceDriftSinceQualification": [
+        "dev-harness/macos-execution-context.e2e.js",
+        "dev-harness/unit/execution-arguments.test.js",
+        "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/02g-desktop-executions.js",
+        "ruyi-workbench/app/src/04-permission-runtime.js",
+        "ruyi-workbench/app/src/manifest.json"
+      ]
+    },
+    {
+      "scope": "Actual SDK product strict reader/probe, strict journal JSON, graph/private-blob checks and pure preparation; read-only native query/wait with fixture-private corruption/refusal",
+      "nodeUnit": 12,
+      "journal": 18,
+      "validation": 24,
+      "actualContext": 33,
+      "binding": {
+        "path": "evidence/reader-integration-freeze-v1.json",
+        "sha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab"
+      },
+      "report": {
+        "path": "evidence/independent-reader-integration-v1/report.json",
+        "sha256": "3c29439e7c0fa7e2f4bd83290ef6cf42c4f04397fb2353c0df4b22dc96bba075"
+      },
+      "limit": "No input mutation/GUI/held/lock/TCC. Bad blob preservation means reader did not modify/reset it during validation; successful fixture then deletes its own root. Node preparation is still not dispatched/persisted.",
+      "currentSourceDriftSinceQualification": [
+        "dev-harness/macos-execution-context.e2e.js",
+        "dev-harness/unit/execution-arguments.test.js",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/02g-desktop-executions.js",
+        "ruyi-workbench/app/src/04-permission-runtime.js",
+        "ruyi-workbench/app/src/manifest.json"
+      ]
+    },
+    {
+      "scope": "Explicit required-context admission protection at actual SDK/wrapper/native boundaries and real probe mode ACK; ordinary Node dispatch has not activated it",
+      "nodeUnit": 12,
+      "pythonGuard": 9,
+      "actualContext": 38,
+      "binding": {
+        "path": "evidence/required-context-freeze-v1.json",
+        "sha256": "37bb9fc564b46863f722526cb19501683288863f2b7a2acc08b3ca5e22790bb5"
+      },
+      "report": {
+        "path": "evidence/independent-required-context-v1/report.json",
+        "sha256": "ff27130b769e62f5253d2485774db1fc96557680b9e4d2b2a54fb771b1b8c14a"
+      },
+      "limit": "Only wait and position query. Exact status exception has a mocked helper-resolution test, not one-shot native receipt acceptance. No input/GUI/held/TCC/lock."
+    },
+    {
+      "scope": "Isolated actual-file bounded DJS and ledger factory, synthetic ownership/current-turn/receipt state transitions and read-tool policy",
+      "nodeStorage": 55,
+      "policy": 6,
+      "binding": {
+        "path": "evidence/node-storage-freeze-v1.json",
+        "sha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757"
+      },
+      "report": {
+        "path": "evidence/independent-node-storage-v1/report.json",
+        "sha256": "f83089d2e6134c7f1280c86704c6c378a9236653ce2136e8b8eb9f46d0485be1"
+      },
+      "postQualificationTransformation": {
+        "path": "evidence/helper-relocation-binding-v1.json",
+        "sha256": "27a1e62d40235696244d858d0eb572698344ee8ba8fa155141fb28d01bbb9938"
+      },
+      "postTransformationReview": {
+        "path": "evidence/node-storage-relocation-review-v1.json",
+        "sha256": "caecbce5d96baec0b73812b1937db9f0fa24d25ebfcc8a1a0d8e2001f6a8c764"
+      },
+      "postTransformationPrimary": {
+        "passed": 61,
+        "log": "evidence/development/node-storage-relocation-v1.log"
+      },
+      "limit": "Independent source80+artifact3 hashes bind pre-relocation layout. 00/02g/server+manifest are linked by reviewed exact source reconstruction; no new runtime/native reacceptance. Actual OS root/driver, provider/CLI, delivery/reconciliation and ACC retirement callback remain unimplemented."
+    }
+  ],
+  "sourceReviews": [
+    {
+      "path": "evidence/context-source-review-v2.json",
+      "sha256": "1fa943da1719b917edbc675c1336bbab7d19866ca52a2016ee43a7c8d2be5f24"
+    },
+    {
+      "path": "evidence/validation-preparation-source-review-v1.json",
+      "sha256": "d05ceb62b987feab55c3058de6d2c181bac0077acdaecbc73859833c2bc4d9ce"
+    },
+    {
+      "path": "evidence/reader-integration-source-review-v1.json",
+      "sha256": "6bc011e82a422753b6c9cee779ec826e9b013c415b426e9831e8467c4124c54a"
+    },
+    {
+      "path": "evidence/required-context-source-review-v1.json",
+      "sha256": "b1b2fb837d40b6c835b0903dd0cfaa55f44c1549a283ab9acc39949fbd9e26f8"
+    },
+    {
+      "path": "evidence/durable-bounds-source-review-v1.json",
+      "sha256": "8734263e6e2a0f034aee2f14ad8e36e1b5a207345f55455fac1419b7fcfc5fc7"
+    },
+    {
+      "path": "evidence/node-ledger-source-review-v1.json",
+      "sha256": "2e253a8bcc86dec5fd5625c9a310eb318e4427267610c387a0e9a70823339e3c"
+    },
+    {
+      "path": "evidence/node-ledger-source-supplement-v1.json",
+      "sha256": "d83e858ec19489b8aeb54a89869e5aa74846a1d70ee86cc8acee9aa2d1b6949b"
+    },
+    {
+      "path": "evidence/node-storage-relocation-review-v1.json",
+      "sha256": "caecbce5d96baec0b73812b1937db9f0fa24d25ebfcc8a1a0d8e2001f6a8c764"
+    }
+  ],
+  "implementedInWorktree": [
+    "Native actual handler-entry challenge/raw-frame SHA/continue barrier and strict parser, legacy session default preserved.",
+    "Product macos_session adapter commits prepared/entered/continue/terminal evidence under actual operation context; cancel monitor and worker quarantine.",
+    "Actual SDK transport reserved metadata to request/wrapper scopes, defaults/raw arguments, batch parent/step IDs, raw Thread copy_context and independent reader.",
+    "ruyi-sdk-json-v1 matches exact SDK-decoded arbitrary-precision integers versus binary64 float values; old f64 integer collision corrected. This does not prove original wire numeric lexeme equality.",
+    "Actual safe transport probe checks fresh nonce, decoded-value digest and ACC worker incarnation rather than an SDK shape flag alone.",
+    "Product execution_receipt now uses the typed causal graph and descriptor-based private-blob reader, distinguishing lifecycle completeness from reported flags; neither implies effects/application confirmation/replay safety.",
+    "Standalone final-boundary argument preparation copies descriptor values, rejects unsupported conversions, freezes null-prototype arrays/objects and derives matching JSON/hash/fingerprint.",
+    "Journal marker/event parsing rejects duplicate keys and nonfinite JSON. Hash-matching ambiguous terminal keys remain incomplete and cannot establish a terminal.",
+    "Explicit required-context mode refuses metadata loss before SDK request/body/native adapter entry; only execution_receipt control read and exact native status are contextless. Safe probe reports actual mode. Default ordinary Node product dispatch remains unactivated.",
+    "Shared copyOrdinaryJsonData isolates JSON data from getters/toJSON/prototypes. DurableJsonStore opt-in private bounded canonical descriptor reads, unchanged extent, fixed enqueue bytes, mode0600/exclusive temp writes and collision preservation.",
+    "Node ledger factory persists preparation/dispatch intent/result metadata/delivery digest with owner and current-turn/admissionId/rewind callbacks. Old-epoch unfinished/delivery-unknown states hold, pending IO drains before authority transfer, closed-turn watermarks survive retirement. No plaintext args/result duplicates; unresolved rows cannot be pruned.",
+    "Receipt/result flag projection matches Python code-point truncation and distinguishes ordinary numeric business codes. Worker/tool/session/turn/call/raw/semantic identities are checked; neither lifecycle completeness nor failed result implies no effects or safe replay.",
+    "execution_receipt is explicitly read-tier and outside action-master families; source tool union110 is intentionally separate from actual platform registry count.",
+    "Durable inventory71/module92/route175 regenerated. Fingerprint relocated byte-for-byte into existing00 helper module so02g/02h stay outside SCC; actual policy has0 new cycles/forward edges, SCC31. This is source isolation, not runtime integration."
+  ],
+  "engineeringChecks": {
+    "syntax": {
+      "files": 1169,
+      "failures": 0,
+      "log": "evidence/development/syntax-node-storage-v2.log"
+    },
+    "buildCheck": {
+      "passed": true,
+      "log": "evidence/development/build-node-storage-v2.log"
+    },
+    "fullUnit": {
+      "tests": 2591,
+      "pass": 2573,
+      "existingSkip": 18,
+      "fail": 0,
+      "log": "evidence/development/full-unit-node-storage-v2.log",
+      "sourceScope": "Before byte-preserving executionArgumentsDigest relocation; exact previous00/02g/server and manifest reconstruction reviewed; post-relocation related61 pass."
+    },
+    "inventories": {
+      "durableSurfaces": 71,
+      "moduleCount": 92,
+      "moduleEdges": 649,
+      "SCCMembers": 31,
+      "newCycleEdges": 0,
+      "newForwardEdges": 0,
+      "routeDecisions": 175,
+      "checks": [
+        "evidence/development/durable-inventory-check-v1.log",
+        "evidence/development/module-isolation-check-v1.log",
+        "evidence/development/route-inventory-check-v1.log"
+      ]
+    },
+    "unfinished": "Facts/README and full fast/related e2e/final full-feature engineering acceptance not complete; no implementation commit/integration."
+  },
+  "developmentFailuresPreserved": [
+    "context-v4/v5 both stopped at the probe check that wrongly compared ACC PID with ProcessRuntime guardian/root child PID. v5 raw result proves nonce/digest returned. Empty-base assertion was corrected by source inspection before v6, not observed as a separate failed run.",
+    "validation-v1 incorrectly required a tool-terminal ok field to exist; absent flag is now lifecycle unknown. Subsequent earlier passes do not hide four independent semantic findings.",
+    "Independent review found missing top-level wrapper, terminal ancestor late descendants, impossible native-frame snapshot, contradictory root non-dispatch, and inherited array toJSON; all five fixed and independently source-reviewed/pure-qualified. Historical logs/reports remain unchanged.",
+    "New bounded test v3 had a template backtick escaping SyntaxError; production store code was not implicated; fixed v4, later29 related checks pass. Raw v3 log retained.",
+    "Independent store review closed schema getter execution, mutable-cache queued overflow and owned-without-mode downgrade; private wx EEXIST preserves foreign inode.",
+    "Independent factory review closed UTF16-versus-code-point code collision, old-authority pending-write evidence overwrite and retire/replay admission gap. Pending-drain/current-turn/closed-watermark counterexamples are preserved.",
+    "Full unit v1 had exactly one expected registry-count drift (109 vs110),2572 pass/18 skip. Updated count plus new actual-reader/read-tier assertions; v2 is2573 pass/18 skip/0fail. Related policy suite is6, not7.",
+    "Initial module diagnostic omitted the policy argument and listed existing edges; no blanket new-edge failure is inferred. The actual helper did join SCC before its byte-preserving relocation. Current actual policy and static gate pass without policy relaxation."
+  ],
+  "nextRequiredWork": [
+    "Integrate one actual root-owned runtime coordinator through an early hooks table consumed by existing modules; a late runtime module registers callbacks and may refer to the ledger. Keep02g/02h outside the existing SCC; do not add direct consumer edges that create cycles. Obtain live ServerOwnership proof before recovery/clients, initialize ledger before dispatch, and provide real owner/current-turn assertions tied to server/driver/admissionId/turnSeq/rewindGen.",
+    "Centralize bookkeeping in root service for CLI MCP children; process-local queues do not serialize multiple processes. Inspect authenticated loopback mechanisms and bind actual CLI request/driver lifetime. Full-mode direct ACC configuration currently bypasses Node and must be addressed or remain explicitly open.",
+    "Enable required-context environment before spawning each owned ACC. Safe probe must ACK contextRequired=true and bind the exact client object/incarnation plus ACC nonce/PID; repeat after replacement. Background diagnostics currently need a deliberately qualified safe control path or a traced host context before activation; do not silently break readiness or allow a legacy mutation fallback.",
+    "At final post-approval/privacy-restoration boundary use the same immutable argument snapshot for raw bytes/hash and semantic fingerprint. Verify final serialized packet and metadata; no hashing a mutable pre-serialization object, and no _meta merge from model arguments.",
+    "Wire main provider, adaptive proxy and subagent bridge paths to persistent prepare/dispatch barriers. Recheck actual client and live admission after await and immediately before send. Local pre-send refusals need host evidence rather than invented ACC acknowledgements.",
+    "After actual return, fetch independent strict receipts and compare saved worker/tool/session/turn/call/raw+semantic binding and actual terminal flags. Persist Node observation before exposing it; store no extra plaintext argument/result blobs in the Node ledger.",
+    "Only markDelivered after the existing actual strict durable session/history save. Receiving an MCP result is not durable history delivery. Main/proxy/subagent and CLI external-response semantics must be handled explicitly, including privacy projection, image result bounds and incomplete saves.",
+    "Add global session admission/continuation gates before provider/steward/subagent model requests, not only before the next desktop tool. Unknown calls must survive restart, new call IDs, worker replacement and rewind. Record late actual results after stop without allowing new dispatch.",
+    "Implement real restart reconciliation with saved worker identity and strict reader evidence. A recovered terminal without the original result/history must not fabricate the lost result or infer application consumption. Keep unresolved delivery/effects separate and prevent automatic mutation replay.",
+    "Implement trusted exact-scope retirement callbacks, acknowledged ACC private-blob retention, global byte/file quotas, deletion and rewind lifecycle. Never prune unknown traces or remove closed-turn replay protection. Current Node factory limits256 rows/4096 session watermarks/4MiB and ACC256 traces/32MiB each are not a completed shared lifetime policy.",
+    "Implement one-shot capture/OCR native receipts. Current context guard on one-shot request is admission only; actual native entry/terminal proof remains open for that route.",
+    "Qualify actual ordinary owned actions plus cancellation/storage/crash windows through normal provider/root paths. Strictly serial native/GUI. Qualify a separately reviewed bounded out-of-tree rescue before any held-state root fault; never historical Shift/left recovery or UserNotificationCenter.",
+    "Finish facts/README and fast/related e2e/final full gates before commit/integration. Durable71, module92 and route175 inventories were refreshed; actual module policy has no new cycle/forward edges and SCC31 excludes02g/02h. facts still108 because its generator probes only Windows venv; remeasure actual candidate registry with main interpreter and candidate src. Source union110 includes a platform alternative, not the platform registry count.",
+    "Keep original10 local+4 external IDs. Actual TCC/revoke/OS-lock, topology/non-Retina/mixed scale/negative origin, macOS14, same-candidate Windows, formal identity/App/release gates remain unproved. No unattended lock or revoke and no repeat physical你好/drag or Finder setup.",
+    "Restore original screensaver idleTime300 and stop only owned keep-awake after whole-P5 acceptance. Current original caffeinate PID31171 has12h lifetime; renew before expiry as needed, revalidating exact PID/command. Do not restore after a slice."
+  ],
+  "nextStageDesign": {
+    "path": "evidence/next-implementation-plan-v2.json",
+    "sha256": "af851c385cf506f73ba8d0c13e33383e47c98f3c5f7478cf41c8bdf32f0d15bb"
+  },
+  "standingInstructions": {
+    "unattended": true,
+    "restoreAutomaticLockOnlyAfter": "full_P5_acceptance",
+    "originalScreensaverIdleTime": 300,
+    "originalSettingProvenance": "../manual/development/sequence/current-source-v2.json settings.screensaver_idleTime_before",
+    "lastObservedIdleTime": 0,
+    "caffeinatePid": 31171,
+    "caffeinateElapsedAtLastRead": "07:37:43 of12h",
+    "noIntentionalLockWithoutSpecificChoice": true,
+    "noMorePhysical你好DragOrFinderSetup": true,
+    "originalHelperUnchanged": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "runtime": {
+    "candidateHelper": "/tmp/ruyi-p5-receipts-helper",
+    "python": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "caffeinatePid": 31171
+  },
+  "fullP5Completion": "not_proved_open_gates_remain",
+  "proofLimits": [
+    "Full original P5 remains in_progress; no source implementation commit/integration into main.",
+    "Required mode is implemented/tested, not activated by ordinary Node dispatch. Node ledger is only a factory with simulated owner/current-turn/receipts in file tests.",
+    "Actual root kernel ownership/admission callbacks, provider/proxy/subagent/CLI dispatch and actual durable-history delivery/restart/model-continuation protection are not integrated.",
+    "ACC acknowledged retention/global byte-file lifecycle/session deletion and one-shot native receipts remain open.",
+    "No new input mutation/GUI/held/TCC/OS-lock/display/macOS14/Windows/release App acceptance.",
+    "Automatic lock restoration remains pending whole-P5 acceptance; original idleTime300, currently0, owned caffeinate31171 still live at last check."
+  ],
+  "evidenceIndex": "evidence-index-v4.json",
+  "thisGoalTurnClassification": "progress: explicit required-context protection independently qualified; shared bounded private store and Node ledger factory implemented, reviewed and independently qualified; real runtime integration remains open",
+  "lastFrozenQualification": {
+    "path": "evidence/node-storage-freeze-v1.json",
+    "sha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757"
+  },
+  "lastIndependentReport": {
+    "path": "evidence/independent-node-storage-v1/report.json",
+    "sha256": "f83089d2e6134c7f1280c86704c6c378a9236653ce2136e8b8eb9f46d0485be1"
+  },
+  "postQualificationSourceTransformation": {
+    "path": "evidence/helper-relocation-binding-v1.json",
+    "sha256": "27a1e62d40235696244d858d0eb572698344ee8ba8fa155141fb28d01bbb9938"
+  }
+}

@@ -1,0 +1,11 @@
+✔ Mac Trash uses one literal path argument and requires confirmed native success (8.713458ms)
+✔ missing helper, symbolic target and failed/malformed/timeout results fail closed (7.443833ms)
+✔ Mac App logical package maps to the whole bundle; incomplete layouts are refused (4.24475ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 409.541292

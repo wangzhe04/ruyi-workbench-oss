@@ -1,0 +1,8 @@
+PASS TextEdit document belongs to a newly created fixture process
+FAIL Error: focus_window {"ok":false,"error":"DesktopError: Window geometry changed after observation","code":"window_changed"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:32:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:80:5
+PASS selected-app input MCP and native worker cleanup is confirmed
+
+MACOS INPUT APPS E2E: FAIL (1)

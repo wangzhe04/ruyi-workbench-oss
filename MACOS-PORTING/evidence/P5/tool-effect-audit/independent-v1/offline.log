@@ -1,0 +1,18 @@
+PASS proxy raw compound effects survive display shrinking
+PASS compound call and step attribution is exact
+PASS disk turn summary preserves projected ledger
+PASS mission API keeps effect status and attribution
+PASS bounded projection excludes original large private payload
+PASS direct raw compound effects survive display shrinking
+PASS compound call and step attribution is exact
+PASS disk turn summary preserves projected ledger
+PASS mission API keeps effect status and attribution
+PASS bounded projection excludes original large private payload
+PASS actual default-mode denial produces no MCP invocation or reported effects
+PASS returned read/wait-only macro has no irreversible effects
+PASS returned success prefix and attempted error remain separately reported and unknown
+PASS unreturned compound result stays unknown through ordinary mission API
+PASS ordinary proxy direct leaf is classified
+PASS all observed owned service/MCP processes exited
+
+COMPOUND EFFECT AUDIT E2E: ALL PASS

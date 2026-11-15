@@ -1,0 +1,34 @@
+✔ required persistence commits the exact pending tool identity and model arguments (171.962667ms)
+✔ required persistence rejects a deleted session while legacy saves remain discarded (98.647209ms)
+✔ required persistence rejects an older rewind generation without changing the current body (100.576833ms)
+✔ required persistence rejects a newer committed turn before accepting old tool intent (98.177125ms)
+✔ required persistence checks owner replacement inside the queued write (96.012041ms)
+✖ failed intent head commit prevents the real file effect instead of dispatching without history (406.886667ms)
+✔ Stop after first parallel read retains the already returned second result (120.315209ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8917.830792
+
+✖ failing tests:
+
+test at dev-harness/unit/session-required-persistence.test.js:76:1
+✖ failed intent head commit prevents the real file effect instead of dispatching without history (406.886667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-durable-history-worktree/dev-harness/unit/session-required-persistence.test.js:95:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

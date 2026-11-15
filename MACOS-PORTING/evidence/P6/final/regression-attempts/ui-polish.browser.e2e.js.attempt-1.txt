@@ -1,0 +1,21 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS trayKeepsFocus
+PASS noFocusSteal
+PASS stale
+PASS recovered
+PASS stopOriginalThread
+PASS queueKeepsFocus
+PASS queueFallback
+PASS emptyQueueFocus
+PASS invalidButtonDisabled
+PASS invalidNotRetried
+PASS actualReasonShown
+PASS noFalseSuccess
+PASS successReceipt
+PASS busyCanRetry
+PASS retryClearsError
+UI POLISH BROWSER E2E: ALL PASS

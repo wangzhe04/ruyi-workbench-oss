@@ -1,0 +1,58 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S0 actual task row is rendered
+PASS row stop control exists
+PASS S1 real /api/stop stopped:false is a no-op, not a successful stop
+PASS S2 idle control does not announce stopped
+PASS S3 target is truly waiting on the same workspace lock
+PASS S3b actual queued stop button has received the admitted execution identity
+PASS row stop control exists
+PASS S4 queued turn receives a stop-request acknowledgement
+PASS S4b actual queued execution was cancelled, not merely acknowledged by UI
+PASS S5 cancelled queue entry never invokes the provider
+PASS S6 actual drawer owns the intended thread
+PASS row stop control exists
+PASS S7 service applied stop while the response is withheld
+PASS S8 a second control for the same target is disabled while awaiting receipt
+PASS row stop control exists
+PASS S9 a different target can stop independently
+PASS S10 lost response stays unknown even though the service performed the stop
+PASS S11 no duplicate write and both controls retain unknown after response loss
+PASS S12 a read-only view refresh retains unknown feedback
+PASS S13 feedback names the previous request, never the current task state; refresh does not resend
+PASS row stop control exists
+PASS S14 malformed HTTP success is unknown
+PASS row stop control exists
+PASS S15 explicit HTTP rejection is failure
+PASS S16 rejection retains its reason
+PASS S17 retained feedback follows language changes
+PASS V 1440/zh-CN/light/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"最近一次停止请求：未确认停止结果，请核对状态"}
+PASS V 1440/zh-CN/light/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"最近一次停止请求：当前没有正在运行的任务"}
+PASS V 1440/zh-CN/dark/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"最近一次停止请求：未确认停止结果，请核对状态"}
+PASS V 1440/zh-CN/dark/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"最近一次停止请求：当前没有正在运行的任务"}
+PASS V 1440/en-US/light/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"Last stop request: Stop result unconfirmed. Check the task status."}
+PASS V 1440/en-US/light/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"Last stop request: No task is currently running"}
+PASS V 1440/en-US/dark/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"Last stop request: Stop result unconfirmed. Check the task status."}
+PASS V 1440/en-US/dark/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"Last stop request: No task is currently running"}
+PASS V 390/zh-CN/light/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"最近一次停止请求：未确认停止结果，请核对状态"}
+PASS V 390/zh-CN/light/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"最近一次停止请求：当前没有正在运行的任务"}
+PASS V 390/zh-CN/dark/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"最近一次停止请求：未确认停止结果，请核对状态"}
+PASS V 390/zh-CN/dark/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"最近一次停止请求：当前没有正在运行的任务"}
+PASS V 390/en-US/light/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"Last stop request: Stop result unconfirmed. Check the task status."}
+PASS V 390/en-US/light/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"Last stop request: No task is currently running"}
+PASS V 390/en-US/dark/unknown feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"unknown","text":"Last stop request: Stop result unconfirmed. Check the task status."}
+PASS V 390/en-US/dark/noop feedback is visible, wraps, and preserves an actionable focused control: {"visible":true,"fits":true,"focus":true,"outcome":"noop","text":"Last stop request: No task is currently running"}
+PASS S18 real tool acknowledgement uses request-sent wording in the live conversation
+PASS S18b real tool not_running is a no-op, not a rejected stop
+PASS S19 stop acknowledgement is present in the actual saved tool receipt
+PASS S20 replay uses the saved acknowledgement without claiming process exit
+PASS S20b persisted not_running replays as no-op
+PASS S21 completed-turn fixture launched
+PASS S22 idle stop remains compatible with rewinding a completed turn
+PASS S23 audit records actual stop requests, not no-op clicks
+PASS S24 no uncaught browser exceptions: 
+
+STEWARD STOP RECEIPTS BROWSER E2E: ALL PASS

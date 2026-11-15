@@ -1,0 +1,17 @@
+PASS workbench starts
+  status: failed | subToolRequests: 15 | iters: undefined | toolCalls: undefined | error: 子任务因连续 5 次相同工具调用被中止
+PASS run terminates (failed) — did not hang
+PASS the looping node fails
+PASS node fails with the sub-turn loop-guard abort reason (got: 子任务因连续 5 次相同工具调用被中止)
+PASS fake served exactly 15 tool requests (2 recoveries then hard abort at 15th) — guard aborted at the 5th, NOT the 100 budget (got 15)
+PASS persisted node.iters stays far below the 100 budget (got 15)
+PASS persisted node.toolCalls stays far below the 100 budget (got 12)
+  [batch] status: failed | parallelBatchRequests: 3 | error: 子任务因连续 5 次相同工具调用被中止
+PASS the parallel-batch node fails (loop-guard tripped within the batch)
+PASS parallel-batch node aborts with the sub-turn loop-guard reason
+PASS fake served the parallel batch 3 times (2 recoveries then hard abort) — the sub-turn aborted within the first batch (got 3)
+  [batch] tool_result milestones: 18 | id counts: {"call_1":3,"call_2":3,"call_3":3,"call_4":3,"call_5":3,"call_6":3}
+PASS no tool_call id paired more than 3x (recovery-bounded, B3-fix holds per batch) (got max 3, {"call_1":3,"call_2":3,"call_3":3,"call_4":3,"call_5":3,"call_6":3})
+PASS milestones recovery-bounded, far below 100 budget (got 18)
+
+AGENT SUBTURN LOOP GUARD E2E: ALL PASS

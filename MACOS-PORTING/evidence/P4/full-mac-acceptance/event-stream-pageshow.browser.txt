@@ -1,0 +1,6 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 Edge/Chrome found
+FAIL A4 browser target available
+FAIL 夹具异常: CDP target unavailable
+EVENT STREAM PAGESHOW BROWSER E2E: FAIL (2)

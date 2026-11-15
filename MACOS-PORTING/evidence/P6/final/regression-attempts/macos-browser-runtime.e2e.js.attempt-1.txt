@@ -1,0 +1,3 @@
+SKIP set RUYI_BROWSER_CACHE_SOURCE and install the browser test runtime; RUYI_BROWSER_REQUIRED=1 makes this mandatory
+
+MACOS BROWSER RUNTIME E2E: ALL PASS

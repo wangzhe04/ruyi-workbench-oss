@@ -1,0 +1,8 @@
+{
+  "review": "code-review-frozen.json",
+  "sourceFrozenBeforePackaging": true,
+  "approvedScope": "local/internal trial current-account Mac; formal release/environment gates deferred",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+  "packagerDeltaReview": "packager-cleanup-delta-review.json"
+}

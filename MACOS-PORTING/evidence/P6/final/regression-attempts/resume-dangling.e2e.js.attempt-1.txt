@@ -1,0 +1,16 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 5e40ee2017f0)
+[wb] UI: http://127.0.0.1:61456/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-resume-dangling-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :61456
+PASS dangling session created (id=sess_1ad0fe228a895a7d)
+PASS GET dangling session ok (status 200)
+PASS resumable.dangling === true (got {"dangling":true,"kind":"user","turnSeq":0,"historyLength":3})
+PASS resumable.kind === 'user'
+PASS complete session created (id=sess_1bd42e728841f97e)
+PASS complete session resumable.dangling === false (got {"dangling":false,"kind":null,"turnSeq":0,"historyLength":2})
+PASS stopped-mid-loop session created (id=sess_dc83922340e92136)
+PASS tail role:tool resumable.dangling === true (got {"dangling":true,"kind":"tool_calls","turnSeq":0,"historyLength":3})
+PASS tail role:tool resumable.kind === 'tool_calls'
+
+RESUME-DANGLING E2E: ALL PASS

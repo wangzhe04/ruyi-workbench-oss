@@ -1,0 +1,42 @@
+[
+  {
+    "file": "facts.static.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "diagnosticWallLimitSeconds": 150,
+    "seconds": 0.13,
+    "log": "facts.static.e2e.js.txt"
+  },
+  {
+    "file": "repo-hygiene.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "diagnosticWallLimitSeconds": 150,
+    "seconds": 9.939,
+    "log": "repo-hygiene.e2e.js.txt"
+  },
+  {
+    "file": "macos-input-events.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "diagnosticWallLimitSeconds": 150,
+    "seconds": 30.727,
+    "log": "macos-input-events.e2e.js.txt"
+  },
+  {
+    "file": "macos-observe.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "diagnosticWallLimitSeconds": 300,
+    "seconds": 202.021,
+    "log": "macos-observe.e2e.js.txt"
+  },
+  {
+    "file": "macos-ocr.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "diagnosticWallLimitSeconds": 300,
+    "seconds": 166.525,
+    "log": "macos-ocr.e2e.js.txt"
+  }
+]

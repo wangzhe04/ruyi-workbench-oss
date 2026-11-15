@@ -1,0 +1,1715 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "kind": "Read-only applicability audit of frozen baseline failures; not final candidate acceptance",
+  "baseline": {
+    "commit": "20346fba4dcbdcf068b469421236d356dbfae129",
+    "worktree": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs",
+    "runtimeCopiedFrom": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime"
+  },
+  "runnerTruth": {
+    "source": "MACOS-PORTING/evidence/P6/final/baseline-last-run.txt",
+    "sha256": "371b1c097f03349f3220272cd2cb4ad6810d35c5cee0edd89a241b93fcb20c7e",
+    "selected": 592,
+    "processPassed": 537,
+    "failed": 55,
+    "flakyPassIncludedIn537": 3,
+    "flakyFiles": [
+      "agent-quality-workflow.e2e.js",
+      "macos-python-probe.e2e.js",
+      "steward-shell-wave1.browser.e2e.js"
+    ],
+    "excludedLiveProbes": 14,
+    "unitPassed": 2645,
+    "unitSkipped": 18,
+    "unitFailed": 0,
+    "streamBucketPrefixesIgnored": true,
+    "successfulProcessPassDoesNotProveNoInternalSkip": true,
+    "note": "Baseline runner does not archive successful per-case output; some exit0 entries are opt-in SKIP. Do not equate537 with fully exercised applicable scenarios."
+  },
+  "environmentDifferences": {
+    "baseline": {
+      "worktree": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs",
+      "accVenvPythonExists": false,
+      "macVendorRgExists": false,
+      "windowsVendorRgExeExists": true
+    },
+    "main": {
+      "worktree": "/Users/jiming/Documents/ruyi-workbench-mac",
+      "accVenvPythonExists": true,
+      "macVendorRgExists": false,
+      "windowsVendorRgExeExists": true
+    }
+  },
+  "missingIgnoredVenvExplanation": "Baseline worktree copied tracked files and runtime tree but not ignored ACC .venv. Main workspace has a venv. Eleven failures explicitly stop before MCP initialize with missing baseline .venv/bin/python; they are not evidence about packaged Full dependencies. Baseline only has rg.exe, not the Mac development rg binary. Final DMG validation must separately prove bundled native rg/Python.",
+  "categoryCounts": {
+    "windows_fixture_or_platform_contract": 30,
+    "missing_development_acc_environment": 11,
+    "confirmed_mac_production_defect": 1,
+    "mac_applicable_unresolved": 2,
+    "stale_inventory_or_source_contract": 5,
+    "mac_gui_qualification_environment": 2,
+    "other_fixture_contract": 3,
+    "missing_development_rg_and_windows_fixture": 1
+  },
+  "failures": [
+    {
+      "file": "background-completion.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 621,
+      "failedAssertions": [
+        "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Success command is PowerShell Start-Sleep/Write-Output, but Mac shell_start executes bash; failed background status is expected for that invalid command.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/background-completion.e2e.js",
+          "line": 78,
+          "snippet": "    const success = await start('Start-Sleep -Seconds 2; Write-Output BACKGROUND_RESULT');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "9c21698d6d3908b89b613e5554a3db5353ddc39b5e09844e7ddaab34a7790a5e"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "bridge-cancel-timeout.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 646,
+      "failedAssertions": [
+        "FAIL A2 错误文本如实告知\"桥接进程树已终止\"(无僵尸执行)",
+        "FAIL C2 重连的新 fake-mcp 活着(pid 19612,回合并发期间应在线)",
+        "FAIL C2 重连的新 fake-mcp 活着(pid 19742,回合并发期间应在线)",
+        "PASS E6 run_command 桥截止时间跟随本次 timeout 参数,不再一律显示运行中至 650s",
+        "PASS B3 cancelled reason=timeout",
+        "BRIDGE CANCEL/TIMEOUT E2E: FAIL (2)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "C2 checks live PIDs via Windows tasklist (catch=>false on Mac); A2 locks the old Chinese process-cleanup phrase. Do not claim Mac process cleanup from this test: C1 can be vacuously true when tasklist is absent. Echo/reconnect success is separately visible in log.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+          "line": 72,
+          "snippet": "    const out = cp.execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8', windowsHide: true });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "11d0f9b6ea88213d5d3653a64f333959441991913ebb3cf5f6d17922424d3974"
+        },
+        {
+          "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+          "line": 136,
+          "snippet": "    ok(/桥接进程树已终止/.test(slowText), 'A2 错误文本如实告知\"桥接进程树已终止\"(无僵尸执行)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "11d0f9b6ea88213d5d3653a64f333959441991913ebb3cf5f6d17922424d3974"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "claude-cmdline-guard.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 679,
+      "failedAssertions": [
+        "FAIL (A1) spawnCmdLineLength === batchSafeSpawn 真实命令行长度 (456)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "A1 constructs a Windows .cmd launcher and compares its cmd.exe length formula against platform-specific batchSafeSpawn; live B/C guard cases otherwise pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/claude-cmdline-guard.e2e.js",
+          "line": 104,
+          "snippet": "    const s = srv.batchSafeSpawn('C:\\\\npm\\\\claude.cmd', sampleArgs);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "49ca629c75c217b966ca86f6938d1a9de091ca7f06965ddf0088fd872f52e309"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "harness-friction.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 709,
+      "failedAssertions": [
+        "FAIL K1 list_tools 按档列出非 read 的名字(got {\"exec\":[\"orchestrate_agents\",\"git_commit\",\"tool_invoke_exec\",\"desktop_screenshot\",\"fake__add\",\"fake__echo\",\"fake__image_resize\",\"fake__slow_task\",\"audio_transcribe\",\"fake__copy_file\",\"fake__delete_file\",\"fake__edit_file\",\"fake__move_file\",\"fake__write_file\",\"mcp_configure\",\"fake__memory_delete\",\"fa)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Only K1 fails: test requires powershell_run in list_tools exec tier, but Mac correctly offers shell_run and omits unsupported Windows PowerShell.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/harness-friction.e2e.js",
+          "line": 201,
+          "snippet": "  ok(kres && kres.tiers && Array.isArray(kres.tiers.edit) && kres.tiers.edit.includes('file_write') && Array.isArray(kres.tiers.exec) && kres.tiers.exec.includes('powershell_run') && !('read' in kres.tiers),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a5738710163ff244d229d4d1f215bb7e0a58a31ea2b056eb6acb7a4033c13a71"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-ax.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 739,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-ax.e2e.js",
+          "line": 71,
+          "snippet": "    const connection = { id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-capture-contract.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 764,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)",
+        "PASS normal screenshot entry point honours its timeout before writing"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-capture-contract.e2e.js",
+          "line": 126,
+          "snippet": "    const python=process.env.RUYI_ACC_PYTHON || path.join(repo,'.venv/bin/python');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-ocr.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 795,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-ocr.e2e.js",
+          "line": 57,
+          "snippet": "      command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-window-clipboard.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 815,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-window-clipboard.e2e.js",
+          "line": 75,
+          "snippet": "    const connection = { id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "mcp-resource-config-mask.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 841,
+      "failedAssertions": [
+        "FAIL 读到了内容(0 字)",
+        "FAIL R3 仍是合法 JSON,provider 密钥是掩码形并带 hasKey(实 解析失败)"
+      ],
+      "category": "confirmed_mac_production_defect",
+      "basis": "Confirmed production POSIX file-URI bug: resources/list advertises file:///absolute/config.json; resources/read removes every leading slash before path.resolve, so /var/... becomes a relative var/... under cwd and is refused as resource not found. Empty masked JSON is not a passing secrecy check. Existing in the baseline, not introduced by the P6 delta.",
+      "verdict": "blocks_unqualified_mac_applicable_acceptance_until_fixed_or_explicitly_deferred",
+      "sourceEvidence": [
+        {
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "line": 2688,
+          "snippet": "                uri: `file://${paths.config.replace(/\\\\/g, '/')}`,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "7826d819aa6e8390d4b46ddcc7bf9efb91a612ceef5b4445fd20b4fe01f0e311"
+        },
+        {
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "line": 2701,
+          "snippet": "          const p = decodeURIComponent(uri.replace(/^file:\\/\\//, '')).replace(/^\\/+/, '');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "7826d819aa6e8390d4b46ddcc7bf9efb91a612ceef5b4445fd20b4fe01f0e311"
+        },
+        {
+          "path": "dev-harness/mcp-resource-config-mask.e2e.js",
+          "line": 68,
+          "snippet": "    const read = resources.length ? await rpc(3, 'resources/read', { uri: resources[0].uri }) : null;",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "47e5452491203bc547bd558a073ddf9d76bf5c322d58113394588622bb84f783"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "overlay-update-core.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=2",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 865,
+      "failedAssertions": [
+        "  code: 'ENOENT',",
+        "  error: [Circular *1],"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Direct Windows PowerShell overlay integration cannot run on Mac; failure is powershell.exe ENOENT. Mac overlay unsupported behavior has separate passing macos-overlay-boundary coverage.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/overlay-update-core.e2e.js",
+          "line": 76,
+          "snippet": "    const out = cp.execFileSync('powershell', args, { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024 });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "22fec8bdb953341a4b1a09664a34a2358d5324c594adc534793f0a452b807dfd"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "privacy-gateway.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 892,
+      "failedAssertions": [
+        "FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals",
+        "FAIL fixture failure: typed_recovery_regression_failed_chat"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "H1 is before the outer non-Windows skip and spawns typed-turn-recovery-repro, which hardcodes powershell_run with Add-Content/Write-Output. The child rejects on Mac; this does not establish portable privacy corruption. Raw nested child result is not printed by the parent, so the final release run should retain it if adapting the fixture.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/privacy-gateway.e2e.js",
+          "line": 20,
+          "snippet": "      const typed = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'privacy-31/typed-turn-recovery-repro.js'), '--protocol=' + protocol], { encoding: 'utf8', windowsHide: true, timeout: 45000 });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a8c5f9c96a5196e918c9f0781a65e56b193ed0b971833ee895fa8064950b0110"
+        },
+        {
+          "path": "dev-harness/privacy-31/typed-turn-recovery-repro.js",
+          "line": 60,
+          "snippet": "    const command = \"Add-Content -LiteralPath './counter.txt' -Value '1'; Write-Output '\" + source + \"'\";",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b60a85597a7a2040e47f37f552122f4e5297b903664c2aaa9e31e116c86d4a07"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "shell-session.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 912,
+      "failedAssertions": [
+        "FAIL (f4) script_run without cwd runs in the session cwd (got: \"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd\")",
+        "FAIL (f5) powershell_run with explicit cwd runs there (got: \"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\")",
+        "FAIL (f6) powershell_run without cwd in that session → denied",
+        "FAIL (a) shell_send ok",
+        "FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-1mxQMU\")",
+        "FAIL (f1) (Get-Location).Path prints the session cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-1mxQMU\")",
+        "FAIL (f2) shell_start with explicit cwd prints that cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\")",
+        "FAIL (f3) powershell_run without cwd runs in the session cwd (got: \"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\")"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Fixture runs PowerShell syntax Get-Location/Write-Output/Set-Location in default interactive shell and requires powershell_run; Mac default bash and unsupported PowerShell invalidate these checks. f4 also compares /var vs /private/var strings rather than canonical directory identity.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/shell-session.e2e.js",
+          "line": 9,
+          "snippet": "//  (a) SEQUENCE [shell_start{shellId:'s1'}(不传 cwd), shell_send{input:'(Get-Location).Path'}] in ONE turn whose",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "63cf6752195ca88dd2ea54a76b28ec4975d9777341c53181d358cd1a1a3fbef8"
+        },
+        {
+          "path": "dev-harness/shell-session.e2e.js",
+          "line": 18,
+          "snippet": "//      shell_start／powershell_run／script_run 缺省 cwd 却起在家目录。经 /api/tools 带 sessionId(进程内分发,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "63cf6752195ca88dd2ea54a76b28ec4975d9777341c53181d358cd1a1a3fbef8"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steer-interrupt.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 952,
+      "failedAssertions": [
+        "FAIL 1 real tool_result (f1 执行, got 3)",
+        "FAIL 2 refusal tool_result (f2/f3 between-tools 中断, got 0)"
+      ],
+      "category": "mac_applicable_unresolved",
+      "basis": "Mac-applicable read-batch interruption test got 3 real results and 0 two-between-tools refusals. The fixture uses a fixed 250ms steer during streaming and three concurrent read tools, while production explicitly admits <=8 reads concurrently. This may be an outdated boundary/timing assumption, but source inspection alone cannot prove the intended interrupt boundary was respected. Needs a controlled admission barrier or an explicit contract explanation; not automatically waived as Windows.",
+      "verdict": "requires_controlled_mac_diagnosis_or_fixture_contract_resolution",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steer-interrupt.e2e.js",
+          "line": 93,
+          "snippet": "        setTimeout(() => { postJson(WB_PORT, '/api/steer', { sessionId: sid, text: STEER_TEXT, mode: 'interrupt' }, { 'x-wcw-token': token }).then(r => { steerResp = r; }).catch(() => {}); }, 250);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "24968f01ecd4922f9621536385d8aa462b4adcf4245756c893a7bbcf5359c147"
+        },
+        {
+          "path": "dev-harness/steer-interrupt.e2e.js",
+          "line": 104,
+          "snippet": "    ok(refusals.length === 2, '2 refusal tool_result (f2/f3 between-tools 中断, got ' + refusals.length + ')');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "24968f01ecd4922f9621536385d8aa462b4adcf4245756c893a7bbcf5359c147"
+        },
+        {
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "line": 3137,
+          "snippet": "        // 21-E2 (boundedReadSchedulerV1): 宽度 ≤8 保持现状全量并发(决策 B 逐字节等价);开关开启时",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-decisions.browser.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 984,
+      "failedAssertions": [
+        "FAIL Error: pending fixtures not ready [{\"id\":\"plan_60018f03d56b9c31\",\"type\":\"plan\",\"sessionId\":\"sess_513ed8271ef72453\",\"missionId\":\"mission_33381ecfb871b1cd\",\"requestedAt\":\"2026-11-12T09:46:08.157Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"\",\"questions\":[],\"context\":\"\",\"planSummary\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":0,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n完整计划结尾\",\"detailsComplete\":true},{\"id\":\"question_d0b2d156f0159b34\",\"type\":\"question\",\"sessionId\":\"sess_0734ccd751636efc\",\"missionId\":\"mission_e3761005e6fcaef5\",\"requestedAt\":\"2026-11-12T09:46:08.159Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796623768159,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false},{\"id\":\"question_19fb2dfaeae47c38\",\"type\":\"question\",\"sessionId\":\"sess_e7bfcf3f51c6d122\",\"missionId\":\"mission_e3761005e6fcaef5\",\"requestedAt\":\"2026-11-12T09:46:08.160Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796623768160,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false}]",
+        "FAIL Error: pending fixtures not ready [{\"id\":\"question_386432f25921cff7\",\"type\":\"question\",\"sessionId\":\"sess_6e1d1fc982abad45\",\"missionId\":\"mission_4189484e8696883a\",\"requestedAt\":\"2026-11-12T09:46:24.224Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796623784224,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false},{\"id\":\"question_39130495f1a919a9\",\"type\":\"question\",\"sessionId\":\"sess_b0f3130fa704bbbc\",\"missionId\":\"mission_4189484e8696883a\",\"requestedAt\":\"2026-11-12T09:46:24.228Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"同样的问题？\",\"questions\":[{\"id\":\"question_1\",\"header\":\"取舍\",\"question\":\"同样的问题？\",\"answerMode\":\"single\",\"multiSelect\":false,\"allowOther\":true,\"otherLabel\":\"\",\"otherPlaceholder\":\"\",\"options\":[{\"id\":\"option_1\",\"label\":\"方案甲\",\"description\":\"\"},{\"id\":\"option_2\",\"label\":\"方案乙\",\"description\":\"\"}]}],\"context\":\"\",\"planSummary\":\"\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":1796623784228,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"\",\"detailsComplete\":false},{\"id\":\"plan_0201d71b65f5b594\",\"type\":\"plan\",\"sessionId\":\"sess_2dd0c599bb6e66cd\",\"missionId\":\"mission_32d2f18e93564bf1\",\"requestedAt\":\"2026-11-12T09:46:24.540Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"\",\"questions\":[],\"context\":\"\",\"planSummary\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划\",\"replanSummary\":\"\",\"replanTriggerType\":\"\",\"replanNodeId\":\"\",\"deliverable\":true,\"live\":true,\"deadlineAt\":0,\"title\":\"同名任务\",\"missionTitle\":\"季度事项\",\"detailsText\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n完整计划结尾\",\"detailsComplete\":true}]"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Pending fixture requests powershell_run, unavailable on Mac, so only plan/question pending rows exist and the permission fixture never becomes ready.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-decisions.browser.e2e.js",
+          "line": 16,
+          "snippet": "        else if (text.includes('DECISION_PERMISSION')) ctx.toolCall('powershell_run', { command: 'Write-Output decision-fixture' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a7b10964e6bd26146bff6e30b4af0b922c59f8737c40368c248dd57580f1c86c"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-exempt-shell-send.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1008,
+      "failedAssertions": [
+        "FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)",
+        "FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)",
+        "PASS H2 ② 权限待决落盘形状 = 用户真机那几条(toolName=shell_send, tier=exec, input={shellId,input,timeoutMs};实得 {\"toolName\":\"shell_send\",\"tier\":\"exec\",\"keys\":[\"shellId\",\"input\",\"timeoutMs\"]})"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Fixture deliberately sends PowerShell commands into shell_send; on Mac its default shell is bash. The missing marker/flush is a fixture language mismatch, not proof exemption or literal shell_send authorization is broken.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-shell-send.e2e.js",
+          "line": 8,
+          "snippet": "// powershell_run/run_command 不命中名字,走的是命令文本扫描。方向是反的。",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "c725502e9359b6c1dfc8dcc6a14160d7a1e7acbb1763f8ca4f5606761f2be2b4"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "workbench-self-status.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1039,
+      "failedAssertions": [
+        "FAIL section:'counts' 含 counts.nativeTools=120",
+        "FAIL counts.nativeTools === 120(got 121)"
+      ],
+      "category": "stale_inventory_or_source_contract",
+      "basis": "Only two fixed nativeTools===120 expectations fail; live count is121 (same current documented inventory). Update inventory expectations without discarding behavioral checks.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/workbench-self-status.e2e.js",
+          "line": 7,
+          "snippet": "//   (b) counts.nativeTools === 120(steward_bot_setup +1;thread_title_update +1;跨线程只读 threads_search/thread_read:116→118;注册表工具数;61-C4 增 checkpoint_list、61-C1 增 playbook_list / playbook_read / skill_list、61-C2 增 scratchpad_write,107→112,129b 增三张只读清单 97→100,129d 增眼睛四件 100→104,129e 增一件 104→105,129f 增 steward_notify 105→106,137 代理模式 v2 增 agent_result 106→107;第 116 波 116c 起 63→80,新增 17 个 steward_* 管家工具;123-M2 增六件定时任务 90→96;",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "580a0b8241777745a63984f5e59a070ca62fc645a52bc431af1b65d310506b8b"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "long-tool-liveness-steer.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1071,
+      "failedAssertions": [
+        "FAIL MCP receives notifications/cancelled reason=user_steer",
+        "FAIL steer accepted during native PowerShell tool",
+        "FAIL native tool_result confirms process interruption",
+        "FAIL native-tool steer reaches the next model iteration",
+        "FAIL powershell_run: ordinary addition preserves successful tool completion",
+        "FAIL native work is actually completed, not merely left orphaned"
+      ],
+      "category": "mac_applicable_unresolved",
+      "basis": "Mixed case: all native PowerShell assertions are inapplicable on Mac and PID reaping uses tasklist, but the first portable fake-MCP phase also lacks captured notifications/cancelled reason=user_steer. Other first-phase interruption/liveness/continuation checks pass. Notification delivery may race child termination; retain as Mac-applicable unresolved rather than hiding it behind the PowerShell failures.",
+      "verdict": "requires_portable_mcp_notification_diagnosis_or_contract_resolution",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/long-tool-liveness-steer.e2e.js",
+          "line": 110,
+          "snippet": "    ok(notifications.some(row => row.method === 'notifications/cancelled' && row.params && row.params.reason === 'user_steer'), 'MCP receives notifications/cancelled reason=user_steer');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b74ba72fbcaf9dd30fe59a1ca62099a12ff3879baddff28b832e5182abf56a36"
+        },
+        {
+          "path": "dev-harness/long-tool-liveness-steer.e2e.js",
+          "line": 120,
+          "snippet": "      env: { ...process.env, FAKE_OPENAI_PORT: String(providerPort), FAKE_TOOL_NAME: 'powershell_run', FAKE_TOOL_ARGS: JSON.stringify({ command: 'Start-Sleep -Seconds 30; Write-Output late', timeoutMs: 60000 }) },",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b74ba72fbcaf9dd30fe59a1ca62099a12ff3879baddff28b832e5182abf56a36"
+        },
+        {
+          "path": "dev-harness/long-tool-liveness-steer.e2e.js",
+          "line": 60,
+          "snippet": "  try { return new RegExp('\\\\b' + pid + '\\\\b').test(cp.execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8', windowsHide: true })); }",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b74ba72fbcaf9dd30fe59a1ca62099a12ff3879baddff28b832e5182abf56a36"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-capture-host.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1111,
+      "failedAssertions": [
+        "FAIL App-launched helper has its own verified capture authorization",
+        "FAIL normal App HTTP tool entry captures a real PNG"
+      ],
+      "category": "mac_gui_qualification_environment",
+      "basis": "The App launches and service starts, but its helper capture authorization is not granted and HTTP capture fails. A newly built/worktree App/helper identity is not the already qualified main-checkout identity. This is a real current-environment qualification failure; do not count capture as passed or label it a new P6 production regression without identity/TCC evidence.",
+      "verdict": "mac_qualification_not_satisfied_in_this_environment",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-capture-host.e2e.js",
+          "line": 26,
+          "snippet": "    const bundle=process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing)?existing:buildMacDesktop(path.join(root,'Ruyi.app')));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594"
+        },
+        {
+          "path": "dev-harness/macos-capture-host.e2e.js",
+          "line": 67,
+          "snippet": "    t.ok(extra.capture?.ready===true && extra.capture.authorization==='granted','App-launched helper has its own verified capture authorization');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-input-apps.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1135,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-input-apps.e2e.js",
+          "line": 117,
+          "snippet": "    const connection = { id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-manual-record.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1157,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-manual-record.e2e.js",
+          "line": 211,
+          "snippet": "        command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'), args: ['-X', 'utf8', '-m', 'ai_computer_control.server'], cwd: repo,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "519e0d77063c77c43c1f1b665ebc0e88a8d5dfa282c2def937f9a4c996d8d7f9"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-record.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1187,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-record.e2e.js",
+          "line": 70,
+          "snippet": "    client = new S.McpStdioClient({ id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "mcp-import-origin.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1207,
+      "failedAssertions": [
+        "FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：\"\"）",
+        "FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Synthetic Claude launcher is a Windows claude.cmd; missing add-json capture on Mac does not prove origin provenance filtering failed. Import/ownership assertions pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/mcp-import-origin.e2e.js",
+          "line": 75,
+          "snippet": "  const fakeClaude = path.join(HOME, 'claude.cmd');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "51a6dfcbe4c70ba6adccbdccbde17d8e41b68f3901f6b0e9678332bcf06450ff"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "permission-plain.browser.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1239,
+      "failedAssertions": [
+        "FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')",
+        "FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "The exec modal phase requests powershell_run/Get-Date, unavailable on Mac, so its permission DOM is null. Earlier real file-write modal and approval checks pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/permission-plain.browser.e2e.js",
+          "line": 50,
+          "snippet": "          if (!last || last.role !== 'tool') { ctx.toolCall('powershell_run', { command: 'Get-Date' }); return; }",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c0568a1c5b7681ea4ad1edcb9e0ca365cf10d4416ad4111802e3d590de99769"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "subagent-net-tools.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1271,
+      "failedAssertions": [
+        "FAIL ③ runSubAgentCore 外壳委托本体 runSubAgentCoreBody"
+      ],
+      "category": "stale_inventory_or_source_contract",
+      "basis": "Structural regex requires direct return await runSubAgentCoreBody(opts,lifecycle); current wrapper deliberately delegates through DesktopExecutionHooks.runNode and still calls that body. This is a stale source shape lock, not evidence networking/tier checks broke.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/subagent-net-tools.e2e.js",
+          "line": 51,
+          "snippet": "  ok(/return await runSubAgentCoreBody\\(opts, lifecycle\\)/.test(functionBlock(src, 'runSubAgentCore')), '③ runSubAgentCore 外壳委托本体 runSubAgentCoreBody');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "9a30926383597933c9e80ab060fd684591fda8c5ddbe54d17fefd0d501735de6"
+        },
+        {
+          "path": "ruyi-workbench/app/src/08-agent-runs.js",
+          "line": 621,
+          "snippet": "  try { return await DesktopExecutionHooks.runNode(opts.desktopNode, () => runSubAgentCoreBody(opts, lifecycle)); }",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "66604b4a046fb46ef3973ae1c0ca76c43738552bdbb1b2b1fd7c371529c1ac7d"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "tool-audit-r2-meta.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1301,
+      "failedAssertions": [
+        "FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))",
+        "FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')",
+        "PASS D1 runId 全不存在 → 顶层 ok:false + notFound(修前 ok:true settled:false,读起来像还在跑;got {\"ok\":false,\"notFound\":[\"run_doesnotexist\"],\"timedOut\":false})"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Metadata sweep requires unsupported Windows tools powershell_run, script_run, keyboard_send_keys plus unconditional screenshot availability. Missing schema then causes TypeError. A platform-aware sweep must check actual catalog and retain portable descriptions.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-r2-meta.e2e.js",
+          "line": 164,
+          "snippet": "    powershell_run: ['command', 'timeoutMs'], shell_send: ['shellId', 'input'], shell_poll: ['shellId'], script_run: ['language', 'code', 'timeoutMs'],",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d9dce1eaccaa53a1c4e9d2ca0523c23483db1d90ded2f31c7cf259b6197dc09e"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "tool-dispatch.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1334,
+      "failedAssertions": [
+        "FAIL L1 注册表 120 个工具(steward_bot_setup:119→120;thread_title_update:118→119;跨线程只读 threads_search/thread_read:116→118;got 121; 61-C2 增 scratchpad_write:111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具:108→111;第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106;137 代理模式 v2 增 agent_result:106→107(spawn_agent 留作兼容口仍在册);61 号文 C4 增只读 checkpoint_list:107→108)"
+      ],
+      "category": "stale_inventory_or_source_contract",
+      "basis": "Single fixed registry120 assertion fails against actual121; rest of tool dispatch sweep passes.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/tool-dispatch.e2e.js",
+          "line": 45,
+          "snippet": "ok(names.length === 120, `L1 注册表 120 个工具(steward_bot_setup:119→120;thread_title_update:118→119;跨线程只读 threads_search/thread_read:116→118;got ${names.length}; 61-C2 增 scratchpad_write:111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具:108→111;第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{creat",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "43fa2d1851f214ad2e718a18c175984504213fe0ff1afd1f24079ce8bf9e13d4"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "artifacts.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1364,
+      "failedAssertions": [
+        "FAIL (unit) pathWithinRoot: nested → true",
+        "FAIL (unit) pathWithinAnyRoot: any root matches",
+        "FAIL (T3 unit) write_docx {path} → {write, abs}",
+        "FAIL (T3 unit) write_document 识别",
+        "TypeError: Cannot read properties of null (reading 'mode')"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Unit section feeds C:\\ws Windows absolute paths into host-POSIX path functions, including collectBridgedWriteTarget. It then dereferences a null result; this does not exercise a valid Mac artifact path.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/artifacts.e2e.js",
+          "line": 164,
+          "snippet": "    const abs = 'C:\\\\ws\\\\a.docx';",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "9728e106dfd2128cca95d197a2e653ddafa2b488ce3dc6b5dd9c907c90ca0812"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1397,
+      "failedAssertions": [
+        "FAIL (A6) normalizeConfig 替换 claudePath → exe",
+        "FAIL (A7) memoize 一致",
+        "FAIL (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/claude.cmd"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Test synthesizes Windows npm .cmd shims and expects their .exe resolution; Mac CLI discovery follows POSIX launchers instead.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/claude-exe-resolve.e2e.js",
+          "line": 2,
+          "snippet": "// E2E (P1: cmd8191 根治 — npm shim → 真身 claude.exe 解析): claude.cmd 只是转发 shim,经 cmd.exe",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "da97034c924779007a5a71ed9490c24afecb643b566c36c4978dc0ab7d257c00"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "cli-probe-stall.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1429,
+      "failedAssertions": [
+        "FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )",
+        "FAIL C3 过期期间答旧值,不是空串(claude  / kimi )",
+        "FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Slow fake CLIs are .cmd files with Windows batch bodies and PATH=System32. Mac cannot use them, invalidating C1/C3/C4. Health latency assertions themselves pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/cli-probe-stall.e2e.js",
+          "line": 47,
+          "snippet": "const CLAUDE_CLI = slowCli('claude-slow.cmd', path.join(WORK, 'claude-never.flag'));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "f97ce4c8a8aa5095023c965b93f67724fbec5d9d42d3c2c6ef7564e455be0228"
+        },
+        {
+          "path": "dev-harness/cli-probe-stall.e2e.js",
+          "line": 72,
+          "snippet": "      PATH: sysDir, Path: sysDir, APPDATA: EMPTY, LOCALAPPDATA: EMPTY, ProgramFiles: EMPTY,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "f97ce4c8a8aa5095023c965b93f67724fbec5d9d42d3c2c6ef7564e455be0228"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-audit-cancellation.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1457,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-audit-cancellation.e2e.js",
+          "line": 120,
+          "snippet": "    client = new S.McpStdioClient({ id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-input-events.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1477,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-input-events.e2e.js",
+          "line": 99,
+          "snippet": "    client = new S.McpStdioClient({ id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1502,
+      "failedAssertions": [
+        "FAIL (b) no real secret-pattern hits — HITS: MACOS-PORTING/evidence/P0/unit-full.txt:13030, MACOS-PORTING/evidence/P1/capabilities/unit-final.txt:2999, MACOS-PORTING/evidence/P1/capabilities/unit-first.txt:3000, MACOS-PORTING/evidence/P1/capabilities/unit.txt:2999, MACOS-PORTING/evidence/P1/cli-model-probe/unit.txt:2999, MACOS-PORTING/evidence/P1/discovery-ui/unit-final.txt:2999, MACOS-PORTING/evidence/P1/document-reader/unit.txt:2999, MACOS-PORTING/evidence/P1/executable-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/files/unit-final.txt:2999, MACOS-PORTING/evidence/P1/files/unit-first.txt:2999, MACOS-PORTING/evidence/P1/files/unit-fixture-regression.txt:234, MACOS-PORTING/evidence/P1/git-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-gate/unit.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-first.txt:2999, MACOS-PORTING/evidence/P1/media-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/opener-completion/unit.txt:2999, MACOS-PORTING/evidence/P1/overlay-boundary/unit.txt:2999, MACOS-PORTING/evidence/P1/ownership/review-unit-full.txt:2998, MACOS-PORTING/evidence/P1/ownership/unit-final.txt:2993, MACOS-PORTING/evidence/P1/ownership/unit-full.txt:2992, MACOS-PORTING/evidence/P1/path-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/process-handles/unit.txt:2999, MACOS-PORTING/evidence/P1/process-integration/unit-final.txt:2999, MACOS-PORTING/evidence/P1/processes/exit-confirmation-unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-full.txt:2998, MACOS-PORTING/evidence/P1/python-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/rg-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/search-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/shell/unit-final.txt:2999, MACOS-PORTING/evidence/P1/supervisor/unit-final.txt:2998, MACOS-PORTING/evidence/P1/synchronous-probe-audit/unit.txt:2999, MACOS-PORTING/evidence/P1/synchronous-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/unit-final-source.txt:2988, MACOS-PORTING/evidence/P1/worktree-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/write-queue-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P2/bots/unit.txt:2998, MACOS-PORTING/evidence/P2/cli-live/unit.txt:2998, MACOS-PORTING/evidence/P2/cli/unit-first.txt:2999, MACOS-PORTING/evidence/P2/cli/unit.txt:2999, MACOS-PORTING/evidence/P2/core/unit.txt:2997, MACOS-PORTING/evidence/P2/final-acceptance/unit.txt:2998, MACOS-PORTING/evidence/P2/keychain/unit-first.txt:2997, MACOS-PORTING/evidence/P2/keychain/unit.txt:2997, MACOS-PORTING/evidence/P3/acc-shared/unit.txt:2998, MACOS-PORTING/evidence/P3/browser/unit.txt:2998, MACOS-PORTING/evidence/P3/final-mac-acceptance/checks/unit.txt:2999, MACOS-PORTING/evidence/P3/office/unit.txt:2998, MACOS-PORTING/evidence/P3/templates/unit-first.txt:2998, MACOS-PORTING/evidence/P3/templates/unit.txt:2999, MACOS-PORTING/evidence/P4/bridge/workspace-alias/unit-final.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/closeout-unit.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/unit.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-final.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-fixed.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit.txt:2999, MACOS-PORTING/evidence/P4/media/physical/new-unit-final.txt:2999, MACOS-PORTING/evidence/P4/media/unit-final.txt:2999, MACOS-PORTING/evidence/P5/audit/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-final-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/unit-final.txt:2999, MACOS-PORTING/evidence/P5/ax/unit.txt:2999, MACOS-PORTING/evidence/P5/capture/unit.txt:2999, MACOS-PORTING/evidence/P5/composed/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/unit.txt:3016, MACOS-PORTING/evidence/P5/entry/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/input/events/unit-accepted.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-current.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-final.txt:2999, MACOS-PORTING/evidence/P5/input/unit.txt:2999, MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-unit-first.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v3/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v4/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v5/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fullunit.txt:3007, MACOS-PORTING/evidence/P5/ocr/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/record/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/transition/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P6/internal-trial/unit-all.txt:3152, MACOS-PORTING/evidence/P6/offline/unit-all.txt:3144, MACOS-PORTING/evidence/P6/offline/unit-release.txt:3147",
+        "FAIL (f③) claude mcp add-json from this save got the real env/args (0 call(s))"
+      ],
+      "category": "other_fixture_contract",
+      "basis": "Two fixture issues: secret scan flags repeated deterministic key-shaped values printed in historical unit evidence (trace to steward-config-tier.test.js synthetic sk- plus a.repeat(40)); add-json capture uses Windows claude.cmd. This review classifies only the reported hits after checking their origin, not all arbitrary future matches, and does not claim a blanket clean scan.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/unit/steward-config-tier.test.js",
+          "line": 328,
+          "snippet": "  const mixed = stewardActConfirmSpec('steward_config_set', { patch: { [confirmKey]: 'x', [freeKey]: 'y', modelsApiKey: 'sk-' + 'a'.repeat(40) } });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1016a4054f27ccb55cb811de06fe2033067a4a730659e4672dab20f943cad764"
+        },
+        {
+          "path": "dev-harness/repo-hygiene.e2e.js",
+          "line": 307,
+          "snippet": "    const fakeClaude = path.join(MCP_HOME, 'claude.cmd');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "84fcc516bf4bc851a130e3dc1d2f2b56c1e5e0171df18985e3214f3c1c1c5189"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "settings-wave1.browser.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1533,
+      "failedAssertions": [
+        "FAIL W3a 回滚失败的提示是 message 原句(实测 \" \")",
+        "FAIL W3b 选 zip 失败的 toast 是 message 原句(实测 null)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Only overlay rollback/file-picker message assertions fail; Mac overlay UI is intentionally unavailable. These Windows UI paths should be tested on Windows, while Mac must preserve its explicit unsupported boundary.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/settings-wave1.browser.e2e.js",
+          "line": 219,
+          "snippet": "    ok(rollbackHint === ENVELOPE_MESSAGE, `W3a 回滚失败的提示是 message 原句(实测 ${JSON.stringify(rollbackHint)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d7a7bd4ee48dc42230ed8b7423e9da264d6a1768e59e75976590067894c2f5ad"
+        },
+        {
+          "path": "dev-harness/settings-wave1.browser.e2e.js",
+          "line": 224,
+          "snippet": "    ok(Boolean(pickToast) && !String(pickToast).includes('[object Object]'), `W3b 选 zip 失败的 toast 是 message 原句(实测 ${JSON.stringify(pickToast)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "d7a7bd4ee48dc42230ed8b7423e9da264d6a1768e59e75976590067894c2f5ad"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-exempt-delegation.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "TIMEOUT",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1564,
+      "failedAssertions": [
+        "FAIL D49 调用返回之后会话头的粘性污染位 = http_request(实得 null)",
+        "FAIL D49b 紧跟着的 git push → blockedBy:tainted(读回来的是接口响应),命令没跑(实得 null)",
+        "FAIL D50 ② 本回合读过网页后 git push → blockedBy:tainted, taintBy:turn:web_fetch,命令没跑(实得 null)",
+        "FAIL D51 ② 同一回合删文件类 → 代批(实得 null)",
+        "FAIL R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\\tmp -Recurse 停下来问了(实得 null)",
+        "FAIL R11 ① 没有任何人按:轮询 → 管家收件箱回合 → steward_decide 代批落定,tmp 真被删了(实得 status=null tmpExists=true decidedBy=null)",
+        "FAIL R12 ① 工具结果告诉模型:代批了、是「删数据」类(实得 null)",
+        "FAIL R20 前提:web_fetch 之后的 git push 停下来问了(实得 null)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Fixture repeatedly requires real PowerShell execution and pending requests (Remove-Item, git push via powershell_run); Mac platform refusal prevents those prerequisites and causes timeout. Portable exemption policy coverage is not proven by this failed process.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-delegation.e2e.js",
+          "line": 12,
+          "snippet": "//       ① powershell_run `Remove-Item .\\tmp -Recurse`  —— 停下来问 → 轮询(15 s)→ 去抖(5 s)→ 管家收件箱回合 →",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "175a070ff77a7494a012cfe11f4eb3ca5c5cd818498cb9d25631726d636583b4"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "tool-audit-fixes.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1618,
+      "failedAssertions": [
+        "FAIL M6 browser_open 不把 .bat 交给系统关联(got {\"ok\":false,\"code\":\"ENOENT\",\"error\":\"无法解析要打开的本地浏览器路径\",\"target\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-to)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "M6 expects Windows .bat association behavior. Mac returns ENOENT for a nonexistent local target before its unsafe-extension path, still refuses execution. Verify the Mac opener using existing macos-runtime-start boundary cases.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-fixes.e2e.js",
+          "line": 160,
+          "snippet": "  ok(exe.ok === false && /只打开网址/.test(String(exe.error || '')), `M6 browser_open 不把 .bat 交给系统关联(got ${JSON.stringify(exe).slice(0, 120)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "639b691bc0457a11381c365d93e665076b4e0e1fec0de2203030f194d5c7949a"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "tool-audit-r2-netexec.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1648,
+      "failedAssertions": [
+        "FAIL N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got {\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-4QDgUa/generated/screenshot-1794476936165.png\",\"width\":3420,\"height\":2214,\"origin\":{\"x\":0,\"y\":0},\"scale\":2,\"scale_y\":2,\"coordinate_space\":\"ma)",
+        "FAIL N7b keyboard_send_keys 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'keyboard_send_keys' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具)",
+        "FAIL N7c script_run 缺省 powershell 无 PowerShell → windows_only 且指路 python/node(got {\"ok\":true,\"code\":0,\"timedOut\":false,\"interrupted\":false,\"cleanupScope\":\"owned-group-and-observed\",\"cleanupIncomplete\":false,\"cleanupEscapeCoverage\":\"observed-only\",\"cleanupUnconfirmed\":0,\"stderr\":\"\",)",
+        "FAIL N7d powershell_run 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可)",
+        "FAIL N5d shell_start 无 PowerShell → ok:false(修前 ok:true 的死会话;got {\"ok\":true,\"shellId\":\"dead1\",\"name\":\"dead1\",\"cwd\":\"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-F6eW6r\",\"mode\":\"interactive\",\"shell\":\")",
+        "FAIL N5e 起不来的 shell 不留空壳会话(got [{\"shellId\":\"dead1\",\"name\":\"dead1\",\"cwd\":\"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-F6eW6r\",\"running\":true,\"exitCode\":null,\"mode\":\"interactive\",\"timedOut\":false,\"startedAt\":\"2026-11-12T09:48:56.792Z\",\"lastUsedAt\":\"2026-11-12T09:48:56.792Z\",\"bytes\":0}])",
+        "FAIL N3d 名字过长 → {ok:false, code, error} 信封,不抛(修前裸异常 ENAMETOOLONG;got {\"ok\":false,\"error\":\"该路径经过无法解析的符号链接/联接,已拒绝\",\"code\":\"not-allowed\"})",
+        "FAIL N5a 会话 A 起 a3(got {\"ok\":false,\"error\":\"本会话的 shell 已达上限 3(运行中 3 个)\",\"hint\":\"先 shell_kill 释放(shell_list 可见本会话全部,含已退出)\"})"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "N7/N5 hardcode legacy windows_only and assume no PowerShell means screenshot/script/shell unavailable. Mac now intentionally provides native screenshot and bash while rejecting Windows-only tools.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+          "line": 118,
+          "snippet": "      `N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got ${JSON.stringify(shot0).slice(0, 220)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1b3803a14deda1872a3dc0b06862cfbecfdc9edabe1b2337dc7ab29b249b57aa"
+        },
+        {
+          "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+          "line": 126,
+          "snippet": "    ok(sh0.ok === false && sh0.code === 'windows_only', `N5d shell_start 无 PowerShell → ok:false(修前 ok:true 的死会话;got ${JSON.stringify(sh0).slice(0, 160)})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "1b3803a14deda1872a3dc0b06862cfbecfdc9edabe1b2337dc7ab29b249b57aa"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "tool-invoke-promote.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1694,
+      "failedAssertions": [
+        "FAIL P6 第一发就带起手工具(got workbench_memory_list,workbench_memory_read,workbench_memory_propose,observation_recall,shell_run,web_search,web_fetch,request_user_input,todo_write,mission_update,workbench_self_status,thread_title_update,scratchpad_write,list_tools,tool_search,tool_load,tool_invoke_read,tool_invoke_edit,tool_invoke_exec)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Only initial-tool-list expectation insists powershell_run is available; actual Mac list has shell_run. Proxy promotion and append-order cases otherwise pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/tool-invoke-promote.e2e.js",
+          "line": 147,
+          "snippet": "  ok(r1 && ['web_search', 'web_fetch', 'powershell_run'].every(n => toolNames(r1).includes(n)), `P6 第一发就带起手工具(got ${r1 && toolNames(r1).join(',')})`);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "dd98f8f1bcc0101dfb9069c7f3f41268ad1f9e8d5b315578682466e174b88ad4"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "agent-mode-v2.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1724,
+      "failedAssertions": [
+        "FAIL B a new turn completes normally while the agent is still running",
+        "FAIL F2 precondition: the parent powershell_run pause really ran — {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。\"}",
+        "FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {\"kind\":\"agent_envelope\"}",
+        "FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1",
+        "FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)",
+        "FAIL F3 parent context carries exactly two distinct notices in total (first run + notice-first run)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "The parallel-parent and notice-first prerequisites use a real powershell_run pause; platform rejection removes the intended delay and changes timing/delivery order. Keep as Windows prerequisite failure rather than claiming agent delivery passed on Mac.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/agent-mode-v2.e2e.js",
+          "line": 106,
+          "snippet": "      CMD_NOTICE6: [{ name: 'orchestrate_agents', args: { task: '瞬时后台收件', agentKey: 'instbg', toolTier: 'read', background: true } }, { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output parent-paused', timeoutMs: 20000 } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件(通知先到)。' }],",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "01afe1f1e68f232462b989ac5e5be50f59829be3ed24036882aef7d00f1b8ff6"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "audit-w23.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1759,
+      "failedAssertions": [
+        "FAIL P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程",
+        "FAIL P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)",
+        "FAIL P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)"
+      ],
+      "category": "stale_inventory_or_source_contract",
+      "basis": "Three structural assertions require retired killChildTree(child.pid), old saveSession atomicWriteJson/sessionWriteChains spelling, and exact node.degraded assignment. Current implementation moved ownership/persistence/degraded handling. No behavior failure established by these regexes; adapt using runtime invariants.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 130,
+          "snippet": "    ok(/killChildTree\\(child\\.pid\\)/.test(slice), 'P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        },
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 156,
+          "snippet": "    ok(/atomicWriteJson\\(finalPath, payload\\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        },
+        {
+          "path": "dev-harness/audit-w23.e2e.js",
+          "line": 167,
+          "snippet": "  ok(/node\\.degraded = !!\\(sub && sub\\.degraded\\);/.test(src), 'P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "62e5b3f5ad8ffb262153153b5c33469a83363065311582cf3b908f74b693b7f8"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "autonomy-benchmark.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1791,
+      "failedAssertions": [
+        "FAIL 任务1 四个重构文件都已写出",
+        "FAIL 任务2 三份汇编片段都已写出"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Fake provider constructs file_write/file_read paths by appending backslashes to POSIX WS; expected files checked with path.join are different filenames. Missing output assertions are caused by the fixture path contract.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/autonomy-benchmark.e2e.js",
+          "line": 99,
+          "snippet": "        if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\\\app.js', content: 'function add(a, b) { return a - b; }\\n' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b9e9aaf95bc1cf9e75bd2dfa41b7fee4a754d54457426a2bc70967dfeb08a7af"
+        },
+        {
+          "path": "dev-harness/autonomy-benchmark.e2e.js",
+          "line": 109,
+          "snippet": "      if (turnTools === 0) return streamToolCall(rs, 'file_read', { path: WS + '\\\\src\\\\' + src + '.txt' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b9e9aaf95bc1cf9e75bd2dfa41b7fee4a754d54457426a2bc70967dfeb08a7af"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1822,
+      "failedAssertions": [
+        "FAIL E20 硬终态 tool_progress(budget_hard)已发",
+        "FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)",
+        "FAIL E22 tool_result 带预算中断标记(不冒称正常结束)",
+        "FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)",
+        "FAIL E24 shadow 不动作:命令自然跑完(墙钟 468ms ≥ 8s 命令时长)",
+        "FAIL E27 shadow 落「本应软警告/本应硬杀」各一条(校准阈值用)",
+        "FAIL E28 字节轴只计数:超阈值完成调用落一条计数事件(不改写结果)",
+        "FAIL E19 软警告 tool_progress(budget_soft)已发"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Failing real-time budget sections use powershell_run with Start-Sleep/Write-Output. Mac returns unavailable immediately (observed468ms vs expected8s); these cannot qualify native Mac shell deadlines.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/budget-guard.e2e.js",
+          "line": 206,
+          "snippet": "    const T1 = await launchStack('t1', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 30' } }]) }, WB_FAST);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b7a5100114b2d1110a80e904d91305432db7cc18f884679df652bae52ced19f5"
+        },
+        {
+          "path": "dev-harness/budget-guard.e2e.js",
+          "line": 226,
+          "snippet": "    const T2 = await launchStack('t2', { runtimeToolTimeBudgetShadowV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000, toolByteBudgetShadowBytesV1: 10 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: \"Start-Sleep -Seconds 8; Write-Output ('x'*50)\" } }]) }, WB_FAST);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "b7a5100114b2d1110a80e904d91305432db7cc18f884679df652bae52ced19f5"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "desktop-mcp-smoke.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1866,
+      "failedAssertions": [
+        "FAIL repo detection includes the verified offline python_embed runtime",
+        "FAIL portable Full package Python is ordered before machine-local installed runtimes",
+        "SKIP real desktop MCP smoke — could not start (needs target machine / python deps): handshake failed: mcp child exited (code 1) | stderr: Traceback (most recent call last):"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Two failed discovery assertions hardcode Windows python_embed/python.exe and C:\\portable-full. The optional real smoke additionally skips after local Python dependency import failure; no Full packaged-runtime defect is established.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+          "line": 44,
+          "snippet": "  ok(offlineCandidate && offlineCandidate.command === path.join(REPO, 'python_embed', 'python.exe'), 'repo detection includes the verified offline python_embed runtime');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c572c1f75ec4d9aad528cd3411fbfd69e3e42e58696872b5b4e28491a6d33cc"
+        },
+        {
+          "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+          "line": 45,
+          "snippet": "  const distributionCandidates = desktopPythonCandidates('C:\\\\portable-full\\\\mcp\\\\ai-computer-control');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8c572c1f75ec4d9aad528cd3411fbfd69e3e42e58696872b5b4e28491a6d33cc"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "engine-env-runtime.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1897,
+      "failedAssertions": [
+        "FAIL C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid",
+        "FAIL A0 随包 app/vendor-bin/rg 在仓里",
+        "FAIL A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({\"rg\":false,\"rgSource\":null})",
+        "FAIL A3 体检 search-ripgrep 报随包来源且终端可用 ({\"id\":\"search-ripgrep\",\"ok\":false,\"detail\":\"absent: file_search falls back to the built-in scanner; no rg in shell\"})",
+        "FAIL B1 powershell_run `rg --version` 成功 ({\"ok\":false,\"stdout\":\"\",\"stderr\":\"\"})",
+        "FAIL B2 shell_start 起的交互 shell 里 `rg --version` 成功 (\"/bin/bash: line 8: rg: command not found\\n\")",
+        "FAIL B4 provider 易变层:能力行写明终端可直接用 rg + 当前权限档含义"
+      ],
+      "category": "missing_development_rg_and_windows_fixture",
+      "basis": "Baseline source tree contains rg.exe but no Mac app/vendor-bin/rg. Thus bundled-rg status is absent in that developer worktree; B1 additionally uses unsupported powershell_run. Final offline candidate must separately prove its bundled Mach-O rg, not inherit this source-checkout failure or be waived without payload validation.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/engine-env-runtime.e2e.js",
+          "line": 13,
+          "snippet": "//   (B) fake provider 回合里:powershell_run 跑 `rg --version` 成功(stdout 含 ripgrep);shell_start 起的",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "92dec17b037d9cf1003d83dd9694e390aea2c7b36ac1a4f5589dc5fef04c9234"
+        },
+        {
+          "path": "dev-harness/engine-env-runtime.e2e.js",
+          "line": 5,
+          "snippet": "// 取证结论:随包 rg.exe 在 app/vendor-bin,而修前 probeRg 找的是 appRoot()/vendor-bin(产品根下,不存在),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "92dec17b037d9cf1003d83dd9694e390aea2c7b36ac1a4f5589dc5fef04c9234"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-capture.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1934,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-capture.e2e.js",
+          "line": 91,
+          "snippet": "    const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-input-host.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1959,
+      "failedAssertions": [
+        "FAIL real receiver confirms the App-originated Chinese text",
+        "FAIL real receiver confirms the App-originated balanced click and wheel events",
+        "FAIL the authorized App launches the server from this exact candidate worktree",
+        "FAIL App and service process identities were observed before shutdown",
+        "FAIL App-launched ACC has its own actual Accessibility and event authorization",
+        "FAIL normal App HTTP tool route focuses the exact owned receiver",
+        "FAIL normal App HTTP tool route sends Chinese Unicode events",
+        "FAIL App launch chain sends guarded pointer and wheel events"
+      ],
+      "category": "mac_gui_qualification_environment",
+      "basis": "Actual receiver text/pointer checks and App worktree/owned identity/Accessibility assertions fail. The copied/default worktree runtime and helper identity plus absent developer ACC venv are different from the qualified main workspace. Preserve as unqualified current environment; neither grant nor correct candidate launch is established.",
+      "verdict": "mac_qualification_not_satisfied_in_this_environment",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 125,
+          "snippet": "    const bundle = process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing) ? existing : buildMacDesktop(path.join(root, 'Ruyi.app')));",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 131,
+          "snippet": "    const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 329,
+          "snippet": "      'the authorized App launches the server from this exact candidate worktree');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-observe.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 1998,
+      "failedAssertions": [
+        "FAIL Error: handshake failed: mcp child error: Unable to execute /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/mcp/ai-computer-control/.venv/bin/python (errno 2)"
+      ],
+      "category": "missing_development_acc_environment",
+      "basis": "Both attempts fail before ACC MCP handshake because the baseline worktree has no ignored mcp/ai-computer-control/.venv/bin/python. This is a test-environment omission; the main checkout does have this venv. It does not prove any packaged Full runtime failure. These Mac capability scenarios remain unexecuted in this baseline environment.",
+      "verdict": "not_executed_due_missing_ignored_dependency",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-observe.e2e.js",
+          "line": 68,
+          "snippet": "    client = new S.McpStdioClient({ id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "macos-runtime-start.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2018,
+      "failedAssertions": [
+        "FAIL Error: condition timed out"
+      ],
+      "category": "other_fixture_contract",
+      "basis": "Deterministic isolation mismatch: fixture creates node symlink under process.env.HOME/.local/bin, then launches start-macos.command with a different HOME from fixtureChildEnv(). With clean PATH and blank RUYI_NODE_PATH the launcher cannot find that symlink. This is not evidence a correctly bundled install lacks Node.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/macos-runtime-start.e2e.js",
+          "line": 109,
+          "snippet": "    const localBin = path.join(process.env.HOME, '.local', 'bin');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "6aedd79c9f8e076a78303441ecb151b9ff553256ec294c68ee80d5993b55b069"
+        },
+        {
+          "path": "dev-harness/macos-runtime-start.e2e.js",
+          "line": 114,
+          "snippet": "      env: { ...process.env, ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data,",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "6aedd79c9f8e076a78303441ecb151b9ff553256ec294c68ee80d5993b55b069"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "mission-driver.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2049,
+      "failedAssertions": [
+        "FAIL A 三个里程碑文件都已写出"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Fake provider uses WS + backslash + milestone.txt, while checks use path.join(WS, milestone.txt); backslash is not a POSIX directory separator.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/mission-driver.e2e.js",
+          "line": 101,
+          "snippet": "    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\\\' + mk + '.txt', content: mk + ' 完成' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "316694d120fbef95c6bfed392b38cd82538d25b127b23670a50aff75e2c05890"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "provider-pairing-repair.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2079,
+      "failedAssertions": [
+        "FAIL L6 会话出现 🛠 修复系统消息(补 1 条)"
+      ],
+      "category": "stale_inventory_or_source_contract",
+      "basis": "Only L6 requires retired exact Chinese content “补1条丢失的工具结果”. Current production intentionally records unconfirmed execution/impact; successful repair, next turn and argument coercion cases pass. Keep meaningful repair-message presence/count and no-replay assertions when adapting.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/provider-pairing-repair.e2e.js",
+          "line": 270,
+          "snippet": "  ok(msgs1.some(m => m && m.source === 'repair' && /补 1 条丢失的工具结果/.test(m.content || '')), 'L6 会话出现 🛠 修复系统消息(补 1 条)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "737975f00117c1dbc4a53ed0200e638cb37ce01fa5595acdf2ca99354384b5c1"
+        },
+        {
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "line": 1641,
+          "snippet": "    session.messages.push({ role: 'system', content: `🛠 上次回合有 ${pairingRepaired} 项工具调用未保存结果;是否执行及影响未确认,请先核实,避免重复操作`, createdAt: nowIso(), source: 'repair' });",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "shell-mcp-guard.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2109,
+      "failedAssertions": [
+        "FAIL powershell_run still works in MCP child (guard is shell-specific)",
+        "PASS shell_send in MCP child → isError:true",
+        "PASS shell_start in MCP child → isError:true"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Only comparison expects powershell_run to succeed in MCP child; Mac intentionally rejects that Windows tool, while shell_start/shell_send MCP-child guards pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/shell-mcp-guard.e2e.js",
+          "line": 59,
+          "snippet": "    ok(ps.result && ps.result.isError === false && psOut.includes('OK123'), 'powershell_run still works in MCP child (guard is shell-specific)');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "6386605af33092edbd524b95cbc68246d853feb65249e582f68b871c192aa741"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-deferred-permission.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2136,
+      "failedAssertions": [
+        "FAIL P0d 两条线程都停在一条 exec 权限请求上",
+        "FAIL 未捕获异常: Error: no pending permission"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Provider only emits the permission fixture when offered names contain powershell_run; Mac omits it, so both threads complete without the requested exec pending state.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-deferred-permission.e2e.js",
+          "line": 55,
+          "snippet": "  } else if (names.includes('powershell_run') && last && last.role === 'user') {",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "22dbe246510d88795245b33270c49f4a2da7e79611b70c036fc54a9221202567"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-exempt-no-swap.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "TIMEOUT",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2164,
+      "failedAssertions": [
+        "FAIL H-act ① 实际执行的仍是待决里的原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。\"})",
+        "FAIL H-act ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )",
+        "FAIL tool 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)",
+        "FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )",
+        "FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。\"})",
+        "FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )",
+        "FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)",
+        "FAIL H-ctl 用户放行被受理(实得 null)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "All failing prerequisite/decision/replay checks target powershell_run; unavailable Mac execution never creates the expected pending command and the fixture times out.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-exempt-no-swap.e2e.js",
+          "line": 92,
+          "snippet": "    // 原生回合给的是自适应工具表(tool_search/tool_invoke_* 那一套),powershell_run 不在表里;",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "0e60573dac2ab6fdaf376418114ce56ee7c46018fa5535da7c26bce5a902ad66"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-guardrails.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2211,
+      "failedAssertions": [
+        "FAIL O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got [])",
+        "FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)"
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "O10/R2b require exactly two native desktop tools (desktop_screenshot,keyboard_send_keys) to reappear solely from session toggle. Mac correctly gates screenshot readiness and omits unsupported keyboard_send_keys; session toggle cannot grant native capabilities.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-guardrails.e2e.js",
+          "line": 985,
+          "snippet": "    const DESK = ['desktop_screenshot', 'keyboard_send_keys'];",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "000f1f7076f8b80a9330478ef5cfe3825b66ebfc195c3356fbecffc113b3abd0"
+        },
+        {
+          "path": "dev-harness/steward-guardrails.e2e.js",
+          "line": 1130,
+          "snippet": "    const NATIVE_DESK = ['desktop_screenshot', 'keyboard_send_keys'];",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "000f1f7076f8b80a9330478ef5cfe3825b66ebfc195c3356fbecffc113b3abd0"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "steward-tools.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2242,
+      "failedAssertions": [
+        "FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了",
+        "FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-HMUJXt/cap-1,没拿那个没登记成的目录(got \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-HMUJXt/Ruyi-cap/写不下去\")",
+        "FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸",
+        "FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)",
+        "FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-KvvghU/cap-1,没拿那个没登记成的目录(got \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-KvvghU/Ruyi-cap/写不下去\")"
+      ],
+      "category": "other_fixture_contract",
+      "basis": "P8 attempts to simulate Windows read-only replacement failure by chmod(config.json,0444). On POSIX a writable parent permits atomic rename over a read-only file, so the explicit failure precondition does not hold. No failure-path rollback behavior was exercised.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/steward-tools.e2e.js",
+          "line": 1105,
+          "snippet": "      fs.chmodSync(cfgPath, 0o444);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "30dc985848924ae6bdb11800821a65d4fc53def8520098120f74898280273fbb"
+        },
+        {
+          "path": "dev-harness/steward-tools.e2e.js",
+          "line": 1097,
+          "snippet": "    // 造法:把 config.json 设成只读(Windows 的 +R 属性),写链的 tmp -> rename 覆盖会失败。",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "30dc985848924ae6bdb11800821a65d4fc53def8520098120f74898280273fbb"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    },
+    {
+      "file": "vision-loop.e2e.js",
+      "runnerStatus": "FAIL",
+      "runnerExit": "exit=1",
+      "evidenceLog": "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+      "evidenceLine": 2279,
+      "failedAssertions": [
+        "FAIL (a) system prompt has 桌面操控(视觉路径) regimen",
+        "FAIL (d) system prompt has 桌面操控(文本路径) regimen",
+        "PASS (f6) transcribeError:\"asr.upstream\" recorded, no transcript — got: \"asr.upstream\""
+      ],
+      "category": "windows_fixture_or_platform_contract",
+      "basis": "Only Windows visual/text desktop regimen strings fail; production explicitly emits desktop.sharedMac for darwin. Actual image attachment, OCR, taint fences and compressed-image transport assertions pass.",
+      "verdict": "fixture_or_environment_failure_not_a_product_pass",
+      "sourceEvidence": [
+        {
+          "path": "dev-harness/vision-loop.e2e.js",
+          "line": 163,
+          "snippet": "    ok(sysA && /桌面操控\\(视觉路径\\)/.test(String(sysA.content || '')), '(a) system prompt has 桌面操控(视觉路径) regimen');",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "85b1a5208a5b4f57f94cf70b8b699ae3c10e2ab522b4ade63b588463612e952f"
+        },
+        {
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "line": 2111,
+          "snippet": "      lines.push(getPromptPack(config && config.locale).desktop.sharedMac);",
+          "sourceCommit": "20346fba4dcbdcf068b469421236d356dbfae129",
+          "sha256": "a614752d7de7fae66120c52262f03c0b23c650c8c8cebf856a599dd5512a07bf"
+        }
+      ],
+      "countedAsPassed": false,
+      "introducedByCurrentP6Delta": false
+    }
+  ],
+  "confirmedMacProductionDefects": [
+    "mcp-resource-config-mask.e2e.js"
+  ],
+  "macApplicableUnresolved": [
+    "steer-interrupt.e2e.js",
+    "long-tool-liveness-steer.e2e.js"
+  ],
+  "macQualificationEnvironmentUnsatisfied": [
+    "macos-capture-host.e2e.js",
+    "macos-input-host.e2e.js"
+  ],
+  "purePosixResourceURIProof": {
+    "advertisedURI": "file:///var/tmp/example/config.json",
+    "afterCurrentLeadingSlashRemoval": "var/tmp/example/config.json",
+    "resolvedFromAppCwd": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-baseline-7xqw40vs/ruyi-workbench/app/var/tmp/example/config.json",
+    "expectedAbsolute": "/var/tmp/example/config.json",
+    "matchesExpected": false,
+    "mode": "Pure expression proof of current source; no E2E/service launched"
+  },
+  "repoHygieneReportedHitVerification": {
+    "hitOccurrences": 89,
+    "uniqueFileLineHits": 89,
+    "allReportedTokensMatchDeterministicUnitFixture": true,
+    "fixtureOrigin": {
+      "path": "dev-harness/unit/steward-config-tier.test.js",
+      "line": 328
+    },
+    "tokenValuesOmitted": true,
+    "scope": "Only matches listed by this baseline failure. No blanket assertion that all potential secret patterns are harmless."
+  },
+  "missingSourceReferencesToResolve": [],
+  "noExecution": {
+    "testsRun": 0,
+    "servicesStarted": 0,
+    "imagesMounted": 0,
+    "nativeTrashCalls": 0,
+    "securityChanges": []
+  },
+  "scopeVerdict": "Baseline is not green and does not close P6-04. At least the POSIX resources/read defect is confirmed and must be fixed or explicitly scoped out with user agreement; portable MCP cancellation notification and read-batch interrupt boundaries still need diagnosis/contract resolution. Missing dev dependencies, Windows assumptions and obsolete locks do not become product passes. Final changed candidate and real DMG installation/upgrade checks remain separate.",
+  "all55AccountedFor": true
+}

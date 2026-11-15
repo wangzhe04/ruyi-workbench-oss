@@ -1,0 +1,96 @@
+{
+  "binaryAttribute": "*.gz binary",
+  "files": [
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T172604Z.tar.gz",
+      "sha256": "753df32d71b317a1af940d5413bf4ba6e2d0db83bad219b9afca71ff31f06dfd",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T184418Z.tar.gz",
+      "sha256": "138325b7028b79a2127444bcf589d945a1c63978db08341bc51ab32a7c59e8b4",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T153507Z.tar.gz",
+      "sha256": "06e24acbebff6c1c3ba68ec4ee026d51ada746e7fbef33cd989fbcc71fdbd01a",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T175548Z.tar.gz",
+      "sha256": "12b132a99e426f47487257c4bb7f49285e6be2a0650fdf677a633f6dc1a277ea",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T154754Z.tar.gz",
+      "sha256": "c89b37f5e1fb6558a1eafef6279682fd6e4936ad4382d6d6932775061631ccdd",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T201029Z.tar.gz",
+      "sha256": "a3c31dd2d67e1151f5629d3b0a23145408f7113ffbaeda8f87f0f8b68c07e0b2",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-wip-source-v1.tar.gz",
+      "sha256": "6d6c84457b327ccb66673eedb8b4b1304a10746adfedd3a13aa877f873110e44",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v1.tar.gz",
+      "sha256": "269c119fd9f3a6e0d8e14a9ccbb5dda38f37b58ee8077af92dac4b986ee8fef4",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v3.tar.gz",
+      "sha256": "91012888078650e07accd6e2062d72a6ccb49e5096300ab2ea2a53863f788f13",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-freeze-v3.tar.gz",
+      "sha256": "a9f235284180f26f0b03e76b492a158afc700e411edea4f0044ca2941c63ddd5",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v4.tar.gz",
+      "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-source-freeze-v2.tar.gz",
+      "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v2-raw.tar.gz",
+      "sha256": "e49f70135d3132efe7ce1c8073f7fc251bfa0915840f78715005c53b8615146d",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v2.tar.gz",
+      "sha256": "f7d564d36bd2bb4ebbd178c7d3677158335fccd16476a71a53d1b32ae8c6a127",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/raw-root.tar.gz",
+      "sha256": "98ba175b4a74af077009534069d6efb5584589e9883b5e497464eecd3f183e0a",
+      "gitBlobBytesMatch": true,
+      "gzipDecoded": true
+    }
+  ],
+  "allMatched": true
+}

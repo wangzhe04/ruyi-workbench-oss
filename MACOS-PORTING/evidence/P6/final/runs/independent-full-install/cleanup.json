@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-11-12T11:50:13.072Z",
+  "kind": "install",
+  "variant": "full",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-K7WOHb",
+  "files": [
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-K7WOHb/acceptance.json",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az/host.json"
+  ],
+  "observedPids": [
+    34822,
+    34829,
+    34862,
+    34865,
+    35067,
+    35070
+  ],
+  "stillPresent": [],
+  "ownedProcessLines": [],
+  "ownedMountedRoots": [],
+  "offlineRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az",
+  "successfulMovedAppCloneRemoved": true,
+  "reportRetained": true,
+  "pass": true
+}

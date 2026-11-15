@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_balanced_root_input_harness_source_review",
+  "reviewer": "/root/p5_acceptance",
+  "createdAt": "2026-11-11T23:51:24.437769+00:00",
+  "phase": "in_progress",
+  "fullP5Accepted": false,
+  "runtimeQualified": false,
+  "actions": "Read source and design only. No source edits, tests, build, native helper execution, GUI, input posting, process sampling, Stop, kill, release, TCC or lock changes. Only this review JSON created.",
+  "reviewedSnapshot": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js",
+      "bytes": 32059,
+      "sha256": "18f33515d5d415de904a9962e71a23ce9110f793ce4f0d31bc3addf3789502d4"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+      "bytes": 14511,
+      "sha256": "c740e4aade3a7734d444f1cc2598c03ed0deae2a890e33c6d6964b6a175c0bdf"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234429,
+      "sha256": "6f4882baeb99382e4cb21efbf848c7192c703d032b90a5b908186ee1bea932eb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 249802,
+      "sha256": "66604b4a046fb46ef3973ae1c0ca76c43738552bdbb1b2b1fd7c371529c1ac7d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 363565,
+      "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 302071,
+      "sha256": "f794a665826fa1e87f977a670d40ea87e8b4aa0e8358b716747fff8f5980c80b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 28740,
+      "sha256": "e2c4076371c118d67db6aed6ed92a80fbe88a1f4dbe92c8f71209d92c344ad27"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 36479,
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 320122,
+      "sha256": "429693af6534301bbe3805133d87988b042231231b0943ee90ab2e8ee2b678d8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 14931,
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11618,
+      "sha256": "411c553288e9960f10d53a6ba04040e3fa1e28da70d37d6b445c2538910e495a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+    }
+  ],
+  "design": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/root-input-hard-abort-next-stage-design-v1.json",
+    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5"
+  },
+  "decision": "not_source_ready_for_input_run_until_open_failure_path_findings_are_resolved_and_re_reviewed",
+  "openFindings": [
+    {
+      "id": "HARNESS-S1",
+      "priority": "P1",
+      "title": "Failure cleanup disarms the independent observer before proving the actual turn settled",
+      "location": {
+        "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js",
+        "lines": [
+          343,
+          344,
+          345,
+          346,
+          348
+        ]
+      },
+      "evidence": "finally observes a transient neutral state, then commands disarm. Only the later stopRoot() checks every actual session execution is null. An allow request may have been accepted despite its HTTP response or the stream failing, with the native down still pending. Neutral before first post is not proof that the approved call has settled.",
+      "impact": "The fixture remains a passive pad and durably journals events, but loses its armed native PID/birth acceptance interval during a still-live approved invocation. Later events become unmatched noise. This violates the design failure requirement to retain witnesses until pending input and production finally/watchdog settle.",
+      "requestedChange": "Keep the receiver armed while any decision task or actual execution may remain live. Stop future fixture proposals/approvals, allow only production scheduled up/finally/watchdog to settle, verify all actual executions null, then obtain a fresh independent neutral report before disarm and birth-verified cleanup. On a bounded unresolved result, preserve root and armed receiver and report unresolved; inject no Stop/kill/release."
+    },
+    {
+      "id": "HARNESS-S2",
+      "priority": "P1",
+      "title": "Permission-task failures do not latch a no-new-dispatch state immediately",
+      "location": {
+        "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js",
+        "lines": [
+          134,
+          142,
+          155,
+          173,
+          174,
+          178,
+          220,
+          227,
+          245
+        ]
+      },
+      "evidence": "The stream queues each asynchronous decide() and converts rejection to an ordinary object. It checks these errors only after stream EOF. No global/spec failure latch is consulted immediately before approval or at provider proposal branches. A second permission_request can fail the sole-request check while the first task is awaiting independent receiver commands; the first task can still proceed to allow the macro.",
+      "impact": "A known failed gate can coexist with subsequent approval/new proposals. This contradicts the design failure rule to stop new dispatch while keeping an already-running balanced input intact.",
+      "requestedChange": "Latch failures synchronously on failed checks/task rejection and provider handler exceptions, record their source, and consult that latch immediately before each allow decision and before returning any further tool proposal. Preserve every request before applying the latch. Do not cancel/kill an input already approved; let production settle."
+    },
+    {
+      "id": "HARNESS-E1",
+      "priority": "P2",
+      "title": "Evidence omits the partial case and original failure when a case fails before proof.push",
+      "location": {
+        "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js",
+        "lines": [
+          167,
+          273,
+          321,
+          339,
+          353,
+          354
+        ]
+      },
+      "evidence": "spec contains turns/events, target/macro args, native identity and predecision reports, but proof includes that spec only at the end of a successful case. The final artifact does not include top-level specs or structured caught errors. A permission/predecision/result assertion failure before line321 therefore drops the partial spec and SSE permission event from the report; stdout only receives a textual fail line, which is not in output (that variable collects child service output).",
+      "impact": "Raw root receipt/history/journal files remain retained, but the requested review artifact cannot reconstruct all harness-side decisions and failures, particularly a failure before the next provider request.",
+      "requestedChange": "Include every spec from creation and structured failures in the evidence artifact regardless of case success, and retain permission decision request/response attempts before status assertions. turns on spec is useful only when partial specs are also serialized."
+    }
+  ],
+  "resolvedEarlierReviewIssues": [
+    {
+      "id": "HARNESS-C1",
+      "title": "Exact permission wrapper now matches production",
+      "resolution": "Current lines134–136 require tool_invoke_exec and exact {name:ai_computer_control__macro_run,arguments:macroArgs}. Production root passes tc.name,args to requestNativePermission before 12-tool-dispatch unwraps it; subagent path is consistent.",
+      "references": [
+        {
+          "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/09-workflow.js",
+          "lines": [
+            3475
+          ]
+        },
+        {
+          "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/07-autonomy.js",
+          "lines": [
+            1704,
+            1707
+          ]
+        },
+        {
+          "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/08-agent-runs.js",
+          "lines": [
+            1214,
+            1273
+          ]
+        },
+        {
+          "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/12-tool-dispatch.js",
+          "lines": [
+            614,
+            615
+          ]
+        }
+      ]
+    },
+    {
+      "id": "HARNESS-C2",
+      "title": "Call hash is no longer fabricated from call.id",
+      "resolution": "Current durableContinuation binds actual saved history prefix deliverySha256, exact tool reply/call args, and actual accepted call_id_hash to the root ledger; production salt includes driverRunId, so raw hash(call.id) would be wrong."
+    },
+    {
+      "id": "HARNESS-C3",
+      "title": "Arm resets are checked at the correct point",
+      "resolution": "Predecision requires unarmed neutral safe state; arm reply must have new nonce and zero counters/receipts. Prior allow case counts are not incorrectly required to be zero before the next arm."
+    },
+    {
+      "id": "HARNESS-C4",
+      "title": "Persistent destination is privately reserved",
+      "resolution": "Current artifact opens with O_CREAT|O_EXCL|O_NOFOLLOW mode0600 before GUI and writes/fsyncs that held descriptor. Raw root is retained."
+    }
+  ],
+  "confirmedCompatibleContracts": [
+    "Actual provider read calls use tool_invoke_read; current root-only opaque context/admission remains production-owned and is not fabricated.",
+    "Own window lookup uses numeric handle plus PID and target.process_start/bounds; retained target.ref is copied verbatim into actual macro args.",
+    "Root production receipt inspection already enforces semantic operation/worker/parent chain, request terminal and exact result flags; the harness additionally checks actual native prepared/entered/continue/terminal and committed raw trace digest.",
+    "native_terminal explicitly preserves ok/action_sent/acted; actual successful input_sequence result provides event_count and verification=events_posted. Existing assertions are compatible.",
+    "audit_tail returns records newest-last; macro/input_sequence audit assertions use the actual before/after admitted reads.",
+    "Same-turn irreversible result projection includes input_sequence step0, macro parent and actual tool call ID; mission snapshot exposes snapshot.irreversible.total/items.",
+    "Cold reopen compares actual ledger invocation/ACK/phase tuples and receiver event count and makes an explicit next request; it does not replay the original input.",
+    "HID/combined neutral, exact TIS/frame/point, owned front/hit and sourcePID/native birth are separate witnesses. Arm nonce is correctly described as observer bookkeeping.",
+    "Receiver is detached from root supervision and ignores broken stdout pipe/SIGPIPE and stdin EOF, retaining its durable witness. This review does not claim rescue capability.",
+    "killOnDisconnect defaults false; the HTTP 90s timeout is not evidence of automatic production Stop. Closing fake provider sockets is not established to cancel an already-running native tool in this sequential chain."
+  ],
+  "limits": [
+    "No test or native/GUI run of this harness was performed; no input occurred.",
+    "Actual CGEvent sourcePID attribution and complete ordinary balanced input chain remain runtime-unqualified.",
+    "Stage B rescue and Stage C held root kill are not reviewed or authorized here.",
+    "Full P5 acceptance remains false.",
+    "Source was being edited by parent during review; this report is bound only to listed hashes. A later candidate needs a focused follow-up review."
+  ],
+  "status": "provisional_superseded_not_qualification",
+  "snapshotCaution": "Generated while parent source edits were in flight; findings were based on prior50653d source but recorded hash was an intermediate18f335 snapshot. Do not use this provisional artifact for any qualification.",
+  "supersededBy": "/tmp/ruyi-p5-receipts-evidence/root-input-harness-source-review-v2.json"
+}

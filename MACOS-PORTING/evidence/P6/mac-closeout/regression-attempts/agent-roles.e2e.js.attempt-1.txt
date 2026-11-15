@@ -1,0 +1,31 @@
+PASS global custom role is sanitized and budget-clamped (上限已提至 100,99 原样保留;===32 是旧上限时代的过期期望)
+PASS project role overrides built-in role
+PASS global override configures built-in worker model
+PASS project custom role joins the library
+PASS role overrides without a color keep the built-in role color
+PASS native .claude/agents role is discovered for display
+PASS Claude definitions carry its independent role model override
+PASS Claude definitions carry permissions and iteration budget
+PASS native Claude Agent result is preserved for the expandable child card, not reduced to a length
+PASS a text-only native Agent transport failure is not mislabeled as completed
+PASS native Claude background launch receipt remains running and preserves its task identity
+PASS string-valued Claude task-notification is parsed into a completed native child result
+PASS Claude turns require foreground native Agents and include a TaskOutput recovery rule
+PASS Kimi Claude CLI settings preserve its documented endpoint and map native role aliases to the selected model
+PASS Ark Coding Plan retains its Bearer authentication and does not inherit Kimi-only model aliases
+PASS a GB18030 Claude CLI diagnostic is decoded instead of being stored as mojibake
+PASS Claude role test server starts
+PASS Claude meta exposes native role driver and role list
+PASS Claude meta redacts role definition payload
+PASS Claude Agent tool is normalized into subagent events with its inspectable result
+PASS the live child card renders the native Agent result rather than an empty completed card
+PASS native Claude parent/child lifecycle is projected into a persistent read-only workbench DAG and refreshed chat card
+PASS --agents receives custom model and maxTurns
+PASS --agents receives MCP and permission settings (pre-3.0 id win-claude-workbench in a saved role is read as ruyi)
+PASS Claude background-Agent lifecycle server starts
+PASS background native Agent stays live, reports waiting progress, then completes from task-notification
+PASS parent Claude turn remains alive and streams the integrated child result before it settles
+PASS native child lifecycle/result is persisted for refreshed chat cards and historical DAG hydration
+PASS Ruyi automatically resumes an early parent result and requests a blocking TaskOutput collection
+
+AGENT ROLES E2E: ALL PASS

@@ -1,0 +1,112 @@
+{
+  "source": "Independent raw provider files, not inference from twelve old fixture assertions",
+  "stages": [
+    {
+      "stage": "pre-kill",
+      "callId": "call_neutral_abort",
+      "name": "tool_invoke_exec",
+      "args": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "providerRoles": [
+        "user",
+        "assistant"
+      ],
+      "headCount": 2
+    },
+    {
+      "stage": "post-kill",
+      "callId": "call_neutral_abort",
+      "name": "tool_invoke_exec",
+      "args": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "providerRoles": [
+        "user",
+        "assistant"
+      ],
+      "headCount": 2
+    },
+    {
+      "stage": "post-restart",
+      "callId": "call_neutral_abort",
+      "name": "tool_invoke_exec",
+      "args": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "providerRoles": [
+        "user",
+        "assistant"
+      ],
+      "headCount": 2
+    },
+    {
+      "stage": "terminal",
+      "callId": "call_neutral_abort",
+      "name": "tool_invoke_exec",
+      "args": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "providerRoles": [
+        "user",
+        "assistant"
+      ],
+      "headCount": 2
+    }
+  ],
+  "restartResumable": {
+    "dangling": true,
+    "kind": "tool_calls",
+    "turnSeq": 1,
+    "historyLength": 2
+  },
+  "requestedIntentPersisted": true,
+  "roleToolOrMacroTerminalPresent": false,
+  "actualDispatchOrACCWaitEntryAckProved": false,
+  "permissionIsDistinctFromDispatch": true,
+  "hardAbortGate": "open"
+}

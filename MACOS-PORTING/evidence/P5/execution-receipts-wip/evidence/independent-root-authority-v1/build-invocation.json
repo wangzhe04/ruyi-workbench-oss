@@ -1,0 +1,40 @@
+{
+  "label": "build",
+  "argv": [
+    "node",
+    "ruyi-workbench/app/build.js",
+    "--check"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rra-ba16lf7l/home",
+    "USERPROFILE": "/tmp/rra-ba16lf7l/userprofile",
+    "APPDATA": "/tmp/rra-ba16lf7l/appdata",
+    "LOCALAPPDATA": "/tmp/rra-ba16lf7l/localappdata",
+    "RUYI_HOME": "/tmp/rra-ba16lf7l/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-ba16lf7l/data",
+    "WCW_DATA_DIR": "/tmp/rra-ba16lf7l/acc-data",
+    "TMPDIR": "/tmp/rra-ba16lf7l/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rra-ba16lf7l/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rra-ba16lf7l/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T17:52:10.204190+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "finishedAt": "2026-11-11T17:52:10.372885+00:00",
+  "elapsedSeconds": 0.1685555409931112,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build.log",
+    "bytes": 69,
+    "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+  }
+}

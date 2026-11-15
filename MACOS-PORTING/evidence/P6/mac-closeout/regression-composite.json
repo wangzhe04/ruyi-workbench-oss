@@ -1,0 +1,4258 @@
+{
+  "recordedAt": "2026-11-12T15:48:53.536080+00:00",
+  "kind": "Composite full-run plus targeted final rechecks; not a fresh594-file run on the final application candidate",
+  "originalOfficialFullRun": "regression-coverage.json",
+  "originalCounts": {
+    "selected": 594,
+    "covered": 594,
+    "processSuccess": 588,
+    "processFailure": 6,
+    "retryPass": 1,
+    "filesWithInternalSkip": 32,
+    "liveExcluded": 14
+  },
+  "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+  "sourceFreeze": "source-freeze-package.json",
+  "counts": {
+    "covered": 594,
+    "latestProcessSuccess": 592,
+    "remainingUnpassed": 2,
+    "originalInternalSkipFiles": 32,
+    "excludedLive": 14
+  },
+  "remainingUnpassedFiles": [
+    "macos-capture-host.e2e.js",
+    "macos-input-host.e2e.js"
+  ],
+  "overrides": {
+    "facts.static.e2e.js": {
+      "exitCode": 0,
+      "evidence": "targeted-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "repo-hygiene.e2e.js": {
+      "exitCode": 0,
+      "evidence": "targeted-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "harness-friction.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "audit-desktop-records.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "memory-scope.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "cli-probe-stall.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "playbook-skill-tools.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "tool-result-bounds.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "tool-dispatch-hardening.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "memory-batch-proposal.e2e.js": {
+      "exitCode": 0,
+      "evidence": "cleanup-recheck/results.json",
+      "scope": "Stricter final fixture or documentation recheck"
+    },
+    "macos-input-events.e2e.js": {
+      "exitCode": 0,
+      "evidence": "native-official-attempts/macos-input-events.e2e.js.attempt-1.json",
+      "scope": "Official targeted runner after native repair; all native checks and cleanup, no retries"
+    },
+    "macos-ocr.e2e.js": {
+      "exitCode": 0,
+      "evidence": "native-official-attempts/macos-ocr.e2e.js.attempt-1.json",
+      "scope": "Official targeted runner after native repair; all native checks and cleanup, no retries"
+    },
+    "macos-observe.e2e.js": {
+      "exitCode": 0,
+      "evidence": "native-official-attempts/macos-observe.e2e.js.attempt-1.json",
+      "scope": "Official targeted runner after native repair; all native checks and cleanup, no retries"
+    }
+  },
+  "rows": [
+    {
+      "file": "a11y-lint.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/a11y-lint.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "a11y-walkthrough.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/a11y-walkthrough.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "acc-capability-gates.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/acc-capability-gates.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "acc-offline-installer.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/acc-offline-installer.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "acceptance-provenance.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/acceptance-provenance.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "action-feedback.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/action-feedback.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "action-feedback.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/action-feedback.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "action-model-view.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/action-model-view.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "adaptive-budget.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/adaptive-budget.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "adversarial-w21.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/adversarial-w21.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-coordination.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-coordination.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-deadlock-watchdog.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-deadlock-watchdog.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-final-mailbox.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-final-mailbox.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-loop.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-loop.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-mode-v2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-mode-v2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-mode-v2.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-mode-v2.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-node-limits.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-node-limits.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-node-wrapup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-node-wrapup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-parent-heartbeat.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-parent-heartbeat.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-parent-mailbox.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-parent-mailbox.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-quality-gates.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-quality-gates.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-quality-workflow.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-quality-workflow.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-resource-wait-stop.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-resource-wait-stop.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-role-openai.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-role-openai.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-roles.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-roles.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-run-lifecycle.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-run-lifecycle.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-steer-node.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-steer-node.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-subturn-loop-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-subturn-loop-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-team-budget.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-team-budget.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-team-mode.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-team-mode.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-wake.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-wake.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-audit-fixes.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-audit-fixes.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-budget-finalizer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-budget-finalizer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-claude-engine.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-claude-engine.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-claude-transient-repro.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-claude-transient-repro.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-editor-ui.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-editor-ui.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-monitor-ui.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-monitor-ui.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-node-context.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-node-context.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-replan-approve.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-replan-approve.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-replan-review.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-replan-review.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-replan.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-replan.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-templates.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-templates.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-transient-repro.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-transient-repro.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflow-ui-progress.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflow-ui-progress.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-workflows-polling-visibility.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-workflows-polling-visibility.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "agent-worktree.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/agent-worktree.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "anthropic-fake.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/anthropic-fake.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "anthropic-gateway-setup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/anthropic-gateway-setup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "anthropic-provider-setup.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/anthropic-provider-setup.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "architecture-contract-snapshots.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/architecture-contract-snapshots.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "artifacts.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/artifacts.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "asr-config-ui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/asr-config-ui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "asr-transcribe.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/asr-transcribe.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "asr-warmup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/asr-warmup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "atomic-write-cancellation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/atomic-write-cancellation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "audit-desktop-records.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "audit-w23.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/audit-w23.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "audit.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/audit.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "auth-deny-default.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/auth-deny-default.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autocompact.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autocompact.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-benchmark.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-benchmark.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-durability.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-durability.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-grant.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-grant.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-pause.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-pause.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-resume.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-resume.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "autonomy-shell-sandbox.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/autonomy-shell-sandbox.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "background-completion.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/background-completion.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "batch-output-discipline.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/batch-output-discipline.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "boot-failure-kind.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/boot-failure-kind.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "boot-listen-budget.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/boot-listen-budget.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "boot-resume-parallel.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/boot-resume-parallel.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "bridge-cancel-timeout.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/bridge-cancel-timeout.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "bridged-prefix-tolerance.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/bridged-prefix-tolerance.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "bridged-read-noprompt.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/bridged-read-noprompt.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "browser-mcp.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/browser-mcp.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/budget-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "c2-deterministic-evidence.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/c2-deterministic-evidence.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "c2-evidence-spawn-budget.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/c2-evidence-spawn-budget.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "capabilities.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/capabilities.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "changes-diff.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/changes-diff.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "chat-stream-remount.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/chat-stream-remount.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "chat-ux-wave1.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/chat-ux-wave1.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint-coverage.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint-coverage.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint-gc-cache.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint-gc-cache.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint-mcpchild.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint-mcpchild.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint-proxy-session.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint-proxy-session.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint-visibility.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint-visibility.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "checkpoint.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/checkpoint.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "classic-window-live-steer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/classic-window-live-steer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-cli-bridged-read-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-cli-bridged-read-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-cmdline-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-cmdline-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-context-continuity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-context-continuity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-exe-resolve.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "claude-models-cache.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-models-cache.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-permission-bridge-mode.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-permission-bridge-mode.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "claude-resume-recovery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/claude-resume-recovery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "cli-probe-stall.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "codebase-symbol-search.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/codebase-symbol-search.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "compaction-refetch-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/compaction-refetch-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "composer-session-races.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/composer-session-races.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "composer-voice-stream.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/composer-voice-stream.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "composer-voice-warmup.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/composer-voice-warmup.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "composer-voice.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/composer-voice.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "compound-effect-audit.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/compound-effect-audit.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "config-mutate-mcp-parity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/config-mutate-mcp-parity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "config-providers-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/config-providers-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "config-read-safety.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/config-read-safety.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "context-compact-v2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/context-compact-v2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "context-governance.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/context-governance.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "context-window.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/context-window.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "copy-path-guard.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/copy-path-guard.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "copy-terms.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/copy-terms.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "cost-zero.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/cost-zero.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "credential-vault.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/credential-vault.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "crew-experience.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/crew-experience.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "cross-thread-history.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/cross-thread-history.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "css-typography-debt.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/css-typography-debt.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "data-profile.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/data-profile.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "data-root-migration.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/data-root-migration.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "debug-hypothesis.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/debug-hypothesis.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "deepseek-search-fetch.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/deepseek-search-fetch.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-dpi.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-dpi.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-execution-root.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-execution-root.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-mcp-smoke.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-mcp-smoke.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-probe-follow.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-probe-follow.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-probe-status.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-probe-status.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "desktop-shell.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/desktop-shell.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "dns-rebind.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/dns-rebind.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "dom-contract.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/dom-contract.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "dom-screenshot.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/dom-screenshot.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "dom-smoke.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/dom-smoke.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "durable-json-store.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/durable-json-store.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "durable-state-inventory.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/durable-state-inventory.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "e1-parallel-noindex.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/e1-parallel-noindex.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "e2-append-system-prompt.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/e2-append-system-prompt.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "e3-engine-switch-continuity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/e3-engine-switch-continuity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "e4-no-usage.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/e4-no-usage.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "e5-multiline-sse.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/e5-multiline-sse.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ec-d-closure.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ec-d-closure.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ec-d-performance.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ec-d-performance.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "economics-shadow.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/economics-shadow.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "engine-env-brief.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/engine-env-brief.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "engine-env-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/engine-env-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "eol-policy.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/eol-policy.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "estimate-buckets.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/estimate-buckets.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "event-stream-client.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/event-stream-client.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "event-stream-pageshow.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/event-stream-pageshow.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "event-stream-replay.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/event-stream-replay.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "event-stream.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/event-stream.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "evidence-claims-m4-benchmark.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/evidence-claims-m4-benchmark.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "exec-result-cache.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/exec-result-cache.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bot-credentials.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bot-credentials.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "external-bot-discovery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bot-discovery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bot-gateway.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bot-gateway.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bot-setup.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bot-setup.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "external-bot-setup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bot-setup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bots-control.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bots-control.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bots.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bots.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-bots.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-bots.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-channel-delivery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-channel-delivery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "external-code-diff.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/external-code-diff.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "facts.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "targeted-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "failover.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/failover.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "fake-mcp-contract.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/fake-mcp-contract.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "file-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/file-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "file-mutation-recovery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/file-mutation-recovery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "file-text-encoding.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/file-text-encoding.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "finalize-segments.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/finalize-segments.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "fixture-home.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/fixture-home.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "focus-rail.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/focus-rail.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "foreign-turn-busy-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/foreign-turn-busy-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "frontend-domains.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/frontend-domains.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "frontend-wave2.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/frontend-wave2.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "frontend-wave3.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/frontend-wave3.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "git.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/git.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "goal-evolution.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/goal-evolution.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "harness-friction.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "health-i18n.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/health-i18n.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "help-menu.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/help-menu.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "help-viewer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/help-viewer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "i18n-en-terms.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/i18n-en-terms.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "i18n.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/i18n.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "i18n.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/i18n.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ia.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ia.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "index-dedup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/index-dedup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "inline-script-csp-hash.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/inline-script-csp-hash.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interactive-question.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interactive-question.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "intervention-mission-gate.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/intervention-mission-gate.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-c4.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-c4.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-cas.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-cas.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-changeseq.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-changeseq.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-persist.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-persist.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-pool.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-pool.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "interventions-snapshot.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/interventions-snapshot.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "judge-json-repair.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/judge-json-repair.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "keyboard-walkthrough.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/keyboard-walkthrough.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "kimi-agent-cli.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/kimi-agent-cli.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "kimi-plan-ui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/kimi-plan-ui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "kimi-prompt-parts.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/kimi-prompt-parts.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "kimi-search-policy.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/kimi-search-policy.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "launcher-spaced-path.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/launcher-spaced-path.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "live-full-text.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/live-full-text.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "live-full-text.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/live-full-text.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "live-full-text.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/live-full-text.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "locale-en-us.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/locale-en-us.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "long-tool-liveness-steer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/long-tool-liveness-steer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "loop-guard-read-exempt.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/loop-guard-read-exempt.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "loop-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/loop-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-acc-shared.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-acc-shared.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-agent-cli-discovery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-agent-cli-discovery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-audit-cancellation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-audit-cancellation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-ax-finder.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-ax-finder.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-ax.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-ax.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-browser-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-browser-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-capabilities.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-capabilities.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-capability-popover.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-capability-popover.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-capture-contract.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-capture-contract.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-capture-host.e2e.js",
+      "processSuccess": false,
+      "evidence": "regression-attempts/macos-capture-host.e2e.js.attempt-2.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-capture-transition.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-capture-transition.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-capture.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-capture.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-cli-models.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-cli-models.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-desktop-bridge.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-desktop-bridge.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-desktop-host.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-desktop-host.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-desktop-lifecycle.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-desktop-lifecycle.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-desktop-media.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-desktop-media.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-document-reader.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-document-reader.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-executable-probe.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-executable-probe.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-file-policy.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-file-policy.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-git-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-git-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-input-apps.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-input-apps.e2e.js.attempt-2.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-input-events.e2e.js",
+      "processSuccess": true,
+      "evidence": "native-official-attempts/macos-input-events.e2e.js.attempt-1.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-input-host.e2e.js",
+      "processSuccess": false,
+      "evidence": "regression-attempts/macos-input-host.e2e.js.attempt-2.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-keychain.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-keychain.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-manual-record.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-manual-record.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-mcp-capabilities.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-mcp-capabilities.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-media-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-media-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-migration-trash.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-migration-trash.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-native-entry.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-native-entry.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-native-readiness.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-native-readiness.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-neutral-abort.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-neutral-abort.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-observe.e2e.js",
+      "processSuccess": true,
+      "evidence": "native-official-attempts/macos-observe.e2e.js.attempt-1.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-ocr.e2e.js",
+      "processSuccess": true,
+      "evidence": "native-official-attempts/macos-ocr.e2e.js.attempt-1.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-office-artifacts.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-office-artifacts.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-offline-package.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-offline-package.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-opener.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-opener.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-overlay-boundary.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-overlay-boundary.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-platform-templates.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-platform-templates.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-process-cleanup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-process-cleanup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-process-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-process-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-python-probe.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-python-probe.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-record.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-record.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-rg-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-rg-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-runtime-start.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-runtime-start.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-shell-runtime.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-shell-runtime.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-sync-probe.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-sync-probe.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-sync-supervisor.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-sync-supervisor.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "macos-trial-install.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-trial-install.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-upgrade-rollback.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-upgrade-rollback.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "macos-window-clipboard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/macos-window-clipboard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "manifest-ranges.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/manifest-ranges.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "manuals.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/manuals.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-bridge.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-bridge.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-config.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-config.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-import-config.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-import-config.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-import-origin.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-import-origin.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-ops-closure.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-ops-closure.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-ops-gui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-ops-gui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-remote-transport.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-remote-transport.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-resource-config-mask.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-resource-config-mask.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mcp-stdio-eof.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mcp-stdio-eof.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-active-scope.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-active-scope.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-auto-proposal-api.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-auto-proposal-api.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-auto-proposal.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-auto-proposal.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-batch-card.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-batch-card.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-batch-proposal.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-graph-auto-proposal.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-graph-auto-proposal.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-graph-maintenance.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-graph-maintenance.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-graph-relations.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-graph-relations.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-maintenance-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-maintenance-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-recall-injection.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-recall-injection.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-recall-quality.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-recall-quality.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-scope-card.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-scope-card.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-scope.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-subagent.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-subagent.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-toolbox.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-toolbox.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "memory-veto-precedence.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/memory-veto-precedence.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mermaid-render.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mermaid-render.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mermaid-viewer.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mermaid-viewer.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "meta-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/meta-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "meta-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/meta-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "metrics-panel.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/metrics-panel.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "migration-center.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/migration-center.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "migration-center.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/migration-center.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-driver.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-driver.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-index-boot-race.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-index-boot-race.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-index-gate.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-index-gate.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-index-late-materialize.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-index-late-materialize.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-index-scale.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-index-scale.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-result.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-result.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-start-race.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-start-race.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "mission-threads.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/mission-threads.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "missions-readmodel.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/missions-readmodel.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "model-menu-classes.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/model-menu-classes.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "model-menu-no-shift.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/model-menu-no-shift.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "module-dependency-graph.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/module-dependency-graph.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "monitor-incremental.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/monitor-incremental.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "multi-session-parallel.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/multi-session-parallel.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "native-media-boundaries.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/native-media-boundaries.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ndjson-line-feeder.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ndjson-line-feeder.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "net-token-replay.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/net-token-replay.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "new-thread-engine-default.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/new-thread-engine-default.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "new-thread-engine-default.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/new-thread-engine-default.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "observation-recall-realhistory.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/observation-recall-realhistory.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "observation-recall-replay.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/observation-recall-replay.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "observation-recall-snapshot-cap.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/observation-recall-snapshot-cap.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "observation-recall.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/observation-recall.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "offline-upgrade-drill.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/offline-upgrade-drill.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "onboard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/onboard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "onboarding-workspace.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/onboarding-workspace.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "onboarding.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/onboarding.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "onboarding.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/onboarding.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "one-workbench-frame.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/one-workbench-frame.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "openai-engine.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/openai-engine.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "openai-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/openai-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "orchestrate-model-select.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/orchestrate-model-select.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "orchestration-blindspots.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/orchestration-blindspots.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "overlay-payload-lock.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/overlay-payload-lock.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "overlay-update-core.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/overlay-update-core.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "overlay-update-gui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/overlay-update-gui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "parallel-read-island.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/parallel-read-island.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "path-matcher-cancellation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/path-matcher-cancellation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "perf-config-cache.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/perf-config-cache.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "perf.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/perf.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "perm-v2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/perm-v2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "permission-plain.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/permission-plain.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "permission-survives-reload.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/permission-survives-reload.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "plan-mode.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/plan-mode.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "playbook-reuse.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/playbook-reuse.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "playbook-reuse.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/playbook-reuse.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "playbook-skill-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "playbooks.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/playbooks.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "port-fallback.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/port-fallback.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "prefix-layout.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/prefix-layout.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "preflight-relative-write.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/preflight-relative-write.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "privacy-channels.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/privacy-channels.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "privacy-gateway.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/privacy-gateway.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "privacy-protocols.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/privacy-protocols.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "process-safety.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/process-safety.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "progress-events.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/progress-events.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "prompt-snapshot.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/prompt-snapshot.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-api-style.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-api-style.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-compact-recall.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-compact-recall.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-compact.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-compact.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-custom-headers.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-custom-headers.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-no-model-locale.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-no-model-locale.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-pairing-repair.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-pairing-repair.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-reasoning-effort-ui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-reasoning-effort-ui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-tool-history.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-tool-history.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-tool-stop.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-tool-stop.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "provider-turnloop-hardening.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/provider-turnloop-hardening.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "quiet-card-snooze.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/quiet-card-snooze.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "quiet-card-typing.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/quiet-card-typing.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "quiet-card.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/quiet-card.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rail-pocket.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rail-pocket.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rail-pocket.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rail-pocket.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rail-reconcile.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rail-reconcile.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rail-session-search.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rail-session-search.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rail-tool-height.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rail-tool-height.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "read-pool.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/read-pool.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "readfiletail-torntail.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/readfiletail-torntail.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "reading-continuation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/reading-continuation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "reject-attribution.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/reject-attribution.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "processSuccess": true,
+      "evidence": "targeted-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "resource-awareness.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/resource-awareness.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "responses-fake.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/responses-fake.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "responses-websearch-fake.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/responses-websearch-fake.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "responses-websearch-inline.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/responses-websearch-inline.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "resume-banner-dismiss.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/resume-banner-dismiss.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "resume-dangling.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/resume-dangling.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "rewind.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/rewind.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "route-inventory.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/route-inventory.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "run-health.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/run-health.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "runtime-optimization.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/runtime-optimization.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-api.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-api.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-crash.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-crash.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-ready-queue.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-ready-queue.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-reducer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-reducer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-steward.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-steward.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-ui.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-ui.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler-ui.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler-ui.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "scheduler.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/scheduler.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "search-cancellation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/search-cancellation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "search-robust.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/search-robust.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "security-gates-w2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/security-gates-w2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "self-check.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/self-check.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "semantic-loop-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/semantic-loop-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "server-ownership.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/server-ownership.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "service-match.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/service-match.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-atomic.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-atomic.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-bulk-cleanup.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-bulk-cleanup.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-delete-agent-runs.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-delete-agent-runs.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-get-etag.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-get-etag.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-id-path-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-id-path-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-index.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-index.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-notes-inject.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-notes-inject.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "session-notes-merge.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-notes-merge.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "session-notes.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-notes.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "session-permission-mode.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-permission-mode.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-rewind-execution.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-rewind-execution.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-save-census.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-save-census.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-scratchpad.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-scratchpad.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-search.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-search.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-stop-execution.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-stop-execution.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-stop-identity.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-stop-identity.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-storage-v2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-storage-v2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "session-turn-core.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/session-turn-core.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "settings-catalog.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/settings-catalog.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "settings-ia.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/settings-ia.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "settings-skills.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/settings-skills.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "settings-wave1.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/settings-wave1.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "shell-mcp-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/shell-mcp-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "shell-mode-late-config.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/shell-mode-late-config.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "shell-session.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/shell-session.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "simple-mode.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/simple-mode.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "skills-registry.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/skills-registry.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "software-engineering-prompt.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/software-engineering-prompt.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "source-fields.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/source-fields.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "spawn-background-dag.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/spawn-background-dag.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ssrf-hardening.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ssrf-hardening.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "stale-source-badge.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/stale-source-badge.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "start-error-surface.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/start-error-surface.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "start-experience.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/start-experience.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steer-interrupt.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steer-interrupt.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steering-claude.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steering-claude.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steering.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steering.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-answer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-answer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-attachments-search.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-attachments-search.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-attachments.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-attachments.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-avatar.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-avatar.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-background-hold.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-background-hold.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-board.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-board.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-board.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-board.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-catalogs.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-catalogs.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-config-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-config-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-config.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-config.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-content-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-content-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-continue-unfinished.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-continue-unfinished.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-contract-guard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-contract-guard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-conversation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-conversation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-conversation.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-conversation.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-decisions.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-decisions.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-decisions.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-decisions.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-deferred-notice.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-deferred-notice.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-deferred-permission.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-deferred-permission.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-deliverable.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-deliverable.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-delivery-history.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-delivery-history.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-delivery.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-delivery.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-delivery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-delivery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-drawer-keep-frame.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-drawer-keep-frame.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-drawer.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-drawer.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-drawer.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-drawer.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-events.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-events.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-exempt-delegation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-exempt-delegation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-exempt-no-swap.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-exempt-no-swap.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-exempt-shell-send.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-exempt-shell-send.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-eyes.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-eyes.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-global-health.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-global-health.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-guardrails.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-guardrails.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-handoff-recovery.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-handoff-recovery.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-inbox-integrity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-inbox-integrity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-inbox.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-inbox.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-memory.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-memory.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-multistep.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-multistep.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-multistep.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-multistep.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-new-conversation.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-new-conversation.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-new-conversation.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-new-conversation.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-no-model.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-no-model.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-notify.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-notify.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-preroute.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-preroute.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-presence-gate.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-presence-gate.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-quick-ask.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-quick-ask.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-quickask-board.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-quickask-board.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-read-routing.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-read-routing.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-relay-channels.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-relay-channels.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-runner.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-runner.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-runner.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-runner.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-settings-scope.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-settings-scope.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-settings-scope.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-settings-scope.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-settings.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-settings.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-settings.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-settings.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-shell-pixels.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-shell-pixels.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-shell-redesign.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-shell-redesign.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-shell-wave1.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-shell-wave1.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-shell.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-shell.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-shell.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-shell.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-side-collapse.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-side-collapse.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-signals.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-signals.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-stop-receipts.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-stop-receipts.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-stop-respected.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-stop-respected.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-task-decisions.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-task-decisions.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-thread-order.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-thread-order.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-thread-title.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-thread-title.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-thread-workspace.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-thread-workspace.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-tools.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-tools.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-viewing-gate.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-viewing-gate.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-walkthrough.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-walkthrough.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "steward-workspace-affinity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/steward-workspace-affinity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "storage-steward.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/storage-steward.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "store-walkthrough-w1.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/store-walkthrough-w1.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "streaming-responsiveness.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/streaming-responsiveness.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent-compaction-parity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent-compaction-parity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent-net-tools.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent-net-tools.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent-retry-after.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent-retry-after.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent-thinking-continuity.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent-thinking-continuity.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent-thinking-continuity.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent-thinking-continuity.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "subagent.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/subagent.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "summary-call-policy.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-call-policy.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "summary-entity-check.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-entity-check.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "summary-fact-table.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-fact-table.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "summary-parallel-cap.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-parallel-cap.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "summary-refine.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-refine.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "summary-single-shot.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-single-shot.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "summary-task-evidence.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/summary-task-evidence.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "surface-hardening-w2.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/surface-hardening-w2.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "surface-hardening-w2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/surface-hardening-w2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "team-pool-mailbox.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/team-pool-mailbox.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "theme-default.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/theme-default.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "theme.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/theme.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thinking-boundary.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thinking-boundary.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-arbiter.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-arbiter.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-brief.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-brief.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-brief.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-brief.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-commission.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-commission.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-commission.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-commission.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-index-visibility.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-index-visibility.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "thread-switch-race.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/thread-switch-race.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "todo-loopback.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/todo-loopback.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "todo-summary.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/todo-summary.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "token-bootstrap-csp.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/token-bootstrap-csp.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-audit-fixes.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-fixes.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-audit-r2-dev.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-r2-dev.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-audit-r2-files.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-r2-files.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-audit-r2-meta.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-r2-meta.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-audit-r2-netexec.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-r2-netexec.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": true
+    },
+    {
+      "file": "tool-audit-r2-steward.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-audit-r2-steward.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-dispatch-hardening.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-dispatch.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-dispatch.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-image-inline.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-image-inline.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-invoke-promote.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-invoke-promote.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-loading.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-loading.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-result-bounds.e2e.js",
+      "processSuccess": true,
+      "evidence": "cleanup-recheck/results.json",
+      "latestRecheck": true,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-result-render.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-result-render.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tool-verb-coverage.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tool-verb-coverage.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "toolbox-discovery.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/toolbox-discovery.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tools-v2.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tools-v2.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "tools-v3.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/tools-v3.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "turn-narrative.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/turn-narrative.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "turn-stop-supersede.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/turn-stop-supersede.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "turn-undo.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/turn-undo.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-bugfix.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-bugfix.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-misc-wave1.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-misc-wave1.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-polish.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-polish.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v3-p1.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v3-p1.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v3-p2.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v3-p2.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v3-p3a.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v3-p3a.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v3-p3b.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v3-p3b.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v3-wave1.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v3-wave1.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "ui-v4-glass.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/ui-v4-glass.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "uimode-style.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/uimode-style.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "usage-accum.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/usage-accum.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "usage-claude-cached.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/usage-claude-cached.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "usage-dashboard.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/usage-dashboard.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "usage-ledger.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/usage-ledger.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "usage-subagent-ledger.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/usage-subagent-ledger.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "v17-review-fixes.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/v17-review-fixes.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "vision-loop.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/vision-loop.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "voice-learn.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/voice-learn.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "voice-learn.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/voice-learn.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "voice-lexicon.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/voice-lexicon.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "voice-setup.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/voice-setup.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "wait-primitive.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/wait-primitive.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "walkthrough-round1.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/walkthrough-round1.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "walkthrough-round2.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/walkthrough-round2.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "websearch.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/websearch.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workbench-memory-core.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workbench-memory-core.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workbench-memory.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workbench-memory.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workbench-self-status.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workbench-self-status.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workbench-thread-head.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workbench-thread-head.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workflow-editor-inspector.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workflow-editor-inspector.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workflow-editor-v2.static.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workflow-editor-v2.static.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workspace-picker-popover.browser.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workspace-picker-popover.browser.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "workspace-resolve.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/workspace-resolve.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    },
+    {
+      "file": "worktree-cleanup-retry.e2e.js",
+      "processSuccess": true,
+      "evidence": "regression-attempts/worktree-cleanup-retry.e2e.js.attempt-1.json",
+      "latestRecheck": false,
+      "originalContainsInternalSkip": false
+    }
+  ],
+  "interpretation": "Exit success can include explicitly recorded internal SKIP; it is not proof all platform branches/features ran. The32 original skip-containing files and14 excluded live probes remain enumerated. Actual new Full/Slim package probes supplement the opt-in package SKIPs separately.",
+  "nativeDeltaQualification": "Production delta from b640 is native events admission/cancellation only. Official final input-events/observe/OCR plus independent input-events/input-apps executed; other full-run rows retain their original freeze provenance.",
+  "permissionGate": "Two actual source-App positive capture/input cases denied. No user authentication supplied, no waiver inferred, no positive authorization qualification claimed."
+}

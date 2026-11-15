@@ -1,0 +1,461 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T12:07:44.660939+00:00",
+  "verdict": "passed_independent_durable_history_status_archive_review",
+  "findings": [],
+  "findingsHandling": "No scope, reference, JSON, phase-status or raw-evidence alteration finding identified in this staged snapshot; no authored document edits required.",
+  "unresolvedFindings": [],
+  "snapshot": {
+    "head": "7f95d6548bf98907fe2403d26b55b87fd0001642",
+    "stagedFiles": 197,
+    "modifiedStatusFiles": 4,
+    "newDurableHistoryFiles": 191,
+    "historicalPlanReviewFiles": 1,
+    "newCurrentResolutionFiles": 1,
+    "insertions": 40077,
+    "deletions": 2,
+    "totalBytes": 2074015,
+    "utf8TextFiles": 197,
+    "binaryFiles": 0,
+    "jsonFiles": 87,
+    "ndjsonFiles": 64,
+    "rawTxtOrNdjsonFiles": 105,
+    "allWorkingBytesEqualIndex": true,
+    "inventorySha256": "d9443b8d15241438ecfb63534b18020a71223f0e07c903007aab8cf52e00eba6",
+    "inventoryBinding": "inventorySha256 hashes the ordered staged-path/bytes/SHA-256/Git-blob manifest, independently assembled from the index; all 197 working files matched those staged bytes."
+  },
+  "implementationBinding": {
+    "mainCommit": "7f95d6548bf98907fe2403d26b55b87fd0001642",
+    "worktreeCommit": "a3403e04c4149ca655284b10858ef53392a56431",
+    "changedFilesPerCommit": 15,
+    "rawPatchesByteIdentical": true,
+    "reviewerPatchSha256": "806e534c1cb2280b8c1e120afd7725c4744ee9d1646c96ee2d4ddf96bb1d41de",
+    "sourceCount": 127,
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "8c64ac003381b68fe6ad261b1bd9a9b4f0e367519ae4445ec96bbaedd788c356"
+      }
+    ],
+    "additionalUnchangedEntryFixtures": [
+      {
+        "path": "dev-harness/macos-native-entry.e2e.js",
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+        "gitBlobAt96db15f6": "aec4c8a054c05913be3b2fc61eee09ecc74717ec"
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "gitBlobAt96db15f6": "fbf9031954580f6eddf3eef3546fc6c97fc83290"
+      },
+      {
+        "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobAt96db15f6": "66157f31a6d4182bf74c94135294977b5f80786b"
+      }
+    ],
+    "allSourceCommitBlobsWorkingBytesAndRecordedHashesMatch": true,
+    "freeze126To127OnlyCensusAdded": true
+  },
+  "referenceVerification": {
+    "groups": {
+      "independentCommitMainEvidence": {
+        "count": 9,
+        "allBytesAndSha256Matched": true
+      },
+      "independentCommitReferencedFiles": {
+        "count": 164,
+        "allBytesAndSha256Matched": true
+      },
+      "independentReportEvidence": {
+        "count": 70,
+        "allBytesAndSha256Matched": true
+      },
+      "independentReportFreeze": {
+        "count": 1,
+        "allBytesAndSha256Matched": true
+      },
+      "independentReportOriginalExecution": {
+        "count": 1,
+        "allBytesAndSha256Matched": true
+      },
+      "independentReportAdditionalEntryBinding": {
+        "count": 1,
+        "allBytesAndSha256Matched": true
+      },
+      "independentReportEngineeringBinding": {
+        "count": 1,
+        "allBytesAndSha256Matched": true
+      },
+      "engineeringReuseFiles": {
+        "count": 19,
+        "allBytesAndSha256Matched": true
+      }
+    },
+    "totalReferenceRows": 266,
+    "checkpoints": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/source-artifact-checks.json",
+        "count": 8,
+        "sourceRows": 126,
+        "artifacts": 2,
+        "extraEntryFixtures": 0,
+        "labels": [
+          "syntax-before",
+          "syntax-after",
+          "build-before",
+          "build-after",
+          "unit-before",
+          "unit-after",
+          "fast-before",
+          "fast-after"
+        ],
+        "allRecordedBindingsMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/source-artifact-checks.json",
+        "count": 4,
+        "sourceRows": 127,
+        "artifacts": 2,
+        "extraEntryFixtures": 0,
+        "labels": [
+          "syntax-before",
+          "syntax-after",
+          "fast-before",
+          "fast-after"
+        ],
+        "allRecordedBindingsMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/source-artifact-checks.json",
+        "count": 8,
+        "sourceRows": 126,
+        "artifacts": 2,
+        "extraEntryFixtures": 0,
+        "labels": [
+          "provider-tool-history.e2e-before",
+          "provider-tool-history.e2e-after",
+          "parallel-read-island.e2e-before",
+          "parallel-read-island.e2e-after",
+          "provider-turnloop-hardening.e2e-before",
+          "provider-turnloop-hardening.e2e-after",
+          "turn-stop-supersede.e2e-before",
+          "turn-stop-supersede.e2e-after"
+        ],
+        "allRecordedBindingsMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/durable-history/independent-v1/source-artifact-checks.json",
+        "count": 10,
+        "sourceRows": 127,
+        "artifacts": 2,
+        "extraEntryFixtures": 3,
+        "labels": [
+          "initial",
+          "unit-before",
+          "unit-after",
+          "offline-before",
+          "offline-after",
+          "native-before",
+          "native-after",
+          "entry-before",
+          "entry-after",
+          "final"
+        ],
+        "allRecordedBindingsMatch": true
+      }
+    ],
+    "relativeMarkdownLinks": 208,
+    "currentMappingEvidenceReferences": 20,
+    "newTaskEvidenceReferences": 3,
+    "totalReferenceRowsNote": "Reference rows include deliberate overlaps across the independent commit binding, final report and engineering-reuse records; 266 is not a unique-file count."
+  },
+  "independentResults": {
+    "runs": [
+      {
+        "name": "unit",
+        "fail": 0,
+        "skip": 0,
+        "invocations": 1,
+        "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/unit/output.txt",
+        "logSha256": "1d92266c803cf7bc07bcefb2df412b75fea5cb04298e5caf3c0e54548375f652",
+        "pass": 9
+      },
+      {
+        "name": "offline",
+        "fail": 0,
+        "skip": 0,
+        "invocations": 1,
+        "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/offline/output.txt",
+        "logSha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd",
+        "pass": 11
+      },
+      {
+        "name": "native",
+        "fail": 0,
+        "skip": 0,
+        "invocations": 1,
+        "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/native/output.txt",
+        "logSha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307",
+        "pass": 12
+      },
+      {
+        "name": "entry",
+        "fail": 0,
+        "skip": 0,
+        "invocations": 1,
+        "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/output.txt",
+        "logSha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+        "pass": 31
+      }
+    ],
+    "manualRetries": 0,
+    "automaticRetries": 0,
+    "completeEngineeringReruns": 0,
+    "recordedGUIReleased": true,
+    "remainingObservedIdentities": [],
+    "entryInputSourceRestored": true,
+    "entryClipboardRestored": true,
+    "actualEntryCheckpointRollbackCases": 4,
+    "scope": "Separate once-only unit9/offline11/zero-input12/Node entry31. No reviewer rerun."
+  },
+  "durableRawEvidence": {
+    "nativeStages": [
+      {
+        "stage": "pre-kill",
+        "roles": [
+          "user",
+          "assistant"
+        ],
+        "headCount": 2,
+        "callId": "call_neutral_abort",
+        "name": "tool_invoke_exec",
+        "requestedArguments": {
+          "name": "ai_computer_control__macro_run",
+          "arguments": {
+            "delay_ms": 0,
+            "steps": [
+              {
+                "tool": "wait",
+                "args": {
+                  "seconds": 30
+                }
+              }
+            ]
+          }
+        },
+        "noToolOrTerminalResult": true
+      },
+      {
+        "stage": "post-kill",
+        "roles": [
+          "user",
+          "assistant"
+        ],
+        "headCount": 2,
+        "callId": "call_neutral_abort",
+        "name": "tool_invoke_exec",
+        "requestedArguments": {
+          "name": "ai_computer_control__macro_run",
+          "arguments": {
+            "delay_ms": 0,
+            "steps": [
+              {
+                "tool": "wait",
+                "args": {
+                  "seconds": 30
+                }
+              }
+            ]
+          }
+        },
+        "noToolOrTerminalResult": true
+      },
+      {
+        "stage": "post-restart",
+        "roles": [
+          "user",
+          "assistant"
+        ],
+        "headCount": 2,
+        "callId": "call_neutral_abort",
+        "name": "tool_invoke_exec",
+        "requestedArguments": {
+          "name": "ai_computer_control__macro_run",
+          "arguments": {
+            "delay_ms": 0,
+            "steps": [
+              {
+                "tool": "wait",
+                "args": {
+                  "seconds": 30
+                }
+              }
+            ]
+          }
+        },
+        "noToolOrTerminalResult": true
+      },
+      {
+        "stage": "terminal",
+        "roles": [
+          "user",
+          "assistant"
+        ],
+        "headCount": 2,
+        "callId": "call_neutral_abort",
+        "name": "tool_invoke_exec",
+        "requestedArguments": {
+          "name": "ai_computer_control__macro_run",
+          "arguments": {
+            "delay_ms": 0,
+            "steps": [
+              {
+                "tool": "wait",
+                "args": {
+                  "seconds": 30
+                }
+              }
+            ]
+          }
+        },
+        "noToolOrTerminalResult": true
+      }
+    ],
+    "nativeRestartResumable": {
+      "dangling": true,
+      "kind": "tool_calls",
+      "turnSeq": 1,
+      "historyLength": 2
+    },
+    "nativeRoleToolOrTerminalPresent": false,
+    "nativeActualDispatchOrWaitEntryProved": false,
+    "permissionIsSeparateIntent": true,
+    "offlinePrefixRoles": [
+      "user",
+      "assistant",
+      "tool"
+    ],
+    "offlineActualFileResultPersisted": true,
+    "offlineSecondPendingResultAbsent": true,
+    "offlineProviderStructureSurvivesKillAndGetRestart": true,
+    "scope": "Raw requested/model intent and received prefix only. Empty ACC audit or missing role:tool never proves not-dispatched; GET-only observations do not prove future no-replay."
+  },
+  "engineering": {
+    "v1": {
+      "syntaxFiles": 1158,
+      "buildExitCode": 0,
+      "standaloneUnitTests": 2526,
+      "unitPass": 2508,
+      "unitFail": 0,
+      "unitExistingSkip": 18,
+      "fastPass": 79,
+      "fastFail": 1,
+      "census11Versus12FailurePreserved": true,
+      "builtInRetryFailurePreserved": true
+    },
+    "v2": {
+      "syntaxFiles": 1158,
+      "fastPass": 80,
+      "fastFail": 0,
+      "fastFlaky": 0,
+      "liveSkipped": 7,
+      "includesRepeatedUnitPreflight": true
+    },
+    "reuse": "Original126 source/2 artifact rows unchanged when census alone became source127. Earlier build, standalone unit and final related suites explicitly reused by hash. Independent full unit/fast reruns0; no overall no-rerun development claim."
+  },
+  "historicalEvidencePreservation": {
+    "priorSourceReviewDHC1DHC2Closed": true,
+    "priorMetadataReviewPassed": true,
+    "priorRecordedRawHashReferencesRechecked": 14,
+    "historicalPlanReviewSha256": "080caa926b322b7f93f7d04e91a81fe814697a8fafa0331b40d325d88a70dc91",
+    "historicalPlanIsNotCurrentProductSource": true,
+    "historicalAuditSha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de",
+    "historicalResolutionSha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d",
+    "historicalAuditAndResolutionEqualHeadAndNotStaged": true,
+    "rawLogsTrimmedOrNormalized": false
+  },
+  "currentMapping": {
+    "path": "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-current.json",
+    "localIds": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIds": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "allOriginalIdsMapped": true,
+    "irreversibleClassificationNotBroadened": true,
+    "historicalSelected74Readiness40Transition18RemainSourceBound": true,
+    "externalGatesOpen": true,
+    "fullP5Completion": "not_proved_open_gates_remain"
+  },
+  "statusDocumentation": {
+    "phaseAndTaskStatus": {
+      "P5": "in_progress",
+      "P6": "planned",
+      "P5-01": "in_progress",
+      "P5-05": "in_progress"
+    },
+    "scopeAndCountsConsistent": true,
+    "authoredWhitespaceCheck": {
+      "exitCode": 0,
+      "files": 17,
+      "rawTxtNdjsonAndRuntimeSnapshotsExcluded": true
+    }
+  },
+  "claimLimits": [
+    "Ordinary provider-main-turn requested/model intent before local processing/approval and received-result prefixes before later calls.",
+    "No independent per-call actual dispatch/expanded execution args/ACC await-entry or terminal receipt from the zero-input calibration.",
+    "Unknown-result follow-up/model/steward automatic replay protection remains open beyond recorded GET-only restart.",
+    "Held-state root kill, supervisor product release and qualified independent rescue remain separate open gates.",
+    "Current entry31 is Node service integration; no new Ruyi.app rebuild/sign/LaunchServices acceptance or broad irreversible-classification claim.",
+    "Historical selected74/readiness40/transition18 and other prior slices retain their own source/host/scenario limits; no blanket current-candidate rerun.",
+    "TCC denied/revoked readiness, action-time OS lock/conditional clipboard recovery, physical non-Retina/mixed-display topology, macOS14, same-candidate Windows and release identity gates remain open."
+  ],
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "builds": 0,
+    "signatures": 0,
+    "processSampling": 0,
+    "pngDecodes": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/durable-history/status-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "hardAbortGateStatus": "open",
+  "scope": "Independent read-only review of the 197-file staged durable-history evidence/status archive at HEAD7f95d654. No new tests, GUI, builds, signatures, process sampling or source/evidence edits. Only this status-review file is written; the staged archive is not changed.",
+  "postWriteVerification": {
+    "original197IndexBlobsAndWorkingBytesUnchanged": true,
+    "headUnchanged": true,
+    "reviewReportUntracked": true,
+    "indexChanges": 0
+  }
+}

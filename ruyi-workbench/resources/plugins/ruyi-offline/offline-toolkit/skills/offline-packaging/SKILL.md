@@ -3,6 +3,8 @@ name: 离线打包
 description: 为隔离网或内网 Windows 机器准备项目分发包
 ---
 
+Platform boundary: the repository packaging commands and installers below are Windows-only. macOS source development is not a signed offline distribution. Do not run these PowerShell/EXE packaging flows on Mac or claim they produce a Mac app. Use the MACOS-PORTING plan for later Mac packaging/signing/clean-machine validation; prepare architecture-matching wheels/browser cache before offline tests, never download during runtime acceptance.
+
 # Offline Packaging
 
 Use this skill when preparing a project for an air-gapped or intranet Windows machine.

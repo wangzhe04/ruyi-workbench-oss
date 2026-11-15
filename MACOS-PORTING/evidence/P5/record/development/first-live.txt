@@ -1,0 +1,26 @@
+PASS normal stdio registry exposes native controlled recording, collection and replay
+PASS recording fixture snapshots the pre-test clipboard before seeding owned formats
+FAIL native start rejects boolean recording duration
+FAIL one native worker owns exactly one bounded controlled recording
+PASS native binding refuses replay while a recording is pending
+PASS recorded native text and pointer input reaches the owned receiver and preserves all clipboard formats
+PASS collection preserves six semantic actions and excludes queries and internal paste events
+PASS recording keeps Chinese body and trailing Enter semantics while omitting expired native window references
+FAIL atomic internal save is readable through the normal macro-list entry point
+(node:4179) [DEP0187] DeprecationWarning: Passing invalid argument types to fs.existsSync is deprecated
+(Use `node --trace-deprecation ...` to show where the warning was created)
+FAIL fresh-target replay remaps a moved window and reproduces exact text, Enter and pointer reception
+PASS native whole-record chord preflight refuses an invalid suffix before any prefix input
+PASS failed native dispatch invalidates its recording without saving a misleading complete prefix
+PASS changed foreground ends the native recording and refuses persistence
+PASS native recording expires at its bounded deadline
+PASS real owned Secure Event Input terminates an active recording and blocks a new start
+FAIL changed geometry terminates recording and incompatible replay before input
+PASS ordinary macro entry refuses interrupted recorded documents
+PASS native buffer stops at 100 semantic actions and identifies its incomplete capacity prefix
+PASS diagnostics and discovery report the exact native recording source and readiness
+PASS collected recording state cannot be consumed a second time
+PASS owned recording MCP and native worker cleanup is confirmed
+PASS owned fixture restores the pre-test clipboard on exit
+
+MACOS RECORD E2E: FAIL (5)

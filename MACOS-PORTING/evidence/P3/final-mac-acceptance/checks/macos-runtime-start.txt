@@ -1,0 +1,18 @@
+PASS Mac PATH uses absolute entries, fixed fallbacks and the running Node
+PASS Windows PATH stays byte-for-byte compatible
+PASS Mac open passes Unicode/metacharacters as one literal argument
+PASS Mac executable scripts degrade to Finder selection
+PASS Mac app bundles cannot launch through generic open
+PASS Windows Explorer selection contract is retained
+PASS Windows startup browser argv is retained
+PASS source-run MCP reuses its running Node executable
+PASS Mac Python discovery uses POSIX runtime and venv layouts
+PASS ripgrep discovery consumes the augmented runtime PATH
+PASS fixed-directory opener resolves aliases before refusing bundle execution
+FAIL Error: condition timed out
+未找到 Node.js。请安装 Node.js 24，或将 RUYI_NODE_PATH 设置为 Node 可执行文件的绝对路径。
+
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-runtime-start.e2e.js:28:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-runtime-start.e2e.js:120:5
+
+MACOS RUNTIME START E2E: FAIL (1)

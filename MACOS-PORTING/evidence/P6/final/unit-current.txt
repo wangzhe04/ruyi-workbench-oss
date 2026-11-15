@@ -1,0 +1,23 @@
+✔ Mac Trash uses one literal path argument and requires confirmed native success (12.482083ms)
+✔ missing helper, symbolic target and failed/malformed/timeout results fail closed (17.860375ms)
+✔ Mac App logical package maps to the whole bundle; incomplete layouts are refused (8.690416ms)
+✖ physical App aliases cannot bypass references or running registry entries (250.878083ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1676.079334
+
+✖ failing tests:
+
+test at dev-harness/unit/macos-migration-trash.test.js:47:1
+✖ physical App aliases cannot bypass references or running registry entries (250.878083ms)
+  ReferenceError: invalidateConfigCache is not defined
+      at eval (eval at module.exports.__eval (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:94405:34), <anonymous>:1:1)
+      at module.exports.__eval (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:94405:34)
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/macos-migration-trash.test.js:63:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)

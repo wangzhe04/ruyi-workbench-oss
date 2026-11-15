@@ -1,0 +1,8 @@
+PASS C0 服务起来了
+PASS C1 首探照旧:/api/status 报出两支合成 CLI(claude /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-128f13-jJ5pQg/bin/claude-slow / kimi /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-128f13-jJ5pQg/bin/kimi-slow)
+PASS C2 过期之后那一发 /api/status 秒回(138 ms;修前 ≥ 3000 ms)
+PASS C2b 同一时段 /health 也没被钉住(76 发,最慢 4 ms)
+PASS C3 过期期间答旧值,不是空串(claude /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-128f13-jJ5pQg/bin/claude-slow / kimi /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-128f13-jJ5pQg/bin/kimi-slow)
+PASS C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+PASS owned CLI-probe service process tree cleanup is confirmed
+CLI PROBE STALL E2E: ALL PASS

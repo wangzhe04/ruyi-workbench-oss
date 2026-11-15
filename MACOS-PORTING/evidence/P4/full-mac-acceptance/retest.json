@@ -1,0 +1,42 @@
+[
+  {
+    "name": "macos-desktop-bridge",
+    "exitCode": 1,
+    "startedAt": "2026-11-08T06:46:25.842504+00:00",
+    "endedAt": "2026-11-08T06:46:30.270356+00:00",
+    "log": "macos-desktop-bridge-retest.txt",
+    "passed": 51,
+    "failed": 1,
+    "sourceSHA256": "e93d019a0d58c106cac199f2910d2992009e830e8f400d5d37e5cbf1ae13e0d7"
+  },
+  {
+    "name": "event-stream-client.browser",
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:46:30.271327+00:00",
+    "endedAt": "2026-11-08T06:48:46.042873+00:00",
+    "log": "event-stream-client.browser-retest.txt",
+    "passed": 38,
+    "failed": 0,
+    "sourceSHA256": "7f497aa8dcae34d32d38078571d0ccc3f42b0e3e3b13447465ad95a070bac290"
+  },
+  {
+    "name": "event-stream-replay.browser",
+    "exitCode": 1,
+    "startedAt": "2026-11-08T06:48:46.043537+00:00",
+    "endedAt": "2026-11-08T06:50:03.637789+00:00",
+    "log": "event-stream-replay.browser-retest.txt",
+    "passed": 20,
+    "failed": 4,
+    "sourceSHA256": "3532d65e9dc872ef796f80f90bdc7f03d64ccd3dd8d3f168fb7637e6fc9f7d7a"
+  },
+  {
+    "name": "event-stream-pageshow.browser",
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:50:03.639887+00:00",
+    "endedAt": "2026-11-08T06:50:06.426100+00:00",
+    "log": "event-stream-pageshow.browser-retest.txt",
+    "passed": 11,
+    "failed": 0,
+    "sourceSHA256": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a"
+  }
+]

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "assessedAt": "2026-11-13T03:44:00.549606+00:00",
+  "scope": "Current macOS27.0.1 arm64 local/internal trial. Full/Slim package acceptance plus fixed installed Full positive capture/basic-input qualification; current administrator with isolated test data.",
+  "currentMacTrialStatus": "done",
+  "phaseStatus": "in_progress",
+  "fullOriginalScopeAccepted": false,
+  "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "acceptanceFixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+  "productionOrPackageChangedSincePriorAcceptance": false,
+  "environment": {
+    "macOS": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0",
+    "uid": 501,
+    "adminGroupMember": true
+  },
+  "fixedApp": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+    "treeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+    "helperSha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69",
+    "rebuiltOrResignedDuringAuthorization": false
+  },
+  "authorization": {
+    "personallyCompletedByUser": true,
+    "agentEnteredCredentialsOrGrantedPermission": false,
+    "mainCapture": {
+      "passed": 7,
+      "exitCode": 0,
+      "log": "main-after-screen-auth/capture.txt"
+    },
+    "mainInput": {
+      "passed": 14,
+      "exitCode": 0,
+      "log": "main-after-replaced-auth/input.txt"
+    },
+    "independent": {
+      "capturePassed": 7,
+      "inputPassed": 14,
+      "attemptsEach": 1,
+      "failed": 0,
+      "skipped": 0,
+      "observedSurvivors": 0,
+      "review": "independent/review.json"
+    },
+    "helperOrigin": "installed-app-bundle",
+    "inputMonitoringQualified": false
+  },
+  "fullOrdinaryUpgrade": {
+    "mainPassed": 14,
+    "independentPassed": 14,
+    "cloneStaging": false,
+    "mode": "normal-ditto-copy",
+    "main": "normal-full-upgrade/index.json",
+    "independent": "normal-full-upgrade-independent/index.json",
+    "independentReview": "normal-full-upgrade-independent/review.json",
+    "scope": "same3.0.1 build-to-build replacement, schema12 forward normalization to14, complete snapshot rollback; no arbitrary future-schema downgrade promise"
+  },
+  "previousPackageAcceptance": "../mac-closeout/validation.json",
+  "packageCounts": {
+    "full": {
+      "install": 13,
+      "offline": 19,
+      "trash": 12,
+      "ordinaryUpgradeRollback": 14,
+      "earlierCloneUpgradeRollback": 15
+    },
+    "slim": {
+      "install": 13,
+      "offline": 7,
+      "trash": 12,
+      "ordinaryUpgradeRollback": 14
+    },
+    "mainAndIndependent": true
+  },
+  "regression": {
+    "historicalOfficialFull": {
+      "selected": 594,
+      "success": 588,
+      "failure": 6,
+      "retryPass": 1,
+      "internalSkipFiles": 32,
+      "liveExcluded": 14,
+      "exitCode": 1,
+      "evidence": "../mac-closeout/regression-coverage.json"
+    },
+    "composite": {
+      "covered": 594,
+      "latestProcessSuccess": 594,
+      "remainingUnpassed": 0,
+      "originalInternalSkipFiles": 32,
+      "excludedLive": 14
+    },
+    "compositeEvidence": "regression-composite.json",
+    "notFreshFinalCandidateFullRerun": true,
+    "interpretation": "594 latest process successes assembled from a historical full run plus documented targeted rechecks, including32 files with historical internal SKIPs. This is not594 fully exercised feature cases."
+  },
+  "engineeringBaseline": {
+    "evidence": "../mac-closeout/validation.json",
+    "unitPass": 2653,
+    "existingUnitSkip": 18,
+    "syntaxFiles": 1196,
+    "staticCompositePass": 80,
+    "scope": "Prior production acceptance; resumed changes are two independently reviewed acceptance fixtures, actually exercised by main and independent runs. Documentation-only closeout does not rerun broad suites."
+  },
+  "artifacts": [
+    {
+      "variant": "full",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "sourceFingerprintCount": 492,
+      "trialAppTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+      "nativeObjectCount": 210
+    },
+    {
+      "variant": "slim",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout/Ruyi-macos-arm64-slim-internal-trial.dmg",
+      "imageSha256": "341207021a6c6114dab886ee189b5aa98484911d966193eea0f850fd03cf5918",
+      "imageBytes": 51629071,
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "sourceFingerprintCount": 492,
+      "trialAppTreeSha256": "e2bf51d9e3fed6d424a4c7fd08dce6fd07d8e67185cb6ae52e42f11da1ca06fc",
+      "nativeObjectCount": 7
+    }
+  ],
+  "remainingGates": [
+    "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+    "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+    "real clean standard-user installation or clean second Mac without developer tools",
+    "macOS14 actual runtime",
+    "formal-identity Keychain/TCC upgrade/recovery stability",
+    "arbitrary future-schema direct backward compatibility",
+    "Windows same-candidate full regression",
+    "original unverified P5 environments; no new waiver inferred"
+  ],
+  "additionalLimits": [
+    "Slim positive App-origin capture/input qualification was not repeated in this resumed window.",
+    "Input Monitoring/event listening/manual recording is not qualified by a granted listen diagnostic alone.",
+    "No fresh final-candidate 594-file full run; 32 historical internal-SKIP files and 14 excluded live files remain explicit.",
+    "Permission revocation, locked-session and original P5 fault/environment scenarios remain bounded by their historical evidence."
+  ],
+  "historicalFailuresRetained": [
+    "../mac-closeout/regression-coverage.json",
+    "../mac-closeout/full-upgrade-enospc-protection.json",
+    "main-after-authorization",
+    "main-after-screen-auth/input.txt",
+    "capture-first.txt",
+    "input-first.txt"
+  ],
+  "storageCleanup": {
+    "summary": "../../maintenance/2026-11-13-space-cleanup/summary.json",
+    "retainedVerification": "../../maintenance/2026-11-13-space-cleanup/retained-verification.json",
+    "oldPackagesRemovedByUserInstruction": true,
+    "oldRawBuildInputsRetained": false,
+    "noBuildRecreated": true
+  },
+  "power": {
+    "priorRelease": "../mac-closeout/power-release.json",
+    "priorSleepRequest": "../mac-closeout/sleep-request.json",
+    "currentCloseoutAddsNoPowerAssertionOrSleepRequest": true
+  },
+  "reviews": [
+    "fixture-code-review.json",
+    "fixture-name-delta-review.json",
+    "independent/review.json",
+    "normal-full-upgrade-independent/review.json",
+    "closeout-document-review.json"
+  ]
+}

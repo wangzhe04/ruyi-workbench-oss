@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T14:24:35.883Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only closure review. No reviewer tests, helper/native/GUI executions, builds, source edits or settings changes.",
+  "priorReviews": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/adapter-source-review-v1.json",
+      "bytes": 6067,
+      "sha256": "d5e2e091276bd0d18055b3de7e993d7f2555b856f9e84d816684eb21deb6d879"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/adapter-source-review-v2.json",
+      "bytes": 6246,
+      "sha256": "ccb44a4b1af879d546557022fac595d4579f5c7e5d4e71cf7be7fe33510f023f"
+    }
+  ],
+  "priorReviewsPreservedByteIdentical": true,
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9151,
+      "sha256": "0faea33fe37d7b60302af09162a712d3b7f1511484864caf3148567c7cabe5a7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/adapter-v3.log",
+      "bytes": 114,
+      "sha256": "571c3ed1361b0c9db40c91309c8946ce9422095d58aeb02215524c3954c9cf31"
+    }
+  ],
+  "findings": [
+    {
+      "id": "legacy-cancel-cleanup-skips-lock-release",
+      "priority": 2,
+      "status": "closed",
+      "correction": "Legacy request cleanup is nested inside a finally that unconditionally releases the shared native lock.",
+      "counterexample": "New Context().run test establishes a truly empty operation context, injects wait failure during legacy cancellation, and asserts quarantine, reacquirable lock, eventual confirmed cleanup and no receipt-native-prepared record."
+    },
+    {
+      "id": "post-spawn-setup-loses-owned-child",
+      "priority": 2,
+      "status": "closed",
+      "correction": "The exact Popen is registered immediately in _SESSION with closing=True before fallible descriptor initialization. Initialization failure follows the same owned close/quarantine path; successful setup alone makes the session reusable.",
+      "counterexample": "New descriptor-setup failure test records the spawned child, injects set_blocking failure with empty context, and requires that exact child exited, _SESSION cleared only afterward, and shared lock released."
+    }
+  ],
+  "previousAdapterFindings": "Both v1 adapter exception-finalization findings remain closed; explicit monitor_started, ordinary-exception cleanup/typed unknown and nested lock-release finalization remain present.",
+  "quarantineAssessment": "No new actionable source issue identified in the reviewed lifecycle changes. Cleanup failure keeps the exact owned Popen in closing quarantine; _session must finish that cleanup before replacement. Successful initialization cannot expose an unregistered child.",
+  "developmentEvidenceObserved": {
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/adapter-v3.log",
+    "tests": 15,
+    "result": "OK",
+    "reviewerExecuted": false,
+    "scope": "Existing read-only adapter/protocol and injected storage/cancellation/lifecycle tests; no held-state or posted-input action is qualified."
+  },
+  "outcome": "All adapter/core findings from v1 and v2 are closed within this reviewed slice.",
+  "implementationState": "Uncommitted full execution-receipts WIP. SDK/ACC and Node still do not activate the new execution context.",
+  "remaining": [
+    "ACC metadata/wrappers/batch context integration.",
+    "Node durable preparation, returned results and restart reconciliation.",
+    "Single-request capture/OCR integration and strict reader/retention work.",
+    "Source-bound independent acceptance of this adapter slice and eventual complete original gate; held faults still require independent qualified rescue."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  }
+}

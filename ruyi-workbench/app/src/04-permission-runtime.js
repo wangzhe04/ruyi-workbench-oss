@@ -981,6 +981,41 @@ function mcpBridgeError(message, kind) {
   return e;
 }
 
+// MCP transport metadata belongs to the host call context, outside model arguments.
+// Clone a small JSON object so an awaited send cannot observe later metadata mutation.
+function mcpCallToolParams(name, args, options) {
+  const params = { name, arguments: args || {} };
+  if (options && Object.prototype.hasOwnProperty.call(options, 'meta')) {
+    const meta = options.meta;
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('mcp metadata must be an object');
+    const encoded = options.executionCheck ? JSON.stringify(copyOrdinaryJsonData(meta)) : JSON.stringify(meta);
+    if (Buffer.byteLength(encoded, 'utf8') > 4096) throw new Error('mcp metadata exceeds 4096 bytes');
+    const copied = JSON.parse(encoded);
+    if (!copied || typeof copied !== 'object' || Array.isArray(copied)) throw new Error('mcp metadata must serialize to an object');
+    params._meta = copied;
+  }
+  return params;
+}
+
+// A real, safe tools/call roundtrip must preserve both reserved metadata and SDK numeric types.
+// The schema-shape flag alone is insufficient. Never cache this across an MCP child replacement.
+async function probeDesktopExecutionReceipts(client, options = {}) {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const probeValues = { integer: 1000000000000000100, exponent: 1e21, decimal: 0.0000001,
+    subnormal: Number.MIN_VALUE, zero: 0, unicode: '你好🚀' };
+  const expected = executionArgumentsDigest(probeValues);
+  const result = await client.callTool('execution_receipt', { invocation_id: '0'.repeat(32), probe_values: probeValues },
+    8000, { ...options, meta: { 'org.ruyi.workbench/execution-probe-v1': { schema: 1, nonce } } });
+  const probe = result?.metadata_probe;
+  if (result?.ok !== true || result.execution_receipt_version !== 1 || result.semantic_validation?.semantic_version !== 1 || !probe || probe.schema !== 1 || probe.nonce !== nonce
+      || probe.context_required !== true || probe.args_semantic_codec !== 'ruyi-sdk-json-v1' || probe.received_semantic_sha256 !== expected
+      || !/^[a-f0-9]{32}$/.test(probe.acc_worker_id || '') || !Number.isSafeInteger(probe.acc_pid) || probe.acc_pid <= 0) {
+    return { ok: false, code: 'execution_receipts_unavailable', outcome: 'not_dispatched', action_sent: false };
+  }
+  return { ok: true, receiptVersion: 1, argumentsCodec: probe.args_semantic_codec,
+    accWorkerId: probe.acc_worker_id, accPid: probe.acc_pid, contextRequired: true };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -1009,6 +1044,10 @@ class McpStdioClient {
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
   _rpc(method, params, timeoutMs = 8000, options = {}) {
     return new Promise((resolve, reject) => {
+      if (method === 'tools/call') {
+        const refusal = DesktopExecutionHooks.callRefusal(this, params?.name, params?.arguments, options);
+        if (refusal) return reject(Object.assign(new Error(refusal.error), { code: refusal.code }));
+      }
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
       }
@@ -1040,7 +1079,11 @@ class McpStdioClient {
         if (signal.aborted) { abortHandler(); return; }
       }
       try {
-        this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
+        const packet = { jsonrpc: '2.0', id, method, params: params || {} };
+        const safePacket = options.executionCheck ? copyOrdinaryJsonData(packet) : packet;
+        const encoded = JSON.stringify(safePacket);
+        if (options.executionCheck) options.executionCheck(safePacket);
+        this.child.stdin.write(encoded + '\n', 'utf8');
       } catch (e) {
         cleanup(); this._pending.delete(id); reject(e);
       }
@@ -1110,11 +1153,13 @@ class McpStdioClient {
     if (this.started) return;
     this.started = true;
     const s = batchSafeSpawn(this.command, this.args);   // transparently wrap .cmd/.bat
+    const spawnEnv = DesktopExecutionHooks.clientEnvironment(this.id, bridgedServerSpawnEnv(process.env, this.env), this);
+    this.executionContextRequired = spawnEnv.RUYI_EXECUTION_CONTEXT_REQUIRED === '1';
     let child;
     try {
       child = ProcessRuntime.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: bridgedServerSpawnEnv(process.env, this.env),
+        env: spawnEnv,
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,
@@ -1169,12 +1214,14 @@ class McpStdioClient {
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     // 条目 disabledTools/enabledTools 在调用时再挡一道(目录里已经滤掉;这里防裸名容错路由或旧目录缓存绕过)。
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     // 超时:调用方显式给的优先,其次条目的 toolTimeoutMs,最后按工具名的内置表。
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
@@ -1536,10 +1583,12 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);

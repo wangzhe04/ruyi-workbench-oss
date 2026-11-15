@@ -1,0 +1,18 @@
+PASS server up
+PASS token scraped
+PASS desktop 源可用(got {
+  "ok": true,
+  "entries": [
+    {
+      "ts": "2026-09-30T16:18:10",
+      "source": "desktop",
+      "type": "run_command",
+      "summary": "run_command（失败）",
+      "detail": {
+        "ts": "202)
+PASS ACC records 变成 2 行 desktop 时间线(got 2)
+PASS 类型取自 tool,失败的 summary 带「失败」
+PASS args 字符串被摊成对象(不再双重编码)
+PASS owned workbench and observed MCP process tree cleanup is confirmed
+
+AUDIT DESKTOP RECORDS E2E: ALL PASS

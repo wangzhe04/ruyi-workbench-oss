@@ -1,0 +1,34 @@
+PASS workbench starts
+PASS A1 /api/stop 被接受
+PASS A2 停止在不可中断工具里当场生效(9 ms < 3000;修前要等工具自己超时)
+PASS A3 结果事件 aborted:true
+PASS A4 被放弃的工具有一条「已停止」的配对结果
+PASS A5 providerHistory 配对完好(a1 有回复)
+PASS A6 没有更新回合时,停止后的收尾照常落盘(末条 assistant source:aborted)
+PASS B1 回合 2 正常跑完
+PASS B2 回合 1 收尾之后,回合 2 的消息还在(实得 ["user:SCN-B1 抓一下慢地址","system:🛠 上次回合有 1 项工具调用未保存结果;是否执行及影响未确认,请先核实,避免重复操作","user:SCN-B2 换个问题","assistant:second reply"])
+PASS B3 回合 2 的 providerHistory 还在
+PASS B4 providerHistory 配对完好
+PASS B5 过期回合的结果事件标 superseded:true(收尾存已丢弃)
+PASS D1 空回复时流里有一句看得见的提示(实得 "[模型这次返回了空回复(没有文字,也没有调用工具);可以重发一次,或换个说法、换个模型再试]")
+PASS D2 回合仍是正常结束(不是错误)
+PASS D3 落盘的助手消息带这句提示(刷新后也看得见)
+PASS D4 providerHistory 里没有塞空 assistant
+PASS D5 提示只进显示正文,不进 providerHistory
+PASS E0 en-US workbench starts
+PASS E1 en-US:流里是英文那句提示,不夹中文(实得 "[The model returned an empty reply (no text and no tool calls). Try sending it again, rephrasing, or switching models.]")
+PASS E2 回合仍是正常结束(不是错误)
+PASS E3 落盘的助手消息带英文提示(刷新后也看得见)
+PASS E4 providerHistory 不变:只有那条 user,没有空 assistant、没有提示(实得 ["user"])
+PASS E5 en-US:前面说过话的那种空结尾给「no final answer」那句(实得 "Let me look.\n\n[The model ended the turn without a final answer (empty reply). Send \"continue\" or ask again.]")
+PASS E6 providerHistory 不变:工具往来原样,没有空 assistant、没有提示
+PASS C0 小窗口 workbench starts
+PASS C1 L2 摘要压缩开始了
+PASS C2 摘要压缩期间停止当场生效(8 ms < 3000;修前要等摘要调用返回)
+PASS C3 「压缩中」状态条被收掉(failed + aborted)
+PASS C4 被取消的摘要没有被重播种进历史
+PASS C5 被停止取消的摘要不算失败:下一回合照常再压并成功(摘要请求 1 → 2)
+PASS C6 下一回合正常结束
+PASS C7 providerHistory 配对完好
+
+TURN STOP SUPERSEDE E2E: ALL PASS

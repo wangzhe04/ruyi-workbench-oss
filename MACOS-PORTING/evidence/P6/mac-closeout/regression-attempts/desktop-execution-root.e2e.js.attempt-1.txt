@@ -1,0 +1,12 @@
+PASS actual serve initializes private root ledger before readiness
+PASS duplicate serve cannot open, recover or replace actual owner ledger
+PASS fixture leaves a durable unfinished preparation without dispatching any tool
+PASS real serve recovery durably holds old preparation before readiness
+PASS actual driver refuses held session before model: ROOT_HELD_FIRST
+PASS actual driver refuses held session before model: ROOT_HELD_NEW_REQUEST_ID
+PASS new HTTP requests and call IDs cannot invoke provider through unresolved history
+PASS held driver never advances turn or repairs/injects provider history
+PASS unrelated healthy session still completes normal actual provider turn
+PASS healthy traffic and repeated held attempts retain original uncertainty evidence
+
+DESKTOP EXECUTION ROOT E2E: ALL PASS

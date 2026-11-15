@@ -1,0 +1,17 @@
+{
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "state": "uncommitted_worktree",
+  "sha256": {
+    "ruyi-workbench/desktop-macos/DesktopService.swift": "793acd09d588c190063a97f6080e3a25fa6f3deb465f4e5c650dd6c73b5b0b45",
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": "a92fa9e9652aaed6fdcf5355b8f32bc33e792291f1f7460187bc6e4dda20094b",
+    "ruyi-workbench/desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+    "ruyi-workbench/desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+    "ruyi-workbench/tools/build-macos-desktop.js": "ea25e740cfebbc30195f932f74218079343cebb643e7828d8d106a0f6ababc17",
+    "dev-harness/macos-desktop-host.e2e.js": "77db7512e5450bd9060974b9be1abd92ac5e88963248eae4f00db26d5c27074d",
+    "dev-harness/fixture-home.static.e2e.js": "720cafe7d784da73c340acffe337d47ad75cc531bf993419c498858b1f46ddfd",
+    "dev-harness/process-safety.static.e2e.js": "77ac202d152ac17159996f38b441e5595f2a8f1cc1a0991c72ddd0a14312df3d",
+    "facts.json": "4453d88644ad82af201aa174ccc73bc2912adde7c217c6c5f19aadb455f4a42f",
+    "README.md": "d5788153572e48fecf9e19dcfd8c4801e3faa2a4ad87768bc2724131f95d9694",
+    "README_EN.md": "2a3d3d6125898e53f0483c89f28d41ab764d20ce44138a0be5345315d61d014b"
+  }
+}

@@ -1,0 +1,48 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS R0 建出七条线程
+PASS R0b 管家视角
+PASS R0c 左栏七条都在
+PASS R1a 点「删除」(反馈乙)
+PASS R1b 删除请求确实在飞(被扣住)
+PASS R1c 请求在飞时那一行立刻变灰、aria-busy(实测 {"present":true,"removing":true,"busy":"true"};修前一动不动)
+PASS R1 放行之后那一行消失(41 ms;修前要等兜底轮询或点别处)
+PASS R2a 点「删除」(反馈丙,服务端注入 500)
+PASS R2b 出一条「删除失败」提示(实测 删除失败：磁盘被占用（测试注入）;修前是一个没人接的 rejection)
+PASS R2 那一行恢复原样(实测 {"present":true,"removing":false,"busy":null})
+PASS R3a 测试直接调 API 删掉反馈丁(页面什么都没做)
+PASS R3 靠推送 thread.removed 从左栏消失(42 ms)
+PASS R4a 切到工作台视角
+PASS R4b 点「删除」(反馈戊)
+PASS R4 工作台视角里同样当场消失(46 ms)
+PASS R6a 工作台里打开「反馈甲」,线程头 chip 就位
+PASS R6b 在线程头把权限改成「只做计划」
+PASS R6c 左栏那一行当场跟上(实测「只做计划」)
+PASS R6d 在左栏行上把权限改成「改文件不问」
+PASS R6 线程头当场跟上(实测「改文件不问」;修前停在「只做计划」直到换线程)
+PASS R6f-a 左栏「反馈甲」行上的权限菜单打开了
+PASS R6f-b 期间别处删掉一条线程(推送来了),开着的菜单没被重画打断(修前整行重建、菜单跟着没了;实测 true)
+PASS R6f 菜单一收,暂缓的那次重画当场补上 —— 被删的那一行消失(1 ms)
+PASS R7a 切到管家视角(工作台里当前仍是「反馈甲」)
+PASS R7b 这一回合跑完(测试直接调 API,页面什么都没做)
+PASS R7c 切回工作台
+PASS R7 中栏当场是新的(那一回合在屏上;修前要换一次会话才重读)
+PASS R8a 回到管家视角
+PASS R8b 焦点落到「反馈己」,焦点栏读过它的事项切片一次
+PASS R8c 点它行上的「优先」
+PASS R8 焦点栏当场重读(点之前读过 1 次,之后 2 次;修前焦点没换就不重读;点之后的请求:POST /api/steward/arbiter/prioritize, GET /api/missions, GET /api/steward/arbiter, GET /api/sessions/sess_6569916c9139929e, GET /api/interventions, GET /api/missions, GET /api/missions/sess_6569916c9139929e)
+PASS R1d-a 扣住所有 GET /api/missions 之后点「删除」(反馈己)
+PASS R1d 取行一发都落不了地时那一行照样消失(45 ms;这一刻被扣住的取行 2 发)
+PASS R1e-a 扣住事件流、换两次视角逼它重连
+PASS R1e-b 新的事件流连接确实被扣住(2 发)
+PASS R1e 推送来不了时,管家视角里改完名那一行当场是新名字(修前 syncRail 在管家视角不补拉,要等兜底轮询)
+PASS R5a 回到管家视角
+PASS R5b 「清理历史」确认框打开
+PASS R5 清理掉的 1 条都从左栏消失(44 ms;当前那条「sess_2aeccd4d7ab2d8fb」不在清理之列)
+PASS R5c 当前那条留着
+PASS RA 左栏头上「同时最多」当场是 3(之前 5;实测 3)
+PASS R9 页面没有未捕获异常(无)
+ACTION FEEDBACK BROWSER E2E: ALL PASS

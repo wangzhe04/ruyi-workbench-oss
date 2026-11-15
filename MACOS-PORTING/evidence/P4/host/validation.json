@@ -1,0 +1,112 @@
+{
+  "date": "2026-11-07",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "uncommitted_worktree",
+  "scope": "P4-01 current macOS27.0.1 arm64 development host; source-bound ad-hoc App",
+  "environment": {
+    "os": "macOS27.0.1",
+    "build": "26A434",
+    "arch": "arm64",
+    "node": "24.15.0",
+    "swift": "Apple Swift6.0.3 (swiftlang-6.0.3.1.10)",
+    "sdk": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+  },
+  "checks": [
+    {
+      "command": "node ruyi-workbench/tools/build-macos-desktop.js",
+      "exitCode": 0,
+      "result": "development signature verified; 5 embedded source hashes match",
+      "log": "build-final.txt"
+    },
+    {
+      "command": "node dev-harness/macos-desktop-host.e2e.js",
+      "exitCode": 0,
+      "passed": 27,
+      "failed": 0,
+      "log": "native-normal-entry.txt",
+      "note": "Uses default builder and a bundle path containing Chinese and spaces"
+    },
+    {
+      "command": "RUYI_DESKTOP_TEST_APP=\"$PWD/ruyi-workbench/dist/Ruyi.app\" node dev-harness/macos-desktop-host.e2e.js",
+      "exitCode": 0,
+      "passed": 27,
+      "failed": 0,
+      "reviewer": "/root/p4_host_review",
+      "log": "native-independent.txt"
+    },
+    {
+      "command": "CUA actual native Retry interaction",
+      "exitCode": 0,
+      "result": "lock failure recovered; full UI ready; own service absent after normal exit",
+      "log": "retry-interaction.json"
+    },
+    {
+      "command": "node dev-harness/run-all.js --fast",
+      "exitCode": 0,
+      "unit": {
+        "passed": 2491,
+        "failed": 0,
+        "skipped": 18
+      },
+      "static": {
+        "passed": 80,
+        "failed": 0
+      },
+      "liveExcluded": 7,
+      "log": "fast-final.txt"
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js",
+      "exitCode": 0,
+      "files": 1130,
+      "failed": 0,
+      "log": "syntax-final.txt"
+    },
+    {
+      "command": "node ruyi-workbench/app/build.js --check",
+      "exitCode": 0,
+      "result": "fresh"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "earlierFailures": [
+    {
+      "log": "native-first.txt",
+      "failures": [
+        "frame canonical identity",
+        "quit nested-loop timeout"
+      ],
+      "status": "fixed_and_retested"
+    },
+    {
+      "log": "native-second.txt",
+      "failures": [
+        "saved frame assertion used y80, constrained to y87 by macOS visible screen bounds"
+      ],
+      "status": "fixture_moved_to_visible_y180_and_retested"
+    },
+    {
+      "log": "fast-first.txt",
+      "failures": [
+        "facts and README e2e count",
+        "fixture launch count and explicit env spread",
+        "own-tree fixture count"
+      ],
+      "status": "census_updated_with_reason_and_full_fast_retested"
+    }
+  ],
+  "formalIdentity": {
+    "status": "deferred_by_user",
+    "decision": "先完成本地开发与独立验收，正式身份复验保留待办"
+  },
+  "openPhaseGates": [
+    "P4-02 system bridge/Finder/notification/Cmd interactions",
+    "P4-03 actual microphone capture and refusal recovery",
+    "P4-04 full MCP/CLI lifecycle and sleep/wake",
+    "macOS14 actual runtime O2/P6",
+    "Windows related regression per P4 stage plan"
+  ]
+}

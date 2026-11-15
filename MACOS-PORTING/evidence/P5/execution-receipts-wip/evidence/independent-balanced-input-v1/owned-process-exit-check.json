@@ -1,0 +1,23 @@
+{
+  "at": "2026-11-12T00:16:57.003800+00:00",
+  "method": "read-only /bin/ps exact owned PID set after suite;no signals",
+  "ownedPIDs": [
+    88980,
+    88985,
+    88988,
+    89005,
+    89006,
+    89007,
+    89021,
+    89038,
+    89052,
+    89053,
+    89054
+  ],
+  "psExitCode": 1,
+  "stillPresentPIDs": [],
+  "stderr": "",
+  "allObservedOwnedIdentitiesAbsent": true,
+  "scope": "11observed identities incl receiver/test runner/native/root/descendants;not global unobserved escape completeness",
+  "extraReadOnlyPSQueriesIncludingPreliminary": 2
+}

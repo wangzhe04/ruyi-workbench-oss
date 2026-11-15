@@ -1,0 +1,33 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS P7 新装的 killOnDisconnect 缺省是 false（实测 false）
+PASS P8 普通模式的上下文计量说人话「对话余量充足」，读数留在悬停提示里（实测 {"meter":"对话余量充足"}）
+PASS P9 线程头下那一行只说文件夹名，整条路径在悬停提示里（实测 {"meta":"在「work」里干活","title":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX/ruyi-perm-plain-ftnyYs/work"}）
+PASS P1 发出一句话、回合来要权限 → 弹窗出来了（发出后约 340 ms；打字闸的判据见 prompt-queue ⑩）
+PASS P2 第一句是人话（实测 "写入文件「report.md」（3 行）"）
+PASS P3 要写的内容给了预览
+PASS P4 原始工具名与 JSON 收在默认收起的「技术详情」里（实测 open=false）
+PASS P5 技术详情之外看不到 file_write
+PASS P10a 改文件档的弹窗给「本次线程自动允许此工具」
+PASS V1 权限弹窗摆在面前时，在场信号带上 viewing=当前线程（实测 "http://127.0.0.1:63095/api/events/stream?lens=classic&sessionId=sess_5ec2b9980ee7afd0&viewing=sess_5ec2b9980ee7afd0"）
+PASS V2 收进小窗之后在场信号不再带 viewing（管家可以接手；实测 "http://127.0.0.1:63095/api/events/stream?lens=classic&sessionId=sess_5ec2b9980ee7afd0"）
+PASS P5b 弹窗收起后，对话里的待决卡就地给「允许／拒绝」、卡头说人话（实测 {"head":"权限确认 · 写入文件","buttons":["允许","拒绝"]}）
+PASS P6 在对话卡上点「允许」→ report.md 真的写出来了
+PASS P6b 决定之后卡上的按钮收起、改成结果（实测 已允许）
+PASS U8 本轮变更只印文件名、整条路径在悬停提示里（实测 {"text":"report.md","title":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX/ruyi-perm-plain-ftnyYs/work/report.md"}）
+PASS U5 写工作文件夹外面：不弹权限窗、文件没写出来（实测 弹窗 0 次）
+PASS U7 越界报错说人话、说清去哪儿改，不印配置键名 allowOutsideWorkspace
+FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）
+FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')
+    at <anonymous>:6:69
+    at <anonymous>:8:7
+    at CdpClient.evaluate (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:142:13)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/permission-plain.browser.e2e.js:182:5
+
+PERMISSION PLAIN BROWSER E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-L8mcwq
+[browser scope 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX

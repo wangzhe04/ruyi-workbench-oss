@@ -1,0 +1,3585 @@
+{
+  "calls": [
+    {
+      "name": "service-stdout",
+      "scenario": "baseline",
+      "text": "如意 Ruyi 3.0.1  (launch: node, overlay 35b8b269b0a3)\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "baseline",
+      "text": "UI: http://127.0.0.1:56338/\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "baseline",
+      "text": "Data: /tmp/p5ready-kWSDp8/baseline/data\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "baseline",
+      "text": "Server source: /private/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/app/server.js\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "baseline",
+      "text": "MCP config: /tmp/p5ready-kWSDp8/baseline/data/generated/workbench.mcp.json\n"
+    },
+    {
+      "name": "diagnostics",
+      "args": {},
+      "status": 200,
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 60,
+        "load_errors": {},
+        "unsupported_modules": {
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "recordSupported": true,
+            "recordReady": true,
+            "recordSource": "controlled_native_requests",
+            "inputSequenceSupported": true,
+            "inputSequenceReady": true,
+            "manualRecordSupported": true,
+            "manualRecordReady": true,
+            "listenAuthorization": "granted",
+            "recordSources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "recordInputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "manualPointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "axReady": true,
+            "ocrReady": true,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": true,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "source": "controlled_native_requests",
+            "sources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "manualSupported": true,
+            "manualReady": true,
+            "pointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "granted",
+            "inputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    },
+    {
+      "name": "list_windows",
+      "args": {},
+      "status": 200,
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 5080,
+            "height": 528,
+            "pid": 13349,
+            "process_start": "1794387791:560234",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 5080,
+              "pid": 13349,
+              "process_start": "1794387791:560234",
+              "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+            },
+            "title": "Ruyi P5 Input 13349",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          }
+        ],
+        "observedWindowCount": 5
+      }
+    },
+    {
+      "name": "focus_window",
+      "args": {
+        "target": {
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "handle": 5080,
+          "pid": 13349,
+          "process_start": "1794387791:560234",
+          "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+        }
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "receiver",
+          "handle": 5080,
+          "height": 528,
+          "pid": 13349,
+          "process_start": "1794387791:560234",
+          "target": {
+            "bounds": {
+              "height": 528,
+              "width": 760,
+              "x": 180,
+              "y": 492
+            },
+            "handle": 5080,
+            "pid": 13349,
+            "process_start": "1794387791:560234",
+            "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+          },
+          "title": "Ruyi P5 Input 13349",
+          "visible": true,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        }
+      }
+    },
+    {
+      "name": "record_start",
+      "args": {
+        "target": {
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "handle": 5080,
+          "pid": 13349,
+          "process_start": "1794387791:560234",
+          "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+        }
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "pointer_profile": "exact",
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "input_sequence",
+      "args": {
+        "target": {
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "handle": 5080,
+          "pid": 13349,
+          "process_start": "1794387791:560234",
+          "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+        },
+        "input_source": {
+          "id": "com.apple.keylayout.ABC",
+          "type": "TISTypeKeyboardLayout"
+        },
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "x": 300,
+            "y": 890,
+            "flags": 0,
+            "button": 0,
+            "click_state": 0,
+            "pressure": 0,
+            "delta_x": 0,
+            "delta_y": 0
+          }
+        ]
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "device_capabilities_normalized": false,
+        "event_count": 1,
+        "pointer_profile": "exact",
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "name": "record_stop",
+      "args": {
+        "save_as": "registry-gate-owned"
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "completion_scope": "exact_supported_events",
+        "excluded_features": [
+          "tablet",
+          "pressure_associations"
+        ],
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.11163379167555831,
+              "ended": 0.1878641666698968,
+              "events": [
+                {
+                  "at_us": 0,
+                  "button": 0,
+                  "click_state": 0,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 0,
+                  "pressure": 0,
+                  "type": "move",
+                  "x": 300,
+                  "y": 890
+                }
+              ],
+              "input_source": {
+                "id": "com.apple.keylayout.ABC",
+                "type": "TISTypeKeyboardLayout"
+              },
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/tmp/p5ready-kWSDp8/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 1,
+        "complete": true,
+        "path": "/tmp/p5ready-kWSDp8/baseline/acc/macros/registry-gate-owned.json",
+        "output_path": "/tmp/p5ready-kWSDp8/baseline/acc/macros/registry-gate-owned.json",
+        "saved_as": "registry-gate-owned"
+      }
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "missing-helper",
+      "text": "如意 Ruyi 3.0.1  (launch: node, overlay c4fe27a9b316)\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "missing-helper",
+      "text": "UI: http://127.0.0.1:56349/\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "missing-helper",
+      "text": "Data: /tmp/p5ready-kWSDp8/missing-helper/data\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "missing-helper",
+      "text": "Server source: /private/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/app/server.js\n"
+    },
+    {
+      "name": "diagnostics",
+      "args": {},
+      "status": 200,
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": null,
+          "monitors": []
+        },
+        "dpi": {
+          "ok": false,
+          "error": "DesktopError: Build or install the macOS automation helper",
+          "code": "dependency_missing"
+        },
+        "optional": {
+          "ocr": false,
+          "uia": false,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 60,
+        "load_errors": {},
+        "unsupported_modules": {
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "reasonCode": "dependency_missing"
+          },
+          "desktop.accessibility": {
+            "supported": false,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": false,
+            "installed": false,
+            "authorization": "not_required_for_local_images",
+            "ready": false,
+            "screenReady": false,
+            "inputReady": false,
+            "backend": "Vision",
+            "recognition_revision": null,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "axReady": false,
+            "ocrReady": false,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": false,
+            "installed": false,
+            "ready": false,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": false,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": false,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "source": "controlled_native_requests",
+            "sources": [],
+            "manualSupported": false,
+            "manualReady": false,
+            "pointerProfiles": [],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "unknown",
+            "inputSource": null,
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/p5ready-kWSDp8/missing-helper/acc/logs"
+      }
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "missing-helper",
+      "text": "MCP config: /tmp/p5ready-kWSDp8/missing-helper/data/generated/workbench.mcp.json\n"
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 1,
+        "records": [
+          {
+            "ts": "2026-11-11T17:03:16",
+            "tool": "macro_run",
+            "ok": false,
+            "args": {
+              "steps": null,
+              "on_error": "stop",
+              "delay_ms": null,
+              "recording": "<dict keys=9>",
+              "target": "<dict keys=5>"
+            },
+            "error": "DesktopError: Build or install the macOS automation helper",
+            "ms": 0
+          }
+        ],
+        "log_dir": "/tmp/p5ready-kWSDp8/missing-helper/acc/logs"
+      }
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "registry-hidden",
+      "text": "如意 Ruyi 3.0.1  (launch: node, overlay 663bf893019b)\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "registry-hidden",
+      "text": "UI: http://127.0.0.1:56357/\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "registry-hidden",
+      "text": "Data: /tmp/p5ready-kWSDp8/registry-hidden/data\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "registry-hidden",
+      "text": "Server source: /private/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/app/server.js\n"
+    },
+    {
+      "name": "service-stdout",
+      "scenario": "registry-hidden",
+      "text": "MCP config: /tmp/p5ready-kWSDp8/registry-hidden/data/generated/workbench.mcp.json\n"
+    },
+    {
+      "name": "diagnostics",
+      "args": {},
+      "status": 200,
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 59,
+        "load_errors": {},
+        "unsupported_modules": {
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "recordSupported": true,
+            "recordReady": true,
+            "recordSource": "controlled_native_requests",
+            "inputSequenceSupported": true,
+            "inputSequenceReady": true,
+            "manualRecordSupported": true,
+            "manualRecordReady": true,
+            "listenAuthorization": "granted",
+            "recordSources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "recordInputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "manualPointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "axReady": true,
+            "ocrReady": true,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": true,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "source": "controlled_native_requests",
+            "sources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "manualSupported": true,
+            "manualReady": true,
+            "pointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "granted",
+            "inputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": [
+          "input_sequence"
+        ]
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/p5ready-kWSDp8/registry-hidden/acc/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 1,
+        "records": [
+          {
+            "ts": "2026-11-11T17:03:18",
+            "tool": "macro_run",
+            "ok": false,
+            "args": {
+              "steps": null,
+              "on_error": "stop",
+              "delay_ms": null,
+              "recording": "<dict keys=9>",
+              "target": "<dict keys=5>"
+            },
+            "error": "DesktopError: Window reference expired or belongs to another native session",
+            "ms": 70
+          }
+        ],
+        "log_dir": "/tmp/p5ready-kWSDp8/registry-hidden/acc/logs"
+      }
+    }
+  ],
+  "turns": [
+    {
+      "label": "READINESS_BASELINE",
+      "sessionId": "sess_c2e2c99017437e34",
+      "action": "allow",
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_c2e2c99017437e34",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "READINESS_BASELINE",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/tmp/p5ready-kWSDp8/work",
+            "createdAt": "2026-11-11T09:03:15.301Z",
+            "updatedAt": "2026-11-11T09:03:15.301Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_c2e2c99017437e34",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "35b8b269b0a3",
+            "driverRunId": "drun_20e1cf70bd5c3839",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T09:03:15.396Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:56337/v1",
+          "args": [],
+          "cwd": "/tmp/p5ready-kWSDp8/work",
+          "model": "fake-model",
+          "permissionMode": "default",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 28,
+          "availableTools": 134,
+          "bridgedTools": 60,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core",
+            "files_read"
+          ],
+          "toolSchemaTokens": 8047,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.508Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.510Z"
+        },
+        {
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "type": "context_estimate",
+          "contextTokens": 10721,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:15.512Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_READINESS_BASELINE\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_exec\",\"arguments\":\"{\\\"name\\\":\\\"ai_computer_control__macro_run\\\",\\\"arguments\\\":{\\\"recording\\\":{\\\"actions\\\":[{\\\"at\\\":0.11163379167555831,\\\"ended\\\":0.1878641666698968,\\\"events\\\":[{\\\"at_us\\\":0,\\\"button\\\":0,\\\"click_state\\\":0,\\\"delta_x\\\":0,\\\"delta_y\\\":0,\\\"flags\\\":0,\\\"pressure\\\":0,\\\"type\\\":\\\"move\\\",\\\"x\\\":300,\\\"y\\\":890}],\\\"input_source\\\":{\\\"id\\\":\\\"com.apple.keylayout.ABC\\\",\\\"type\\\":\\\"TISTypeKeyboardLayout\\\"},\\\"op\\\":\\\"input.sequence\\\"}],\\\"application\\\":{\\\"bundle_id\\\":\\\"\\\",\\\"executable\\\":\\\"/tmp/p5ready-kWSDp8/receiver\\\"},\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"complete\\\":true,\\\"coordinate_space\\\":\\\"macos_global_points\\\",\\\"end_reason\\\":\\\"stopped\\\",\\\"platform\\\":\\\"darwin\\\",\\\"schema\\\":1,\\\"source\\\":\\\"controlled_native_requests\\\"},\\\"target\\\":{\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"handle\\\":5080,\\\"pid\\\":13349,\\\"process_start\\\":\\\"1794387791:560234\\\",\\\"ref\\\":\\\"52C52532-C40D-4DB5-B02A-23498A4902E1\\\"}}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.516Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 1,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.517Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_READINESS_BASELINE",
+          "name": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.517Z"
+        },
+        {
+          "type": "permission_request",
+          "requestId": "perm_37f8db86cdb23983",
+          "toolName": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "tier": "exec",
+          "revertible": false,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.517Z"
+        },
+        {
+          "type": "permission_decision",
+          "requestId": "perm_37f8db86cdb23983",
+          "behavior": "allow",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.519Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_READINESS_BASELINE",
+          "content": {
+            "ok": true,
+            "success": true,
+            "completed": 1,
+            "failed": 0,
+            "results": [
+              {
+                "step": 0,
+                "tool": "input_sequence",
+                "ok": true,
+                "result": {
+                  "acted": true,
+                  "action_sent": true,
+                  "device_capabilities_normalized": false,
+                  "event_count": 1,
+                  "ok": true,
+                  "pointer_profile": "exact",
+                  "protocolVersion": 1,
+                  "verification": "events_posted"
+                }
+              }
+            ]
+          },
+          "isError": false,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.633Z"
+        },
+        {
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "type": "context_estimate",
+          "contextTokens": 11199,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:15.635Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture turn complete\"},\"finish_reason\":null}]}",
+          "seq": 2,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.636Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "fixture turn complete",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.636Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 3,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.636Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 3152,
+            "output_tokens": 6
+          },
+          "contextTokens": 3158,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.636Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.639Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.639Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_dbe53ab68b2ac97a",
+          "ts": "2026-11-11T09:03:15.639Z"
+        }
+      ]
+    },
+    {
+      "label": "READINESS_MISSING",
+      "sessionId": "sess_30c330fc6df80b6f",
+      "action": "allow",
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_30c330fc6df80b6f",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "READINESS_MISSING",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/tmp/p5ready-kWSDp8/work",
+            "createdAt": "2026-11-11T09:03:16.191Z",
+            "updatedAt": "2026-11-11T09:03:16.192Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_30c330fc6df80b6f",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "c4fe27a9b316",
+            "driverRunId": "drun_08fcb6458c6f1321",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T09:03:16.287Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:56348/v1",
+          "args": [],
+          "cwd": "/tmp/p5ready-kWSDp8/work",
+          "model": "fake-model",
+          "permissionMode": "default",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 28,
+          "availableTools": 93,
+          "bridgedTools": 20,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core",
+            "files_read"
+          ],
+          "toolSchemaTokens": 8047,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.453Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.455Z"
+        },
+        {
+          "traceId": "trace_81c98d68110feab3",
+          "type": "context_estimate",
+          "contextTokens": 10749,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:16.456Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_READINESS_MISSING\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_exec\",\"arguments\":\"{\\\"name\\\":\\\"ai_computer_control__macro_run\\\",\\\"arguments\\\":{\\\"recording\\\":{\\\"actions\\\":[{\\\"at\\\":0.11163379167555831,\\\"ended\\\":0.1878641666698968,\\\"events\\\":[{\\\"at_us\\\":0,\\\"button\\\":0,\\\"click_state\\\":0,\\\"delta_x\\\":0,\\\"delta_y\\\":0,\\\"flags\\\":0,\\\"pressure\\\":0,\\\"type\\\":\\\"move\\\",\\\"x\\\":300,\\\"y\\\":890}],\\\"input_source\\\":{\\\"id\\\":\\\"com.apple.keylayout.ABC\\\",\\\"type\\\":\\\"TISTypeKeyboardLayout\\\"},\\\"op\\\":\\\"input.sequence\\\"}],\\\"application\\\":{\\\"bundle_id\\\":\\\"\\\",\\\"executable\\\":\\\"/tmp/p5ready-kWSDp8/receiver\\\"},\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"complete\\\":true,\\\"coordinate_space\\\":\\\"macos_global_points\\\",\\\"end_reason\\\":\\\"stopped\\\",\\\"platform\\\":\\\"darwin\\\",\\\"schema\\\":1,\\\"source\\\":\\\"controlled_native_requests\\\"},\\\"target\\\":{\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"handle\\\":5080,\\\"pid\\\":13349,\\\"process_start\\\":\\\"1794387791:560234\\\",\\\"ref\\\":\\\"52C52532-C40D-4DB5-B02A-23498A4902E1\\\"}}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.459Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 1,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.460Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_READINESS_MISSING",
+          "name": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.460Z"
+        },
+        {
+          "type": "permission_request",
+          "requestId": "perm_5ddddc3dcabff704",
+          "toolName": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "tier": "exec",
+          "revertible": false,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.460Z"
+        },
+        {
+          "type": "permission_decision",
+          "requestId": "perm_5ddddc3dcabff704",
+          "behavior": "allow",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.463Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_READINESS_MISSING",
+          "content": {
+            "ok": false,
+            "error": "DesktopError: Build or install the macOS automation helper",
+            "code": "dependency_missing"
+          },
+          "isError": true,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.468Z"
+        },
+        {
+          "type": "failure_classified",
+          "source": "runtime-shadow",
+          "traceId": "trace_81c98d68110feab3",
+          "toolCallId": "call_READINESS_MISSING",
+          "toolName": "tool_invoke_exec",
+          "iteration": 0,
+          "classifierVersion": "deterministic-v3",
+          "failureClass": "unknown",
+          "recoverableHint": false,
+          "allowedRepair": "diagnose_only",
+          "deterministic": true,
+          "tier": "exec",
+          "disposition": "executed",
+          "evidenceHash": "b0dda238e193dd83",
+          "ts": "2026-11-11T09:03:16.469Z"
+        },
+        {
+          "traceId": "trace_81c98d68110feab3",
+          "type": "context_estimate",
+          "contextTokens": 11161,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:16.470Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture turn complete\"},\"finish_reason\":null}]}",
+          "seq": 2,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.472Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "fixture turn complete",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.473Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 3,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.473Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 3114,
+            "output_tokens": 6
+          },
+          "contextTokens": 3120,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.473Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.475Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.475Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_81c98d68110feab3",
+          "ts": "2026-11-11T09:03:16.475Z"
+        }
+      ]
+    },
+    {
+      "label": "READINESS_HIDDEN_RECORDING",
+      "sessionId": "sess_e4f66b87f2516ed9",
+      "action": "allow",
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_e4f66b87f2516ed9",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "READINESS_HIDDEN_RECORDING",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/tmp/p5ready-kWSDp8/work",
+            "createdAt": "2026-11-11T09:03:17.960Z",
+            "updatedAt": "2026-11-11T09:03:17.961Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_e4f66b87f2516ed9",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "663bf893019b",
+            "driverRunId": "drun_12de79a5314a6179",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T09:03:18.053Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:56356/v1",
+          "args": [],
+          "cwd": "/tmp/p5ready-kWSDp8/work",
+          "model": "fake-model",
+          "permissionMode": "default",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 28,
+          "availableTools": 133,
+          "bridgedTools": 59,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core",
+            "files_read"
+          ],
+          "toolSchemaTokens": 8047,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.158Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.160Z"
+        },
+        {
+          "traceId": "trace_ed83faf0c4f43529",
+          "type": "context_estimate",
+          "contextTokens": 10724,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:18.162Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_READINESS_HIDDEN_RECORDING\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_exec\",\"arguments\":\"{\\\"name\\\":\\\"ai_computer_control__macro_run\\\",\\\"arguments\\\":{\\\"recording\\\":{\\\"actions\\\":[{\\\"at\\\":0.11163379167555831,\\\"ended\\\":0.1878641666698968,\\\"events\\\":[{\\\"at_us\\\":0,\\\"button\\\":0,\\\"click_state\\\":0,\\\"delta_x\\\":0,\\\"delta_y\\\":0,\\\"flags\\\":0,\\\"pressure\\\":0,\\\"type\\\":\\\"move\\\",\\\"x\\\":300,\\\"y\\\":890}],\\\"input_source\\\":{\\\"id\\\":\\\"com.apple.keylayout.ABC\\\",\\\"type\\\":\\\"TISTypeKeyboardLayout\\\"},\\\"op\\\":\\\"input.sequence\\\"}],\\\"application\\\":{\\\"bundle_id\\\":\\\"\\\",\\\"executable\\\":\\\"/tmp/p5ready-kWSDp8/receiver\\\"},\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"complete\\\":true,\\\"coordinate_space\\\":\\\"macos_global_points\\\",\\\"end_reason\\\":\\\"stopped\\\",\\\"platform\\\":\\\"darwin\\\",\\\"schema\\\":1,\\\"source\\\":\\\"controlled_native_requests\\\"},\\\"target\\\":{\\\"bounds\\\":{\\\"height\\\":528,\\\"width\\\":760,\\\"x\\\":180,\\\"y\\\":492},\\\"handle\\\":5080,\\\"pid\\\":13349,\\\"process_start\\\":\\\"1794387791:560234\\\",\\\"ref\\\":\\\"52C52532-C40D-4DB5-B02A-23498A4902E1\\\"}}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.165Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 1,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.165Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_READINESS_HIDDEN_RECORDING",
+          "name": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.166Z"
+        },
+        {
+          "type": "permission_request",
+          "requestId": "perm_6d1d71105cd7c532",
+          "toolName": "tool_invoke_exec",
+          "input": {
+            "name": "ai_computer_control__macro_run",
+            "arguments": {
+              "recording": {
+                "actions": [
+                  {
+                    "at": 0.11163379167555831,
+                    "ended": 0.1878641666698968,
+                    "events": [
+                      {
+                        "at_us": 0,
+                        "button": 0,
+                        "click_state": 0,
+                        "delta_x": 0,
+                        "delta_y": 0,
+                        "flags": 0,
+                        "pressure": 0,
+                        "type": "move",
+                        "x": 300,
+                        "y": 890
+                      }
+                    ],
+                    "input_source": {
+                      "id": "com.apple.keylayout.ABC",
+                      "type": "TISTypeKeyboardLayout"
+                    },
+                    "op": "input.sequence"
+                  }
+                ],
+                "application": {
+                  "bundle_id": "",
+                  "executable": "/tmp/p5ready-kWSDp8/receiver"
+                },
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "complete": true,
+                "coordinate_space": "macos_global_points",
+                "end_reason": "stopped",
+                "platform": "darwin",
+                "schema": 1,
+                "source": "controlled_native_requests"
+              },
+              "target": {
+                "bounds": {
+                  "height": 528,
+                  "width": 760,
+                  "x": 180,
+                  "y": 492
+                },
+                "handle": 5080,
+                "pid": 13349,
+                "process_start": "1794387791:560234",
+                "ref": "52C52532-C40D-4DB5-B02A-23498A4902E1"
+              }
+            }
+          },
+          "tier": "exec",
+          "revertible": false,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.166Z"
+        },
+        {
+          "type": "permission_decision",
+          "requestId": "perm_6d1d71105cd7c532",
+          "behavior": "allow",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.169Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_READINESS_HIDDEN_RECORDING",
+          "content": {
+            "ok": false,
+            "error": "DesktopError: Window reference expired or belongs to another native session",
+            "code": "target_stale"
+          },
+          "isError": true,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.338Z"
+        },
+        {
+          "type": "failure_classified",
+          "source": "runtime-shadow",
+          "traceId": "trace_ed83faf0c4f43529",
+          "toolCallId": "call_READINESS_HIDDEN_RECORDING",
+          "toolName": "tool_invoke_exec",
+          "iteration": 0,
+          "classifierVersion": "deterministic-v3",
+          "failureClass": "unknown",
+          "recoverableHint": false,
+          "allowedRepair": "diagnose_only",
+          "deterministic": true,
+          "tier": "exec",
+          "disposition": "executed",
+          "evidenceHash": "b6204a35636bbfee",
+          "ts": "2026-11-11T09:03:18.338Z"
+        },
+        {
+          "traceId": "trace_ed83faf0c4f43529",
+          "type": "context_estimate",
+          "contextTokens": 11140,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T09:03:18.340Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture turn complete\"},\"finish_reason\":null}]}",
+          "seq": 2,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.342Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "fixture turn complete",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.342Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 3,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.342Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 3093,
+            "output_tokens": 6
+          },
+          "contextTokens": 3099,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.342Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.344Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.344Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_ed83faf0c4f43529",
+          "ts": "2026-11-11T09:03:18.344Z"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "label": "READINESS_BASELINE",
+      "requestId": "perm_37f8db86cdb23983",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_c2e2c99017437e34",
+          "interventionId": "perm_37f8db86cdb23983",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "READINESS_MISSING",
+      "requestId": "perm_5ddddc3dcabff704",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_30c330fc6df80b6f",
+          "interventionId": "perm_5ddddc3dcabff704",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "READINESS_HIDDEN_RECORDING",
+      "requestId": "perm_6d1d71105cd7c532",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_e4f66b87f2516ed9",
+          "interventionId": "perm_6d1d71105cd7c532",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "baseline",
+      "missing": false,
+      "hidden": "",
+      "desktop": true,
+      "commandTools": true,
+      "catalog": [
+        "agent_result",
+        "orchestrate_agents",
+        "wait_agents",
+        "archive_unzip",
+        "archive_zip",
+        "claude_md_audit",
+        "code_review_scan",
+        "codebase_symbol_search",
+        "data_profile",
+        "debug_hypothesis",
+        "dependency_inventory",
+        "docs_search",
+        "frontend_audit",
+        "git_commit",
+        "git_diff",
+        "git_log",
+        "git_status",
+        "list_tools",
+        "mission_update",
+        "observation_recall",
+        "request_user_input",
+        "todo_write",
+        "tool_search",
+        "workbench_memory_list",
+        "workbench_memory_propose",
+        "workbench_memory_read",
+        "workbench_self_status",
+        "ai_computer_control__act_and_verify",
+        "ai_computer_control__audit_tail",
+        "ai_computer_control__batch_actions",
+        "ai_computer_control__close_window",
+        "ai_computer_control__focus_window",
+        "ai_computer_control__get_active_window",
+        "ai_computer_control__get_clipboard",
+        "ai_computer_control__get_clipboard_image",
+        "ai_computer_control__get_mouse_position",
+        "ai_computer_control__get_screen_info",
+        "ai_computer_control__hotkey",
+        "ai_computer_control__image_resize",
+        "ai_computer_control__input_sequence",
+        "ai_computer_control__launch_application",
+        "ai_computer_control__list_windows",
+        "ai_computer_control__macro_run",
+        "ai_computer_control__maximize_window",
+        "ai_computer_control__minimize_window",
+        "ai_computer_control__mouse_click",
+        "ai_computer_control__mouse_drag",
+        "ai_computer_control__mouse_move",
+        "ai_computer_control__mouse_scroll",
+        "ai_computer_control__move_window",
+        "ai_computer_control__observe",
+        "ai_computer_control__ocr_available_languages",
+        "ai_computer_control__ocr_click",
+        "ai_computer_control__ocr_find_text",
+        "ai_computer_control__ocr_image",
+        "ai_computer_control__ocr_screen",
+        "ai_computer_control__press_key",
+        "ai_computer_control__record_start",
+        "ai_computer_control__record_stop",
+        "ai_computer_control__resize_window",
+        "ai_computer_control__run_command",
+        "ai_computer_control__screenshot",
+        "ai_computer_control__screenshot_region",
+        "ai_computer_control__scroll_at",
+        "ai_computer_control__set_clipboard",
+        "ai_computer_control__set_clipboard_image",
+        "ai_computer_control__type_text",
+        "ai_computer_control__ui_find",
+        "ai_computer_control__ui_inspect",
+        "ai_computer_control__ui_invoke",
+        "ai_computer_control__wait",
+        "ai_computer_control__window_screenshot",
+        "desktop_screenshot",
+        "ai_computer_control__diagnostics",
+        "ai_computer_control__file_info",
+        "ai_computer_control__get_dpi_info",
+        "ai_computer_control__image_info",
+        "ai_computer_control__list_directory",
+        "ai_computer_control__list_monitors",
+        "ai_computer_control__macro_list",
+        "ai_computer_control__read_file",
+        "ai_computer_control__safety_info",
+        "ai_computer_control__version_info",
+        "audio_inspect",
+        "audio_transcribe",
+        "code_check",
+        "file_list",
+        "file_read",
+        "file_search",
+        "glob",
+        "media_probe",
+        "project_snapshot",
+        "acceptance_report",
+        "ai_computer_control__copy_file",
+        "ai_computer_control__delete_file",
+        "ai_computer_control__edit_file",
+        "ai_computer_control__move_file",
+        "ai_computer_control__write_file",
+        "checkpoint_list",
+        "file_copy",
+        "file_delete",
+        "file_edit",
+        "file_move",
+        "file_write",
+        "mcp_configure",
+        "mcp_list",
+        "thread_read",
+        "threads_search",
+        "workbench_memory_relation_propose",
+        "workbench_memory_relation_revoke",
+        "workbench_memory_revise",
+        "office_open",
+        "script_run",
+        "shell_kill",
+        "shell_list",
+        "shell_poll",
+        "shell_run",
+        "shell_send",
+        "shell_start",
+        "playbook_list",
+        "playbook_read",
+        "skill_list",
+        "browser_open",
+        "http_download",
+        "http_request",
+        "web_fetch",
+        "web_search"
+      ],
+      "diagnostic": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 60,
+        "load_errors": {},
+        "unsupported_modules": {
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "recordSupported": true,
+            "recordReady": true,
+            "recordSource": "controlled_native_requests",
+            "inputSequenceSupported": true,
+            "inputSequenceReady": true,
+            "manualRecordSupported": true,
+            "manualRecordReady": true,
+            "listenAuthorization": "granted",
+            "recordSources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "recordInputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "manualPointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "axReady": true,
+            "ocrReady": true,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": true,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "source": "controlled_native_requests",
+            "sources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "manualSupported": true,
+            "manualReady": true,
+            "pointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "granted",
+            "inputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    },
+    {
+      "name": "missing-helper",
+      "missing": true,
+      "hidden": "",
+      "desktop": true,
+      "commandTools": true,
+      "catalog": [
+        "agent_result",
+        "orchestrate_agents",
+        "wait_agents",
+        "archive_unzip",
+        "archive_zip",
+        "claude_md_audit",
+        "code_review_scan",
+        "codebase_symbol_search",
+        "data_profile",
+        "debug_hypothesis",
+        "dependency_inventory",
+        "docs_search",
+        "frontend_audit",
+        "git_commit",
+        "git_diff",
+        "git_log",
+        "git_status",
+        "list_tools",
+        "mission_update",
+        "observation_recall",
+        "request_user_input",
+        "todo_write",
+        "tool_search",
+        "workbench_memory_list",
+        "workbench_memory_propose",
+        "workbench_memory_read",
+        "workbench_self_status",
+        "ai_computer_control__audit_tail",
+        "ai_computer_control__batch_actions",
+        "ai_computer_control__image_resize",
+        "ai_computer_control__macro_run",
+        "ai_computer_control__record_stop",
+        "ai_computer_control__run_command",
+        "ai_computer_control__wait",
+        "ai_computer_control__diagnostics",
+        "ai_computer_control__file_info",
+        "ai_computer_control__image_info",
+        "ai_computer_control__list_directory",
+        "ai_computer_control__macro_list",
+        "ai_computer_control__read_file",
+        "ai_computer_control__safety_info",
+        "ai_computer_control__version_info",
+        "audio_inspect",
+        "audio_transcribe",
+        "code_check",
+        "file_list",
+        "file_read",
+        "file_search",
+        "glob",
+        "media_probe",
+        "project_snapshot",
+        "acceptance_report",
+        "ai_computer_control__copy_file",
+        "ai_computer_control__delete_file",
+        "ai_computer_control__edit_file",
+        "ai_computer_control__move_file",
+        "ai_computer_control__write_file",
+        "checkpoint_list",
+        "file_copy",
+        "file_delete",
+        "file_edit",
+        "file_move",
+        "file_write",
+        "mcp_configure",
+        "mcp_list",
+        "thread_read",
+        "threads_search",
+        "workbench_memory_relation_propose",
+        "workbench_memory_relation_revoke",
+        "workbench_memory_revise",
+        "office_open",
+        "script_run",
+        "shell_kill",
+        "shell_list",
+        "shell_poll",
+        "shell_run",
+        "shell_send",
+        "shell_start",
+        "playbook_list",
+        "playbook_read",
+        "skill_list",
+        "browser_open",
+        "http_download",
+        "http_request",
+        "web_fetch",
+        "web_search"
+      ],
+      "diagnostic": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": null,
+          "monitors": []
+        },
+        "dpi": {
+          "ok": false,
+          "error": "DesktopError: Build or install the macOS automation helper",
+          "code": "dependency_missing"
+        },
+        "optional": {
+          "ocr": false,
+          "uia": false,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 60,
+        "load_errors": {},
+        "unsupported_modules": {
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "reasonCode": "dependency_missing"
+          },
+          "desktop.accessibility": {
+            "supported": false,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": false,
+            "installed": false,
+            "authorization": "not_required_for_local_images",
+            "ready": false,
+            "screenReady": false,
+            "inputReady": false,
+            "backend": "Vision",
+            "recognition_revision": null,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "axReady": false,
+            "ocrReady": false,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": false,
+            "installed": false,
+            "ready": false,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": false,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": false,
+            "installed": false,
+            "authorization": "unknown",
+            "ready": false,
+            "source": "controlled_native_requests",
+            "sources": [],
+            "manualSupported": false,
+            "manualReady": false,
+            "pointerProfiles": [],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "unknown",
+            "inputSource": null,
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      },
+      "workbenchCapture": {
+        "supported": true,
+        "installed": false,
+        "authorization": "unknown",
+        "ready": false,
+        "reasonCode": "dependency_missing"
+      },
+      "outcomes": [
+        {
+          "label": "READINESS_MISSING",
+          "result": {
+            "ok": false,
+            "error": "DesktopError: Build or install the macOS automation helper",
+            "code": "dependency_missing"
+          },
+          "before": {
+            "clipboardChanged": false,
+            "clipboardPreserved": false,
+            "clipboardSnapshot": false,
+            "clipboardVersion": 683,
+            "combinedFlags": 536870912,
+            "counts": {},
+            "cursorX": 300,
+            "cursorY": 890,
+            "editor": {
+              "height": 260,
+              "width": 720,
+              "x": 200,
+              "y": 540
+            },
+            "event": "state",
+            "hidFlags": 536870912,
+            "hidLeft": false,
+            "hidShift": false,
+            "id": 5080,
+            "inputSource": "com.apple.keylayout.ABC",
+            "leftHeld": false,
+            "manualPointerTick": 0,
+            "manualPointerType": 0,
+            "marked": false,
+            "modifierFlags": 0,
+            "pad": {
+              "height": 170,
+              "width": 720,
+              "x": 200,
+              "y": 830
+            },
+            "pid": 13349,
+            "temporaryClipboardOwned": false,
+            "text": "",
+            "title": "Ruyi P5 Input 13349"
+          },
+          "after": {
+            "clipboardChanged": false,
+            "clipboardPreserved": false,
+            "clipboardSnapshot": false,
+            "clipboardVersion": 683,
+            "combinedFlags": 536870912,
+            "counts": {},
+            "cursorX": 300,
+            "cursorY": 890,
+            "editor": {
+              "height": 260,
+              "width": 720,
+              "x": 200,
+              "y": 540
+            },
+            "event": "state",
+            "hidFlags": 536870912,
+            "hidLeft": false,
+            "hidShift": false,
+            "id": 5080,
+            "inputSource": "com.apple.keylayout.ABC",
+            "leftHeld": false,
+            "manualPointerTick": 0,
+            "manualPointerType": 0,
+            "marked": false,
+            "modifierFlags": 0,
+            "pad": {
+              "height": 170,
+              "width": 720,
+              "x": 200,
+              "y": 830
+            },
+            "pid": 13349,
+            "temporaryClipboardOwned": false,
+            "text": "",
+            "title": "Ruyi P5 Input 13349"
+          },
+          "newAudit": [
+            {
+              "ts": "2026-11-11T17:03:16",
+              "tool": "macro_run",
+              "ok": false,
+              "args": {
+                "steps": null,
+                "on_error": "stop",
+                "delay_ms": null,
+                "recording": "<dict keys=9>",
+                "target": "<dict keys=5>"
+              },
+              "error": "DesktopError: Build or install the macOS automation helper",
+              "ms": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "registry-hidden",
+      "missing": false,
+      "hidden": "input_sequence",
+      "desktop": true,
+      "commandTools": true,
+      "catalog": [
+        "agent_result",
+        "orchestrate_agents",
+        "wait_agents",
+        "archive_unzip",
+        "archive_zip",
+        "claude_md_audit",
+        "code_review_scan",
+        "codebase_symbol_search",
+        "data_profile",
+        "debug_hypothesis",
+        "dependency_inventory",
+        "docs_search",
+        "frontend_audit",
+        "git_commit",
+        "git_diff",
+        "git_log",
+        "git_status",
+        "list_tools",
+        "mission_update",
+        "observation_recall",
+        "request_user_input",
+        "todo_write",
+        "tool_search",
+        "workbench_memory_list",
+        "workbench_memory_propose",
+        "workbench_memory_read",
+        "workbench_self_status",
+        "ai_computer_control__act_and_verify",
+        "ai_computer_control__audit_tail",
+        "ai_computer_control__batch_actions",
+        "ai_computer_control__close_window",
+        "ai_computer_control__focus_window",
+        "ai_computer_control__get_active_window",
+        "ai_computer_control__get_clipboard",
+        "ai_computer_control__get_clipboard_image",
+        "ai_computer_control__get_mouse_position",
+        "ai_computer_control__get_screen_info",
+        "ai_computer_control__hotkey",
+        "ai_computer_control__image_resize",
+        "ai_computer_control__launch_application",
+        "ai_computer_control__list_windows",
+        "ai_computer_control__macro_run",
+        "ai_computer_control__maximize_window",
+        "ai_computer_control__minimize_window",
+        "ai_computer_control__mouse_click",
+        "ai_computer_control__mouse_drag",
+        "ai_computer_control__mouse_move",
+        "ai_computer_control__mouse_scroll",
+        "ai_computer_control__move_window",
+        "ai_computer_control__observe",
+        "ai_computer_control__ocr_available_languages",
+        "ai_computer_control__ocr_click",
+        "ai_computer_control__ocr_find_text",
+        "ai_computer_control__ocr_image",
+        "ai_computer_control__ocr_screen",
+        "ai_computer_control__press_key",
+        "ai_computer_control__record_start",
+        "ai_computer_control__record_stop",
+        "ai_computer_control__resize_window",
+        "ai_computer_control__run_command",
+        "ai_computer_control__screenshot",
+        "ai_computer_control__screenshot_region",
+        "ai_computer_control__scroll_at",
+        "ai_computer_control__set_clipboard",
+        "ai_computer_control__set_clipboard_image",
+        "ai_computer_control__type_text",
+        "ai_computer_control__ui_find",
+        "ai_computer_control__ui_inspect",
+        "ai_computer_control__ui_invoke",
+        "ai_computer_control__wait",
+        "ai_computer_control__window_screenshot",
+        "desktop_screenshot",
+        "ai_computer_control__diagnostics",
+        "ai_computer_control__file_info",
+        "ai_computer_control__get_dpi_info",
+        "ai_computer_control__image_info",
+        "ai_computer_control__list_directory",
+        "ai_computer_control__list_monitors",
+        "ai_computer_control__macro_list",
+        "ai_computer_control__read_file",
+        "ai_computer_control__safety_info",
+        "ai_computer_control__version_info",
+        "audio_inspect",
+        "audio_transcribe",
+        "code_check",
+        "file_list",
+        "file_read",
+        "file_search",
+        "glob",
+        "media_probe",
+        "project_snapshot",
+        "acceptance_report",
+        "ai_computer_control__copy_file",
+        "ai_computer_control__delete_file",
+        "ai_computer_control__edit_file",
+        "ai_computer_control__move_file",
+        "ai_computer_control__write_file",
+        "checkpoint_list",
+        "file_copy",
+        "file_delete",
+        "file_edit",
+        "file_move",
+        "file_write",
+        "mcp_configure",
+        "mcp_list",
+        "thread_read",
+        "threads_search",
+        "workbench_memory_relation_propose",
+        "workbench_memory_relation_revoke",
+        "workbench_memory_revise",
+        "office_open",
+        "script_run",
+        "shell_kill",
+        "shell_list",
+        "shell_poll",
+        "shell_run",
+        "shell_send",
+        "shell_start",
+        "playbook_list",
+        "playbook_read",
+        "skill_list",
+        "browser_open",
+        "http_download",
+        "http_request",
+        "web_fetch",
+        "web_search"
+      ],
+      "diagnostic": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 59,
+        "load_errors": {},
+        "unsupported_modules": {
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "recordSupported": true,
+            "recordReady": true,
+            "recordSource": "controlled_native_requests",
+            "inputSequenceSupported": true,
+            "inputSequenceReady": true,
+            "manualRecordSupported": true,
+            "manualRecordReady": true,
+            "listenAuthorization": "granted",
+            "recordSources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "recordInputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "manualPointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "axReady": true,
+            "ocrReady": true,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.input_sequence": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "backend": "bounded CGEvent sequence"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": true,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "source": "controlled_native_requests",
+            "sources": [
+              "controlled_native_requests",
+              "native_window_events"
+            ],
+            "manualSupported": true,
+            "manualReady": true,
+            "pointerProfiles": [
+              "exact",
+              "standard_mouse"
+            ],
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": "granted",
+            "inputSource": {
+              "id": "com.apple.keylayout.ABC",
+              "type": "TISTypeKeyboardLayout"
+            },
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": [
+          "input_sequence"
+        ]
+      },
+      "outcomes": [
+        {
+          "label": "READINESS_HIDDEN_RECORDING",
+          "result": {
+            "ok": false,
+            "error": "DesktopError: Window reference expired or belongs to another native session",
+            "code": "target_stale"
+          },
+          "before": {
+            "clipboardChanged": false,
+            "clipboardPreserved": false,
+            "clipboardSnapshot": false,
+            "clipboardVersion": 683,
+            "combinedFlags": 536870912,
+            "counts": {},
+            "cursorX": 300,
+            "cursorY": 890,
+            "editor": {
+              "height": 260,
+              "width": 720,
+              "x": 200,
+              "y": 540
+            },
+            "event": "state",
+            "hidFlags": 536870912,
+            "hidLeft": false,
+            "hidShift": false,
+            "id": 5080,
+            "inputSource": "com.apple.keylayout.ABC",
+            "leftHeld": false,
+            "manualPointerTick": 0,
+            "manualPointerType": 0,
+            "marked": false,
+            "modifierFlags": 0,
+            "pad": {
+              "height": 170,
+              "width": 720,
+              "x": 200,
+              "y": 830
+            },
+            "pid": 13349,
+            "temporaryClipboardOwned": false,
+            "text": "",
+            "title": "Ruyi P5 Input 13349"
+          },
+          "after": {
+            "clipboardChanged": false,
+            "clipboardPreserved": false,
+            "clipboardSnapshot": false,
+            "clipboardVersion": 683,
+            "combinedFlags": 536870912,
+            "counts": {},
+            "cursorX": 300,
+            "cursorY": 890,
+            "editor": {
+              "height": 260,
+              "width": 720,
+              "x": 200,
+              "y": 540
+            },
+            "event": "state",
+            "hidFlags": 536870912,
+            "hidLeft": false,
+            "hidShift": false,
+            "id": 5080,
+            "inputSource": "com.apple.keylayout.ABC",
+            "leftHeld": false,
+            "manualPointerTick": 0,
+            "manualPointerType": 0,
+            "marked": false,
+            "modifierFlags": 0,
+            "pad": {
+              "height": 170,
+              "width": 720,
+              "x": 200,
+              "y": 830
+            },
+            "pid": 13349,
+            "temporaryClipboardOwned": false,
+            "text": "",
+            "title": "Ruyi P5 Input 13349"
+          },
+          "newAudit": [
+            {
+              "ts": "2026-11-11T17:03:18",
+              "tool": "macro_run",
+              "ok": false,
+              "args": {
+                "steps": null,
+                "on_error": "stop",
+                "delay_ms": null,
+                "recording": "<dict keys=9>",
+                "target": "<dict keys=5>"
+              },
+              "error": "DesktopError: Window reference expired or belongs to another native session",
+              "ms": 70
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 995.99609375,
+      "cursorY": 506.375,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "ready",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 995.99609375,
+      "cursorY": 506.375,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 300,
+      "cursorY": 890,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 300,
+      "cursorY": 890,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 300,
+      "cursorY": 890,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 683,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 300,
+      "cursorY": 890,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 5080,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 13349,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 13349"
+    },
+    {
+      "event": "input-source-restore",
+      "restored": true,
+      "skipped_external_change": false
+    }
+  ],
+  "cleanups": [
+    {
+      "label": "service",
+      "scenario": "baseline",
+      "receipt": {
+        "killed": [
+          13390,
+          13391,
+          13389,
+          13365
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "observed": [
+        {
+          "pid": 13365,
+          "ppid": 13344,
+          "created": "1794387792626225",
+          "name": ""
+        },
+        {
+          "pid": 13389,
+          "ppid": 13365,
+          "created": "1794387793187309",
+          "name": ""
+        },
+        {
+          "pid": 13390,
+          "ppid": 13389,
+          "created": "1794387793188938",
+          "name": ""
+        },
+        {
+          "pid": 13391,
+          "ppid": 13390,
+          "created": "1794387793189328",
+          "name": ""
+        },
+        {
+          "pid": 13420,
+          "ppid": 13391,
+          "created": "1794387794644020",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "service",
+      "scenario": "missing-helper",
+      "receipt": {
+        "killed": [
+          13452,
+          13453,
+          13451,
+          13438
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "observed": [
+        {
+          "pid": 13438,
+          "ppid": 13344,
+          "created": "1794387795704924",
+          "name": ""
+        },
+        {
+          "pid": 13451,
+          "ppid": 13438,
+          "created": "1794387795844415",
+          "name": ""
+        },
+        {
+          "pid": 13452,
+          "ppid": 13451,
+          "created": "1794387795845558",
+          "name": ""
+        },
+        {
+          "pid": 13453,
+          "ppid": 13452,
+          "created": "1794387795845926",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "service",
+      "scenario": "registry-hidden",
+      "receipt": {
+        "killed": [
+          13488,
+          13489,
+          13487,
+          13473
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "observed": [
+        {
+          "pid": 13473,
+          "ppid": 13344,
+          "created": "1794387796579675",
+          "name": ""
+        },
+        {
+          "pid": 13487,
+          "ppid": 13473,
+          "created": "1794387796808952",
+          "name": ""
+        },
+        {
+          "pid": 13488,
+          "ppid": 13487,
+          "created": "1794387796810381",
+          "name": ""
+        },
+        {
+          "pid": 13489,
+          "ppid": 13488,
+          "created": "1794387796810709",
+          "name": ""
+        },
+        {
+          "pid": 13514,
+          "ppid": 13489,
+          "created": "1794387798265618",
+          "name": ""
+        }
+      ]
+    }
+  ],
+  "cleanupSafe": true,
+  "recording": {
+    "actions": [
+      {
+        "at": 0.11163379167555831,
+        "ended": 0.1878641666698968,
+        "events": [
+          {
+            "at_us": 0,
+            "button": 0,
+            "click_state": 0,
+            "delta_x": 0,
+            "delta_y": 0,
+            "flags": 0,
+            "pressure": 0,
+            "type": "move",
+            "x": 300,
+            "y": 890
+          }
+        ],
+        "input_source": {
+          "id": "com.apple.keylayout.ABC",
+          "type": "TISTypeKeyboardLayout"
+        },
+        "op": "input.sequence"
+      }
+    ],
+    "application": {
+      "bundle_id": "",
+      "executable": "/tmp/p5ready-kWSDp8/receiver"
+    },
+    "bounds": {
+      "height": 528,
+      "width": 760,
+      "x": 180,
+      "y": 492
+    },
+    "complete": true,
+    "coordinate_space": "macos_global_points",
+    "end_reason": "stopped",
+    "platform": "darwin",
+    "schema": 1,
+    "source": "controlled_native_requests"
+  },
+  "savedRecordingSha256": "f9f892f23348bdf4815e9333bcef413c986d3e8af3fd4ca9e3467cbe680d6856",
+  "retainedRoot": null
+}

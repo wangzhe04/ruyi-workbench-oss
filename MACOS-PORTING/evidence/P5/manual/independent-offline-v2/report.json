@@ -1,0 +1,1498 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T04:14:34.332621+00:00",
+  "status": "engineering_environment_invalidated",
+  "steps": [
+    {
+      "name": "build-normal",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "-e",
+        "const b=require('./ruyi-workbench/tools/build-macos-automation-helper.js');console.log(b.buildMacAutomationHelper({output:\"/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper\",testing:false}));"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:47.477303+00:00",
+      "elapsedSeconds": 3.028,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-normal/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-normal.txt",
+      "logDigest": {
+        "bytes": 136,
+        "sha256": "9b9e5782118a3366e6269e19d680af524210da1ef95f5a1d4a307c621cdc3ce7"
+      }
+    },
+    {
+      "name": "build-testing",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "-e",
+        "const b=require('./ruyi-workbench/tools/build-macos-automation-helper.js');console.log(b.buildMacAutomationHelper({output:\"/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper\",testing:true}));"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:50.515134+00:00",
+      "elapsedSeconds": 2.995,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-testing/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-testing.txt",
+      "logDigest": {
+        "bytes": 137,
+        "sha256": "4df0f210e76891c5213f99843ad2333783a0175f098483bfb1c382abf2ed57d7"
+      }
+    },
+    {
+      "name": "native-release-allocation",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:53.520171+00:00",
+      "elapsedSeconds": 0.662,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-release-allocation/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_release_allocation"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-release-allocation.txt",
+      "logDigest": {
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856"
+      },
+      "nativeResult": {
+        "cleanup_refused": true,
+        "cross_tool_blocked": true,
+        "ok": true,
+        "ownership_retained": true,
+        "permission_ownership_retained": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-stopped-mutations",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:54.193368+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-stopped-mutations/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stopped_mutations"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-stopped-mutations.txt",
+      "logDigest": {
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1,
+        "results": [
+          {
+            "op": "window.focus",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.move",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.resize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.maximize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.minimize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.close",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "clipboard.set",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "clipboard.image.set",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "application.launch",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "keyboard.text",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "keyboard.chord",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.click",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.move",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.drag",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.scroll",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "input.sequence",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "ax.invoke",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "record.start",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "native-raw-flags",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:54.215005+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-raw-flags/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 536870912,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 536870912,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-raw-flags.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-invalid-unmatched",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:09:54.236848+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-unmatched/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_up",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-unmatched.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-repeat",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:49.621510+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-repeat/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 1
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-repeat.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-scroll",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:49.644081+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-scroll/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "scroll",
+            "at_us": 0,
+            "flags": 0,
+            "x": 1,
+            "y": 1,
+            "delta": [
+              1,
+              0,
+              0
+            ],
+            "fixed": [
+              1,
+              0,
+              0
+            ],
+            "point": [
+              1,
+              0,
+              0
+            ],
+            "continuous": true,
+            "phase": 2,
+            "momentum": 0,
+            "scroll_count": 1
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-scroll.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-device",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:49.666498+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-device/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 2,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-device.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-bool",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:49.689571+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/native-invalid-bool/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": false,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-bool.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_release_allocation",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:49.712487+00:00",
+      "elapsedSeconds": 0.382,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_release_allocation/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_release_allocation"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_release_allocation.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_stopped_mutations",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:50.116422+00:00",
+      "elapsedSeconds": 0.013,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stopped_mutations/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stopped_mutations"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_stopped_mutations.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_validate_sequence",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:50.143875+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_validate_sequence/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_validate_sequence.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_stall_sequence",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:10:50.169439+00:00",
+      "elapsedSeconds": 0.012,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/normal-excludes-test_stall_sequence/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stall_sequence"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_stall_sequence.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "smoke_audit_cancellation",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_audit_cancellation.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:50.193863+00:00",
+      "elapsedSeconds": 0.571,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_audit_cancellation/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_audit_cancellation.txt",
+      "logDigest": {
+        "bytes": 2085,
+        "sha256": "bbe160581fea12f445cdfb9bdb55ef8bac7199f46b53f59e2962b801c46eac22"
+      },
+      "tests": 12,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_record",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_record.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:50.779202+00:00",
+      "elapsedSeconds": 0.389,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_record/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_record.txt",
+      "logDigest": {
+        "bytes": 4918,
+        "sha256": "33800c9d7f5fa041492ad74e1aa7698467661417f8cf573f1beea0f2e7f6b772"
+      },
+      "tests": 31,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_sequence",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_sequence.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:51.179889+00:00",
+      "elapsedSeconds": 0.51,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_sequence/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_sequence.txt",
+      "logDigest": {
+        "bytes": 2695,
+        "sha256": "c666b5fd1a0805a9e001ad498b59f01193dc030f392a63bd978e716d0d4860a0"
+      },
+      "tests": 16,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_composed",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_composed.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:51.702282+00:00",
+      "elapsedSeconds": 0.741,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_composed/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_composed.txt",
+      "logDigest": {
+        "bytes": 115,
+        "sha256": "084277824c09c37ec821a8d1395371fbef90e3b01906926f7f5a775233a6e709"
+      },
+      "tests": 16,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_visual",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_visual.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:52.458360+00:00",
+      "elapsedSeconds": 0.838,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_visual/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_visual.txt",
+      "logDigest": {
+        "bytes": 124,
+        "sha256": "c8c04baf7840ee494fd660976d3e8e48be92b1ac62cdea157ca970398bd5ec41"
+      },
+      "tests": 25,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_capture",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_capture.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:53.310244+00:00",
+      "elapsedSeconds": 2.548,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_capture/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_capture.txt",
+      "logDigest": {
+        "bytes": 1799,
+        "sha256": "9356ca700a7be2c84b09721dd953fd6db65c0359ae8a9e073474d37413de216b"
+      },
+      "tests": 13,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_shared",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_shared.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:55.872202+00:00",
+      "elapsedSeconds": 2.2,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_shared/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_shared.txt",
+      "logDigest": {
+        "bytes": 1152,
+        "sha256": "543f02fc207662680cfbaf36a22ba218a38ae0a5b2fab1eda97683fa8a2e5559"
+      },
+      "tests": 8,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_input",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_input.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:10:58.087712+00:00",
+      "elapsedSeconds": 8.6,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_input/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_input.txt",
+      "logDigest": {
+        "bytes": 2980,
+        "sha256": "83a914e1ce217c475ab2a8a891a36e1bf6271cb20ab14b0f756130bbbfddbe44"
+      },
+      "tests": 21,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_events",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_events.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:11:06.700527+00:00",
+      "elapsedSeconds": 0.325,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_events/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_events.txt",
+      "logDigest": {
+        "bytes": 2172,
+        "sha256": "f44fbdb0ff1c373bf1b6fc83d6635265af0453ba78a63121dae701497960f3e0"
+      },
+      "tests": 16,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_ax",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_ax.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T04:11:07.040088+00:00",
+      "elapsedSeconds": 0.321,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/smoke_macos_ax/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_ax.txt",
+      "logDigest": {
+        "bytes": 106,
+        "sha256": "771dcb69cad7d0fb2ff1f9f4ec638c5fda9e3b7e7d22095934b5942b2463e021"
+      },
+      "tests": 8,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:11:07.375592+00:00",
+      "elapsedSeconds": 26.165,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/syntax/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/syntax.txt",
+      "logDigest": {
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad"
+      },
+      "summaryLines": []
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:11:33.553947+00:00",
+      "elapsedSeconds": 0.15,
+      "exitCode": 0,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/build-check/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-check.txt",
+      "logDigest": {
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      },
+      "summaryLines": []
+    },
+    {
+      "name": "fullunit",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "--test",
+        "dev-harness/unit/*.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T04:11:33.717100+00:00",
+      "elapsedSeconds": 116.853,
+      "exitCode": 1,
+      "environment": {
+        "HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/home",
+        "USERPROFILE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/userprofile",
+        "APPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/appdata",
+        "LOCALAPPDATA": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/localappdata",
+        "WCW_DATA_DIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/wcw-data",
+        "RUYI_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/win-claude-home",
+        "TMPDIR": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/fullunit/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/fullunit.txt",
+      "logDigest": {
+        "bytes": 402632,
+        "sha256": "ff6d22bd20d151793084d0d9c151c4cb0b0119413855abd4fa67246038de76b3"
+      }
+    }
+  ],
+  "nativeAssertions": [
+    {
+      "assertion": "cleanup_refused",
+      "passed": true
+    },
+    {
+      "assertion": "ownership_retained",
+      "passed": true
+    },
+    {
+      "assertion": "permission_ownership_retained",
+      "passed": true
+    },
+    {
+      "assertion": "cross_tool_blocked",
+      "passed": true
+    },
+    {
+      "assertion": "18 stopped mutations false and not_dispatched",
+      "passed": true
+    },
+    {
+      "assertion": "raw flags 0x20000000 valid",
+      "passed": true
+    },
+    {
+      "assertion": "reject unmatched",
+      "passed": true
+    },
+    {
+      "assertion": "reject repeat",
+      "passed": true
+    },
+    {
+      "assertion": "reject scroll",
+      "passed": true
+    },
+    {
+      "assertion": "reject device",
+      "passed": true
+    },
+    {
+      "assertion": "reject bool",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_release_allocation",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_stopped_mutations",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_validate_sequence",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_stall_sequence",
+      "passed": true
+    }
+  ],
+  "checkpoints": 58,
+  "artifacts": [
+    {
+      "mode": "normal",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper",
+      "bytes": 290880,
+      "sha256": "7979de1d7597585b3991a6a3553d98dfab5d567d5cc3494bddf8816b0beb0f34"
+    },
+    {
+      "mode": "testing",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper",
+      "bytes": 291584,
+      "sha256": "36e7288500429cb9a50d84745c54494ad0c6d839121c312a8bda77b7557d09b8"
+    }
+  ],
+  "manualRetries": 0,
+  "pending": [
+    "Valid-environment engineering completion; fullunit would need a separately recorded rerun and fast has not executed",
+    "Expanded real GUI manual E2E",
+    "Real Ruyi App manual chain",
+    "Physical human input",
+    "Original P5 remaining audit and external gates"
+  ],
+  "scope": "Independent v2 offline subset only. No GUI or default helper/App/system-setting modification. Stopped after the first unexpected engineering failure.",
+  "freezePath": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v2.json",
+  "frozenFiles": 34,
+  "allSourceChecksMatched": true,
+  "sourceDrift": false,
+  "commandsExecutedOnce": 27,
+  "manualCommandRetries": 0,
+  "nativeContractAssertionsPassed": 15,
+  "nativeExpectedNegativeExitOne": 9,
+  "pythonTests": 166,
+  "pythonSkipped": 0,
+  "engineering": {
+    "syntax": {
+      "exitCode": 0,
+      "files": 1151
+    },
+    "buildCheck": {
+      "exitCode": 0
+    },
+    "fullunit": {
+      "exitCode": 1,
+      "tests": 2517,
+      "suites": 192,
+      "pass": 2492,
+      "fail": 7,
+      "cancelled": 0,
+      "skipped": 18,
+      "todo": 0
+    },
+    "runAllFast": {
+      "executed": false,
+      "reason": "Stopped after unexpected fullunit failure"
+    }
+  },
+  "acceptanceHarnessErrors": [
+    {
+      "kind": "native_exit_expectation",
+      "count": 1,
+      "cause": "Initial runner required exit 0 for a deliberately invalid native request. Native output correctly returned ok:false/code:invalid_args with exit 1. Raw output reused after fixing runner; command not repeated.",
+      "originalEvidence": "interrupted-report.json"
+    },
+    {
+      "kind": "isolation_tmpdir_environment",
+      "count": 1,
+      "cause": "TMPDIR under a long directory inside the main git repository. Five ownership tests hit Unix-domain-socket path length EINVAL/derived ENOENT; two walk-tools tests unexpectedly inherited ancestor git ignore behavior (*.log and ignored/).",
+      "unitFailures": 7,
+      "sourceReferences": [
+        "dev-harness/unit/server-ownership.test.js:87,123,171,206,266",
+        "dev-harness/unit/walk-tools.test.js:139,166",
+        ".gitignore:32"
+      ],
+      "remedy": "Use short, own temporary roots outside any git repository for a separately authorized engineering rerun; retain this invalid-environment attempt."
+    }
+  ],
+  "candidateImplementationDefectsEstablished": 0,
+  "engineeringGatePassed": false
+}

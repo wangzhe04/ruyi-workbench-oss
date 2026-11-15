@@ -309,9 +309,12 @@ try {
       && st6h.history.slice(-3).every(h => h.status === 'dismissed') && memFiles(HOME_H).length === 2,
     'H6 另一会话「全部忽略」→ 每条 dismissed、三行历史、一条不写');
   } finally {
-    const exited = new Promise(resolve => { if (wb.exitCode !== null) resolve(); else wb.once('exit', resolve); });
-    try { killOwnTree(wb.pid); } catch { /* gone */ }
+    const exited = new Promise(resolve => { if (wb.exitCode !== null || wb.signalCode !== null) resolve(); else wb.once('exit', resolve); });
+    const cleanup = killOwnTree(wb);
     await Promise.race([exited, sleep(5000)]);
+    ok((wb.exitCode !== null || wb.signalCode !== null) && !cleanup.skipped
+      && (process.platform !== 'darwin' || (cleanup.incomplete === false && cleanup.scope === 'observed-tree')),
+      'owned workbench and observed MCP process tree cleanup is confirmed');
     await fake.close();
     try { fs.rmSync(HOME_H, { recursive: true, force: true }); } catch { /* windows 句柄 */ }
   }

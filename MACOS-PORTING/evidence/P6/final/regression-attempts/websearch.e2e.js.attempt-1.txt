@@ -1,0 +1,108 @@
+PASS ssrfCheck exported
+PASS SSRF: 127.0.0.1 BLOCKED
+PASS SSRF: 169.254.169.254 (cloud metadata) BLOCKED
+PASS SSRF: 10.0.0.1 (private) BLOCKED
+PASS SSRF: 192.168.1.1 (private) BLOCKED
+PASS SSRF: 172.16.5.5 (private) BLOCKED
+PASS SSRF: localhost BLOCKED
+PASS SSRF: ::1 (ipv6 loopback) BLOCKED
+PASS SSRF: *.internal BLOCKED
+PASS SSRF: *.local BLOCKED
+PASS SSRF: file:// protocol REJECTED
+PASS SSRF: file:// reason mentions protocol
+PASS SSRF: ftp:// protocol REJECTED
+PASS SSRF: public https host ALLOWED
+PASS SSRF: public IPv4 8.8.8.8 ALLOWED
+PASS SSRF: 172.32.x (outside 172.16-31) ALLOWED
+PASS SSRF: result carries blocked host string
+PASS extractMainText exported
+PASS extract: <title> captured + entity decoded (My & Title)
+PASS extract: <script>/<style> content stripped
+PASS extract: script body fully removed
+PASS extract: block tags → paragraph newlines preserved
+PASS extract: &lt;/&gt;/&nbsp; entities decoded in body
+PASS extract: no HTML tags survive in text
+PASS cache fns exported
+PASS webCachePath → <...>/webcache/<sha256>.json
+PASS cache read-back round-trips {url,title,text,ts}
+PASS webFetch(127.0.0.1) → ok:false + blocked (SSRF), no cache leak
+PASS webFetch blocked result is NOT served fromCache
+PASS webFetch offline (unresolvable host) → fromCache:true from disk cache
+PASS webFetch fromCache carries stored ts for freshness judgement
+PASS webSearch searxng ok + backend label
+PASS webSearch → 2 results parsed
+PASS webSearch result has {title,url,snippet}
+PASS webSearch echoed query reached the searxng endpoint
+PASS webSearch type=none → ok:false (未配置搜索后端)
+PASS builtin: bing branch ok + backend/engine labels
+PASS builtin: 2 b_algo blocks parsed (pagination noise skipped) (2)
+PASS builtin: title HTML entities decoded (&amp;→&, &#174;→®) (如意 & 工作台 ®)
+PASS builtin: url captured + entity-decoded (https://ex.example/a?x=1&y=2)
+PASS builtin: snippet tag-stripped + &#169;→© decoded (这是第一条摘要 © 说明文字。)
+PASS builtin: result tagged source:bing
+PASS builtin: second block (nested div h2 + b_caption) parsed
+PASS builtin: dead bing override → network failure, not "no results" ({"ok":false,"results":[],"backend":"builtin","failClass":"network","error":"搜索引擎连不上(connect ECONNREFUSED 127.0.0.1:1)","hint":"多半是网络/代理问题,换关键词没有用;检查网络或 设置→网络代理,)
+PASS builtin: parseBaiduHtml → 2 result c-container blocks (2)
+PASS builtin: baidu title decoded (&#x4E00;→一,&amp;→&) + redirect url 照收
+PASS builtin: baidu snippet decoded + source:baidu
+PASS builtin: baidu second block parsed
+PASS builtin: parsers defensive (garbage/null → [])
+PASS migrate: stored none → builtin
+PASS migrate: none→builtin records changed=true (persists to disk)
+PASS migrate: absent searchBackend → builtin default
+PASS migrate: a real backend (searxng) is NOT touched
+PASS capability: web_search MET with builtin + online
+PASS capability: web_search UNMET with none (disabled)
+PASS capability: builtin still UNMET when offline (network required)
+PASS T1: ENOTFOUND → dns
+PASS T1: ECONNRESET/aborted → reset
+PASS T1: ECONNREFUSED → connect
+PASS T1: cert error → tls
+PASS T1: timeout → timeout
+PASS T1: HTTP 403 → 反爬 message + web_search hint
+PASS T1: reset → 中断/反爬 message
+PASS T1: dns message says 解析失败, NOT 离线
+PASS T2: probeAny(one live, one dead) → true (any-success)
+PASS T2: probeAny(all dead) → false
+PASS T2: probeAny([]) → null (nothing to probe)
+PASS T2: capabilityProbeUrl set → sole probe target
+PASS T2: default anchors include baidu + cn.bing
+PASS maskSecrets: providers[].apiKey → ••••9999
+PASS maskSecrets: searchBackend.apiKey → ••••3456
+PASS unmaskSecrets: masked providers key restored from disk
+PASS unmaskSecrets: masked searchBackend key restored from disk
+PASS unmaskSecrets: a new plaintext searchBackend key passes through
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 52c0b1cc0ab4)
+[wb] UI: http://127.0.0.1:64819/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-websearch-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :64819
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-websearch-e2e/generated/workbench.mcp.json
+PASS (migrate) turn completed
+PASS (migrate) request captured
+PASS (migrate) web_search OFFERED (none→builtin migration + online)
+PASS (migrate) web_search NOT 「当前不可用」 (builtin satisfies searchBackend)
+PASS (migrate) D6 proactive-search line renders (web_search offered + online)
+PASS (migrate) on-disk: searchBackend folded none→builtin (= default, not pinned) + migration marker persisted
+PASS got UI token for config POST
+PASS POST /api/config saved searchBackend
+PASS POST /api/config response masks searchBackend.apiKey (••••3456)
+PASS GET /api/status masks searchBackend.apiKey (••••3456)
+PASS persisted config recovers the exact REAL searchBackend key
+PASS Windows persistence stores encrypted references with no search key plaintext in config, backups or vault
+PASS masked round-trip SAVE does NOT wipe the real key
+PASS masked round-trip does not reintroduce search key plaintext into physical files
+[wb2] 如意 Ruyi 3.0.1  (launch: node, overlay a0833b4c7b6c)
+[wb2] UI: http://127.0.0.1:64819/
+[wb2] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-websearch-e2e
+[wb2] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (searxng) workbench listening
+PASS (searxng) turn ok after web_search tool call
+PASS (searxng) request captured
+PASS (searxng) web_search OFFERED (network+searchBackend satisfied)
+PASS (searxng) web_fetch OFFERED (network satisfied)
+PASS (searxng) D6 proactive-search instruction rendered when web_search offered + online
+PASS (searxng) a web_search tool event was emitted (2)
+PASS (searxng) searxng results flowed back into provider history
+
+WEBSEARCH E2E: ALL PASS

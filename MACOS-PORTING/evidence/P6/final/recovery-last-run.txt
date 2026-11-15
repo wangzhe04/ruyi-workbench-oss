@@ -1,0 +1,54 @@
+# Ruyi e2e last-run log
+# 44 pass / 6 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 50 ran / 14 skipped
+# Node v24.15.0, platform darwin, parallel=4
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+PASS	2642ms	preflight-relative-write.e2e.js
+PASS	4022ms	read-pool.e2e.js
+PASS	9785ms	scheduler.e2e.js
+PASS	877ms	session-notes.e2e.js
+PASS	8095ms	skills-registry.e2e.js
+PASS	40510ms	steward-continue-unfinished.e2e.js
+PASS	8027ms	steward-global-health.browser.e2e.js
+PASS	3455ms	steward-read-routing.e2e.js
+PASS	952ms	steward-thread-workspace.e2e.js
+PASS	2143ms	summary-refine.e2e.js
+FAIL	2316ms	tool-audit-fixes.e2e.js
+PASS	3790ms	turn-undo.browser.e2e.js
+PASS	400ms	workbench-memory-core.e2e.js
+PASS	2504ms	provider-api-style.browser.e2e.js
+FAIL	43464ms	repo-hygiene.e2e.js
+PASS	3482ms	self-check.e2e.js
+PASS	474ms	session-search.e2e.js
+PASS	26156ms	stale-source-badge.browser.e2e.js
+PASS	1547ms	steward-deferred-notice.browser.e2e.js
+PASS	18940ms	steward-inbox.e2e.js
+PASS	414ms	steward-settings-scope.e2e.js
+PASS	619ms	storage-steward.e2e.js
+PASS	2167ms	surface-hardening-w2.e2e.js
+FAIL	11176ms	tool-audit-r2-netexec.e2e.js
+PASS	1771ms	usage-accum.e2e.js
+PASS	1805ms	workspace-picker-popover.browser.e2e.js
+PASS	842ms	provider-no-model-locale.e2e.js
+PASS	6172ms	responses-websearch-inline.e2e.js
+PASS	2668ms	session-atomic.e2e.js
+PASS	6294ms	session-turn-core.e2e.js
+FLAKY_PASS	13815ms	steering.e2e.js
+PASS	12774ms	steward-delivery.browser.e2e.js
+PASS	3450ms	steward-new-conversation.browser.e2e.js
+PASS	3691ms	steward-shell.e2e.js
+PASS	4517ms	subagent-retry-after.e2e.js
+PASS	45229ms	thread-arbiter.e2e.js
+FAIL	5507ms	tool-invoke-promote.e2e.js
+PASS	2358ms	usage-subagent-ledger.e2e.js
+PASS	25660ms	provider-turnloop-hardening.e2e.js
+PASS	831ms	scheduler-api.e2e.js
+PASS	2085ms	session-id-path-guard.e2e.js
+FAIL	44059ms	settings-wave1.browser.e2e.js
+PASS	3390ms	steward-background-hold.e2e.js
+FAIL	240023ms	steward-exempt-delegation.e2e.js
+PASS	23769ms	steward-preroute.e2e.js
+PASS	1821ms	steward-stop-respected.e2e.js
+PASS	1859ms	summary-call-policy.e2e.js
+PASS	10086ms	thread-switch-race.browser.e2e.js
+PASS	35710ms	toolbox-discovery.e2e.js
+PASS	819ms	voice-lexicon.e2e.js

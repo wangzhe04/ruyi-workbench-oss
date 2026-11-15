@@ -1,0 +1,27 @@
+PASS U1 会话 id 归一化(got /api/sessions/:id/events)
+PASS U1 run id 归一化
+PASS U1 无 id 路径原样
+PASS U2 recordRequestMetric 已导出
+PASS U2 total 累计(got 320)
+PASS U2 buckets 之和 == total
+PASS U2 slowest ≤8 且降序
+PASS U2 slowest 路径已归一化(无会话 id 泄漏)
+PASS U3 趋势追点 + 1h 节流(连调两次只一点,engineBytes=300)
+PASS U3 storage-trend.json 已落盘
+PASS U4 趋势文件缺失 → 空史(不硬失败)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay dae9ca0f4946)
+[wb] UI: http://127.0.0.1:59359/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-metrics-e2e-live
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS B1 workbench up on :59359
+PASS B1 UI token scraped
+PASS B2 GET /api/metrics 无 token → 403(got 403)
+PASS B2 有 token → 200 ok(status=200, transport=none)
+PASS B3 memory/children/storageTrend/requests 字段齐
+PASS B4 请求计数 total=4 且 buckets 之和相等
+PASS B4 六桶
+PASS B5 /health 不计数(5 次 health 后 total 4 → 5,仅 metrics 自己 +1)
+PASS B6 storage-trend.json 已生成
+PASS B6 趋势节流(再调不追点,1 → 1)
+
+METRICS-PANEL E2E: ALL PASS

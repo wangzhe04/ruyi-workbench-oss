@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "b33d1c6a",
+  "results": {
+    "full": {
+      "passed": 19,
+      "failed": 0,
+      "allPass": true,
+      "evidence": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-RUs8WD"
+    },
+    "slim": {
+      "passed": 7,
+      "failed": 0,
+      "allPass": true,
+      "evidence": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-rzsV5d"
+    }
+  },
+  "recordedAt": "2026-11-12T07:33:12.291213+00:00",
+  "scope": "Functional independent acceptance only; final native audit correction and rebuilt candidate qualification pending"
+}

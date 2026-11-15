@@ -52,3 +52,7 @@ python3.12 MACOS-PORTING/probes/python-deps-probe.py
 正式探针会联网下载依赖并在临时 venv 安装，用于开发期验证，不是产品运行期网络依赖。输出写入 `evidence/P0/python/`，再次运行前应另存旧记录。临时 venv 保留，路径记录在 report；可在确认不再需要后删除该专属临时目录。新脚本隔离家目录/缓存，并在超时/异常时回收专属进程组；不 import pynput/pyautogui，不下载/运行 Chromium，不控制真实桌面。
 
 解析出的 wheel 在当前 macOS 可用不代表支持最低 macOS 14；部分纯 Python 包由 sdist 构建成功，因此“当前能安装”也不等于“离线 wheel 闭包已经交付”。P3/P6 必须另做版本锁、最低系统、许可证与离线安装验证。
+
+## P3 静态最低部署版本
+
+`audit-macos-minimum.py --wheelhouse <准备的wheel目录> --browser-root <准备的浏览器cache> --out <JSON>` 只读取arm64 Mach-O的macOS部署声明，不执行二进制。完整Chromium必需路径固定到本次1248/156.0.8078.4版本；浏览器升级须同步路径并重新审计。发现解析错误或高于14.0的声明时退出1。它不证明macOS14实际运行、系统符号兼容、完整发行闭包或签名。复现与独立负控见 [P3补验](../evidence/P3/acceptance/minimum/README.md)。

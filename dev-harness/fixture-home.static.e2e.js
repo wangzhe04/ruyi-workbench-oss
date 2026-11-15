@@ -144,7 +144,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 65: 212 -> 215 (e2e 206 -> 209): stop/rewind execution and global-health restart each add one isolated server spawn site.
 // Privacy 3.1: config-mutate-mcp-parity explicitly isolates RUYI_HOME as well as its legacy alias (+1).
 // +1: macos-overlay-boundary starts an isolated production service with its own data root.
-const RUYI_HOME_SPAWN_SITES = 226; // +1 real Claude local-model mode starts an isolated service. // +1 P2 scheduler-crash cold recovery worker with isolated home/data root. // +1 relocated Mac installation starts its real service with an isolated home. // +1 Mac startup fixture uses isolated home and its own data root. // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
+const RUYI_HOME_SPAWN_SITES = 238; // +1 Mac upgrade/rollback starts its installed host with a private fixture home. // +1 DMG install fixture launches its isolated installed App. // +1 MCP EOF regression starts only its own isolated proxy. // +1 compound effect audit service uses an isolated fixture home. // +1 durable provider-history service starts with a private home. // +1 neutral root-abort service spreads process.env then isolated env. // +1 Mac readiness scenarios explicitly spread isolated service environment. // +1 native entry service explicitly spreads the isolated environment. // +1 P4 native lifecycle uses isolated home and data. // +1 P4 native media fixture uses isolated home and data. // +1 P4 native bridge fixture uses isolated home and data. // +1 P4 native LaunchServices entry with isolated fixture home. // +1 real Claude local-model mode starts an isolated service. // +1 P2 scheduler-crash cold recovery worker with isolated home/data root. // +1 relocated Mac installation starts its real service with an isolated home. // +1 Mac startup fixture uses isolated home and its own data root. // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
@@ -301,6 +301,27 @@ try {
     const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
     if (!text.includes('--user-data-dir')) continue;
     owners.push(name);
+    // P3-03 runs only on Mac; stopRuyiTestBrowsers is a Windows-only no-op there.
+    // Its real runtime acceptance instead observes the owned browser/driver/profile
+    // identities before close/EOF, then checks their absence and kills its own CDP tree.
+    if (name === 'macos-browser-runtime.e2e.js') {
+      ok(text.includes("process.platform !== 'darwin'") &&
+        /await killOwnTree\(proc\)/.test(text) &&
+        /gone\(browserOwned\)/.test(text) && /gone\(eofOwned\)/.test(text) &&
+        /profiles\.every\(p => !fs\.existsSync\(p\)\)/.test(text),
+        'Mac browser fixture verifies actual owned processes/profiles and cleans its own external tree');
+      continue;
+    }
+    if (name === 'macos-input-apps.e2e.js') {
+      ok(text.includes("process.platform !== 'darwin'") &&
+        /const browserProfile = path\.join\(root, 'profile'\)/.test(text) &&
+        /trackBrowser\(\)/.test(text) && /ownDescendants\(rows, prior\.pid\)/.test(text) &&
+        /row\.created === prior\.created/.test(text) &&
+        /killOwnTree\(browser\)/.test(text) && /await until\(\(\) => remainingBrowser\(\)\.length === 0\)/.test(text) &&
+        /if \(browserClean\)/.test(text) && /!fs\.existsSync\(browserProfile\)/.test(text),
+        'Mac input-app fixture verifies browser birth identities and removes its profile only after owned cleanup');
+      continue;
+    }
     // 判【调用】而不是「这几个字出现过」:第一版写成 includes(名字),把它改名成 XXX 之后锁照样绿
     // —— 反向当场逮到这把松锁(本会话第三次同一族:锁要钉行为,不钉字符串出现过)。
     if (!/\bstopRuyiTestBrowsers\s*\(/.test(text)) missing.push(name);
@@ -313,7 +334,14 @@ try {
   ok(/\bstopRuyiTestBrowsers\s*\(\s*profile\s*\)/.test(fixtureSrc) && /\bkillTree\(fx\.browser\)/.test(fixtureSrc),
     '公共夹具 lib/browser-fixture 的 close() 收浏览器（killTree ＋ 按本件 profile 收尸）');
   const fixtureUsers = files.filter(name => /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
-  const unclosed = fixtureUsers.filter(name => !/\bawait\s+\w+\.close\(/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
+  const unclosed = fixtureUsers.filter(name => {
+    const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
+    // The Mac input fixture imports only the CDP observer and owns its browser
+    // directly. Its native process/profile cleanup is checked above.
+    if (name === 'macos-input-apps.e2e.js')
+      return /\bstartBrowserFixture\s*\(/.test(text) || !/if \(cdp\) cdp\.close\(\)/.test(text);
+    return !/\bawait\s+\w+\.close\(/.test(text);
+  });
   ok(fixtureUsers.length >= 4, `用公共夹具的件扫得到（实得 ${fixtureUsers.length} 件）`);
   ok(unclosed.length === 0, `每一件用公共夹具的都 await 过 .close()${unclosed.length ? '；实得漏了：' + unclosed.join('、') : ''}`);
 }
@@ -386,7 +414,7 @@ try {
   // 等满 120 s 的轮询间隔,与调度噪声差两个数量级)→ 30。
   // 2026-10 子代理时限 +1 件:agent-node-limits(env 缝把分钟缩成秒,断言里有 5 处秒级上界:等待窗 / 硬上限 / 宽限 / 空闲 —— 判的就是各层时限在哪一刻动手,
   // 整件进独占桶,不走就地豁免)→ 31。
-  const WALLCLOCK_OWNER_FILES = 31;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  const WALLCLOCK_OWNER_FILES = 32;   // +1 native bridge bounded favorite-stat timeout. 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];

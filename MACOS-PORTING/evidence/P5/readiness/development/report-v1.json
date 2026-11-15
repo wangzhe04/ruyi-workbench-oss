@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "sourceFreeze": "freeze-v5.json",
+  "pass": 40,
+  "fail": 0,
+  "cleanupSafe": true,
+  "scope": "Actual Node/ACC missing helper, hidden registry, Node master-switch normal provider refusal, and product-generated CLI hidden config. Baseline actual controlled saved balanced-click recording with same owned receiver. No TCC revoke/OS lock/actual CLI runtime-hidden execution in master-off cases.",
+  "history": "live-v1 passed20 and failed2 (assertion plus stop-after-failure) at stale cross-session window target before hidden-recording oracle; later master-off not run. v4 refreshed real hidden worker target; v5 made baseline click-counted. v2 is a new full development run requiring fresh isolated receiver capture; no original raw logs rewritten.",
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytes": 291712,
+      "observation": "after primary live-v2; not a pre-run assertion"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "sha256": "3ebd47102e66ffda9b9d877b033f6235bdf15aa360912766f1f16739aad0eff2",
+      "bytes": 35520,
+      "observation": "after primary live-v2; not a pre-run assertion"
+    }
+  ],
+  "phaseStatus": "in_progress"
+}

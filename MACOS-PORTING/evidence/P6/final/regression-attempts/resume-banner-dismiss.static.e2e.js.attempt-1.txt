@@ -1,0 +1,8 @@
+PASS unfinished banner renders an accessible dismiss control
+PASS dismiss choice is remembered per session
+PASS dismiss key fingerprints the exact interrupted turn
+PASS dangling-turn API exposes the fingerprint fields
+PASS dismiss control has hover/focus styling
+PASS dismiss label is localized
+
+RESUME BANNER DISMISS STATIC: ALL PASS

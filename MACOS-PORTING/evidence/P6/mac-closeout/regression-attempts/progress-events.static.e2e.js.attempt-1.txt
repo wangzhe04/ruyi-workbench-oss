@@ -1,0 +1,34 @@
+PASS D0 服务端事件扫描到 54 种(下界 50,防扫描器悄悄失灵)
+PASS D0b 扫描器认得多行 onEvent 与 downstreamEvent/emit 两个别名
+PASS D1 服务端每一种事件都已登记进 CONSUMED/IGNORED
+PASS D1b 登记表里没有服务端已不再发送的僵尸条目
+PASS D1c 同一事件不能既消费又忽略
+PASS D2 未被任何一侧认领的事件必须写明豁免理由
+PASS D3 豁免表里没有服务端已不再发送的条目
+PASS D3b 已经有人认领的事件不该继续挂在豁免表里
+PASS D3c 每条豁免都给出了可读理由(不是空字符串占位)
+PASS D4 112b 点名的六族事件全部被状态机消费
+PASS D4b 这六族确实是服务端在发的(不是照着文档臆造的名字)
+PASS D10 116h 复用的两种事件确实是服务端在发的
+PASS D10b 116h 复用的两种事件都已被状态机消费(零新增枚举)
+PASS D10c-pre 13n-steward-arbiter.js 就是 116h 仲裁器那一段(段头横幅在)
+PASS D10c-pre 13n 里没有 116f 的 SSE 壳(steward_reply 是通道载荷,不该被当回合事件)
+PASS D10c 扫到仲裁器发出的事件类型 agent_resource
+PASS D10d 仲裁器发出的事件类型全部是既有登记项(零新增)
+PASS D5 经典壳工具卡片认领 tool_progress 的软/硬预算档
+PASS D6 经典壳子代理卡片认领停滞与预算调整
+PASS D7 经典壳把每一条事件喂进状态机
+PASS D8 经典壳在 composer 上方渲染统一状态条
+PASS D9 换会话即清状态机(不把上一条会话的动作挂到新会话头上)
+PASS D10 组装根把状态机注入 chat-stream-runtime(该文件全篇零 import 的既有纪律)
+PASS D11 管家抽屉与经典壳共用同一个回合活动状态机(turn-activity.js)
+PASS D12 抽屉不自己定义同名实现(复用而非复制;复制即失去「同一份判据」)
+PASS D15 状态条文案在四份 locale 里齐全
+PASS D16 turnActivity.* 全部是扁平点号键的字符串值
+PASS D17 状态条样式进 composer 所有权层,warn/attention 双档
+PASS D18 工具卡片与子代理状态行补上 warn 档(此前只有 ok/err)
+PASS D19 状态条呼吸点尊重 reduced-motion
+PASS D20 窄屏收敛:560px 通知让位、430px 只留句首与本次工具计时(整句会被省略号从中间切断)
+PASS D20b 样式层无 NUL 字节(112c 走查踩过:转义 \00b7 经 shell/python 两层后写出真 NUL)
+
+PROGRESS EVENTS STATIC E2E: ALL PASS

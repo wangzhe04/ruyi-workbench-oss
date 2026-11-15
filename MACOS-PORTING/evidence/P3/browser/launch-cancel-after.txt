@@ -1,0 +1,3 @@
+{"owned_launcher_alive_after_tool_cancel": false, "driver_reference_retained": false, "browser_handle_assigned": false, "backend": ""}
+cleanup {'success': True, 'mode': 'custom', 'closed': False, 'hint': 'No owned browser was active.'}
+owned_launcher_alive_after_cleanup False

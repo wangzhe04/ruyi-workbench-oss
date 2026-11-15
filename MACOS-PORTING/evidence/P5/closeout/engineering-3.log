@@ -1,0 +1,128 @@
+# 夹具残留清理: 扫 1147 个,清掉 106 个陈年的,留下 541 个新的与 0 个非夹具,删不掉 0 个
+# Ruyi e2e runner
+# 件数: 80 ran / 14 skipped(live)
+# 超时: 120s/件,并行(4路)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2645 / ℹ pass 2627 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+# 并行模式: 4 路,每桶 ~20 件；0 件性能门独占
+
+[B0] ([fast]) acc-offline-installer.static.e2e.js ... [B1] ([fast]) action-feedback.static.e2e.js ... [B2] ([fast]) agent-mode-v2.static.e2e.js ... [B3] ([fast]) agent-team-budget.static.e2e.js ... [B0] PASS (35ms)
+[B0] ([fast]) agent-workflows-polling-visibility.static.e2e.js ... [B1] PASS (38ms)
+[B1] ([fast]) architecture-contract-snapshots.static.e2e.js ... [B0] PASS (31ms)
+[B0] ([fast]) c2-evidence-spawn-budget.static.e2e.js ... [B0] PASS (36ms)
+[B0] ([fast]) css-typography-debt.static.e2e.js ... [B2] PASS (122ms)
+[B2] ([fast]) asr-config-ui.static.e2e.js ... [B0] PASS (34ms)
+[B0] ([fast]) ec-d-closure.static.e2e.js ... [B1] PASS (138ms)
+[B1] ([fast]) copy-path-guard.static.e2e.js ... [B3] PASS (187ms)
+[B3] ([fast]) browser-mcp.static.e2e.js ... [B0] PASS (56ms)
+[B0] ([fast]) finalize-segments.static.e2e.js ... [B0] PASS (31ms)
+[B0] ([fast]) i18n-en-terms.static.e2e.js ... [B2] PASS (128ms)
+[B2] ([fast]) copy-terms.static.e2e.js ... [B0] PASS (35ms)
+[B0] ([fast]) live-full-text.static.e2e.js ... [B1] PASS (103ms)
+[B1] ([fast]) desktop-dpi.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) mermaid-render.static.e2e.js ... [B1] PASS (34ms)
+[B1] ([fast]) engine-env-brief.static.e2e.js ... [B2] PASS (70ms)
+[B2] ([fast]) desktop-shell.static.e2e.js ... [B2] PASS (34ms)
+[B2] ([fast]) eol-policy.static.e2e.js ... [B3] PASS (171ms)
+[B3] ([fast]) cost-zero.static.e2e.js ... [B3] PASS (30ms)
+[B3] ([fast]) durable-state-inventory.static.e2e.js ... [B3] PASS (108ms)
+[B3] ([fast]) facts.static.e2e.js ... [B3] PASS (110ms)
+[B3] ([fast]) health-i18n.static.e2e.js ... [B3] PASS (45ms)
+[B3] ([fast]) kimi-plan-ui.static.e2e.js ... [B0] PASS (365ms)
+[B0] ([fast]) net-token-replay.static.e2e.js ... [B3] PASS (40ms)
+[B3] ([fast]) memory-toolbox.static.e2e.js ... [B0] PASS (35ms)
+[B0] ([fast]) overlay-update-gui.static.e2e.js ... [B3] PASS (37ms)
+[B3] ([fast]) ndjson-line-feeder.static.e2e.js ... [B0] PASS (53ms)
+[B0] ([fast]) provider-reasoning-effort-ui.static.e2e.js ... [B0] PASS (33ms)
+[B0] ([fast]) runtime-optimization.static.e2e.js ... [B3] PASS (78ms)
+[B3] ([fast]) overlay-payload-lock.static.e2e.js ... [B1] PASS (501ms)
+[B1] ([fast]) fixture-home.static.e2e.js ... [B3] PASS (91ms)
+[B3] ([fast]) prompt-snapshot.static.e2e.js ... [B3] PASS (122ms)
+[B3] ([fast]) route-inventory.static.e2e.js ... [B0] PASS (292ms)
+[B0] ([fast]) start-experience.static.e2e.js ... [B0] PASS (43ms)
+[B0] ([fast]) steward-conversation.static.e2e.js ... [B0] PASS (69ms)
+[B0] ([fast]) steward-settings.static.e2e.js ... [B0] PASS (81ms)
+[B0] ([fast]) streaming-responsiveness.static.e2e.js ... [B0] PASS (45ms)
+[B0] ([fast]) tool-image-inline.static.e2e.js ... [B0] PASS (51ms)
+[B0] ([fast]) ui-v3-p1.static.e2e.js ... [B0] PASS (54ms)
+[B0] ([fast]) ui-v3-wave1.static.e2e.js ... [B0] PASS (60ms)
+[B3] PASS (704ms)
+[B3] ([fast]) software-engineering-prompt.static.e2e.js ... [B3] PASS (104ms)
+[B3] ([fast]) steward-config.static.e2e.js ... [B1] PASS (1048ms)
+[B1] ([fast]) i18n.static.e2e.js ... [B3] PASS (168ms)
+[B3] ([fast]) steward-runner.static.e2e.js ... [B1] PASS (225ms)
+[B1] ([fast]) manifest-ranges.static.e2e.js ... [B1] PASS (66ms)
+[B1] ([fast]) model-menu-classes.static.e2e.js ... [B1] PASS (32ms)
+[B1] ([fast]) new-thread-engine-default.static.e2e.js ... [B1] PASS (47ms)
+[B1] ([fast]) process-safety.static.e2e.js ... [B3] PASS (242ms)
+[B3] ([fast]) steward-walkthrough.static.e2e.js ... [B3] PASS (72ms)
+[B3] ([fast]) thread-commission.static.e2e.js ... [B3] PASS (61ms)
+[B3] ([fast]) ui-bugfix.static.e2e.js ... [B3] PASS (39ms)
+[B3] ([fast]) ui-v3-p3b.static.e2e.js ... [B1] PASS (229ms)
+[B1] ([fast]) rail-pocket.static.e2e.js ... [B3] PASS (62ms)
+[B3] ([fast]) workflow-editor-v2.static.e2e.js ... [B1] PASS (35ms)
+[B1] ([fast]) scheduler-ui.static.e2e.js ... [B3] PASS (45ms)
+[B1] PASS (103ms)
+[B1] ([fast]) steward-avatar.static.e2e.js ... [B1] PASS (34ms)
+[B1] ([fast]) steward-drawer.static.e2e.js ... [B1] PASS (59ms)
+[B1] ([fast]) steward-shell.static.e2e.js ... [B1] PASS (52ms)
+[B1] ([fast]) thinking-boundary.static.e2e.js ... [B1] PASS (32ms)
+[B1] ([fast]) tool-verb-coverage.static.e2e.js ... [B1] PASS (99ms)
+[B1] ([fast]) ui-v3-p2.static.e2e.js ... [B1] PASS (54ms)
+[B1] ([fast]) ui-v4-glass.static.e2e.js ... [B1] PASS (35ms)
+[B2] FAIL exit=1 (重跑仍失败, 5693ms)
+[B2] ([fast]) frontend-domains.static.e2e.js ... [B2] PASS (41ms)
+[B2] ([fast]) inline-script-csp-hash.static.e2e.js ... [B2] PASS (45ms)
+[B2] ([fast]) mcp-ops-gui.static.e2e.js ... [B2] PASS (53ms)
+[B2] ([fast]) module-dependency-graph.static.e2e.js ... [B2] PASS (598ms)
+[B2] ([fast]) onboarding.static.e2e.js ... [B2] PASS (56ms)
+[B2] ([fast]) progress-events.static.e2e.js ... [B2] PASS (196ms)
+[B2] ([fast]) resume-banner-dismiss.static.e2e.js ... [B2] PASS (32ms)
+[B2] ([fast]) session-save-census.static.e2e.js ... [B2] PASS (74ms)
+[B2] ([fast]) steward-board.static.e2e.js ... [B2] PASS (61ms)
+[B2] ([fast]) steward-events.static.e2e.js ... [B2] PASS (128ms)
+[B2] ([fast]) steward-tools.static.e2e.js ... [B2] PASS (1502ms)
+[B2] ([fast]) thread-brief.static.e2e.js ... [B2] PASS (76ms)
+[B2] ([fast]) turn-narrative.static.e2e.js ... [B2] PASS (100ms)
+[B2] ([fast]) ui-v3-p3a.static.e2e.js ... [B2] PASS (65ms)
+[B2] ([fast]) v17-review-fixes.static.e2e.js ... [B2] PASS (128ms)
+
+# 汇总: 79 pass / 1 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 14 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== eol-policy.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL all 6878 tracked text files match their declared EOL:
+--- 末 25 行 ---
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T184418Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T201029Z.tar.gz expected LF, found mixed
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0T2fbB
+[retry] 重跑 tail:
+PASS all text defaults to LF
+PASS *.cmd remains an explicit CRLF exception
+PASS *.bat remains an explicit CRLF exception
+PASS *.ps1 remains an explicit CRLF exception
+FAIL all 6878 tracked text files match their declared EOL:
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v1.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v2.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v3.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v4.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v2-raw.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-freeze-v3.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/raw-root.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-source-freeze-v2.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-wip-source-v1.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T153507Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T154754Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T172604Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T175548Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T184418Z.tar.gz expected LF, found mixed
+  - MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T201029Z.tar.gz expected LF, found mixed
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-bQhqtA

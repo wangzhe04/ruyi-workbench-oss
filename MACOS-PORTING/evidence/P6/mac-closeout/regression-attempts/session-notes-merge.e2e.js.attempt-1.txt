@@ -1,0 +1,26 @@
+── [U] session-notes 增量合并白盒契约 ──
+PASS U1 默认配置 sessionNotesMergeEnabled=true(真实历史门后默认开)
+PASS U2 显式 false 时关闭(可回退整体重写)
+PASS U3 sanitize 只认 JSON 布尔(字符串 "true" 洗回 false)
+PASS U4 并集去重:重复行(trim 后)只留一份、新行在前、prev 独有行追加在后
+PASS U5 open 节 replace:以最新摘要为准(旧项消失)
+PASS U6 files 节同样并集去重
+PASS U7 next 节为「无」视为空集:prev 行保留(并集)
+PASS U8 open 节 next 为「无」→ 旧未完成事项消失(replace 语义,已完成必须能消失)
+PASS U9 无 prev → 直接用 next(降级为 105b 整体重写语义)
+PASS U10 坏 prev(解析失败)→ 直接用 next
+PASS U11 空串 prev → 直接用 next
+PASS U12 合并结果经 renderSessionNotesMarkdown 可再 parse(回环一致)
+PASS U13 parse 对无标题文本返回 null(解析失败信号)
+PASS U14 merge 显式关→整体重写:prev 独有行消失(105b 现状语义)
+PASS U15 merge 开 → 落盘合并结果:next 新行与 prev 独有行并存
+PASS U16 merge 开 → open 节 replace 落盘
+PASS U17 落盘合并结果可再 parse(回环)
+PASS U18 单开 merge 而无 105b → 零文件(挂在 105b 写链内)
+── [H] 真实历史 notes 增量合并 ──
+SKIP H1-H4 realhist fixture 不在当前环境
+── [R] 跨进程读回 ──
+PASS R1 子进程(模拟重启后)读回合并 notes 长度一致
+PASS R2 子进程 parse 三节与合并预期逐字节一致
+
+SESSION-NOTES-MERGE E2E: ALL PASS

@@ -1,0 +1,160 @@
+{
+  "name": "native",
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-native-entry.e2e.js"
+  ],
+  "startedAt": "2026-11-11T08:03:31.350212+00:00",
+  "elapsedSeconds": 5.281,
+  "exitCode": 0,
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/native/output.txt",
+  "logDigest": {
+    "bytes": 2208,
+    "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880"
+  },
+  "passLines": 31,
+  "failLines": 0,
+  "skipLines": 0,
+  "environment": {
+    "HOME": "/tmp/ruyi-ei1-ges_npni/h",
+    "USERPROFILE": "/tmp/ruyi-ei1-ges_npni/u",
+    "APPDATA": "/tmp/ruyi-ei1-ges_npni/a",
+    "LOCALAPPDATA": "/tmp/ruyi-ei1-ges_npni/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-ei1-ges_npni/w",
+    "RUYI_HOME": "/tmp/ruyi-ei1-ges_npni/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-ei1-ges_npni/c",
+    "TMPDIR": "/tmp/ruyi-ei1-ges_npni/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-entry-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_ENTRY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_ENTRY_REQUIRED": "1",
+    "RUYI_P5_ENTRY_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/native"
+  },
+  "tmpdirPathBytes": 24,
+  "observedOwnedIdentities": [
+    {
+      "pid": 96943,
+      "ppid": 96884,
+      "birth": "Wed Nov 11 16:03:31 2026",
+      "command": "/Users/jiming/.local/bin/node dev-harness/macos-native-entry.e2e.js"
+    },
+    {
+      "pid": 96953,
+      "ppid": 96943,
+      "birth": "Wed Nov 11 16:03:31 2026",
+      "command": "/tmp/ruyi-p5-entry-ziYNAR/receiver"
+    },
+    {
+      "pid": 96964,
+      "ppid": 96943,
+      "birth": "Wed Nov 11 16:03:32 2026",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/app/server.js serve --port 53677"
+    },
+    {
+      "pid": 96977,
+      "ppid": 96964,
+      "birth": "Wed Nov 11 16:03:33 2026",
+      "command": "/private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 96978,
+      "ppid": 96977,
+      "birth": "Wed Nov 11 16:03:33 2026",
+      "command": "/private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 96979,
+      "ppid": 96978,
+      "birth": "Wed Nov 11 16:03:33 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 96980,
+      "ppid": 96979,
+      "birth": "Wed Nov 11 16:03:33 2026",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+    },
+    {
+      "pid": 96984,
+      "ppid": 96979,
+      "birth": "Wed Nov 11 16:03:33 2026",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper --input-session"
+    }
+  ],
+  "remainingObservedOwnedIdentities": [],
+  "processObservationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be sampled. The fixtures separately record and confirm exact owned birth identities at cleanup.",
+  "passed": true,
+  "runtimeEvidenceDigest": {
+    "bytes": 210635,
+    "sha256": "f50d2e737812b1337a53e9425ab24b54d2c5da620a9fc24bdd83258013d91d92"
+  },
+  "cleanupSafe": true,
+  "cleanupReceipts": [
+    {
+      "label": "service",
+      "receipt": {
+        "killed": [
+          96978,
+          96979,
+          96977,
+          96964
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "observed": [
+        {
+          "pid": 96964,
+          "ppid": 96943,
+          "created": "1794384212941030",
+          "name": ""
+        },
+        {
+          "pid": 96977,
+          "ppid": 96964,
+          "created": "1794384213098225",
+          "name": ""
+        },
+        {
+          "pid": 96978,
+          "ppid": 96977,
+          "created": "1794384213099668",
+          "name": ""
+        },
+        {
+          "pid": 96979,
+          "ppid": 96978,
+          "created": "1794384213100003",
+          "name": ""
+        },
+        {
+          "pid": 96984,
+          "ppid": 96979,
+          "created": "1794384213483272",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "label": "receiver",
+      "graceful": true,
+      "observed": [
+        {
+          "pid": 96953,
+          "ppid": 96943,
+          "created": "1794384211879432",
+          "name": ""
+        }
+      ]
+    }
+  ],
+  "inputSourceRestored": true,
+  "clipboardRestored": true
+}

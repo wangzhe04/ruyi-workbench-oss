@@ -1,0 +1,25 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 84add12c6f2d)
+[wb] UI: http://127.0.0.1:65367/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e2-append-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :65367
+PASS settings.json has NO appendSystemPrompt key (stale key stripped) — keys: ["statusLine","model","permissions"]
+PASS settings.json still carries permissions.defaultMode (supported key written) — got {"defaultMode":"default"}
+PASS unrelated pre-existing settings key preserved (we only stripped appendSystemPrompt)
+PASS (d1) hand-written settings.model survives sync when workbench has no model (got "user-hand-written-model")
+PASS (d1) ownership sidecar written with model:null (got {"model":null,"maxThinkingTokens":null,"defaultMode":"default","defaultModePrior":null})
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e2-append-e2e/generated/workbench.mcp.json
+PASS --append-system-prompt flag passed to the Claude spawn (argv len 21)
+PASS the flag carries the configured value (E2_APPEND_MARKER_XYZ) as its leading segment — got "E2_APPEND_MARKER_XYZ\n\n<ruyi-environment>"
+PASS Agent team request injects the aggressive orchestration policy into Claude CLI
+PASS the final Claude append segment carries the response-language policy
+PASS settings.json STILL has no appendSystemPrompt key after a turn
+PASS (d1) hand-written settings.model STILL survives after a turn
+PASS (d3) fresh-install workbench listening
+PASS (d3) fresh install leaves the user's own Claude Code defaultMode alone (got {"defaultMode":"default"})
+PASS (d2) workbench listening (ownership-delete phase)
+PASS (d2) sidecar-proven stale model deleted (keys: ["statusLine","permissions"])
+PASS (d2) unrelated keys still preserved on the delete path
+PASS (d2) sidecar updated to model:null after cleanup
+
+E2-APPEND-SYSTEM-PROMPT E2E: ALL PASS

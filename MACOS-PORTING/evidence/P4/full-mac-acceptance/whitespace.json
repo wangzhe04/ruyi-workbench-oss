@@ -1,0 +1,9 @@
+{
+  "baseline": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "scope": "staged complete P4 range",
+  "fullRangeExitCode": 2,
+  "diagnostics": 43,
+  "allDiagnosticsInRawP4Text": true,
+  "sourceAndAuthoredExceptRawTextExitCode": 0,
+  "preservation": "Original raw log, terminal, AX and negative-control source .txt whitespace preserved. Full-range whitespace pass not claimed."
+}

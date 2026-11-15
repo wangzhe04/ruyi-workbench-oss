@@ -1,0 +1,1 @@
+{"code":"invalid_args","error":"Pass a balanced sequence of 1-512 supported events over at most five seconds","ok":false}

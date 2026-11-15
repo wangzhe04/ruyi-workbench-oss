@@ -1,0 +1,11 @@
+PASS P0 服务起来了
+PASS P0b token 可读
+PASS P0c 两条线程已建,W 交给管家盯(sess_0fb12a76567e62b2 / sess_9188cb4f982c7779)
+FAIL P0d 两条线程都停在一条 exec 权限请求上
+DEFER-DIAG sess_0fb12a76567e62b2 ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+DEFER-DIAG sess_9188cb4f982c7779 ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+FAIL 未捕获异常: Error: no pending permission
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-deferred-permission.e2e.js:163:11
+STEWARD DEFERRED PERMISSION E2E: 2 FAILED
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-w5ZFqa

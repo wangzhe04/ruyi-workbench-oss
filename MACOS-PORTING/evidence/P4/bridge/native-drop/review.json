@@ -1,0 +1,106 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_current_host_user_assisted_native_drag_scope",
+  "remainingCodeFindings": 0,
+  "method": "Independent read-only review of the exported trace, UI screenshots and AX text, production handlers, fixture source/uploads/session/config files, archived probe output and process identities before and after cleanup. The reviewer initiated no UI operations, direct tests, recording or system sleep.",
+  "candidate": {
+    "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "deliveryState": "uncommitted_worktree",
+    "runtimeScope": "current macOS27.0.1 arm64 development App",
+    "sourceSnapshot": "../../frozen-local-regression/source-fingerprint.json",
+    "sourceFingerprintsIndependentlyVerified": 39,
+    "sourceFingerprintMismatches": 0,
+    "archivedProbeEqualsCurrentSource": true,
+    "fixtureRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-9cgx8H",
+    "nativePID": 8477,
+    "servicePID": 8480,
+    "runnerPID": 8474
+  },
+  "traceProvenance": {
+    "captureActor": "User performed the real Finder drops. Implementation agent exported the page text through CUA copy and a local TextEdit document.",
+    "sourceFile": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-9cgx8H/未命名.txt",
+    "sourceSha256": "3d8009bcb653428ec93044add39c00f5c31e3a407f4acee7c1f502bca7896d6e",
+    "sourceHashIndependentlyVerified": true,
+    "jsonExtractedFromOriginalExportEqualsTraceFile": true,
+    "traceFile": "trace.json",
+    "observerAudit": "The capturing drop listener records isTrusted, DataTransfer types and entry metadata without preventing or dispatching events. The fetch observer delegates to the original fetch and reads cloned response JSON. Upload request logging records the name and encoded data length. Chat/steer/steward send endpoints are counted."
+  },
+  "fileDrop": {
+    "trustedEvents": 3,
+    "dataTransferType": "Files",
+    "entryIsFile": true,
+    "name": "P4 Finder 可见定位.txt",
+    "successfulUploadRequests": 3,
+    "requestStatus": 200,
+    "sourceBytes": 31,
+    "eachUploadBytes": 31,
+    "sourceAndEachUploadSha256": "add47e0ac445637dc70a0123cc77047a2c9aeccc491578fd7d944e9dfa135dfc",
+    "sourceAndAllThreeUploadsIndependentlyReadAndHashed": true,
+    "visibleAttachment": "P4 Finder 可见定位.txt · 31 B",
+    "visibleEvidence": ["after-confirm-page-ax.txt", "export-text-ax.txt"],
+    "automaticSends": 0,
+    "currentAndSeedSessionMessageCount": 0
+  },
+  "directoryDrop": {
+    "trustedEvents": 3,
+    "dataTransferType": "Files",
+    "entryIsDirectory": true,
+    "name": "P4 选择目标文件夹",
+    "fingerprintRequests": 3,
+    "observedChildren": ["P4 选择验收文件.txt"],
+    "eachFingerprintMatchScore": 1,
+    "selectedPathRequests": 2,
+    "allRequestStatus": 200,
+    "sourceFlowAudit": "The production handler separates file and directory entries, reads directory children through createReader/readEntries, resolves the name/children fingerprint and presents the confirmation modal. Confirm delegates to setWorkspace, which resolves selectedPath, persists the current session cwd and saves recentWorkspaces/workspaces/defaultWorkspace.",
+    "confirmationVisible": true,
+    "confirmationEvidence": ["confirmation.png", "confirmation-ax.txt"],
+    "finalDefaultCheckboxChecked": false,
+    "currentSessionId": "sess_7376a723d5813c9d",
+    "currentSessionCreatedAt": "2026-11-08T04:57:07.710Z",
+    "currentSessionUpdatedAt": "2026-11-08T05:45:13.138Z",
+    "persistedCurrentSessionCwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+    "persistedRecentWorkspace": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+    "persistedDefaultWorkspace": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+    "seedSessionId": "sess_e3f3761801a17f66",
+    "persistedSeedCwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+    "sessionAndConfigPersistenceIndependentlyRead": true,
+    "cancellation": {
+      "acceptance": "passed_user_reported_behavior_with_supporting_trace_and_source",
+      "support": "The user reported cancelling a directory confirmation. Three trusted directory drops produced three fingerprint requests and two selectedPath submissions. The production Cancel handler only closes the modal.",
+      "limitation": "The pre-final snapshot covers the seed session and config. The selected session was the user-created sess_7376a723d5813c9d, whose cwd was not separately captured immediately before cancellation. These records support the reported cancellation but cannot establish a before/after cwd invariant for that selected session."
+    }
+  },
+  "cleanup": {
+    "archive": "cleanup.json",
+    "probeLog": "probe.txt",
+    "probeRecordedCode": 0,
+    "preCleanupIdentityReview": "The reviewer observed App8477 with the unique acceptance report/script argv and creation time 2026-11-08 03:20:35 local. Node8480 was its child with the service-lease/server argv and creation time 03:20:36. Runner8474 was the App parent.",
+    "postCleanupIndependentPs": "No entries for runner8474, App8477 or Node8480.",
+    "ownedProcessesAbsent": true,
+    "uiCleanupReportedByImplementationAgent": {
+      "fixtureFinderWindowClosed": true,
+      "textEditExitedAfterSavingLocalExport": true,
+      "userCodeEmptyWindowRestored": true,
+      "finalCUAInventoryRuyiAndTextEditNotRunning": true
+    },
+    "caffeinate": "Retained per the user's ongoing unattended-development request."
+  },
+  "phaseAssessment": {
+    "V10RealDrop": "passed_stated_user_assisted_current_host_scope",
+    "remainingMandatoryLocalImplementationOrUITestsIdentified": 0,
+    "remainingLocalWork": "Update TASKS, phase/tracking/readme summaries and final evidence delivery to incorporate this review while retaining historical failed runs and explicit limitations.",
+    "externalAcceptance": [
+      "Formal signing identity, Keychain/TCC and upgrade validation remain deferred by user decision.",
+      "Actual macOS14 runtime remains unverified.",
+      "Same-candidate Windows P4 validation remains unverified and has no recorded P4 scope waiver."
+    ],
+    "retainedScopeLimits": [
+      "Cancellation has no immediate pre-cancel selected-session cwd snapshot.",
+      "Physical sleep covers the previously reviewed short Software Sleep/DarkWake cycle with scheduler disabled in that physical fixture.",
+      "The successful physical microphone run covers an OS-level grant. Earlier real refusal/retry evidence is at the WebKit origin layer.",
+      "Existing browser media regressions pass in CFT148. The ordinary Chrome156 native fake-getUserMedia hang remains recorded."
+    ]
+  },
+  "conclusion": "Real Finder file and directory drops now have trusted WK events, production requests, visible UI and independently checked persisted artifacts. The stated user-assisted current-host drag scope passes, with the cancellation evidence limitation preserved. No additional local code or UI acceptance defect was found in this review. Full cross-platform and formal-release P4 acceptance remains subject to the recorded external gates."
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "name": "session-testing-queued-create",
+    "command": [
+      "/tmp/ruyi-v4-build-ipdi070k/testing-helper",
+      "--input-session"
+    ],
+    "request": {
+      "version": 1,
+      "op": "window.list",
+      "id": 71
+    },
+    "framePrequeuedBeforeSpawn": true,
+    "frameBytes": 46,
+    "stdinWriterOpenAtExit": true,
+    "exitCode": 70,
+    "expectedExitCode": 70,
+    "stdout": "",
+    "stderr": "",
+    "elapsedSeconds": 0.01,
+    "environment": {
+      "HOME": "/tmp/ruyi-v4-q-34p7z0r4/h",
+      "USERPROFILE": "/tmp/ruyi-v4-q-34p7z0r4/u",
+      "APPDATA": "/tmp/ruyi-v4-q-34p7z0r4/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v4-q-34p7z0r4/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v4-q-34p7z0r4/w",
+      "RUYI_HOME": "/tmp/ruyi-v4-q-34p7z0r4/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v4-q-34p7z0r4/c",
+      "TMPDIR": "/tmp/ruyi-v4-q-34p7z0r4/t",
+      "RUYI_TEST_SESSION_MONITOR_FAILURE": "create"
+    },
+    "tmpdirPathBytes": 25,
+    "isolationRootOutsideGit": true
+  },
+  {
+    "name": "session-testing-queued-register",
+    "command": [
+      "/tmp/ruyi-v4-build-ipdi070k/testing-helper",
+      "--input-session"
+    ],
+    "request": {
+      "version": 1,
+      "op": "window.list",
+      "id": 71
+    },
+    "framePrequeuedBeforeSpawn": true,
+    "frameBytes": 46,
+    "stdinWriterOpenAtExit": true,
+    "exitCode": 70,
+    "expectedExitCode": 70,
+    "stdout": "",
+    "stderr": "",
+    "elapsedSeconds": 0.005,
+    "environment": {
+      "HOME": "/tmp/ruyi-v4-q-emi14amf/h",
+      "USERPROFILE": "/tmp/ruyi-v4-q-emi14amf/u",
+      "APPDATA": "/tmp/ruyi-v4-q-emi14amf/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v4-q-emi14amf/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v4-q-emi14amf/w",
+      "RUYI_HOME": "/tmp/ruyi-v4-q-emi14amf/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v4-q-emi14amf/c",
+      "TMPDIR": "/tmp/ruyi-v4-q-emi14amf/t",
+      "RUYI_TEST_SESSION_MONITOR_FAILURE": "register"
+    },
+    "tmpdirPathBytes": 25,
+    "isolationRootOutsideGit": true
+  }
+]

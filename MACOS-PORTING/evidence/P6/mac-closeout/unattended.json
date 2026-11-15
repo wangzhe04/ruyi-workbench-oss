@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-12T12:59:39.097560+00:00",
+  "userInstruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
+  "caffeinatePid": 44774,
+  "command": [
+    "/usr/bin/caffeinate",
+    "-d",
+    "-i",
+    "-u",
+    "-t",
+    "43200"
+  ],
+  "processIdentity": "44774 Thu Nov 12 20:59:39 2026     /usr/bin/caffeinate -d -i -u -t 43200",
+  "currentScreensaverIdleTime": "0",
+  "historicalRestoreIdleTime": 300,
+  "restoreEvidence": "evidence/P5/unattended-instruction-2026-11-11.json",
+  "completionAction": "Restore historical screensaver idleTime300, stop only this verified owned caffeinate, then request pmset sleepnow after evidence and commits complete.",
+  "status": "active"
+}

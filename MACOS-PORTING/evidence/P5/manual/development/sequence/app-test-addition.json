@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-11T03:46:13.354667+00:00",
+  "file": "dev-harness/macos-input-host.e2e.js",
+  "bytes": 30310,
+  "sha256": "91eb5d512d6a181a5938eebcb5e67339d8b48fe9eb74aed0246b7c935d9c5d8b",
+  "purpose": "Add App-origin native_window_events capture/save/replay using an independent synthetic demonstrator. Explicit workbench-root keeps the already authorized host binary while running this candidate server.",
+  "previous_33_files_unchanged": true,
+  "status": "JS syntax and seven generated acceptance script variants compiled. Runtime pending desktop unlock."
+}

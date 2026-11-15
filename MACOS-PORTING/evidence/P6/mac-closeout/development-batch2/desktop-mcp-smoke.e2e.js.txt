@@ -1,0 +1,24 @@
+PASS pickPython skips a broken embedded runtime and keeps the usable fallback launcher
+PASS pickPython reports no candidate when every runtime fails the ACC import probe
+PASS pickPython prefers a later Full WinSDK runtime over an earlier core-only Python
+PASS repo detection includes the platform bundled Python runtime
+PASS portable Full package Python is ordered before machine-local installed runtimes
+PASS portable Full package Python wins when bundled, installed, and system runtimes are all usable
+PASS installed ACC detection prefers the new Full runtime/python layout
+PASS detectDesktopMcp() returns a verified usable runtime
+  detected: {"command":"/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python3","args":["-X","utf8","-m","ai_computer_control.server"],"via":"python-module","cwd":"/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control"}
+PASS detected.command is a non-empty string
+PASS detected.args is an array
+PASS detected.via is a known strategy (python-module)
+PASS detected python source is surfaced for diagnosis (repo-venv)
+PASS detected Python capability is surfaced (core)
+PASS resolveExternalMcpServers surfaces ai-computer-control when autodetected
+PASS McpStdioClient handshake + tools/list round-trip succeeded (no crash), tools=93
+PASS real desktop MCP exposes >=80 tools (got 93)
+PASS real desktop MCP includes the `diagnostics` tool
+PASS ACC run_command executes a safe shell command through the real MCP transport
+PASS hotkey accepts the MCP `keys` keyword and validates its value
+PASS ocr_find_text executes without a nested asyncio event-loop failure
+  NOTE: source-only core runtime has no Full WinSDK contract; target-package OCR verification remains required.
+
+DESKTOP-MCP-SMOKE E2E: ALL PASS  [#5 real-tool-count NEEDS TARGET-MACHINE VERIFICATION]

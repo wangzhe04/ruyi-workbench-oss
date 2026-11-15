@@ -1,0 +1,13 @@
+PASS workbench starts
+PASS active child stream crosses the parent watchdog window
+PASS child stream emits throttled parent-visible activity
+PASS active multi-agent turn is not falsely idle-aborted
+PASS workflow succeeds after the long active stream
+PASS parent turn completes successfully
+PASS silent workflow emits parent-visible liveness heartbeats
+PASS workflow heartbeat prevents the parent turn from falsely timing out
+PASS genuinely silent child is still stopped by an idle watchdog
+PASS silent workflow returns a failed terminal result instead of hanging forever
+PASS parent receives the workflow result and completes its own turn
+
+AGENT PARENT HEARTBEAT E2E: ALL PASS

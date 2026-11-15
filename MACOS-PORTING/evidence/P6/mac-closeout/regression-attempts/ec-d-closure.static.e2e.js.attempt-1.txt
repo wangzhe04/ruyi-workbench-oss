@@ -1,0 +1,11 @@
+PASS E1 回合同构、DOM、视觉、模式与性能验收件齐全
+PASS E2 真实浏览器性能门锁定冷启动 1.5s 与视图 P95 200ms，并覆盖 layout/paint
+PASS E3 消息日志具备读屏增量语义与静态重进 busy 抑制
+PASS E4 消息重绘使用 keyed reconciliation，并保留滚动锚点与活动回合
+PASS E5 双引擎统一有序 segments，并保留并行工具 batchId
+PASS E6 回合末工具记录、变更/回滚与产物入口保持可达
+PASS E7 聊天 CSS 按 shell/primitives/narrative/live/composer 物理所有权分层
+PASS E8 session、permission、agent-runs 实现与 API 编排均完成后端物理拆域
+PASS E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）
+
+EC-D CLOSURE STATIC E2E: ALL PASS

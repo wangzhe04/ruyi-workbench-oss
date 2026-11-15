@@ -1,0 +1,982 @@
+{
+  "schemaVersion": 1,
+  "author": "/root/p5_review_resumed",
+  "createdUTC": "2026-11-11T07:48:49.571530+00:00",
+  "status": "draft_resolution_matrix_read_only",
+  "snapshotCommit": "d42bba09c1b559f434600008666ce1ae20d34192",
+  "historicalAudit": {
+    "path": "MACOS-PORTING/evidence/P5/remaining-audit.json",
+    "sha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de",
+    "baselineCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+    "unchangedByThisWork": true
+  },
+  "scope": "Point-in-time execution-ready resolution mapping of all10 local historical audit rows and4 external resource rows. No GUI, tests, rebuilds, source edits, staging or commits were performed. This draft supplements the historical audit without replacing it or declaring P5 complete.",
+  "phaseStatus": "in_progress",
+  "phaseCompletionRecommended": false,
+  "statusVocabulary": {
+    "closed_selected_scope": "Requirement resolved only within explicit user-selected supported scope.",
+    "closed_recorded_cooperative_scope": "Concrete cooperative-cancel defect fixed/bound; hard abort remains separate.",
+    "partial": "Some evidence exists, but the listed residual still requires independent acceptance or current-candidate binding.",
+    "pending_local_runtime_test": "A local owned-fixture test can advance the row without new hardware.",
+    "requires_user_choice_and_local_interaction": "Prepare concrete test/recovery first; no action contrary to current user choice.",
+    "external": "Hardware/OS/Windows/credentials or a separate explicit scope/owner handoff is required."
+  },
+  "evidence": {
+    "historical_audit": {
+      "path": "MACOS-PORTING/evidence/P5/remaining-audit.json",
+      "bytes": 17014,
+      "sha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "phase_requirements": {
+      "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 7662,
+      "sha256": "46d64867e6badc17f8a4506984ae4ddcb5ac60b11f53dc820593d6daa547b58f",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "validation_requirements": {
+      "path": "MACOS-PORTING/08-VALIDATION.md",
+      "bytes": 7065,
+      "sha256": "dfd4b19babf23c337cc3c8e80685324fcf1e99dd5763e35e2f54c61cf777ff9f",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "tasks": {
+      "path": "MACOS-PORTING/TASKS.json",
+      "bytes": 91911,
+      "sha256": "a4b5808deb61cb73b199ab4b8e0c77769a2b47aac2e38d86ac0767438411bee3",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "cancel_acceptance": {
+      "path": "MACOS-PORTING/evidence/P5/audit/independent/report.json",
+      "bytes": 1760466,
+      "sha256": "e098269cc98ff7474bd7eda82fcbaa4c2d1ded66491e774821845bbc344d0f9d",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "cancel_binding": {
+      "path": "MACOS-PORTING/evidence/P5/audit/independent-commit-binding.json",
+      "bytes": 45014,
+      "sha256": "331650241d0e39160fecbc0fc661e5658a23f541bb2d12bd5a79a4a970a6de9e",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "manual_status": {
+      "path": "MACOS-PORTING/evidence/P5/manual/README.md",
+      "bytes": 8408,
+      "sha256": "46e90e6d135c0d0bcfc32961edfc980fd707ad78bb8c8da540e99a579ea02b98",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "standard_status": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/README.md",
+      "bytes": 5281,
+      "sha256": "f567e028eb3574193b2caa98504f35a57e0d4584f3b2bafff053c31962ad5b3e",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "standard_binding": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-commit-binding.json",
+      "bytes": 68097,
+      "sha256": "53724889d50db8f5802788247eff6160e0198fd91cca394f61b0c58036ce2896",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "standard_final": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/report.json",
+      "bytes": 49636,
+      "sha256": "ed424c291a1e68daa63be26c890eeed84d39202106630459ec2e93e30c85ce0b",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "standard_gui_results": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/results.json",
+      "bytes": 374675,
+      "sha256": "75cefab912925553797acfa414fb91e29268d8ee5f7c48ee68c07e319ed599a8",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "physical_source_review": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+      "bytes": 13527,
+      "sha256": "8b991d0c89a43180a8496aa2bb8be879d71c13d7be32311070cda7fbc67721ba",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "manual_status_review": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/status-evidence-review-v1.json",
+      "bytes": 177484,
+      "sha256": "f8fa38e174e5abad4a9931ffc29a0f70c64baaaee1b586a0c4af3459ea974fe2",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "apps_status": {
+      "path": "MACOS-PORTING/evidence/P5/ax/apps/README.md",
+      "bytes": 15103,
+      "sha256": "e6c637213e1343da4998535d401f60008ff5fef749d02e9a3ce31b0610451617",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "apps_fingerprint": {
+      "path": "MACOS-PORTING/evidence/P5/ax/apps/source-fingerprint-final-delivery.json",
+      "bytes": 8910,
+      "sha256": "24ce5ac321e5e4772fc16b5714036277725c5729cc1112d2bb84c7ff4cae1127",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "apps_binding": {
+      "path": "MACOS-PORTING/evidence/P5/ax/apps/commit-binding-review.json",
+      "bytes": 29633,
+      "sha256": "607f692036f9aefe057410501c93035548e0fd378b3c334f50247bf659795693",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "apps_final": {
+      "path": "MACOS-PORTING/evidence/P5/ax/apps/independent-completion/review.json",
+      "bytes": 6965,
+      "sha256": "62df7b747d67f468c0b0fe7aed5a0d21d6cc8701bcea26cf9eba08c9fe883fab",
+      "committedAtSnapshot": true,
+      "role": "existing_requirement_or_evidence"
+    },
+    "entry_development": {
+      "path": "MACOS-PORTING/evidence/P5/entry/development/report-v1.json",
+      "bytes": 6331,
+      "sha256": "03d0d55c6d9326a0a744068d073d95b96bf3b0b94489034b613c37c5caca276c",
+      "committedAtSnapshot": false,
+      "role": "primary_development_only_not_acceptance"
+    },
+    "entry_freeze": {
+      "path": "MACOS-PORTING/evidence/P5/entry/freeze-v1.json",
+      "bytes": 2104,
+      "sha256": "db860e7a872b5a19d2f39febacce78552a5a9c46f6d8ab6a11650bd1ee7672d2",
+      "committedAtSnapshot": false,
+      "role": "primary_development_only_not_acceptance"
+    },
+    "entry_run": {
+      "path": "MACOS-PORTING/evidence/P5/entry/development/v4.txt",
+      "bytes": 2057,
+      "sha256": "45753fbfe9513f7092c0fc899e17e8689567cd1a8cc6b1cb720d55fc2ad822c8",
+      "committedAtSnapshot": false,
+      "role": "primary_development_only_not_acceptance"
+    }
+  },
+  "localResolution": [
+    {
+      "id": "live_input_recording",
+      "historicalKind": "functionality_gap",
+      "status": "closed_selected_scope",
+      "priority": 1,
+      "resolvedBy": [
+        "0d054b04b7cd7d97fe163ca7177c165a38020693",
+        "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+        "d42bba09c1b559f434600008666ce1ae20d34192"
+      ],
+      "evidenceKeys": [
+        "manual_status",
+        "standard_binding",
+        "standard_final",
+        "physical_source_review"
+      ],
+      "resolution": "Bounded native-window live capture now exists. The user explicitly chose standard clicks/drags and excluded pressure gestures. Schema3 binds standard_mouse and keyboard_and_standard_mouse; primary physical 你好+trackpad drag was saved/cleared/replayed, independently reviewed for provenance. Independent synthetic GUI88/App exact17/App standard19 and committed raw-source binding are separate receipts.",
+      "limits": [
+        "Exact/schema2 remains a supported subset and its three physical strict failures remain historical failures.",
+        "Pressure stages/telemetry, multitouch/tablet and pressure-driven application state are excluded, not exhaustively detected.",
+        "No additional physical demonstration is required to close this selected scope."
+      ],
+      "nextActions": []
+    },
+    {
+      "id": "cancelled_action_audit",
+      "historicalKind": "source_defect",
+      "status": "closed_recorded_cooperative_scope",
+      "priority": 1,
+      "resolvedBy": [
+        "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+        "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c"
+      ],
+      "evidenceKeys": [
+        "cancel_acceptance",
+        "cancel_binding",
+        "standard_final"
+      ],
+      "resolution": "Cooperative cancellation is propagated while actual per-tool dispatched/uncertain outcome audit rows are retained exactly once; cancellation after dispatch and nested macro ownership have independent runtime evidence. Later manual sequence cancellation adds actual held-input audit and release receipts.",
+      "limits": [
+        "Workbench immediate process-tree hard kill and durable child-audit guarantees are separate open acceptance; pending-permission cancellation is also a distinct entry case."
+      ],
+      "nextActions": []
+    },
+    {
+      "id": "approval_and_native_audit",
+      "historicalKind": "evidence_gap",
+      "status": "partial_pending_independent_entry_acceptance",
+      "priority": 1,
+      "evidenceKeys": [
+        "cancel_acceptance",
+        "standard_final",
+        "entry_development",
+        "entry_freeze",
+        "entry_run"
+      ],
+      "closedSubscope": [
+        "Real native record_start/record_stop/input_sequence success audit rows are retained in App integration.",
+        "Native cooperative cancellation and dispatched-state audit rows are independently verified."
+      ],
+      "openSubscope": [
+        "Normal default provider-session approval allow/deny/pending-cancel has primary development29PASS only, without independent source/runtime acceptance or commit binding.",
+        "Normal Workbench nested replay with relevant desktop/command master switches and hidden-tool actual-registry behavior remains incompletely covered.",
+        "Immediate AbortSignal process-tree termination audit durability is not proven by cooperative cancellation or pending-approval cancel."
+      ],
+      "nextActions": [
+        {
+          "id": "entry-independent-approval",
+          "owner": "independent reviewer and runtime agent",
+          "preconditions": [
+            "Freeze the entry source plus generated server and exact runtime artifacts; GUI runs serially in isolated short TMPDIR."
+          ],
+          "steps": [
+            "Review the real provider/session bridge, permission request correlation and cancellation propagation.",
+            "Independently run ordinary default-mode sessions through allow, deny and pending cancel; retain permission request/reply, native result/audit and receiver/file side-effect receipts.",
+            "For denied/cancelled pending requests require zero action/file changes; verify allow executes the intended owned action.",
+            "Exercise nested recorded/authored macro paths under the actual applicable desktop/command switches; distinguish missing registry tools from permission refusal."
+          ],
+          "acceptance": "No inferred bypass result; source-bound independent once-run report and actual audit/side-effect receipts, followed by implementation/commit binding."
+        },
+        {
+          "id": "hard-abort-separate",
+          "owner": "implementation/runtime agent",
+          "steps": [
+            "Specify expected Workbench hard-abort audit/cleanup behavior separately from cooperative cancel.",
+            "Use an owned dispatched-action fixture and retain supervisor/native release, child termination and durable audit evidence."
+          ],
+          "acceptance": "Observed native state and durable outcome agree; an unknown enclosing macro remains unknown rather than falsely successful."
+        }
+      ]
+    },
+    {
+      "id": "file_checkpoints",
+      "historicalKind": "evidence_gap",
+      "status": "partial_development_fix_pending_independent_acceptance",
+      "priority": 1,
+      "evidenceKeys": [
+        "entry_development",
+        "entry_freeze",
+        "entry_run"
+      ],
+      "resolutionSoFar": "Primary entry development found the actual provider proxy could write images without checkpoints because the writer relied on sidSession while the live ctx session was not carried. The negative control preserved four actual writes with four failed checkpoint assertions; primary reports a fix and29PASS including four create/overwrite rollback cases. This is development evidence, not closure.",
+      "nextActions": [
+        {
+          "id": "entry-independent-checkpoint",
+          "owner": "independent source reviewer and runtime agent",
+          "steps": [
+            "Review both session identity sources and the actual session/turn image-writer proxy; prove the live session reaches checkpoint logic.",
+            "Inventory conditional user-path writers separately from internal macro/screenshot storage.",
+            "In actual default-mode sessions, exercise window_screenshot output_path and get_clipboard_image save_path for both creation and overwrite.",
+            "Inspect session/turn journal entries, hash before/after image bytes, execute rollback and verify new-file removal or exact old-file restoration.",
+            "Retain deny/cancel no-write controls and include the independent provider-proxy regression; bind generated server/source/artifacts and commit."
+          ],
+          "acceptance": "All four user-path cases have actual checkpoint and rollback receipts. Internal record_stop macros and act_and_verify data storage retain their documented exemption; table presence or a native save without session context does not close this row."
+        }
+      ]
+    },
+    {
+      "id": "actual_ime",
+      "historicalKind": "evidence_gap",
+      "status": "closed_current_host_abc_pinyin_scope",
+      "priority": 1,
+      "resolvedBy": [
+        "0d054b04b7cd7d97fe163ca7177c165a38020693",
+        "1500b82b9d8ee54f285d1b316d87067a7b430c52"
+      ],
+      "evidenceKeys": [
+        "standard_gui_results",
+        "standard_final",
+        "physical_source_review"
+      ],
+      "resolution": "Actual TIS input-source receipts show switching between ABC keyboard layout and SCIM Pinyin mode, raw Pinyin producing committed你好, mismatch refusal before replay, source changes during capture yielding incomplete, and conditional restoration to the original Pinyin source after ending in ABC. The physical run independently reviewed for provenance corroborates Pinyin text/drag but did not itself switch back to a different source.",
+      "limits": [
+        "Current installed ABC/Pinyin sources only; arbitrary IMEs/dead-key composition are not implied.",
+        "IME/dead-key composition begins neutral/committed per the source contract."
+      ],
+      "nextActions": []
+    },
+    {
+      "id": "live_revoke_and_lock",
+      "historicalKind": "evidence_gap",
+      "status": "requires_user_choice_and_local_interaction",
+      "priority": 1,
+      "evidenceKeys": [
+        "historical_audit",
+        "manual_status"
+      ],
+      "subitems": [
+        {
+          "id": "actual_tcc_revoke_regrant",
+          "status": "awaiting_user_mediated_permission_transition",
+          "need": "Exact responsible identity and permission domains (Accessibility/event posting and listening/capture where relevant) must be identified, with a regrant/recovery path.",
+          "nextActions": [
+            "Prepare a concrete owned-fixture revoke/regrant scenario and expected refusal/balance/clipboard/source receipts.",
+            "Obtain the specific user-mediated TCC change and recovery interaction; do not confuse source-level denial injection with actual OS revoke.",
+            "Run action-time refusal/cleanup and verify recovery on the same bound identity before recording pass."
+          ]
+        },
+        {
+          "id": "action_time_os_lock",
+          "status": "blocked_by_current_no_lock_preference",
+          "need": "The user requested keeping the desktop awake/unlocked. A specific new user choice must precede any real action-time lock/unlock test.",
+          "doNotExecute": [
+            "Do not lock the desktop or change wake policy under the old general test authorization."
+          ],
+          "nextActions": [
+            "Prepare the exact owned held-input/clipboard fixture and user recovery plan without locking.",
+            "Ask for the specific lock/unlock test choice only when ready to carry it out; otherwise leave this subitem pending.",
+            "If explicitly chosen, verify receiver wrong-target absence, owned key/button release and conditional clipboard/source cleanup through lock and recovery."
+          ]
+        }
+      ],
+      "limits": [
+        "Secure Event Input, historical locked readiness and helper watchdog tests do not replace real TCC revoke or action-time OS lock."
+      ]
+    },
+    {
+      "id": "layout_transition",
+      "historicalKind": "evidence_gap",
+      "status": "pending_local_runtime_test",
+      "priority": 2,
+      "evidenceKeys": [
+        "historical_audit",
+        "standard_final"
+      ],
+      "resolutionSoFar": "Real moved-window macro rebinding is verified, but it moves the window before replay. It does not prove frame/coordinate consistency when an actual geometry/layout transition overlaps capture.",
+      "nextActions": [
+        {
+          "id": "owned-window-capture-transition",
+          "owner": "runtime agent",
+          "preconditions": [
+            "Serial GUI ownership; owned fixture only. No extra display is required for this local geometry race."
+          ],
+          "steps": [
+            "Freeze the current capture/helper candidate and record initial frame/content geometry.",
+            "Move/resize only the owned window during an in-flight capture; observe actual target identity, frame sequence and returned coordinate metadata.",
+            "Accept only an internally consistent bounded capture or an honest refusal; preserve any first failure and cleanup."
+          ],
+          "acceptance": "No success with mixed old/new geometry or wrong-window content. Physical negative-origin/mixed-scale display tests remain external."
+        }
+      ]
+    },
+    {
+      "id": "catalog_readiness_and_hidden_tools",
+      "historicalKind": "evidence_gap",
+      "status": "partial_current_registry_proof_remaining_normal_entry_states",
+      "priority": 2,
+      "evidenceKeys": [
+        "standard_final",
+        "standard_gui_results"
+      ],
+      "closedSubscope": [
+        "Actual ACC registry-hidden input_sequence is absent from discovery and refused through saved macro_run and nested batch_actions with unchanged receiver counts.",
+        "Normal ready helper/manual capability and declared pointer profiles are exercised on current-host authorized integration."
+      ],
+      "openSubscope": [
+        "Normal Workbench entry UI/catalog behavior under actual missing helper, unavailable dependencies and real denied/revoked permissions.",
+        "Current selected tool-family advertisement and master-switch denial across nested paths; no broad catalogue claim from one hidden sequence case."
+      ],
+      "nextActions": [
+        {
+          "id": "catalog-unavailable-matrix",
+          "owner": "runtime/source agent",
+          "steps": [
+            "With an isolated worker select an actually absent helper path and capture real discovery/capability/tool-call results; do not alter the installed shared helper.",
+            "Exercise real registry hiding through the normal Workbench entry, including macro/nested batch, and compare receiver/file counters before/after.",
+            "Cover applicable desktop/command switches and explicit supported profile/pressure exclusions.",
+            "When user-mediated real TCC transitions are authorized, bind actual denied/readiness receipts to this matrix."
+          ],
+          "acceptance": "No advertised ready functionality silently falls back or dispatches hidden/disabled actions; unavailable states and UI/release wording agree."
+        }
+      ]
+    },
+    {
+      "id": "selected_application_candidate_scope",
+      "historicalKind": "evidence_binding_gap",
+      "status": "partial_leaf_source_reuse_broad_current_helper_acceptance_open",
+      "priority": 2,
+      "evidenceKeys": [
+        "apps_status",
+        "apps_fingerprint",
+        "apps_binding",
+        "apps_final",
+        "standard_binding"
+      ],
+      "resolutionSoFar": "Historical selected TextEdit1.21/Finder27.0/CFT148.0.7778.96 scenes remain accepted at649556f0/helper a5d755.... Static comparison verifies the AX leaf and selected-app/Finder/browser fixtures unchanged, but shared dispatch/session/input/audit layers changed. No full old-to-current dependency equivalence proof or current selected-app rerun was established here.",
+      "dependencyAssessment": "See selectedApplicationDependencyReuse below.",
+      "nextActions": [
+        {
+          "id": "selected-app-current-binding",
+          "owner": "source reviewer plus runtime agent",
+          "steps": [
+            "Pin current committed helper source/build and actual app versions/launch paths.",
+            "Either provide a reviewed per-function dependency proof through every changed shared layer, with current targeted boundary runtime checks, or refresh selected scenes using the current helper.",
+            "Refresh owned TextEdit AXValue+CmdS+disk readback and native CFT address-bar operation/URL readback, default AX-limited metadata, renderer membership refusal and cleanup.",
+            "For Finder first verify the shared process has no pre-existing content windows, retain creation identity/owned content URL proof and close only the proven owned window. If that precondition is unavailable, leave Finder pending; never close user windows to satisfy it.",
+            "Bind current App-origin AX route separately if claiming that entry; serial GUI and bounded CDP discovery/profile cleanup remain mandatory."
+          ],
+          "acceptance": "State exactly which old leaf results are reused and which current shared paths/app versions are newly executed. Do not promote old350 assertions using same-current-build Mach-O normalization alone."
+        }
+      ]
+    },
+    {
+      "id": "status_and_bindings",
+      "historicalKind": "bookkeeping_gap",
+      "status": "closed_at_d42_manual_evidence_checkpoint",
+      "priority": 2,
+      "resolvedBy": [
+        "057878f2e769abedbf12f4b133c5eab688e9536e",
+        "d42bba09c1b559f434600008666ce1ae20d34192"
+      ],
+      "evidenceKeys": [
+        "tasks",
+        "manual_status",
+        "standard_status",
+        "manual_status_review"
+      ],
+      "resolution": "Task/status summaries now link composed, controlled, cancellation, exact manual and explicit standard projection implementation/binding evidence; historical strict failures and primary-vs-independent execution scopes are preserved. P5/P5-05 remainin_progress. The555-file manual status/evidence snapshot was independently reviewed and committed by the parent asd42bba09.",
+      "limits": [
+        "This closes the historical bookkeeping gap at this commit, not future synchronization after entry or environment acceptance.",
+        "This new resolution draft is a supplement and does not replace or rewrite remaining-audit.json."
+      ],
+      "nextActions": []
+    }
+  ],
+  "externalResolution": [
+    {
+      "id": "physical_displays",
+      "status": "external_hardware_required",
+      "requirement": [
+        "P5-01",
+        "V11"
+      ],
+      "need": "Actual non-Retina display plus dual-display negative-origin/mixed-scale topology.",
+      "partialProof": "Current single built-in Retina host and synthetic coordinate planners remain useful but narrower.",
+      "nextActions": [
+        "Provision the hardware without disrupting user display state; record display IDs, origins, scales and target geometry.",
+        "Run current-candidate capture/input across each display, negative origin and mixed-scale handoff, preserving consistent metadata or bounded refusal."
+      ],
+      "acceptance": "Actual hardware/topology receipts and source-bound runtime outcome, or a separate explicit P5 scope/owner decision."
+    },
+    {
+      "id": "minimum_os",
+      "status": "external_os_host_required",
+      "requirement": [
+        "minimum macOS14 runtime",
+        "documented O2/P6 handoff"
+      ],
+      "need": "A real macOS14 host/VM as permitted by the delivery environment; deployment target14 is not runtime proof.",
+      "nextActions": [
+        "Record exact OS/architecture and same source commit/artifact construction.",
+        "Execute minimum-host supported capability and smoke/application gates; retain TCC/framework availability failures honestly.",
+        "If retained as O2/P6 handoff, name owner, remaining test and acceptance boundary; do not mark actual runtime tested."
+      ]
+    },
+    {
+      "id": "windows_candidate",
+      "status": "external_windows_host_or_explicit_p5_scope_decision",
+      "requirement": [
+        "P5 Windows regression",
+        "V14"
+      ],
+      "need": "Windows host/CI on the same final candidate SHA. Prior P1/P3/P4 choices are phase-specific and do not silently remove the P5 gate.",
+      "nextActions": [
+        "Use a matching candidate checkout for Windows original entry/tools/encryption/package regression; keep Linux static channel where required.",
+        "Triage each new failure and bind logs to the exact SHA.",
+        "Alternatively obtain and record an explicit P5-specific scope/handoff decision; absent that decision the row stays open."
+      ]
+    },
+    {
+      "id": "release_identity",
+      "status": "external_credentials_release_environment_and_owner_required",
+      "requirement": [
+        "formal signing/identity upgrade",
+        "clean-machine release validation",
+        "documented O2/P6 handoff"
+      ],
+      "need": "Developer ID/signing/notarization credentials and clean release-validation environment/owner.",
+      "partialProof": "Current strict ad-hoc signatures and limited Mach-O code/data equivalence are development evidence only.",
+      "nextActions": [
+        "Set the formal bundle/designated requirement/upgrade identity policy and responsible release owner.",
+        "Build/sign/notarize the intended release, validate install/upgrade/TCC identity and clean-machine behavior.",
+        "Retain any agreed O2/P6 deferral as a tracked handoff, not as completed formal validation."
+      ]
+    }
+  ],
+  "entryDevelopmentOnly": {
+    "committedAtSnapshot": false,
+    "sourceBaseCommit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+    "freeze": "MACOS-PORTING/evidence/P5/entry/freeze-v1.json",
+    "primaryDevelopmentPass": 29,
+    "primaryDevelopmentFail": 0,
+    "coverage": [
+      "Default provider-session allow/deny/pending permission cancel",
+      "Four actual image create/overwrite checkpoint+rollback cases"
+    ],
+    "reportedDefect": "Primary v3 observed successful writes without checkpoint through the real provider proxy; primary reports fixing ctx session propagation when sidSession is absent.",
+    "independentCodeReviewAccepted": false,
+    "independentRuntimeAcceptanceAccepted": false,
+    "implementationCommitBound": false,
+    "claim": "No entry row is closed by these29 development passes. Pending independent review/execution may change this draft only with their own bound evidence."
+  },
+  "imeReceiptSummary": {
+    "evidence": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/results.json",
+    "actualSourceEvents": [
+      {
+        "event": "ready",
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC"
+      },
+      {
+        "event": "source-pinyin",
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-pinyin",
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-pinyin",
+        "inputSource": "com.apple.inputmethod.SCIM.ITABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "source-abc",
+        "inputSource": "com.apple.keylayout.ABC"
+      },
+      {
+        "event": "input-source-restore",
+        "restored": true,
+        "skipped_external_change": false
+      }
+    ],
+    "mismatchRefusalObserved": true,
+    "claim": "OS TIS switches and restoration are observed; scope is installed ABC/Pinyin, not arbitrary input methods."
+  },
+  "selectedApplicationDependencyReuse": {
+    "historicalImplementation": "649556f0d5aeaf587d1b73337aa5b3da0833fe0c",
+    "historicalHelperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+    "currentImplementation": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+    "currentEvidenceCommit": "d42bba09c1b559f434600008666ce1ae20d34192",
+    "currentDefaultHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "historicalManifestFiles": 63,
+    "unchangedManifestFiles": 38,
+    "changedManifestFiles": 25,
+    "allHistoricalRaw63BlobsCheckedAgainstFrozenFingerprint": true,
+    "unchangedConcreteDependencies": [
+      {
+        "path": "ruyi-workbench/resources/macos-automation-ax.m",
+        "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+        "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+        "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+        "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d"
+      },
+      {
+        "path": "dev-harness/macos-input-apps.e2e.js",
+        "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+      },
+      {
+        "path": "dev-harness/macos-ax-finder.e2e.js",
+        "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3"
+      },
+      {
+        "path": "dev-harness/lib/browser-fixture.js",
+        "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525"
+      },
+      {
+        "path": "dev-harness/fixtures/macos-finder-identity.m",
+        "sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f"
+      },
+      {
+        "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+        "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f"
+      }
+    ],
+    "changedDependencyAndInventoryFiles": [
+      {
+        "path": "README.md",
+        "historicalSha256": "fed5ce1d3a5fe298b028f68f8ee6f3d0b98c90eb4063134e8b64aec949ac0edd",
+        "currentSha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913"
+      },
+      {
+        "path": "README_EN.md",
+        "historicalSha256": "c82dca95448b99fb7b6977a19cdda1875840512a66d696be044f7d5007ffdd69",
+        "currentSha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320"
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "historicalSha256": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+        "currentSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      {
+        "path": "dev-harness/macos-acc-shared.e2e.js",
+        "historicalSha256": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+        "currentSha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda"
+      },
+      {
+        "path": "dev-harness/macos-input-host.e2e.js",
+        "historicalSha256": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+        "currentSha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "historicalSha256": "533f29673ad3d2d86c8e314891c9ea0eae535fceb898b5413c140aa4e7f7ff02",
+        "currentSha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44"
+      },
+      {
+        "path": "facts.json",
+        "historicalSha256": "c1b5da89b5a95498974f339b88583b92e202a7bcc648edc823136514e7055790",
+        "currentSha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "historicalSha256": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+        "currentSha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "historicalSha256": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+        "currentSha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+        "historicalSha256": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+        "currentSha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "historicalSha256": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+        "currentSha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "historicalSha256": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+        "currentSha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "historicalSha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+        "currentSha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "historicalSha256": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+        "currentSha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+        "historicalSha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+        "currentSha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+        "historicalSha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+        "currentSha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_shared.py",
+        "historicalSha256": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+        "currentSha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50"
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "historicalSha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+        "currentSha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb"
+      },
+      {
+        "path": "ruyi-workbench/app/src/07-autonomy.js",
+        "historicalSha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+        "currentSha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "historicalSha256": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+        "currentSha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "historicalSha256": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+        "currentSha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf"
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "historicalSha256": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+        "currentSha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "historicalSha256": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+        "currentSha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "historicalSha256": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+        "currentSha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b"
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "historicalSha256": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+        "currentSha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+      }
+    ],
+    "interveningCommits": [
+      {
+        "commit": "b9ca1741861a4a54c8f487bc03f65fa986a08357",
+        "title": "docs(macos): bind selected AX app acceptance to commit"
+      },
+      {
+        "commit": "a7b8578381aaf80e1ca8f4ec7420ffae4320b425",
+        "title": "docs(macos): link independent AX commit verification"
+      },
+      {
+        "commit": "b09b1f4f51b7e3e3db35242ee61edb3e9e0b880f",
+        "title": "feat(macos): add guarded offline OCR and template matching"
+      },
+      {
+        "commit": "1deb89cf6a8f7f0f9e434b1b7a0e02cc15c2a0f0",
+        "title": "docs(macos): bind accepted P5 OCR implementation commit"
+      },
+      {
+        "commit": "d1b30f6099be9e40d2c838a0d22a955662180840",
+        "title": "feat(macos): compose desktop observation and verified actions"
+      },
+      {
+        "commit": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+        "title": "docs(macos): bind composed acceptance to implementation commit"
+      },
+      {
+        "commit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+        "title": "feat(macos): record controlled native inputs and rebind replay"
+      },
+      {
+        "commit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+        "title": "docs(macos): bind controlled recording acceptance to commit"
+      },
+      {
+        "commit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+        "title": "fix(macos): audit cooperative cancellation and dispatch outcomes"
+      },
+      {
+        "commit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+        "title": "docs(macos): bind cancellation audit acceptance to commit"
+      },
+      {
+        "commit": "057878f2e769abedbf12f4b133c5eab688e9536e",
+        "title": "docs(macos): bind accepted P5 slices and remaining scope"
+      },
+      {
+        "commit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+        "title": "feat(macos): add bounded window event recording and replay"
+      },
+      {
+        "commit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+        "title": "feat(macos): add explicit standard mouse recording projection"
+      },
+      {
+        "commit": "d42bba09c1b559f434600008666ce1ae20d34192",
+        "title": "docs(macos): preserve manual recording acceptance and scope"
+      }
+    ],
+    "changedSharedPaths": [
+      {
+        "paths": [
+          "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "ruyi-workbench/app/src/07-autonomy.js"
+        ],
+        "changes": "Tool registration/default execution gates, cooperative cancellation/audit wrappers and profile capability scope changed across OCR/composition/recording/audit/manual slices."
+      },
+      {
+        "paths": [
+          "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+          "ruyi-workbench/resources/macos-automation-session.m"
+        ],
+        "changes": "Native frame cancellation writes/worker shutdown and independent EOF/stopping lifecycle changed; they are on every native request/session path."
+      },
+      {
+        "paths": [
+          "ruyi-workbench/resources/macos-automation-input.m",
+          "ruyi-workbench/resources/macos-automation-events.m"
+        ],
+        "changes": "Common mutation stopping/prior-owned-cleanup gates and recording before/after hooks now wrap ax.invoke/application/window/clipboard operations; keyboard/pointer cleanup semantics changed."
+      },
+      {
+        "paths": [
+          "ruyi-workbench/resources/macos-automation-helper.m",
+          "ruyi-workbench/resources/macos-automation.h",
+          "ruyi-workbench/tools/build-macos-automation-helper.js"
+        ],
+        "changes": "Request routing/status and linked translation units now include OCR/record/manual/sequence paths; helper identity/body differs from old selected-app artifact."
+      }
+    ],
+    "allowedReuse": "Preserve the old versioned application outcomes and unchanged AX leaf/fixture source analysis. Their known Chromium renderer membership-refusal/provider limitation remains the supported boundary. This is a narrowed reuse claim, not fresh current-helper application acceptance.",
+    "notProved": "A complete function-level noninterference argument through the changed shared layers, current app versions and real selected-app/helper execution is absent. Current build normalization compares only49b/a9/1cc artifacts from the same new source, not olda5→new1cc. Broad selected_application_candidate_scope therefore stays open.",
+    "nextProofOptions": [
+      "Reviewed dependency/noninterference proof with explicit changed-branch reachability and targeted current shared-path runtime checks.",
+      "Current-helper targeted reruns of the selected TextEdit/Finder/CFT and App-origin scenes, with exact versions/owned cleanup and existing limitations preserved."
+    ]
+  },
+  "previouslyProvedScopesCarryForward": [
+    {
+      "id": "capture",
+      "historicalScope": "Current Retina host capture coordinates and image checks, window ambiguity, covered/minimized/missing targets and guarded target identity",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Physical non-Retina, dual-display negative-origin/mixed-scale operation and capture during a real layout transition remain open.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    },
+    {
+      "id": "input",
+      "historicalScope": "Guarded keyboard and pointer input, Unicode/Cmd+V, owned clipboard restoration, focus and identity refusal, bounded replay and cleanup",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Unicode injection alone does not establish actual input-method switching or action-time OS lock/TCC revocation.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    },
+    {
+      "id": "ax",
+      "historicalScope": "AX query, supported actions, expiry/stale target and resource limits, plus versioned selected TextEdit/Finder/CFT scenes",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Selected real-application scenes bind earlier implementation/helper layers. Current record acceptance reruns AX core but does not rerun all those application scenes. Chromium renderer AX mutation remains explicitly blocked by bidirectional membership validation.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    },
+    {
+      "id": "ocr_and_composition",
+      "historicalScope": "Bilingual Vision OCR, no/multiple matches, coordinate mapping and guarded click, shared-frame observe, act_and_verify and asynchronous macro waits",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Observed screen change may remain unconfirmed, as the result contract states. Approval and native audit-tail roundtrips are separate acceptance gaps.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    },
+    {
+      "id": "controlled_recording",
+      "historicalScope": "Recording successful native requests from the same MCP worker, stop/save/replay, incomplete reasons, moved-window remapping, secure-input refusal, bounded storage and cleanup",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Human manual input is outside this recording source.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    },
+    {
+      "id": "candidate_binding",
+      "historicalScope": "21 unique once-only acceptance commands, 303 Node assertions and 127 Python tests, zero unexpected failures/skips/retries. Engineering gates passed with 2499 unit passes/18 existing skips, 80 static passes/7 opt-in live skips and 1149 syntax files. 94 source/document blobs and 3 runtime artifacts bind the delivery candidate.",
+      "status": "historical_bound_acceptance_preserved",
+      "limits": "Legacy suites retain source-defined isolated helper builds where documented. This audit reuses the committed independent validation and adds no test run.",
+      "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+    }
+  ],
+  "executionOrder": [
+    {
+      "order": 1,
+      "work": [
+        "approval_and_native_audit.entry-independent-approval",
+        "file_checkpoints.entry-independent-checkpoint"
+      ],
+      "reason": "Entry is already in a separate development candidate; complete independent source/runtime acceptance before integrating or closing either row."
+    },
+    {
+      "order": 2,
+      "work": [
+        "catalog_readiness_and_hidden_tools.catalog-unavailable-matrix",
+        "layout_transition.owned-window-capture-transition",
+        "selected_application_candidate_scope.selected-app-current-binding"
+      ],
+      "reason": "Local controlled work can advance without locking or new display hardware. GUI execution remains serial; source dependency work is read-only."
+    },
+    {
+      "order": 3,
+      "work": [
+        "live_revoke_and_lock.actual_tcc_revoke_regrant",
+        "live_revoke_and_lock.action_time_os_lock"
+      ],
+      "reason": "Prepare exact identities/recovery receipts; user-mediated TCC transition and a new specific lock choice are prerequisites. Keeping the desktop awake remains the current instruction."
+    },
+    {
+      "order": 4,
+      "work": [
+        "physical_displays",
+        "minimum_os",
+        "windows_candidate",
+        "release_identity"
+      ],
+      "reason": "Provision external resources or record an explicit P5-specific scope/owner handoff; do not infer historical phase waivers."
+    },
+    {
+      "order": 5,
+      "work": [
+        "future status/binding sync"
+      ],
+      "reason": "After each accepted slice update task/status links with exact commits and limits, preserving P5in_progress until all accepted closure conditions are met."
+    }
+  ],
+  "doNotRepeatOrInfer": [
+    "Do not request another physical standard-click/drag demonstration for the already accepted user-selected scope.",
+    "Do not lock the desktop under standing general test authorization.",
+    "Do not rerun archived owned-input recovery or claim historical clipboard loss was restored.",
+    "Do not access/close UserNotificationCenter to work around the prior CUA denial.",
+    "Do not treat pressure associations as proof of an executed pressure gesture, or standard projection as pressure-state replay.",
+    "Do not promote primary development29PASS into independent entry acceptance.",
+    "Do not treat ad-hoc codesign/current-build normalization as formal/TCC identity or selected-app old-to-current equivalence."
+  ],
+  "coverageCheck": {
+    "historicalLocalRows": 10,
+    "mappedLocalRows": 10,
+    "historicalExternalRows": 4,
+    "mappedExternalRows": 4,
+    "everyHistoricalIdMappedExactlyOnce": true
+  },
+  "fullP5Completion": false,
+  "conclusion": "Four historical local gaps now have explicit scoped closure (manual input, cooperative cancellation audit, actual ABC/Pinyin switching and current bookkeeping). Entry approval/checkpoint work remains development-only; catalog/shared entry, live OS transitions, layout and current selected-app binding remain partial/open. Four external gates retain their resources and scope decisions. P5 remains in_progress."
+}

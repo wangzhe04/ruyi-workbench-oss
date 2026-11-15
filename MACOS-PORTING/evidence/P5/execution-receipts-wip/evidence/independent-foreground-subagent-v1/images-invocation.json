@@ -1,0 +1,49 @@
+{
+  "label": "images",
+  "argv": [
+    "node",
+    "dev-harness/macos-execution-images.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-1t0ev3nv/home",
+    "USERPROFILE": "/tmp/rd-1t0ev3nv/userprofile",
+    "APPDATA": "/tmp/rd-1t0ev3nv/appdata",
+    "LOCALAPPDATA": "/tmp/rd-1t0ev3nv/localappdata",
+    "RUYI_HOME": "/tmp/rd-1t0ev3nv/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-1t0ev3nv/data",
+    "WCW_DATA_DIR": "/tmp/rd-1t0ev3nv/acc-data",
+    "TMPDIR": "/tmp/rd-1t0ev3nv/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-1t0ev3nv/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-1t0ev3nv/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_EXECUTION_IMAGES_REQUIRED": "1",
+    "RUYI_EXECUTION_IMAGES_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-results.json"
+  },
+  "startedAt": "2026-11-11T21:48:00.542308+00:00",
+  "freezeSha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T21:48:06.130723+00:00",
+  "elapsedSeconds": 5.5883229579776525,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images.log",
+    "bytes": 2137,
+    "sha256": "efc758abd6539c4ff65710ea5cbc082db2cdbbe90e09936174de93f34ac3c1ea"
+  }
+}

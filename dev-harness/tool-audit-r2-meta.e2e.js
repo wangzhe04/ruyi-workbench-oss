@@ -156,8 +156,9 @@ try {
   'F2 计划阶段:代理到 todo_write / orchestrate_agents 的调用按目标判(被拦),代理到只读工具照放行');
 
   /* ── (9) 入参描述 ── */
-  const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, { skillsEnabled: true });
-  const stew = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, { skillsEnabled: true, stewardSession: true });
+  const metadataCaps = { runtime: { capabilities: { 'desktop.capture': { ready: true }, 'process.supervisor': { ready: true } } } };
+  const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, metadataCaps, { skillsEnabled: true });
+  const stew = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, metadataCaps, { skillsEnabled: true, stewardSession: true });
   const byName = new Map(); for (const x of [...full, ...stew]) byName.set(x.function.name, x.function);
   const WANT = {
     workbench_memory_list: ['scope', 'limit'], workbench_memory_read: ['id'], workbench_memory_propose: ['name', 'type'],
@@ -172,6 +173,18 @@ try {
     http_request: ['url', 'method', 'headers', 'body', 'timeoutMs', 'maxBodyChars'], web_fetch: ['url'], mission_update: ['milestones', 'goal'],
     orchestrate_agents: ['nodes'], steward_schedule_pause: ['basis'], steward_schedule_resume: ['basis'], steward_schedule_run_now: ['basis'], steward_schedule_delete: ['basis'],
   };
+  // Unsupported Windows names remain registered for metadata audit but are not
+  // offered on Mac. Synthetic readiness checks only schema composition.
+  const offeredNames = new Set(byName.keys());
+  for (const name of Object.keys(WANT)) if (!byName.has(name)) {
+    const schema = srv.nativeToolSchema(name);
+    if (schema) byName.set(name, { name, parameters: schema });
+  }
+  if (process.platform === 'darwin') ok(!offeredNames.has('powershell_run') && !offeredNames.has('keyboard_send_keys')
+    && offeredNames.has('shell_run'), 'G0 Mac offers native shell and omits unsupported Windows tools');
+  ok([...full, ...stew].every(tool => typeof tool.function.name === 'string'
+    && typeof tool.function.description === 'string' && tool.function.parameters?.type === 'object'),
+    'G0 every offered tool retains an object parameter schema and a description');
   const lacking = [];
   for (const [tool, props] of Object.entries(WANT)) {
     const fn = byName.get(tool);

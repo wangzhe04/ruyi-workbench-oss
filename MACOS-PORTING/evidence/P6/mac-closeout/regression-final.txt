@@ -1,0 +1,779 @@
+# Ruyi e2e runner
+# 件数: 594 ran / 14 skipped(live)
+# 超时: 120s/件,并行(2路)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2671 / ℹ pass 2653 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+# 并行模式: 2 路,每桶 ~274 件；47 件性能门独占
+
+[B0] ([fast]) acc-offline-installer.static.e2e.js ... [B1] ([fast]) action-feedback.static.e2e.js ... [B0] PASS (34ms)
+[B0] ([fast]) agent-mode-v2.static.e2e.js ... [B1] PASS (35ms)
+[B1] ([fast]) agent-team-budget.static.e2e.js ... [B0] PASS (120ms)
+[B0] ([fast]) agent-workflows-polling-visibility.static.e2e.js ... [B0] PASS (29ms)
+[B0] ([fast]) asr-config-ui.static.e2e.js ... [B1] PASS (185ms)
+[B1] ([fast]) architecture-contract-snapshots.static.e2e.js ... [B0] PASS (129ms)
+[B0] ([fast]) c2-evidence-spawn-budget.static.e2e.js ... [B0] PASS (32ms)
+[B0] ([fast]) copy-terms.static.e2e.js ... [B1] PASS (133ms)
+[B1] ([fast]) browser-mcp.static.e2e.js ... [B0] PASS (67ms)
+[B0] ([fast]) css-typography-debt.static.e2e.js ... [B0] PASS (31ms)
+[B0] ([fast]) desktop-shell.static.e2e.js ... [B0] PASS (32ms)
+[B0] ([fast]) ec-d-closure.static.e2e.js ... [B1] PASS (159ms)
+[B1] ([fast]) copy-path-guard.static.e2e.js ... [B0] PASS (50ms)
+[B0] ([fast]) eol-policy.static.e2e.js ... [B1] PASS (94ms)
+[B1] ([fast]) cost-zero.static.e2e.js ... [B1] PASS (31ms)
+[B1] ([fast]) desktop-dpi.static.e2e.js ... [B1] PASS (32ms)
+[B1] ([fast]) durable-state-inventory.static.e2e.js ... [B1] PASS (107ms)
+[B1] ([fast]) engine-env-brief.static.e2e.js ... [B1] PASS (1312ms)
+[B1] ([fast]) facts.static.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 223ms)
+[B1] ([fast]) fixture-home.static.e2e.js ... [B1] PASS (1022ms)
+[B1] ([fast]) health-i18n.static.e2e.js ... [B1] PASS (43ms)
+[B1] ([fast]) i18n.static.e2e.js ... [B1] PASS (231ms)
+[B1] ([fast]) kimi-plan-ui.static.e2e.js ... [B1] PASS (37ms)
+[B1] ([fast]) manifest-ranges.static.e2e.js ... [B1] PASS (65ms)
+[B1] ([fast]) memory-toolbox.static.e2e.js ... [B1] PASS (34ms)
+[B1] ([fast]) model-menu-classes.static.e2e.js ... [B1] PASS (34ms)
+[B1] ([fast]) ndjson-line-feeder.static.e2e.js ... [B1] PASS (69ms)
+[B1] ([fast]) new-thread-engine-default.static.e2e.js ... [B1] PASS (47ms)
+[B1] ([fast]) overlay-payload-lock.static.e2e.js ... [B1] PASS (80ms)
+[B1] ([fast]) process-safety.static.e2e.js ... [B1] PASS (213ms)
+[B1] ([fast]) prompt-snapshot.static.e2e.js ... [B1] PASS (120ms)
+[B1] ([fast]) rail-pocket.static.e2e.js ... [B0] PASS (3814ms)
+[B0] ([fast]) finalize-segments.static.e2e.js ... [B1] PASS (33ms)
+[B1] ([fast]) route-inventory.static.e2e.js ... [B0] PASS (32ms)
+[B0] ([fast]) frontend-domains.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) i18n-en-terms.static.e2e.js ... [B0] PASS (35ms)
+[B0] ([fast]) inline-script-csp-hash.static.e2e.js ... [B0] PASS (48ms)
+[B0] ([fast]) live-full-text.static.e2e.js ... [B0] PASS (40ms)
+[B0] ([fast]) mcp-ops-gui.static.e2e.js ... [B0] PASS (56ms)
+[B0] ([fast]) mermaid-render.static.e2e.js ... [B1] PASS (626ms)
+[B1] ([fast]) scheduler-ui.static.e2e.js ... [B0] PASS (377ms)
+[B0] ([fast]) module-dependency-graph.static.e2e.js ... [B1] PASS (111ms)
+[B1] ([fast]) software-engineering-prompt.static.e2e.js ... [B1] PASS (104ms)
+[B1] ([fast]) steward-avatar.static.e2e.js ... [B1] PASS (36ms)
+[B1] ([fast]) steward-config.static.e2e.js ... [B1] PASS (171ms)
+[B1] ([fast]) steward-drawer.static.e2e.js ... [B1] PASS (61ms)
+[B1] ([fast]) steward-runner.static.e2e.js ... [B0] PASS (636ms)
+[B0] ([fast]) net-token-replay.static.e2e.js ... [B0] PASS (32ms)
+[B0] ([fast]) onboarding.static.e2e.js ... [B1] PASS (241ms)
+[B1] ([fast]) steward-shell.static.e2e.js ... [B0] PASS (61ms)
+[B0] ([fast]) overlay-update-gui.static.e2e.js ... [B0] PASS (47ms)
+[B0] ([fast]) progress-events.static.e2e.js ... [B1] PASS (55ms)
+[B1] ([fast]) steward-walkthrough.static.e2e.js ... [B1] PASS (71ms)
+[B1] ([fast]) thinking-boundary.static.e2e.js ... [B1] PASS (30ms)
+[B1] ([fast]) thread-commission.static.e2e.js ... [B1] PASS (64ms)
+[B1] ([fast]) tool-verb-coverage.static.e2e.js ... [B0] PASS (209ms)
+[B0] ([fast]) provider-reasoning-effort-ui.static.e2e.js ... [B0] PASS (28ms)
+[B0] ([fast]) resume-banner-dismiss.static.e2e.js ... [B1] PASS (102ms)
+[B1] ([fast]) ui-bugfix.static.e2e.js ... [B0] PASS (33ms)
+[B0] ([fast]) runtime-optimization.static.e2e.js ... [B1] PASS (39ms)
+[B1] ([fast]) ui-v3-p2.static.e2e.js ... [B1] PASS (55ms)
+[B1] ([fast]) ui-v3-p3b.static.e2e.js ... [B1] PASS (67ms)
+[B1] ([fast]) ui-v4-glass.static.e2e.js ... [B1] PASS (36ms)
+[B1] ([fast]) workflow-editor-v2.static.e2e.js ... [B1] PASS (47ms)
+[B1] ([main]) acc-capability-gates.e2e.js ... [B0] PASS (278ms)
+[B0] ([fast]) session-save-census.static.e2e.js ... [B0] PASS (81ms)
+[B0] ([fast]) start-experience.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) steward-board.static.e2e.js ... [B0] PASS (65ms)
+[B0] ([fast]) steward-conversation.static.e2e.js ... [B0] PASS (66ms)
+[B0] ([fast]) steward-events.static.e2e.js ... [B0] PASS (137ms)
+[B0] ([fast]) steward-settings.static.e2e.js ... [B0] PASS (75ms)
+[B0] ([fast]) steward-tools.static.e2e.js ... [B0] PASS (1657ms)
+[B0] ([fast]) streaming-responsiveness.static.e2e.js ... [B0] PASS (38ms)
+[B0] ([fast]) thread-brief.static.e2e.js ... [B0] PASS (84ms)
+[B0] ([fast]) tool-image-inline.static.e2e.js ... [B0] PASS (41ms)
+[B0] ([fast]) turn-narrative.static.e2e.js ... [B0] PASS (106ms)
+[B0] ([fast]) ui-v3-p1.static.e2e.js ... [B0] PASS (51ms)
+[B0] ([fast]) ui-v3-p3a.static.e2e.js ... [B0] PASS (70ms)
+[B0] ([fast]) ui-v3-wave1.static.e2e.js ... [B0] PASS (56ms)
+[B0] ([fast]) v17-review-fixes.static.e2e.js ... [B0] PASS (138ms)
+[B0] ([main]) a11y-lint.browser.e2e.js ... [B1] PASS (7707ms)
+[B1] ([main]) action-feedback.browser.e2e.js ... [B0] PASS (10331ms)
+[B0] ([main]) acceptance-provenance.e2e.js ... [B0] PASS (932ms)
+[B0] ([main]) action-model-view.e2e.js ... [B1] PASS (7981ms)
+[B1] ([main]) adaptive-budget.e2e.js ... [B1] PASS (1231ms)
+[B1] ([main]) agent-coordination.e2e.js ... [B0] PASS (2924ms)
+[B0] ([main]) adversarial-w21.e2e.js ... [B0] PASS (98ms)
+[B0] ([main]) agent-deadlock-watchdog.e2e.js ... [B1] PASS (4086ms)
+[B1] ([main]) agent-final-mailbox.e2e.js ... [B1] PASS (8208ms)
+[B1] ([main]) agent-mode-v2.e2e.js ... [B0] PASS (18103ms)
+[B0] ([main]) agent-loop.e2e.js ... [B0] PASS (4114ms)
+[B0] ([main]) agent-node-wrapup.e2e.js ... [B1] PASS (14954ms)
+[B1] ([main]) agent-parent-heartbeat.e2e.js ... [B0] PASS (10519ms)
+[B0] ([main]) agent-parent-mailbox.e2e.js ... [B0] PASS (6338ms)
+[B0] ([main]) agent-quality-workflow.e2e.js ... [B1] PASS (13415ms)
+[B1] ([main]) agent-quality-gates.e2e.js ... [B1] PASS (107ms)
+[B1] ([main]) agent-resource-wait-stop.e2e.js ... [B0] PASS (6146ms)
+[B0] ([main]) agent-role-openai.e2e.js ... [B0] PASS (1878ms)
+[B0] ([main]) agent-run-lifecycle.e2e.js ... [B1] PASS (16568ms)
+[B1] ([main]) agent-roles.e2e.js ... [B1] PASS (1655ms)
+[B1] ([main]) agent-steer-node.e2e.js ... [B0] PASS (13689ms)
+[B0] ([main]) agent-subturn-loop-guard.e2e.js ... [B0] PASS (2038ms)
+[B0] ([main]) agent-wake.e2e.js ... [B1] PASS (10294ms)
+[B1] ([main]) agent-team-mode.e2e.js ... [B1] PASS (4430ms)
+[B1] ([main]) agent-workflow-audit-fixes.e2e.js ... [B1] PASS (3832ms)
+[B1] ([main]) agent-workflow-claude-engine.e2e.js ... [B1] PASS (16340ms)
+[B1] ([main]) agent-workflow-editor-ui.e2e.js ... [B1] PASS (88ms)
+[B1] ([main]) agent-workflow-node-context.e2e.js ... [B1] PASS (1695ms)
+[B1] ([main]) agent-workflow-replan-review.e2e.js ... [B1] PASS (1987ms)
+[B1] ([main]) agent-workflow-templates.e2e.js ... [B1] PASS (125ms)
+[B1] ([main]) agent-workflow-ui-progress.e2e.js ... [B1] PASS (2711ms)
+[B1] ([main]) anthropic-fake.e2e.js ... [B1] PASS (2190ms)
+[B1] ([main]) anthropic-provider-setup.browser.e2e.js ... [B1] PASS (7611ms)
+[B1] ([main]) asr-transcribe.e2e.js ... [B1] PASS (9666ms)
+[B1] ([main]) atomic-write-cancellation.e2e.js ... [B1] PASS (217ms)
+[B1] ([main]) audit-w23.e2e.js ... [B1] PASS (1110ms)
+[B1] ([main]) auth-deny-default.e2e.js ... [B1] PASS (2075ms)
+[B1] ([main]) autonomy-benchmark.e2e.js ... [B1] PASS (3652ms)
+[B1] ([main]) autonomy-pause.e2e.js ... [B1] PASS (90ms)
+[B1] ([main]) autonomy-shell-sandbox.e2e.js ... [B1] PASS (653ms)
+[B1] ([main]) batch-output-discipline.e2e.js ... [B1] PASS (2853ms)
+[B1] ([main]) boot-resume-parallel.e2e.js ... [B1] PASS (1345ms)
+[B1] ([main]) bridged-prefix-tolerance.e2e.js ... [B1] PASS (1218ms)
+[B1] ([main]) budget-guard.e2e.js ... [B0] PASS (85234ms)
+[B0] ([main]) agent-workflow-budget-finalizer.e2e.js ... [B0] PASS (1812ms)
+[B0] ([main]) agent-workflow-claude-transient-repro.e2e.js ... [B0] PASS (2089ms)
+[B0] ([main]) agent-workflow-monitor-ui.e2e.js ... [B0] PASS (63ms)
+[B0] ([main]) agent-workflow-replan-approve.e2e.js ... [B0] PASS (4406ms)
+[B0] ([main]) agent-workflow-replan.e2e.js ... [B1] PASS (23792ms)
+[B1] ([main]) capabilities.e2e.js ... [B0] PASS (1841ms)
+[B0] ([main]) agent-workflow-transient-repro.e2e.js ... [B0] PASS (2136ms)
+[B0] ([main]) agent-worktree.e2e.js ... [B0] PASS (826ms)
+[B0] ([main]) anthropic-gateway-setup.e2e.js ... [B0] PASS (1826ms)
+[B0] ([main]) artifacts.e2e.js ... [B1] PASS (8670ms)
+[B1] ([main]) chat-stream-remount.browser.e2e.js ... [B0] PASS (3034ms)
+[B0] ([main]) asr-warmup.e2e.js ... [B1] PASS (7755ms)
+[B1] ([main]) checkpoint-coverage.e2e.js ... [B1] PASS (2020ms)
+[B1] ([main]) checkpoint-mcpchild.e2e.js ... [B1] PASS (1061ms)
+[B1] ([main]) checkpoint-visibility.e2e.js ... [B0] PASS (10461ms)
+[B0] ([main]) audit-desktop-records.e2e.js ... [B0] PASS (338ms)
+[B0] ([main]) audit.e2e.js ... [B0] PASS (1539ms)
+[B0] ([main]) autocompact.e2e.js ... [B1] PASS (2949ms)
+[B1] ([main]) claude-cli-bridged-read-guard.e2e.js ... [B1] PASS (620ms)
+[B1] ([main]) claude-context-continuity.e2e.js ... [B0] PASS (2341ms)
+[B0] ([main]) autonomy-grant.e2e.js ... [B0] PASS (1324ms)
+[B0] ([main]) autonomy-resume.e2e.js ... [B1] PASS (4377ms)
+[B1] ([main]) claude-models-cache.e2e.js ... [B1] PASS (1686ms)
+[B1] ([main]) claude-resume-recovery.e2e.js ... [B1] PASS (988ms)
+[B1] ([main]) codebase-symbol-search.e2e.js ... [B1] PASS (565ms)
+[B1] ([main]) composer-session-races.browser.e2e.js ... [B0] PASS (6468ms)
+[B0] ([main]) background-completion.e2e.js ... [B1] PASS (3990ms)
+[B1] ([main]) composer-voice-warmup.browser.e2e.js ... [B0] PASS (4335ms)
+[B0] ([main]) boot-failure-kind.browser.e2e.js ... [B0] PASS (5216ms)
+[B0] ([main]) bridge-cancel-timeout.e2e.js ... [B0] PASS (3228ms)
+[B0] ([main]) bridged-read-noprompt.e2e.js ... [B0] PASS (8618ms)
+[B0] ([main]) c2-deterministic-evidence.e2e.js ... [B0] PASS (118ms)
+[B0] ([main]) changes-diff.e2e.js ... [B0] PASS (543ms)
+[B0] ([main]) chat-ux-wave1.browser.e2e.js ... [B1] PASS (24720ms)
+[B1] ([main]) config-mutate-mcp-parity.e2e.js ... [B1] PASS (528ms)
+[B1] ([main]) config-read-safety.e2e.js ... [B1] PASS (3255ms)
+[B1] ([main]) context-governance.e2e.js ... [B1] PASS (198ms)
+[B1] ([main]) credential-vault.e2e.js ... [B1] PASS (33ms)
+[B1] ([main]) cross-thread-history.e2e.js ... [B1] PASS (1668ms)
+[B1] ([main]) data-root-migration.e2e.js ... [B1] PASS (3910ms)
+[B1] ([main]) deepseek-search-fetch.e2e.js ... [B1] PASS (318ms)
+[B1] ([main]) desktop-mcp-smoke.e2e.js ... [B0] PASS (26191ms)
+[B0] ([main]) checkpoint-gc-cache.e2e.js ... [B0] PASS (1350ms)
+[B0] ([main]) checkpoint-proxy-session.e2e.js ... [B0] PASS (2004ms)
+[B0] ([main]) checkpoint.e2e.js ... [B0] PASS (2033ms)
+[B0] ([main]) claude-cmdline-guard.e2e.js ... [B0] PASS (5975ms)
+[B0] ([main]) claude-exe-resolve.e2e.js ... [B0] PASS (3333ms)
+[B0] ([main]) claude-permission-bridge-mode.e2e.js ... [B0] PASS (698ms)
+[B0] ([main]) cli-probe-stall.e2e.js ... [B0] PASS (12083ms)
+[B0] ([main]) compaction-refetch-guard.e2e.js ... [B0] PASS (1814ms)
+[B0] ([main]) composer-voice-stream.browser.e2e.js ... [B1] PASS (63196ms)
+[B1] ([main]) desktop-probe-status.e2e.js ... [B0] PASS (29418ms)
+[B0] ([main]) compound-effect-audit.e2e.js ... [B0] PASS (2841ms)
+[B0] ([main]) config-providers-guard.e2e.js ... [B0] PASS (1446ms)
+[B0] ([main]) context-compact-v2.e2e.js ... [B1] PASS (13247ms)
+[B1] ([main]) dom-contract.e2e.js ... [B1] PASS (178ms)
+[B1] ([main]) e1-parallel-noindex.e2e.js ... [B1] PASS (1916ms)
+[B1] ([main]) e3-engine-switch-continuity.e2e.js ... [B0] PASS (5442ms)
+[B0] ([main]) context-window.e2e.js ... [B0] PASS (918ms)
+[B0] ([main]) crew-experience.browser.e2e.js ... [B1] PASS (3483ms)
+[B1] ([main]) e5-multiline-sse.e2e.js ... [B1] PASS (1898ms)
+[B1] ([main]) engine-env-runtime.e2e.js ... [B0] PASS (8667ms)
+[B0] ([main]) data-profile.e2e.js ... [B0] PASS (116ms)
+[B0] ([main]) debug-hypothesis.e2e.js ... [B0] PASS (189ms)
+[B0] ([main]) desktop-execution-root.e2e.js ... [B1] PASS (5389ms)
+[B1] ([main]) event-stream-pageshow.browser.e2e.js ... [B0] PASS (1693ms)
+[B0] ([main]) desktop-probe-follow.browser.e2e.js ... [B1] PASS (2360ms)
+[B1] ([main]) exec-result-cache.e2e.js ... [B1] PASS (6285ms)
+[B1] ([main]) external-bot-discovery.e2e.js ... [B0] PASS (7346ms)
+[B0] ([main]) dns-rebind.e2e.js ... [B0] PASS (801ms)
+[B0] ([main]) durable-json-store.e2e.js ... [B0] PASS (105ms)
+[B0] ([main]) e2-append-system-prompt.e2e.js ... [B1] PASS (2700ms)
+[B1] ([main]) external-bot-setup.browser.e2e.js ... [B1] PASS (36ms)
+[B1] ([main]) external-bots-control.e2e.js ... [B0] PASS (3004ms)
+[B0] ([main]) e4-no-usage.e2e.js ... [B0] PASS (2045ms)
+[B0] ([main]) economics-shadow.e2e.js ... [B1] PASS (4114ms)
+[B1] ([main]) external-bots.e2e.js ... [B0] PASS (1384ms)
+[B0] ([main]) estimate-buckets.e2e.js ... [B0] PASS (165ms)
+[B0] ([main]) evidence-claims-m4-benchmark.e2e.js ... [B0] PASS (100ms)
+[B0] ([main]) external-bot-credentials.e2e.js ... [B0] PASS (32ms)
+[B0] ([main]) external-bot-gateway.e2e.js ... [B0] PASS (2076ms)
+[B0] ([main]) external-bot-setup.e2e.js ... [B1] PASS (5659ms)
+[B1] ([main]) external-code-diff.e2e.js ... [B1] PASS (1175ms)
+[B1] ([main]) fake-mcp-contract.e2e.js ... [B0] PASS (3925ms)
+[B0] ([main]) external-bots.browser.e2e.js ... [B1] PASS (2031ms)
+[B1] ([main]) file-mutation-recovery.e2e.js ... [B1] PASS (174ms)
+[B1] ([main]) foreign-turn-busy-guard.e2e.js ... [B0] PASS (14603ms)
+[B0] ([main]) external-channel-delivery.e2e.js ... [B0] PASS (5075ms)
+[B0] ([main]) failover.e2e.js ... [B1] PASS (20865ms)
+[B1] ([main]) frontend-wave3.browser.e2e.js ... [B0] PASS (5459ms)
+[B0] ([main]) file-guard.e2e.js ... [B0] PASS (766ms)
+[B0] ([main]) file-text-encoding.e2e.js ... [B0] PASS (649ms)
+[B0] ([main]) frontend-wave2.browser.e2e.js ... [B0] PASS (42818ms)
+[B0] ([main]) git.e2e.js ... [B0] PASS (2299ms)
+[B0] ([main]) harness-friction.e2e.js ... [B0] PASS (7718ms)
+[B0] ([main]) help-viewer.e2e.js ... [B0] PASS (231ms)
+[B0] ([main]) ia.e2e.js ... [B0] PASS (633ms)
+[B0] ([main]) interactive-question.e2e.js ... [B0] PASS (2256ms)
+[B0] ([main]) interventions-c4.e2e.js ... [B0] PASS (2296ms)
+[B0] ([main]) interventions-changeseq.e2e.js ... [B0] PASS (2655ms)
+[B0] ([main]) interventions-pool.e2e.js ... [B0] PASS (7725ms)
+[B0] ([main]) judge-json-repair.e2e.js ... [B0] PASS (2483ms)
+[B0] ([main]) kimi-prompt-parts.e2e.js ... [B0] PASS (61ms)
+[B0] ([main]) launcher-spaced-path.e2e.js ... [B0] PASS (31ms)
+[B0] ([main]) locale-en-us.browser.e2e.js ... [B0] PASS (4076ms)
+[B0] ([main]) loop-guard-read-exempt.e2e.js ... [B0] PASS (3778ms)
+[B0] ([main]) macos-acc-shared.e2e.js ... [B0] PASS (974ms)
+[B0] ([main]) macos-audit-cancellation.e2e.js ... [B0] PASS (4892ms)
+[B0] ([main]) macos-browser-runtime.e2e.js ... [B0] PASS (112ms)
+[B0] ([main]) macos-capability-popover.browser.e2e.js ... [B0] PASS (4118ms)
+[B0] ([main]) macos-cli-models.e2e.js ... [B0] PASS (24239ms)
+[B0] ([main]) macos-executable-probe.e2e.js ... [B0] PASS (2133ms)
+[B0] ([main]) macos-git-runtime.e2e.js ... [B1] PASS (123289ms)
+[B1] ([main]) goal-evolution.e2e.js ... [B1] PASS (273ms)
+[B1] ([main]) help-menu.e2e.js ... [B1] PASS (306ms)
+[B1] ([main]) i18n.e2e.js ... [B1] PASS (806ms)
+[B1] ([main]) index-dedup.e2e.js ... [B0] PASS (7135ms)
+[B0] ([main]) macos-mcp-capabilities.e2e.js ... [B0] PASS (587ms)
+[B0] ([main]) macos-migration-trash.e2e.js ... [B0] PASS (897ms)
+[B0] ([main]) macos-native-readiness.e2e.js ... [B0] PASS (36ms)
+[B0] ([main]) macos-office-artifacts.e2e.js ... [B1] PASS (6973ms)
+[B1] ([main]) intervention-mission-gate.e2e.js ... [B1] PASS (4594ms)
+[B1] ([main]) interventions-cas.e2e.js ... [B1] PASS (4393ms)
+[B1] ([main]) interventions-persist.e2e.js ... [B0] PASS (15409ms)
+[B0] ([main]) macos-opener.e2e.js ... [B1] PASS (3999ms)
+[B1] ([main]) interventions-snapshot.e2e.js ... [B1] PASS (2387ms)
+[B1] ([main]) kimi-agent-cli.e2e.js ... [B0] PASS (6701ms)
+[B0] ([main]) macos-platform-templates.e2e.js ... [B0] PASS (164ms)
+[B0] ([main]) macos-process-runtime.e2e.js ... [B0] PASS (8253ms)
+[B0] ([main]) macos-rg-runtime.e2e.js ... [B0] PASS (6034ms)
+[B0] ([main]) macos-shell-runtime.e2e.js ... [B0] PASS (4135ms)
+[B0] ([main]) macos-sync-supervisor.e2e.js ... [B0] PASS (3096ms)
+[B0] ([main]) macos-upgrade-rollback.e2e.js ... [B0] PASS (40ms)
+[B0] ([main]) mcp-bridge.e2e.js ... [B0] PASS (1125ms)
+[B0] ([main]) mcp-import-config.e2e.js ... [B0] PASS (628ms)
+[B0] ([main]) mcp-ops-closure.e2e.js ... [B1] PASS (26652ms)
+[B1] ([main]) kimi-search-policy.e2e.js ... [B1] PASS (78ms)
+[B1] ([main]) live-full-text.e2e.js ... [B1] PASS (4398ms)
+[B1] ([main]) long-tool-liveness-steer.e2e.js ... [B0] PASS (6970ms)
+[B0] ([main]) mcp-resource-config-mask.e2e.js ... [B0] PASS (620ms)
+[B0] ([main]) memory-active-scope.e2e.js ... [B0] PASS (1778ms)
+[B0] ([main]) memory-auto-proposal.e2e.js ... [B0] PASS (104ms)
+[B0] ([main]) memory-batch-proposal.e2e.js ... [B1] PASS (8604ms)
+[B1] ([main]) loop-guard.e2e.js ... [B0] PASS (6010ms)
+[B0] ([main]) memory-graph-maintenance.e2e.js ... [B1] PASS (2029ms)
+[B1] ([main]) macos-agent-cli-discovery.e2e.js ... [B0] PASS (133ms)
+[B0] ([main]) memory-maintenance-tools.e2e.js ... [B0] PASS (195ms)
+[B0] ([main]) memory-recall-quality.e2e.js ... [B0] PASS (166ms)
+[B0] ([main]) memory-scope.e2e.js ... [B1] PASS (1202ms)
+[B1] ([main]) macos-ax-finder.e2e.js ... [B1] PASS (30ms)
+[B1] ([main]) macos-capabilities.e2e.js ... [B0] PASS (8353ms)
+[B0] ([main]) memory-veto-precedence.e2e.js ... [B1] PASS (8376ms)
+[B1] ([main]) macos-capture-transition.e2e.js ... [B0] PASS (802ms)
+[B0] ([main]) meta-guard.e2e.js ... [B1] PASS (38ms)
+[B1] ([main]) macos-document-reader.e2e.js ... [B0] PASS (90ms)
+[B0] ([main]) metrics-panel.e2e.js ... [B0] PASS (702ms)
+[B0] ([main]) migration-center.e2e.js ... [B0] PASS (2911ms)
+[B0] ([main]) mission-index-boot-race.e2e.js ... [B0] PASS (4133ms)
+[B0] ([main]) mission-index-late-materialize.e2e.js ... [B0] PASS (587ms)
+[B0] ([main]) mission-start-race.e2e.js ... [B0] PASS (25484ms)
+[B0] ([main]) missions-readmodel.e2e.js ... [B1] PASS (35349ms)
+[B1] ([main]) macos-file-policy.e2e.js ... [B0] PASS (2477ms)
+[B0] ([main]) monitor-incremental.e2e.js ... [B1] PASS (1551ms)
+[B1] ([main]) macos-keychain.e2e.js ... [B0] PASS (6115ms)
+[B0] ([main]) native-media-boundaries.e2e.js ... [B0] PASS (2366ms)
+[B0] ([main]) observation-recall-realhistory.e2e.js ... [B0] PASS (96ms)
+[B0] ([main]) observation-recall-snapshot-cap.e2e.js ... [B0] PASS (2515ms)
+[B0] ([main]) offline-upgrade-drill.e2e.js ... [B0] PASS (566ms)
+[B0] ([main]) onboarding-workspace.browser.e2e.js ... [B0] PASS (3494ms)
+[B0] ([main]) openai-engine.e2e.js ... [B0] PASS (2227ms)
+[B0] ([main]) orchestrate-model-select.e2e.js ... [B0] PASS (437ms)
+[B0] ([main]) overlay-update-core.e2e.js ... [B0] PASS (364ms)
+[B0] ([main]) path-matcher-cancellation.e2e.js ... [B1] PASS (18031ms)
+[B1] ([main]) macos-media-runtime.e2e.js ... [B0] PASS (3011ms)
+[B0] ([main]) perm-v2.e2e.js ... [B0] PASS (13781ms)
+[B0] ([main]) permission-survives-reload.browser.e2e.js ... [B0] PASS (4107ms)
+[B0] ([main]) playbook-reuse.browser.e2e.js ... [B0] PASS (8136ms)
+[B0] ([main]) playbook-skill-tools.e2e.js ... [B0] PASS (7800ms)
+[B0] ([main]) port-fallback.e2e.js ... [B0] PASS (855ms)
+[B0] ([main]) preflight-relative-write.e2e.js ... [B0] PASS (1822ms)
+[B0] ([main]) privacy-gateway.e2e.js ... [B0] PASS (18730ms)
+[B0] ([main]) provider-api-style.browser.e2e.js ... [B0] PASS (1760ms)
+[B0] ([main]) provider-compact.e2e.js ... [B0] PASS (2240ms)
+[B0] ([main]) provider-no-model-locale.e2e.js ... [B0] PASS (830ms)
+[B0] ([main]) provider-tool-history.e2e.js ... [B0] PASS (1651ms)
+[B0] ([main]) provider-turnloop-hardening.e2e.js ... [B1] PASS (75720ms)
+[B1] ([main]) macos-native-entry.e2e.js ... [B1] PASS (37ms)
+[B1] ([main]) macos-neutral-abort.e2e.js ... [B1] PASS (37ms)
+[B1] ([main]) macos-offline-package.e2e.js ... [B1] PASS (38ms)
+[B1] ([main]) macos-overlay-boundary.e2e.js ... [B1] PASS (326ms)
+[B1] ([main]) macos-process-cleanup.e2e.js ... [B1] PASS (2327ms)
+[B1] ([main]) macos-python-probe.e2e.js ... [B1] PASS (10436ms)
+[B1] ([main]) macos-runtime-start.e2e.js ... [B0] PASS (24993ms)
+[B0] ([main]) rail-session-search.browser.e2e.js ... [B1] PASS (3244ms)
+[B1] ([main]) macos-sync-probe.e2e.js ... [B1] PASS (9424ms)
+[B1] ([main]) macos-trial-install.e2e.js ... [B1] PASS (33ms)
+[B1] ([main]) manuals.e2e.js ... [B1] PASS (39ms)
+[B1] ([main]) mcp-config.e2e.js ... [B1] PASS (2934ms)
+[B1] ([main]) mcp-import-origin.e2e.js ... [B0] PASS (20493ms)
+[B0] ([main]) read-pool.e2e.js ... [B0] PASS (4070ms)
+[B0] ([main]) reading-continuation.e2e.js ... [B1] PASS (11244ms)
+[B1] ([main]) mcp-remote-transport.e2e.js ... [B1] PASS (2646ms)
+[B1] ([main]) mcp-stdio-eof.e2e.js ... [B0] PASS (5933ms)
+[B0] ([main]) repo-hygiene.e2e.js ... [B0] PASS (9748ms)
+[B0] ([main]) responses-fake.e2e.js ... [B0] PASS (1820ms)
+[B0] ([main]) responses-websearch-inline.e2e.js ... [B1] PASS (16692ms)
+[B1] ([main]) memory-auto-proposal-api.e2e.js ... [B0] PASS (5525ms)
+[B0] ([main]) rewind.e2e.js ... [B1] PASS (2130ms)
+[B1] ([main]) memory-batch-card.browser.e2e.js ... [B1] PASS (4021ms)
+[B1] ([main]) memory-graph-auto-proposal.e2e.js ... [B1] PASS (120ms)
+[B1] ([main]) memory-graph-relations.e2e.js ... [B1] PASS (122ms)
+[B1] ([main]) memory-recall-injection.e2e.js ... [B0] PASS (4863ms)
+[B0] ([main]) scheduler-api.e2e.js ... [B0] PASS (771ms)
+[B0] ([main]) scheduler-reducer.e2e.js ... [B0] PASS (67ms)
+[B0] ([main]) scheduler.e2e.js ... [B1] PASS (5340ms)
+[B1] ([main]) memory-scope-card.browser.e2e.js ... [B0] PASS (9979ms)
+[B0] ([main]) search-robust.e2e.js ... [B0] PASS (887ms)
+[B0] ([main]) self-check.e2e.js ... [B0] PASS (2056ms)
+[B0] ([main]) server-ownership.e2e.js ... [B0] PASS (3902ms)
+[B0] ([main]) session-atomic.e2e.js ... [B1] PASS (12655ms)
+[B1] ([main]) memory-subagent.e2e.js ... [B1] PASS (1876ms)
+[B1] ([main]) mermaid-viewer.browser.e2e.js ... [B0] PASS (2677ms)
+[B0] ([main]) session-delete-agent-runs.e2e.js ... [B1] PASS (3777ms)
+[B1] ([main]) meta-tools.e2e.js ... [B1] PASS (2992ms)
+[B1] ([main]) migration-center.browser.e2e.js ... [B0] PASS (8413ms)
+[B0] ([main]) session-id-path-guard.e2e.js ... [B0] PASS (2110ms)
+[B0] ([main]) session-notes-inject.e2e.js ... [B1] PASS (7679ms)
+[B1] ([main]) mission-driver.e2e.js ... [B0] PASS (7748ms)
+[B0] ([main]) session-notes.e2e.js ... [B1] PASS (4806ms)
+[B1] ([main]) mission-index-gate.e2e.js ... [B0] PASS (896ms)
+[B0] ([main]) session-rewind-execution.e2e.js ... [B1] PASS (2203ms)
+[B1] ([main]) mission-result.e2e.js ... [B0] PASS (1924ms)
+[B0] ([main]) session-search.e2e.js ... [B0] PASS (438ms)
+[B0] ([main]) session-stop-identity.browser.e2e.js ... [B1] PASS (3355ms)
+[B1] ([main]) mission-threads.e2e.js ... [B0] PASS (2999ms)
+[B0] ([main]) session-turn-core.e2e.js ... [B1] PASS (1348ms)
+[B1] ([main]) model-menu-no-shift.browser.e2e.js ... [B1] PASS (3077ms)
+[B1] ([main]) multi-session-parallel.e2e.js ... [B1] PASS (2881ms)
+[B1] ([main]) new-thread-engine-default.e2e.js ... [B0] PASS (7055ms)
+[B0] ([main]) settings-ia.browser.e2e.js ... [B1] PASS (7768ms)
+[B1] ([main]) observation-recall-replay.e2e.js ... [B1] PASS (35ms)
+[B1] ([main]) observation-recall.e2e.js ... [B1] PASS (3403ms)
+[B1] ([main]) onboard.e2e.js ... [B1] PASS (2072ms)
+[B1] ([main]) onboarding.e2e.js ... [B0] PASS (14826ms)
+[B0] ([main]) settings-wave1.browser.e2e.js ... [B1] PASS (2025ms)
+[B1] ([main]) openai-tools.e2e.js ... [B1] PASS (2920ms)
+[B1] ([main]) orchestration-blindspots.e2e.js ... [B1] PASS (3410ms)
+[B1] ([main]) parallel-read-island.e2e.js ... [B1] PASS (7289ms)
+[B1] ([main]) perf-config-cache.e2e.js ... [B1] PASS (1543ms)
+[B1] ([main]) permission-plain.browser.e2e.js ... [B0] PASS (18284ms)
+[B0] ([main]) shell-session.e2e.js ... [B0] PASS (2546ms)
+[B0] ([main]) skills-registry.e2e.js ... [B1] PASS (5529ms)
+[B1] ([main]) plan-mode.e2e.js ... [B1] PASS (4938ms)
+[B1] ([main]) playbook-reuse.e2e.js ... [B1] PASS (1897ms)
+[B1] ([main]) playbooks.e2e.js ... [B0] PASS (8270ms)
+[B0] ([main]) spawn-background-dag.e2e.js ... [B0] PASS (4150ms)
+[B0] ([main]) stale-source-badge.browser.e2e.js ... [B1] PASS (6568ms)
+[B1] ([main]) prefix-layout.e2e.js ... [B1] PASS (11761ms)
+[B1] ([main]) privacy-channels.e2e.js ... [B1] PASS (109ms)
+[B1] ([main]) privacy-protocols.e2e.js ... [B1] PASS (100ms)
+[B1] ([main]) provider-compact-recall.e2e.js ... [B1] PASS (2277ms)
+[B1] ([main]) provider-custom-headers.e2e.js ... [B1] PASS (185ms)
+[B1] ([main]) provider-pairing-repair.e2e.js ... [B1] PASS (4157ms)
+[B1] ([main]) provider-tool-stop.e2e.js ... [B1] PASS (8354ms)
+[B1] ([main]) rail-reconcile.browser.e2e.js ... [B0] PASS (31319ms)
+[B0] ([main]) steer-interrupt.e2e.js ... [B0] PASS (3671ms)
+[B0] ([main]) steering.e2e.js ... [B1] PASS (8595ms)
+[B1] ([main]) rail-tool-height.browser.e2e.js ... [B0] PASS (7299ms)
+[B0] ([main]) steward-attachments-search.e2e.js ... [B1] PASS (6402ms)
+[B1] ([main]) readfiletail-torntail.e2e.js ... [B1] PASS (199ms)
+[B1] ([main]) reject-attribution.e2e.js ... [B0] PASS (2767ms)
+[B0] ([main]) steward-background-hold.e2e.js ... [B1] PASS (3991ms)
+[B1] ([main]) resource-awareness.e2e.js ... [B1] PASS (197ms)
+[B1] ([main]) responses-websearch-fake.e2e.js ... [B0] PASS (3379ms)
+[B0] ([main]) steward-config-tools.e2e.js ... [B0] PASS (711ms)
+[B0] ([main]) steward-continue-unfinished.e2e.js ... [B1] PASS (3891ms)
+[B1] ([main]) resume-dangling.e2e.js ... [B1] PASS (829ms)
+[B1] ([main]) run-health.browser.e2e.js ... [B1] PASS (3916ms)
+[B1] ([main]) scheduler-crash.e2e.js ... [B1] PASS (14954ms)
+[B1] ([main]) scheduler-steward.e2e.js ... [B1] PASS (14160ms)
+[B1] ([main]) search-cancellation.e2e.js ... [B1] PASS (2856ms)
+[B1] ([main]) security-gates-w2.e2e.js ... [B0] PASS (41122ms)
+[B0] ([main]) steward-decisions.browser.e2e.js ... [B1] PASS (4705ms)
+[B1] ([main]) semantic-loop-guard.e2e.js ... [B1] PASS (2242ms)
+[B1] ([main]) service-match.browser.e2e.js ... [B0] PASS (7447ms)
+[B0] ([main]) steward-deferred-notice.browser.e2e.js ... [B0] PASS (1548ms)
+[B0] ([main]) steward-deliverable.e2e.js ... [B1] PASS (7873ms)
+[B1] ([main]) session-bulk-cleanup.e2e.js ... [B1] PASS (895ms)
+[B1] ([main]) session-get-etag.e2e.js ... [B0] PASS (4729ms)
+[B0] ([main]) steward-delivery.browser.e2e.js ... [B1] PASS (4453ms)
+[B1] ([main]) session-index.e2e.js ... [B1] PASS (5237ms)
+[B1] ([main]) session-notes-merge.e2e.js ... [B1] PASS (286ms)
+[B1] ([main]) session-permission-mode.e2e.js ... [B0] PASS (12497ms)
+[B0] ([main]) steward-drawer-keep-frame.browser.e2e.js ... [B0] PASS (2714ms)
+[B0] ([main]) steward-exempt-delegation.e2e.js ... [B0] PASS (14506ms)
+[B0] ([main]) steward-exempt-shell-send.e2e.js ... [B0] PASS (3092ms)
+[B0] ([main]) steward-global-health.browser.e2e.js ... [B0] PASS (7539ms)
+[B0] ([main]) steward-handoff-recovery.browser.e2e.js ... [B1] PASS (35941ms)
+[B1] ([main]) session-scratchpad.e2e.js ... [B0] PASS (8666ms)
+[B0] ([main]) steward-inbox.e2e.js ... [B1] PASS (4229ms)
+[B1] ([main]) session-stop-execution.e2e.js ... [B1] PASS (1548ms)
+[B1] ([main]) session-storage-v2.e2e.js ... [B1] PASS (835ms)
+[B1] ([main]) settings-catalog.browser.e2e.js ... [B1] PASS (6174ms)
+[B1] ([main]) settings-skills.browser.e2e.js ... [B1] PASS (6015ms)
+[B1] ([main]) shell-mcp-guard.e2e.js ... [B1] PASS (704ms)
+[B1] ([main]) simple-mode.browser.e2e.js ... [B0] PASS (18942ms)
+[B0] ([main]) steward-multistep.browser.e2e.js ... [B1] PASS (6754ms)
+[B1] ([main]) source-fields.e2e.js ... [B0] PASS (5762ms)
+[B0] ([main]) steward-new-conversation.browser.e2e.js ... [B1] PASS (3249ms)
+[B1] ([main]) ssrf-hardening.e2e.js ... [B1] PASS (105ms)
+[B1] ([main]) start-error-surface.e2e.js ... [B1] PASS (1639ms)
+[B1] ([main]) steering-claude.e2e.js ... [B0] PASS (3365ms)
+[B0] ([main]) steward-no-model.browser.e2e.js ... [B0] PASS (2488ms)
+[B0] ([main]) steward-preroute.e2e.js ... [B0] PASS (23907ms)
+[B0] ([main]) steward-quick-ask.e2e.js ... [B0] PASS (8841ms)
+[B0] ([main]) steward-read-routing.e2e.js ... [B0] PASS (2788ms)
+[B0] ([main]) steward-runner.e2e.js ... [B0] PASS (7434ms)
+[B0] ([main]) steward-settings-scope.e2e.js ... [B0] PASS (414ms)
+[B0] ([main]) steward-shell-redesign.browser.e2e.js ... [B0] PASS (5429ms)
+[B0] ([main]) steward-shell.e2e.js ... [B0] PASS (2575ms)
+[B0] ([main]) steward-signals.e2e.js ... [B1] PASS (54142ms)
+[B1] ([main]) steward-answer.e2e.js ... [B1] PASS (7212ms)
+[B1] ([main]) steward-attachments.browser.e2e.js ... [B1] PASS (3018ms)
+[B1] ([main]) steward-catalogs.e2e.js ... [B1] PASS (3025ms)
+[B1] ([main]) steward-content-tools.e2e.js ... [B1] PASS (3282ms)
+[B1] ([main]) steward-contract-guard.e2e.js ... [B1] PASS (2769ms)
+[B1] ([main]) steward-decisions.e2e.js ... [B1] PASS (1313ms)
+[B1] ([main]) steward-deferred-permission.e2e.js ... [B0] PASS (46887ms)
+[B0] ([main]) steward-stop-respected.e2e.js ... [B0] PASS (1907ms)
+[B0] ([main]) steward-thread-order.e2e.js ... [B0] PASS (2172ms)
+[B0] ([main]) steward-thread-workspace.e2e.js ... [B0] PASS (982ms)
+[B0] ([main]) steward-viewing-gate.e2e.js ... [B1] PASS (46981ms)
+[B1] ([main]) steward-delivery-history.browser.e2e.js ... [B1] PASS (2483ms)
+[B1] ([main]) steward-delivery.e2e.js ... [B1] PASS (1911ms)
+[B1] ([main]) steward-drawer.e2e.js ... [B0] PASS (20249ms)
+[B0] ([main]) storage-steward.e2e.js ... [B0] PASS (607ms)
+[B0] ([main]) subagent-compaction-parity.e2e.js ... [B1] PASS (6435ms)
+[B1] ([main]) steward-exempt-no-swap.e2e.js ... [B0] PASS (7711ms)
+[B0] ([main]) subagent-retry-after.e2e.js ... [B1] PASS (5293ms)
+[B1] ([main]) steward-eyes.e2e.js ... [B1] PASS (396ms)
+[B1] ([main]) steward-guardrails.e2e.js ... [B0] PASS (3798ms)
+[B0] ([main]) subagent-thinking-continuity.e2e.js ... [B1] PASS (13631ms)
+[B1] ([main]) steward-inbox-integrity.e2e.js ... [B0] PASS (18553ms)
+[B0] ([main]) summary-call-policy.e2e.js ... [B0] PASS (1838ms)
+[B0] ([main]) summary-fact-table.e2e.js ... [B0] PASS (2182ms)
+[B0] ([main]) summary-refine.e2e.js ... [B0] PASS (2182ms)
+[B0] ([main]) summary-task-evidence.e2e.js ... [B0] PASS (1464ms)
+[B0] ([main]) surface-hardening-w2.e2e.js ... [B0] PASS (2190ms)
+[B0] ([main]) theme-default.browser.e2e.js ... [B0] PASS (2594ms)
+[B0] ([main]) thread-arbiter.e2e.js ... [B1] PASS (42881ms)
+[B1] ([main]) steward-memory.e2e.js ... [B1] PASS (3485ms)
+[B1] ([main]) steward-multistep.e2e.js ... [B0] PASS (44536ms)
+[B0] ([main]) thread-commission.browser.e2e.js ... [B1] PASS (16234ms)
+[B1] ([main]) steward-new-conversation.e2e.js ... [B0] PASS (4497ms)
+[B0] ([main]) thread-switch-race.browser.e2e.js ... [B1] PASS (8358ms)
+[B1] ([main]) steward-notify.e2e.js ... [B1] PASS (328ms)
+[B1] ([main]) steward-presence-gate.e2e.js ... [B0] PASS (9682ms)
+[B0] ([main]) todo-summary.e2e.js ... [B0] PASS (2011ms)
+[B0] ([main]) tool-audit-fixes.e2e.js ... [B0] PASS (1231ms)
+[B0] ([main]) tool-audit-r2-files.e2e.js ... [B0] PASS (974ms)
+[B0] ([main]) tool-audit-r2-netexec.e2e.js ... [B0] PASS (5292ms)
+[B0] ([main]) tool-dispatch-hardening.e2e.js ... [B0] PASS (2850ms)
+[B0] ([main]) tool-invoke-promote.e2e.js ... [B0] PASS (2906ms)
+[B0] ([main]) tool-result-bounds.e2e.js ... [B0] PASS (1840ms)
+[B0] ([main]) toolbox-discovery.e2e.js ... [B1] PASS (54629ms)
+[B1] ([main]) steward-quickask-board.e2e.js ... [B1] PASS (1242ms)
+[B1] ([main]) steward-relay-channels.e2e.js ... [B0] PASS (35825ms)
+[B0] ([main]) tools-v3.e2e.js ... [B0] PASS (5049ms)
+[B0] ([main]) turn-undo.browser.e2e.js ... [B0] PASS (4334ms)
+[B0] ([main]) ui-polish.browser.e2e.js ... [B0] PASS (1533ms)
+[B0] ([main]) usage-accum.e2e.js ... [B0] PASS (1878ms)
+[B0] ([main]) usage-dashboard.e2e.js ... [B0] PASS (86ms)
+[B0] ([main]) usage-subagent-ledger.e2e.js ... [B0] PASS (2383ms)
+[B0] ([main]) voice-learn.browser.e2e.js ... [B0] PASS (3659ms)
+[B0] ([main]) voice-lexicon.e2e.js ... [B0] PASS (806ms)
+[B0] ([main]) wait-primitive.e2e.js ... [B1] PASS (22629ms)
+[B1] ([main]) steward-settings-scope.browser.e2e.js ... [B0] PASS (4048ms)
+[B0] ([main]) workbench-memory-core.e2e.js ... [B0] PASS (399ms)
+[B0] ([main]) workbench-self-status.e2e.js ... [B0] PASS (3244ms)
+[B0] ([main]) workspace-picker-popover.browser.e2e.js ... [B1] PASS (7556ms)
+[B1] ([main]) steward-settings.e2e.js ... [B0] PASS (1896ms)
+[B0] ([main]) worktree-cleanup-retry.e2e.js ... [B0] PASS (434ms)
+[B1] PASS (7417ms)
+[B1] ([main]) steward-shell-wave1.browser.e2e.js ... [B1] PASS (13623ms)
+[B1] ([main]) steward-side-collapse.browser.e2e.js ... [B1] PASS (10153ms)
+[B1] ([main]) steward-stop-receipts.browser.e2e.js ... [B1] PASS (6900ms)
+[B1] ([main]) steward-task-decisions.e2e.js ... [B1] PASS (465ms)
+[B1] ([main]) steward-thread-title.e2e.js ... [B1] PASS (2634ms)
+[B1] ([main]) steward-tools.e2e.js ... [B1] PASS (11754ms)
+[B1] ([main]) steward-workspace-affinity.e2e.js ... [B1] PASS (16168ms)
+[B1] ([main]) store-walkthrough-w1.e2e.js ... [B1] PASS (3424ms)
+[B1] ([main]) subagent-net-tools.e2e.js ... [B1] PASS (156ms)
+[B1] ([main]) subagent-thinking-continuity.browser.e2e.js ... [B1] PASS (26363ms)
+[B1] ([main]) subagent.e2e.js ... [B1] PASS (15896ms)
+[B1] ([main]) summary-entity-check.e2e.js ... [B1] PASS (6778ms)
+[B1] ([main]) summary-parallel-cap.e2e.js ... [B1] PASS (3676ms)
+[B1] ([main]) summary-single-shot.e2e.js ... [B1] PASS (2178ms)
+[B1] ([main]) surface-hardening-w2.browser.e2e.js ... [B1] PASS (3271ms)
+[B1] ([main]) team-pool-mailbox.e2e.js ... [B1] PASS (15762ms)
+[B1] ([main]) theme.e2e.js ... [B1] PASS (58ms)
+[B1] ([main]) thread-brief.e2e.js ... [B1] PASS (21641ms)
+[B1] ([main]) thread-index-visibility.e2e.js ... [B1] PASS (20808ms)
+[B1] ([main]) todo-loopback.e2e.js ... [B1] PASS (1012ms)
+[B1] ([main]) token-bootstrap-csp.e2e.js ... [B1] PASS (555ms)
+[B1] ([main]) tool-audit-r2-dev.e2e.js ... [B1] PASS (2410ms)
+[B1] ([main]) tool-audit-r2-meta.e2e.js ... [B1] PASS (3963ms)
+[B1] ([main]) tool-audit-r2-steward.e2e.js ... [B1] PASS (14763ms)
+[B1] ([main]) tool-dispatch.e2e.js ... [B1] PASS (881ms)
+[B1] ([main]) tool-loading.e2e.js ... [B1] PASS (2046ms)
+[B1] ([main]) tool-result-render.browser.e2e.js ... [B1] PASS (2587ms)
+[B1] ([main]) tools-v2.e2e.js ... [B1] PASS (14085ms)
+[B1] ([main]) turn-stop-supersede.e2e.js ... [B1] PASS (12463ms)
+[B1] ([main]) ui-misc-wave1.browser.e2e.js ... [B1] PASS (10075ms)
+[B1] ([main]) uimode-style.e2e.js ... [B1] PASS (3516ms)
+[B1] ([main]) usage-claude-cached.e2e.js ... [B1] PASS (3958ms)
+[B1] ([main]) usage-ledger.e2e.js ... [B1] PASS (3528ms)
+[B1] ([main]) vision-loop.e2e.js ... [B1] PASS (4465ms)
+[B1] ([main]) voice-learn.e2e.js ... [B1] PASS (815ms)
+[B1] ([main]) voice-setup.browser.e2e.js ... [B1] PASS (5081ms)
+[B1] ([main]) websearch.e2e.js ... [B1] PASS (13266ms)
+[B1] ([main]) workbench-memory.e2e.js ... [B1] PASS (9098ms)
+[B1] ([main]) workflow-editor-inspector.browser.e2e.js ... [B1] PASS (3086ms)
+[B1] ([main]) workspace-resolve.e2e.js ... [B1] PASS (6181ms)
+[exclusive] ([performance]) a11y-walkthrough.browser.e2e.js ... PASS (6467ms)
+[exclusive] ([performance]) agent-node-limits.e2e.js ... PASS (32530ms)
+[exclusive] ([performance]) autonomy-durability.e2e.js ... PASS (21438ms)
+[exclusive] ([performance]) boot-listen-budget.e2e.js ... PASS (752ms)
+[exclusive] ([performance]) classic-window-live-steer.e2e.js ... PASS (3651ms)
+[exclusive] ([performance]) composer-voice.browser.e2e.js ... PASS (46727ms)
+[exclusive] ([performance]) dom-screenshot.e2e.js ... PASS (4024ms)
+[exclusive] ([performance]) dom-smoke.e2e.js ... PASS (2353ms)
+[exclusive] ([performance]) ec-d-performance.e2e.js ... PASS (4535ms)
+[exclusive] ([performance]) event-stream-client.browser.e2e.js ... PASS (135972ms)
+[exclusive] ([performance]) event-stream-replay.browser.e2e.js ... PASS (11089ms)
+[exclusive] ([performance]) event-stream.e2e.js ... PASS (9845ms)
+[exclusive] ([performance]) focus-rail.browser.e2e.js ... PASS (39428ms)
+[exclusive] ([performance]) keyboard-walkthrough.browser.e2e.js ... PASS (11701ms)
+[exclusive] ([performance]) live-full-text.browser.e2e.js ... PASS (47975ms)
+[exclusive] ([performance]) macos-ax.e2e.js ... PASS (18513ms)
+[exclusive] ([performance]) macos-capture-contract.e2e.js ... PASS (10178ms)
+[exclusive] ([performance]) macos-capture-host.e2e.js ... FAIL exit=1 (重跑仍失败, 80249ms)
+[exclusive] ([performance]) macos-capture.e2e.js ... PASS (11537ms)
+[exclusive] ([performance]) macos-desktop-bridge.e2e.js ... PASS (42731ms)
+[exclusive] ([performance]) macos-desktop-host.e2e.js ... PASS (52604ms)
+[exclusive] ([performance]) macos-desktop-lifecycle.e2e.js ... PASS (53635ms)
+[exclusive] ([performance]) macos-desktop-media.e2e.js ... PASS (46502ms)
+[exclusive] ([performance]) macos-input-apps.e2e.js ... PASS [flaky: 重跑通过] (20765ms)
+[exclusive] ([performance]) macos-input-events.e2e.js ... FAIL exit=1 (重跑仍失败, 60807ms)
+[exclusive] ([performance]) macos-input-host.e2e.js ... FAIL exit=1 (重跑仍失败, 99996ms)
+[exclusive] ([performance]) macos-manual-record.e2e.js ... PASS (39617ms)
+[exclusive] ([performance]) macos-observe.e2e.js ... FAIL TIMEOUT(>120s) (重跑仍失败, 240011ms)
+[exclusive] ([performance]) macos-ocr.e2e.js ... FAIL TIMEOUT(>120s) (重跑仍失败, 240013ms)
+[exclusive] ([performance]) macos-record.e2e.js ... PASS (10973ms)
+[exclusive] ([performance]) macos-window-clipboard.e2e.js ... PASS (10084ms)
+[exclusive] ([performance]) mission-index-scale.e2e.js ... PASS (2246ms)
+[exclusive] ([performance]) one-workbench-frame.browser.e2e.js ... PASS (11810ms)
+[exclusive] ([performance]) perf.e2e.js ... PASS (567ms)
+[exclusive] ([performance]) quiet-card-snooze.browser.e2e.js ... PASS (3467ms)
+[exclusive] ([performance]) quiet-card-typing.browser.e2e.js ... PASS (10671ms)
+[exclusive] ([performance]) quiet-card.browser.e2e.js ... PASS (25884ms)
+[exclusive] ([performance]) rail-pocket.browser.e2e.js ... PASS (24257ms)
+[exclusive] ([performance]) scheduler-ready-queue.e2e.js ... PASS (8765ms)
+[exclusive] ([performance]) scheduler-ui.browser.e2e.js ... PASS (5443ms)
+[exclusive] ([performance]) shell-mode-late-config.browser.e2e.js ... PASS (11024ms)
+[exclusive] ([performance]) steward-board.e2e.js ... PASS (20102ms)
+[exclusive] ([performance]) steward-conversation.e2e.js ... PASS (22228ms)
+[exclusive] ([performance]) steward-shell-pixels.browser.e2e.js ... PASS (5826ms)
+[exclusive] ([performance]) walkthrough-round1.browser.e2e.js ... PASS (13318ms)
+[exclusive] ([performance]) walkthrough-round2.browser.e2e.js ... PASS (8938ms)
+[exclusive] ([performance]) workbench-thread-head.browser.e2e.js ... PASS (8614ms)
+
+# 汇总: 588 pass / 6 fail / 0 known-fail / 0 unexpected-pass / 1 flaky / 594 ran / 14 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+# [flaky] 名单(首跑失败重跑通过,时序可疑,建议后续波治理):
+#   macos-input-apps.e2e.js
+#     [首跑] FAIL selected-app input MCP and native worker cleanup is confirmed
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== facts.static.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL README.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：293 组 unit suite
+FAIL README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：plus 293 unit suites
+FAIL README.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：293 组 unit suite
+FAIL README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：plus 293 unit suites
+--- 末 25 行 ---
+PASS facts.unitSuites(294) == 目录重算(294)
+PASS facts.accSmokes(44) == 目录重算(44)
+PASS facts.accVersion(1.9.1) == pyproject(1.9.1)
+PASS facts.accTools(108) 是正整数(无 venv,活对账由 CI acc-smoke 承担)
+PASS facts.defaultPort(8765) == 00-boot.js DEFAULT_PORT(8765)
+PASS facts.tokenBootstrap(api-bootstrap) == 'api-bootstrap'
+PASS ROUTE_AUTH 含 POST /api/bootstrap(auth=open,浏览器拿 token 唯一通道)
+PASS serveStatic 浏览器分支置空 token(HTML 不再明文下发)
+PASS facts.liveProbes(14) == SKIP 集大小(14)
+PASS SKIP 集每条都是 live probe(非 live 混入: 无)
+PASS README 无过时 ACC 工具数口径(99/98 绝迹;现行 108)
+PASS README.md 里扫得到「原生工具数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 2 处)
+PASS README_EN.md 里扫得到「原生工具数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 1 处)
+PASS README.md 里扫得到「e2e 总数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「e2e 总数」都与 facts 一致(现行 608，实得 2 处)
+PASS README_EN.md 里扫得到「e2e 总数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 608，实得 1 处)
+PASS README.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+FAIL README.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：293 组 unit suite
+PASS README_EN.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+FAIL README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 294，实得 1 处)；对不上的：plus 293 unit suites
+FACTS STATIC E2E: FAIL (2)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-U1CWJJ
+
+=== macos-capture-host.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL App-launched helper has its own verified capture authorization
+FAIL normal App HTTP tool entry captures a real PNG
+FAIL App-launched helper has its own verified capture authorization
+FAIL normal App HTTP tool entry captures a real PNG
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS LaunchServices App owns the actual workbench Node service
+FAIL App-launched helper has its own verified capture authorization
+PASS App status directory and capability snapshot agree on capture readiness
+FAIL normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+INFO Failed App fixture retained at /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-w264ww
+MACOS CAPTURE HOST E2E: FAIL (2)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-qPhLJW
+[retry] 重跑 tail:
+PASS LaunchServices App owns the actual workbench Node service
+FAIL App-launched helper has its own verified capture authorization
+PASS App status directory and capability snapshot agree on capture readiness
+FAIL normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+INFO Failed App fixture retained at /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-hWXyp8
+MACOS CAPTURE HOST E2E: FAIL (2)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-hKbHzp
+
+=== macos-input-events.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL LaunchServices starts the controlled app and confirms actual bundle and process identity
+--- 末 25 行 ---
+PASS double click reaches the owned view with balanced button events
+PASS right and middle clicks reach the receiver and release their buttons
+PASS vertical and horizontal wheel events reach the correct owned view
+PASS drag stays in the exact target and releases the owned button
+PASS off-target coordinates are refused before any click
+PASS an AX-hidden same-process floating panel cannot intercept a click intended for the bound window
+PASS changed same-process focus refuses keyboard input without editing the prior target
+PASS covered target refuses the mouse action before clicking
+PASS focus change during a real drag reports its partial side effect
+PASS interrupted drag releases its owned button
+PASS input works again after focus recovery and partial-action cleanup
+Stopped drag diagnostic {"ok":false,"error":"DesktopError: Native input session is stopping","code":"input_cancelled","acted":true,"action_sent":true,"reached":false,"actual_x":483.20001220703125,"actual_y":742,"outcome":"unconfirmed"}
+PASS SIGTERM during a real drag reports the already-posted partial action
+PASS native worker stop releases the owned drag button in the actual desktop session
+PASS unresolvable application produces a typed failure
+FAIL LaunchServices starts the controlled app and confirms actual bundle and process identity
+PASS application readiness includes an actually observed window target
+PASS launched fixture terminates on its own bounded timer
+PASS owned watchdog writer is reaped before final clipboard ownership observation
+PASS owned input MCP and native worker cleanup is confirmed
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+PASS LaunchServices fixture has no remaining process
+MACOS INPUT EVENTS E2E: FAIL (1)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-sG4xNn
+
+=== macos-input-host.e2e.js (exit=1) ===
+--- FAIL 行 6 条 ---
+FAIL App-launched ACC has its own actual Accessibility and event authorization
+FAIL normal App HTTP tool route focuses the exact owned receiver
+FAIL normal App HTTP tool route sends Chinese Unicode events
+FAIL App launch chain sends guarded pointer and wheel events
+FAIL real receiver confirms the App-originated Chinese text
+FAIL real receiver confirms the App-originated balanced click and wheel events
+--- 末 25 行 ---
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+INFO Failed App fixture retained at /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-FhPHTv
+MACOS INPUT HOST E2E: FAIL (6)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-LoFcd5
+[retry] 重跑 tail:
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS the authorized App launches the isolated server whose bytes match this exact candidate
+PASS App and service process identities were observed before shutdown
+App input readiness {"capabilities":{"applicationReady":true,"authorization":"denied","axReady":false,"axSupported":true,"clipboardReady":true,"eventAuthorization":"denied","inputReady":false,"inputSequenceReady":false,"inputSequenceSupported":true,"installed":true,"listenAuthorization":"denied","locked":false,"manualPointerProfiles":["exact","standard_mouse"],"manualRecordReady":false,"manualRecordSupported":true,"ocrReady":true,"ocrRevision":3,"ocrSupported":true,"pointerQueryReady":true,"queryReady":true,"ready":false,"reasonCode":"permission_denied","recordInputSource":{"id":"com.apple.inputmethod.SCIM.ITABC","type":"TISTypeKeyboardInputMode"},"recordReady":false,"recordSource":"controlled_native_requests","recordSources":["controlled_native_requests","native_window_events"],"recordSupported":true,"supported":true,"windowAuthorization":"denied","windowQueryReady":true,"windowReady":false},"diag":{"capabilities":{"desktop.accessibility":{"authorization":"denied","backend":"AXUIElement","coordinate_space":"macos_global_points","installed":true,"ready":false,"supported":true},"desktop.action_verification":{"authorization":"denied","coordinate_space":"macos_global_points","installed":false,"ready":false,"supported":true,"verification":"screen_change_observation"},"desktop.capture":{"applicationReady":true,"authorization":"denied","axReady":false,"axSupported":true,"clipboardReady":true,"eventAuthorization":"denied","inputReady":false,"inputSequenceReady":false,"inputSequenceSupported":true,"installed":true,"listenAuthorization":"denied","locked":false,"manualPointerProfiles":["exact","standard_mouse"],"manualRecordReady":false,"manualRecordSupported":true,"ocrReady":true,"ocrRevision":3,"ocrSupported":true,"pointerQueryReady":true,"queryReady":true,"ready":false,"reasonCode":"permission_denied","recordInputSource":{"id":"com.apple.inputmethod.SCIM.ITABC","type":"TISTypeKeyboardInputMode"},"recordReady":false,"recordSource":"controlled_native_requests","recordSources":["controlled_native_requests","native_window_events"],"recordSupported":true,"supported":true,"windowAuthorization":"denied","windowQueryReady":true,"windowReady":false},"desktop.input_sequence":{"backend":"bounded CGEvent sequence","installed":true,"ready":false,"supported":true},"desktop.macro_replay":{"backend":"ACC tool registry","inputReady":false,"installed":false,"ready":false,"supported":true},"desktop.observe":{"authorization":"denied","axReady":false,"coordinate_space":"macos_global_points","installed":false,"ocrReady":true,"ready":false,"supported":true},"desktop.ocr":{"authorization":"not_required_for_local_images","backend":"Vision","image_coordinate_space":"image_pixels","inputReady":false,"installed":true,"ready":true,"recognition_revision":3,"screen_coordinate_space":"macos_global_points","screenReady":false,"supported":true},"desktop.recording":{"authorization":"denied","coordinate_space":"macos_global_points","inputSource":{"id":"com.apple.inputmethod.SCIM.ITABC","type":"TISTypeKeyboardInputMode"},"installed":false,"listenAuthorization":"denied","manualReady":false,"manualSupported":true,"pointerProfiles":["exact","standard_mouse"],"ready":false,"source":"controlled_native_requests","sources":["controlled_native_requests","native_window_events"],"standardMouseScope":"keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected","supported":true},"desktop.template_matching":{"authorization":"denied","backend":"OpenCV","coordinate_space":"macos_global_points","inputReady":false,"installed":false,"ready":false,"supported":true}},"dpi":{"awareness":"logical_points","coordinate_space":"macos_global_points","monitors":[{"height":1107,"id":1,"index":0,"is_primary":1,"scale":2,"width":1710,"x":0,"y":0}],"ok":true,"primary_scale":2},"hidden_tools":[],"is_admin":null,"load_errors":{},"monitors":{"count":1,"monitors":[{"height":1107,"id":1,"index":0,"is_primary":1,"scale":2,"width":1710,"x":0,"y":0}]},"ok":true,"optional":{"cv2":false,"matplotlib":false,"ocr":true,"playwright":false,"pptx":false,"pynput":false,"uia":true},"optional_modules":{"cv2":true,"matplotlib":true,"numpy":true,"playwright":true,"pptx":true,"pynput":false,"uiautomation":false,"win10toast":false,"winsdk_ocr":false},"platform":"macOS-27.0.1-arm64-arm-64bit","python":"3.12.13","python_full":"3.12.13 (main, Jun 23 2026, 15:44:24) [Clang 22.1.3 ]","tool_count":34,"unsupported_modules":{"audio":"platform.unsupported: macOS desktop backend is not implemented","desktop_extra":"platform.unsupported: macOS desktop backend is not implemented","dialog":"platform.unsupported: macOS desktop backend is not implemented","sync":"platform.unsupported: macOS desktop backend is not implemented","system":"platform.unsupported: macOS desktop backend is not implemented"},"version":"1.9.1"},"diagOK":true,"unavailable":true}
+FAIL App-launched ACC has its own actual Accessibility and event authorization
+FAIL normal App HTTP tool route focuses the exact owned receiver
+FAIL normal App HTTP tool route sends Chinese Unicode events
+FAIL App launch chain sends guarded pointer and wheel events
+FAIL real receiver confirms the App-originated Chinese text
+FAIL real receiver confirms the App-originated balanced click and wheel events
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+INFO Failed App fixture retained at /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO
+MACOS INPUT HOST E2E: FAIL (6)
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-6mJSg3
+
+=== macos-observe.e2e.js (TIMEOUT) ===
+[retry] 首跑 tail:
+PASS normal Mac registry exposes composed observation, verification and macro replay
+PASS one real observation combines encoded pixels and OCR of the owned counter
+PASS the same observation carries bound native AX references
+PASS observed image mapping preserves actual origin and both logical-point scales
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-f9sVzB
+[retry] 重跑 tail:
+PASS normal Mac registry exposes composed observation, verification and macro replay
+PASS one real observation combines encoded pixels and OCR of the owned counter
+PASS the same observation carries bound native AX references
+PASS observed image mapping preserves actual origin and both logical-point scales
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-ozt8oo
+
+=== macos-ocr.e2e.js (TIMEOUT) ===
+ocr_image failure {"ok":false,"error":"DesktopError: Input has no decodable image properties","code":"ocr_image_invalid"}
+PASS invalid local image fails explicitly
+ocr_image failure {"ok":false,"error":"DesktopError: OCR requires a nonempty regular image file of at most 50MB","code":"ocr_capacity"}
+PASS non-regular image input is refused without blocking
+PASS ready screen OCR and OpenCV tools appear in real tools/list
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-LCZQ2W
+[retry] 重跑 tail:
+PASS local OCR tools are registered independently of desktop input
+PASS new observations preserve file checkpoint coverage
+PASS installed offline Vision exposes Chinese and English language tags
+PASS real native OCR preserves mixed Chinese, English and monetary punctuation
+PASS local image coordinates and raw decoded orientation are explicit
+PASS Unicode tokenization splits CJK characters and preserves non-CJK punctuation
+PASS native token rectangles and centers remain inside image pixels
+PASS ordinary image symlinks read the same validated opened file
+ocr_image failure {"ok":false,"error":"DesktopError: Requested language is not supported by the installed Vision recognizer","code":"ocr_language_unsupported","available_languages":["en-US","fr-FR","it-IT","de-DE","es-ES","pt-BR","zh-Hans","zh-Hant","yue-Hans","yue-Hant","ko-KR","ja-JP","ru-RU","uk-UA","th-TH","vi-VT","ar-SA","ars-SA","tr-TR","id-ID","cs-CZ","da-DK","nl-NL","no-NO","nn-NO","nb-NO","ms-MY","pl-PL","ro-RO","sv-SE","fi-FI","hi-IN","mr-IN"]}
+PASS unsupported language fails with bounded installed-language details
+ocr_image failure {"ok":false,"error":"DesktopError: Input has no decodable image properties","code":"ocr_image_invalid"}
+PASS invalid local image fails explicitly
+ocr_image failure {"ok":false,"error":"DesktopError: OCR requires a nonempty regular image file of at most 50MB","code":"ocr_capacity"}
+PASS non-regular image input is refused without blocking
+PASS ready screen OCR and OpenCV tools appear in real tools/list
+PASS ScreenCaptureKit and Vision read the owned bilingual window in logical points
+PASS actual capture dimensions map both OCR axes into the logical capture bounds
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-E3S4E9

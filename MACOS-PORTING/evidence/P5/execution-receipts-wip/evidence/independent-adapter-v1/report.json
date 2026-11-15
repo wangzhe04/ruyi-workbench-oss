@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T14:27:33.823777+00:00",
+  "verdict": "passed_frozen_journal_and_fixture_activated_product_adapter_prerequisites_only",
+  "implementationState": "Full execution-receipts feature remains uncommitted WIP, outside formal four engineering gates and full original acceptance.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/adapter-freeze-v1.json",
+    "bytes": 14613,
+    "sha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899"
+  },
+  "sourceReviews": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/journal-source-review-v2.json",
+      "bytes": 5719,
+      "sha256": "bb4fefaf935142d5fe59dcf460700f9bf3883c1373ef1e7e18f27fdc08ba2397",
+      "outcome": "All three v1 findings closed in the reviewed primitive. No new actionable source findings identified within this narrow scope."
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/adapter-source-review-v3.json",
+      "bytes": 4471,
+      "sha256": "6921531208b1ec1866471bdac4674f9b0ec0821221040fdc4449df912fd83f34",
+      "outcome": "All adapter/core findings from v1 and v2 are closed within this reviewed slice."
+    }
+  ],
+  "invocations": [
+    {
+      "label": "journal",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T14:26:18.346243+00:00",
+      "freezeSha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899",
+      "attempt": 1,
+      "finishedAt": "2026-11-11T14:26:18.490083+00:00",
+      "elapsedSeconds": 0.14376449999690522,
+      "exitCode": 0,
+      "logSha256": "8a77220dffb7758817abcd4dead693917b4a4c07de44517439560fb9f6f14b7f"
+    },
+    {
+      "label": "adapter",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_RECEIPT_SESSION_REQUIRED": "1",
+        "RUYI_RECEIPT_SESSION_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_RECEIPT_SESSION_LEGACY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+      },
+      "startedAt": "2026-11-11T14:26:25.173536+00:00",
+      "freezeSha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899",
+      "attempt": 1,
+      "finishedAt": "2026-11-11T14:26:26.453560+00:00",
+      "elapsedSeconds": 1.2799362079967977,
+      "exitCode": 0,
+      "logSha256": "680528984fa7890c56b30499f342eecb4167cfda030cd53742faafada221434e"
+    }
+  ],
+  "results": {
+    "strictJournal": {
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": [
+        "Exact private argument snapshots and committed watermark integrity",
+        "Short-write completion, data fsync and marker rename failures",
+        "Pending guard keeps previous prefix after post-rename directory fsync failure",
+        "Incomplete tails and corrupt committed prefixes never fabricate terminal",
+        "Duplicate/path/symlink/FIFO/capacity refusal without evidence erasure",
+        "Concurrent threads sequence and coherent reader/writer locking, context reset, closed writer refusal"
+      ]
+    },
+    "productNativeAdapter": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": [
+        "Real macos_session request uses production journal barrier and native decoder under fixture-injected operation_scope",
+        "Exact native frame digest/parent operation correlation; separate frames and restarted worker identities",
+        "Entry and terminal persistence failures and real journal fsync fault return unknown, not success",
+        "Blocked journal cancellation, pre-cancel, post-intent cancellation prevent continue as asserted",
+        "Changed helper identity, monitor-start and decoder exceptions produce typed refusal/cleanup",
+        "Unconfirmed cleanup retains quarantined owned child and prevents replacement; legacy cleanup releases shared lock",
+        "Descriptor setup failure retains owned-child responsibility",
+        "Original authorized1cc legacy helper refuses receipt business request as unsupported before native_prepared"
+      ]
+    },
+    "totalPassed": 31,
+    "failures": 0,
+    "skipped": 0,
+    "retries": 0,
+    "bothTestProcessesExitedNormallyWithCode0": true,
+    "cleanupEvidence": "Production close/quarantine and lock-release assertions plus fixture teardown completed. No independent external process-table census or root-kill exercise was added."
+  },
+  "bindings": {
+    "sources": 56,
+    "actualArtifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "checkpointCount": 4,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-after-binding.json",
+        "bytes": 17176,
+        "sha256": "fe9f13d9827c353ad2b5232a4bb2761122da181972ed8ca125ba0d02813ab8b8",
+        "sources": 56,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-before-binding.json",
+        "bytes": 17176,
+        "sha256": "903cf0c4a2a133b8cc7b78cc24fcfaf66cd0647b7b87c4882f744b2fa2e6948c",
+        "sources": 56,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal-after-binding.json",
+        "bytes": 17176,
+        "sha256": "e5e9970a90a8ecb24ba70337fb200f053d2067dd2020b3abc2a08cf9bfe09321",
+        "sources": 56,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal-before-binding.json",
+        "bytes": 17176,
+        "sha256": "921b80ce0fb4193c115f44b877fa96743d648ffbe96fc0612dd65e7dee6f07fd",
+        "sources": 56,
+        "artifacts": 3,
+        "allMatched": true
+      }
+    ],
+    "scope": "Each command checks all56 source sha256/Gitblob bytes plus all3 actual artifact hashes immediately before and after. Later full-feature WIP edits are outside this frozen historical qualification."
+  },
+  "integrationBoundary": {
+    "actual": "The real product macos_session context path invokes production strict journal and receipt decoder; this is beyond the previous pure decoder/test-client fsync slice.",
+    "fixture": "The fixture manually creates operation_scope and tool_entered; it does not prove automatic SDK/ACC metadata or wrapper activation. Temporary unittest journal fixtures are cleaned by tests; raw retained evidence is exact command output and hash checkpoints.",
+    "open": [
+      "SDK/ACC metadata/wrappers and full invocation lifecycle activation",
+      "Node durable execution preparation and restart reconciliation",
+      "Whole invocation dispatch/terminal attribution across ordinary Workbench entry",
+      "One-shot capture receipt integration",
+      "Process hard-kill/held-state/release/rescue and unknown-call continuation/replay guards",
+      "Formal four engineering gates, full feature acceptance and wholeP5"
+    ]
+  },
+  "noActions": {
+    "keyboardOrMouseEventsPosted": 0,
+    "clipboardWrites": 0,
+    "windowMutations": 0,
+    "heldFaults": 0,
+    "lockOrTCCChanges": 0,
+    "AppBuildOrSigning": 0,
+    "productOrTestEditsByReviewer": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "scopeLimits": [
+    "Native operation is read-only mouse.position plus feature negotiation and controlled IO/thread faults",
+    "Strict storage primitive qualification does not establish power-loss/system-crash guarantees",
+    "Original authorized1cc helper is only a frozen compatibility negative; no App acceptance inferred"
+  ],
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open_not_accepted",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Do not restore at this prerequisite; parent instruction reserves restoration until full P5 acceptance.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-after-binding.json",
+      "bytes": 17176,
+      "sha256": "fe9f13d9827c353ad2b5232a4bb2761122da181972ed8ca125ba0d02813ab8b8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-before-binding.json",
+      "bytes": 17176,
+      "sha256": "903cf0c4a2a133b8cc7b78cc24fcfaf66cd0647b7b87c4882f744b2fa2e6948c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-freeze-v1.json",
+      "bytes": 14613,
+      "sha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter-invocation.json",
+      "bytes": 1076,
+      "sha256": "b25e568e2629bffce25c5d7cc52c4cbd52e196496b0d8a26c0db00723c93a1ab"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/adapter.log",
+      "bytes": 114,
+      "sha256": "680528984fa7890c56b30499f342eecb4167cfda030cd53742faafada221434e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal-after-binding.json",
+      "bytes": 17176,
+      "sha256": "e5e9970a90a8ecb24ba70337fb200f053d2067dd2020b3abc2a08cf9bfe09321"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal-before-binding.json",
+      "bytes": 17176,
+      "sha256": "921b80ce0fb4193c115f44b877fa96743d648ffbe96fc0612dd65e7dee6f07fd"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal-invocation.json",
+      "bytes": 824,
+      "sha256": "9effe6eb7e460ea407ee7d8875e15331e284659d46e2bb31109ca74c9c0a538a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/journal.log",
+      "bytes": 115,
+      "sha256": "8a77220dffb7758817abcd4dead693917b4a4c07de44517439560fb9f6f14b7f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-adapter-v1/run_once.py",
+      "bytes": 3268,
+      "sha256": "dd3c01186247c727459b5f3b5e4e45636103e5809b3035fca1228281ac94af45"
+    }
+  ]
+}

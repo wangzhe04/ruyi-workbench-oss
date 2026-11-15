@@ -1,0 +1,105 @@
+{
+  "chart": {
+    "ok": true,
+    "success": true,
+    "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/chart.png",
+    "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/chart.png",
+    "chart_type": "bar",
+    "style": "business",
+    "font": "Heiti TC",
+    "bytes": 31797,
+    "x_title": "城市",
+    "y_title": "数量"
+  },
+  "pdf": {
+    "ok": true,
+    "success": true,
+    "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/summary.pdf",
+    "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/summary.pdf",
+    "pages": 1,
+    "font": "MacCJK0"
+  },
+  "word": {
+    "ok": true,
+    "content": "# 如意 Mac 文档验收 / Ruyi Mac\n\n# 中文与 English\n\n本样例用于验证中文排版、数字、表格和跨平台文件读写。\n\n## 验收数据\n\n| 城市 | 第一季度 | 第二季度 |\n| --- | --- | --- |\n| 上海 | 12 | 18 |\n| 北京 | 15 | 21 |\n| 深圳 | 9 | 16 |\n\n- 中文字体清晰\n- 数据与原表一致\n- 文件可读取和撤销\n\n说明： 此处为固定验收样例数据。",
+    "type": "docx",
+    "paragraphs": 11,
+    "tables": 1,
+    "headings": [
+      {
+        "level": 1,
+        "text": "如意 Mac 文档验收 / Ruyi Mac"
+      },
+      {
+        "level": 1,
+        "text": "中文与 English"
+      },
+      {
+        "level": 2,
+        "text": "验收数据"
+      }
+    ],
+    "total_chars": 217
+  },
+  "slides": {
+    "ok": true,
+    "content": "## Slide 1: 如意 Mac 文档验收 / Ruyi Mac\n文档、表格与图表\n2026-11-07\n\n## Slide 2: 验收数据\n| 城市 | 第一季度 | 第二季度 |\n| --- | --- | --- |\n| 上海 | 12 | 18 |\n| 北京 | 15 | 21 |\n| 深圳 | 9 | 16 |\n2\n\n## Slide 3: 季度数据对比\n[图片]\n固定样例数据 / Sample data\n3",
+    "type": "pptx",
+    "slides": 3,
+    "slides_with_notes": 0,
+    "total_chars": 213
+  },
+  "book": {
+    "ok": true,
+    "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/data.xlsx",
+    "sheet": "Sheet1",
+    "sheets": [
+      {
+        "name": "Sheet1",
+        "rows": 4,
+        "cols": 3
+      }
+    ],
+    "headers": [
+      "城市",
+      "第一季度",
+      "第二季度"
+    ],
+    "data": [
+      [
+        "上海",
+        12,
+        18
+      ],
+      [
+        "北京",
+        15,
+        21
+      ],
+      [
+        "深圳",
+        9,
+        16
+      ]
+    ],
+    "range": "A1:C4",
+    "truncated": null,
+    "number_formats": null,
+    "formulas": null
+  },
+  "pdfRead": {
+    "ok": true,
+    "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-mcp-QBx9nL/中文 工作区/summary.pdf",
+    "total_pages": 1,
+    "outline": [],
+    "outline_note": "未读到大纲 (PDF 无书签，或未安装 pypdf —— 离线依赖清单含 pypdf，装好后可读大纲)。",
+    "pages": [
+      {
+        "page": 1,
+        "text": "如意 Mac 文档验收 / Ruyi Mac\n中文与 English\n本样例用于验证中文排版、数字、表格和跨平台文件读写。\n验收数据\n城市 第一季度 第二季度\n上海 12 18\n北京 15 21\n深圳 9 16\n• 中文字体清晰\n• 数据与原表一致\n• 文件可读取和撤销\n说明： 此处为固定验收样例数据。",
+        "chars": 152,
+        "truncated": false
+      }
+    ]
+  }
+}

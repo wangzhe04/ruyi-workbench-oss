@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T17:39:03.382151+00:00",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "scope": "Independent read-only review of real serve ownership liveness, early DesktopExecutionHooks registration, pre-startup ledger initialization, current live session/turnSettlers admission and restart uncertainty gates, plus provider/CLI/driver/subagent guard placements. No reviewer tests/native/GUI/MCP execution.",
+  "verdict": "two_actionable_source_findings_fixed_and_rechecked_remaining_runtime_qualification_open",
+  "outcome": "The two source issues found during this review are closed in the bound current source. No further actionable source defect identified within this partial root-authority integration scope. Verification gaps and unimplemented dispatch/delivery boundaries remain open.",
+  "findings": [],
+  "closedFindings": [
+    {
+      "id": "ROOT-1",
+      "priority": 1,
+      "title": "Released or superseded admissions left pending rows falsely live",
+      "observedProblem": "Runtime release only deleted admissions; ledger held() previously exempted same-epoch prepared/dispatching rows whenever live.has(id), even after their host turn ceased to be current. A new same-process guard/preparation could proceed despite abandoned pending evidence.",
+      "requiredBehavior": "Pending rows whose live host admission is no longer current must hold the session and successor, without deleting/resetting evidence.",
+      "fixVerified": "held() now exempts a pending row only when epoch/live match AND isTurnCurrent(scopeOf(row))===true. This covers cancellation, owner replacement, changed turn/generation/driver identity and runtime release. Late actual results remain recordable; no replay or invented non-dispatch was added.",
+      "source": {
+        "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+        "line": 155,
+        "anchor": "function held(entries,sessionId)"
+      },
+      "testSource": "dev-harness/unit/desktop-execution-runtime.test.js covers actual runtime/turnSettlers/session object mutations and successor refusal.",
+      "status": "closed_in_source_test_evidence_observed_not_independently_executed"
+    },
+    {
+      "id": "ROOT-2",
+      "priority": 1,
+      "title": "CLI automatic resume retry bypassed root authority guard",
+      "observedProblem": "runClaudeTurn recursive transcript-missing retry bypasses driver runTurn(); _resumeRecoveryAttempt also skips the turn-sequence/admit block. Without a top-level Desktop guard it could re-enter despite lost root authority or newly held evidence while the session settler remained current.",
+      "requiredBehavior": "Every CLI entry, including this recursive retry, must recheck root uncertainty/authority and then actual session ownership.",
+      "fixVerified": "runClaudeTurn now asserts session ownership, awaits DesktopExecutionHooks.guard(session.id), then reasserts ownership before all initial/recovery work. The recursive retry reaches this same entry.",
+      "source": {
+        "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/05-claude-engine.js",
+        "line": 220,
+        "anchor": "await DesktopExecutionHooks.guard(session.id);"
+      },
+      "status": "closed_in_source_dedicated_cli_recovery_path_test_still_needed"
+    }
+  ],
+  "reviewedBehavior": [
+    {
+      "area": "OS ownership",
+      "assessment": "ServerOwnership adds synchronous release revocation and actual captured handle liveness. macOS isHeld checks retained fd stat against captured identity and named regular private single-link same-uid inode, plus every held legacy listener. Aggregate ownership requires all handles. No heartbeat/lease expiry or lock inode unlinking was introduced.",
+      "source": {
+        "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/01g-server-ownership.js",
+        "line": 219,
+        "anchor": "const identity = fsModule.fstatSync(fd);"
+      }
+    },
+    {
+      "area": "Startup ordering",
+      "assessment": "startServer acquires OS ownership, performs authorized data-root migration/path rebasing, then awaits Desktop initialization before startServerInner (and its clients/startup recovery/listener work). Runtime opens the strict canonical private ledger with actual ownership callback and recovered unfinished evidence becomes unknown before readiness. Failed initialization does not become empty success or permit same-process reinitialization.",
+      "source": {
+        "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13-http-router.js",
+        "line": 1972,
+        "anchor": "await DesktopExecutionHooks.initialize(ownership);"
+      }
+    },
+    {
+      "area": "Live host admission",
+      "assessment": "Runtime current() binds admission nonce, captured session object live sequence/generation, actual turnSettlers owner identity, cancellation state and driver identity. prepare requires identical admitted session and owner objects and hashes root driverRunId plus actual callId. Async factory writes retain callback rechecks from the prior storage slice. release checks owner identity so old finalizers cannot delete newer admissions.",
+      "source": {
+        "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+        "line": 21,
+        "anchor": "function current(scope)"
+      }
+    },
+    {
+      "area": "Guard integration",
+      "assessment": "Driver entry and each driver runTurn guard before engines; provider entry and main loop guard; CLI top-level guard now covers recursive recovery; subagent core entry and loop guard. These are uncertainty/authority entry and continuation gates, not full dispatch/required-context/delivery integration.",
+      "sources": [
+        {
+          "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/09-workflow.js",
+          "line": 1544,
+          "anchor": "await DesktopExecutionHooks.guard(session.id);"
+        },
+        {
+          "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/10-context-governance.js",
+          "line": 3817,
+          "anchor": "await DesktopExecutionHooks.guard(session.id);"
+        },
+        {
+          "file": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/08-agent-runs.js",
+          "line": 646,
+          "anchor": "await DesktopExecutionHooks.guard(parentSession.id);"
+        }
+      ]
+    },
+    {
+      "area": "Unactivated boundaries",
+      "assessment": "Root runtime currently exposes initialize/guard/admit/release/prepare. Normal callTool/native preparation-to-dispatch/result/delivery wiring, actual client-incarnation validation/required env and CLI root RPC are still pending. Non-serve consumers have no root state: guard/admit do not open or mutate ledger, while prepare requires initialized authority."
+    }
+  ],
+  "staticDependencyReview": {
+    "summary": {
+      "modules": 93,
+      "providedSymbols": 3911,
+      "requiredSymbols": 3538,
+      "edges": 653,
+      "forwardEdges": 67,
+      "duplicateProvides": 0,
+      "stronglyConnectedComponents": 1
+    },
+    "sccSizes": [
+      31
+    ],
+    "executionModulesInScc": [],
+    "violations": {
+      "cycles": [],
+      "forward": []
+    },
+    "artifactFresh": {
+      "contract": true,
+      "graph": true,
+      "markdown": true
+    },
+    "runtimeEdges": [
+      {
+        "from": "13ac-desktop-execution-runtime.js",
+        "to": "00-boot.js",
+        "symbols": [
+          "DesktopExecutionHooks",
+          "crypto",
+          "fs",
+          "fsp",
+          "path",
+          "paths"
+        ],
+        "direction": "backward"
+      },
+      {
+        "from": "13ac-desktop-execution-runtime.js",
+        "to": "01g-server-ownership.js",
+        "symbols": [
+          "ServerOwnership"
+        ],
+        "direction": "backward"
+      },
+      {
+        "from": "13ac-desktop-execution-runtime.js",
+        "to": "02h-desktop-ledger.js",
+        "symbols": [
+          "DesktopExecutionLedger"
+        ],
+        "direction": "backward"
+      },
+      {
+        "from": "13ac-desktop-execution-runtime.js",
+        "to": "04-permission-runtime.js",
+        "symbols": [
+          "turnSettlers"
+        ],
+        "direction": "backward"
+      }
+    ]
+  },
+  "dependencyPolicy": {
+    "sha256": "8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a",
+    "byteIdenticalToBase": true,
+    "relaxed": false,
+    "futureConstraint": "Continue using the early DesktopExecutionHooks registration; preserve dependency-policy ceiling and keep 02g/02h/13ac outside the existing SCC."
+  },
+  "observedEvidence": {
+    "reviewerRuntimeTestsExecuted": 0,
+    "rootOwnerLedgerV1": {
+      "log": "development/root-owner-ledger-v1.log",
+      "tests": 40,
+      "passed": 40,
+      "failed": 0,
+      "scope": "Parent run: existing factory and actual OS ownership unit suites; separate historical attempt."
+    },
+    "rootRuntimeV1": {
+      "log": "development/root-runtime-v1.log",
+      "tests": 45,
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Parent run: 5 actual runtime/turnSettlers/session-object tests plus 26 ledger and 14 ownership tests. Runtime tests exercise prepare only with synthetic client identity; no dispatch or delivery."
+    },
+    "rootServiceRuns": [
+      {
+        "log": "development/root-service-v1.log",
+        "checksPassed": 10
+      },
+      {
+        "log": "development/root-service-v2.log",
+        "checksPassed": 10
+      }
+    ],
+    "rootServiceMeaning": "Actual serve OS ownership, duplicate serve refusal before ledger replacement, actual process restart and HTTP provider driver gate/healthy-session comparison. The unfinished ledger row is deliberately seeded through factory prepare with simulated admission/client facts. This is no ACC/native effect or delivery acceptance.",
+    "bindingLimit": "These parent raw logs/JSON are read and hash-bound here; reviewer did not invoke them. Their artifacts do not independently certify an atomic current-source runtime freeze. Keep v1/v2 attempts distinct."
+  },
+  "verificationGaps": [
+    {
+      "id": "G1",
+      "requiredBefore": "current-source engineering/static freeze",
+      "gap": "Regenerate/recheck source contracts and machine/human module graphs after the root increment, then bind the generated server to the exact final source. Static freshness results in this report describe only the observed snapshot.",
+      "observedFreshness": {
+        "contract": true,
+        "graph": true,
+        "markdown": true
+      }
+    },
+    {
+      "id": "G2",
+      "requiredBefore": "qualifying CLI and automatic continuation gates",
+      "gap": "Add targeted CLI transcript-missing retry refusal for a newly held session or lost OS owner; also demonstrate mission-driver and subagent continuation refusal, rather than extrapolating from HTTP provider entry."
+    },
+    {
+      "id": "G3",
+      "requiredBefore": "qualifying real root startup fail-closed recovery",
+      "gap": "Actual serve startup with corrupt/noncanonical/missing previously initialized ledger and initialization IO/ownership loss should show no client/provider startup or reset. Factory tests cover several underlying file faults but do not alone establish startup integration behavior."
+    },
+    {
+      "id": "G4",
+      "requiredBefore": "qualifying pending dispatch/delivery integration",
+      "gap": "Current actual runtime lifecycle tests prepare rows only. Exercise real-root dispatching cancellation/replacement, late results, durable-history commit failure, unknown continuation holds, and exact-scope retention/retirement once those runtime boundaries exist."
+    },
+    {
+      "id": "G5",
+      "requiredBefore": "qualifying liveness against filesystem/listener disruption",
+      "gap": "Actual release liveness is tested. Direct fd/named-lock inode replacement or private-mode/link changes and legacy listener loss should establish isHeld failure and refusal without rewriting/resetting evidence."
+    }
+  ],
+  "sourceAndArtifactBindings": [
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/00-boot.js",
+      "bytes": 102463,
+      "sha256": "a3d5abaa699348a71306bd03507e7a27288d35bcf0e7dba2246cf52e4f70b464"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/01g-server-ownership.js",
+      "bytes": 17099,
+      "sha256": "5e6005b6f9e4aa06d70ecdba728d3ab68547bacbf6cac7bca319f15b7b0c94f1"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 24259,
+      "sha256": "149b8799bb051e55c495c14862459398090cdd7ef7e54983345acae582181a3b"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197607,
+      "sha256": "50d3de20279e2cf47ec25a4a53d08b05e71b0517849841db3c0bda95a09030d8"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/05-claude-engine.js",
+      "bytes": 181590,
+      "sha256": "2986036b263dec645d786cf28228655495c1ef871a29306d145155bf227f21d8"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246700,
+      "sha256": "12e36d494655388d0724b6b4c1a2449d9cb946246f5aa5ab7e4af1c3d4fd09fd"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 360474,
+      "sha256": "1e4cfdedad34158671d3974053a55b0c57a2c53ed42a49d74c5bf24259120065"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 319973,
+      "sha256": "aed0c2c31f97de86d23ab224456dd82848d6d1108ac3253fe1398e535b47cc20"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221778,
+      "sha256": "6fe2b2bf1490e2bac747a2bd724fee335cbef415972a0257b0d4fd1a84b84d5a"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 5493,
+      "sha256": "b5b817b1e1e692bef881a953e332a8d2f080c0c00fe5a2cea7b9f6d37040b396"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/manifest.json",
+      "bytes": 24493,
+      "sha256": "160b88ad4fbd8dfba6661607d6145cf9dfcbc599c303547a39ed90c9c3c21e7e"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 703064,
+      "sha256": "204221842daa368bf09676c0c5b74a68d3812531abbd5846678ec6f64786850e"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/module-dependency-policy.json",
+      "bytes": 27774,
+      "sha256": "8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js",
+      "bytes": 6838044,
+      "sha256": "22b608bcd22fad69fc410c7428e38eb48959dba789abcd8672e517277bd1bb5c"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/docs/architecture/module-dependency-graph.json",
+      "bytes": 931790,
+      "sha256": "23c7b4fada127e3e62a5bc64224b5bc139e55b6d5a9ac7f59e088fa7fecf8130"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/docs/architecture/module-dependency-graph.md",
+      "bytes": 124373,
+      "sha256": "d8459b2b996d6e2342da692737373e91603fcc36228a5076d21bf7b32ffb931b"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/module-dependency-graph.js",
+      "bytes": 31468,
+      "sha256": "17bee17045ce1decb1f73aa880660c7d602d0c0c1de8cd318dba7a38df40b89c"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js",
+      "bytes": 17615,
+      "sha256": "6675726587d55663406b720d1321ac9f322f6bb51f803e58ece29ab3cad4a2cf"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 22113,
+      "sha256": "056661b8f8f3b3b224d7cd4d09e14167e583945fb81b282724129d96733dc3be"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-execution-runtime.test.js",
+      "bytes": 6967,
+      "sha256": "e10f8fceda5cc931f97c160582d142789f7e1f20c7693b4749ffb49229e26f42"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/desktop-execution-root.e2e.js",
+      "bytes": 8788,
+      "sha256": "560df60cd0b8f9b3b5a573a2c78cac883d0ef3e222c8b614432654558ddde8dc"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    }
+  ],
+  "evidenceBindings": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/node-storage-relocation-review-v1.json",
+      "bytes": 38715,
+      "sha256": "caecbce5d96baec0b73812b1937db9f0fa24d25ebfcc8a1a0d8e2001f6a8c764"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/node-storage-freeze-v1.json",
+      "bytes": 22186,
+      "sha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/report.json",
+      "bytes": 12067,
+      "sha256": "f83089d2e6134c7f1280c86704c6c378a9236653ce2136e8b8eb9f46d0485be1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-owner-ledger-v1.log",
+      "bytes": 4293,
+      "sha256": "ca6c51501707a0f3e629404cda5c1bac53831461c626ff364ee1064bc38616a9"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-runtime-v1.log",
+      "bytes": 4814,
+      "sha256": "5d3feced300acd22e30c2e439950b6e4de9c8199c24d7cac6a04eb460d1d129b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-service-v1.log",
+      "bytes": 800,
+      "sha256": "a15cf50a0896734036222779f0f7cb6263e69b23d2a92a61fc5e257bd8edcc3f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-service-v1.json",
+      "bytes": 6641,
+      "sha256": "2ceb81997ddc00886a474d7584a687fb8d14cdc1f81cbba28dd7b211b7274e0a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-service-v2.log",
+      "bytes": 800,
+      "sha256": "a15cf50a0896734036222779f0f7cb6263e69b23d2a92a61fc5e257bd8edcc3f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/root-service-v2.json",
+      "bytes": 6641,
+      "sha256": "36d74ae56523f2cd3c4e296073fdaeec6bc4299c1eed172fe1010e85c2cb65e7"
+    }
+  ],
+  "snapshotConsistency": {
+    "sourceFilesChangedDuringFinalStaticCapture": [],
+    "note": "Source review is bound to the listed bytes. Main task may continue editing after this review; later bytes require explicit rebinding or a supplement."
+  },
+  "actions": {
+    "productOrTestEdits": 0,
+    "runtimeTestExecutions": 0,
+    "nativeGuiMcpExecutions": 0,
+    "heldLockTccAppActions": 0,
+    "oldLogsOrReportsRewritten": 0,
+    "automaticLockSettingsChanged": false,
+    "onlyWrittenArtifact": "/tmp/ruyi-p5-receipts-evidence/root-authority-source-review-v1.json"
+  },
+  "limits": [
+    "This is partial root-authority source integration, not complete normal runtime dispatch.",
+    "Real required-context client/native paths, root RPC for CLI/direct/proxy/subagents, exact delivered-history/ACC retention linkage and replay protection remain separately open.",
+    "Parent root E2E seeded unfinished evidence is synthetic; no native action posting or effect occurrence is established.",
+    "Prior runtime/storage/native reports retain their own historical scopes; earlier full unit results are not silently promoted to current root-integration acceptance.",
+    "No power-loss/system-crash durability, full engineering gates, root-hard-abort/held rescue or whole-P5 acceptance. Held faults still require independent qualified rescue."
+  ],
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; restore only after whole P5 acceptance."
+}

@@ -1,0 +1,30 @@
+PASS A0 fake-openai（聊天＋ASR 桩）已起
+PASS A0b workbench started
+PASS A1 Edge/Chrome found
+PASS A2 CDP target found
+FAIL A3 首屏就绪（config 已到、两个输入框都建好）
+FAIL A4 显示判据的三件环境事实都成立（实得 {"secure":false,"gum":false,"opus":true,"wav":false}；audio/wav 录不了是 §1.5 的先验，这里只打印）
+FAIL A5 ASR 已配置 → 两个输入框里的麦克风节点都建了
+FAIL B0 工作台视角
+FAIL B1 工作台：麦克风是 .composer-actions 里紧挨 #sendBtn 前面的 <button>，字形来自 icons.js、自带 .sr-only aria-live=polite 节点（实得 null）
+FAIL B2a 点一下进入录音态、aria-pressed=true（实得 null）
+FAIL B2b 录音中可见计时 m:ss 在走（实得「null」）
+FAIL B2c 恰好一发转写请求：filename=voice.wav、Content-Type 覆盖成 audio/wav、请求体是真 WAV（RIFF 魔数）（实得 []）
+FAIL B2c2 WAV 头就是 16 kHz／单声道／16 bit（实得 riff=null wave=null rate=null ch=null bits=null）
+FAIL B2d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.wav bytes=?（>0，且与请求体 ? 字节相等）
+FAIL B2e 回填在光标处：「前缀 」＋转写＋「后缀」（实得 ""）
+FAIL B2f 光标落在插入之后、焦点回到输入框、aria-pressed 翻回 false（实得 caret=null 期望 3，active=null，pressed=null）
+PASS B2g 不自动发送：发送计数 0（[]）
+FAIL B2h aria-live 节点依次播报「录音中／转写中／已填入」（实得 []）
+FAIL B3 回填派发了 input 事件：工作台输入框自己的监听器把草稿存成了新值（实得 draft=null）
+FAIL C1 从输入框按 Tab 8 下焦点落到麦克风（实得 activeElement=）
+FAIL C2 Space 开始录音，aria-pressed=true（实得 null）
+FAIL C3 Space 结束 → 转写回填到光标处（末尾），aria-pressed=false（实得 null）
+FAIL C4 aria-live 播报过（实得 []）
+PASS C5 键盘路径同样不自动发送（发送计数增量 0）
+E2E ERROR Error: TypeError: Cannot read properties of null (reading 'value')
+    at <anonymous>:1:39
+    at CdpClient.evaluate (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:138:13)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/composer-voice.browser.e2e.js:508:18
+
+COMPOSER VOICE BROWSER E2E: FAIL (error)

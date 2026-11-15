@@ -1,0 +1,12 @@
+PASS real MCP tools/list offers managed tools with ready helper
+PASS MCP tools/list excludes Windows-only implementations on Mac
+PASS adaptive MCP discovery excludes the same Windows-only tools
+PASS stale MCP proxy invocation cannot reach a Windows-only handler
+PASS same MCP process refresh removes managed execution tools immediately after helper removal
+PASS MCP discovery retains inspection, cleanup and ordinary file tools
+PASS adaptive MCP search uses the same unavailable snapshot
+PASS stale adaptive invocation reports runtime unavailable without executing or claiming unknown tool
+PASS MCP discovery recovers after helper replacement without restarting the client
+PASS owned MCP fixture confirms cleanup before removing files
+
+MACOS MCP CAPABILITIES E2E: ALL PASS

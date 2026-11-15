@@ -1,0 +1,50 @@
+PASS system write floor rejects /System/ruyi-no-write
+PASS system write floor rejects /bin/ruyi-no-write
+PASS system write floor rejects /sbin/ruyi-no-write
+PASS system write floor rejects /usr/bin/ruyi-no-write
+PASS system write floor rejects /etc/hosts
+PASS system write floor rejects /private/etc/hosts
+PASS system write floor rejects /private/var/db/ruyi-no-write
+PASS system write floor rejects /var/log/ruyi-no-write
+PASS system write floor rejects /dev/ruyi-no-write
+PASS system write floor rejects /
+PASS system write floor rejects /private
+PASS system write floor rejects /Users
+PASS managed application/package location rejects file writes: /Applications/ruyi-no-write.txt
+PASS managed application/package location rejects file writes: /Library/ruyi-no-write.txt
+PASS managed application/package location rejects file writes: /usr/local/share/ruyi-no-write.txt
+PASS managed application/package location rejects file writes: /opt/homebrew/ruyi-no-write.txt
+PASS system read still follows existing read authorization
+PASS ordinary Unicode/space/emoji/literal-star file writes succeed
+PASS verified APFS Data alias of a workspace file remains writable
+PASS workspace spelling follows the actual host filesystem identity
+PASS concurrent case-alias edits preserve both changes across atomic replacement
+PASS missing sensitive directory cannot be created through a case alias
+PASS workspace symlink cannot bypass system write floor
+PASS file_write waits behind the active writer
+PASS file_write cancelled while queued leaves source and destination intact
+PASS file_write rejects a pre-cancelled write
+PASS file_edit waits behind the active writer
+PASS file_edit cancelled while queued leaves source and destination intact
+PASS file_edit rejects a pre-cancelled write
+PASS file_delete waits behind the active writer
+PASS file_delete cancelled while queued leaves source and destination intact
+PASS file_delete rejects a pre-cancelled write
+PASS file_move waits behind the active writer
+PASS file_move cancelled while queued leaves source and destination intact
+PASS file_move rejects a pre-cancelled write
+PASS file_copy waits behind the active writer
+PASS file_copy cancelled while queued leaves source and destination intact
+PASS file_copy rejects a pre-cancelled write
+PASS write queue accepts work after cancelled requests
+PASS existing or dangling link cannot bypass managed-directory floor
+PASS dangling link cannot create an outside-workspace file
+PASS readonly-directory failure leaves no file or temporary artifact
+PASS controlled APFSX volume proves case-distinct directories
+PASS case-sensitive missing roots cannot be merged by a differently-cased symlink
+PASS case-sensitive sibling cannot inherit workspace permission
+PASS case-distinct explicit workspace grants survive deduplication
+PASS configuration normalization retains case-distinct workspace and managed-directory rows
+PASS normal file entry point writes only the separately authorized case-sensitive directory
+
+MACOS FILE POLICY E2E: ALL PASS

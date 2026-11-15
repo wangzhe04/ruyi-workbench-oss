@@ -1,0 +1,83 @@
+{
+  "candidate": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+  "pullRequest": "https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1",
+  "date": "2026-11-07",
+  "fullWindowsAccepted": false,
+  "runs": [
+    {
+      "id": 42293298968,
+      "jobs": [
+        {
+          "id": 128151986843,
+          "name": "linux-static",
+          "status": "completed",
+          "conclusion": "success",
+          "failedSteps": [],
+          "skippedSteps": []
+        },
+        {
+          "id": 128151987294,
+          "name": "release-dryrun",
+          "status": "completed",
+          "conclusion": "success",
+          "failedSteps": [],
+          "skippedSteps": []
+        },
+        {
+          "id": 128151987396,
+          "name": "acc-smoke",
+          "status": "completed",
+          "conclusion": "failure",
+          "failedSteps": [
+            "ACC smoke (CI subset)"
+          ],
+          "skippedSteps": [
+            "facts.json accTools reconciliation",
+            "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
+          ]
+        },
+        {
+          "id": 128151987497,
+          "name": "e2e",
+          "status": "completed",
+          "conclusion": "failure",
+          "failedSteps": [
+            "Windows credential IPC smoke"
+          ],
+          "skippedSteps": [
+            "Unit tests (node --test)",
+            "Run e2e suite",
+            "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 42293298887,
+      "jobs": [
+        {
+          "id": 128151987101,
+          "name": "baseline (windows-latest)",
+          "status": "completed",
+          "conclusion": "failure",
+          "failedSteps": [
+            "Same-source cross-platform subset (not full compatibility)"
+          ],
+          "skippedSteps": [
+            "Build macOS process identity helper",
+            "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+          ]
+        },
+        {
+          "id": 128151987628,
+          "name": "baseline (macos-14)",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "failedSteps": [],
+          "skippedSteps": []
+        }
+      ]
+    }
+  ],
+  "logsPending": "Public log API returns403; desktop GitHub connection unavailable; Safari reading awaits user unlocking Mac. No root-cause equivalence with P2 baseline claimed."
+}

@@ -1,0 +1,58 @@
+PASS M1 连接器运维住「集成与 MCP」页签（旧的独立 mcp 页签已并掉）
+PASS M2 stab-integrations 面板在、stab-mcp 面板已不在
+PASS M3 mcpRefreshBtn 在集成页里
+PASS M3 mcpImportBtn 在集成页里
+PASS M3 mcpConnList 在集成页里
+PASS M3 mcpListHint 在集成页里
+PASS M3 mcpCompatBox 在集成页里
+PASS M3b 「从文件夹导入 MCP」全页只剩一枚（#mcpImportBtn；修前集成页另有一枚 #importMcpFolderBtn 调同一个函数）
+PASS M4 标题/提示走 data-i18n
+PASS M5 refreshMcpOps() 在 settings-operations 模块
+PASS M5 renderMcpCompat() 在 settings-operations 模块
+PASS M5 renderMcpConnList() 在 settings-operations 模块
+PASS M5 mcpConnItemEl() 在 settings-operations 模块
+PASS M5 mcpRetest() 在 settings-operations 模块
+PASS M5 mcpToggle() 在 settings-operations 模块
+PASS M5 mcpRemove() 在 settings-operations 模块
+PASS M5 mcpHealthText() 在 settings-operations 模块
+PASS M5 mcpHealthLampClass() 在 settings-operations 模块
+PASS M5b app.js 仅保留模块组合与一次绑定
+PASS M6 switchSettingsTab 在打开「集成与 MCP」时取清单(不 probe)；旧名 mcp 改投集成页
+PASS M7 全部重测绑 refreshMcpOps(true)
+PASS M8 导入按钮复用 importMcpFromFolder
+PASS M9 operations 模块调 list/health/toggle 三条 API
+PASS M10 移除走 POST + x-http-method:DELETE
+PASS M11 不再有简易模式设置页签白名单
+PASS M12 简易模式不藏「集成与 MCP」页签
+PASS M13 55c 块零 innerHTML 赋值(textContent 渲染)
+PASS M14 .mcp-conn-list 样式在
+PASS M14 .mcp-conn-item 样式在
+PASS M14 .mcp-lamp-ok 样式在
+PASS M14 .mcp-lamp-degraded 样式在
+PASS M14 .mcp-lamp-failed 样式在
+PASS M14 .mcp-lamp-disabled 样式在
+PASS M14 .mcp-badge-desktop 样式在
+PASS M14 .mcp-badge-config 样式在
+PASS M14 .mcp-badge-dropin 样式在
+PASS M14 .mcp-compat-item 样式在
+PASS M15 键清单 44 个(自锁;W2-F6 把 settings.mcp.count 拆成 .one/.other,原 43 个 +1)
+PASS M16 44 键在四份 catalog 全在(运行时==事实源)
+PASS M17 settings.mcp.count.one 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.count.other 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.toolCount 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.enabledOk 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.disabledOk 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.removedOk 占位符 {{p1}} 中英对称
+PASS M17 settings.mcp.removeConfirm 占位符 {{p1}} 中英对称
+PASS M18 retestOk 占位符 {{p1}}/{{p2}} 中英对称
+PASS M19 后端类别 auth 在(server.js)
+PASS M19 后端类别 startup 在(server.js)
+PASS M19 后端类别 network 在(server.js)
+PASS M19 后端类别 timeout 在(server.js)
+PASS M19 后端类别 security 在(server.js)
+PASS M19 后端类别 tool_registration 在(server.js)
+PASS M19 后端类别 protocol 在(server.js)
+PASS M19 后端类别 unknown 在(server.js)
+PASS M20 server.js 含 55a/55b 路由(GUI 调用目标)
+
+ALL PASS

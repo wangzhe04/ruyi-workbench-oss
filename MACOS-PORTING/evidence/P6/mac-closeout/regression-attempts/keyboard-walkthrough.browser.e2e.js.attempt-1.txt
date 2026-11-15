@@ -1,0 +1,58 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS K0 线程「键盘走查甲」已建
+PASS K0 线程「键盘走查乙」已建
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS K0b 主题切到 dark
+PASS K0c 视角 steward
+NOTE steward·dark:走了 41 站,绕回第一站=true,管家输入框拿走 Tab 0 次;指示方式分布 {"shadow":41}
+PASS K1a steward·dark:Tab 走得出东西(41 站)
+PASS K1 steward·dark:每一站焦点都看得见(看不见的 0 站)
+PASS K1b steward·dark:每一站都在视口里(在外面的 0 站)
+PASS K2 steward·dark:Tab 能绕回第一站(没有键盘陷阱;160 下内绕回)
+PASS K0c 视角 classic
+NOTE classic·dark:走了 49 站,绕回第一站=true,管家输入框拿走 Tab 0 次;指示方式分布 {"shadow":48,"outline":1}
+PASS K1a classic·dark:Tab 走得出东西(49 站)
+PASS K1 classic·dark:每一站焦点都看得见(看不见的 0 站)
+PASS K1b classic·dark:每一站都在视口里(在外面的 0 站)
+PASS K2 classic·dark:Tab 能绕回第一站(没有键盘陷阱;160 下内绕回)
+PASS K0b 主题切到 light
+PASS K0c 视角 steward
+NOTE steward·light:走了 41 站,绕回第一站=true,管家输入框拿走 Tab 0 次;指示方式分布 {"shadow":40,"border":1}
+PASS K1a steward·light:Tab 走得出东西(41 站)
+PASS K1 steward·light:每一站焦点都看得见(看不见的 0 站)
+PASS K1b steward·light:每一站都在视口里(在外面的 0 站)
+PASS K2 steward·light:Tab 能绕回第一站(没有键盘陷阱;160 下内绕回)
+PASS K0c 视角 classic
+NOTE classic·light:走了 49 站,绕回第一站=true,管家输入框拿走 Tab 0 次;指示方式分布 {"shadow":48,"outline":1}
+PASS K1a classic·light:Tab 走得出东西(49 站)
+PASS K1 classic·light:每一站焦点都看得见(看不见的 0 站)
+PASS K1b classic·light:每一站都在视口里(在外面的 0 站)
+PASS K2 classic·light:Tab 能绕回第一站(没有键盘陷阱;160 下内绕回)
+PASS K3 Shift+Tab 倒走 4 站与正走对得上(实 ["#sessionSearch","#railBoardBtn","#appGearBtn","#stewardShieldBtn"] / 应 ["#sessionSearch","#railBoardBtn","#appGearBtn","#stewardShieldBtn"])
+PASS K4a 齿轮钮上按 Enter,菜单打开
+PASS K4 打开后焦点进到第一项(实 openSettingsBtn / 应 openSettingsBtn)
+PASS K4b ↓ 到第二项(实 helpMenuBtn / 应 helpMenuBtn)
+PASS K4c 在第一项上 ↑ 绕到最后一项(实 bulkCleanupBtn)
+PASS K4d Home 回第一项(实 openSettingsBtn)
+PASS K4e End 到最后一项(实 bulkCleanupBtn)
+PASS K4f Esc 收起菜单、焦点还给齿轮钮、aria-expanded 回 false({"hidden":true,"focus":"appGearBtn","expanded":"false"})
+PASS K4g Tab 在项间走、菜单一直开着(["helpMenuBtn","helpBtn","themeToggle","uiModeToggle","capBadge","bulkCleanupBtn"])
+PASS K4g2 走出最后一项:菜单收起、焦点落到菜单外一个真控件上({"at":"railBoardBtn","tag":"BUTTON","open":false})
+PASS K5a 菜单第一项是「设置」且有焦点(实 openSettingsBtn)
+PASS K5b Enter 打开设置弹窗
+PASS K5c 焦点进了弹窗(实 cfgLocale)
+PASS K5d Tab×60 ＋ Shift+Tab×20 焦点一次都没出弹窗(漏出 0 次)
+PASS K5e Esc 关掉设置弹窗
+PASS K5 关掉后焦点落在一个看得见的控件上(实 appGearBtn)—— 触发它的菜单项已随菜单收起
+PASS K6 Ctrl+` 来回切视角(classic → steward → classic)
+PASS K6b 连按两下 Ctrl+`(背靠背)落回原视角、不冒未捕获异常(落点 classic;新增异常 0)
+PASS K7a 在左栏标题「键盘走查甲」上按 Enter,焦点卡换成这一条(卡头「键盘走查甲」)
+PASS K7 Esc 之后焦点落进管家输入框({"focus":"stewardComposerInput","visible":true})
+PASS K8a 打一句带线程标题的话,预判出候选(chip「→ 如意 · 像是接着「键盘走查甲」」)
+PASS K8b 有候选时 Tab 换目标、焦点不走(「→ 如意 · 像是接着「键盘走查甲」」→「→ 键盘走查甲」,焦点 stewardComposerInput)
+PASS K8 Shift+Tab 一定离开输入框(实 stewardTarget)—— 键盘用户永远出得去
+PASS K9 全程页面上没有未捕获异常(实 0)
+KEYBOARD WALKTHROUGH BROWSER E2E: ALL PASS

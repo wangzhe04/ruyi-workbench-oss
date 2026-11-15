@@ -1,0 +1,130 @@
+{
+  "independentEngineeringReruns": 0,
+  "runs": [
+    {
+      "name": "engineering-v1",
+      "execution": [
+        {
+          "name": "syntax",
+          "argv": [
+            "node",
+            "dev-harness/syntax-gate.js"
+          ],
+          "exitCode": 0,
+          "seconds": 25.898817374996725
+        },
+        {
+          "name": "build",
+          "argv": [
+            "node",
+            "ruyi-workbench/app/build.js",
+            "--check"
+          ],
+          "exitCode": 0,
+          "seconds": 0.1844257920020027
+        },
+        {
+          "name": "unit",
+          "argv": [
+            "node",
+            "--test",
+            "dev-harness/unit/*.test.js"
+          ],
+          "exitCode": 0,
+          "seconds": 109.77740670900675
+        },
+        {
+          "name": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 1,
+          "seconds": 122.20127783399948
+        }
+      ],
+      "hashCheckpoints": 8,
+      "sourceCount": 37,
+      "artifactCount": 2,
+      "files": [
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/build.txt",
+          "bytes": 69,
+          "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/execution.json",
+          "bytes": 660,
+          "sha256": "1f24b3f32acb17d598a52b9f3fe61ec795d7a5b869b61d574b39e2eefdff2c74"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/fast.txt",
+          "bytes": 7663,
+          "sha256": "7d042459666d05a458fe89e1d3e2f729f3de78c98ee80c4df963189e83e09c38"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/invocation.json",
+          "bytes": 777,
+          "sha256": "c43123237bd26711b0585de4185fa5d11abccf7b5e0a170aece84e7db062e2a0"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/source-artifact-checks.json",
+          "bytes": 60197,
+          "sha256": "b8b000e17aa9cf84af67c728d4c88e622665f560aa5ed8bb6ce38a17c272ecf2"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/syntax.txt",
+          "bytes": 60,
+          "sha256": "5645fb975dd27c02615fd8d4ae513097d695646431abd75591481494ed108e8a"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt",
+          "bytes": 393373,
+          "sha256": "85bbfa2b43aae706e420b61c40083523a36ac6c18beccc23e2c28eaf8ca88a62"
+        }
+      ]
+    },
+    {
+      "name": "engineering-v2",
+      "execution": [
+        {
+          "name": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 0,
+          "seconds": 121.83635079099622
+        }
+      ],
+      "hashCheckpoints": 2,
+      "sourceCount": 39,
+      "artifactCount": 2,
+      "files": [
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/execution.json",
+          "bytes": 167,
+          "sha256": "b5f11aff5b43efbdbadcfc2dea7301d8813e6c3fd49c5d3a0e99fe26d1572417"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/fast.txt",
+          "bytes": 5737,
+          "sha256": "f05897b74e198c9d8758422cf8671d9fe715fdd0f2447e9ce2e6fa52715550a7"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/invocation.json",
+          "bytes": 784,
+          "sha256": "2fa196efd731404185f66dcf341db96fa3997409bcae43cde0d19c52138e721d"
+        },
+        {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/source-artifact-checks.json",
+          "bytes": 15784,
+          "sha256": "5e224cd9f033e089e7542de41851b4fc0c7158afebba21251fc7936c8f1a0477"
+        }
+      ]
+    }
+  ],
+  "history": "Primary fast v1 failed route coverage metadata79/80, with built-in retry. Only generated inventories were refreshed; v2 fast reran including its own unit preflight and passed80/80. Prior syntax/build/unit reuse is bound to unchanged37 source inputs. No overall zero-rerun claim."
+}

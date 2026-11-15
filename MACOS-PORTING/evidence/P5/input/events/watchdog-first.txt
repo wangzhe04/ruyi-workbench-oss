@@ -1,0 +1,10 @@
+PASS native clipboard transaction rejects admission after stop and retains an active owned snapshot
+PASS production helper excludes the input-state test protocol
+PASS nonactivating fixture preserves the pre-test clipboard before its owned seed
+PASS blocked native fixture owns a tracked temporary clipboard version
+PASS production reader watchdog terminates a blocked native main thread within its fixed deadline
+PASS watchdog restores the owned all-format clipboard snapshot from its cleanup thread
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+
+MACOS INPUT EVENTS E2E: ALL PASS

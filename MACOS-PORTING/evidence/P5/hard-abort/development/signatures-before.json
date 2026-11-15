@@ -1,0 +1,16 @@
+[
+  {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\n"
+  },
+  {
+    "path": "/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+    "sha256": "ddf340ad53800b7604efe34a71ffa9bd463aee66f9f1180c98264b6a292f88cc",
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper: valid on disk\n/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper: satisfies its Designated Requirement\n"
+  }
+]

@@ -22,7 +22,7 @@ const SERVER = path.join(ROOT, 'ruyi-workbench', 'app', 'server.js');
 let fail = 0;
 const ok = (c, label) => { if (c) console.log('PASS ' + label); else { fail++; console.log('FAIL ' + label); } };
 
-const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-128e-'));
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-128e-中文 %#-'));
 const SECRETS = {
   provider: 'sk-128e-provider-SECRET-a1b2c3d4e5f6',
   cliModel: 'sk-128e-clikey-SECRET-f6e5d4c3b2a1',
@@ -65,6 +65,8 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     const list = await rpc(2, 'resources/list');
     const resources = (list && list.result && list.result.resources) || [];
     ok(resources.length === 1 && /config/i.test(String(resources[0].name || '')), `R1 资源列表仍是那一条配置资源(实 ${resources.length})`);
+    ok(resources[0]?.uri === require('node:url').pathToFileURL(path.join(HOME, 'config.json')).href
+      && resources[0].uri.includes('%23') && resources[0].uri.includes('%25'), 'resource URI preserves the platform root and encodes Unicode, spaces, # and %');
     const read = resources.length ? await rpc(3, 'resources/read', { uri: resources[0].uri }) : null;
     const text = String((read && read.result && read.result.contents && read.result.contents[0] && read.result.contents[0].text) || '');
     ok(text.length > 20, `读到了内容(${text.length} 字)`);
@@ -74,6 +76,11 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     const p1 = parsed && Array.isArray(parsed.providers) ? parsed.providers.find(p => p.id === 'p1') : null;
     ok(Boolean(p1) && String(p1.apiKey || '').startsWith('••••') && p1.hasKey === true,
       `R3 仍是合法 JSON,provider 密钥是掩码形并带 hasKey(实 ${p1 ? JSON.stringify(p1.apiKey) : '解析失败'})`);
+    for (const [i, uri] of ['file://server.invalid/share/config.json', 'file:///tmp/not-the-config.json', 'https://example.invalid/config.json', 'file:///tmp/%ZZ',
+      resources[0].uri + '?x=1', resources[0].uri + '#fragment'].entries()) {
+      const denied = await rpc(4 + i, 'resources/read', { uri });
+      ok(Boolean(denied?.error) && !denied?.result?.contents, 'resource reader rejects unrelated/remote/malformed URI #' + (i + 1));
+    }
   } finally {
     killOwnTree(child);
     try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* 仍被占用 */ }

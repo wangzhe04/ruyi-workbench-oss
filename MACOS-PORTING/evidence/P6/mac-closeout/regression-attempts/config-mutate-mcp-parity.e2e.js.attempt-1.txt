@@ -1,0 +1,38 @@
+── T 段: 工具面 mcp_configure 的副作用与护栏 ──
+PASS T0 upsert 成功(前置)
+PASS T1 upsert 后 .mcp.json 被重生成且含 tool-c
+PASS T11 upsert(显式再导入)把该 id 从 dismissedMcpIds 移除
+PASS T2a set-enabled 成功(前置)
+PASS T2 set-enabled false 后 .mcp.json 里 tool-c 消失
+PASS T3a remove 成功(前置)
+PASS T3 remove 后 dismissedMcpIds 记住 tool-a(否则重启被自动加回)
+PASS T4 remove 后 .mcp.json 里 tool-a 消失
+PASS T8 remove 走工具面也留审计事件 mcp_connector_delete
+PASS T5 drop-in set-enabled 被护栏挡下并给目录管理人话
+PASS T6 drop-in remove 被同一条护栏挡下
+PASS T7a drop-in upsert 被挡
+PASS T7 drop-in upsert 没有把条目偷偷写进 config
+PASS T9 内置 ai-computer-control 仍被挡
+PASS T10a 未知 id remove -> 未找到
+PASS T10b 未知 id set-enabled -> 未找到
+PASS T10c 无关连接器 tool-b 不受影响
+PASS T12a 明文 upsert 成功,回包 args 显示脱敏、零明文
+PASS T12b 81-P1: 持久化凭据能从运行时逐字恢复
+PASS T12b2 81-P1: 配置磁盘副本不含明文密钥或参数
+PASS T12c mcp_list(safeMcpInventory)args 显示脱敏、零明文
+PASS T12d 掩码原样 upsert 回来(只改 label)-> 真值逐字节还原
+PASS T12e 改了 command 的 upsert 带着掩码 -> 清空(不改接、不落掩码)
+── C 段: 配置读-改-写临界区(并发丢失更新)──
+PASS C0 workbench up
+PASS C1a 5 路并发 toggle 都回 200
+PASS C1 5 个并发 toggle 全部落盘(存活 5/5: c1,c2,c3,c4,c5)
+PASS C2a 三路并发都回 200
+PASS C2 三路并发的三个字段都活(policy=true role=true toggle=true)
+── S 段: 静态锁 ──
+PASS S1 mutateConfig(全程持锁的读-改-写)+ 独立队列 configMutateChain 在
+PASS S2 mutateMcpConnector(连接器变更唯一内核)在
+PASS S3 护栏 mcpConnectorMutateError 仍在
+PASS S4 裸 writeConfig 调用点收敛到 1 个(mutateConfig 自己),实测 1
+PASS S5 applyConfigPatch 与 mutateConfig 都在产物里
+
+ALL PASS

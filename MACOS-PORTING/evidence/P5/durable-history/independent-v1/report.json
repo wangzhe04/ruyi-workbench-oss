@@ -1,0 +1,839 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T11:53:54.911101+00:00",
+  "status": "passed_independent_durable_history_freeze_v3",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v3.json",
+    "bytes": 23550,
+    "sha256": "8804365cc4c97b34c4b1e6e6cb0f4e0abbf403fe57a177371b69d9c29f7109b3"
+  },
+  "sourceCount": 127,
+  "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+  "artifactCount": 2,
+  "runs": [
+    {
+      "name": "unit",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "skipped": 0
+      },
+      "seconds": 9.050803125006496,
+      "rootBirth": 1794397719101801,
+      "observedOuterIdentities": 3,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/unit/output.txt",
+      "logDigest": {
+        "bytes": 2200,
+        "sha256": "1d92266c803cf7bc07bcefb2df412b75fea5cb04298e5caf3c0e54548375f652"
+      },
+      "runtimeEvidenceDigest": null,
+      "passed": true
+    },
+    {
+      "name": "offline",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 11,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 1.498341333004646,
+      "rootBirth": 1794397728176421,
+      "observedOuterIdentities": 10,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/offline/output.txt",
+      "logDigest": {
+        "bytes": 825,
+        "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 38992,
+        "sha256": "69859cf86da463b26a10c3171d401a5508474f4c2002344f18b94a138620190e"
+      },
+      "passed": true
+    },
+    {
+      "name": "native",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 3.5210702500044135,
+      "rootBirth": 1794397729700583,
+      "observedOuterIdentities": 15,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/native/output.txt",
+      "logDigest": {
+        "bytes": 1002,
+        "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 33141,
+        "sha256": "f4738fb66790f5f1af3c1ecc0bf17831133e444252b4c72bf8312316e2d5b806"
+      },
+      "passed": true
+    },
+    {
+      "name": "entry",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 31,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 4.517074167000828,
+      "rootBirth": 1794397733244999,
+      "observedOuterIdentities": 17,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/output.txt",
+      "logDigest": {
+        "bytes": 2208,
+        "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 210588,
+        "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691"
+      },
+      "passed": true
+    }
+  ],
+  "error": null,
+  "childStillRunning": false,
+  "independentInvocations": {
+    "unit": 1,
+    "offline": 1,
+    "native": 1,
+    "entry": 1
+  },
+  "manualRetries": 0,
+  "engineeringReruns": 0,
+  "remainingFinalObservedIdentities": [],
+  "remainingFinalRecordedIdentities": [],
+  "GUIReleased": true,
+  "scope": "Requested/model tool intent before processing and received-prefix result persistence, targeted effect/image/owner cases plus zero-input native root-only calibration. Native requested callID/name/args survives and GET restart kind tool_calls; existing entry31 separately exercises actual default approvals, balanced input, image checkpoints/rollback and restoration. No actual dispatch/ACC await entry/terminal or held hard-abort guarantee is inferred from the zero-input calibration.",
+  "hardAbortGateStatus": "open",
+  "phaseStatus": "in_progress",
+  "independentRunCounts": {
+    "newUnitTests": 9,
+    "offlineAssertions": 11,
+    "zeroInputNativeAssertions": 12,
+    "existingEntryAssertions": 31
+  },
+  "automaticRetries": 0,
+  "sourceArtifactCheckpoints": 10,
+  "additionalUnchangedEntryFixtureCount": 3,
+  "additionalEntryBinding": {
+    "path": "additional-entry-fixture-binding.json",
+    "bytes": 1255,
+    "sha256": "550641bf2880f873cbf5db1b91a23ad654fdd69bb1b6cded08fe774cb270d7b9"
+  },
+  "semanticReview": {
+    "newUnit": {
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cases": [
+        "ok 1 - required persistence commits the exact pending tool identity and model arguments",
+        "ok 2 - required persistence rejects a deleted session while legacy saves remain discarded",
+        "ok 3 - required persistence rejects an older rewind generation without changing the current body",
+        "ok 4 - required persistence rejects a newer committed turn before accepting old tool intent",
+        "ok 5 - required persistence checks owner replacement inside the queued write",
+        "ok 6 - failed intent head commit prevents the real file effect instead of dispatching without history",
+        "ok 7 - Stop after first parallel read retains the already returned second result",
+        "ok 8 - a failed prefix-result commit stops the second actual file effect",
+        "ok 9 - steered parallel image result keeps bounded display and a real saved attachment"
+      ],
+      "scope": "Only new session-required-persistence.test.js. Real storage/owner/rewind/EIO and actual file-effect stop barriers, returned-parallel result preservation, bounded native-image attachment behavior. No rerun of the preexisting shrink15 by independent executor.",
+      "imageFixture": {
+        "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+        "bytes": 138353,
+        "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f"
+      },
+      "imageLimits": "Static repository PNG138353 bytes/184472 base64 chars, not a desktop screenshot. The executed ninth test asserts exact saved attachment bytes, bounded display and absent original base64 in SSE/messages/history. Attachment existed in isolated unit home and was normally removed after test; no attachment retention or new image decode is claimed."
+    },
+    "offline": {
+      "assertions": 11,
+      "pass": 11,
+      "fail": 0,
+      "skip": 0,
+      "crashPrefix": {
+        "intentCallIds": [
+          "call_1",
+          "call_2"
+        ],
+        "headProviderHistoryCount": 3,
+        "rolesBeforeKill": [
+          "user",
+          "assistant",
+          "tool"
+        ],
+        "firstActualFileWriteResultPersisted": true,
+        "secondQuestionResultAbsent": true,
+        "providerBytesStructureSurvivesKillAndGetRestart": true,
+        "runtimeAssertions": "Actual owned.txt contains completed prefix before crash; root-only SIGKILL verified; GET restart kind=tool_calls and no extra model/file effect were asserted by executed fixture."
+      },
+      "defaultDenial": {
+        "pendingIntentPersistedBeforePermission": true,
+        "noFileEffectWhilePendingOrAfterDenyAssertionPassed": true,
+        "deniedToolResultPersisted": true,
+        "rolesFinal": [
+          "user",
+          "assistant",
+          "tool",
+          "assistant"
+        ]
+      },
+      "scope": "Real private file_write prefix plus pending local control request, not ACC dispatch or GUI.",
+      "retainedRoot": null
+    },
+    "zeroInputNative": {
+      "assertions": 12,
+      "pass": 12,
+      "fail": 0,
+      "skip": 0,
+      "inputCountsAndReceipts": 0,
+      "faultElapsedMonotonicMs": 397.4303749999999,
+      "observedOriginalTopologyExitWallMs": 30,
+      "originalObservedTopologyIdentities": 5,
+      "oldFixtureSourceUnchangedSha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc",
+      "newDurableProviderEvidence": {
+        "source": "Independent raw provider files, not inference from twelve old fixture assertions",
+        "stages": [
+          {
+            "stage": "pre-kill",
+            "callId": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "args": {
+              "name": "ai_computer_control__macro_run",
+              "arguments": {
+                "delay_ms": 0,
+                "steps": [
+                  {
+                    "tool": "wait",
+                    "args": {
+                      "seconds": 30
+                    }
+                  }
+                ]
+              }
+            },
+            "providerRoles": [
+              "user",
+              "assistant"
+            ],
+            "headCount": 2
+          },
+          {
+            "stage": "post-kill",
+            "callId": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "args": {
+              "name": "ai_computer_control__macro_run",
+              "arguments": {
+                "delay_ms": 0,
+                "steps": [
+                  {
+                    "tool": "wait",
+                    "args": {
+                      "seconds": 30
+                    }
+                  }
+                ]
+              }
+            },
+            "providerRoles": [
+              "user",
+              "assistant"
+            ],
+            "headCount": 2
+          },
+          {
+            "stage": "post-restart",
+            "callId": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "args": {
+              "name": "ai_computer_control__macro_run",
+              "arguments": {
+                "delay_ms": 0,
+                "steps": [
+                  {
+                    "tool": "wait",
+                    "args": {
+                      "seconds": 30
+                    }
+                  }
+                ]
+              }
+            },
+            "providerRoles": [
+              "user",
+              "assistant"
+            ],
+            "headCount": 2
+          },
+          {
+            "stage": "terminal",
+            "callId": "call_neutral_abort",
+            "name": "tool_invoke_exec",
+            "args": {
+              "name": "ai_computer_control__macro_run",
+              "arguments": {
+                "delay_ms": 0,
+                "steps": [
+                  {
+                    "tool": "wait",
+                    "args": {
+                      "seconds": 30
+                    }
+                  }
+                ]
+              }
+            },
+            "providerRoles": [
+              "user",
+              "assistant"
+            ],
+            "headCount": 2
+          }
+        ],
+        "restartResumable": {
+          "dangling": true,
+          "kind": "tool_calls",
+          "turnSeq": 1,
+          "historyLength": 2
+        },
+        "requestedIntentPersisted": true,
+        "roleToolOrMacroTerminalPresent": false,
+        "actualDispatchOrACCWaitEntryAckProved": false,
+        "permissionIsDistinctFromDispatch": true,
+        "hardAbortGate": "open"
+      },
+      "permissionAndAuditEvidence": [
+        {
+          "stage": "pre-kill",
+          "permissionStates": [
+            "pending",
+            "applying",
+            "allowed"
+          ],
+          "permissionMacroRequestPersisted": true,
+          "ACCLogFiles": 0,
+          "crossFileNonAtomic": true
+        },
+        {
+          "stage": "post-kill",
+          "permissionStates": [
+            "pending",
+            "applying",
+            "allowed"
+          ],
+          "permissionMacroRequestPersisted": true,
+          "ACCLogFiles": 0,
+          "crossFileNonAtomic": true
+        },
+        {
+          "stage": "post-restart",
+          "permissionStates": [
+            "pending",
+            "applying",
+            "allowed"
+          ],
+          "permissionMacroRequestPersisted": true,
+          "ACCLogFiles": 0,
+          "crossFileNonAtomic": true
+        },
+        {
+          "stage": "terminal",
+          "permissionStates": [
+            "pending",
+            "applying",
+            "allowed"
+          ],
+          "permissionMacroRequestPersisted": true,
+          "ACCLogFiles": 0,
+          "crossFileNonAtomic": true
+        }
+      ],
+      "rawBodiesInterpretation": "Requested/model callID/name/args now survive as an assistant.tool_calls row before processing, separately from persisted permission intent. No role=tool or macro terminal outcome is present. ACC audit remains empty; actual tool dispatch/entering await is unconfirmed. GET-only restart reports tool_calls rather than the previous user-only dangling state.",
+      "gateStatus": "held/release/actual-dispatch/terminal hard-abort gates remain open"
+    },
+    "existingNativeEntry": {
+      "assertions": 31,
+      "pass": 31,
+      "fail": 0,
+      "skip": 0,
+      "approvalPaths": [
+        "allow",
+        "deny",
+        "pending cancel"
+      ],
+      "actualBalancedNativeClickAndAuditAssertionPassed": true,
+      "deniedAndCancelledNoReceiverMutationAssertionPassed": true,
+      "checkpointCases": [
+        {
+          "label": "ENTRY_IMAGE_window_screenshot_false",
+          "sessionId": "sess_9ec4787dafd2e906",
+          "turnSeq": 1,
+          "journalOp": "create",
+          "writer": "ai_computer_control__window_screenshot",
+          "beforeSha256": null,
+          "afterSha256": "99031ae927f1ce72fe8bd460056c9a82f99a4d75d9bf6ab5d16e986b086b4874",
+          "rollbackOk": true,
+          "exactFileRemovalOrOriginalBytesRestorationRuntimeAssertionPassed": true
+        },
+        {
+          "label": "ENTRY_IMAGE_window_screenshot_true",
+          "sessionId": "sess_53071a320946638d",
+          "turnSeq": 1,
+          "journalOp": "modify",
+          "writer": "ai_computer_control__window_screenshot",
+          "beforeSha256": "f51fc64785d79272f740891377a0aef1467be9fe24d9df14b399c6a6c497fa2f",
+          "afterSha256": "99031ae927f1ce72fe8bd460056c9a82f99a4d75d9bf6ab5d16e986b086b4874",
+          "rollbackOk": true,
+          "exactFileRemovalOrOriginalBytesRestorationRuntimeAssertionPassed": true
+        },
+        {
+          "label": "ENTRY_IMAGE_get_clipboard_image_false",
+          "sessionId": "sess_bf2db95b8b609b97",
+          "turnSeq": 1,
+          "journalOp": "create",
+          "writer": "ai_computer_control__get_clipboard_image",
+          "beforeSha256": null,
+          "afterSha256": "803f3b73e9e4960c1b25d25b1dcb493de6cb51a001fbcc7f604e4dfe62c8c26e",
+          "rollbackOk": true,
+          "exactFileRemovalOrOriginalBytesRestorationRuntimeAssertionPassed": true
+        },
+        {
+          "label": "ENTRY_IMAGE_get_clipboard_image_true",
+          "sessionId": "sess_d45e49d63c7e2de2",
+          "turnSeq": 1,
+          "journalOp": "modify",
+          "writer": "ai_computer_control__get_clipboard_image",
+          "beforeSha256": "f51fc64785d79272f740891377a0aef1467be9fe24d9df14b399c6a6c497fa2f",
+          "afterSha256": "803f3b73e9e4960c1b25d25b1dcb493de6cb51a001fbcc7f604e4dfe62c8c26e",
+          "rollbackOk": true,
+          "exactFileRemovalOrOriginalBytesRestorationRuntimeAssertionPassed": true
+        }
+      ],
+      "cleanupSafe": true,
+      "inputSourceRestored": true,
+      "clipboardRestored": true,
+      "scope": "Existing unchanged native-entry fixture, real Node service/provider/ACC/helper route on this product candidate. Actual PNG create/overwrite checkpoints and rollback; not App LaunchServices or held/lock/TCC fault."
+    }
+  },
+  "engineeringReuse": {
+    "independentCompleteUnitOrFastReruns": 0,
+    "primaryV1": {
+      "syntaxPassed": true,
+      "buildFresh": true,
+      "standaloneUnitPass": 2508,
+      "unitExistingSkipped": 18,
+      "firstFastPass": 79,
+      "firstFastFail": 1,
+      "failure": "session-save-census09 expected11 versus actual12, built-in retry also failed",
+      "freezeSourceCount": 126,
+      "sourceArtifactCheckpoints": 8
+    },
+    "primaryV2": {
+      "syntaxFiles": 1158,
+      "fastPassed": 80,
+      "fastFailed": 0,
+      "fastFlaky": 0,
+      "liveSkipped": 7,
+      "includesRepeatedUnitPreflight": true,
+      "freezeSourceCount": 127,
+      "sourceArtifactCheckpoints": 4
+    },
+    "relatedFinalFourE2EsReused": true,
+    "relatedFinalSourceCount": 126,
+    "relatedFinalSourceArtifactCheckpoints": 8,
+    "reuseRationale": "Only static census update added in freeze-v3; original126 sources/2 artifacts unchanged. Earlier build/standalone unit and four related final E2Es reused at exact hashes. New independent unit9/offline11/native12/entry31 were each separately executed once.",
+    "binding": {
+      "path": "engineering-reuse.json",
+      "bytes": 8176,
+      "sha256": "8e146090403f973fd003fff3f5595e4f4cf8836d8d0b02eb0021dc829f720e5e"
+    }
+  },
+  "originalExecutionReport": {
+    "path": "execution-report.json",
+    "bytes": 4580,
+    "sha256": "14606427540aac3aa9e3646f4c8945e785861abf6b70bd405fd3c23cd928b9d7"
+  },
+  "evidenceFiles": [
+    {
+      "path": "additional-entry-fixture-binding.json",
+      "bytes": 1255,
+      "sha256": "550641bf2880f873cbf5db1b91a23ad654fdd69bb1b6cded08fe774cb270d7b9"
+    },
+    {
+      "path": "engineering-reuse.json",
+      "bytes": 8176,
+      "sha256": "8e146090403f973fd003fff3f5595e4f4cf8836d8d0b02eb0021dc829f720e5e"
+    },
+    {
+      "path": "entry/invocation.json",
+      "bytes": 1369,
+      "sha256": "e77bdb958f7e388c4cf1c9f4cd729e81c1c125f67262b3e08546641e44711752"
+    },
+    {
+      "path": "entry/native/results.json",
+      "bytes": 210588,
+      "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691"
+    },
+    {
+      "path": "entry/observed-identities.json",
+      "bytes": 1329,
+      "sha256": "a65c83569af232ceaf95fdbb530be616194c4629544e1a41cb987cabc7d53618"
+    },
+    {
+      "path": "entry/output.txt",
+      "bytes": 2208,
+      "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880"
+    },
+    {
+      "path": "entry/report.json",
+      "bytes": 714,
+      "sha256": "ba5c75193399b19d70d7328c07145fe86b4bad35e299331226bcc2dfc4f0de79"
+    },
+    {
+      "path": "execution-report.json",
+      "bytes": 4580,
+      "sha256": "14606427540aac3aa9e3646f4c8945e785861abf6b70bd405fd3c23cd928b9d7"
+    },
+    {
+      "path": "native-intent-review.json",
+      "bytes": 2428,
+      "sha256": "8c7c158a1c1d708ed002792991c3882556c1eb0bb172a0fa9106a9d9214198a5"
+    },
+    {
+      "path": "native/invocation.json",
+      "bytes": 1371,
+      "sha256": "5a328c482067e27fdf7144334e9f0458a0d1be637295b35099aa5dea81727915"
+    },
+    {
+      "path": "native/native/initial-service-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "native/native/initial-service-stdout.txt",
+      "bytes": 271,
+      "sha256": "72a4ac3df000b89c2c6fcdc44a9229683bcf1179e9ddc5b396d1e77a659d7657"
+    },
+    {
+      "path": "native/native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "621b60ccf557d520631d6d280e9993e1bc5bdbc1928a7e71f65294a70b13d26c"
+    },
+    {
+      "path": "native/native/post-kill/sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+    },
+    {
+      "path": "native/native/post-kill/sessions/sess_112edc1b1aac56bc.json",
+      "bytes": 1419,
+      "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+    },
+    {
+      "path": "native/native/post-kill/sessions/sess_112edc1b1aac56bc.messages.ndjson",
+      "bytes": 165,
+      "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+    },
+    {
+      "path": "native/native/post-kill/sessions/sess_112edc1b1aac56bc.provider.ndjson",
+      "bytes": 420,
+      "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+    },
+    {
+      "path": "native/native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "f8e01f7ae74aa6ff0bb066d9ebb3b96c57c549eddf30fbe2b42f0b73a99d7620"
+    },
+    {
+      "path": "native/native/post-restart/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "0527ccd688209908a8d9b409aa3712a635ad82d622911996d24f0e7fb2a3267d"
+    },
+    {
+      "path": "native/native/post-restart/sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+    },
+    {
+      "path": "native/native/post-restart/sessions/sess_112edc1b1aac56bc.json",
+      "bytes": 1419,
+      "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+    },
+    {
+      "path": "native/native/post-restart/sessions/sess_112edc1b1aac56bc.messages.ndjson",
+      "bytes": 165,
+      "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+    },
+    {
+      "path": "native/native/post-restart/sessions/sess_112edc1b1aac56bc.provider.ndjson",
+      "bytes": 420,
+      "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+    },
+    {
+      "path": "native/native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "621b60ccf557d520631d6d280e9993e1bc5bdbc1928a7e71f65294a70b13d26c"
+    },
+    {
+      "path": "native/native/pre-kill/sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+    },
+    {
+      "path": "native/native/pre-kill/sessions/sess_112edc1b1aac56bc.json",
+      "bytes": 1419,
+      "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+    },
+    {
+      "path": "native/native/pre-kill/sessions/sess_112edc1b1aac56bc.messages.ndjson",
+      "bytes": 165,
+      "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+    },
+    {
+      "path": "native/native/pre-kill/sessions/sess_112edc1b1aac56bc.provider.ndjson",
+      "bytes": 420,
+      "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+    },
+    {
+      "path": "native/native/read-only-restart-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "native/native/read-only-restart-stdout.txt",
+      "bytes": 205,
+      "sha256": "a174275a1ff661f742f9b7f58b5b3f8e460d28a4ec27370e218d57d5bdfc8e42"
+    },
+    {
+      "path": "native/native/results.json",
+      "bytes": 33141,
+      "sha256": "f4738fb66790f5f1af3c1ecc0bf17831133e444252b4c72bf8312316e2d5b806"
+    },
+    {
+      "path": "native/native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "f8e01f7ae74aa6ff0bb066d9ebb3b96c57c549eddf30fbe2b42f0b73a99d7620"
+    },
+    {
+      "path": "native/native/terminal/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "0527ccd688209908a8d9b409aa3712a635ad82d622911996d24f0e7fb2a3267d"
+    },
+    {
+      "path": "native/native/terminal/sessions/sess_112edc1b1aac56bc.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "c8ae6ba69b532ca4972798f9295205d9453fbf9f902af498f71a13a8f2066db5"
+    },
+    {
+      "path": "native/native/terminal/sessions/sess_112edc1b1aac56bc.json",
+      "bytes": 1419,
+      "sha256": "34386686c4181ef01e1045519bb242f8bb4195b54752ebe4abd2cf5fc53ade23"
+    },
+    {
+      "path": "native/native/terminal/sessions/sess_112edc1b1aac56bc.messages.ndjson",
+      "bytes": 165,
+      "sha256": "fe04321aa441292f68d78a5ede4022bbcee683b61a2ca7052e18a6181ffa4ec6"
+    },
+    {
+      "path": "native/native/terminal/sessions/sess_112edc1b1aac56bc.provider.ndjson",
+      "bytes": 420,
+      "sha256": "290ebb64486dce5909debb5a9bb609343b48dc9dc5ac422f0cbe0911d5f2e570"
+    },
+    {
+      "path": "native/observed-identities.json",
+      "bytes": 1173,
+      "sha256": "252084d57146fd07830f32e3915591054cca4f69cb27df39a60b8d68cf68f68e"
+    },
+    {
+      "path": "native/output.txt",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307"
+    },
+    {
+      "path": "native/report.json",
+      "bytes": 716,
+      "sha256": "4cb02259397bb61082615b5efe5b483148b54b2af22e06aaa1480b9589b068b6"
+    },
+    {
+      "path": "offline/invocation.json",
+      "bytes": 1217,
+      "sha256": "dda03cbbf6d0039a514e8b292786362d4d9a06be45b823d7ef48caf458f3447a"
+    },
+    {
+      "path": "offline/native/after-kill/sess_7207a64c6849eb5b.json",
+      "bytes": 1990,
+      "sha256": "1d159890ab7959f10aed6d3dd31c51623df4f63799cf620d82a8e0ae2448e0ac"
+    },
+    {
+      "path": "offline/native/after-kill/sess_7207a64c6849eb5b.messages.ndjson",
+      "bytes": 158,
+      "sha256": "350cbdf6b2d0f907ddc059e69d9b6195d7063117f21d1d8b90b9015f9cf5f9b8"
+    },
+    {
+      "path": "offline/native/after-kill/sess_7207a64c6849eb5b.provider.ndjson",
+      "bytes": 946,
+      "sha256": "57faecd5cbe1b0632ff5dd84ea62ed71e5b11e88f85e6ed87f474f32fb477fe2"
+    },
+    {
+      "path": "offline/native/after-restart/sess_7207a64c6849eb5b.json",
+      "bytes": 1990,
+      "sha256": "1d159890ab7959f10aed6d3dd31c51623df4f63799cf620d82a8e0ae2448e0ac"
+    },
+    {
+      "path": "offline/native/after-restart/sess_7207a64c6849eb5b.messages.ndjson",
+      "bytes": 158,
+      "sha256": "350cbdf6b2d0f907ddc059e69d9b6195d7063117f21d1d8b90b9015f9cf5f9b8"
+    },
+    {
+      "path": "offline/native/after-restart/sess_7207a64c6849eb5b.provider.ndjson",
+      "bytes": 946,
+      "sha256": "57faecd5cbe1b0632ff5dd84ea62ed71e5b11e88f85e6ed87f474f32fb477fe2"
+    },
+    {
+      "path": "offline/native/before-kill/sess_7207a64c6849eb5b.json",
+      "bytes": 1990,
+      "sha256": "1d159890ab7959f10aed6d3dd31c51623df4f63799cf620d82a8e0ae2448e0ac"
+    },
+    {
+      "path": "offline/native/before-kill/sess_7207a64c6849eb5b.messages.ndjson",
+      "bytes": 158,
+      "sha256": "350cbdf6b2d0f907ddc059e69d9b6195d7063117f21d1d8b90b9015f9cf5f9b8"
+    },
+    {
+      "path": "offline/native/before-kill/sess_7207a64c6849eb5b.provider.ndjson",
+      "bytes": 946,
+      "sha256": "57faecd5cbe1b0632ff5dd84ea62ed71e5b11e88f85e6ed87f474f32fb477fe2"
+    },
+    {
+      "path": "offline/native/denied-complete/sess_f570d3eea2aa5f45.json",
+      "bytes": 1432,
+      "sha256": "75ecf63d7576e6ced6725eb4de7a5e2c0ae314ebb5ae8cb0d48300277dec4414"
+    },
+    {
+      "path": "offline/native/denied-complete/sess_f570d3eea2aa5f45.messages.ndjson",
+      "bytes": 1315,
+      "sha256": "82c78dd9f2821ec4823aad3dc67e8e751e56026b88ef30067daa216256c68a0f"
+    },
+    {
+      "path": "offline/native/denied-complete/sess_f570d3eea2aa5f45.provider.ndjson",
+      "bytes": 550,
+      "sha256": "bd74ad048282391d9846672e2337823074d89a34b6f7ae4ce6c83a77f6f6f1b8"
+    },
+    {
+      "path": "offline/native/pending-permission/sess_f570d3eea2aa5f45.json",
+      "bytes": 1416,
+      "sha256": "1c0ff51fc95aeaf44cb0828d71cc5b622bc3101e5291a2a9e8c6ebbe93950ea4"
+    },
+    {
+      "path": "offline/native/pending-permission/sess_f570d3eea2aa5f45.messages.ndjson",
+      "bytes": 153,
+      "sha256": "f18cfa6218a88769321c3e0f390774482119814533b779df9eb7f05ce9117878"
+    },
+    {
+      "path": "offline/native/pending-permission/sess_f570d3eea2aa5f45.provider.ndjson",
+      "bytes": 404,
+      "sha256": "068be59499175ef3f4074da6f54fba50ec7743c79897182f309bbd7872b4da0d"
+    },
+    {
+      "path": "offline/native/results.json",
+      "bytes": 38992,
+      "sha256": "69859cf86da463b26a10c3171d401a5508474f4c2002344f18b94a138620190e"
+    },
+    {
+      "path": "offline/observed-identities.json",
+      "bytes": 783,
+      "sha256": "aee1ea07fc58e5ae47b4c3942c7a2980bea8ade2406499fd4669ea755c05ad82"
+    },
+    {
+      "path": "offline/output.txt",
+      "bytes": 825,
+      "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+    },
+    {
+      "path": "offline/report.json",
+      "bytes": 716,
+      "sha256": "671f772daed5dc4f29596c747c553cab1d859445f3c38c71439709d9ca9e1022"
+    },
+    {
+      "path": "preparation-v2.json",
+      "bytes": 3675,
+      "sha256": "7b1f92ae48cb9ce13bc23c4d0099c80cb58aadb67aeb2c41729424c1f8649ac7"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 1451,
+      "sha256": "9862c0daf172ba3fe00ce4615f25a85e388debb4ed7edea4a9479059ccfb7df5"
+    },
+    {
+      "path": "results.json",
+      "bytes": 2975,
+      "sha256": "d4d8f8c0de29f4beb586000f266b5fbbf001e0726ac669774f0a77f121644098"
+    },
+    {
+      "path": "runner.py",
+      "bytes": 16296,
+      "sha256": "c6770d0fab1faf8f2699cc45273b026c73d840eaf76b019a5b42354a971e5f1e"
+    },
+    {
+      "path": "signatures.json",
+      "bytes": 1110,
+      "sha256": "b58c725b69811b89f9157dc5e68b678da08b4159b4736e5a571f06d0c7ba503f"
+    },
+    {
+      "path": "source-artifact-checks.json",
+      "bytes": 253191,
+      "sha256": "1643ac26c67c8b01aa04145597d7ef3440a4442be22ff2b9da9a6f9323297b46"
+    },
+    {
+      "path": "unit/invocation.json",
+      "bytes": 1119,
+      "sha256": "70fab2680af349c959ed653e31423d8611b4050b00132946faa99095cf0470f0"
+    },
+    {
+      "path": "unit/observed-identities.json",
+      "bytes": 237,
+      "sha256": "46e76e34d09d64cf7c8b4856913d2534dec0a5b11ba83c8ca9be316f611d42dc"
+    },
+    {
+      "path": "unit/output.txt",
+      "bytes": 2200,
+      "sha256": "1d92266c803cf7bc07bcefb2df412b75fea5cb04298e5caf3c0e54548375f652"
+    },
+    {
+      "path": "unit/report.json",
+      "bytes": 626,
+      "sha256": "9171e54ef4f5e3a3f5b330d3ef9d3dbd4858c4c108de3c5cc54ea1b832c6be7b"
+    }
+  ],
+  "history": "Author old-server negative control and historical fixture/DHC failures remain in development logs. Primary first fast79/80 census failure and automatic retry remain; corrected metadata was followed by final syntax/fullfast including another unit preflight. This independent four-case run has no retries; no overall zero-rerun development claim.",
+  "claimLimits": [
+    "Accepted product behavior is strict requested/model tool intent persistence and received-prefix result persistence for the reviewed ordinary local provider paths; default save behavior and other engine/server-side paths are not universally reclassified.",
+    "Strict save success is the existing session commit contract, not fsync/power-loss atomicity or a target dispatch/actual-args receipt.",
+    "Native zero-input macro call intent now persists with callID/name/requested args and GET restart kind=tool_calls; there is no ACC wait-entry ACK, dispatch receipt, roletool terminal outcome or held/release hard-abort total-gate acceptance.",
+    "Requested args are model/protocol arguments, not proof of privacy-expanded/approval-updated/dispatcher-normalized actual arguments.",
+    "GET-only restart covers the recorded no-replay interval; no user continuation/UI/model/steward deterministic prevention of duplicate effects is established.",
+    "The entry31 run is separately scoped actual approvals/input/image checkpoints on Node service, not App. Existing clipboard/source restoration evidence applies to entry; the zero-input calibration itself performed no clipboard snapshot recovery.",
+    "No old human/manual/held/recovery/TCC/OS-lock/App/Windows/minimum-OS/display/formal-identity acceptance was rerun or added."
+  ]
+}

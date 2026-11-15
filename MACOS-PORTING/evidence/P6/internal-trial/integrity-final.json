@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-12T09:14:26.802Z",
+  "artifacts": [
+    {
+      "variant": "full",
+      "imageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+      "imageBytes": 584255996,
+      "inputManifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "inputAppTreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "packagerFingerprintUnchanged": true,
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+      "imageBytes": 51621693,
+      "inputManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "inputAppTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "packagerFingerprintUnchanged": true,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

@@ -17,11 +17,17 @@ test('OS gate is exclusive; repeated old release cannot release a new owner', as
   const dir = path.join(root, 'exclusive');
   fs.mkdirSync(dir);
   const old = await ownership.acquire([dir]);
+  assert.equal(old.isHeld(), true);
   await assert.rejects(ownership.acquire([dir]), { code: 'DATA_ROOT_IN_USE' });
-  await old.release();
+  const releasing = old.release();
+  assert.equal(old.isHeld(), false, 'release revokes authority synchronously before close finishes');
+  await releasing;
   const current = await ownership.acquire([dir]);
+  assert.equal(current.isHeld(), true);
   try {
     await old.release();
+    assert.equal(old.isHeld(), false);
+    assert.equal(current.isHeld(), true);
     await assert.rejects(ownership.acquire([dir]), { code: 'DATA_ROOT_IN_USE' });
   } finally { await current.release(); }
 });

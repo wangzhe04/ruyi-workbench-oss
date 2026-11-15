@@ -1,0 +1,45 @@
+PASS P0 服务起来了
+PASS P0b 取得 token
+PASS F1 HTML 页面带 X-Frame-Options: DENY(实得 DENY)
+PASS F2 HTML 页面带 CSP frame-ancestors 'none'
+PASS F1 /health带 X-Frame-Options: DENY(实得 DENY)
+PASS F2 /health带 CSP frame-ancestors 'none'
+PASS F1 /api/status带 X-Frame-Options: DENY(实得 DENY)
+PASS F2 /api/status带 CSP frame-ancestors 'none'
+PASS F1 静态资源带 X-Frame-Options: DENY(实得 DENY)
+PASS F2 静态资源带 CSP frame-ancestors 'none'
+PASS F1 404带 X-Frame-Options: DENY(实得 DENY)
+PASS F2 404带 CSP frame-ancestors 'none'
+PASS F3 页面里原有的 CSP meta 还在(两者叠加,互不替代)
+PASS H1 /health 带 app: 如意 Ruyi(实得 如意 Ruyi)
+PASS H2 /health 原有字段(ok / version / overlayId)不变
+PASS R1 agent-roles project 不存在的目录 → 400(实得 400)
+PASS R2 不存在的目录:稳定错误码 project.cwd_not_directory
+PASS R3 不存在的目录:响应里没有 errno 原文与宿主路径
+PASS R4 workflows project 保存 不存在的目录 → 400 同码(实得 400)
+PASS R5 workflows project 删除 不存在的目录 → 400 同码(实得 400)
+PASS R1 agent-roles project 是个文件 → 400(实得 400)
+PASS R2 是个文件:稳定错误码 project.cwd_not_directory
+PASS R3 是个文件:响应里没有 errno 原文与宿主路径
+PASS R4 workflows project 保存 是个文件 → 400 同码(实得 400)
+PASS R5 workflows project 删除 是个文件 → 400 同码(实得 400)
+PASS R6 正常目录照存(.ruyi/agents.json 落盘)
+PASS R7 全局作用域不受影响
+PASS K1 状态读到(contextTokens 1234;实得 200 1234)
+PASS K2 响应里带 usage
+PASS K3 updatedAt 没被刷新(修前被顶成当前时间;实得 2026-09-28T08:00:00.000Z)
+PASS K4 状态确实落盘了(首次有变化)
+PASS K5 会话列表顺序不变,旧会话没被顶到最上面
+PASS K6 第二次读状态照常
+PASS K7 状态没变 → 不写盘(头文件字节与 mtime 都不变)
+PASS K8 状态变了 → 才写盘
+PASS K9 变了也不推 updatedAt(只读状态不是会话活动)
+PASS S0a 夹具:≤2MB 文件的特殊行跨 1MB 接缝(1700000 字节)
+PASS S0b 夹具:>2MB 文件的头/尾窗口边界各压一条消息(3450076 字节)
+PASS S1 ≤2MB 文件:跨 1MB 接缝的那条消息搜得到(修前两边都丢)
+PASS S2 >2MB 文件:头窗口边界上的消息补读成整行,搜得到
+PASS S3 >2MB 文件:尾窗口起点上的消息补读成整行,搜得到
+PASS S4 普通小会话照常
+PASS S5 单飞:4 个并发冷索引搜索,每个会话正文只被读一遍(各文件打开次数 1,1,1,1,1,1,1,1,1,1;修前最多 4 倍)
+
+STORE WALKTHROUGH W1 E2E: ALL PASS

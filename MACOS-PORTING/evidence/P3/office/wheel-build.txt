@@ -1,0 +1,14 @@
+Looking in links: /tmp/ruyi-p3-build-wheels
+Processing ./mcp/ai-computer-control
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: ai-computer-control
+  Building wheel for ai-computer-control (pyproject.toml): started
+  Building wheel for ai-computer-control (pyproject.toml): finished with status 'done'
+  Created wheel for ai-computer-control: filename=ai_computer_control-1.9.1-py3-none-any.whl size=248630 sha256=fb6ba826fc27f815d7a4a3937e28c4577a6330e5e8c31e54ca02b2edcebb8707
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/b1/f5/a7/b598a2619df8c9d784d1ea30568c2d04d099a08c74574be87b
+Successfully built ai-computer-control

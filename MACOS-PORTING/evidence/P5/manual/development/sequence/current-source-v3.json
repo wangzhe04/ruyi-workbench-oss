@@ -1,0 +1,154 @@
+{
+  "at": "2026-11-11T04:43:47.175Z",
+  "status": "development candidate frozen for independent review; GUI v5 and App pending",
+  "worktree": "/tmp/ruyi-p5-manual-worktree",
+  "branch": "codex/p5-manual-events",
+  "baseCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+  "mainHead": "057878f2e769abedbf12f4b133c5eab688e9536e",
+  "files": {
+    "README.md": {
+      "bytes": 65808,
+      "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913"
+    },
+    "README_EN.md": {
+      "bytes": 72914,
+      "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320"
+    },
+    "dev-harness/fixtures/macos-input-window.m": {
+      "bytes": 16751,
+      "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055"
+    },
+    "dev-harness/macos-input-host.e2e.js": {
+      "bytes": 30786,
+      "sha256": "6ec4a0dcd8f78f51a912b8ecb8ac34793955d8b191eb92458941fc858aa213a0"
+    },
+    "dev-harness/macos-manual-record.e2e.js": {
+      "bytes": 35594,
+      "sha256": "111c177cdafaa626e5329abe985066474119c6cc08ea28172d161eaad2add5eb"
+    },
+    "dev-harness/process-safety.static.e2e.js": {
+      "bytes": 13981,
+      "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44"
+    },
+    "dev-harness/unit/acc-capability-gates.test.js": {
+      "bytes": 11806,
+      "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d"
+    },
+    "facts.json": {
+      "bytes": 1335,
+      "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py": {
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+      "bytes": 11254,
+      "sha256": "a5179b34e9eb35e159393d928ead56f588c96e01ba18d4147e1913bc6cf12371"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py": {
+      "bytes": 10259,
+      "sha256": "865c656c68b370b1ddb35a6e1649ff855d99436f5223fdc34d2709aff1802280"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py": {
+      "bytes": 6532,
+      "sha256": "636fde3f3685ed150480a00a7a0f3d33b8e7f26a56604506e21868e052eb4682"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+      "bytes": 13250,
+      "sha256": "2b002325ef6efb0542de7a0e73ed3e456734239dfa63a726c9d0f40df21ea03a"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py": {
+      "bytes": 10652,
+      "sha256": "8f1a36b85f9666285d54dddd9bb3eac7266718feac31d137d6fc5764ccd9a985"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py": {
+      "bytes": 6662,
+      "sha256": "f1cd6a32c4eb5aa19792cf96814a299533bd56d14e614ede5b730b8a748a1a76"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": {
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py": {
+      "bytes": 2694,
+      "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_events.py": {
+      "bytes": 8718,
+      "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_input.py": {
+      "bytes": 16622,
+      "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_record.py": {
+      "bytes": 22572,
+      "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380"
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_sequence.py": {
+      "bytes": 12079,
+      "sha256": "87461c6e43bd27d122397a8697836f69caa183a0e1e99fb53916f0feb61e5c05"
+    },
+    "ruyi-workbench/app/server.js": {
+      "bytes": 6777726,
+      "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb"
+    },
+    "ruyi-workbench/app/src/06g-resource-leases.js": {
+      "bytes": 18239,
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+    },
+    "ruyi-workbench/app/src/07-autonomy.js": {
+      "bytes": 234136,
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+    },
+    "ruyi-workbench/resources/macos-automation-events.m": {
+      "bytes": 45245,
+      "sha256": "48915e558801171ac84a7411de00735f875d2dcc518186dee83dd88edca73c5f"
+    },
+    "ruyi-workbench/resources/macos-automation-helper.m": {
+      "bytes": 22827,
+      "sha256": "14a1d44002786093724c29d00da4a8cd9a29c20356e94abdd03e6e8dc5fabce5"
+    },
+    "ruyi-workbench/resources/macos-automation-input.m": {
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+    },
+    "ruyi-workbench/resources/macos-automation-record-events.m": {
+      "bytes": 9833,
+      "sha256": "edfe30c2b695d0d2b2c6fa353283a2ebfc3f123d18db26e4a4704e1e1b0c8bfe"
+    },
+    "ruyi-workbench/resources/macos-automation-record.m": {
+      "bytes": 13471,
+      "sha256": "1ab08de02dea64fec3888fdee2afab37cc5830dff95deca917490542909d8544"
+    },
+    "ruyi-workbench/resources/macos-automation-sequence.m": {
+      "bytes": 16984,
+      "sha256": "a313027f0637af72c2f249990842971c500d257c8b60e2beb38079de5a9c1176"
+    },
+    "ruyi-workbench/resources/macos-automation-session.m": {
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+    },
+    "ruyi-workbench/resources/macos-automation.h": {
+      "bytes": 4130,
+      "sha256": "6aa312b6258556b13029f2b5482fd6efa8ecac47741d815f551da76d38769b0e"
+    },
+    "ruyi-workbench/tools/build-macos-automation-helper.js": {
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+    }
+  },
+  "temporary_helpers": {
+    "/tmp/ruyi-p5-manual-native-helper": "a1fe414f4e283b55cdb4c4762db0bde979485e69e8a8307c5e65f7aa1d18df5b"
+  },
+  "limits": [
+    "physical user demonstration pending",
+    "App-origin manual chain pending",
+    "P5 original remaining-audit remains open"
+  ]
+}

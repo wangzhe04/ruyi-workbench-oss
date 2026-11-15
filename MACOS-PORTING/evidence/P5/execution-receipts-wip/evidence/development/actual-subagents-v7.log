@@ -1,0 +1,17 @@
+PASS NODE_FOREGROUND_1 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_1 each actual ACC business invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_1 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_1 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_1 child history stays separate from actual parent transcript
+FAIL actual read-only receipt query reports historical uncertainty without inventing a new unknown desktop action or blocking the next model request
+FAIL Error: Stopped after actual read-only receipt query reports historical uncertainty without inventing a new unknown desktop action or blocking the next model request
+    at check (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-subagents.e2e.js:74:65)
+    at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-subagents.e2e.js:144:146
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+MACOS EXECUTION SUBAGENTS E2E: FAIL (2)

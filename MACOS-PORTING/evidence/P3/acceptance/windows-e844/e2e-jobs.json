@@ -1,0 +1,429 @@
+{
+  "total_count": 4,
+  "jobs": [
+    {
+      "id": 128151986843,
+      "run_id": 42293298968,
+      "workflow_name": "e2e",
+      "head_branch": "codex/p3-macos-documents",
+      "run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVctOo88AAAAd1nQimw",
+      "head_sha": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+      "url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/jobs/128151986843",
+      "html_url": "https://github.com/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968/job/128151986843",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-06T21:01:53Z",
+      "started_at": "2026-11-06T21:01:54Z",
+      "completed_at": "2026-11-06T21:06:01Z",
+      "name": "linux-static",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T21:01:55Z",
+          "completed_at": "2026-11-06T21:01:56Z"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T21:01:56Z",
+          "completed_at": "2026-11-06T21:01:59Z"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T21:01:59Z",
+          "completed_at": "2026-11-06T21:02:00Z"
+        },
+        {
+          "name": "Syntax gate (node --check)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-06T21:02:00Z",
+          "completed_at": "2026-11-06T21:02:29Z"
+        },
+        {
+          "name": "Build freshness (artifact == concat(src))",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-06T21:02:29Z",
+          "completed_at": "2026-11-06T21:02:29Z"
+        },
+        {
+          "name": "Unit tests (node --test)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-06T21:02:29Z",
+          "completed_at": "2026-11-06T21:05:58Z"
+        },
+        {
+          "name": "In-process static pieces (platform-free subset)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-06T21:05:58Z",
+          "completed_at": "2026-11-06T21:05:58Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-06T21:05:58Z",
+          "completed_at": "2026-11-06T21:05:59Z"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-11-06T21:05:59Z",
+          "completed_at": "2026-11-06T21:05:59Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-11-06T21:05:59Z",
+          "completed_at": "2026-11-06T21:05:59Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/check-runs/128151986843",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000000052,
+      "runner_name": "GitHub Actions 1000000052",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128151987294,
+      "run_id": 42293298968,
+      "workflow_name": "e2e",
+      "head_branch": "codex/p3-macos-documents",
+      "run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVctOo88AAAAd1nQkXg",
+      "head_sha": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+      "url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/jobs/128151987294",
+      "html_url": "https://github.com/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968/job/128151987294",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-06T21:01:53Z",
+      "started_at": "2026-11-06T21:01:54Z",
+      "completed_at": "2026-11-06T21:02:35Z",
+      "name": "release-dryrun",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T21:01:55Z",
+          "completed_at": "2026-11-06T21:01:56Z"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T21:01:56Z",
+          "completed_at": "2026-11-06T21:02:03Z"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T21:02:03Z",
+          "completed_at": "2026-11-06T21:02:07Z"
+        },
+        {
+          "name": "Install pkg toolchain (ruyi-workbench)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-06T21:02:07Z",
+          "completed_at": "2026-11-06T21:02:12Z"
+        },
+        {
+          "name": "Release dry-run (overlay + manifest + pkg smoke)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-06T21:02:12Z",
+          "completed_at": "2026-11-06T21:02:32Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-06T21:02:32Z",
+          "completed_at": "2026-11-06T21:02:32Z"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-06T21:02:32Z",
+          "completed_at": "2026-11-06T21:02:34Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-06T21:02:34Z",
+          "completed_at": "2026-11-06T21:02:34Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/check-runs/128151987294",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner_id": 1000000053,
+      "runner_name": "GitHub Actions 1000000053",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128151987396,
+      "run_id": 42293298968,
+      "workflow_name": "e2e",
+      "head_branch": "codex/p3-macos-documents",
+      "run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVctOo88AAAAd1nQkxA",
+      "head_sha": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+      "url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/jobs/128151987396",
+      "html_url": "https://github.com/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968/job/128151987396",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-06T21:01:53Z",
+      "started_at": "2026-11-06T21:01:54Z",
+      "completed_at": "2026-11-06T21:03:22Z",
+      "name": "acc-smoke",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T21:01:55Z",
+          "completed_at": "2026-11-06T21:01:56Z"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T21:01:56Z",
+          "completed_at": "2026-11-06T21:02:03Z"
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T21:02:03Z",
+          "completed_at": "2026-11-06T21:02:03Z"
+        },
+        {
+          "name": "Install ACC (editable)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-06T21:02:03Z",
+          "completed_at": "2026-11-06T21:02:47Z"
+        },
+        {
+          "name": "ACC smoke (CI subset)",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 5,
+          "started_at": "2026-11-06T21:02:47Z",
+          "completed_at": "2026-11-06T21:03:18Z"
+        },
+        {
+          "name": "facts.json accTools reconciliation",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 6,
+          "started_at": "2026-11-06T21:03:18Z",
+          "completed_at": "2026-11-06T21:03:18Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11,
+          "started_at": "2026-11-06T21:03:18Z",
+          "completed_at": "2026-11-06T21:03:18Z"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-06T21:03:18Z",
+          "completed_at": "2026-11-06T21:03:20Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-06T21:03:20Z",
+          "completed_at": "2026-11-06T21:03:20Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/check-runs/128151987396",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner_id": 1000000054,
+      "runner_name": "GitHub Actions 1000000054",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128151987497,
+      "run_id": 42293298968,
+      "workflow_name": "e2e",
+      "head_branch": "codex/p3-macos-documents",
+      "run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVctOo88AAAAd1nQlKQ",
+      "head_sha": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+      "url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/actions/jobs/128151987497",
+      "html_url": "https://github.com/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968/job/128151987497",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-06T21:01:53Z",
+      "started_at": "2026-11-06T21:01:55Z",
+      "completed_at": "2026-11-06T21:03:21Z",
+      "name": "e2e",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T21:01:56Z",
+          "completed_at": "2026-11-06T21:01:57Z"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T21:01:57Z",
+          "completed_at": "2026-11-06T21:02:05Z"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T21:02:05Z",
+          "completed_at": "2026-11-06T21:02:10Z"
+        },
+        {
+          "name": "Syntax gate (node --check)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-06T21:02:10Z",
+          "completed_at": "2026-11-06T21:03:16Z"
+        },
+        {
+          "name": "Build freshness (artifact == concat(src))",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-06T21:03:16Z",
+          "completed_at": "2026-11-06T21:03:17Z"
+        },
+        {
+          "name": "Windows credential IPC smoke",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 6,
+          "started_at": "2026-11-06T21:03:17Z",
+          "completed_at": "2026-11-06T21:03:17Z"
+        },
+        {
+          "name": "Unit tests (node --test)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 7,
+          "started_at": "2026-11-06T21:03:17Z",
+          "completed_at": "2026-11-06T21:03:17Z"
+        },
+        {
+          "name": "Run e2e suite",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8,
+          "started_at": "2026-11-06T21:03:17Z",
+          "completed_at": "2026-11-06T21:03:17Z"
+        },
+        {
+          "name": "Upload failure log on failure",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-06T21:03:17Z",
+          "completed_at": "2026-11-06T21:03:18Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17,
+          "started_at": "2026-11-06T21:03:18Z",
+          "completed_at": "2026-11-06T21:03:18Z"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-06T21:03:18Z",
+          "completed_at": "2026-11-06T21:03:19Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-11-06T21:03:19Z",
+          "completed_at": "2026-11-06T21:03:19Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Sonata17inD/ruyi-workbench-mac/check-runs/128151987497",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner_id": 1000000056,
+      "runner_name": "GitHub Actions 1000000056",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

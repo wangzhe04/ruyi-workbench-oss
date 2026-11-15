@@ -1,0 +1,96 @@
+WARNING: IPC handle "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/1.13-main.sock" is longer than 103 chars, try a shorter --user-data-dir
+[91m[main 2026-11-07T18:10:46.365Z][0m Error: listen EINVAL: invalid argument /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/1.13-main.sock
+    at Server.setupListenHandle [as _listen2] (node:net:1987:21)
+    at listenInCluster (node:net:2066:12)
+    at Server.listen (node:net:2188:5)
+    at file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:440:954
+    at new Promise (<anonymous>)
+    at WP (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:440:905)
+    at VS.claimInstance (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:592:56876)
+    at file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:592:53989
+    at i.invokeFunction (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:588:941)
+    at VS.startup (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/main.js:592:53900)
+[90m[main 2026-11-07T18:10:46.344Z][0m PolicyConfiguration#initialize
+[90m[main 2026-11-07T18:10:46.344Z][0m PolicyConfiguration#updatePolicyDefinitions [
+  'update.mode',
+  'update.channel',
+  'update.showReleaseNotes',
+  'update.showPostInstallInfo',
+  'update.titleBar',
+  'http.useLocalProxyConfiguration',
+  'http.electronFetch',
+  'http.proxy',
+  'http.proxyStrictSSL',
+  'http.proxyKerberosServicePrincipal',
+  'http.noProxy',
+  'http.proxyAuthorization',
+  'http.proxySupport',
+  'http.systemCertificates',
+  'http.systemCertificatesNode',
+  'http.experimental.systemCertificatesV2',
+  'http.fetchAdditionalSupport',
+  'http.webSocketAdditionalSupport',
+  'http.experimental.networkInterfaceCheckInterval',
+  'telemetry.telemetryLevel',
+  'telemetry.feedback.enabled',
+  'telemetry.enableTelemetry',
+  'extensions.allowed',
+  'chat.agentHost.enabled',
+  'chat.agents.copilotCli.hideExtensionHost',
+  'chat.editor.preferCopilotHarness',
+  'chat.defaultToCopilotHarness',
+  'chat.editor.localAgent.enabled',
+  'chat.editor.copilotCli.hideExtensionHost',
+  'chat.agentHost.systemProxy.enabled',
+  'chat.agentHost.claudeAgent.enabled',
+  'chat.agentHost.byokModels.enabled',
+  'chat.agentHost.codexAgent.enabled',
+  'chat.agentHost.otel.enabled',
+  'chat.agentHost.otel.exporterType',
+  'chat.agentHost.otel.otlpEndpoint',
+  'chat.agentHost.otel.captureContent',
+  'chat.agentHost.otel.outfile',
+  'chat.agentHost.otel.dbSpanExporter.enabled'
+]
+[90m[main 2026-11-07T18:10:46.345Z][0m NativePolicyService#_updatePolicyDefinitions - Found 11 policy definitions
+[90m[main 2026-11-07T18:10:46.358Z][0m Creating watcher for productName com.microsoft.VSCode
+[90m[main 2026-11-07T18:10:46.360Z][0m NativePolicyService#_onDidPolicyChange - Updated policy values: {}
+[90m[main 2026-11-07T18:10:46.361Z][0m PolicyConfiguration#update [
+  'update.mode',
+  'telemetry.telemetryLevel',
+  'telemetry.feedback.enabled',
+  'extensions.allowed',
+  'chat.agentHost.claudeAgent.enabled',
+  'chat.agentHost.codexAgent.enabled',
+  'chat.agentHost.otel.enabled',
+  'chat.agentHost.otel.exporterType',
+  'chat.agentHost.otel.otlpEndpoint',
+  'chat.agentHost.otel.captureContent',
+  'chat.agentHost.otel.outfile'
+]
+[90m[main 2026-11-07T18:10:46.361Z][0m PolicyConfiguration#updatePolicyDefinitions [
+  'update.enableWindowsBackgroundUpdates',
+  'chat.agentHost.codexAgent.sdkRoot',
+  'chat.agentHost.codexAgent.codexHome',
+  'chat.agentHost.codexAgent.binaryArgs',
+  'chat.agentHost.otel.otlpProtocol',
+  'chat.agentHost.otel.serviceName',
+  'chat.agentHost.otel.resourceAttributes',
+  'chat.agentHost.otel.headers'
+]
+[90m[main 2026-11-07T18:10:46.361Z][0m NativePolicyService#_updatePolicyDefinitions - Found 15 policy definitions
+[90m[main 2026-11-07T18:10:46.362Z][0m Creating watcher for productName com.microsoft.VSCode
+[90m[main 2026-11-07T18:10:46.362Z][0m [File Watcher (node.js)] Request to start watching: /Library/Application Support/GitHubCopilot/managed-settings.json (excludes: <none>, includes: <all>, filter: <none>, correlationId: <none>),/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/User (excludes: <none>, includes: <all>, filter: <none>, correlationId: <none>),/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/User/settings.json (excludes: <none>, includes: <all>, filter: <none>, correlationId: <none>)
+[90m[main 2026-11-07T18:10:46.363Z][0m [File Watcher (node.js)] ignoring a path for watching who's stat info failed to resolve: /Library/Application Support/GitHubCopilot/managed-settings.json (error: Error: ENOENT: no such file or directory, stat '/Library/Application Support/GitHubCopilot/managed-settings.json')
+[90m[main 2026-11-07T18:10:46.363Z][0m [File Watcher (node.js)] starting fs.watchFile() on /Library/Application Support/GitHubCopilot/managed-settings.json (correlationId: undefined)
+[90m[main 2026-11-07T18:10:46.363Z][0m [File Watcher (node.js)] ignoring a path for watching who's stat info failed to resolve: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/User/settings.json (error: Error: ENOENT: no such file or directory, stat '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/User/settings.json')
+[90m[main 2026-11-07T18:10:46.363Z][0m [File Watcher (node.js)] starting fs.watchFile() on /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/User/settings.json (correlationId: undefined)
+[90m[main 2026-11-07T18:10:46.363Z][0m NativePolicyService#_onDidPolicyChange - Updated policy values: {}
+[90m[main 2026-11-07T18:10:46.363Z][0m PolicyConfiguration#update [
+  'chat.agentHost.otel.otlpProtocol',
+  'chat.agentHost.otel.serviceName',
+  'chat.agentHost.otel.resourceAttributes',
+  'chat.agentHost.otel.headers'
+]
+[90m[main 2026-11-07T18:10:46.365Z][0m Lifecycle#kill()
+[90m[main 2026-11-07T18:10:46.365Z][0m Lifecycle#onWillShutdown.fire()

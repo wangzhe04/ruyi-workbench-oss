@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, writeFile, echo } = require('./lib/platform-shell-fixture');
 (async () => {
 'use strict';
 // E2E(127 波 2-bis · 45 号文 §2-bis):永久豁免把 shell_send 误判成「对外发送」—— 真夹具。
@@ -162,7 +163,7 @@ try {
 
   // H1 判据 ①:无害的 shell_send 在全自动档不再「要人按」,而且命令真的跑了。
   {
-    nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input: `Get-ChildItem -Name; Set-Content -LiteralPath ${psQuote(markerA)} -Value ran; Write-Output HARMLESS_DONE`, timeoutMs: 20000 } };
+    nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input: (process.platform === 'win32' ? 'Get-ChildItem -Name; ' : 'ls -1; ') + writeFile(markerA) + '; ' + echo('HARMLESS_DONE'), timeoutMs: 20000 } };
     const ev = await runTurn({ sessionId: A, message: '列一下目录', cwd: HOME }, denyOnAsk);
     const asks = permissionAsks(ev);
     ok(asks.length === 0, `H1 ① 全自动 + shell_send 无害输入 → 不弹权限(实得 ${asks.length} 次` + (asks.length ? `,toolName=${asks[0].toolName}` : '') + ')');
@@ -175,7 +176,7 @@ try {
   // H2 判据 ②:同一个 shell_send,input 里带 rm -rf(PowerShell 注释里,真跑也不删东西)→ 仍然弹权限。
   //   放行了就会写出 markerB —— 所以「没被拦住」在磁盘上看得见,不只看事件。
   {
-    const input = `Set-Content -LiteralPath ${psQuote(markerB)} -Value ran # rm -rf C:\\somewhere`;
+    const input = writeFile(markerB) + ' # rm -rf C:\\somewhere';
     nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input, timeoutMs: 20000 } };
     const ev = await runTurn({ sessionId: A, message: '清一下', cwd: HOME }, denyOnAsk);
     const asks = permissionAsks(ev);
@@ -187,7 +188,7 @@ try {
   }
   // H3 冲刷:再递一行无害的,确认 H2 那行没有被写进 shell 的 stdin(真写进去了,它会先于 FLUSH_DONE 跑完)。
   {
-    nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input: 'Write-Output FLUSH_DONE', timeoutMs: 20000 } };
+    nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input: echo('FLUSH_DONE'), timeoutMs: 20000 } };
     const ev = await runTurn({ sessionId: A, message: '再看一眼', cwd: HOME }, denyOnAsk);
     const r = toolResults(ev)[0];
     ok(permissionAsks(ev).length === 0 && r && r.content && String(r.content.output || '').includes('FLUSH_DONE'),
@@ -197,7 +198,7 @@ try {
 
   // H4 给 (P) 留一条【真回合产生的】pending 权限待决:同样的 rm -rf 输入,不拒,看见待决落盘就停服。
   {
-    const input = `Set-Content -LiteralPath ${psQuote(markerD)} -Value ran # rm -rf C:\\somewhere`;
+    const input = writeFile(markerD) + ' # rm -rf C:\\somewhere';
     nextTool = { name: 'shell_send', args: { shellId: SHELL_ID, input, timeoutMs: 20000 } };
     let seen = null;
     const turn = runTurn({ sessionId: A, message: '再清一下', cwd: HOME }, e => { if (e.type === 'permission_request' && !seen) seen = e; });

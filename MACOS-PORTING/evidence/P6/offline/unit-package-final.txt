@@ -1,0 +1,18 @@
+✔ native closure never borrows an unrelated executable rpath for a reachable dylib (1099.488292ms)
+✔ native closure rejects an absolute rpath into a readable build-machine directory (778.141333ms)
+✔ native closure canonicalizes system prefixes before exempting an absolute dependency (849.011334ms)
+✔ a timed-out offline build probe prevents its same-group child from writing afterwards (2019.910375ms)
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (2.772959ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (1.733833ms)
+✔ an App root replaced with a symlink to an external copy is refused (0.971ms)
+✔ asset lock rejects changed components and missing provenance before building (2.339167ms)
+✔ manifest paths cannot escape their payload root (0.352708ms)
+✔ native audit rejects a real missing loader-relative dylib (213.535875ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4798.048875

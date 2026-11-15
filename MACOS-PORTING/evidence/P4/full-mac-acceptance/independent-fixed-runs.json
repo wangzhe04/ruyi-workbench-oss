@@ -1,0 +1,924 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "execution": "Eight direct runs executed serially against the final frozen candidate. No production edits, physical microphone capture, system sleep or extra UI interaction.",
+  "sourceFingerprint": "source-fingerprint.json",
+  "sourceCount": 53,
+  "environmentOverrides": {
+    "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app",
+    "RUYI_E2E_BROWSER": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+  },
+  "node": "v24.15.0",
+  "runs": [
+    {
+      "name": "client",
+      "source": "dev-harness/event-stream-client.browser.e2e.js",
+      "sourceSHA256Before": "4588b07aa157030c6ead0b7408a832d45cd4328bf07e26b2b2251b9b8ed42a1d",
+      "sourceSHA256After": "4588b07aa157030c6ead0b7408a832d45cd4328bf07e26b2b2251b9b8ed42a1d",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:16:15.234069+00:00",
+      "endedAtUTC": "2026-11-08T07:18:02.593627+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 39,
+      "failed": 0,
+      "allPassLine": "EVENT STREAM CLIENT BROWSER E2E: ALL PASS",
+      "log": "client-independent-fixed.txt",
+      "logSHA256": "bf8e863e1029d2f188a1517c4e5cace22d527ca5efe5c86b72afdc8c6398147a",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k",
+          "existsAfter": false
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 56846,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:16:15 2026",
+          "command": "node dev-harness/event-stream-client.browser.e2e.js"
+        },
+        {
+          "pid": 56848,
+          "ppid": 56846,
+          "created": "Sun Nov 8 15:16:15 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve --port 53197"
+        },
+        {
+          "pid": 56860,
+          "ppid": 56846,
+          "created": "Sun Nov 8 15:16:15 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --headless=new --disable-gpu --no-first-run --no-default-browser-check --disable-extensions --disable-sync --disable-background-networking --use-mock-keychain --password-store=basic --force-device-scale-factor=1 --window-size=1440,1000 --remote-debugging-port=53199 --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile http://127.0.0.1:53197/"
+        },
+        {
+          "pid": 56870,
+          "ppid": 56848,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 56871,
+          "ppid": 56870,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "<defunct>"
+        },
+        {
+          "pid": 56882,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=gpu-process --headless=new --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --start-stack-profiler --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --use-gl=disabled --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=19"
+        },
+        {
+          "pid": 56883,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=network --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --start-stack-profiler --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=28"
+        },
+        {
+          "pid": 56884,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=zh-CN --service-sandbox-type=service --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=40"
+        },
+        {
+          "pid": 56885,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts) --type=utility --utility-sub-type=mac_notifications.mojom.MacNotificationProvider --lang=zh-CN --service-sandbox-type=none --message-loop-type-ui --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708990997080739"
+        },
+        {
+          "pid": 56888,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --force-device-scale-factor=1 --remote-debugging-port=53199 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=7 --time-ticks-at-unix-epoch=-1792543010200894 --launch-time-ticks=1579166463849 --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708992871164437 --seatbelt-client=99"
+        },
+        {
+          "pid": 56889,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:16 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --force-device-scale-factor=1 --remote-debugging-port=53199 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=6 --time-ticks-at-unix-epoch=-1792543010200894 --launch-time-ticks=1579166471401 --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708991934122588 --seatbelt-client=99"
+        },
+        {
+          "pid": 56893,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:17 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --extension-process --force-device-scale-factor=1 --remote-debugging-port=53199 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=8 --time-ticks-at-unix-epoch=-1792543010200894 --launch-time-ticks=1579167094635 --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708993808206286 --seatbelt-client=105"
+        },
+        {
+          "pid": 56902,
+          "ppid": 56860,
+          "created": "Sun Nov 8 15:16:19 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-81ES3k/profile --start-stack-profiler --force-device-scale-factor=1 --remote-debugging-port=53199 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=9 --time-ticks-at-unix-epoch=-1792543010200894 --launch-time-ticks=1579169305728 --shared-files --field-trial-handle=1718379636,r,9914205083731720611,15535012004490014248,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,8188659942669706904,3840241586318008053,4 --trace-process-track-uuid=3190708994745248135 --seatbelt-client=111"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "host",
+      "source": "dev-harness/macos-desktop-host.e2e.js",
+      "sourceSHA256Before": "a63345fb174884c04666c7b72c14082dcd46096f7459133de9394f8196a9ce12",
+      "sourceSHA256After": "a63345fb174884c04666c7b72c14082dcd46096f7459133de9394f8196a9ce12",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:18:02.601982+00:00",
+      "endedAtUTC": "2026-11-08T07:18:17.863971+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 31,
+      "failed": 0,
+      "allPassLine": "MACOS DESKTOP HOST E2E: ALL PASS",
+      "log": "host-independent-fixed.txt",
+      "logSHA256": "3ca6f0d3334e4d08cac3f9b3c2a3836bbbd6edcceaf3b68be6970ee6b1995230",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 57294,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:18:02 2026",
+          "command": "node dev-harness/macos-desktop-host.e2e.js"
+        },
+        {
+          "pid": 57300,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:02 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/first.json --acceptance-close-window --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/setup.js --acceptance-screenshot /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/workbench.png"
+        },
+        {
+          "pid": 57312,
+          "ppid": 57305,
+          "created": "Sun Nov 8 15:18:03 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57314,
+          "ppid": 57305,
+          "created": "Sun Nov 8 15:18:03 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 kimi --version"
+        },
+        {
+          "pid": 57315,
+          "ppid": 57312,
+          "created": "Sun Nov 8 15:18:03 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57305,
+          "ppid": 57300,
+          "created": "Sun Nov 8 15:18:02 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57335,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:04 2026",
+          "command": "(RuyiDesktop)"
+        },
+        {
+          "pid": 57338,
+          "ppid": 57335,
+          "created": "Sun Nov 8 15:18:04 2026",
+          "command": "(node)"
+        },
+        {
+          "pid": 57363,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:05 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/missing.json"
+        },
+        {
+          "pid": 57374,
+          "ppid": 57371,
+          "created": "Sun Nov 8 15:18:06 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57371,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:06 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/script-failure.json --acceptance-auto-quit --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/failed-script.js"
+        },
+        {
+          "pid": 57399,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:07 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/invalid-result.json --acceptance-auto-quit --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/invalid-result.js"
+        },
+        {
+          "pid": 57402,
+          "ppid": 57399,
+          "created": "Sun Nov 8 15:18:08 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57427,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:09 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/auto.json --acceptance-auto-quit"
+        },
+        {
+          "pid": 57430,
+          "ppid": 57427,
+          "created": "Sun Nov 8 15:18:09 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57458,
+          "ppid": 57455,
+          "created": "Sun Nov 8 15:18:10 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57455,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:10 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/other.json --acceptance-auto-quit --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/inspect.js"
+        },
+        {
+          "pid": 57482,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:11 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/legacy.json --acceptance-auto-quit"
+        },
+        {
+          "pid": 57486,
+          "ppid": 57482,
+          "created": "Sun Nov 8 15:18:11 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57520,
+          "ppid": 57517,
+          "created": "Sun Nov 8 15:18:13 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57517,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:12 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/linked.json"
+        },
+        {
+          "pid": 57544,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:14 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/linked-alias.json"
+        },
+        {
+          "pid": 57546,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:14 2026",
+          "command": "(RuyiDesktop)"
+        },
+        {
+          "pid": 57556,
+          "ppid": 57550,
+          "created": "Sun Nov 8 15:18:14 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57550,
+          "ppid": 57546,
+          "created": "Sun Nov 8 15:18:14 2026",
+          "command": "(node)"
+        },
+        {
+          "pid": 57568,
+          "ppid": 57567,
+          "created": "Sun Nov 8 15:18:15 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57569,
+          "ppid": 57568,
+          "created": "Sun Nov 8 15:18:15 2026",
+          "command": "(git)"
+        },
+        {
+          "pid": 57567,
+          "ppid": 57550,
+          "created": "Sun Nov 8 15:18:15 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57576,
+          "ppid": 57294,
+          "created": "Sun Nov 8 15:18:15 2026",
+          "command": "(open)"
+        },
+        {
+          "pid": 57577,
+          "ppid": 1,
+          "created": "Sun Nov 8 15:18:15 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-sCkWSy/launch-services.json --acceptance-auto-quit"
+        },
+        {
+          "pid": 57581,
+          "ppid": 57577,
+          "created": "Sun Nov 8 15:18:16 2026",
+          "command": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0v9Yol/.local/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57602,
+          "ppid": 57581,
+          "created": "Sun Nov 8 15:18:16 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57604,
+          "ppid": 57602,
+          "created": "Sun Nov 8 15:18:16 2026",
+          "command": "<defunct>"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "bridge",
+      "source": "dev-harness/macos-desktop-bridge.e2e.js",
+      "sourceSHA256Before": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46",
+      "sourceSHA256After": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:18:17.871816+00:00",
+      "endedAtUTC": "2026-11-08T07:18:23.457574+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 53,
+      "failed": 0,
+      "allPassLine": "MACOS DESKTOP BRIDGE E2E: ALL PASS",
+      "log": "bridge-independent-fixed.txt",
+      "logSHA256": "f274023818577ae944797b9bc51fd5a012347967c2c166df4dbe6212b42ab603",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-bridge-t4xfyf",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 57622,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:18:17 2026",
+          "command": "(node)"
+        },
+        {
+          "pid": 57630,
+          "ppid": 57622,
+          "created": "Sun Nov 8 15:18:19 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-bridge-t4xfyf/native.json --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-bridge-t4xfyf/native-checks.js --acceptance-auto-quit"
+        },
+        {
+          "pid": 57634,
+          "ppid": 57630,
+          "created": "Sun Nov 8 15:18:19 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57674,
+          "ppid": 57622,
+          "created": "Sun Nov 8 15:18:22 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57676,
+          "ppid": 57674,
+          "created": "Sun Nov 8 15:18:22 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57677,
+          "ppid": 57676,
+          "created": "Sun Nov 8 15:18:22 2026",
+          "command": "<defunct>"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "media",
+      "source": "dev-harness/macos-desktop-media.e2e.js",
+      "sourceSHA256Before": "aa969b028799f67f4b923a2a6f79a0edb4e06acd07467c9cfb2cde0f8b386449",
+      "sourceSHA256After": "aa969b028799f67f4b923a2a6f79a0edb4e06acd07467c9cfb2cde0f8b386449",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:18:23.465728+00:00",
+      "endedAtUTC": "2026-11-08T07:18:32.967013+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 36,
+      "failed": 0,
+      "allPassLine": "MACOS DESKTOP MEDIA E2E: ALL PASS",
+      "log": "media-independent-fixed.txt",
+      "logSHA256": "8bfefd7d52766b074ddaeedbe90738eb3755a2163826e73c59e14de7d063c60c",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-media-QvTqqo",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 57680,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:18:23 2026",
+          "command": "node dev-harness/macos-desktop-media.e2e.js"
+        },
+        {
+          "pid": 57683,
+          "ppid": 57680,
+          "created": "Sun Nov 8 15:18:23 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-media-QvTqqo/report.json --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-media-QvTqqo/media.js --acceptance-auto-quit"
+        },
+        {
+          "pid": 57686,
+          "ppid": 57683,
+          "created": "Sun Nov 8 15:18:23 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "lifecycle",
+      "source": "dev-harness/macos-desktop-lifecycle.e2e.js",
+      "sourceSHA256Before": "1104c615df22a32c80f717c5d3e61616e1a9937d4142de2064021b84543cf7a7",
+      "sourceSHA256After": "1104c615df22a32c80f717c5d3e61616e1a9937d4142de2064021b84543cf7a7",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:18:32.974575+00:00",
+      "endedAtUTC": "2026-11-08T07:18:50.119110+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 23,
+      "failed": 0,
+      "allPassLine": "MACOS DESKTOP LIFECYCLE E2E: ALL PASS",
+      "log": "lifecycle-independent-fixed.txt",
+      "logSHA256": "c9ab3f6df12afbf5826b9054eee1d7bf4ddb9fec4cde0360809afc131dd49155",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 57741,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:18:32 2026",
+          "command": "node dev-harness/macos-desktop-lifecycle.e2e.js"
+        },
+        {
+          "pid": 57744,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:33 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/wake.json --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/page.js --acceptance-system-events"
+        },
+        {
+          "pid": 57748,
+          "ppid": 57744,
+          "created": "Sun Nov 8 15:18:33 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57788,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:37 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/close.json --acceptance-toggle-background --acceptance-close-window"
+        },
+        {
+          "pid": 57791,
+          "ppid": 57788,
+          "created": "Sun Nov 8 15:18:37 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57811,
+          "ppid": 57791,
+          "created": "Sun Nov 8 15:18:38 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 git --version"
+        },
+        {
+          "pid": 57812,
+          "ppid": 57811,
+          "created": "Sun Nov 8 15:18:38 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57813,
+          "ppid": 57812,
+          "created": "Sun Nov 8 15:18:38 2026",
+          "command": "<defunct>"
+        },
+        {
+          "pid": 57817,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:38 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/persisted.json --acceptance-close-window"
+        },
+        {
+          "pid": 57820,
+          "ppid": 57817,
+          "created": "Sun Nov 8 15:18:38 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57845,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:39 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/suspend-close-window.json --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/close-page.js --acceptance-close-window --acceptance-toggle-background"
+        },
+        {
+          "pid": 57849,
+          "ppid": 57845,
+          "created": "Sun Nov 8 15:18:40 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57875,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:41 2026",
+          "command": "(RuyiDesktop)"
+        },
+        {
+          "pid": 57878,
+          "ppid": 57875,
+          "created": "Sun Nov 8 15:18:41 2026",
+          "command": "(node)"
+        },
+        {
+          "pid": 57907,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:43 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/suspend-minimize.json --acceptance-script /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/close-page.js --acceptance-minimize"
+        },
+        {
+          "pid": 57910,
+          "ppid": 57907,
+          "created": "Sun Nov 8 15:18:43 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57939,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:46 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/normal.json"
+        },
+        {
+          "pid": 57943,
+          "ppid": 57939,
+          "created": "Sun Nov 8 15:18:46 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 57960,
+          "ppid": 57943,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/normal-mcp.cjs"
+        },
+        {
+          "pid": 57961,
+          "ppid": 57960,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/normal-mcp.cjs"
+        },
+        {
+          "pid": 57962,
+          "ppid": 57961,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/normal-mcp.cjs"
+        },
+        {
+          "pid": 57963,
+          "ppid": 57962,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/normal-mcp-descendant.cjs"
+        },
+        {
+          "pid": 57964,
+          "ppid": 57943,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 57965,
+          "ppid": 57964,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "<defunct>"
+        },
+        {
+          "pid": 57991,
+          "ppid": 57741,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash.json"
+        },
+        {
+          "pid": 57995,
+          "ppid": 57991,
+          "created": "Sun Nov 8 15:18:47 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1"
+        },
+        {
+          "pid": 58016,
+          "ppid": 58015,
+          "created": "Sun Nov 8 15:18:48 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-mcp-descendant.cjs"
+        },
+        {
+          "pid": 58013,
+          "ppid": 57995,
+          "created": "Sun Nov 8 15:18:48 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-mcp.cjs"
+        },
+        {
+          "pid": 58014,
+          "ppid": 58013,
+          "created": "Sun Nov 8 15:18:48 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-mcp.cjs"
+        },
+        {
+          "pid": 58015,
+          "ppid": 58014,
+          "created": "Sun Nov 8 15:18:48 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-mcp.cjs"
+        },
+        {
+          "pid": 58024,
+          "ppid": 57995,
+          "created": "Sun Nov 8 15:18:49 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-cli.cjs -p --output-format stream-json --verbose --include-partial-messages --permission-mode bypassPermissions --append-system-prompt <ruyi-environment>\\012你是运行在「如意 Ruyi」本地 AI 工作台 v3.0.1（源码 node 模式）里、担任这条线程引擎的 Claude Code。用户在如意的界面里和你对话：回复正文按 Markdown 渲染，工具调用显示成可折叠的卡片，权限确认与提问会弹窗；结论一定要写进回复正文，不要只留在工具输出里。\\012工具分工：原生工具（Read、Edit、Write、Bash、Grep、Glob、Agent 等）是主力，读写文件、搜代码、跑命令都优先用它们；项目说明 CLAUDE.md 由你按原生方式读取，如意不重复注入。\\012macOS 使用 POSIX 绝对路径。shell_run 默认 bash，常驻 shell 非 TTY。按 commandExitCode 判断完成。用工具实际检查与修改工作区。\\012桌面控制：未开启。不要承诺操作屏幕；开启工具开关后仍须检查实际工具与系统授权。\\012终端：本机没有可用的 ripgrep，不要在命令行里调用 rg。\\012界面渲染：代码块按语言高亮（围栏上写明语言）。界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；节点或连线文字里有括号、斜杠、冒号就整段加双引号（如 A[\"调用 f(x)\"]），注释单独占一行，步骤多的流程图竖排（TD），不要排成一长条。图片用 Markdown 图片语法引用本地文件即可显示。\\012工作区：当前工作目录就是这条线程的工作区，新文件默认放在这里；不要往工作区外写东西，除非用户明确要求。\\012权限：当前是「全自动」模式，操作不再逐个询问；删除、对外发送、改系统设置这类后果大的事仍要先和用户确认。用户拒绝某个操作就是他的决定，不要换工具或换写法绕过去。\\012管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。\\012</ruyi-environment>\\012\\012工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。\\012长任务并行：独立子任务用 orchestrate_agents({task, background:true})（单代理写顶层 task，多代理写 nodes），立即取得 runId 后继续主线；原生 provider 的长命令用 shell_start({command,cwd,name,timeoutMs})，立即取得 shellId 后继续主线。后台命令和代理完成/失败会主动向所属会话推送通知，代理的交付信封（每节点摘要与产物路径）在下一模型迭代或下一回合开头恰好送入一次，不需要轮询才知道完成；全文用 agent_result({runId, nodeId?}) 按需取。shell_poll 仅在需要增量输出时使用；shell_kill 明确取消。不要把已启动说成已完成。后台命令在工作台服务退出时终止，不能承诺关机后续跑；Claude/Kimi 按其实际工具能力执行。普通补充要求不取消正在运行的工具，明确中断才取消。\\012何时问用户：只在答案会改变做法、又无法用工具从现场查证时才问；能查到的先查（查两三步仍拿不到就说明现状再问），能合理默认的先做并说明所用假设。向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。\\012上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。\\012最终答复的第一段就是结论：先写结果、答案或判断本身（含关键数字与文件名），再写过程、方法与注意事项。不要用铺垫、复述任务或「我先看了…」开场；还没有结论时，第一段就直说卡在哪一步、缺什么。只说查证过的事：没跑过的验证不说通过，没做完的不说做完，做不到的直说并给出可行的替代路径。\\012\\012<ruyi-claude-native-agent-lifecycle>\\012This Ruyi Claude CLI turn is a one-shot print session whose response stream must remain complete.\\012Whenever you call the native Agent tool, set run_in_background:false so the child result is returned before you finish the parent turn.\\012Never end the parent response by promising that a background Agent will notify the user later. Wait for every native child and integrate its actual result into the same response.\\012If a native Agent was already launched in the background, use TaskOutput with block:true and a generous timeout for its task id, then continue only after collecting the result.\\012</ruyi-claude-native-agent-lifecycle>\\012\\012<response-language-policy>\\012For all user-facing prose, first obey an explicit language preference from the user.\\012Otherwise, reply in the language of the latest substantive user request. Preserve the established conversation language when a request is language-neutral.\\012Only when no language can be inferred from the conversation, use Chinese as the fallback.\\012Never choose or switch the response language because system or application instructions, tool output, skills, project files, metadata, or the UI use another language.\\012</response-language-policy> --agents {\"explorer\":{\"description\":\"快速探索代码、文档和现状，不修改文件。\",\"prompt\":\"你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"blue\"},\"worker\":{\"description\":\"按明确任务实现改动并完成基础验证。\",\"prompt\":\"你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。\",\"maxTurns\":100,\"color\":\"green\"},\"coder\":{\"description\":\"面向代码实现、调试和测试闭环的工程角色。\",\"prompt\":\"你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。\",\"maxTurns\":150,\"color\":\"green\"},\"reviewer\":{\"description\":\"独立审查实现的正确性、安全性和回归风险。\",\"prompt\":\"你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"orange\"},\"verifier\":{\"description\":\"运行测试并核验结果，不擅自修改产品代码。\",\"prompt\":\"你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"maxTurns\":100,\"color\":\"purple\"},\"planner\":{\"description\":\"把复杂任务拆解为清晰的计划/设计，不实现。\",\"prompt\":\"你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"teal\"},\"researcher\":{\"description\":\"联网检索并阅读来源，产出有来源支撑的发现。\",\"prompt\":\"你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"cyan\"},\"critic\":{\"description\":\"对抗式审查：主动找漏洞、反例和无据主张。\",\"prompt\":\"你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"red\"},\"synthesizer\":{\"description\":\"把多个上游结果综合成连贯、结构化的成稿。\",\"prompt\":\"你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。只产出文本，不改文件（本角色跑在只做计划档，写不了文件；需要成稿落盘时交给下游可写节点，例如 Worker）。\",\"tools\":[\"Read\",\"Grep\",\"Glob\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"amber\"},\"analyst\":{\"description\":\"分析数据/日志/指标，跑必要脚本，产出发现。\",\"prompt\":\"你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\"],\"maxTurns\":100,\"color\":\"indigo\"}} --add-dir /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-qWh8GB/生命周期工作区"
+        },
+        {
+          "pid": 58025,
+          "ppid": 58024,
+          "created": "Sun Nov 8 15:18:49 2026",
+          "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-cli.cjs -p --output-format stream-json --verbose --include-partial-messages --permission-mode bypassPermissions --append-system-prompt <ruyi-environment>\\012你是运行在「如意 Ruyi」本地 AI 工作台 v3.0.1（源码 node 模式）里、担任这条线程引擎的 Claude Code。用户在如意的界面里和你对话：回复正文按 Markdown 渲染，工具调用显示成可折叠的卡片，权限确认与提问会弹窗；结论一定要写进回复正文，不要只留在工具输出里。\\012工具分工：原生工具（Read、Edit、Write、Bash、Grep、Glob、Agent 等）是主力，读写文件、搜代码、跑命令都优先用它们；项目说明 CLAUDE.md 由你按原生方式读取，如意不重复注入。\\012macOS 使用 POSIX 绝对路径。shell_run 默认 bash，常驻 shell 非 TTY。按 commandExitCode 判断完成。用工具实际检查与修改工作区。\\012桌面控制：未开启。不要承诺操作屏幕；开启工具开关后仍须检查实际工具与系统授权。\\012终端：本机没有可用的 ripgrep，不要在命令行里调用 rg。\\012界面渲染：代码块按语言高亮（围栏上写明语言）。界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；节点或连线文字里有括号、斜杠、冒号就整段加双引号（如 A[\"调用 f(x)\"]），注释单独占一行，步骤多的流程图竖排（TD），不要排成一长条。图片用 Markdown 图片语法引用本地文件即可显示。\\012工作区：当前工作目录就是这条线程的工作区，新文件默认放在这里；不要往工作区外写东西，除非用户明确要求。\\012权限：当前是「全自动」模式，操作不再逐个询问；删除、对外发送、改系统设置这类后果大的事仍要先和用户确认。用户拒绝某个操作就是他的决定，不要换工具或换写法绕过去。\\012管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。\\012</ruyi-environment>\\012\\012工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。\\012长任务并行：独立子任务用 orchestrate_agents({task, background:true})（单代理写顶层 task，多代理写 nodes），立即取得 runId 后继续主线；原生 provider 的长命令用 shell_start({command,cwd,name,timeoutMs})，立即取得 shellId 后继续主线。后台命令和代理完成/失败会主动向所属会话推送通知，代理的交付信封（每节点摘要与产物路径）在下一模型迭代或下一回合开头恰好送入一次，不需要轮询才知道完成；全文用 agent_result({runId, nodeId?}) 按需取。shell_poll 仅在需要增量输出时使用；shell_kill 明确取消。不要把已启动说成已完成。后台命令在工作台服务退出时终止，不能承诺关机后续跑；Claude/Kimi 按其实际工具能力执行。普通补充要求不取消正在运行的工具，明确中断才取消。\\012何时问用户：只在答案会改变做法、又无法用工具从现场查证时才问；能查到的先查（查两三步仍拿不到就说明现状再问），能合理默认的先做并说明所用假设。向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。\\012上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。\\012最终答复的第一段就是结论：先写结果、答案或判断本身（含关键数字与文件名），再写过程、方法与注意事项。不要用铺垫、复述任务或「我先看了…」开场；还没有结论时，第一段就直说卡在哪一步、缺什么。只说查证过的事：没跑过的验证不说通过，没做完的不说做完，做不到的直说并给出可行的替代路径。\\012\\012<ruyi-claude-native-agent-lifecycle>\\012This Ruyi Claude CLI turn is a one-shot print session whose response stream must remain complete.\\012Whenever you call the native Agent tool, set run_in_background:false so the child result is returned before you finish the parent turn.\\012Never end the parent response by promising that a background Agent will notify the user later. Wait for every native child and integrate its actual result into the same response.\\012If a native Agent was already launched in the background, use TaskOutput with block:true and a generous timeout for its task id, then continue only after collecting the result.\\012</ruyi-claude-native-agent-lifecycle>\\012\\012<response-language-policy>\\012For all user-facing prose, first obey an explicit language preference from the user.\\012Otherwise, reply in the language of the latest substantive user request. Preserve the established conversation language when a request is language-neutral.\\012Only when no language can be inferred from the conversation, use Chinese as the fallback.\\012Never choose or switch the response language because system or application instructions, tool output, skills, project files, metadata, or the UI use another language.\\012</response-language-policy> --agents {\"explorer\":{\"description\":\"快速探索代码、文档和现状，不修改文件。\",\"prompt\":\"你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"blue\"},\"worker\":{\"description\":\"按明确任务实现改动并完成基础验证。\",\"prompt\":\"你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。\",\"maxTurns\":100,\"color\":\"green\"},\"coder\":{\"description\":\"面向代码实现、调试和测试闭环的工程角色。\",\"prompt\":\"你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。\",\"maxTurns\":150,\"color\":\"green\"},\"reviewer\":{\"description\":\"独立审查实现的正确性、安全性和回归风险。\",\"prompt\":\"你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"orange\"},\"verifier\":{\"description\":\"运行测试并核验结果，不擅自修改产品代码。\",\"prompt\":\"你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"maxTurns\":100,\"color\":\"purple\"},\"planner\":{\"description\":\"把复杂任务拆解为清晰的计划/设计，不实现。\",\"prompt\":\"你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"teal\"},\"researcher\":{\"description\":\"联网检索并阅读来源，产出有来源支撑的发现。\",\"prompt\":\"你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"cyan\"},\"critic\":{\"description\":\"对抗式审查：主动找漏洞、反例和无据主张。\",\"prompt\":\"你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"red\"},\"synthesizer\":{\"description\":\"把多个上游结果综合成连贯、结构化的成稿。\",\"prompt\":\"你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。只产出文本，不改文件（本角色跑在只做计划档，写不了文件；需要成稿落盘时交给下游可写节点，例如 Worker）。\",\"tools\":[\"Read\",\"Grep\",\"Glob\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"amber\"},\"analyst\":{\"description\":\"分析数据/日志/指标，跑必要脚本，产出发现。\",\"prompt\":\"你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\"],\"maxTurns\":100,\"color\":\"indigo\"}} --add-dir /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-qWh8GB/生命周期工作区"
+        },
+        {
+          "pid": 58026,
+          "ppid": 58025,
+          "created": "Sun Nov 8 15:18:49 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-cli.cjs -p --output-format stream-json --verbose --include-partial-messages --permission-mode bypassPermissions --append-system-prompt <ruyi-environment>\\012你是运行在「如意 Ruyi」本地 AI 工作台 v3.0.1（源码 node 模式）里、担任这条线程引擎的 Claude Code。用户在如意的界面里和你对话：回复正文按 Markdown 渲染，工具调用显示成可折叠的卡片，权限确认与提问会弹窗；结论一定要写进回复正文，不要只留在工具输出里。\\012工具分工：原生工具（Read、Edit、Write、Bash、Grep、Glob、Agent 等）是主力，读写文件、搜代码、跑命令都优先用它们；项目说明 CLAUDE.md 由你按原生方式读取，如意不重复注入。\\012macOS 使用 POSIX 绝对路径。shell_run 默认 bash，常驻 shell 非 TTY。按 commandExitCode 判断完成。用工具实际检查与修改工作区。\\012桌面控制：未开启。不要承诺操作屏幕；开启工具开关后仍须检查实际工具与系统授权。\\012终端：本机没有可用的 ripgrep，不要在命令行里调用 rg。\\012界面渲染：代码块按语言高亮（围栏上写明语言）。界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；节点或连线文字里有括号、斜杠、冒号就整段加双引号（如 A[\"调用 f(x)\"]），注释单独占一行，步骤多的流程图竖排（TD），不要排成一长条。图片用 Markdown 图片语法引用本地文件即可显示。\\012工作区：当前工作目录就是这条线程的工作区，新文件默认放在这里；不要往工作区外写东西，除非用户明确要求。\\012权限：当前是「全自动」模式，操作不再逐个询问；删除、对外发送、改系统设置这类后果大的事仍要先和用户确认。用户拒绝某个操作就是他的决定，不要换工具或换写法绕过去。\\012管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。\\012</ruyi-environment>\\012\\012工具批次：参数已确定且互不依赖的调用，在同一条助手消息中一次发出，结果按所列顺序返回。后一步依赖前一步结果时分阶段调用：先等本批 tool_result 再发下一批。request_user_input、权限决策及有先读后改依赖的写操作必须分批。\\012长任务并行：独立子任务用 orchestrate_agents({task, background:true})（单代理写顶层 task，多代理写 nodes），立即取得 runId 后继续主线；原生 provider 的长命令用 shell_start({command,cwd,name,timeoutMs})，立即取得 shellId 后继续主线。后台命令和代理完成/失败会主动向所属会话推送通知，代理的交付信封（每节点摘要与产物路径）在下一模型迭代或下一回合开头恰好送入一次，不需要轮询才知道完成；全文用 agent_result({runId, nodeId?}) 按需取。shell_poll 仅在需要增量输出时使用；shell_kill 明确取消。不要把已启动说成已完成。后台命令在工作台服务退出时终止，不能承诺关机后续跑；Claude/Kimi 按其实际工具能力执行。普通补充要求不取消正在运行的工具，明确中断才取消。\\012何时问用户：只在答案会改变做法、又无法用工具从现场查证时才问；能查到的先查（查两三步仍拿不到就说明现状再问），能合理默认的先做并说明所用假设。向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。\\012上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。\\012最终答复的第一段就是结论：先写结果、答案或判断本身（含关键数字与文件名），再写过程、方法与注意事项。不要用铺垫、复述任务或「我先看了…」开场；还没有结论时，第一段就直说卡在哪一步、缺什么。只说查证过的事：没跑过的验证不说通过，没做完的不说做完，做不到的直说并给出可行的替代路径。\\012\\012<ruyi-claude-native-agent-lifecycle>\\012This Ruyi Claude CLI turn is a one-shot print session whose response stream must remain complete.\\012Whenever you call the native Agent tool, set run_in_background:false so the child result is returned before you finish the parent turn.\\012Never end the parent response by promising that a background Agent will notify the user later. Wait for every native child and integrate its actual result into the same response.\\012If a native Agent was already launched in the background, use TaskOutput with block:true and a generous timeout for its task id, then continue only after collecting the result.\\012</ruyi-claude-native-agent-lifecycle>\\012\\012<response-language-policy>\\012For all user-facing prose, first obey an explicit language preference from the user.\\012Otherwise, reply in the language of the latest substantive user request. Preserve the established conversation language when a request is language-neutral.\\012Only when no language can be inferred from the conversation, use Chinese as the fallback.\\012Never choose or switch the response language because system or application instructions, tool output, skills, project files, metadata, or the UI use another language.\\012</response-language-policy> --agents {\"explorer\":{\"description\":\"快速探索代码、文档和现状，不修改文件。\",\"prompt\":\"你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"blue\"},\"worker\":{\"description\":\"按明确任务实现改动并完成基础验证。\",\"prompt\":\"你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。\",\"maxTurns\":100,\"color\":\"green\"},\"coder\":{\"description\":\"面向代码实现、调试和测试闭环的工程角色。\",\"prompt\":\"你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。\",\"maxTurns\":150,\"color\":\"green\"},\"reviewer\":{\"description\":\"独立审查实现的正确性、安全性和回归风险。\",\"prompt\":\"你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"orange\"},\"verifier\":{\"description\":\"运行测试并核验结果，不擅自修改产品代码。\",\"prompt\":\"你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"maxTurns\":100,\"color\":\"purple\"},\"planner\":{\"description\":\"把复杂任务拆解为清晰的计划/设计，不实现。\",\"prompt\":\"你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"teal\"},\"researcher\":{\"description\":\"联网检索并阅读来源，产出有来源支撑的发现。\",\"prompt\":\"你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"cyan\"},\"critic\":{\"description\":\"对抗式审查：主动找漏洞、反例和无据主张。\",\"prompt\":\"你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\",\"WebSearch\",\"WebFetch\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"red\"},\"synthesizer\":{\"description\":\"把多个上游结果综合成连贯、结构化的成稿。\",\"prompt\":\"你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。只产出文本，不改文件（本角色跑在只做计划档，写不了文件；需要成稿落盘时交给下游可写节点，例如 Worker）。\",\"tools\":[\"Read\",\"Grep\",\"Glob\"],\"permissionMode\":\"plan\",\"maxTurns\":100,\"color\":\"amber\"},\"analyst\":{\"description\":\"分析数据/日志/指标，跑必要脚本，产出发现。\",\"prompt\":\"你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。\",\"tools\":[\"Read\",\"Grep\",\"Glob\",\"Bash\"],\"maxTurns\":100,\"color\":\"indigo\"}} --add-dir /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-qWh8GB/生命周期工作区"
+        },
+        {
+          "pid": 58027,
+          "ppid": 58026,
+          "created": "Sun Nov 8 15:18:49 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-iJhvZ9/host-crash-cli-descendant.cjs"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "replay",
+      "source": "dev-harness/event-stream-replay.browser.e2e.js",
+      "sourceSHA256Before": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40",
+      "sourceSHA256After": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:18:50.125852+00:00",
+      "endedAtUTC": "2026-11-08T07:19:02.161415+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 24,
+      "failed": 0,
+      "allPassLine": "EVENT STREAM REPLAY BROWSER E2E: ALL PASS",
+      "log": "replay-independent-fixed.txt",
+      "logSHA256": "31830020c4ef94f7cab4c06a85c42597daa9ab8129edd37c3528fde7f79977c7",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 58047,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:18:50 2026",
+          "command": "node dev-harness/event-stream-replay.browser.e2e.js"
+        },
+        {
+          "pid": 58049,
+          "ppid": 58047,
+          "created": "Sun Nov 8 15:18:50 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve --port 54083"
+        },
+        {
+          "pid": 58062,
+          "ppid": 58047,
+          "created": "Sun Nov 8 15:18:50 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --headless=new --disable-gpu --no-first-run --no-default-browser-check --disable-extensions --disable-sync --disable-background-networking --use-mock-keychain --password-store=basic --force-device-scale-factor=1 --window-size=1280,900 --remote-debugging-port=54085 --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile http://127.0.0.1:54083/"
+        },
+        {
+          "pid": 58096,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=gpu-process --headless=new --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --start-stack-profiler --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --use-gl=disabled --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=20"
+        },
+        {
+          "pid": 58097,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=network --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --start-stack-profiler --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=20"
+        },
+        {
+          "pid": 58099,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=zh-CN --service-sandbox-type=service --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=37"
+        },
+        {
+          "pid": 58100,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "<defunct>"
+        },
+        {
+          "pid": 58102,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --force-device-scale-factor=1 --remote-debugging-port=54085 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=7 --time-ticks-at-unix-epoch=-1792543010200540 --launch-time-ticks=1579321382833 --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708992871164437 --seatbelt-client=99"
+        },
+        {
+          "pid": 58103,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:51 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --force-device-scale-factor=1 --remote-debugging-port=54085 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=6 --time-ticks-at-unix-epoch=-1792543010200540 --launch-time-ticks=1579321390097 --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708991934122588 --seatbelt-client=99"
+        },
+        {
+          "pid": 58107,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:52 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --extension-process --force-device-scale-factor=1 --remote-debugging-port=54085 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=8 --time-ticks-at-unix-epoch=-1792543010200540 --launch-time-ticks=1579322023619 --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708993808206286 --seatbelt-client=105"
+        },
+        {
+          "pid": 58120,
+          "ppid": 58062,
+          "created": "Sun Nov 8 15:18:55 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-xOV1KB/profile --force-device-scale-factor=1 --remote-debugging-port=54085 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=9 --time-ticks-at-unix-epoch=-1792543010200540 --launch-time-ticks=1579325154935 --shared-files --field-trial-handle=1718379636,r,9113639180264425338,11791398015257555325,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5450105947806169387,6701697778658179609,4 --trace-process-track-uuid=3190708994745248135 --seatbelt-client=111"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "pageshow",
+      "source": "dev-harness/event-stream-pageshow.browser.e2e.js",
+      "sourceSHA256Before": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a",
+      "sourceSHA256After": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:19:02.169086+00:00",
+      "endedAtUTC": "2026-11-08T07:19:05.343082+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 11,
+      "failed": 0,
+      "allPassLine": "EVENT STREAM PAGESHOW BROWSER E2E: ALL PASS",
+      "log": "pageshow-independent-fixed.txt",
+      "logSHA256": "07b7d1cb1ac1bf68c4e4da3a21e74a93bbc2ac27009dbe7891ed56f5f3d043e4",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW",
+          "existsAfter": false
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 58145,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "node dev-harness/event-stream-pageshow.browser.e2e.js"
+        },
+        {
+          "pid": 58148,
+          "ppid": 58145,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve --port 54139"
+        },
+        {
+          "pid": 58159,
+          "ppid": 58145,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --headless=new --disable-gpu --no-first-run --no-default-browser-check --disable-extensions --disable-sync --disable-background-networking --use-mock-keychain --password-store=basic --force-device-scale-factor=1 --window-size=1440,1000 --remote-debugging-port=54141 --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile http://127.0.0.1:54139/"
+        },
+        {
+          "pid": 58166,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=gpu-process --headless=new --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --start-stack-profiler --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --use-gl=disabled --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=29"
+        },
+        {
+          "pid": 58167,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=network --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --start-stack-profiler --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=25"
+        },
+        {
+          "pid": 58170,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=zh-CN --service-sandbox-type=service --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=50"
+        },
+        {
+          "pid": 58171,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "(Google Chrome fo)"
+        },
+        {
+          "pid": 58174,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --force-device-scale-factor=1 --remote-debugging-port=54141 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=7 --time-ticks-at-unix-epoch=-1792543010200513 --launch-time-ticks=1579332591407 --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708992871164437 --seatbelt-client=97"
+        },
+        {
+          "pid": 58175,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:02 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --start-stack-profiler --force-device-scale-factor=1 --remote-debugging-port=54141 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=6 --time-ticks-at-unix-epoch=-1792543010200513 --launch-time-ticks=1579332600009 --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708991934122588 --seatbelt-client=97"
+        },
+        {
+          "pid": 58188,
+          "ppid": 58159,
+          "created": "Sun Nov 8 15:19:03 2026",
+          "command": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-8W8KjW/profile --extension-process --force-device-scale-factor=1 --remote-debugging-port=54141 --disable-gpu-compositing --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=8 --time-ticks-at-unix-epoch=-1792543010200513 --launch-time-ticks=1579333167503 --shared-files --field-trial-handle=1718379636,r,4958656010406214900,3369684354387875467,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5282750019201403913,17590178832134947757,4 --trace-process-track-uuid=3190708993808206286 --seatbelt-client=109"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "workspace-resolve",
+      "source": "dev-harness/workspace-resolve.e2e.js",
+      "sourceSHA256Before": "03ba0353e33b2d760e3b1c31b540503e6839be4fad592ae8280167e13b0d13a1",
+      "sourceSHA256After": "03ba0353e33b2d760e3b1c31b540503e6839be4fad592ae8280167e13b0d13a1",
+      "frozen53MismatchesAfter": [],
+      "startedAtUTC": "2026-11-08T07:19:05.350208+00:00",
+      "endedAtUTC": "2026-11-08T07:19:12.375407+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 38,
+      "failed": 0,
+      "allPassLine": "WORKSPACE-RESOLVE E2E: ALL PASS",
+      "log": "workspace-resolve-independent-fixed.txt",
+      "logSHA256": "4c274586731d84400d724b975dc25d079cd5e3392fb546a1d41c6fcdd19dd6f3",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-workspace-resolve-e2e",
+          "existsAfter": false
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 58195,
+          "ppid": 56842,
+          "created": "Sun Nov 8 15:19:05 2026",
+          "command": "<defunct>"
+        },
+        {
+          "pid": 58215,
+          "ppid": 58195,
+          "created": "Sun Nov 8 15:19:07 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fake-openai.js 54172"
+        },
+        {
+          "pid": 58216,
+          "ppid": 58195,
+          "created": "Sun Nov 8 15:19:07 2026",
+          "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve --port 54174"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant and unique-fixture-argv creation identities during execution, then checked their absence after natural exit. No additional signals were sent by reviewer."
+      }
+    }
+  ]
+}

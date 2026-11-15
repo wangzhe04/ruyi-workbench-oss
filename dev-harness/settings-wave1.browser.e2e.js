@@ -213,6 +213,16 @@ const fill = (text, params) => String(text).replace(/\{\{\s*(\w+)\s*\}\}/g, (_, 
     })()`);
     const stubEnvelope = (match, method) => ev(`(() => { window.__stubs = window.__stubs.filter(s => s.match !== ${JSON.stringify(match)}); window.__stubs.push({ match: ${JSON.stringify(match)}, method: ${JSON.stringify(method || '')}, body: { ok: false, error: { code: 'api.request_failed', params: {}, message: ${JSON.stringify(ENVELOPE_MESSAGE)} } } }); return true; })()`);
     await switchTab('update');
+    if (process.platform === 'darwin') {
+      ok(await ev(`['ovPickBtn','ovPrecheckBtn','ovApplyBtn','ovRollbackBtn'].every(id=>document.getElementById(id)?.disabled)`),
+        'W3 Mac Windows-overlay controls remain disabled');
+      const originalConfig = fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8');
+      const refused = await fx.request('POST', '/api/overlay/rollback', { force: true });
+      ok(refused.status === 501 && refused.json?.error?.code === 'overlay.platform_unsupported'
+        && fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8') === originalConfig,
+        'W3 Mac forced overlay rollback is explicitly unsupported and leaves configuration unchanged');
+      console.log('SKIP Windows overlay rollback/zip-picker UI error controls on Mac; shared MCP picker error path still tested');
+    } else {
     await stubEnvelope('/api/overlay/rollback', 'POST');
     await click('#ovRollbackBtn');
     const rollbackHint = await fx.waitForEval(`(() => { const n = document.getElementById('ovRollbackHint'); return n && n.textContent && n.textContent !== ${JSON.stringify(ZH['settings.update.rollingBack'])} ? n.textContent : null; })()`, 100);
@@ -222,6 +232,7 @@ const fill = (text, params) => String(text).replace(/\{\{\s*(\w+)\s*\}\}/g, (_, 
     await click('#ovPickBtn');
     const pickToast = await waitToast(x => x.includes(ENVELOPE_MESSAGE));
     ok(Boolean(pickToast) && !String(pickToast).includes('[object Object]'), `W3b 选 zip 失败的 toast 是 message 原句(实测 ${JSON.stringify(pickToast)})`);
+    }
     await switchTab('integrations');
     await clearToasts();
     await stubEnvelope('/api/pick-folder', 'POST');

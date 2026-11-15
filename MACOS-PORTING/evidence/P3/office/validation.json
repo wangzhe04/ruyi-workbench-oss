@@ -1,0 +1,234 @@
+{
+  "date": "2026-11-07",
+  "package": "P3-02",
+  "implementationCommit": "bd2eb093fc85e05dfb36f63c9254fb24c271bfde",
+  "baselineCommit": "dffce331",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "python": "3.12.10",
+    "node": "24.15.0",
+    "libreoffice": "LibreOfficeDev 26.8.0.0.alpha0",
+    "poppler": "26.05.0"
+  },
+  "localAcceptance": "passed",
+  "phaseAcceptance": "P3 remains in_progress; P3-03/P3-04 and actual Windows same-candidate regression remain open",
+  "requirements": [
+    {
+      "id": "office-create-read",
+      "result": "passed",
+      "evidence": [
+        "offline.txt",
+        "samples/tool-results.json",
+        "independent.txt",
+        "samples/verification.json"
+      ],
+      "detail": "Real Workbench CLI MCP proxy invokes actual ACC DOCX/XLSX/PPTX/PDF and chart writers; independent readers match all sample values. Existing file overwrite is exercised. Default PDF pagination now handles 1/3/7-page PDFs; explicit out-of-range input remains rejected."
+    },
+    {
+      "id": "chinese-fonts-and-layout",
+      "result": "passed_local",
+      "evidence": [
+        "independent.txt",
+        "samples/render-verification.json",
+        "samples/renders/visual-comparison.json",
+        "render.txt",
+        "render-content.txt"
+      ],
+      "detail": "Actual system font glyph coverage, actual embedded PDF font streams, and six rendered pages visually checked: DOCX1 + XLSX1 + PPTX3 + native PDF1. Latest accepted renders have identical pixels to the directly inspected images. No universal Unicode/font-version claim."
+    },
+    {
+      "id": "image-extraction",
+      "result": "passed",
+      "evidence": [
+        "independent.txt",
+        "samples/verification.json"
+      ],
+      "detail": "DOCX/XLSX source-with-image fixtures and generated PPTX embedded images hash-match chart bytes; actual native PDF reader returns page raster with no image warning."
+    },
+    {
+      "id": "missing-dependency-and-font-errors",
+      "result": "passed",
+      "evidence": [
+        "office-v2-final.txt",
+        "independent.txt",
+        "review.json"
+      ],
+      "detail": "116 Office checks include missing docx/openpyxl/pptx/reportlab/matplotlib, locked files, atomic writes, and no silent data loss. Independent font checks verify CID fallback warning, no font resource claim for blank PDFs, and persistent warning for a corrupt chart font."
+    },
+    {
+      "id": "dependency-lock-and-offline-replay",
+      "result": "passed_local",
+      "evidence": [
+        "offline.txt",
+        "wheel-build.txt",
+        "wheel-manifest.json"
+      ],
+      "detail": "60 runtime distributions pinned; matching ACC wheel separately built. Fresh noneditable environment installed under PIP_NO_INDEX/--no-index, pip check clean, source import location verified outside checkout, actual same MCP/rollback sequence repeated successfully without source PYTHONPATH."
+    },
+    {
+      "id": "checkpoint-and-write-audit",
+      "result": "passed",
+      "evidence": [
+        "offline.txt"
+      ],
+      "detail": "All five artifact paths have actual checkpoints; every Office/image writer has successful audit. Production HTTP rollback restores original DOCX exact bytes and removes newly created XLSX/PPTX/PDF/PNG, including workbook chart edits."
+    },
+    {
+      "id": "windows-and-minimum-os",
+      "result": "pending_actual_environments",
+      "evidence": [
+        "review.json",
+        "independent.txt"
+      ],
+      "detail": "Windows original token/font selection and platform-independent Windows lock error behavior pass local checks. Actual Windows same-candidate execution, macOS14 and wheel deployment-target compatibility remain unverified and unwaived."
+    }
+  ],
+  "checks": [
+    {
+      "command": "RUYI_OFFICE_REQUIRED=1 RUYI_ACC_INSTALLED_ONLY=1 RUYI_ACC_PYTHON=<fresh locked env> node dev-harness/macos-office-artifacts.e2e.js",
+      "result": "24 pass, 0 fail, 0 skip",
+      "evidence": [
+        "offline.txt"
+      ]
+    },
+    {
+      "command": "python tests/verify_macos_office_sample.py <retained sample>",
+      "result": "24 pass, 0 fail, 0 skip",
+      "evidence": [
+        "independent.txt"
+      ]
+    },
+    {
+      "command": "python tests/smoke_office_v2.py",
+      "result": "116 pass, no skip",
+      "evidence": [
+        "office-v2-final.txt"
+      ]
+    },
+    {
+      "command": "python tests/smoke_office_read_v2.py",
+      "result": "98 pass, no skip",
+      "evidence": [
+        "office-read-final.txt"
+      ]
+    },
+    {
+      "command": "python tests/smoke_v192_chart_types.py",
+      "result": "43 pass, no skip",
+      "evidence": [
+        "chart-types.txt"
+      ]
+    },
+    {
+      "command": "python tests/smoke_office_quality.py",
+      "result": "PASS; original pagination, numeric/formula types, and Word pagination assertions retained",
+      "evidence": [
+        "office-quality.txt"
+      ]
+    },
+    {
+      "command": "node dev-harness/run-all.js --fast",
+      "result": "full unit 2490 pass / 18 existing skip / 0 fail; first static run 78/80, two generated inventories stale",
+      "evidence": [
+        "fast-first.txt",
+        "unit.txt"
+      ]
+    },
+    {
+      "command": "node dev-harness/process-safety.static.e2e.js; node dev-harness/route-inventory.static.e2e.js",
+      "result": "both failed static groups corrected against real source inventory then passed. Other unchanged78 groups reuse first-run results, no new single-run80/80 claim.",
+      "evidence": [
+        "process-safety-final.txt",
+        "route-final.txt"
+      ]
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js; node ruyi-workbench/app/build.js --check",
+      "result": "1126 files, 0 syntax errors; generated server fresh",
+      "evidence": [
+        "syntax.txt",
+        "build.txt"
+      ]
+    }
+  ],
+  "review": {
+    "result": "approved_with_environment_limitations",
+    "evidence": "review.json",
+    "remainingCodeFindings": 0,
+    "resolved": [
+      "Remove unproven font_embedded output field; verify actual font streams",
+      "Correct ReportLab missing-dependency injection to clear/restore full module tree",
+      "Fresh renderer destination and zero-exit stale-output negative control"
+    ],
+    "additionalFix": "Default PDF pagination verified on actual1/3/7-page inputs; explicit bounds unchanged"
+  },
+  "failuresAndResolutions": [
+    {
+      "issue": "First real proxy attempt used edit tier for exec-classified chart tool",
+      "resolution": "Fixture invokes existing exec-tier proxy; no permissions weakened",
+      "evidence": "mcp-tier-first.txt"
+    },
+    {
+      "issue": "Short PDF default1-5 was out of range; a subsequent fixture sent a list instead of documented page string",
+      "resolution": "Nullable omitted pages now clamps actual first5; explicit invalid input still fails. Final MCP calls path only.",
+      "evidence": [
+        "mcp-default-pages-first.txt",
+        "mcp-invalid-pages-fixture.txt",
+        "office-read-final.txt"
+      ]
+    },
+    {
+      "issue": "New missing-reportlab injection first used wrong suffix, then failed to clear loaded submodule cache",
+      "resolution": "Valid PDF target plus complete module-tree blocking/restoration; missing-dependency behavior independently confirmed before accepting",
+      "evidence": [
+        "office-v2-first.txt",
+        "office-v2-cache-failure.txt",
+        "office-v2-final.txt",
+        "review.json"
+      ]
+    },
+    {
+      "issue": "Legacy Office-read suite ran under too narrow ACC_TOOLSETS and lacked fetch",
+      "resolution": "Restore full platform-supported toolsets in isolated runner; complete suite passes without skipping fetch",
+      "evidence": [
+        "office-read-first.txt",
+        "office-read-final.txt"
+      ]
+    },
+    {
+      "issue": "Bundled LibreOffice initially only loaded its Latin fonts and rendered missing CJK; Arial control group failed too while native QuickLook rendered Chinese",
+      "resolution": "Renderer uses private Fontconfig including Mac system fonts. Product font not changed to hide renderer gap. Fresh outputs and independent extracted text/visual checks pass.",
+      "evidence": [
+        "render-first.txt",
+        "render-first-check.txt",
+        "render-first-failure.png",
+        "render.txt",
+        "render-content.txt"
+      ]
+    },
+    {
+      "issue": "Renderer helper could reuse stale PDFs after a converter returned0 without output",
+      "resolution": "Per-run fresh renders-* destination and independent negative-control regression",
+      "evidence": [
+        "review.json",
+        "independent.txt"
+      ]
+    },
+    {
+      "issue": "New E2E changed scoped process count and route-test coverage references",
+      "resolution": "Owner count344→345 by actual files; original route generator refreshed references only, route count175/auth161 unchanged",
+      "evidence": [
+        "fast-first.txt",
+        "process-safety-final.txt",
+        "route-final.txt"
+      ]
+    }
+  ],
+  "notVerified": [
+    "Actual Windows same-candidate CI/runtime (not waived)",
+    "macOS14 arm64 and minimum wheel deployment targets",
+    "Signed application identity and clean-machine offline release (later phases)"
+  ],
+  "nextPackage": "P3-03 Playwright与浏览器运行时"
+}

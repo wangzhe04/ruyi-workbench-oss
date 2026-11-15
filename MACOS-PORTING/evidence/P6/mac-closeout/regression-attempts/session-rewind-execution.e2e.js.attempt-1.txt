@@ -1,0 +1,19 @@
+PASS R1 relay captures the admitted execution and first-turn anchor
+PASS R2 completed A remains undoable with matching last-admitted evidence
+PASS R3 completed undo persists the truncated history
+PASS R4 completed B invalidates the old A undo identity even while idle
+PASS R5 rejected stale undo neither truncates A nor B
+PASS R5a null to B to null cannot reuse the previous idle observation
+PASS R5b guarded idle without an observation is not a safe rewind target
+PASS R5c changed idle turnSeq refuses rollback
+PASS R5c changed idle rewindGen refuses rollback
+PASS R6 guarded missing identity cannot auto-stop a live execution
+PASS R7 explicit idle observation cannot target a live execution
+PASS R8 rejected undo leaves the original execution active
+PASS R9 matching active undo stops, settles and rewinds in one guarded request
+PASS R10 a new server instance rejects the old completed execution identity
+PASS R10a old idle observation cannot cross a server instance restart
+PASS R11 old idle API rewind remains compatible without the guarded UI contract
+PASS R12 matching explicit idle observation and persistent anchor permit guarded rewind
+
+SESSION REWIND EXECUTION E2E: ALL PASS

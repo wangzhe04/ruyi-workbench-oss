@@ -1,0 +1,466 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T20:10:29.081755+00:00",
+  "base": "f4f8ba23",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "sources": [
+    {
+      "path": "README.md",
+      "bytes": 66010,
+      "sha256": "2a1ed803b0579d8df538321cf12c042adcc0ed378ec3578406a8808c3dd4842f",
+      "gitBlob": "56823e1eb834d03fbadae1b02165ac8620761522"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 73111,
+      "sha256": "ad3e83e1af26779236abd03592eec399b7bd04651ce851cb61cf0f2c14270d7a",
+      "gitBlob": "ae2bc88bc88bded3704a6cfc0b5e65b77b66fc39"
+    },
+    {
+      "path": "dev-harness/desktop-execution-root.e2e.js",
+      "bytes": 8788,
+      "sha256": "560df60cd0b8f9b3b5a573a2c78cac883d0ef3e222c8b614432654558ddde8dc",
+      "gitBlob": "e62a89b09c3a878b68021fb9c950f92fc2bbbba2"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "bytes": 52389,
+      "sha256": "7bf4c1309d18ee9f74423c4a640fc36b00a88ba9d52324a6f07b5f2ee9dc877f",
+      "gitBlob": "d808d0f9f929d3a7367b868803b667d6fc834b2b"
+    },
+    {
+      "path": "dev-harness/facts.static.e2e.js",
+      "bytes": 9856,
+      "sha256": "211a7b8f107efab48f66d616d2f576c5301ae79f4aa322ca06ebffb81b3f3f96",
+      "gitBlob": "c3390fe3e930c933242775aaff446ad9436b152d"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86",
+      "gitBlob": "ae4b32700165d1195f42042d9865a10031978003"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-image-preload.cjs",
+      "bytes": 2506,
+      "sha256": "457c7970a97111c5676254bb143425ddf7ee69f9d89f4f1440cffb7520213173",
+      "gitBlob": "b9d4c2b004953d8a526c298747035824de51de4b"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-image-server.py",
+      "bytes": 2030,
+      "sha256": "2959c3496f82e2cc92f86555c1a83b148a166cce4a41867adc8e64877c3ca9be",
+      "gitBlob": "83e65ba06bd429674270344652f1890259ebe616"
+    },
+    {
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "bytes": 15107,
+      "sha256": "3908494da794c88118f42ad0d2c472f0e4ac40d654396007f55719d0010cb85d",
+      "gitBlob": "98aa54bbd4b52478c275c4da26c5b97909dcb368"
+    },
+    {
+      "path": "dev-harness/macos-execution-dispatch.e2e.js",
+      "bytes": 16917,
+      "sha256": "344b69f6299372b5bba62be268425d4e502bf3576e8eabdcea972f52a0bbde25",
+      "gitBlob": "33bcd30228ff2d3b80aa7639c2ce6f4e33de9d0a"
+    },
+    {
+      "path": "dev-harness/macos-execution-images.e2e.js",
+      "bytes": 15793,
+      "sha256": "12bc33216346d27a6ffb1328b9586299adb1c5e46c9faef56411c4f20812f131",
+      "gitBlob": "0ad0fd474d2957a6c4dbfcffc7218d4d015f3eba"
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874",
+      "gitBlob": "28e2addbb6fc12cc07d493cf27beeca3484f0e41"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14542,
+      "sha256": "b57ee68990efc53ba2fac7375c831132a68793796addb9cbae85d8c2cdcb4e3f",
+      "gitBlob": "bb174eb81b7da9b72e2ead2b2be419bf4f312c93"
+    },
+    {
+      "path": "dev-harness/run-all.js",
+      "bytes": 48661,
+      "sha256": "dc783eade55f62ccd37a7b055d565c058563d0e8d672181ae36c000b64ea0b61",
+      "gitBlob": "87c7c3707d7b30722ad3e8e9d1e8c1b3b632c495"
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "bytes": 9333,
+      "sha256": "2627a9244a2f99af241c061b929985356635f3fefe0e06f48871cb4c343ff1c0",
+      "gitBlob": "6416af04ed16904bf867339d15ae343646149ce2"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "bytes": 12099,
+      "sha256": "ec4d059cfbe207a92bab40d6bd81868e286cebbfd02d72c36564f5273e0bb47b",
+      "gitBlob": "48fbaa681207d2d65e8ac19873ecdf9791c2b929"
+    },
+    {
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "bytes": 19817,
+      "sha256": "d48ffdb8323b812d6ce27aeed7e2a8c87a64b1bf76a2651df5546cd9bd019dfc",
+      "gitBlob": "904b3a137dbcf1f495dfe639c4c5181671710c51"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+      "bytes": 5638,
+      "sha256": "f06df45c5fdc24a1c218fe7d710c15de6b3f0880a564887742f1df1272730b78",
+      "gitBlob": "566a97dfe883daf2960bc5a05e9e11768f06b9ac"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 22113,
+      "sha256": "056661b8f8f3b3b224d7cd4d09e14167e583945fb81b282724129d96733dc3be",
+      "gitBlob": "102bae2b73a409171c1e27e58642170680282a47"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+      "bytes": 11904,
+      "sha256": "34be98ee703b66326bbf66b02217d18f088cbc9e1acfbcbcef73b43602fe23b2",
+      "gitBlob": "7d4add9bb268c72ae3158a979d31972cb8c6818f"
+    },
+    {
+      "path": "dev-harness/unit/desktop-image-history.test.js",
+      "bytes": 18101,
+      "sha256": "27d9ba5f1dcc6f517713f0cf4c008bf0ce1fa0f959a577428f4441b0f728a8be",
+      "gitBlob": "4dd980ca2f0ecc6779cee5cfe0b9e54d398d71dc"
+    },
+    {
+      "path": "dev-harness/unit/durable-json-bounded.test.js",
+      "bytes": 9396,
+      "sha256": "84f0f2e9a9f6660ea672cc7bbab318060824e6c08c916558a191382fa3784fb1",
+      "gitBlob": "def785997eacf9b4a2ffb56d152192187c217943"
+    },
+    {
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4739,
+      "sha256": "9f48f8e37717b2af02675c8f2e70ec6fad7f86fa30f0c08fb35ed994fe640c3f",
+      "gitBlob": "fe72c4b6434e5dde252c11fb4d3bff3f7ec89899"
+    },
+    {
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8",
+      "gitBlob": "4905e390e78a6ada688e148751d8c9210b821395"
+    },
+    {
+      "path": "dev-harness/unit/server-ownership.test.js",
+      "bytes": 17615,
+      "sha256": "6675726587d55663406b720d1321ac9f322f6bb51f803e58ece29ab3cad4a2cf",
+      "gitBlob": "80911718e58bd673106e0f62138f74e5d1e489f7"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "bytes": 61032,
+      "sha256": "8a2e1fcb568dae1651ba4f57944998e46301d7a2829b3de3d862c2cfe50f18c1",
+      "gitBlob": "1a582406e589109eae9ea17110c61bcda8219970"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "bytes": 44287,
+      "sha256": "5a19bb7b52c9645fc17acaa884e2c3b7427669cd6f2c3910c1364c6b44ce6fa7",
+      "gitBlob": "03e66b1367b968c0192bca375065a3ab1efe9c79"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 935099,
+      "sha256": "33e572236b2816c8af9fdb00ee73b2917684a1b61f082e6ffdf46806bd1aceaf",
+      "gitBlob": "ad06dff2b11bc805a1fb0973022f8f5763ee1cb0"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 124856,
+      "sha256": "904514bde059b1801560483b04b46d763e71268d2e1275499cbb04debeaa45d2",
+      "gitBlob": "298bf5d6d9e32560f42219faa16f7ebc1fe5ed08"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 210434,
+      "sha256": "e056e7119622939eff0e96201c2f7aa6bc2c69c9db9282af1d444f411a61d309",
+      "gitBlob": "81428234124f50cab7323fd0a6ada7381a663dfb"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "93decabb01dade0a0efbdc86806e793adac6b14cd0bc4e8bb599557e068432df",
+      "gitBlob": "95d947534521d1c9505f443ac3a68d04c7818af2"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1337,
+      "sha256": "78b3c96e792e315c258e753d924f6ded4e1a880870adcaf31c9cb7e9d6eb2d39",
+      "gitBlob": "122e2f6a94fc6ccdfbf2404d4ebda4a17869e471"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b",
+      "gitBlob": "ddee26d77746c0881cea591ae59571d9605ec329"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11618,
+      "sha256": "411c553288e9960f10d53a6ba04040e3fa1e28da70d37d6b445c2538910e495a",
+      "gitBlob": "093fc95123005f92a6a248ffa48c4e80de22fb5f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2",
+      "gitBlob": "7ec7f6ccfaeba0e518f4363452d73ed48880836a"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11996,
+      "sha256": "0134ea37db3cbbccb140e6768a9614f983048766cada844c1324422d82406866",
+      "gitBlob": "3e8ff53cfe872800b78c62c57aa4100802824ba1"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d",
+      "gitBlob": "ab749f99f2ac35188dccdff7d3fe88e0e15a5e1f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12053,
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d",
+      "gitBlob": "a0ec9c055eba14cee65d55a0ce36ae99d6c46abd"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "gitBlob": "f7e5d0ad3e45c499dab73e86ffcbed753c9e4759"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19877,
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d",
+      "gitBlob": "fd12f48fa5789d1651a3317891c0c54dc85f9dee"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13682,
+      "sha256": "1780b14886fb1feb71bc9b11dcae8a5f27907675c36a17af12a9262a386eab13",
+      "gitBlob": "8d4d9fbf57eae237210f048a424d10eb6ec431c4"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "gitBlob": "6020317c850e54e696524d544e4b79693462a90f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "gitBlob": "f8b66192a931e5207dce9341ce0c4f5f6b168b1c"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb",
+      "gitBlob": "c3d02bf7477b38f1dbd4e3bb487745f18dc2d44f"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5",
+      "gitBlob": "14fa52a52ef3fd93d33d3f37001206ffefe92af1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+      "bytes": 4000,
+      "sha256": "2bbb4eabcb6718d6a281b1f96080c7f981e3202060478922668a779b59f890d4",
+      "gitBlob": "91c8f88d34f41081cbeb9c9752e750e1a76d1e8a"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 12714,
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798",
+      "gitBlob": "be4706549924f5889eb5d2758dff77e557402d5c"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a",
+      "gitBlob": "9796d0b3212f0aa8b6eef82b4bde8d26b22e5ce1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "bytes": 5472,
+      "sha256": "c1b47239b8443b892578867e69be2fef392c4947cf62d216dcd3daf3a7870bc6",
+      "gitBlob": "1fd2ca9b7f5ed8106e22879a06b1adbe7f2443d1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1",
+      "gitBlob": "14b995a4ea0050e5f415d80df28d3bc7c1ba13bd"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097",
+      "gitBlob": "bbc6fc25e09d7e7b3e4c0ef88058f6011225be10"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6869967,
+      "sha256": "83a5b14c5c64aa6763c0c33ccd0c53a7a2d027505aa503d423a26b3499a19825",
+      "gitBlob": "5b59d138e10fa3ecbc104b6f296c52493cd3c265"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 102463,
+      "sha256": "a3d5abaa699348a71306bd03507e7a27288d35bcf0e7dba2246cf52e4f70b464",
+      "gitBlob": "8dd997a4b4c626e2ff842ede9f004f58bb76b23b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 296227,
+      "sha256": "36ebe66a701261130bfb2fef1ea40b1afce00e3f59b3aebb8fe97aafd5d75453",
+      "gitBlob": "0bf26bdb0ce9de6e2ed18aeb4abe221564fc9e94"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "bytes": 20697,
+      "sha256": "be996b8d394895da2bd48e43e967586c3c1f01132dd7fe6222055d8e33cc5f78",
+      "gitBlob": "d91d02419525e871176b91dbb2aee767c9643b25"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 433480,
+      "sha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee",
+      "gitBlob": "1f805edda1de83fb9df0ca391f197894459b1ab2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 1017,
+      "sha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be",
+      "gitBlob": "b88f49d63e8fb924e6a40a89100005c0e6d4a057"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 24263,
+      "sha256": "bdaa28601dc6e4e76639b2a62bfd104f8fe8f7a0182ce633a80384502de4b07b",
+      "gitBlob": "70cad25de1b345454e76e375450e57d50fc7e007"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 198564,
+      "sha256": "c054a79b4f046a2a55fc9685bdd98191fac9e5cde48520ee64efc227eb37c087",
+      "gitBlob": "a5281edafe17e09733b6901d6af9e211e3c4c0a4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "bytes": 15890,
+      "sha256": "4a7aa733436ea6c70a829d1be70f5b58ab1dc28fd5235daf77d51f193de3cb3f",
+      "gitBlob": "dc7f216ed967ea19ac4b1ffd304ef130e8c1ae3b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "bytes": 181793,
+      "sha256": "ee17b519118a322dbeb6e2789a898795d2a719681e1dc4de882ffbbdefc3e24e",
+      "gitBlob": "47f38204dc0fae16630054aef8d9b31f26993711"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166432,
+      "sha256": "a614752d7de7fae66120c52262f03c0b23c650c8c8cebf856a599dd5512a07bf",
+      "gitBlob": "b4d7d615352987ded446a50d1fdb30cb5339df3b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234211,
+      "sha256": "336d2c1316fd9330fd8fb8db3ec2e3c1c90f9ba824a73e1ca8b885da65b58397",
+      "gitBlob": "50208e84cbaa50ceca00cbf207bd48e9ede47ff8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246826,
+      "sha256": "9cf0d8e7629ec4d4d2879d0d77ac8514771d9d6ec0ee2b366232fc411552a96f",
+      "gitBlob": "cf2c44bba0269270e0790f52c99b12a81840807b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 363099,
+      "sha256": "18fed8dccd9a94e25a56f1179c2362a8ed752d38ba5e15a84916693f5c5a6ef3",
+      "gitBlob": "388d84a5424e45c09cb5cfc61bad0e8609868aad"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 320122,
+      "sha256": "429693af6534301bbe3805133d87988b042231231b0943ee90ab2e8ee2b678d8",
+      "gitBlob": "1340d88c5abe343d421ec8014ddb0b3b60d9c857"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 302071,
+      "sha256": "f794a665826fa1e87f977a670d40ea87e8b4aa0e8358b716747fff8f5980c80b",
+      "gitBlob": "33cf2998109b9850c21a743967472d376fe6d2d0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 222006,
+      "sha256": "dec468e99c0e33e928dfe73bbca328afdceb356c75e6e37c32f566058b201107",
+      "gitBlob": "6bea4c87f78a026a3e6b221db9a8609e5eb6eaa3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 16139,
+      "sha256": "ab00a6783a33f9a2b81da9c4a05aaca448598d4c1a0cad6bdddb07753bdd5bc1",
+      "gitBlob": "1e196d5ce397680fc4798d0bc5eb59aeb81f02ad"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 24564,
+      "sha256": "f023c713211748fbe66a06bd0102d978ea42fccfee51360bc84e816690ec5263",
+      "gitBlob": "93450d3ea3d30fe7d7a4fd5ccda0e50efeb76884"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 705540,
+      "sha256": "715bc2d90224f9f48fcb59c0aaf64fb00e8afcd7a58942957d03121fb96bdd9f",
+      "gitBlob": "12abb48c4924b028c5c9b298f928b8468aa48874"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "gitBlob": "b5b4c5305653330d7abdc3c877f30fbe3b421580"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "gitBlob": "f03fead3cd0a5b0f4d29de8a88a330ef24cef632"
+    }
+  ],
+  "qualifiedFreeze": {
+    "path": "evidence/image-delivery-freeze-v2.json",
+    "sha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f"
+  },
+  "archive": {
+    "path": "source-snapshot-20261111T201029Z.tar.gz",
+    "sha256": "a3c31dd2d67e1151f5629d3b0a23145408f7113ffbaeda8f87f0f8b68c07e0b2"
+  }
+}

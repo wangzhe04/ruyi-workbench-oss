@@ -1,0 +1,31 @@
+Ruyi Workbench for Mac — local/internal trial
+
+This trusted-source trial uses ad-hoc signing. It has no Developer ID and is not notarized by Apple. Checksums verify matching bytes, not publisher identity.
+
+Installation
+1. Compare the DMG SHA256 with the value supplied by the sender (the macOS shasum -a 256 command is available).
+2. Open the DMG and copy Ruyi.app into Applications. If that location is not writable, use your personal ~/Applications folder.
+3. If an App already exists, quit completely through Cmd-Q or Quit, back up the actual data directory and retain the old App, then copy the complete new App. Never merge App internals.
+4. Wait for the copy to complete, eject the DMG, then open the installed app. Normal use does not require the disk image or separately installed Node, Python, Homebrew or Xcode.
+
+First launch
+Downloaded or transferred applications may be blocked by Gatekeeper. After verifying the source, follow the system's Privacy & Security settings if an Open Anyway action is available. Managed-device policy may prevent an override; follow your organization's process.
+Do not disable Gatekeeper, SIP or global security policy. No bypass script is included. If macOS reports a damaged application, verify the checksum and obtain a fresh copy first.
+
+Permissions and data
+Screen recording, accessibility and microphone permissions belong to the user and OS; they are not supplied by this image. Declining permission can disable the corresponding feature. Grant permission and restart as directed. An initialized window does not prove these permissions have been granted.
+The trial keeps the current development bundle identifier. Run one Ruyi instance per data directory. A different build can prompt again for OS permissions or Keychain access; stable upgrade authorization is not qualified here.
+Data stays in ~/.ruyi-workbench or the explicit RUYI_HOME. Quit and move only the installed Ruyi.app to Trash to uninstall while retaining business data.
+
+Variants
+Full bundles standalone Python, ACC, Office/chart/vision dependencies and Chromium. Select bundled in browser settings to use it. Slim omits those dependencies. Neither variant includes official agent CLIs, Git or model weights. Configure your model service separately; local/intranet models can work without public internet, while cloud APIs require a network.
+
+Upgrade and rollback
+Closing the window can leave Ruyi running. Quit all instances using the data directory before making a complete offline backup. Data defaults to ~/.ruyi-workbench; explicit RUYI_HOME takes priority. Keep verified backups outside the App and separately retain password-protected credential recovery exports.
+Stage and check a complete new App, retain the previous App, then replace the whole bundle. Keep the previous App if verification or copying fails. Manual replacement does not promise atomicity.
+App rollback does not roll back data. Quit, retain the newer App and complete newer data, restore the pre-upgrade snapshot to a fresh directory and validate it with the previous App. Do not let an older build write an unknown newer schema. Data snapshots omit system Keychain/TCC, external workspaces and global CLI settings.
+Windows DPAPI ciphertext requires a password-protected export from Windows followed by import, or re-entering credentials. Review mapped workspace/CLI/MCP paths explicitly. Windows overlay updates are unavailable on Mac.
+Detailed user/administrator guides: Ruyi.app/Contents/Resources/workbench/docs/MACOS-RELEASE_CN.md and MACOS-RELEASE_EN.md.
+
+Acceptance scope
+Current-account isolated installation on macOS27.0.1 arm64 is distinct from a clean standard user or a machine without development tools. macOS14 is a target, not runtime-qualified. Whole-App drills cover different builds of3.0.1 and full snapshot recovery, without promising direct backward compatibility with arbitrary future schemas. Developer ID, notarization, actual downloaded-origin first approval, stable formal-identity Keychain/TCC upgrades and original unverified P5 environments remain separate gates. This guide does not replace the candidate's acceptance record.

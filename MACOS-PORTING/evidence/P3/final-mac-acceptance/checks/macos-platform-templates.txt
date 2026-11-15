@@ -1,0 +1,40 @@
+PASS shared ACC connection still enables shared document workflows
+PASS desktopAutomation explicitly unavailable on Mac even when shared ACC is connected
+PASS ocr explicitly unavailable on Mac even when shared ACC is connected
+PASS system URL handoff does not enable form filling on Mac
+PASS Windows installed desktop path may be attempted without claiming verified readiness
+PASS desktopAutomation installation does not upgrade unknown authorization/readiness
+PASS desktopAutomation denied authorization blocks the workflow
+PASS desktopAutomation actual readiness can establish availability
+PASS ocr installation does not upgrade unknown authorization/readiness
+PASS ocr denied authorization blocks the workflow
+PASS ocr actual readiness can establish availability
+PASS denied desktop authorization blocks the Windows system-browser path
+PASS prepared DOM runtime may be started but is not reported verified/attached
+PASS missing browser binary blocks form workflow
+PASS missing Playwright package blocks form workflow
+PASS attached DOM runtime is reported available
+PASS unattached external CDP remains unknown instead of claiming reachability
+PASS a failed SDK probe is unknown rather than proof of a missing browser binary
+PASS missing capability snapshot is not upgraded to an implemented desktop backend
+PASS platform hints preserve Windows fallback and explain the Mac handoff boundary
+PASS zh-CN provider prompt uses shared Mac capability text without prescribing Windows UI automation
+PASS en-US provider prompt uses shared Mac capability text without prescribing Windows UI automation
+PASS system: actual shared ACC registered through Workbench
+PASS system: shared Office workflows remain available
+PASS system: actual listing disables unsupported desktop/OCR workflows
+PASS system: actual backend facts prevent unsupported form workflow
+PASS system: all 16 templates remain visible with capability reasons/status
+PASS changing the browser target invalidates cached capability facts without a forced probe
+PASS missing: actual shared ACC registered through Workbench
+PASS missing: shared Office workflows remain available
+PASS missing: actual listing disables unsupported desktop/OCR workflows
+PASS missing: actual backend facts prevent unsupported form workflow
+PASS missing: all 16 templates remain visible with capability reasons/status
+PASS prepared: actual shared ACC registered through Workbench
+PASS prepared: shared Office workflows remain available
+PASS prepared: actual listing disables unsupported desktop/OCR workflows
+PASS prepared: live SDK cache probe allows startup but preserves unverified status
+PASS prepared: all 16 templates remain visible with capability reasons/status
+
+MACOS PLATFORM TEMPLATES E2E: ALL PASS

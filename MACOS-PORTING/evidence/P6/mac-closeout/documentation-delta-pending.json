@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-12T14:04:02.133862+00:00",
+  "observedFailure": "facts.static.e2e.js",
+  "rootCause": "New quote unit suite increases facts.unitSuites from293 to294; README.md and README_EN.md still contain293. Both README files remain unchanged during the official full run.",
+  "sourceFreezeUnchanged": true,
+  "plannedFixAfterRun": [
+    "README.md:293\u7ec4unit suite ->294",
+    "README_EN.md:293unit suites ->294"
+  ],
+  "requiredRevalidation": [
+    "facts.static.e2e.js",
+    "repo-hygiene.e2e.js"
+  ],
+  "notAProductionRuntimeChange": true,
+  "originalAttemptLogs": [
+    "regression-attempts/facts.static.e2e.js.attempt-1.txt",
+    "regression-attempts/facts.static.e2e.js.attempt-2.txt"
+  ]
+}

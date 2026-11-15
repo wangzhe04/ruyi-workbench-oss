@@ -1,0 +1,1313 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T20:07:44.667420+00:00",
+  "verdict": "passed_frozen_synthetic_png_delivery_and_protected_storage_candidate_scope",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "implementationState": "Default-off RUYI_DESKTOP_EXECUTION_RECEIPTS=1 bounded image-delivery candidate. It is not complete native capture, input, CLI/subagent, global retention or wholeP5 qualification.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/image-delivery-freeze-v2.json",
+    "bytes": 30168,
+    "sha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f"
+  },
+  "sourceReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/development/image-source-review-v2.json",
+    "bytes": 75072,
+    "sha256": "6bca9b9fd7070a4f32873e7227635bf850a5712c8d80c3182c30d952912ba80c",
+    "outcome": "No remaining actionable source finding identified within this frozen candidate slice. The late shared rewind/high-water finding is fixed in protected sessions and covered by explicit publication branches. Independent qualification evidence was read separately, without rerunning or broadening it. Default-off candidate, full native image/CLI/subagent/retention/performance and whole P5 remain open.",
+    "freezeBinding": {
+      "sourceCount": 118,
+      "allSourcesMatch": true,
+      "artifactCount": 3,
+      "artifactsExecutedByReviewer": 0
+    }
+  },
+  "v1ToV2": {
+    "previousFreeze": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/image-delivery-freeze-v1.json",
+      "bytes": 28435,
+      "sha256": "5397acf58e2436cef24a27e86dffcb8e89f3df674a8a0c07a5446777bb9e1948"
+    },
+    "independentV1": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v1/report.json",
+      "bytes": 2208,
+      "sha256": "a21a8ef2452e79cbe8b7f2336af60c31447527469feb0a3b470edc4f5c205596"
+    },
+    "v1Status": "Invalidated before first independent command; zero independentv1 tests or native invocations. No prior runtime result transferred.",
+    "changedExistingSources": [
+      {
+        "path": "dev-harness/unit/desktop-image-history.test.js",
+        "beforeSha256": "23ccb8266ec12274ed07901e376a65ccdc1bc2d509a7430c9417833f423e16eb",
+        "afterSha256": "27d9ba5f1dcc6f517713f0cf4c008bf0ce1fa0f959a577428f4441b0f728a8be"
+      },
+      {
+        "path": "facts.json",
+        "beforeSha256": "e935af8c33613c96c7e162b1000f02025a24611ddca986c97224725429d9ae9a",
+        "afterSha256": "78b3c96e792e315c258e753d924f6ded4e1a880870adcaf31c9cb7e9d6eb2d39"
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "beforeSha256": "51a7d9549d40971b663d1621db670d32e4382e641eb88f3aa09b573fab1add3d",
+        "afterSha256": "83a5b14c5c64aa6763c0c33ccd0c53a7a2d027505aa503d423a26b3499a19825"
+      },
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "beforeSha256": "598394afecf3dfe19fce422f2abad857697b409857a5cc15b5955bf64d231eff",
+        "afterSha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee"
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "beforeSha256": "8a45d0bfadf4fb04887309bde8732f9ef60ac4b2397ec829582b583a565493cd",
+        "afterSha256": "f023c713211748fbe66a06bd0102d978ea42fccfee51360bc84e816690ec5263"
+      }
+    ],
+    "newlyBoundSources": [
+      "README.md",
+      "README_EN.md",
+      "dev-harness/facts.static.e2e.js",
+      "dev-harness/process-safety.static.e2e.js",
+      "dev-harness/run-all.js",
+      "dev-harness/session-save-census.static.e2e.js"
+    ],
+    "allThreeArtifactsSame": true,
+    "productionCorrection": "Protected head publication/lost acknowledgement or uncertain publication must not roll back rewind highwater. Added one explicit unit with prepublication and postpublication branches; current targeted total63."
+  },
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "invocations": [
+    {
+      "label": "images",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-images.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:57:34.408477+00:00",
+      "finishedAt": "2026-11-11T19:57:40.704285+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 6.295699500013143,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-invocation.json",
+        "bytes": 2462,
+        "sha256": "58425d08cb10298b997a2935d60d861ebb91bb44ecb32c5d5bd78f26f471b93e"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images.log",
+        "bytes": 2137,
+        "sha256": "efc758abd6539c4ff65710ea5cbc082db2cdbbe90e09936174de93f34ac3c1ea"
+      }
+    },
+    {
+      "label": "dispatch",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-dispatch.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:57:55.822596+00:00",
+      "finishedAt": "2026-11-11T19:57:59.852125+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 4.0294361249834765,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-invocation.json",
+        "bytes": 2475,
+        "sha256": "437cbeea4dd11d30fa96f4e66bf36ea99ea7a7d28ce6529d0361fb22af9ad7c8"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch.log",
+        "bytes": 2727,
+        "sha256": "2e2dc7ec241c1a4aa692c132546fa18a4d9080dffdfb65b0fd8f5a737d5eee32"
+      }
+    },
+    {
+      "label": "targeted",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-image-history.test.js",
+        "dev-harness/unit/desktop-execution-dispatch.test.js",
+        "dev-harness/unit/desktop-execution-runtime.test.js",
+        "dev-harness/unit/desktop-execution-ledger.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:08.072259+00:00",
+      "finishedAt": "2026-11-11T19:58:10.590293+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 2.517900541977724,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted-invocation.json",
+        "bytes": 2315,
+        "sha256": "536b427ff3816831a1a86361fe01bdf4f47649223376f97bce516c3a6dc7a269"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted.log",
+        "bytes": 6752,
+        "sha256": "34bf1bf3156c436d6a7ed73cccde4b1f3d9ea1f4e0b252bca61c2a70cc4519b1"
+      }
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:24.485358+00:00",
+      "finishedAt": "2026-11-11T19:58:25.252794+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.7673328749951907,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context-invocation.json",
+        "bytes": 2456,
+        "sha256": "54c2bc1bf191217a971fac0b670f26fe95c5001e87c06654e9eeae671a9dfb64"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context.log",
+        "bytes": 3183,
+        "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+      }
+    },
+    {
+      "label": "root-regression",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-dispatch.test.js",
+        "dev-harness/unit/desktop-execution-runtime.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:31.626665+00:00",
+      "finishedAt": "2026-11-11T19:58:32.366631+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.7398712080030236,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression-invocation.json",
+        "bytes": 2219,
+        "sha256": "786ac03d78644df5a73186c9356158b1a9a5db52cffb9620a85a63c962640645"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression.log",
+        "bytes": 1919,
+        "sha256": "74fac1ab1ef0347e4e303a9418fa9f4599cee76efafb0de0405110de3416fab1"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:37.903398+00:00",
+      "finishedAt": "2026-11-11T19:58:38.544774+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.6412860839918721,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph-invocation.json",
+        "bytes": 2139,
+        "sha256": "c67455a6974ae735ca622416349931622dc6806abb79e1a553b462a5d0aab80a"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph.log",
+        "bytes": 1327,
+        "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+      }
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:46.375515+00:00",
+      "finishedAt": "2026-11-11T19:58:47.016148+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.6405296250013635,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes-invocation.json",
+        "bytes": 2119,
+        "sha256": "7b079d8f80033defdb601b45d69d12244ad101c643ee23830a59b3527c6a3fa4"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes.log",
+        "bytes": 1024,
+        "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+      }
+    },
+    {
+      "label": "durable",
+      "argv": [
+        "node",
+        "dev-harness/durable-state-inventory.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:52.437530+00:00",
+      "finishedAt": "2026-11-11T19:58:52.550366+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.112738541996805,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable-invocation.json",
+        "bytes": 2130,
+        "sha256": "2ab8bf198e0e449bbfed683a5a4d3874f49adee15cfa70274b75ee2e1e1d2869"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable.log",
+        "bytes": 91,
+        "sha256": "7af0342445762af28e2705a11f119c8ec7f652bec4df30b1c2dbebe0a836a230"
+      }
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:58:58.654835+00:00",
+      "finishedAt": "2026-11-11T19:58:58.815843+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.16091270800097845,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build-invocation.json",
+        "bytes": 2117,
+        "sha256": "7bea4f702524ff1d61b99de5dc372dcfd77dc3cb4ac034a1e9dcde10abb132a2"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      }
+    },
+    {
+      "label": "facts",
+      "argv": [
+        "node",
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:59:04.611733+00:00",
+      "finishedAt": "2026-11-11T19:59:04.771380+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.15955350000876933,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts-invocation.json",
+        "bytes": 2108,
+        "sha256": "5059f1cb479eef55e0fda1dec1ae7bc0d5233a27975f26a7b182931cf59e872e"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts.log",
+        "bytes": 2337,
+        "sha256": "a06285883e0d40dd2a53b3a4caacec6de15fc55155c5e192fafd3959425722e2"
+      }
+    },
+    {
+      "label": "process-safety",
+      "argv": [
+        "node",
+        "dev-harness/process-safety.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:59:09.769488+00:00",
+      "finishedAt": "2026-11-11T19:59:09.992314+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.22273154099821113,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety-invocation.json",
+        "bytes": 2134,
+        "sha256": "930529723bc82715f82ae98a39703e30de13d4cdd9ba2582f823b1b85ea71ca3"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety.log",
+        "bytes": 855,
+        "sha256": "92c75d9baea54338c9ff3763630f4f44baf8d459fcba64d6e6beae518104cd0a"
+      }
+    },
+    {
+      "label": "session-save-census",
+      "argv": [
+        "node",
+        "dev-harness/session-save-census.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T19:59:15.877574+00:00",
+      "finishedAt": "2026-11-11T19:59:15.988745+00:00",
+      "exitCode": 0,
+      "attempt": 1,
+      "elapsedSeconds": 0.11107016701134853,
+      "fullInvocationAndEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census-invocation.json",
+        "bytes": 2150,
+        "sha256": "7a863f922e0e1b7cdfe4ed48e41ed117d462d725b368b8afd5a0e50655900f31"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census.log",
+        "bytes": 1906,
+        "sha256": "3b78743dcb63f5d2ea9b8e69fe9e74e6c05acf8427249a06d0c22bc4a8fa2b86"
+      }
+    }
+  ],
+  "results": {
+    "actualImages": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "actualDispatchRegression": {
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "targetedUnit": {
+      "passed": 63,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "breakdown": {
+        "desktopImageHistory": 20,
+        "dispatch": 5,
+        "runtime": 12,
+        "ledger": 26
+      }
+    },
+    "actualRequiredContext": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "rootRegressionUnit": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "files": [
+        "desktop-execution-dispatch.test.js",
+        "desktop-execution-runtime.test.js"
+      ],
+      "overlap": "Requested separate regression repeats17 cases already in targeted63; do not call these unique new behaviors."
+    },
+    "static": {
+      "module-graph": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "routes": {
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "facts": {
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "process-safety": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "session-save-census": {
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      }
+    },
+    "durableInventory": {
+      "surfaces": 71,
+      "shared": 31,
+      "dedicated": 23,
+      "external": 10,
+      "regenerable": 7,
+      "checkPassed": true,
+      "executions": 1
+    },
+    "buildCheck": {
+      "fresh": true,
+      "manifestRangesConsistent": true,
+      "executions": 1
+    },
+    "allTwelveCommandsExited0": true,
+    "automaticRetries": 0,
+    "retries": 0,
+    "runtimeOrUnitChecksIncludingRequestedOverlap": 175,
+    "staticAssertions": 93,
+    "countMeaning": "268 successful assertions/test executions across requested overlapping suites, plus71-surface inventory and build check. These are not268 distinct behavior scenarios."
+  },
+  "actualImageEvidence": {
+    "raw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-results.json",
+      "bytes": 212633,
+      "sha256": "f47db63944e2f8ef6ce30403a95c74ee3d3a4877cea6c0f8ee9de0331d8d9cff"
+    },
+    "cases": [
+      {
+        "label": "IMAGE_MIXED_1",
+        "sessionId": "sess_af1614ade3d22a60",
+        "rawSavedImageMessageRows": 1,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "97ee5fee425165f71034fe063feed242",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "001268857612d23c80e718ade8a7d904963f8be93987a7d0087d2efef974abb4"
+          },
+          {
+            "invocationId": "49120c179b0a9913556a01b8d272abdf",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "ccafb37fbfcc74568658e0f359410f9bb2ce3c982e4e016ed575ad86f733683f"
+          }
+        ],
+        "providerContinuationRecorded": true,
+        "actualFollowingAccObserver": {
+          "ok": true,
+          "label": "observe_1",
+          "images": 1,
+          "deliveredImages": 1,
+          "lastImageDeliveryMatchesSnapshot": true,
+          "roles": [
+            "user",
+            "assistant",
+            "tool",
+            "user"
+          ]
+        }
+      },
+      {
+        "label": "IMAGE_MIXED_2",
+        "sessionId": "sess_f49d80ca3755fb99",
+        "rawSavedImageMessageRows": 2,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "10ad8aecddf680ac33e9cbafcf5d0816",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "9fe90208a9234e7643aa880fb3bed907e15ef358cb1eb323acc193479050172d"
+          },
+          {
+            "invocationId": "28b00684d2a418044f85eee9d56389cd",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "68e1e97810798ec8935a12d1ed987bd106fa49a0ea5a5772a1e06a13b856e5c6"
+          },
+          {
+            "invocationId": "3a563efa683e4edc90a6ebb1960a553a",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "017a5ac1de7ed73c913467311500178767845fe98382c59ec8d09c367d1450ba"
+          }
+        ],
+        "providerContinuationRecorded": true,
+        "actualFollowingAccObserver": {
+          "ok": true,
+          "label": "observe_2",
+          "images": 2,
+          "deliveredImages": 2,
+          "lastImageDeliveryMatchesSnapshot": true,
+          "roles": [
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "user",
+            "user"
+          ]
+        }
+      },
+      {
+        "label": "IMAGE_STOP",
+        "sessionId": "sess_6cd8fc2be1045604",
+        "rawSavedImageMessageRows": 1,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "c5a01e2299e6b061bc3f4a54ff50dd8f",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "56cd382db9c65f07f288eb8f2b382e162ad5079c69980f8a90b6c51f4e97ea15"
+          }
+        ],
+        "providerContinuationRecorded": false
+      },
+      {
+        "label": "IMAGE_STEER",
+        "sessionId": "sess_076118dec30c1e81",
+        "rawSavedImageMessageRows": 1,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "4d2a7e9289d7fa97a1eba768ba2ead8f",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "b6f2e24d8eab36870c252f26d0357ed43c38ecdaf1525b2c02ad712ee5119b4e"
+          }
+        ],
+        "providerContinuationRecorded": true
+      },
+      {
+        "label": "IMAGE_LATE_INTENT_FAULT",
+        "sessionId": "sess_741efae8fa685086",
+        "rawSavedImageMessageRows": 1,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "9a3545a800bae7838eecb4a9e037d717",
+            "phase": "returned",
+            "deliveryAcknowledged": true,
+            "deliverySha256": "e390b8dbb8bcda00f11cc761498e96d9fef3d0d0c25605fe5535dc162e5be940"
+          }
+        ],
+        "providerContinuationRecorded": true
+      },
+      {
+        "label": "IMAGE_HISTORY_SAVE_FAULT",
+        "sessionId": "sess_ef7ba4591c0d9cc4",
+        "rawSavedImageMessageRows": 1,
+        "originalBatchRepliesContiguousBeforeImages": true,
+        "ledgerEntries": [
+          {
+            "invocationId": "c6c30a793d81d38a1f6aa668a2a9e15e",
+            "phase": "returned",
+            "deliveryAcknowledged": false,
+            "deliverySha256": null
+          }
+        ],
+        "providerContinuationRecorded": false
+      }
+    ],
+    "restartHoldObservation": {
+      "sessionId": "sess_ef7ba4591c0d9cc4",
+      "message": "after image delivery failure",
+      "events": [
+        {
+          "type": "error",
+          "error": "上次桌面操作的执行或结果保存尚未确认，已暂停本会话的自动继续，请先核实执行记录。",
+          "ts": "2026-11-11T19:57:40.641Z"
+        }
+      ]
+    },
+    "whatIsReal": "Production root/provider workflow, HTTP Stop/interrupt steer, actual ACC SDK and registered synthetic tool bodies, strict journal/result and protected history storage. Following actual ACC observer reads image/history/delivery state on disk. The model endpoint is an offline fake remote-model substitute.",
+    "whatIsSynthetic": "One-pixel PNG returned by fixture_image through SDK; no native screenshot, visual application state or model image understanding is tested.",
+    "negativeDeliveryMeaning": "Raw history files may contain image rows even when strict head commit fails. Only actual delivery acknowledgement validates publication; IMAGE_HISTORY_SAVE_FAULT stays returned/unacknowledged, skips later observer/model and restart holds unknown.",
+    "stopSteerAndIntent": "Stop and interrupt steer occur after real image/head delivery publication. Missing later replies remain paired before images; Stop does not resume provider; steer preserves acknowledged image and user steering. A second-batch intent EIO preserves earlier image and records the new call not_dispatched without invoking it."
+  },
+  "deliveryDigestBoundary": "deliverySha256 is the actual history snapshot strictly saved/reloaded at delivery time. Later tool insertion before earlier images or compaction/pruning can make it cease to be a prefix of current history. It is not permanent-prefix proof, provider/model consumption, native effect verification or replay_safe.",
+  "protectedStorageQualification": {
+    "actualIsolatedFileIO": [
+      "Protected revision/body hashes and stale-save refusal, including feature flag off on already protected state",
+      "Snapshot consistency for queued saves, same-length rewrite rollback and partial rollback preservation",
+      "Committed head publication versus postpublication failure keeps live revision and rewind watermark monotonic",
+      "Verified uncommitted tails only are truncated; failed truncation and corrupt heads refuse without blessing data",
+      "Current assistant batch/call identity anchors keep every reply paired ahead of preserved image rows"
+    ],
+    "privatePermit": "Branded one-shot send permit rejection is source/pure qualified; fabricated metadata/checker cannot serve as private root authority. No native one-shot capture/terminal ACK is accepted by this image slice.",
+    "userHistoryBoundary": "Synthetic own-fixture protected-history recovery only; no existing user history, Finder session or external recovery script was restored."
+  },
+  "regressionEvidence": {
+    "dispatch": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-results.json",
+      "bytes": 163778,
+      "sha256": "721557c3cd1305f7dab9b174e0e4d4640ea16afe864accc655d7dc9118f0db49"
+    },
+    "context": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context/results.json",
+      "bytes": 106014,
+      "sha256": "4e6b8ad204c3bd5ed571cee5d6d1a25e6d8d7f7f34d625771d0b6d4ec029378c"
+    },
+    "meaning": "Original actual wait/position result-commit EIO/durable hold and strict required-context regressions rerun exactly once under this118source freeze. No native mutation, input or held state."
+  },
+  "bindings": {
+    "sourceCount": 118,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "checkpointCount": 24,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build-after-binding.json",
+        "bytes": 32455,
+        "sha256": "e0295734da777dcc44fc12c8d61eaf6962b953ebb3a7186ed267719e5f41d1e6",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build-before-binding.json",
+        "bytes": 32455,
+        "sha256": "74d59260582e9efb7253d811450f8afcab33be49f055aa2c06f29eccdc086cfa",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context-after-binding.json",
+        "bytes": 32455,
+        "sha256": "865ced3cf1cca2216e98cad81bffcdfa8d1af294890d6b0b6cc0efc2b6d5d89b",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context-before-binding.json",
+        "bytes": 32455,
+        "sha256": "23e12a6436aa0d2f0358cfd940b033b02c678c43ba4dc414f88fd1fb0ebd1036",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-after-binding.json",
+        "bytes": 32455,
+        "sha256": "ed829a1be9688b928040f9e1332e8dd9b02549bc6dc86126748c032fe66d77b8",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-before-binding.json",
+        "bytes": 32455,
+        "sha256": "0874741174193a053e59ee4cfcdabac60c2838ee16cda6472927c581f6e94935",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable-after-binding.json",
+        "bytes": 32455,
+        "sha256": "49aadf937a4482160d74b85f97b52d588b14cdefcdec4f0550cd308e2e7402e3",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable-before-binding.json",
+        "bytes": 32455,
+        "sha256": "1db27a402e8be80a06ede5837954823835c1238e5db690f4281a168dbd916173",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts-after-binding.json",
+        "bytes": 32455,
+        "sha256": "98e87cf94574f7a4f5ff76d19ab79cfe3cf08455c6a1308e3d5591b80258d04a",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts-before-binding.json",
+        "bytes": 32455,
+        "sha256": "04ea33dfc85c62aa791b8c73f9fa042ef491bdb5d427bfb600462c8305a9b310",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-after-binding.json",
+        "bytes": 32455,
+        "sha256": "653b05c5ecba6f02f4645e6def1663e01ce093d6cd4bc3e8d94caa6b582afbae",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-before-binding.json",
+        "bytes": 32455,
+        "sha256": "93e461713fad8535ef31b6eb07696a4eb6d642c04664ae0ee0bd547e528effb1",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph-after-binding.json",
+        "bytes": 32455,
+        "sha256": "49ec12beea9bad0779118cae660907d7a34d85dd8a655b022c7509c780f4412d",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph-before-binding.json",
+        "bytes": 32455,
+        "sha256": "6587793215fe074f9d9daeb5ce20a0216e3ec560b0fdcb990ca8285c4a5c0421",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety-after-binding.json",
+        "bytes": 32455,
+        "sha256": "0dbba769138a9ae7137309f5f611ac1cf1119c7c085d0425f726ea78a1977496",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety-before-binding.json",
+        "bytes": 32455,
+        "sha256": "9b0b859be55018413b5b4da0a40f61f9c20be1a3d1e8424f0c70a18cf8754c7c",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression-after-binding.json",
+        "bytes": 32455,
+        "sha256": "d2ea3c8c291403bb96a0a02d56e2ebd385ddad00f3332d8d0dcffd7ba2b9c28b",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression-before-binding.json",
+        "bytes": 32455,
+        "sha256": "43c40e580ac332cb786b367ca1e64da875ee959690cea112c923eb10e8380318",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes-after-binding.json",
+        "bytes": 32455,
+        "sha256": "0b25430b0ad4d169fd1ed3d28d4b297f156d3206881dd567ae7b66f73ed29b1d",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes-before-binding.json",
+        "bytes": 32455,
+        "sha256": "366e2af85f7b1079c4ca4ea166904363483c749aaae6c24bba5656e95b0d4a5b",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census-after-binding.json",
+        "bytes": 32455,
+        "sha256": "cf0f570514129d3166c19c219a09ad4deb7c44e4da04ebfd6055ce63eb011e22",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census-before-binding.json",
+        "bytes": 32455,
+        "sha256": "a4fb8946b1edda11e4576e8413ddae6b9a2acdc4f158969b63e19b537d6d3b7a",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted-after-binding.json",
+        "bytes": 32455,
+        "sha256": "6e298ee0c7044712c8ea4aa0d6d514622ae1eb64e12b9dbb3910329e82b14380",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted-before-binding.json",
+        "bytes": 32455,
+        "sha256": "6b6467899d41f443ea8164c737c9002d5c56022a80512248b9c18be123f242ec",
+        "sourceCount": 118,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      }
+    ],
+    "originalAuthorizedHelperRole": "Main1cc compatibility artifact is byte-bound only, not executed here. Candidate read-only helper/process helper used as declared in the original dispatch/context regressions."
+  },
+  "isolationAndCleanup": {
+    "perCommand": [
+      {
+        "label": "images",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-cleanup.json",
+          "bytes": 6197,
+          "sha256": "3d0828c1817ffd2c3df43b85e060699b57fb3f8acfd4dde008ad529d9a3fd309"
+        },
+        "observedIdentityCount": 65,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "dispatch",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-cleanup.json",
+          "bytes": 4127,
+          "sha256": "85eb9ba0e921b7bda760eebf1953cb3b9f98aad886a6b681bbd3a09273a0973d"
+        },
+        "observedIdentityCount": 42,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "targeted",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted-cleanup.json",
+          "bytes": 1157,
+          "sha256": "e5b5e96d42545677fa5ca2da259989c653a98fa1d04ca1e82893422d96b82de4"
+        },
+        "observedIdentityCount": 9,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "context",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context-cleanup.json",
+          "bytes": 887,
+          "sha256": "a4e7e072c5a1e7dfc6b725157a504190b863bf6375ffb8f9a2d34ee9b647d5df"
+        },
+        "observedIdentityCount": 6,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "root-regression",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression-cleanup.json",
+          "bytes": 797,
+          "sha256": "bb42199bdb0c4dd739d835e30564dc51c266fa2c3ee92e01639d60b6db23a1b6"
+        },
+        "observedIdentityCount": 5,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "module-graph",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph-cleanup.json",
+          "bytes": 527,
+          "sha256": "73197c6cabc44c60fff113e71b5b5b48699d9f3e19196f11cfbaa17dc9412d4b"
+        },
+        "observedIdentityCount": 2,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "routes",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes-cleanup.json",
+          "bytes": 437,
+          "sha256": "615d6cfcc7e6a2e2b90867a8819388806387087b179e59eb71c51e1d9740b209"
+        },
+        "observedIdentityCount": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "durable",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable-cleanup.json",
+          "bytes": 437,
+          "sha256": "5db970374920c4414c83e3345e88b232da752a8c4413a979698b675ac6827668"
+        },
+        "observedIdentityCount": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "build",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build-cleanup.json",
+          "bytes": 527,
+          "sha256": "cb8572b5873ee80b7b33cce951fe8b5dfc305eced56ef923ac99e1ccfae977be"
+        },
+        "observedIdentityCount": 2,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "facts",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts-cleanup.json",
+          "bytes": 437,
+          "sha256": "e0c8ccdc1840b32c752da7ca8a0ec02f63aa6312d0bf1d81614209fac033d335"
+        },
+        "observedIdentityCount": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "process-safety",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety-cleanup.json",
+          "bytes": 437,
+          "sha256": "6f5deb033b15628966630c41423f212a7c3f595679e3edc8b7c06caee3126298"
+        },
+        "observedIdentityCount": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "session-save-census",
+        "cleanup": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census-cleanup.json",
+          "bytes": 437,
+          "sha256": "da687b2a3455459230e43c05fbe78bcc5ca23a951fd8a97253121be381781339"
+        },
+        "observedIdentityCount": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      }
+    ],
+    "allObservedOwnIdentitiesExited": true,
+    "imagesFixtureRemoved": true,
+    "dispatchFixtureRemoved": true,
+    "contextRetained": false,
+    "contextRetainedRoot": null,
+    "outerIsolationRecords": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "1332430d05ad83c2b1deb4e2368496e594360205dbc07cf50578bc9542caff28"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "d4d4852e0710c036b722ca2517a794343c6a0589275f9bc34f268e6387e205ce"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/targeted-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "2b4f001708b8310c2070338302b6eeaf6c41fa597c04d661c6d0ff72a0c91a5c"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "4c2292e63e53649e0b8d3c551ee219263e992985447d81ed57031e15a82c1e85"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/root-regression-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "9e7627c56dc17d11c0b3925246bebdfcb7308bacc6769395904290dc7ef8fa6d"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/module-graph-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "b95fc2142619042e4705ef5bb35932d75dab1f65399eb5cd8985592b56a7f4cd"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/routes-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "cd88f496cba77f7021523f4ec952fc62f27c45b42f2222bce82d131759ed972a"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/durable-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "7b52bfefa24c74f43b13644ed246ad0ae3be09d1935dea3b47b77792c46a0dca"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/build-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "29c770f0c0074774be26cb51894ee1ce85265d39305112fb6ab22be42dca2884"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "a4b83a28daa1ba1d68f2b697a981817d3a0d1aa6404301243d08a3fe8f6e6bdd"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/process-safety-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "8d830de087b6a552eb693407c332f42d6ba664ffa207f84f4163ee53c61dbdf1"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "4936179c11ca3c284b8816a3b770a7962ba8b2ab7daa2a84d032ae1fea635fe6"
+      }
+    ],
+    "scope": "All commands have distinct short/tmp/rd-* HOME/USERPROFILE/APPDATA/LOCALAPPDATA/data/TMPDIR roots. Observer follows only test root and birth-checked descendants; not arbitrary unobserved escape coverage. No unrelated/fullunit process signalled. Source fixtures may clean private storage after proof snapshots; raw result/log evidence remains."
+  },
+  "staticInventory": {
+    "graphSummary": {
+      "modules": 93,
+      "providedSymbols": 3915,
+      "requiredSymbols": 3553,
+      "edges": 655,
+      "forwardEdges": 67,
+      "duplicateProvides": 0,
+      "stronglyConnectedComponents": 1
+    },
+    "largestSccMembers": 31,
+    "routeDecisionPoints": 175,
+    "routeAuthRows": 161,
+    "facts": {
+      "e2eCount": 600,
+      "unitSuites": 288,
+      "centralLiveSkipped": 11
+    },
+    "killOwnTreeFiles": 375,
+    "saveCensus13acCalls": 1,
+    "centralLiveSkipBoundary": "Four explicit helper/SDK Mac probes are central opt-in, bringing live skips to11. Required image/dispatch/context probes were explicitly run here, not counted as passes from absent opt-in. Earlier meaningful failures are retained and fixed, not waived. Native-receipts protocol is not rerun in this image qualification."
+  },
+  "primaryEngineeringReadOnlyReuse": {
+    "summary": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/image-development-summary-v1.json",
+      "bytes": 5239,
+      "sha256": "c45b640e389c6807792c16d6f04c48bf5fd10f8689c0c65c8df31559fa6b6c03"
+    },
+    "fullUnit": {
+      "tests": 2629,
+      "passed": 2611,
+      "failed": 0,
+      "existingSkipped": 18,
+      "exactExistingSkipRows": [
+        "﹣ configured batch launcher waits for actual async executable verification and keeps original disk spelling (0.071958ms) # SKIP",
+        "﹣ failed shim verification preserves the configured fallback and missing discoveries remain empty (0.082625ms) # SKIP",
+        "﹣ [E5] 源头编码:powershell_run / script_run / shell_start 的中文输出与中文文件名不再变成 ? (0.038458ms) # 仅 Windows 且有 powershell.exe",
+        "﹣ compiled desktop isolates explicit data roots and retains default desktop compatibility (0.591375ms) # SKIP",
+        "﹣ [W1] Windows:真 powershell.exe 解析整段脚本、Add-Type 编译其中的 C#(不弹窗) (0.0345ms) # 需要 Windows PowerShell 5.1(.NET Framework 的 C# 编译器)",
+        "﹣ [P1] dry:撞号的陌生人不算子孙,conhost 不杀,根最先、深的先杀 (0.301083ms) # SKIP",
+        "﹣ [P2] dry:根不在表里 ⇒ 什么都不杀 (0.042958ms) # SKIP",
+        "﹣ [R1] 真进程 killOwnProcessTree:根与 detached 孙子都收掉 (0.037125ms) # SKIP",
+        "﹣ [R2] 真进程 killChildTree(发出去就算):几秒内根与 detached 孙子都没了 (0.034042ms) # SKIP",
+        "﹣ [R3] Linux 真进程 killChildTree:根与 detached 孙子都没了 (0.036833ms) # SKIP",
+        "﹣ real FFmpeg WAV inspection measures tone/silence locally; never claims listening (37.738709ms) # FFmpeg unavailable; parser covered separately",
+        "﹣ PDF text + rendered scan/chart pages and page continuation (0.084042ms) # SKIP",
+        "﹣ BMP/TIFF/ICO convert to provider-compatible PNG without desktop tools (0.040083ms) # SKIP",
+        "﹣ [G] 安装脚本经 Invoke-NativeExact 把 JSON 原样交给原生程序(Windows PowerShell 5.1) (0.055875ms) # 需要 Windows PowerShell",
+        "﹣ 离线包只携带独立回调网关并能用随包 Node 运行帮助 (0.382167ms) # SKIP",
+        "﹣ 离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物 (0.051833ms) # SKIP",
+        "﹣ 端到端:file_read / file_write 对 UNC 路径返回 not-allowed,不抛、不落盘 (0.28575ms) # UNC absolute paths exist only on Windows hosts",
+        "﹣ [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 (0.054167ms) # SKIP"
+      ],
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-all-unit-v2.log",
+        "bytes": 405653,
+        "sha256": "213200e1b92ad444233133c779037313d33b2009fbb6ac9010cc7a0d17dd6d05"
+      }
+    },
+    "fast": {
+      "passed": 80,
+      "failed": 0,
+      "flaky": 0,
+      "centralLiveSkipped": 11,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-fast-v2.log",
+        "bytes": 5740,
+        "sha256": "7b2149db81dfb47bec2e353eaf89b36f94b76b8b16501f85dc324550ac657d41"
+      }
+    },
+    "syntax": {
+      "files": 1176,
+      "failed": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-syntax-v2.log",
+        "bytes": 60,
+        "sha256": "dff47949f96056990ddb226dcd5503e323af50f0e7a575737a4439a94a893243"
+      }
+    },
+    "build": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/image-build-check-v2.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    "mode": "Read/hash existing final primary logs only; fullunit/fast/syntax were not independently rerun.18 existing unit skips and unexecuted central live probes remain outside this qualification."
+  },
+  "primaryDefaultOffCompatibilityReadOnly": {
+    "initialResults": [
+      {
+        "test": "session-storage-v2",
+        "exitCode": 0,
+        "seconds": 0.816,
+        "isolation": "/tmp/ric-ip1tg737",
+        "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-storage-v2-v1.log"
+      },
+      {
+        "test": "provider-tool-history",
+        "exitCode": 0,
+        "seconds": 1.324,
+        "isolation": "/tmp/ric-awi1rf77",
+        "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-provider-tool-history-v1.log"
+      },
+      {
+        "test": "session-rewind-execution",
+        "exitCode": 0,
+        "seconds": 1.364,
+        "isolation": "/tmp/ric-v5gzgqzh",
+        "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-rewind-execution-v1.log"
+      },
+      {
+        "test": "rewind",
+        "exitCode": 1,
+        "seconds": 2.45,
+        "isolation": "/tmp/ric-06g8kh5j",
+        "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v1.log"
+      }
+    ],
+    "initialResultsBinding": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-regression-v1.json",
+      "bytes": 864,
+      "sha256": "c0a88f3d5fbe59cf7d5ba04db8004878e12f566ad00178cfafa2f521702ba0e4"
+    },
+    "initialLogs": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-storage-v2-v1.log",
+        "bytes": 3022,
+        "sha256": "9aa2d87f698cbc258a434ffc0c0c0f77017c91e3b83db03ca4572d43dd007401"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-provider-tool-history-v1.log",
+        "bytes": 825,
+        "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-rewind-execution-v1.log",
+        "bytes": 1185,
+        "sha256": "ab9e5a92060d32d991ccb04c50c47a46c5ce248c7f64e9f395f534be346fb969"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v1.log",
+        "bytes": 1609,
+        "sha256": "9976e8a2dfeaa49e22bad2f118874ae53950638132cd626fc7c57c974a765a85"
+      }
+    ],
+    "rewindV1": {
+      "passed": 28,
+      "failed": 5,
+      "sourceUnchanged": true,
+      "diagnosis": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v1-diagnosis.json",
+        "bytes": 1260,
+        "sha256": "c9a9a85b38a838ab607eba5e9d5ada173eaf76b5490f5113bd05e5e269fed92e"
+      },
+      "cause": "Primary orchestrator set RUYI_HOME ahead of fixture-owned WIN_CLAUDE_WORKBENCH_HOME. Retained private outer root had no provider and missingCLI responses; fixture configuration was not used."
+    },
+    "correctedRewind": {
+      "test": "rewind",
+      "exitCode": 0,
+      "seconds": 3.238,
+      "isolation": "/tmp/ric-2fla8m42",
+      "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v2.log",
+      "reason": "v1 orchestrator incorrectly forced RUYI_HOME ahead of this legacy test-owned WIN_CLAUDE_WORKBENCH_HOME; v2 leaves data root to fixture while preserving unique TMPDIR/HOME/AppData isolation; no source or assertion change",
+      "resultBinding": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v2.json",
+        "bytes": 413,
+        "sha256": "a40e1c11ad6b5f88a8f917bc9093a011a5a27681d0acf425ab6245dab124a045"
+      },
+      "logBinding": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v2.log",
+        "bytes": 1607,
+        "sha256": "61f29ed03000a0f23778fe08f345c30df26ac9481e80f659f07ab23bd8692f7f"
+      },
+      "passed": 33,
+      "failed": 0,
+      "sourceOrAssertionChange": false
+    },
+    "claim": "Three earlier default-off compatibility suites passed first-run; rewind required an explicit environment-only correction and rerun. Do not claim all four passed first-run or all historical runs had zero retries. These are primary checks, not additional independent executions."
+  },
+  "performanceBoundary": {
+    "protectedLoad": "Provider-body omission fast path is disabled; protected reads verify committed body hashes.",
+    "protectedSave": "Append and rewrite share actual body/hash reads. Snapshot copying, hashing, strict reload and image-triggered mid-history rewrite add full-history IO/memory work.",
+    "notQualified": "No throughput, long-session, large-history/image, high-concurrency or latency/memory performance qualification is established."
+  },
+  "limitations": [
+    "No native screen/window screenshot success or visual application input/consumption confirmation",
+    "Synthetic1x1 PNG/short histories do not qualify large images, long sessions, memory/IO footprint, concurrency, latency or throughput; full-history copy/hash/strict-reload costs remain",
+    "Default-off candidate; CLI/subagent and global retention/acknowledged trace deletion/reconciliation remain unfinished",
+    "No GUI/input mutation/held/rescue/TCC/lock/Finder/App/minimumOS/physical display/Windows runtime or wholeP5 acceptance",
+    "deliverySha256 is actual strictly saved/reloaded delivery-time snapshot, not permanent-current-prefix, remote model consumption or replay_safe"
+  ],
+  "actions": {
+    "productOrTestSourceEditsByIndependent": 0,
+    "nativeScreenshotOrInputActions": 0,
+    "guiHeldTccLockAppActions": 0,
+    "userHistoryRestores": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; reserved until fullP5 acceptance.",
+  "evidence": {
+    "directory": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2",
+    "runtimeVersions": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/runtime-versions.json",
+      "bytes": 715,
+      "sha256": "556792ed67717c8ac677650e722cd767c48316fd5708880e01bf9a3ae91e062d"
+    },
+    "freezeCopy": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/image-delivery-freeze-v2.json",
+      "bytes": 30168,
+      "sha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f"
+    },
+    "runner": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/run_once.py",
+      "bytes": 7444,
+      "sha256": "dc80f6938cb130425539112453c097c5a486ec988e5c5c7c500d1aed1c72353f"
+    },
+    "osProcessHelperBaseline": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/os-process-helper-baseline.json",
+      "bytes": 204,
+      "sha256": "19183671c1f66d4ec87c476d8ac5c1a1d746eb25f77953a1af1bb015e72b4a51"
+    },
+    "rawImages": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/images-results.json",
+      "bytes": 212633,
+      "sha256": "f47db63944e2f8ef6ce30403a95c74ee3d3a4877cea6c0f8ee9de0331d8d9cff"
+    },
+    "rawDispatch": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/dispatch-results.json",
+      "bytes": 163778,
+      "sha256": "721557c3cd1305f7dab9b174e0e4d4640ea16afe864accc655d7dc9118f0db49"
+    },
+    "rawRequiredContext": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/context/results.json",
+      "bytes": 106014,
+      "sha256": "4e6b8ad204c3bd5ed571cee5d6d1a25e6d8d7f7f34d625771d0b6d4ec029378c"
+    },
+    "note": "Full commands/environment/logs, all24 before/after source-artifact checkpoints and all12 identity/isolation receipts are hash-linked in the relevant report fields; no source arrays are duplicated here."
+  }
+}

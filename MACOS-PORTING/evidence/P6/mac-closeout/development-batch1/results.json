@@ -1,0 +1,128 @@
+[
+  {
+    "file": "artifacts.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 3.966,
+    "log": "artifacts.e2e.js.txt"
+  },
+  {
+    "file": "autonomy-benchmark.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 3.746,
+    "log": "autonomy-benchmark.e2e.js.txt"
+  },
+  {
+    "file": "background-completion.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 4.237,
+    "log": "background-completion.e2e.js.txt"
+  },
+  {
+    "file": "budget-guard.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 23.927,
+    "log": "budget-guard.e2e.js.txt"
+  },
+  {
+    "file": "claude-cmdline-guard.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 6.373,
+    "log": "claude-cmdline-guard.e2e.js.txt"
+  },
+  {
+    "file": "claude-exe-resolve.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.858,
+    "log": "claude-exe-resolve.e2e.js.txt"
+  },
+  {
+    "file": "cli-probe-stall.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 12.543,
+    "log": "cli-probe-stall.e2e.js.txt"
+  },
+  {
+    "file": "desktop-mcp-smoke.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 57.477,
+    "log": "desktop-mcp-smoke.e2e.js.txt"
+  },
+  {
+    "file": "engine-env-runtime.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 6.015,
+    "log": "engine-env-runtime.e2e.js.txt"
+  },
+  {
+    "file": "harness-friction.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 7.735,
+    "log": "harness-friction.e2e.js.txt"
+  },
+  {
+    "file": "mcp-import-origin.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 49.452,
+    "log": "mcp-import-origin.e2e.js.txt"
+  },
+  {
+    "file": "mission-driver.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 4.947,
+    "log": "mission-driver.e2e.js.txt"
+  },
+  {
+    "file": "permission-plain.browser.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 5.678,
+    "log": "permission-plain.browser.e2e.js.txt"
+  },
+  {
+    "file": "shell-mcp-guard.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.752,
+    "log": "shell-mcp-guard.e2e.js.txt"
+  },
+  {
+    "file": "shell-session.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 2.406,
+    "log": "shell-session.e2e.js.txt"
+  },
+  {
+    "file": "steward-decisions.browser.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 6.968,
+    "log": "steward-decisions.browser.e2e.js.txt"
+  },
+  {
+    "file": "steward-deferred-permission.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 47.112,
+    "log": "steward-deferred-permission.e2e.js.txt"
+  },
+  {
+    "file": "tool-invoke-promote.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.943,
+    "log": "tool-invoke-promote.e2e.js.txt"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "elapsed": 2.3266064999916125,
+  "isolation": "/tmp/rc-x9nad54u",
+  "scope": "22adapter cases including actual generic .2s caller timeout after .35s entry commit pause, no continue and owned cleanup; actual request cancellation and observer late retirement."
+}

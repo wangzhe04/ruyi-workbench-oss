@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T09:58:22.503904+00:00",
+  "verdict": "passed_source_review_freeze_v3_all_findings_closed",
+  "scope": "Read-only source review of capture-transition E2E, owned motion window, raw helper capture contract and source corrections. Initial findings concern freeze-v2; final verdict binds freeze-v3, not a claim that current working files equal v2. No reviewer GUI/capture/test/compiler/build/process/signature invocation, source edit, staging or commit. Only this report is written.",
+  "baseCommit": "f277be4f616c21aadb3f8c56c039ae28ebf10bee",
+  "worktree": "/tmp/ruyi-p5-transition-worktree",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/freeze-v3.json",
+    "bytes": 2790,
+    "sha256": "6f08fb8139c64f60ea981cad75754db98ef239069f4afaab122a0c122fab8628"
+  },
+  "previousFindingFreeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/freeze-v2.json",
+    "bytes": 2558,
+    "sha256": "d5763aaecc759b3bb3e0b7d9bdb122bc7482f153eb91dcfb3025269d407beba7",
+    "observedBeforeSourceCorrections": true,
+    "currentWorkingEqualsThisHistoricalFreezeClaimed": false
+  },
+  "sourceCount": 12,
+  "allFrozenSourceHashesMatched": true,
+  "frozenSources": [
+    {
+      "path": "dev-harness/macos-capture-transition.e2e.js",
+      "bytes": 13297,
+      "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-capture-motion.m",
+      "bytes": 5391,
+      "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14225,
+      "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 207630,
+      "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/png-grid.js",
+      "bytes": 5141,
+      "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "matched": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    },
+    {
+      "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+      "matched": true
+    }
+  ],
+  "onlyTwoNewFixtureSourcesChangedSinceV2": true,
+  "otherTenFrozenSourceRowsUnchanged": true,
+  "bothArtifactsUnchanged": true,
+  "findings": [
+    {
+      "id": "T1",
+      "priority": 2,
+      "title": "Do not accept missing owned-process observations as complete cleanup",
+      "originalFreeze": "freeze-v2",
+      "originalLocation": {
+        "file": "dev-harness/macos-capture-transition.e2e.js",
+        "lines": "23-29,139-142"
+      },
+      "issue": "observe silently returned if the table/root/ownership was unavailable. An empty observed map could satisfy final every() and allow a cleanup PASS/root deletion without any birth identity. This was an evidence gap, not an observed process leak.",
+      "resolution": "observe now throws unless it confirms a live direct-child root and matching tree birth, adds that root, and final cleanup explicitly rejects an empty map. Native child error/close/deadline handlers are installed before observation; stdin EOF is not sent until observation succeeds, keeping the helper alive for its identity check. Failure marks retention, performs owned stop and awaits close. Fixture has an error listener before its own observation; final observation errors mark retention and failure.",
+      "status": "closed_by_source_review"
+    },
+    {
+      "id": "T2",
+      "priority": 2,
+      "title": "Count numerical positions instead of JSON key order",
+      "originalFreeze": "freeze-v2",
+      "originalLocation": {
+        "file": "dev-harness/macos-capture-transition.e2e.js",
+        "lines": "108-110"
+      },
+      "issue": "JSON.stringify(frame) could treat key enumeration order of an NSDictionary-serialized rectangle as a different position.",
+      "resolution": "Witnesses require row.ok, same receiver PID/window ID and finite x/y/width/height; numerical frame fields are encoded as a fixed-order tuple before deduplication. Actual rectangle changes, rather than serialized object order, determine the >=2-position witness.",
+      "status": "closed_by_source_review"
+    },
+    {
+      "id": "T3",
+      "priority": 2,
+      "title": "Check normal refusal process exits",
+      "originalFreeze": "freeze-v2",
+      "originalLocation": {
+        "file": "dev-harness/macos-capture-transition.e2e.js",
+        "lines": "46-53"
+      },
+      "issue": "Only successful envelopes checked exit status. A permitted false JSON followed by abnormal termination could be counted as the expected refusal.",
+      "resolution": "Both envelope paths require signal=null and exit code0 for true or1 for false; successful responses additionally require protocolVersion1. This matches raw production main and does not incorrectly require a version field in failure envelopes.",
+      "status": "closed_by_source_review"
+    },
+    {
+      "id": "T4",
+      "priority": 2,
+      "title": "Use a real scale source for raw helper pixel checks",
+      "originalFreeze": "freeze-v2",
+      "originalLocation": {
+        "file": "dev-harness/macos-capture-transition.e2e.js",
+        "lines": "63-75"
+      },
+      "issue": "The raw production helper does not return Python-facing scale/scale_y. Reading those fields made NaN pixel offsets and would fail stable-before pattern before moving cases.",
+      "resolution": "Owned Cocoa fixture independently reports NSWindow.backingScaleFactor. pattern now requires a finite positive scale, checks raw PNG/metadata dimensions against logical bounds times that scale, and uses it for four-color pixel probes. Moving success also requires the later fixture backing scale to equal the ready scale; stable-after uses its stopped backing scale. No nonexistent raw fields are read.",
+      "status": "closed_by_source_review"
+    }
+  ],
+  "unresolvedFindings": [],
+  "oracleAssessment": {
+    "stableControls": "Before/after images require exact logical bounds and identity matching independently reported own CGWindow frame. Four interior quadrant markers avoid titlebar/edge antialiasing. Owned-window backing scale independently determines expected raw image width/height and pixel probe offsets, with decoded PNG dimensions matched to raw metadata. No Python wrapper scale contract is assumed.",
+    "motionWitness": "Owner app requests monotonically increasing x every4ms, bounded to1000 ticks; timer cadence alone is not proof. Each tick reports actual own WindowServer frame and a wall timestamp. Per capture, only finite matching-owner frames inside the external request time interval are canonicalized and counted. At least one actual window_changed response must have >=2 distinct numerical rectangles within that request. This required refusal cannot be replaced solely by generic capture_failed responses.",
+    "productionRefusalBasis": "CaptureWindow selects a unique exact-title SCWindow, remembers frame/PID/window identity, then after image completion compares current CGWindow owner/on-screen/frame and returns window_changed without image on mismatch. Raw main returns0 for successful JSON and1 for refusal JSON; both are now checked without signal termination.",
+    "movingSuccessLimits": "Moving images check owner identity, physical shape/pattern, fixed y/size and x in the monotonic range from actual start through actual later observation. They deliberately do not prove exact instantaneous origin. No moving success is required if all eight requests return acceptable refusals; static before/after images remain mandatory.",
+    "timeScope": "Per-request wall interval includes process launch, owned-identity sampling and completion handling. It is an enclosing external interval rather than an instrumented exact internal ScreenCaptureKit interval; the production window_changed branch separately provides its own before/after mismatch. No deterministic host timing success is inferred by this source review.",
+    "failureStop": "Assertions throw into finally. Eight capture requests are serial, and no scenario retry is added. The fixture stops its timer before final static capture. If no witnessed window_changed occurs, the run must fail; do not reinterpret or repeat until green without preserving the attempt.",
+    "recording": "No keyboard/mouse recording/replay or pressure/physical human demonstration is part of this fixture."
+  },
+  "lifecycleAndIsolation": {
+    "ownedRoots": "Each helper and fixture must be observed as a direct child with live handle and a birth-aware tree root. Helper stdin remains open until its initial observation is installed. Snapshot/ownership failure cannot pass silently.",
+    "bounds": "Helper stdout is capped at68MiB and stderr retention at8192 bytes; helper has an external18s deadline versus production capture12s. Force-stop/error paths retain the root, preserve a capture row and cleanup receipt, and fail the run.",
+    "cleanup": "Only owned children receive tree termination. Normal fixture receives quit; final snapshots must confirm all retained birth identities absent. No nonempty identity set means failure. Retention remains explicit on incomplete/error cleanup. Observed identity guarantees do not include arbitrary transient or reparented children or OS capture services.",
+    "environment": "self-isolate-home loads first; fixtureChildEnv supplies isolated home/AppData and private short TMPDIR. Raw helper env is empty. No Workbench server/model/App entry is launched.",
+    "effects": "Owned colored Cocoa window is created/activated/moved. No injected keyboard/mouse input, clipboard content mutation, user-document modification, TCC or physical display reconfiguration is introduced."
+  },
+  "metadataAssessment": {
+    "e2eDirectoryCount": 592,
+    "readmeTotal": 592,
+    "readmeDefault": 585,
+    "configuredLiveExclusions": 7,
+    "processSafetyCounter": "367 -> 368 for new cleanup-owning E2E",
+    "factsCount": 592,
+    "routeJsonUnchangedFromBase": true,
+    "routeMarkdownUnchangedFromBase": true,
+    "productRuntimeSourceChanged": false
+  },
+  "executionStatus": {
+    "realTransitionExecutedAtSourceReview": false,
+    "earlierV1V2RealRuns": 0,
+    "reviewerTestsStarted": 0,
+    "reportedPrimaryChecks": "Parent reports initial node --check and fixture Werror compile only; reviewer did not repeat them or treat them as runtime acceptance. No statement that revised v3 passed those commands is inferred.",
+    "futureHelperSelection": "The isolated runtime/macos currently contains only process helper; actual run must use frozen main1cc via RUYI_P5_TRANSITION_HELPER and bind sources/artifacts before/after.",
+    "remainingAcceptance": "Fresh frozen runtime invocation, stable pixel/scale controls, genuine witnessed window_changed, exit/identity cleanup and complete evidence still require actual execution."
+  },
+  "additionalSourcesRead": [
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf"
+    }
+  ],
+  "claimLimits": [
+    "No actual transition runtime or cleanup result is accepted by this source review",
+    "No moving-frame instant-origin absolute precision claim",
+    "No physical display/scale change, Workbench/provider/LaunchServices App-origin refresh",
+    "No actual TCC revoke/regrant, OS lock, keyboard/mouse input or clipboard recovery test",
+    "No Windows/minimum-OS/display/formal identity or whole-P5 closure"
+  ],
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "processSampling": 0,
+    "signatureOrComparatorInvocations": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stagingChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/transition/code-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress"
+}

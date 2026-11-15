@@ -1,0 +1,56 @@
+[
+  {
+    "pid": 43176,
+    "ppid": 42844,
+    "birth": "Wed Nov 11 13:25:47 2026",
+    "command": "/Users/jiming/.local/bin/node dev-harness/macos-input-host.e2e.js"
+  },
+  {
+    "pid": 43188,
+    "ppid": 43176,
+    "birth": "Wed Nov 11 13:25:48 2026",
+    "command": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/receiver"
+  },
+  {
+    "pid": 43198,
+    "ppid": 43176,
+    "birth": "Wed Nov 11 13:25:49 2026",
+    "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 43199,
+    "ppid": 43198,
+    "birth": "Wed Nov 11 13:25:49 2026",
+    "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 43200,
+    "ppid": 43199,
+    "birth": "Wed Nov 11 13:25:49 2026",
+    "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 43203,
+    "ppid": 43176,
+    "birth": "Wed Nov 11 13:25:49 2026",
+    "command": "/usr/bin/open -n -W -a /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app --env HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env USERPROFILE=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env LOCALAPPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Local --env APPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Roaming --env RUYI_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env WIN_CLAUDE_WORKBENCH_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env RUYI_NODE_PATH=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node  -args  -workbench-root  private/tmp/ruyi-p5-manual-worktree/ruyi-workbench  -acceptance-report"
+  },
+  {
+    "pid": 43524,
+    "ppid": 43176,
+    "birth": "Wed Nov 11 13:25:50 2026",
+    "command": "(ps)"
+  },
+  {
+    "pid": 43795,
+    "ppid": 43200,
+    "birth": "Wed Nov 11 13:25:51 2026",
+    "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+  },
+  {
+    "pid": 44236,
+    "ppid": 43176,
+    "birth": "Wed Nov 11 13:25:52 2026",
+    "command": "(ps)"
+  }
+]

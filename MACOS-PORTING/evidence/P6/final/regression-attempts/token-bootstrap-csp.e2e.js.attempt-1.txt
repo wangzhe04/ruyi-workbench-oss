@@ -1,0 +1,23 @@
+── S 段: 静态锁 ──
+PASS S1 /api/bootstrap handler 在(返 token)
+PASS S2 ROUTE_AUTH bootstrap open 条目在
+PASS S3 serveStatic 浏览器导航分支不下发明文 token
+PASS S4 net.js initToken 握手 + sessionStorage 存储
+PASS S4b 后台重启后 403/auth.token_invalid 自动刷新 token 并单次重放请求
+PASS S5 app.js boot 调 initToken(在任何 api 前)
+PASS S6 CSP meta 在(connect-src self + object-src none)
+PASS workbench up
+── S1 段: token 不随 HTML 明文下发(浏览器) ──
+PASS ① 浏览器导航(Edge UA)HTML wcw-token content 为空(不下发明文) got ""
+PASS ① 浏览器导航(Origin 头)HTML wcw-token content 为空(不下发明文) got ""
+PASS ① 浏览器导航(sec-fetch-dest)HTML wcw-token content 为空(不下发明文) got ""
+PASS ② 非浏览器 GET / 仍明文注入 token(向后兼容,e2e/CLI 信任面同旧) got "044b5aa7…"
+PASS ③ POST /api/bootstrap loopback -> 返真 token(浏览器唯一通道) got status=200 token="044b5aa7…"
+PASS ④ rebinding Host POST /api/bootstrap -> 403 且不泄 token got 403
+PASS ⑤ bootstrap 拿到的 token 通过 /api/sessions 鉴权(闭环可用) got 200
+PASS ⑤b 错 token 被拒(bootstrap token 是真凭据,非放行一切) got 403
+── S3 段: CSP ──
+PASS S3a HTML 含 CSP meta 且 connect-src self
+PASS S3b CSP object-src none + script-src self(排外域)
+
+TOKEN BOOTSTRAP+CSP E2E: ALL PASS

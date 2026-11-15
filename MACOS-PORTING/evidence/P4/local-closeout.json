@@ -1,0 +1,107 @@
+{
+  "date": "2026-11-08",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "committed_local",
+  "localDelivery": "done",
+  "phaseStatus": "done_in_user_approved_current_Mac_scope",
+  "scope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App local implementation and independent acceptance",
+  "packages": {
+    "P4-01": "host31 after permission recovery",
+    "P4-02": "latest bridge53 with synthetic Cancel invariant; original real chooser/Finder/Cmd/notification/menu/Safari/CodeDiff/native drag retains original evidence",
+    "P4-03": "synthetic media36, actual647.5ms PCM, CFT148 browser98/39/58",
+    "P4-04": "lifecycle23, actual short SoftwareSleep/SSE, login register/unregister; formal identity deferred"
+  },
+  "engineering": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "syntaxFiles": 1134,
+    "workspaceMainAndIndependent": 38,
+    "freshness": "passed",
+    "whitespace": {
+      "sourceAndAuthoredDocs": "passed_excluding_raw_evidence",
+      "command": "git diff --check d97db57b HEAD -- . ':(exclude)MACOS-PORTING/evidence/P4/**'",
+      "rawEvidence": "Original trailing whitespace and EOF blank lines preserved in raw .txt system logs and accessibility exports. Full-range check reports these warnings. The evidence commit batch continued after its check reported warnings. No full-range whitespace pass is claimed."
+    }
+  },
+  "reviews": [
+    "frozen-local-regression/review.json",
+    "media/physical/reporting-delay/review.json",
+    "bridge/native-drop/review.json",
+    "local-closeout-review.json",
+    "commit-binding-review.json",
+    "final-scope-review.json",
+    "full-mac-acceptance/review.json"
+  ],
+  "evidence": [
+    "frozen-local-regression/validation.json",
+    "bridge/native-drop/validation.json",
+    "lifecycle/physical-system/validation.json"
+  ],
+  "limits": [
+    "native drag cancellation supported by user report/trace/source, no selected-session cwd snapshot immediately before cancel",
+    "physical sleep is short SoftwareSleep/DarkWake, physical scheduler disabled; separate actual backend suspension/scheduler recovery and own process tree coverage",
+    "browser regression passed CFT148; ordinary Chrome156 native fake media hang retained",
+    "three notification denied-condition assertions not executed in current granted-permission bridge53; earlier candidate evidence retained"
+  ],
+  "externalAcceptance": {
+    "formalIdentity": "deferred_by_user",
+    "macOS14": "unverified_O2_P6_carryover",
+    "Windows": "deferred_by_user_this_round_same_candidate_unverified"
+  },
+  "cleanup": {
+    "nativeDropAppAndBackend": "exited",
+    "physicalCaptureAppAndBackend": "exited",
+    "temporaryLoginItem": "unregistered",
+    "normalUserCode": "empty_window_restored",
+    "caffeinate": "stopped_by_user_request_2026-11-08_pid6773_and_its_assertions_absent"
+  },
+  "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+  "branch": "codex/p4-macos-desktop",
+  "implementationSourceFingerprint": "implementation-source-fingerprint.json",
+  "implementationFilesVerifiedAgainstCommit": 43,
+  "latestPostDocumentationGate": {
+    "command": "node dev-harness/run-all.js --fast",
+    "exitCode": 0,
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "log": "frozen-local-regression/closeout-static.txt",
+    "unitLog": "frozen-local-regression/closeout-unit.txt"
+  },
+  "scopeDecision": {
+    "date": "2026-11-08",
+    "userInstruction": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+    "approvedScopeComplete": true,
+    "originalAllEnvironmentGatesComplete": false
+  },
+  "evidenceCommit": "f5c5d4c5",
+  "latestFullMacAcceptance": "full-mac-acceptance/validation.json",
+  "latestFullMacReview": "full-mac-acceptance/review.json",
+  "currentSourceBinding": {
+    "fingerprint": "full-mac-acceptance/source-fingerprint.json",
+    "productionSourceUnchanged": false,
+    "testOnlyDeltaFiles": 4,
+    "historicalBinding": "Original 43-file implementation-commit binding retains its original pre-reacceptance test-source attribution.",
+    "productionDelta": "Frontend SSE initial view now reuses shell-mode controller intended mode, app.js remains1279 lines. event-stream.js matching comment updated. Native inputs unchanged."
+  },
+  "currentEngineeringGate": {
+    "command": "node dev-harness/run-all.js --fast",
+    "exitCode": 0,
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "log": "full-mac-acceptance/fixed-engineering-fixed.txt",
+    "unitLog": "full-mac-acceptance/unit-fixed.txt",
+    "sourceFingerprint": "full-mac-acceptance/source-fingerprint.json"
+  },
+  "fullMacAcceptance": {
+    "status": "passed_current_Mac_functional_acceptance",
+    "mainSuites": 16,
+    "mainPassed": 630,
+    "independentSuites": 8,
+    "independentPassed": 255,
+    "evidence": "full-mac-acceptance/validation.json",
+    "review": "full-mac-acceptance/review.json"
+  }
+}

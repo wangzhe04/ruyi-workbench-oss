@@ -1,0 +1,39 @@
+── (A) 前置 ──
+PASS A1 线程真的挂在提问上,通道判成 answer(got answer)
+PASS A2 无人值守回合里【模型自己调工具】时闸真的触发(got self_serve_off)
+PASS A3 被挡下时那道提问【还挂着】—— 没有被偷偷答掉
+PASS A4 被挡下的代答零决策账本(没做决定就没有决定可记)
+── (B) 三道门 ──
+PASS B1 勾了开关但一条依据都没给 -> no_basis(got no_basis)
+PASS B1b 仍然没被答掉
+PASS B2 目标线程「每步都问」+ 依据成立 -> 仍然只提议(got target_permission)
+── (C) 依据成立 ──
+PASS C1 记忆 id 核住了 -> 真的走 answer 通道答进去(got answer)
+PASS C2 那道提问消失了(线程收到了答案;got turn)
+PASS C3 决策账本带出处 memoryIds(got {"memoryIds":["mem_price"],"answeredFor":"user"})
+PASS C3b 账本标明这是【替用户答的】,不是一次普通递话
+PASS C4 代答可撤(undoRef 在账本里)
+PASS C5 委托书原文片段核住了 -> 代答(got answer)
+PASS C6 账本记的是【核住的那一段】原文(got 这一单按均价结算)
+── (D) 伪造与失效 ──
+PASS D1 编一个记忆 id -> 当场驳回并点名(got ["记忆 mem_does_not_exist 不在库里"])
+PASS D2 委托书片段【改述】不算依据(got ["引的片段在委托书里逐字找不到"])
+PASS D3 片段太短 -> 不算依据(got ["引的片段太短(至少 8 个字)"])
+PASS D4 拿被否决的记忆当依据 -> 驳回(got ["记忆 mem_price 已经被你否决过"])
+PASS D5 拿过期的记忆当依据 -> 驳回(got ["记忆 mem_price 已过期"])
+PASS D6 上面五次全被挡下,那道提问【一次都没被答掉】
+── (E) 污染 ──
+PASS E1 同一回合读过文件 -> 不代答,并说清是被哪一次读弄脏的(got steward_turn_tainted:["steward_file_read"])
+PASS E2 那道提问仍然挂着
+── (F) 用户在跟前 ──
+PASS F1 同一受污染回合仅标用户触发仍须确认,提问保持待答(got steward_turn_tainted)
+PASS F2 用户触发的回合里【模型自己调工具】-> 原话直递,不要依据(got answer)
+── (G) 降级成按钮时要摆出那句话 ──
+PASS G1 代答被挡下 -> 降级成一枚按钮(实得 ["steward_thread_continue"])
+PASS G2 那枚按钮带确认清单(前端 POST 之前会先弹面板;实得 ["它问你:按均价还是按收盘价?","我要替你答:按收盘价算,并且把最近三十天的成交额一并列出来,手续费要先扣掉再算收益率,单位用万元"])
+PASS G3 清单里看得见【要替我答的那句话】—— 不摆出来的话这一刀等于白做
+PASS G4 清单里也看得见【它问的是什么】(实得 ["它问你:按均价还是按收盘价?","我要替你答:按收盘价算,并且把最近三十天的成交额一并列出来,手续费要先扣掉再算收益率,单位用万元"])
+PASS G7 长答案【不被截断】—— 用户要拍板的是整句话(原话 42 字;实得 "我要替你答:按收盘价算,并且把最近三十天的成交额一并列出来,手续费要先扣掉再算收益率,单位用万元")
+PASS G5 到这一步那道提问仍然挂着 —— 按钮还没被按
+PASS G6 普通递话降级成的按钮【不】多一次确认(判据是通道不是工具名;实得 undefined)
+STEWARD ANSWER E2E: ALL PASS

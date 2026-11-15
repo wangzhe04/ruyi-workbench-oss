@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T14:48:28.398Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review plus inspection of existing parent development evidence. Reviewer did not execute tests, MCP, native/helper, GUI, builds or edit source.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 196078,
+      "sha256": "248b51890911501e5a84fa9f384b5f71141eb5ebe9beb669d60d9a63ca4bc258"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 10591,
+      "sha256": "3c8e2557040922187d814f32076d51bb807247fd9e2a771486ce6ddb9386a68e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 8719,
+      "sha256": "70c87ca1b6c24225e2e36b80cffb4bd082e4629defdfbf1b5644a831086aeae7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 18600,
+      "sha256": "8c24a128ee770cec27225e38a7b4a2d7f1269f2288761be7ba4703f0a7b6150c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js",
+      "bytes": 8762,
+      "sha256": "bbd37d65c060cb350b928d4778fe8ea0e90ce5a83639b3037c9d9aba2f7cb313"
+    }
+  ],
+  "scope": "Host options.meta forwarding in stdio/HTTP MCP clients, actual FastMCP request-context metadata extraction, ACC request/tool journal scopes, batch child context, independent metadata-only receipt reader, and real-stdio qualification source.",
+  "implementationState": "Uncommitted full execution-receipts WIP. The development harness supplies host transport metadata; normal provider direct/proxy workflow durable preparation and metadata activation are not yet integrated.",
+  "findings": [],
+  "outcome": "No new actionable source finding identified in this reviewed context slice. Previously noted SDK-interface fallback and JSON-clone shape issues have been addressed in the reviewed current source.",
+  "checked": [
+    "Both JS MCP transports call the same host-only metadata builder, preserving params.arguments separately from params._meta. The cloned result is revalidated as an object after JSON serialization, including toJSON replacement cases.",
+    "PlatformMCP reads the SDK request context rather than model arguments. Missing old SDK get_context/request_context/meta interfaces retain a legacy path; a separate capability value probes installed interface shape and extended Meta preservation.",
+    "Reserved metadata namespace, exact fields, schema, random invocation identity, bounded session/turn identifiers and hash/codec shapes are checked. Metadata supplies no path or authorization.",
+    "ACC accepted arguments are snapshotted before SDK parameter coercion; registered wrapper entry binds the actual arguments and applies defaults before storing a separate snapshot.",
+    "The current wrapper was actually invoked when tool_entered is generated; that stage is registered-wrapper entry, not proof of application consumption or native effects.",
+    "Batch direct tool.fn calls pass through registered receipt wrappers. Each child has its own operation ID, parent operation and step context; prevalidation refusals do not manufacture child entries.",
+    "Request, operation and batch ContextVars reset in finally. Existing raw-thread copy_context supplies propagation for input_sequence.",
+    "Native adapter and journal stages remain linked to the actual child operation. Existing native typed terminal validation and entry-before-continue barriers are reused.",
+    "SDK request completion is recorded separately from tool result flags. A returned failed macro can have acc_request_terminal ok=true while tool_terminal ok=false; these facts must not be folded into tool success.",
+    "execution_receipt exposes bounded committed metadata and references, not private argument blobs; missing/incomplete evidence does not become success merely because the read tool executed."
+  ],
+  "developmentEvidenceObserved": {
+    "runs": [
+      {
+        "log": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v1.log",
+          "bytes": 1161,
+          "sha256": "c72bcf4c9005933abe54be7b8c53f58f9d06d8c564d3b4cc452bd2bca4e5ae57"
+        },
+        "assertions": 16,
+        "result": "ALL PASS"
+      },
+      {
+        "log": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v2.log",
+          "bytes": 1161,
+          "sha256": "c72bcf4c9005933abe54be7b8c53f58f9d06d8c564d3b4cc452bd2bca4e5ae57"
+        },
+        "assertions": 16,
+        "result": "ALL PASS",
+        "change": "Adds metadata_transport_supported=true assertion to the existing receipt check."
+      }
+    ],
+    "rawResultsV1": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v1/results.json",
+      "bytes": 46363,
+      "sha256": "dfd5cfdc4e1e78d3f7416c491d8a4b6169664538a3b016229e4e3007d55095c1"
+    },
+    "reviewerExecuted": false,
+    "operations": "wait and get_mouse_position/mouse.position only; actual MCP stdio and SDK, no fixture injection of ContextVars.",
+    "limits": "These are existing parent development runs, not new independent runtime acceptance or whole P5 acceptance."
+  },
+  "mandatoryFollowUps": [
+    "caller_args_sha256 currently remains a caller declaration whose shape is checked. Its separate actual received-argument snapshot uses a different codec. Before Node reconciliation claims argument equality, define and verify a cross-codec/canonical binding; matching only the echoed caller hash is insufficient.",
+    "metadata_transport_supported is an SDK-interface/shape capability probe, not an ACK for a particular call. Future Node enablement should establish a safe real metadata probe and receipt association, then independently validate each invocation receipt.",
+    "Node durable preparation, direct/proxy activation, returned-result persistence and restart reconciliation remain unimplemented.",
+    "Strict reader per-stage field/transition and argument-reference semantics, retention/global-space management, single-request capture/OCR integration and broader cancellation/crash-window acceptance remain open.",
+    "Actual ordinary owned action acceptance and held-state fault acceptance remain separate; held faults require independent qualified rescue."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no settings were inspected or changed by reviewer."
+}

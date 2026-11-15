@@ -1,0 +1,26 @@
+{
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:55:34.065222+00:00",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+    "bytes": 7579,
+    "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+  },
+  "reviews": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v2.json",
+      "bytes": 17356,
+      "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-metadata-review-v1.json",
+      "bytes": 12665,
+      "sha256": "c7549b7086655f6e86298d1e6a39c3a60ca369052ac0783da98839dcd5ebcf97"
+    }
+  ],
+  "sourceCount": 39,
+  "artifactCount": 2,
+  "authorization": "One independent wait-only zero-input root-only SIGKILL calibration with GUI handed to independent executor; no held/input/other-root test.",
+  "claim": "Approved/pending ordinary wait-only call root-termination calibration; no guaranteed ACC wait-entry ACK or macro durable attribution.",
+  "phaseStatus": "in_progress"
+}

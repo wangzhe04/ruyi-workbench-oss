@@ -1,0 +1,7 @@
+{
+  "commit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "parent": "f4f8ba23b1100f48b0c54335b37a3b859fab5d75",
+  "freeze": "foreground-subagent-freeze-v3.json",
+  "default": "off",
+  "fullP5": false
+}

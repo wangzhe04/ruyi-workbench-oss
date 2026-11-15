@@ -1,0 +1,62 @@
+[
+  {
+    "assertion": "cleanup_refused",
+    "passed": true
+  },
+  {
+    "assertion": "ownership_retained",
+    "passed": true
+  },
+  {
+    "assertion": "permission_ownership_retained",
+    "passed": true
+  },
+  {
+    "assertion": "cross_tool_blocked",
+    "passed": true
+  },
+  {
+    "assertion": "18 stopped mutations false and not_dispatched",
+    "passed": true
+  },
+  {
+    "assertion": "raw flags 0x20000000 valid",
+    "passed": true
+  },
+  {
+    "assertion": "reject unmatched",
+    "passed": true
+  },
+  {
+    "assertion": "reject repeat",
+    "passed": true
+  },
+  {
+    "assertion": "reject scroll",
+    "passed": true
+  },
+  {
+    "assertion": "reject device",
+    "passed": true
+  },
+  {
+    "assertion": "reject bool",
+    "passed": true
+  },
+  {
+    "assertion": "normal excludes test_release_allocation",
+    "passed": true
+  },
+  {
+    "assertion": "normal excludes test_stopped_mutations",
+    "passed": true
+  },
+  {
+    "assertion": "normal excludes test_validate_sequence",
+    "passed": true
+  },
+  {
+    "assertion": "normal excludes test_stall_sequence",
+    "passed": true
+  }
+]

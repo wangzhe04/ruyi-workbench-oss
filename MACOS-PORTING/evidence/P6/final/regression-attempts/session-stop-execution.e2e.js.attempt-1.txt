@@ -1,0 +1,18 @@
+PASS I1 explicit idle stop is a truthful no-op
+PASS I2 production relay exposes its admitted identity
+PASS I3 legacy missing identity refuses an active execution
+PASS I4 old idle observation cannot stop an execution admitted later
+PASS I5 previous process identity refuses before effects
+PASS I6 rejected requests leave A running
+PASS I7 same identity accepts a stop request
+PASS I8 B has a new logical identity within the same process
+PASS I9 retained A button cannot stop B
+PASS I10 B remains owned after old A request
+PASS I11 queue read surface carries the same driver identity
+PASS I12 actual queue cancellation is acknowledged before abort removes its evidence
+PASS I13 cancelled owner cannot reappear after pending-check await
+PASS I14 stopping queued peer does not stop its blocker
+PASS I15 restart reuses OVERLAY_ID as a changed process identity
+PASS I16 delayed pre-restart stop cannot affect the new process execution
+
+SESSION STOP EXECUTION E2E: ALL PASS

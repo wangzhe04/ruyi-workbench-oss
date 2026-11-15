@@ -1,0 +1,16 @@
+PASS workbench starts
+PASS initial Claude turn succeeds
+PASS initial native session binding persisted
+PASS missing transcript causes exactly one automatic retry
+PASS retry removes the stale --resume argument
+PASS stream reports automatic transcript recovery
+PASS retried logical turn succeeds
+PASS retry does not duplicate user message or turn sequence
+PASS retry binds the fresh native session id
+PASS model switch proactively resets the native binding
+PASS model-switch turn starts fresh and succeeds
+PASS working-directory switch proactively resets the cwd-scoped binding
+PASS cwd-switch turn runs in the new workspace without stale resume
+PASS cwd-switch turn succeeds
+
+CLAUDE RESUME RECOVERY E2E: ALL PASS

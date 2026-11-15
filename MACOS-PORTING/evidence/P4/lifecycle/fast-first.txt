@@ -1,0 +1,125 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2509 / ℹ pass 2491 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/80) [fast] acc-offline-installer.static.e2e.js ... PASS (31ms)
+(  2/80) [fast] action-feedback.static.e2e.js ... PASS (35ms)
+(  3/80) [fast] agent-mode-v2.static.e2e.js ... PASS (107ms)
+(  4/80) [fast] agent-team-budget.static.e2e.js ... PASS (179ms)
+(  5/80) [fast] agent-workflows-polling-visibility.static.e2e.js ... PASS (26ms)
+(  6/80) [fast] architecture-contract-snapshots.static.e2e.js ... PASS (117ms)
+(  7/80) [fast] asr-config-ui.static.e2e.js ... PASS (117ms)
+(  8/80) [fast] browser-mcp.static.e2e.js ... PASS (163ms)
+(  9/80) [fast] c2-evidence-spawn-budget.static.e2e.js ... PASS (31ms)
+( 10/80) [fast] copy-path-guard.static.e2e.js ... PASS (100ms)
+( 11/80) [fast] copy-terms.static.e2e.js ... PASS (62ms)
+( 12/80) [fast] cost-zero.static.e2e.js ... PASS (32ms)
+( 13/80) [fast] css-typography-debt.static.e2e.js ... PASS (28ms)
+( 14/80) [fast] desktop-dpi.static.e2e.js ... PASS (29ms)
+( 15/80) [fast] desktop-shell.static.e2e.js ... PASS (30ms)
+( 16/80) [fast] durable-state-inventory.static.e2e.js ... PASS (96ms)
+( 17/80) [fast] ec-d-closure.static.e2e.js ... PASS (39ms)
+( 18/80) [fast] engine-env-brief.static.e2e.js ... PASS (365ms)
+( 19/80) [fast] eol-policy.static.e2e.js ... PASS (1488ms)
+( 20/80) [fast] facts.static.e2e.js ... PASS (103ms)
+( 21/80) [fast] finalize-segments.static.e2e.js ... PASS (33ms)
+( 22/80) [fast] fixture-home.static.e2e.js ... PASS (789ms)
+( 23/80) [fast] frontend-domains.static.e2e.js ... PASS (38ms)
+( 24/80) [fast] health-i18n.static.e2e.js ... PASS (39ms)
+( 25/80) [fast] i18n-en-terms.static.e2e.js ... PASS (32ms)
+( 26/80) [fast] i18n.static.e2e.js ... PASS (219ms)
+( 27/80) [fast] inline-script-csp-hash.static.e2e.js ... PASS (43ms)
+( 28/80) [fast] kimi-plan-ui.static.e2e.js ... PASS (34ms)
+( 29/80) [fast] live-full-text.static.e2e.js ... PASS (37ms)
+( 30/80) [fast] manifest-ranges.static.e2e.js ... PASS (59ms)
+( 31/80) [fast] mcp-ops-gui.static.e2e.js ... PASS (49ms)
+( 32/80) [fast] memory-toolbox.static.e2e.js ... PASS (30ms)
+( 33/80) [fast] mermaid-render.static.e2e.js ... PASS (391ms)
+( 34/80) [fast] model-menu-classes.static.e2e.js ... PASS (53ms)
+( 35/80) [fast] module-dependency-graph.static.e2e.js ... PASS (574ms)
+( 36/80) [fast] ndjson-line-feeder.static.e2e.js ... PASS (67ms)
+( 37/80) [fast] net-token-replay.static.e2e.js ... PASS (30ms)
+( 38/80) [fast] new-thread-engine-default.static.e2e.js ... PASS (43ms)
+( 39/80) [fast] onboarding.static.e2e.js ... PASS (55ms)
+( 40/80) [fast] overlay-payload-lock.static.e2e.js ... PASS (75ms)
+( 41/80) [fast] overlay-update-gui.static.e2e.js ... PASS (44ms)
+( 42/80) [fast] process-safety.static.e2e.js ... PASS (192ms)
+( 43/80) [fast] progress-events.static.e2e.js ... PASS (192ms)
+( 44/80) [fast] prompt-snapshot.static.e2e.js ... PASS (104ms)
+( 45/80) [fast] provider-reasoning-effort-ui.static.e2e.js ... PASS (27ms)
+( 46/80) [fast] rail-pocket.static.e2e.js ... PASS (29ms)
+( 47/80) [fast] resume-banner-dismiss.static.e2e.js ... PASS (29ms)
+( 48/80) [fast] route-inventory.static.e2e.js ... PASS (545ms)
+( 49/80) [fast] runtime-optimization.static.e2e.js ... PASS (245ms)
+( 50/80) [fast] scheduler-ui.static.e2e.js ... PASS (97ms)
+( 51/80) [fast] session-save-census.static.e2e.js ... PASS (72ms)
+( 52/80) [fast] software-engineering-prompt.static.e2e.js ... PASS (92ms)
+( 53/80) [fast] start-experience.static.e2e.js ... PASS (37ms)
+( 54/80) [fast] steward-avatar.static.e2e.js ... PASS (32ms)
+( 55/80) [fast] steward-board.static.e2e.js ... PASS (57ms)
+( 56/80) [fast] steward-config.static.e2e.js ... PASS (165ms)
+( 57/80) [fast] steward-conversation.static.e2e.js ... PASS (61ms)
+( 58/80) [fast] steward-drawer.static.e2e.js ... PASS (56ms)
+( 59/80) [fast] steward-events.static.e2e.js ... PASS (131ms)
+( 60/80) [fast] steward-runner.static.e2e.js ... PASS (228ms)
+( 61/80) [fast] steward-settings.static.e2e.js ... PASS (69ms)
+( 62/80) [fast] steward-shell.static.e2e.js ... PASS (50ms)
+( 63/80) [fast] steward-tools.static.e2e.js ... PASS (1478ms)
+( 64/80) [fast] steward-walkthrough.static.e2e.js ... FAIL exit=1 (重跑仍失败, 128ms)
+( 65/80) [fast] streaming-responsiveness.static.e2e.js ... PASS (34ms)
+( 66/80) [fast] thinking-boundary.static.e2e.js ... PASS (27ms)
+( 67/80) [fast] thread-brief.static.e2e.js ... PASS (72ms)
+( 68/80) [fast] thread-commission.static.e2e.js ... PASS (54ms)
+( 69/80) [fast] tool-image-inline.static.e2e.js ... PASS (36ms)
+( 70/80) [fast] tool-verb-coverage.static.e2e.js ... PASS (92ms)
+( 71/80) [fast] turn-narrative.static.e2e.js ... PASS (96ms)
+( 72/80) [fast] ui-bugfix.static.e2e.js ... PASS (36ms)
+( 73/80) [fast] ui-v3-p1.static.e2e.js ... PASS (45ms)
+( 74/80) [fast] ui-v3-p2.static.e2e.js ... PASS (47ms)
+( 75/80) [fast] ui-v3-p3a.static.e2e.js ... PASS (64ms)
+( 76/80) [fast] ui-v3-p3b.static.e2e.js ... PASS (55ms)
+( 77/80) [fast] ui-v3-wave1.static.e2e.js ... PASS (49ms)
+( 78/80) [fast] ui-v4-glass.static.e2e.js ... PASS (36ms)
+( 79/80) [fast] v17-review-fixes.static.e2e.js ... PASS (122ms)
+( 80/80) [fast] workflow-editor-v2.static.e2e.js ... PASS (42ms)
+
+# 汇总: 79 pass / 1 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== steward-walkthrough.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL E10 新叶子只 import net.js 的 apiRaw（零裸 fetch、零 token 自拼、零全局写入、零 innerHTML）；线上事件名登记表 6+1 条、退避封顶 30 s（实测 imports=["./net.js","./host-bridge.js"]）
+--- 末 25 行 ---
+PASS H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）
+PASS H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」
+PASS H5c zh-CN 有 drawer.loading
+PASS H5c en-US 有 drawer.loading
+PASS H6 答完待决后把节拍闸清零，让已经在跑的那张表下一拍真的去拉一次（不加新计时器：抽屉零 setTimeout 是 C2 的契约）
+PASS H7 Esc 栈同时管「点别处收回」：判据抛错一律当【点在里面】（宁可不关，绝不误关用户正在点的那个）
+PASS H7b 只有一处 document click，且是【捕获阶段】（冒泡的话，同一次点击里刚被别的处理器打开的菜单会当场被关掉）
+PASS H7c 五处浮层（chip 菜单／※／头像菜单／盾牌／递送候选）都带上了 owns 判据
+PASS I1 ② 预判只当提示：没手选就发给管家并带 routeHint（修前 routeHits[0] 直接被当成目标直递）
+PASS I1b routeHint 与附件都与用户那句话分开走（用户消息逐字不动的纪律）
+PASS I2 ⑥ 管家在流时用户还能接着说：第二句入队而不是被静默丢弃
+PASS I2b 队列在当前这条流的 finally 里 shift（按序发，不并发）
+PASS I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫
+PASS I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点
+PASS I4 ①⑥ 「直接对这条线程说」走 /api/steward/relay 单口（修前猜错就 supersede 掉待决提问）
+PASS I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）
+PASS J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役
+PASS J2 用户走测：读宽共用一个 900 token，四行居中并受可用宽度约束
+PASS J3 走查⑧：≤640 顶栏三格改 auto｜1fr｜auto，≤480 分段钮与盾牌只留字形（人话收成读屏文字，不删）、状态胶囊收起
+STEWARD WALKTHROUGH STATIC E2E: FAIL (1)
+(node:39743) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-conversation.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ltFHBU

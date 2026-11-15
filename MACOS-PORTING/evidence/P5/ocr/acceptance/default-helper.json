@@ -1,0 +1,135 @@
+{
+  "previous_sha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+  "sha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+  "exit": 0,
+  "elapsed_seconds": 33.186,
+  "result": {
+    "backend": "Vision",
+    "confidence_scope": "line_candidate",
+    "coordinate_space": "image_pixels",
+    "height": 300,
+    "image_orientation": "decoded_pixels_up",
+    "lines": [
+      "INVOICE 42",
+      "中文测试",
+      "Total $42.50"
+    ],
+    "ok": true,
+    "protocolVersion": 1,
+    "recognition_languages": [
+      "zh-Hans",
+      "en-US"
+    ],
+    "recognition_revision": 3,
+    "success": true,
+    "text": "INVOICE 42\n中文测试\nTotal $42.50",
+    "width": 1000,
+    "words": [
+      {
+        "center": [
+          136.5,
+          62
+        ],
+        "confidence": 1,
+        "height": 40,
+        "left": 36,
+        "line": 0,
+        "text": "INVOICE",
+        "top": 42,
+        "width": 201
+      },
+      {
+        "center": [
+          275,
+          62
+        ],
+        "confidence": 1,
+        "height": 40,
+        "left": 240,
+        "line": 0,
+        "text": "42",
+        "top": 42,
+        "width": 70
+      },
+      {
+        "center": [
+          68,
+          152.5
+        ],
+        "confidence": 1,
+        "height": 51,
+        "left": 41,
+        "line": 1,
+        "text": "中",
+        "top": 127,
+        "width": 54
+      },
+      {
+        "center": [
+          116.5,
+          152.5
+        ],
+        "confidence": 1,
+        "height": 51,
+        "left": 94,
+        "line": 1,
+        "text": "文",
+        "top": 127,
+        "width": 45
+      },
+      {
+        "center": [
+          163.5,
+          153
+        ],
+        "confidence": 1,
+        "height": 52,
+        "left": 138,
+        "line": 1,
+        "text": "测",
+        "top": 127,
+        "width": 51
+      },
+      {
+        "center": [
+          213.5,
+          153.5
+        ],
+        "confidence": 1,
+        "height": 51,
+        "left": 188,
+        "line": 1,
+        "text": "试",
+        "top": 128,
+        "width": 51
+      },
+      {
+        "center": [
+          94,
+          243.5
+        ],
+        "confidence": 0.5,
+        "height": 51,
+        "left": 37,
+        "line": 2,
+        "text": "Total",
+        "top": 218,
+        "width": 114
+      },
+      {
+        "center": [
+          238,
+          242
+        ],
+        "confidence": 0.5,
+        "height": 52,
+        "left": 151,
+        "line": 2,
+        "text": "$42.50",
+        "top": 216,
+        "width": 174
+      }
+    ],
+    "words_total": 8
+  }
+}

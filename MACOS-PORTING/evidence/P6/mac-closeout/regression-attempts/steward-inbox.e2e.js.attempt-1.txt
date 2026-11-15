@@ -1,0 +1,53 @@
+PASS (A) workbench up(开关关)
+PASS (A) runtime token 可读
+PASS (A) 开关关:<data>/steward 目录不存在
+PASS (A) 开关关:POST /api/steward/start -> 409 steward.disabled(稳定信封)
+PASS (A) 开关关:state 返回 enabled:false/running:false
+PASS (A) 开关关:state 信封含 counts.byKind 与 pollMs
+PASS (A) 开关关:inbox 返回空数组(读不存在的文件不建目录)
+PASS (A) 无 token -> 403(ROUTE_AUTH token 级)
+PASS (A) stop 无 token -> 403
+PASS (A) 会话已建
+PASS (A) 造过真实 mission 变更后:<data>/steward 仍不存在(零持久化写入)
+PASS (B) workbench up(开关开)
+PASS (B) 开关开:boot 后 state enabled:true/running:true
+PASS (B) boot 后已跑过至少一轮 tick(lastTickAt 非空)
+PASS (B) 首轮 tick 落下 cursor-v1.json
+PASS (B) 冷启动只建基线:(A) 阶段的历史不倒灌进箱(实测 0 条)
+PASS (C) fake-openai 触发了真实 permission_request
+PASS (C) 轮询后 inbox 出现 kind=needs_you
+PASS (C) needs_you payload.interventionType=permission
+PASS (C) needs_you 的 seq 位 = interventionId(去重游标)
+PASS (C) needs_you 带 sessionId 且 count=1
+PASS (C) 摘要含工具名
+PASS (C) payload 不含工具输入正文(只带摘要与引用 id)
+PASS (C) 行带单调 inboxSeq
+PASS (C) deny 生效:目标文件未落盘
+PASS (D) 结果章 complete -> inbox 出现 kind=done
+PASS (D) done payload 带 changeType=result/resultStatus=complete
+PASS (E) run_end status=failed -> inbox 出现 kind=failed
+PASS (E) failed 带源 seq=3 与 sessionId
+PASS (E) node_progress 正文不入箱(心跳丢弃)
+PASS (E) 箱内 kind 全在五类白名单
+PASS (E) inboxSeq 严格单调递增
+PASS (F) 连跑两轮 tick 后行数不变(3)
+PASS (F) inboxSeq 不变(去重键生效)
+PASS (F) 箱内至少三类事件各一条(实测 3 条)
+PASS (F) since 游标只返回其后的行
+PASS (F) limit 夹到上限 200
+PASS (F) 非法 limit 回默认 50
+PASS (F) cursor-v1.json 结构完好(schema 1 + 三个源游标)
+PASS (F) run 游标推进到 seq 3
+PASS (G) stop -> {ok:true,running:false}
+PASS (G) stop 后 state.running 保持 false
+PASS (G) stop 后一个完整周期内 lastTickAt 不变(interval 真的停了)
+PASS (H) 重启后 workbench up
+PASS (H) 重启后轮询器自动起来
+PASS (H) 重启 + 再跑一轮:inbox 无重复(3 -> 3)
+PASS (H) inboxSeq 从游标续接不回退也不跳号(3)
+PASS (H) inbox 文件字节数不变(一条都没重写)
+PASS (I) 关开关后 workbench up
+PASS (I) 关开关后 state enabled:false/running:false
+PASS (I) 关开关后又造了新变更:inbox 字节数仍不变(零写入)
+PASS (I) 关开关后 start 仍 409
+STEWARD INBOX E2E: ALL PASS

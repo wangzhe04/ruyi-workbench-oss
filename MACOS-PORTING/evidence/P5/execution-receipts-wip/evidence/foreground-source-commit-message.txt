@@ -1,0 +1,19 @@
+feat(macos): add default-off durable desktop execution receipts
+
+Correlate root-owned provider and positive-turn foreground workflow calls with
+actual ACC and native input-worker entries and terminal receipts. Save projected
+main/node results and image histories before allowing further tools or model
+requests, and preserve uncertainty as a durable hold after storage/cancel/restart
+faults. Bind genuine runtime, controller, client and immutable send identities.
+
+RUYI_DESKTOP_EXECUTION_RECEIPTS remains opt-in. Background/API0/resume/CLI and
+manual admissions, native capture/OCR receipts, reconciliation/retention and
+full P5 acceptance remain open. No release identity or desktop permission claim.
+
+Independent source review: foreground-subagent-source-review-v3.json plus
+foreground-subagent-review-coverage-v1.json. Frozen source: 90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863.
+Independent runtime: subagents117, images26, dispatch32, context38, control4,
+targeted78, engineering inventories/build; 13 commands exit0, 26 source/artifact
+bindings. Full units2626 pass/18 existing skips; fast80 pass/12 live skips;
+syntax1178/0. Default-off provider compatibility85 assertions in five fixtures.
+Evidence and all earlier failures retained in the P5 execution-receipts archive.

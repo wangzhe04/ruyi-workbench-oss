@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "bundleID": "com.apple.finder",
+  "cgWindows": [
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 64,
+        "Y": 607,
+        "Width": 64
+      },
+      "handle": 32
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 30
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 27
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 29
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 28
+    }
+  ],
+  "applicationBuild": "1865",
+  "windows": [
+    {
+      "document": null,
+      "proxy": {},
+      "tree": {
+        "AXRole": "AXScrollArea"
+      },
+      "role": "AXScrollArea",
+      "attributes": [
+        "AXEnabled",
+        "AXFrame",
+        "AXDescription",
+        "AXParent",
+        "AXChildren",
+        "AXSize",
+        "AXFocused",
+        "AXRole",
+        "AXTopLevelUIElement",
+        "AXMain",
+        "AXPosition",
+        "AXHelp",
+        "AXContents",
+        "AXWindow",
+        "AXRoleDescription",
+        "AXSubrole",
+        "AXValue"
+      ]
+    }
+  ],
+  "applicationVersion": "27.0",
+  "pid": 692
+}

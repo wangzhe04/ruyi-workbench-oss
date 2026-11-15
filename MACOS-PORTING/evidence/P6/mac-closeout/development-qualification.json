@@ -1,0 +1,213 @@
+{
+  "checkedAt": "2026-11-12T13:50:09.354242+00:00",
+  "scope": "Latest development attempts for34 adapted shared Mac contracts, not a frozen final or full runner result",
+  "passed": 34,
+  "failed": 0,
+  "cases": [
+    {
+      "file": "agent-mode-v2.e2e.js",
+      "log": "agent-mode-v2-first.txt",
+      "pass": true,
+      "exitCode": 0
+    },
+    {
+      "file": "artifacts.e2e.js",
+      "log": "development-batch2/artifacts.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "audit-w23.e2e.js",
+      "log": "audit-w23-first.txt",
+      "pass": true,
+      "exitCode": 0
+    },
+    {
+      "file": "autonomy-benchmark.e2e.js",
+      "log": "development-batch2/autonomy-benchmark.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "background-completion.e2e.js",
+      "log": "development-batch1/background-completion.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "bridge-cancel-timeout.e2e.js",
+      "log": "development-batch2/bridge-cancel-timeout.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "log": "development-batch1/budget-guard.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "claude-cmdline-guard.e2e.js",
+      "log": "development-batch1/claude-cmdline-guard.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "log": "development-batch1/claude-exe-resolve.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "cli-probe-stall.e2e.js",
+      "log": "development-batch1/cli-probe-stall.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "desktop-mcp-smoke.e2e.js",
+      "log": "development-batch2/desktop-mcp-smoke.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "engine-env-runtime.e2e.js",
+      "log": "development-batch2/engine-env-runtime.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "harness-friction.e2e.js",
+      "log": "development-batch1/harness-friction.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "mcp-import-origin.e2e.js",
+      "log": "development-batch2/mcp-import-origin.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "mission-driver.e2e.js",
+      "log": "development-batch1/mission-driver.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "overlay-update-core.e2e.js",
+      "log": "development-batch2/overlay-update-core.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "permission-plain.browser.e2e.js",
+      "log": "development-batch1/permission-plain.browser.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "privacy-gateway.e2e.js",
+      "log": "development-batch2/privacy-gateway.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "log": "repo-hygiene-second.txt",
+      "pass": true,
+      "exitCode": 0
+    },
+    {
+      "file": "settings-wave1.browser.e2e.js",
+      "log": "development-batch2/settings-wave1.browser.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "shell-mcp-guard.e2e.js",
+      "log": "development-batch1/shell-mcp-guard.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "shell-session.e2e.js",
+      "log": "development-batch2/shell-session.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-decisions.browser.e2e.js",
+      "log": "development-batch1/steward-decisions.browser.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-deferred-permission.e2e.js",
+      "log": "development-batch1/steward-deferred-permission.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-exempt-delegation.e2e.js",
+      "log": "development-batch2/steward-exempt-delegation.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-exempt-no-swap.e2e.js",
+      "log": "development-batch2/steward-exempt-no-swap.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-exempt-shell-send.e2e.js",
+      "log": "development-batch2/steward-exempt-shell-send.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-guardrails.e2e.js",
+      "log": "development-batch2/steward-guardrails.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "steward-tools.e2e.js",
+      "log": "steward-tools-first.txt",
+      "pass": true,
+      "exitCode": 0
+    },
+    {
+      "file": "tool-audit-fixes.e2e.js",
+      "log": "development-batch2/tool-audit-fixes.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "tool-audit-r2-meta.e2e.js",
+      "log": "development-batch3/tool-audit-r2-meta.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "tool-audit-r2-netexec.e2e.js",
+      "log": "development-batch3/tool-audit-r2-netexec.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "tool-invoke-promote.e2e.js",
+      "log": "development-batch1/tool-invoke-promote.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    },
+    {
+      "file": "vision-loop.e2e.js",
+      "log": "development-batch2/vision-loop.e2e.js.txt",
+      "exitCode": 0,
+      "pass": true
+    }
+  ],
+  "nativeAppQualifications": "Separate; current-code App can start but actual capture/accessibility/input authorizations denied; positive qualifications unpassed."
+}

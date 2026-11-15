@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-08",
+  "fixture": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-E9wY2T",
+  "execSession": 89144,
+  "nativePID": 1337,
+  "servicePID": 1342,
+  "state": "awaiting_user_system_prompt_inspection",
+  "normalEntry": "CUA clicked normal composer voice button, native getUserMedia wrapper requesting",
+  "captureState": 0,
+  "uploads": 0,
+  "systemSettingsMicrophone": "Ruyi absent in observed system list",
+  "toolRestriction": "UserNotificationCenter access rejected by CUA app rule",
+  "next": "User inspect microphone prompt and reply, retain existing <=3sec and isolated loopback scope",
+  "complete": false
+}

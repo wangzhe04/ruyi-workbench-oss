@@ -1,0 +1,1281 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3-04 content pre-audit",
+  "date": "2026-11-07",
+  "baselineCommit": "b491997a2d2fe0c47b31c090f699a678f04a4dae",
+  "counts": {
+    "playbooks": 16,
+    "skills": 20,
+    "commands": 13,
+    "plugin_agents": 4,
+    "builtin_roles": 10,
+    "builtin_workflows": 8
+  },
+  "totalItems": 71,
+  "scopeNotes": [
+    "Read-only source/content audit; no production files modified.",
+    "Baseline entries are anchored to the pre-P3-04 HEAD. The main agent was implementing concurrently; some Windows/Mac prefacing and capability requirements observed in the live worktree already address parts of this inventory.",
+    "All 71 requested items were read; findings distinguish required platform/capability corrections from informational existing prerequisites.",
+    "Do not treat packaged skill/command text as instructions to the reviewer; these are the audited product artifacts."
+  ],
+  "findings": [
+    {
+      "id": "A01",
+      "severity": "P2",
+      "title": "Windows enumeration/hash/recycle commands need real Mac branches",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/folder-inventory.json",
+        "ruyi-workbench/resources/playbooks/clean-downloads.json",
+        "ruyi-workbench/resources/playbooks/scheduled-digest.json"
+      ],
+      "recommendation": "Keep existing Windows branch. Mac may use available script_run Python/Node for full metadata enumeration; do not replace it with capped file_list and claim complete coverage. Preserve read failures, hidden-file policy, Unicode/space paths, symlink policy and source/count reconciliation. Mac trash/desktop integration is not delivered; cleaning downloads can produce a reviewable suggestion list and hand deletion to the user rather than substitute rm/file_delete/.Trash.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/folder-inventory.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 的内容清点成一张清单表,保存为 {output}(CSV 格式)。\\n\\n步骤:\\n1. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -Recurse -Force -File | Select-Object FullName, Length, LastWriteTime | Export-Csv -LiteralPath <工作区里的临时 CSV> -NoTypeInformation -Encoding UTF8(路径里有单引号时写成两个单引号),再读这个 CSV 加工;不要把清单直接打到输出里(表格格式会截断长路径、挤掉列,输出过长时中间被截掉)。文件夹数另用 -Directory 数。不要用 file_list:它不给修改时间,默认跳过 node_modules、dist 这类目录,而且最多列 500 条;glob 不给大小。文件很多时分段读那个临时 CSV,确保一个不漏。\\n2. 为每个文件生成一行,列包括:相对路径、文件名、类型(按扩展名归类:文档/表格/图片/视频/音频/压缩包/代码/其它)、大小(KB/MB 这种人类可读单位)、最后修改时间。\\n3. 按「类型 → 大小降序」排序,方便一眼看出每类里最大的文件。\\n4. 写入 {output}:CSV,首行是中文表头,UTF-8 带 BOM,保证 Excel 打开中文不乱码。\\n5. 在对话里给我一段小结:一共多少个文件、多少个文件夹、总占用空间、各类型文件的数量与体积占比。\\n\\n验收标准:CSV 每行对应一个真实文件、字段完整、可直接用 Excel 打开;CSV 行数与 Get-ChildItem 数出的文件数一致。这是只读清点任务,不修改或移动任何原文件。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/clean-downloads.json": [
+          {
+            "line": 10,
+            "text": "  \"promptTemplate\": \"请帮我清理文件夹 {folder}(通常是「下载」目录)。\\n\\n步骤:\\n1. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse -Force | Select-Object FullName, Length, LastWriteTime | Export-Csv -LiteralPath <工作区里的临时 CSV> -NoTypeInformation -Encoding UTF8(路径里有单引号时写成两个单引号),再分段读这个 CSV,统计总数和总占用空间。不要把清单直接打到输出里:表格格式会把长路径截成「...」、列会被挤掉,输出过长时中间还会被截断。file_list 不给修改时间,glob 不给大小,这一步两者都不够。\\n2. 分类识别可清理对象,分组列出并给出体积:\\n   - 安装包类(.exe / .msi / 明显是安装程序的 .zip),装完通常可删;\\n   - 重复文件:先按大小相同筛出候选,再用 Get-FileHash 比对哈希,哈希一致才算重复。文件名相似(如「文档(1).pdf」)不算证据;\\n   - 陈旧文件(很久没改动的,标出最后修改时间);\\n   - 临时/垃圾文件(.tmp、0 字节文件等)。.crdownload / .part 可能是正在下载的文件,最近一小时内改动过的一律标「待你确认」。\\n3. 生成一份「清理建议清单」:每一项标注 建议删除 / 建议保留 / 待你确认,并给出理由和体积。此时不要删除任何文件。\\n4. 汇总:如果按建议清理,能释放多少空间。\\n5. 等我看过清单并明确指定要删哪些,再执行。删除一律移进回收站:在同一次 powershell_run 里先 Add-Type -AssemblyName Microsoft.VisualBasic,再对每个文件调用 [Micr"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/scheduled-digest.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把 {folder} 里最近新攒下的记录汇总成一份摘要,写入 {output}。\\n\\n做法:\\n1. 先定本次的时间范围:{output} 已存在时,读出它最新一期开头记下的「下次起点」,以那之后为本次范围;不存在就取最近 7 天。\\n2. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse | Where-Object LastWriteTime -gt ([datetime]'<起点,如 2026-10-01 08:00>') | Select-Object FullName, Length, LastWriteTime | ConvertTo-Csv -NoTypeInformation(路径里有单引号时写成两个单引号),找出范围内新增或改动的文件作为本期汇总对象;{output} 自己若在这个文件夹里,把它排除在外。一个都没有就如实写「本期无新增」,不要硬凑。\\n3. 逐个读懂内容,按主题归纳成几个板块,每条写清「是什么 + 要点」,并注明来自哪个文件。\\n4. 只写文件里真实存在的内容,绝不编造或推测文件里没有的信息;读不了的文件如实列出。\\n5. 用 Markdown 排版,本期开头写明覆盖的时间范围、文件数,以及「下次起点」(就是这次运行的时间)。{output} 已存在时,把本期加在最前面,保留以前各期,不要整份覆盖。\\n\\n验收标准:每条要点都能对应到具体文件;没有虚构内容;覆盖文件数与实际一致;以前各期内容还在。写完后把本期摘要也在对话里展示一份,方便快速过目。\","
+          }
+        ]
+      }
+    },
+    {
+      "id": "A02",
+      "severity": "P2",
+      "title": "Batch rename must use target-volume identities and naming semantics",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/batch-rename.json"
+      ],
+      "recommendation": "Branch Windows reserved names/case rules from Mac actual volume case sensitivity and Unicode canonical equivalence. Do not lowercase all Mac paths, and preserve preview/explicit confirmation/non-overwrite behavior.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/batch-rename.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请对文件夹 {folder} 里的文件做批量重命名,规则是:{rule}\\n\\n步骤:\\n1. 先用 file_list(root 设为该文件夹,recursive: false)列出待处理文件,报告数量;返回 truncated 时说明没列全,不要按不完整的清单继续。\\n2. 根据规则生成一份「改名对照表」——每行是 旧文件名 → 新文件名,完整列给我看。此时不要真正改名。\\n3. 自检对照表,把结果写在表后:\\n   - 新文件名之间有没有重名。Windows 的文件名不分大小写,「A.txt」和「a.txt」算同名;\\n   - 会不会和文件夹里已有的其它文件撞名;\\n   - 新文件名是否合法:不含反斜杠、斜杠、冒号、星号、问号、双引号、尖括号、竖线,不以空格或句点结尾,不是 CON、PRN、AUX、NUL、COM1–COM9、LPT1–LPT9 这类保留名;\\n   - 扩展名是否保留;编号是否按稳定顺序(按文件名或修改时间)补零对齐(01、02……)。\\n4. 停下来,等我明确回复同意(或修改规则)后,再用 file_move 逐个执行,不覆盖已有文件。我回复之前不要改任何文件名。\\n\\n验收标准:改名后文件数量不变、没有文件被覆盖或丢失、扩展名不变。执行完汇报:重命名了几个文件、跳过了哪些及原因。规则有歧义(比如没说编号从几开始)时,在对照表里写明你采用的默认做法,由我确认。这是不可自动撤销的操作,先出对照表、等我同意再动手。\","
+          }
+        ]
+      }
+    },
+    {
+      "id": "A03",
+      "severity": "P2",
+      "title": "Native document reading claims are stale after P1",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/archive-by-content.json",
+        "ruyi-workbench/resources/playbooks/compare-documents.json",
+        "ruyi-workbench/resources/playbooks/translate-document.json",
+        "ruyi-workbench/resources/playbooks/merge-excel.json",
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md"
+      ],
+      "recommendation": "P1 native file_read can read modern Office/PDF with bounded text/image output. Keep ACC structured read_document/excel_read/pdf_read_pages preferred where their richer schema is needed, but remove blanket claims that file_read rejects all these formats and the associated unnecessary stop condition. Distinguish a missing shared document component from unavailable desktop automation.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/archive-by-content.json": [
+          {
+            "line": 10,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 里杂乱的文件按内容归类整理到子文件夹中。\\n\\n步骤:\\n1. 只处理 {folder} 顶层的文件,已有的子文件夹及其内容保持不动。用 file_list(root 设为该文件夹,recursive: false)列出文件,报告数量和大致类型分布(文档、图片、表格、代码、压缩包等);返回 truncated 时说明没列全,不要按不完整的清单继续。\\n2. 对文本类文件抽样读取内容;PDF / Word / Excel 用桌面控制的 read_document 读(file_read 读不了这几类;分类只需要抽样,读开头一段即可)。桌面控制不可用时,这几类只按文件名与扩展名归类,并在对照表里注明「未读内容」。据此归纳出一套「有意义的分类方案」——比如按主题(发票、合同、报告)、按项目、按时间(年-月),而不是简单按扩展名。\\n3. 自检:分类是否互斥且穷尽?会不会产生只有一个文件的碎片文件夹(尽量合并)?有没有文件无法归类(放入「未分类」)?\\n4. 把分类方案和「每个文件 → 目标子文件夹」的对照表完整列给我,然后停下,等我明确回复同意(可以带修改意见)再动手。此前不要创建文件夹,也不要移动任何文件。\\n5. 我同意后,创建子文件夹并用 file_move 把文件移进去,不覆盖:同名冲突时在文件名后加序号。\\n\\n验收标准:整理前后文件总数不变,没有文件丢失或被覆盖,原顶层文件都进了某个子文件夹。执行完汇报:分了几类、每类多少个文件、有多少进了「未分类」。移动文件不可自动撤销,务必先出对照表、等我同意再动手。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/compare-documents.json": [
+          {
+            "line": 12,
+            "text": "  \"promptTemplate\": \"请对比两份文档：A={fileA}，B={fileB}，把报告写入 {output}。\\n\\n步骤：\\n1. 分别读取并确认两份文件可访问；记录格式、标题、日期/版本和主要章节。Word / PDF 用桌面控制的 read_document 或 pdf_read_pages 读(file_read 读不了;read_document 一次最多返回约 2 万字,truncated 时用 next_offset 作为 offset 续读到底);任何一份无法读取(包括需要桌面控制却不可用)就停下说明。\\n2. 先按章节或主题对齐，再比较内容，不只做逐字 diff。\\n3. 把差异分成：B 相比 A 新增、删除、修改、互相冲突、仅措辞变化。每项附对应章节或原文短句，避免失去上下文。\\n4. 对可能影响范围、责任、金额、日期、权限或交付条件的变化单独标为“重要变化”；无法判断影响时明确写“待确认”。\\n5. 在报告开头写结论摘要，随后给差异表，最后列无变化的主要章节和待确认问题。\\n6. 写入 {output} 后重新读取，确认两份来源都被覆盖且报告非空。\\n\\n验收标准：每条差异都能回溯到 A/B 的具体位置；事实与影响推断分开；不修改两份源文档。最后报告差异总数、重要变化数和结果路径。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/translate-document.json": [
+          {
+            "line": 12,
+            "text": "  \"promptTemplate\": \"请把 {file} 翻译为 {language}，结果写入 {output}，不要覆盖源文件。\\n\\n要求：\\n1. 先读取并识别文档结构、主题和术语。Word / PDF 用桌面控制的 read_document 或 pdf_read_pages 读(file_read 读不了;read_document 一次最多返回约 2 万字,truncated 时用 next_offset 作为 offset 续读到底,长文档不能只译开头),译文要输出成 Word 时用 write_document;需要桌面控制却不可用,或文件无法解析、受密码保护时,停止并说明。\\n2. 保持标题层级、列表编号、表格、链接、数字、日期、代码和文件路径；代码与命令默认不翻译。\\n3. 建立简短术语表，同一术语全文一致；人名、产品名或缩写没有公认译法时保留原文。\\n4. 忠实表达原意，不擅自补充或删减；歧义处用“[译注：待确认]”标记。\\n5. 完成后抽查开头、中间、结尾和所有表格，确认没有漏段、乱码或结构丢失。\\n6. 在译文末尾附术语表（若有），并重新读取结果确认非空。\\n\\n验收标准：段落数量与结构大体对应；数字和专有名词准确；无漏译的正文段。最后报告目标语言、译文路径和待确认项数量。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/merge-excel.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 下的 Excel 表格合并成一个总表,保存为 {output}。\\n\\n这个任务要用桌面控制里的 excel_read / write_excel(file_read 读不了 Excel);桌面控制不可用就停下告诉我。\\n\\n步骤:\\n1. 用 file_list(root 设为该文件夹,recursive: false)列出 .xlsx / .xlsm 文件,报告数量和文件名清单;一个都没有就停下告诉我。老格式 .xls 读不了:列出来请我先另存为 .xlsx,不要默默跳过。{output} 若已在这个文件夹里(上次的结果),不要把它当成输入。\\n2. 逐个读取。excel_read 不传 sheet 时只读活动表,但会在 sheets 里列出全部工作表:每张有数据的表都要用 sheet 参数单独读。它默认最多读 200 行;返回 truncated 时用其中的 next_range 作为 range 参数续读(没有 next_range 时按 next_start_row 自己拼区域),直到不再 truncated。\\n3. 以列最完整的一张表的表头为基准,按列名对齐合并:同名列纵向堆叠;某表缺某列时留空;多出的列追加到末尾。每行额外加一列「来源文件」(文件名 + 工作表名),方便回溯。\\n4. 去掉完全重复的行:比较除「来源文件」外的所有列,全部相同视为重复,保留第一次出现的那行,并报告去重了多少行。\\n5. 用 write_excel 写入 {output}。没指定目录时放在 {folder} 的上一级,不放进 {folder} 里,免得下次合并把它当成输入;目标文件已存在时先问我是否覆盖。\\n\\n验收标准:总行数 = 各表数据行之和 − 去重行数;表头是所有源表列名的并集加「来源文件」;没有哪张表因 200 行上限被截断。最后汇报:合并了几个文件、几张表、共几行、去重几行、跳过了哪些(及原因"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 下的所有 PDF 提取文本并汇总,结果写入 {output}(Markdown 格式)。\\n\\n这个任务要用桌面控制里的 pdf_read_pages 读 PDF(file_read 读不了 PDF);桌面控制不可用就停下告诉我,不要把「读不出」当成扫描件。\\n\\n步骤:\\n1. 用 file_list(root 设为该文件夹)列出所有 .pdf 文件,报告数量;一个都没有就停下来告诉我。\\n2. 逐份用 pdf_read_pages 提取文本:先用 pages: '1' 读第一页并拿到 total_pages(不要用默认的 '1-5':它只读前 5 页,而不足 5 页的 PDF 会因页码越界直接报错),再读 '2-<total_pages>';返回 truncated 时把 next_pages 作为下一次的 pages 参数接着读,直到读完全文。若某份 PDF 几乎提取不出文字(no_text_pages 覆盖了大部分页,多半是扫描件),记为「疑似扫描件,需 OCR」并跳过正文摘要,不要中断。\\n3. 为每份 PDF 写一段结构化摘要:标题/主题、核心结论或要点(3–6 条)、涉及的关键数字或日期、以及原文件名。\\n4. 在文档开头写一段总览:一共处理了几份、主题分布、值得注意的共性或差异。\\n5. 把「总览 + 各份摘要」按清晰的 Markdown 标题层级组织,写入 {output}。\\n\\n验收标准:每份能提取文本的 PDF 都有独立摘要小节;疑似扫描件在总览中单独列出;输出是结构清晰、可直接阅读的 Markdown。最后汇报:成功摘要几份、疑似扫描件几份、结果文件路径。\","
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md": [
+          {
+            "line": 12,
+            "text": "- 纯文本、Markdown 用 `file_read`；它按扩展名拒读 Office 和 PDF。"
+          },
+          {
+            "line": 13,
+            "text": "- .docx/.pptx 用桌面控制 MCP 的 `read_document`（长文按 `offset`/`next_offset` 续读）；PDF 用 `pdf_read_pages`（按页读，可先看 `outline` 再选页）；.xlsx 用 `excel_read`。老 .doc/.xls/.ppt 请用户先另存为新版格式。"
+          },
+          {
+            "line": 15,
+            "text": "- 工具清单里没直接看到上述桌面控制 MCP 工具时，先用 `tool_search` 找（自适应装载下它们可能要经 `tool_invoke_read` / `tool_invoke_edit` 调用）；搜也搜不到才停下来，说明缺少桌面控制组件，不要硬写解析或生成脚本。"
+          },
+          {
+            "line": 35,
+            "text": "输入缺失、文件受密码保护、格式无法解析、缺少桌面控制 MCP，或要求会覆盖大量原文件时，停止并说明可执行的下一步，不伪造处理结果。"
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md": [
+          {
+            "line": 13,
+            "text": "- .xlsx/.xlsm：`file_read` 会拒读，用桌面控制 MCP 的 `excel_read`（工具清单里没直接看到时先用 `tool_search` 找，自适应装载下它可能要经 `tool_invoke_read` 调用）。它不支持老 .xls（请用户另存为 .xlsx）和 CSV；默认最多回 200 行，用 `max_rows` 调大，`truncated` 给出真实总行数；不传 `sheet` 时读活动表并在 `sheets` 列出全部工作表，再用 `sheet` 逐张读；`include_formulas: true` 才回读公式。"
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md": [
+          {
+            "line": 13,
+            "text": "先通过工具目录与 diagnostics 确认实际能力；不要猜测 MCP 前缀或把 Office 二进制交给 file_read。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A04",
+      "severity": "P2",
+      "title": "PDF sample instructions still contain the now-fixed default bug and one-page next-range error",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+        "ruyi-workbench/resources/playbooks/ocr-scan.json"
+      ],
+      "recommendation": "P3-02 now makes omitted pages read up to actual first five pages. Remove statement that short PDFs fail on default input. After reading first page, request remaining range only if total_pages>1; otherwise do not emit 2-1. Continue next_pages when truncated and never equate extraction failure with a scanned document.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 下的所有 PDF 提取文本并汇总,结果写入 {output}(Markdown 格式)。\\n\\n这个任务要用桌面控制里的 pdf_read_pages 读 PDF(file_read 读不了 PDF);桌面控制不可用就停下告诉我,不要把「读不出」当成扫描件。\\n\\n步骤:\\n1. 用 file_list(root 设为该文件夹)列出所有 .pdf 文件,报告数量;一个都没有就停下来告诉我。\\n2. 逐份用 pdf_read_pages 提取文本:先用 pages: '1' 读第一页并拿到 total_pages(不要用默认的 '1-5':它只读前 5 页,而不足 5 页的 PDF 会因页码越界直接报错),再读 '2-<total_pages>';返回 truncated 时把 next_pages 作为下一次的 pages 参数接着读,直到读完全文。若某份 PDF 几乎提取不出文字(no_text_pages 覆盖了大部分页,多半是扫描件),记为「疑似扫描件,需 OCR」并跳过正文摘要,不要中断。\\n3. 为每份 PDF 写一段结构化摘要:标题/主题、核心结论或要点(3–6 条)、涉及的关键数字或日期、以及原文件名。\\n4. 在文档开头写一段总览:一共处理了几份、主题分布、值得注意的共性或差异。\\n5. 把「总览 + 各份摘要」按清晰的 Markdown 标题层级组织,写入 {output}。\\n\\n验收标准:每份能提取文本的 PDF 都有独立摘要小节;疑似扫描件在总览中单独列出;输出是结构清晰、可直接阅读的 Markdown。最后汇报:成功摘要几份、疑似扫描件几份、结果文件路径。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/ocr-scan.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请对文件夹 {folder} 里的扫描件做 OCR 文字识别,结果写入 {output}。\\n\\n这个任务依赖桌面控制:识别用 ocr_image(只收图片文件)。桌面控制不可用时明确告诉我需要先启用,不要静默失败。\\n\\n步骤:\\n1. 用 file_list(root 设为该文件夹)列出图片(png/jpg/jpeg/tiff/bmp)和 PDF,报告数量。\\n2. 图片:逐个用 ocr_image(path 指向该文件)识别。不要用识别屏幕的 OCR 工具去处理文件。\\n3. PDF:先用 pdf_read_pages(pages: '1' 拿到 total_pages,再读 '2-<total_pages>',truncated 时按 next_pages 续读)看有没有文字层。有文字就直接用提取出的文字,不必 OCR;没有文字层的是扫描版,目前没有把 PDF 页转成图片的工具,把它列进「需要先导出成图片」清单告诉我(可以在阅读器里另存为图片后再跑一次),不要硬识别。\\n4. 尽量保留原文的段落与换行结构;识别不确定的地方用「[?]」标出,不要瞎猜。\\n5. 每个文件的结果作为独立小节写入 {output},小节标题用原文件名;多页 PDF 按页标注(第 1 页 / 第 2 页……)。\\n\\n验收标准:每个图片都有对应的识别文本小节;识别失败的文件单独列出并说明原因(如图像太模糊);需要先导出成图片的 PDF 单独列出;输出是结构清晰的 Markdown。最后汇报:成功识别几个、失败几个、待导出几个、结果文件路径。\","
+          }
+        ]
+      }
+    },
+    {
+      "id": "A05",
+      "severity": "P1",
+      "title": "Shared ACC presence must not enable unavailable desktop/OCR/browser paths",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/desktop-open-app.json",
+        "ruyi-workbench/resources/playbooks/ocr-scan.json",
+        "ruyi-workbench/resources/playbooks/web-form-fill.json",
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+        "ruyi-workbench/resources/playbooks/merge-excel.json"
+      ],
+      "recommendation": "Gate desktop-open-app on actual desktop automation; OCR on an actual OCR backend; browser form operations on an actual control path. Shared Office/files alone are not desktop capability. Mac system URL handoff is not DOM/desktop control; managed/custom/bundled/CDP may be DOM paths when the package/runtime or external session is available. Include bundled. Avoid the inverse bootstrap error: an installed launchable browser need not already be attached before a playbook can start it.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/desktop-open-app.json": [
+          {
+            "line": 11,
+            "text": "  \"requires\": [\"desktopMcp\"],"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/ocr-scan.json": [
+          {
+            "line": 12,
+            "text": "  \"requires\": [\"desktopMcp\"],"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/web-form-fill.json": [
+          {
+            "line": 10,
+            "text": "  \"promptTemplate\": \"请在浏览器里打开 {url},按下面的说明把表单填好:\\n{fields}\\n\\n这是桌面操控任务,严格按能力路径推进,每一步都要验证:\\n1. 先调 browser_backend_status 看 configuredMode。是 managed / custom / cdp 时用浏览器工具:browser_open 打开 {url},用 browser_get_elements / browser_get_text 找到每个字段的输入框(拿到 CSS 选择器),文本框用 browser_type 填,下拉 / 单选 / 勾选用 browser_click,browser_screenshot 复核。是 system(默认)时这些 DOM 工具用不了,直接走桌面路径:browser_open 打开后用 wait_for_window 按窗口标题等它出现,再用截图或 ocr_find_text / ui_find 定位输入框,不要凭猜测点坐标。\\n2. 逐个字段填写:定位 → 填写 → 复核这个框里确实是你填的内容,再填下一个。下拉/单选/勾选按说明选择,同样复核。\\n3. 填写时不要按回车,输入的文字里也不要带换行:回车会直接提交表单。\\n4. 不替我填写密码、验证码、银行卡或支付信息;遇到这类字段留空,在对照表里标「需本人填写」。\\n5. 全部填完后,汇总每个字段的当前值,和 {fields} 的要求逐条比对,列一份「字段 → 已填值 → 是否符合」的对照表给我。\\n6. 不要点击「提交/发送/确认」。等我看过对照表、明确说提交,你再执行。\\n\\n验收标准:每个字段填写后都有截图或页面文本复核为证;对照表逐条覆盖 {fields} 的每一项;我确认之前绝不提交。页面上找不到对应输入框的字段就跳过,在对照表里标「未找到」,不要往错的框里乱填。\","
+          },
+          {
+            "line": 11,
+            "text": "  \"requires\": [\"desktopMcp\"],"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/pdf-summarize.json": [
+          {
+            "line": 12,
+            "text": "  \"requires\": [\"desktopMcp\"],"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/merge-excel.json": [
+          {
+            "line": 12,
+            "text": "  \"requires\": [\"desktopMcp\"],"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A06",
+      "severity": "P2",
+      "title": "Generic frontend/browser guides hardcode Windows observation and misstate CDP ownership",
+      "paths": [
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md"
+      ],
+      "recommendation": "Provide Mac native shell/background paths and verified DOM browser tools, and explicitly stop at system handoff when automation is unavailable. CDP can see/select pre-existing user pages; verify target URL and do not assume only owned pages exist. browser_close preserves external pages. Mac has no resize_window; report actually tested viewport sizes and do not claim that scaling a screenshot tested a narrow viewport. Optional script-based Playwright viewport testing needs installed dependencies and an isolated owned profile.",
+      "locations": {
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md": [
+          {
+            "line": 12,
+            "text": "1. Make sure the server is running. A dev server never exits, so do not start it with `powershell_run`: that is one-shot and kills the whole process tree when it times out."
+          },
+          {
+            "line": 14,
+            "text": "   - Claude Code: its Bash tool is Git Bash, so run PowerShell explicitly and keep the logs, e.g. `powershell -NoProfile -Command \"Start-Process npm.cmd -ArgumentList 'run','dev' -WorkingDirectory '<project>' -WindowStyle Hidden -RedirectStandardOutput '<project>\\dev.out.log' -RedirectStandardError '<project>\\dev.err.log' -PassThru | Select-Object Id\"`. Note the Id and stop it afterwards with `Stop-Process -Id <Id>`."
+          },
+          {
+            "line": 18,
+            "text": "   - the workbench's own `browser_open` opens the system default browser and returns as soon as it starts: wait (desktop control `wait_for_window` with the page title, or a few seconds), then `desktop_screenshot` and OCR (`ocr_screen`). Nothing can read that page's DOM."
+          },
+          {
+            "line": 19,
+            "text": "   - the desktop control MCP's `browser_open` drives its own browser. In managed / custom / CDP mode (see `browser_backend_status`) it waits for the page to load, and `browser_get_text`, `browser_execute_js` and `browser_screenshot` then work on that page. They only see pages this tool opened."
+          },
+          {
+            "line": 20,
+            "text": "4. Fix the cause, then verify again the same way. When layout is involved, also check a narrow window: desktop control `resize_window` (width, height, title) and screenshot again."
+          },
+          {
+            "line": 21,
+            "text": "5. If automation is needed, write a short PowerShell or Node script with `script_run`; keep it in the generated folder when it may need reuse."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md": [
+          {
+            "line": 10,
+            "text": "Inspired by the popular Claude plugin category for frontend design, but implemented as local-only guidance plus Workbench tools."
+          },
+          {
+            "line": 18,
+            "text": "5. Run the dev server in the background, not with `powershell_run` (one-shot; it kills the process tree on timeout): `shell_start` with `command` and a large `timeoutMs` under the Workbench provider engine, or under Claude Code (whose Bash is Git Bash) `powershell -NoProfile -Command \"Start-Process npm.cmd -ArgumentList 'run','dev' -WorkingDirectory '<project>' -WindowStyle Hidden -PassThru | Select-Object Id\"` and `Stop-Process -Id <Id>` when done. Poll the URL with `http_request` until it answers."
+          },
+          {
+            "line": 19,
+            "text": "6. Open the page with `browser_open`. The workbench's own one returns before the page has loaded, so wait (desktop control `wait_for_window` with the page title, or a few seconds) before verifying with `desktop_screenshot`; the desktop control MCP's `browser_open` in managed mode waits for the load and lets `browser_screenshot` / `browser_get_text` inspect that page. Check narrow widths with desktop control `resize_window`."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md": [
+          {
+            "line": 14,
+            "text": "- Use the Ruyi MCP tools `mcp__ruyi__frontend_audit`, `mcp__ruyi__browser_open`, and `mcp__ruyi__desktop_screenshot` to"
+          },
+          {
+            "line": 17,
+            "text": "  desktop control MCP's `resize_window` (width, height, title) when it is available, then screenshot again."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md": [
+          {
+            "line": 15,
+            "text": "4. If safe, start the local dev server as a background job (it never exits, so a one-shot `powershell_run` would only hit its timeout): `shell_start` with `command` and a large `timeoutMs` on the workbench provider engine (the background command is killed at its deadline, 30 minutes by default; stop it later with `shell_kill`), or the agent CLI's own background shell."
+          },
+          {
+            "line": 16,
+            "text": "5. `browser_open` the local URL and take a `desktop_screenshot`. It captures the whole primary screen at the current window size; to check a narrow layout, resize the browser window with the desktop control `resize_window` (width, height, title) and screenshot again, and report which widths you actually checked; in Claude Code the result is text with the PNG `path` - open that file with Read to see it."
+          }
+        ]
+      }
+    },
+    {
+      "id": "A07",
+      "severity": "P2",
+      "title": "Generic development/API/LSP/test commands need platform-specific executable paths",
+      "paths": [
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md"
+      ],
+      "recommendation": "Use available shell_run/script_run or agent-native POSIX shell on Mac; keep PowerShell/curl.exe examples explicitly Windows-only. Add .venv/bin and node_modules/.bin executable paths for Mac. Do not source user profiles or assume Git Bash/npm.cmd, GNU find/date/stat/sed flags, or network installation.",
+      "locations": {
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md": [
+          {
+            "line": 14,
+            "text": "3. Use `powershell_run` for richer tools already present on the machine, such as `curl.exe` or project scripts."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md": [
+          {
+            "line": 8,
+            "text": "Use this skill for a feature or behavior change that touches several files and needs the project's own rules read before editing and a real verification afterwards, in an offline Windows environment. A one-line fix or a question does not need it."
+          },
+          {
+            "line": 16,
+            "text": "5. Run the most relevant local tests, build, or smoke check with `powershell_run` or `script_run`."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md": [
+          {
+            "line": 3,
+            "text": "description: 在离线 Windows 机器上复现 CI 式检查"
+          },
+          {
+            "line": 8,
+            "text": "Use this skill to reproduce CI-like checks on an offline Windows machine."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md": [
+          {
+            "line": 15,
+            "text": "2. Look for already-installed language servers under `node_modules\\.bin`, `.venv\\Scripts`, `vendor`, `tools`, or configured IDE paths. On Windows, npm binaries are the `.cmd` shims (e.g. `node_modules\\.bin\\typescript-language-server.cmd`)."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md": [
+          {
+            "line": 19,
+            "text": "`http_request` is a Ruyi Workbench MCP tool (in Claude Code: `mcp__ruyi__http_request`). Without it, use `curl.exe` (in Windows PowerShell 5.1 plain `curl` is an alias of `Invoke-WebRequest`); put a JSON body in a file, because PowerShell 5.1 mangles inline double quotes passed to native programs (write the file with `file_write` or `[IO.File]::WriteAllText`; `Set-Content -Encoding UTF8` in 5.1 adds a BOM that some servers reject):"
+          },
+          {
+            "line": 22,
+            "text": "curl.exe -sS -i \"http://127.0.0.1:8080/health\""
+          },
+          {
+            "line": 23,
+            "text": "curl.exe -sS -i -X POST \"http://127.0.0.1:8080/api/items\" -H \"Content-Type: application/json\" --data-binary \"@body.json\""
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md": [
+          {
+            "line": 16,
+            "text": "用 `powershell_run` 跑测试时按预计耗时调大 `timeoutMs`（默认 60 秒），别把超时误判成挂起。它是如意工作台 MCP 工具（Claude Code 里叫 `mcp__ruyi__powershell_run`）；没有它时用 Bash 等价命令。"
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md": [
+          {
+            "line": 16,
+            "text": "上面点名的是如意工作台 MCP 工具（Claude Code 里叫 `mcp__ruyi__<名>`）；没有这些工具时用等价的 `git status --short`、`git diff`、`git diff --cached`。用 `powershell_run` 跑检查时按预计耗时调大 `timeoutMs`（默认 60 秒）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A08",
+      "severity": "P2",
+      "title": "Windows operator content must remain explicitly Windows-only on Mac",
+      "paths": [
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md"
+      ],
+      "recommendation": "Retain the Windows tool contracts and names. Add an explicit Mac unsupported boundary; never infer their availability from shared ACC. Agent tools frontmatter contains unavailable powershell_run/desktop_screenshot on Mac, so scope selection/description must prevent accidental generic use, or use a proven platform-aware exposure rule without inventing unknown plugin schema fields.",
+      "locations": {
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md": [
+          {
+            "line": 2,
+            "text": "name: Windows 桌面操控"
+          },
+          {
+            "line": 3,
+            "text": "description: 通过工作台 MCP 操控 Windows 工作站(截图/控窗)"
+          },
+          {
+            "line": 6,
+            "text": "# Windows Control"
+          },
+          {
+            "line": 8,
+            "text": "Use this skill when the user wants Claude to operate a Windows workstation through Ruyi Workbench: the `ruyi` MCP server (tools appear as `mcp__ruyi__<name>` in Claude Code) plus the desktop control MCP for windows, UI Automation, and OCR."
+          },
+          {
+            "line": 14,
+            "text": "3. Use `powershell_run` for one-shot Windows-native operations (package checks, registry queries, service status, process inspection) and `script_run` for multi-line Python, Node, or PowerShell scripts."
+          },
+          {
+            "line": 15,
+            "text": "4. Windows: `list_windows` and `get_active_window` show what is open; `focus_window` (pass `handle` when several titles match) and check `foreground_verified` before typing or clicking; `wait_for_window` after launching an app."
+          },
+          {
+            "line": 18,
+            "text": "7. Check the UI before and after each step. `desktop_screenshot` helps only if the model can read images; otherwise use text views: `ui_inspect`, `ocr_screen` / `ocr_find_text`, or `observe` with `include_screenshot: false`."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md": [
+          {
+            "line": 3,
+            "text": "description: Operates local Windows files, scripts, browser handoff, screenshots, and Office documents through Ruyi Workbench (如意 Ruyi) MCP."
+          },
+          {
+            "line": 6,
+            "text": "  - mcp__ruyi__powershell_run"
+          },
+          {
+            "line": 15,
+            "text": "  - mcp__ruyi__desktop_screenshot"
+          },
+          {
+            "line": 18,
+            "text": "You are a careful Windows operator. Inspect before changing, prefer absolute paths, use PowerShell for Windows-specific state, and verify visual UI actions with screenshots when useful: `desktop_screenshot` returns a file path, so open the"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A09",
+      "severity": "P2",
+      "title": "Windows release/doctor/COM examples are not a completed Mac distribution route",
+      "paths": [
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md"
+      ],
+      "recommendation": "Keep Windows Full/Slim commands conditional. For Mac source development, document Node server doctor/serve with explicit cwd; do not claim a signed Mac App/offline installer exists before P4/P6. COM is Windows-only; Mac shared Office file generation is not in-app automation. Optional renderers must already be installed and use private profiles; missing renderers mean structural verification only.",
+      "locations": {
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md": [
+          {
+            "line": 3,
+            "text": "description: 为隔离网或内网 Windows 机器准备项目分发包"
+          },
+          {
+            "line": 8,
+            "text": "Use this skill when preparing a project for an air-gapped or intranet Windows machine."
+          },
+          {
+            "line": 19,
+            "text": "For this workbench repository (PowerShell scripts, Windows only; run in `ruyi-workbench`):"
+          },
+          {
+            "line": 21,
+            "text": "- `npm run package:offline` (same as `package:offline:full`): Ruyi.exe plus the desktop control runtime. It refuses to run unless a verified runtime already exists in `mcp/ai-computer-control/build_offline`."
+          },
+          {
+            "line": 22,
+            "text": "- `npm run package:offline:full:fresh`: rebuilds that runtime first (`-BuildAccOffline`), which needs Python and internet on the packaging machine."
+          },
+          {
+            "line": 23,
+            "text": "- `npm run package:offline:slim`: no desktop control runtime."
+          },
+          {
+            "line": 26,
+            "text": "- On the target machine, use `Ruyi.exe doctor --human` and `resources/scripts/install-workbench.ps1` as the baseline verification and install flow."
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md": [
+          {
+            "line": 3,
+            "text": "description: Prepares and verifies an offline Windows release bundle from the staged output - contents, doctor run, MCP smoke test, static UI serving - without fetching from public package registries. Use when packaging a release or checking a built bundle."
+          },
+          {
+            "line": 8,
+            "text": "You prepare offline Windows release bundles."
+          },
+          {
+            "line": 14,
+            "text": "- Run `doctor --human` from the staged folder (`.\\Ruyi.exe doctor --human`, or"
+          },
+          {
+            "line": 15,
+            "text": "  `.\\runtime\\node\\node.exe .\\app\\server.js doctor --human` when there is no `Ruyi.exe`; plain `doctor` prints only"
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md": [
+          {
+            "line": 15,
+            "text": ".\\Ruyi.exe doctor --human"
+          },
+          {
+            "line": 18,
+            "text": "A package without `Ruyi.exe` (source runner) uses its bundled Node instead:"
+          },
+          {
+            "line": 21,
+            "text": ".\\runtime\\node\\node.exe .\\app\\server.js doctor --human"
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md": [],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md": [
+          {
+            "line": 26,
+            "text": "COM 自动化只关闭自己创建的文档和应用实例，finally 释放对象，不结束用户已有 Office 进程。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A10",
+      "severity": "P2",
+      "title": "New Mac enumeration examples must not follow file symlinks or a symlinked root accidentally",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/folder-inventory.json",
+        "ruyi-workbench/resources/playbooks/clean-downloads.json",
+        "ruyi-workbench/resources/playbooks/scheduled-digest.json"
+      ],
+      "recommendation": "For the new os.walk/lstat/hashlib branch, followlinks=False only prevents directory descent during recursion; opening/hash-reading file symlinks follows targets, and a symlinked top root can still be traversed. State that directory/file links are only recorded, not dereferenced for content/hash unless their resolved target is explicitly authorized. Validate the starting root by actual workspace identity. Use offset-aware timestamp boundaries for digest ranges.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/folder-inventory.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把文件夹 {folder} 的内容清点成一张清单表,保存为 {output}(CSV 格式)。\\n\\n步骤:\\n1. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -Recurse -Force -File | Select-Object FullName, Length, LastWriteTime | Export-Csv -LiteralPath <工作区里的临时 CSV> -NoTypeInformation -Encoding UTF8(路径里有单引号时写成两个单引号),再读这个 CSV 加工;不要把清单直接打到输出里(表格格式会截断长路径、挤掉列,输出过长时中间被截掉)。文件夹数另用 -Directory 数。不要用 file_list:它不给修改时间,默认跳过 node_modules、dist 这类目录,而且最多列 500 条;glob 不给大小。文件很多时分段读那个临时 CSV,确保一个不漏。\\n2. 为每个文件生成一行,列包括:相对路径、文件名、类型(按扩展名归类:文档/表格/图片/视频/音频/压缩包/代码/其它)、大小(KB/MB 这种人类可读单位)、最后修改时间。\\n3. 按「类型 → 大小降序」排序,方便一眼看出每类里最大的文件。\\n4. 写入 {output}:CSV,首行是中文表头,UTF-8 带 BOM,保证 Excel 打开中文不乱码。\\n5. 在对话里给我一段小结:一共多少个文件、多少个文件夹、总占用空间、各类型文件的数量与体积占比。\\n\\n验收标准:CSV 每行对应一个真实文件、字段完整、可直接用 Excel 打开;CSV 行数与 Get-ChildItem 数出的文件数一致。这是只读清点任务,不修改或移动任何原文件。\","
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/clean-downloads.json": [
+          {
+            "line": 10,
+            "text": "  \"promptTemplate\": \"请帮我清理文件夹 {folder}(通常是「下载」目录)。\\n\\n步骤:\\n1. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse -Force | Select-Object FullName, Length, LastWriteTime | Export-Csv -LiteralPath <工作区里的临时 CSV> -NoTypeInformation -Encoding UTF8(路径里有单引号时写成两个单引号),再分段读这个 CSV,统计总数和总占用空间。不要把清单直接打到输出里:表格格式会把长路径截成「...」、列会被挤掉,输出过长时中间还会被截断。file_list 不给修改时间,glob 不给大小,这一步两者都不够。\\n2. 分类识别可清理对象,分组列出并给出体积:\\n   - 安装包类(.exe / .msi / 明显是安装程序的 .zip),装完通常可删;\\n   - 重复文件:先按大小相同筛出候选,再用 Get-FileHash 比对哈希,哈希一致才算重复。文件名相似(如「文档(1).pdf」)不算证据;\\n   - 陈旧文件(很久没改动的,标出最后修改时间);\\n   - 临时/垃圾文件(.tmp、0 字节文件等)。.crdownload / .part 可能是正在下载的文件,最近一小时内改动过的一律标「待你确认」。\\n3. 生成一份「清理建议清单」:每一项标注 建议删除 / 建议保留 / 待你确认,并给出理由和体积。此时不要删除任何文件。\\n4. 汇总:如果按建议清理,能释放多少空间。\\n5. 等我看过清单并明确指定要删哪些,再执行。删除一律移进回收站:在同一次 powershell_run 里先 Add-Type -AssemblyName Microsoft.VisualBasic,再对每个文件调用 [Micr"
+          }
+        ],
+        "ruyi-workbench/resources/playbooks/scheduled-digest.json": [
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请把 {folder} 里最近新攒下的记录汇总成一份摘要,写入 {output}。\\n\\n做法:\\n1. 先定本次的时间范围:{output} 已存在时,读出它最新一期开头记下的「下次起点」,以那之后为本次范围;不存在就取最近 7 天。\\n2. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse | Where-Object LastWriteTime -gt ([datetime]'<起点,如 2026-10-01 08:00>') | Select-Object FullName, Length, LastWriteTime | ConvertTo-Csv -NoTypeInformation(路径里有单引号时写成两个单引号),找出范围内新增或改动的文件作为本期汇总对象;{output} 自己若在这个文件夹里,把它排除在外。一个都没有就如实写「本期无新增」,不要硬凑。\\n3. 逐个读懂内容,按主题归纳成几个板块,每条写清「是什么 + 要点」,并注明来自哪个文件。\\n4. 只写文件里真实存在的内容,绝不编造或推测文件里没有的信息;读不了的文件如实列出。\\n5. 用 Markdown 排版,本期开头写明覆盖的时间范围、文件数,以及「下次起点」(就是这次运行的时间)。{output} 已存在时,把本期加在最前面,保留以前各期,不要整份覆盖。\\n\\n验收标准:每条要点都能对应到具体文件;没有虚构内容;覆盖文件数与实际一致;以前各期内容还在。写完后把本期摘要也在对话里展示一份,方便快速过目。\","
+          }
+        ]
+      }
+    },
+    {
+      "id": "A11",
+      "severity": "info",
+      "title": "Remaining role/workflow capability premises should be documented rather than assumed universally available",
+      "paths": [
+        "ruyi-workbench/app/src/01e-permission-modes.js",
+        "ruyi-workbench/app/src/08-agent-runs.js"
+      ],
+      "recommendation": "All ten roles/eight workflows are free of literal Windows desktop/PowerShell assumptions. Researcher/deep-research intentionally require network; ensure the global capability/offline context remains authoritative, or annotate unavailable/local-only fallback. data-insights data_profile is for text tables; XLSX needs a structured Office reader instead of treating data_profile availability as all-format support. These are existing cross-platform prerequisites, not a request to redesign workflows.",
+      "locations": {
+        "ruyi-workbench/app/src/01e-permission-modes.js": [
+          {
+            "line": 50,
+            "text": "  { id: 'researcher', label: 'Researcher', description: '联网检索并阅读来源，产出有来源支撑的发现。', prompt: '你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'cyan' },"
+          }
+        ],
+        "ruyi-workbench/app/src/08-agent-runs.js": [
+          {
+            "line": 1783,
+            "text": "    id: 'deep-research', title: '深度研究 → 核验 → 综述',"
+          },
+          {
+            "line": 1787,
+            "text": "      { id: 'research_facts', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【事实与现状】:定义、关键数据/数字、时间线、权威来源的明确表述。对每条发现给出:结论一句话 + 支撑来源(标题与 URL)+ 置信度(高/中/低)。只记录有来源支撑的内容;查不到就写\"未找到可靠来源\",不要编。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 90 } },"
+          },
+          {
+            "line": 1788,
+            "text": "      { id: 'research_context', task: '认领 plan 的全部子问题,联网检索并阅读来源,重点抓【分析与观点】:不同立场与权衡、争议点、行业/专家观点、反面证据。格式同 research_facts(结论 + 来源 + 置信度)。刻意寻找与主流叙述相悖的证据,避免只找支持性材料。', role: 'researcher', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 340, y: 310 } },"
+          },
+          {
+            "line": 1789,
+            "text": "      { id: 'verify', task: '对 research_facts 与 research_context 的所有发现做对抗式核验:逐条检查是否真有来源支撑、来源是否可靠、彼此有无矛盾;剔除无据或夸大的主张、合并重复项、标注仍存疑的点。输出 verdict、confidence、summary 与 findings；每条事实性 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,证据不足即降级或剔除。', role: 'critic', dependsOn: ['research_facts', 'research_context'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 660, y: 200 } },"
+          },
+          {
+            "line": 1842,
+            "text": "    id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',"
+          },
+          {
+            "line": 1843,
+            "text": "    description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。',"
+          },
+          {
+            "line": 1845,
+            "text": "      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile(没有这个工具时用只读脚本统计同样的指标)对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },"
+          },
+          {
+            "line": 2011,
+            "text": "    '。\\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；分析数据/日志/指标→data-insights；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，直接手写 nodes（同时给了 nodes 与 workflowId 时以 nodes 为准，模板被忽略）；内置模板必须带 context，否则不会启动。';"
+          }
+        ]
+      }
+    },
+    {
+      "id": "A12",
+      "severity": "info",
+      "title": "PDF page preview exists, but OCR-file export and vision inference remain distinct",
+      "paths": [
+        "ruyi-workbench/resources/playbooks/ocr-scan.json",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md"
+      ],
+      "recommendation": "Native file_read can rasterize PDF pages for image output. Avoid blanket claims that the app has no PDF rendering at all; distinguish that preview from a verified path that materializes page image files for ocr_image. Mac native OCR is still unavailable at this stage; model vision support is a separate capability and must not silently enable the OCR template.",
+      "locations": {
+        "ruyi-workbench/resources/playbooks/ocr-scan.json": [
+          {
+            "line": 3,
+            "text": "  \"title\": \"扫描件 OCR 转文字\","
+          },
+          {
+            "line": 5,
+            "text": "  \"desc\": \"把扫描件图片通过 OCR 识别成可编辑文字；带文字层的 PDF 直接提取文字\","
+          },
+          {
+            "line": 11,
+            "text": "  \"promptTemplate\": \"请对文件夹 {folder} 里的扫描件做 OCR 文字识别,结果写入 {output}。\\n\\n这个任务依赖桌面控制:识别用 ocr_image(只收图片文件)。桌面控制不可用时明确告诉我需要先启用,不要静默失败。\\n\\n步骤:\\n1. 用 file_list(root 设为该文件夹)列出图片(png/jpg/jpeg/tiff/bmp)和 PDF,报告数量。\\n2. 图片:逐个用 ocr_image(path 指向该文件)识别。不要用识别屏幕的 OCR 工具去处理文件。\\n3. PDF:先用 pdf_read_pages(pages: '1' 拿到 total_pages,再读 '2-<total_pages>',truncated 时按 next_pages 续读)看有没有文字层。有文字就直接用提取出的文字,不必 OCR;没有文字层的是扫描版,目前没有把 PDF 页转成图片的工具,把它列进「需要先导出成图片」清单告诉我(可以在阅读器里另存为图片后再跑一次),不要硬识别。\\n4. 尽量保留原文的段落与换行结构;识别不确定的地方用「[?]」标出,不要瞎猜。\\n5. 每个文件的结果作为独立小节写入 {output},小节标题用原文件名;多页 PDF 按页标注(第 1 页 / 第 2 页……)。\\n\\n验收标准:每个图片都有对应的识别文本小节;识别失败的文件单独列出并说明原因(如图像太模糊);需要先导出成图片的 PDF 单独列出;输出是结构清晰的 Markdown。最后汇报:成功识别几个、失败几个、待导出几个、结果文件路径。\","
+          }
+        ],
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md": [
+          {
+            "line": 20,
+            "text": "2. 对文本型文件优先直接读取；扫描 PDF（`pdf_read_pages` 报告无文字层）或图片只有在普通提取失败后才走 OCR，并标出 OCR 可能误识别的位置。"
+          }
+        ]
+      }
+    }
+  ],
+  "items": [
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/archive-by-content.json",
+      "reviewed": true,
+      "baselineSha256": "5a2a054a105e29bf2eac8826f8425120b3ac107b53c9eb5d13306a213e126aaf",
+      "findings": [
+        "A03"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/batch-rename.json",
+      "reviewed": true,
+      "baselineSha256": "12e44ead0ff13a1adc7dc9a03f1592c372ebf83e9c50f203d6721d9029bf4cab",
+      "findings": [
+        "A02"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/clean-csv.json",
+      "reviewed": true,
+      "baselineSha256": "cbd3bc39ef3124a45e99510c45a8ac524c9ca1b8940bc24524bce5a4ac8bbfd5",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/clean-downloads.json",
+      "reviewed": true,
+      "baselineSha256": "f4605a8d7c19a30abd97c15d8d89247619384e242522494a3c6627ecbf923b3d",
+      "findings": [
+        "A01",
+        "A10"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/compare-documents.json",
+      "reviewed": true,
+      "baselineSha256": "9f835f70857534283de9c2202f52151d9956553e5efa9c1a8fde8e60c2ec5916",
+      "findings": [
+        "A03"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/desktop-open-app.json",
+      "reviewed": true,
+      "baselineSha256": "a4c98e7c2d36e3a6fb4c474f3f149b99908b2816f4373e6100de2d68b4c518a4",
+      "findings": [
+        "A05"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/folder-inventory.json",
+      "reviewed": true,
+      "baselineSha256": "cc7920f2e9ff5e2893acac7a832a4cd0b83d2c5066fd8dcfbc0c6db5b2a8391a",
+      "findings": [
+        "A01",
+        "A10"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/meeting-minutes.json",
+      "reviewed": true,
+      "baselineSha256": "c7868f00405ef4969f2ee490aed527ad771a30a22bab60525b465336dc82f775",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/merge-excel.json",
+      "reviewed": true,
+      "baselineSha256": "4c648ac82620b0981f1aefe7f5c22ce96c77744ff03330eb861346d409206355",
+      "findings": [
+        "A03",
+        "A05"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/ocr-scan.json",
+      "reviewed": true,
+      "baselineSha256": "21b68b15826deaa7110248aac92dd01d8a591ce748503cc349f49a6e2a4164a2",
+      "findings": [
+        "A04",
+        "A05",
+        "A12"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+      "reviewed": true,
+      "baselineSha256": "e751804b6974b6b9f149608001e05835d645c8a53b0133f7cf71bfa9db0c7a6a",
+      "findings": [
+        "A03",
+        "A04",
+        "A05"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/presentation-outline.json",
+      "reviewed": true,
+      "baselineSha256": "4b15b6708ab66b2a8b107a4ec668aebff5746b49e04b718cbbfd0fa9a688582c",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/scheduled-digest.json",
+      "reviewed": true,
+      "baselineSha256": "ce2b8cd9e8d0434248a4dce40a3622037b8cb5d71f97e6e5be7a061970cbfb20",
+      "findings": [
+        "A01",
+        "A10"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/translate-document.json",
+      "reviewed": true,
+      "baselineSha256": "65589e8efbb3c62a95715aea03ab401bebc50d176049e6e0584fe2433f77765f",
+      "findings": [
+        "A03"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/web-form-fill.json",
+      "reviewed": true,
+      "baselineSha256": "132d1511840cbd7906dbc007eb620c3a124b356d9ccc0771d15272761dc21145",
+      "findings": [
+        "A05"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "playbooks",
+      "path": "ruyi-workbench/resources/playbooks/weekly-report.json",
+      "reviewed": true,
+      "baselineSha256": "7e12bd67a89195b774f2ad31e3dffeea5b212d82a9bfd269d70cb63ef7acc94e",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "767b737ea6fb7fc76ec21bf26a7b95a71e4ea849f9e41027aa11f2cf84b38a1f",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "8c3b95b477fa0c1b376be735f5b636a685059efe25122b2cf108fc880b2ff01b",
+      "findings": [
+        "A06"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/claude-md-management/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "91181ae6b69a74571be704cdc8b0c8b47fe25ac1bd328dd46b9db2a16bfe3fd4",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-review-offline/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "1429abb6cc8aeb78c20d1d0ef4ff32d6ea842032cdb75b7b074fa11bd7fba8b3",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-simplifier/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "57c5ecd541313fcfa65b082f536baf51995cb9a5e09e6f3f25aeb72a62d0c8a3",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/commit-workflow/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "32b0acef03734f83eafaec2fb74a284ce1d7eec47b5e42103565bd17adc53cf8",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "2e4f25f419a986832d455ff5b1aaa69bd09cd87c84f4a6cd5310a450fcadf5aa",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "1358e0fe6eefc4a8a3419bf5a11619217c62307bf4b2e51efce667244d7b399f",
+      "findings": [
+        "A03",
+        "A12"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "14b8d2295a7f3d191251526f6ef68a6d7a92f1dfa03a1ea58311a4b795d53808",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "3609d5831b69791b6d59faaf34f0fb6c831a3691990a6f9e27b79db92e983b14",
+      "findings": [
+        "A06"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/local-docs-context/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "4f324a9ce4f29e66ca2276ff8f5e583aff6d2f20a1356a330174700231b5c953",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "d4c1449347c78b9cb2963e3fbf0c34ce89601cdd3de8512bbc7ec24575e2e1ed",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "fa20d142fe92f925103fb9de7efd21f8bbba70d4601da79109beb4f8a408184f",
+      "findings": [
+        "A03",
+        "A09"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "cf768b9c48b803f1416405f8c0f430d41c1f6f1bde6fcf573098c3743f2a3c6b",
+      "findings": [
+        "A09"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/plugin-development/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "7125025ea66148ca3f1e435e00420488579b5dc36efc2c229a1014b6f27e6164",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/research-synthesis/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "3ea8436056e6d19b448926c223fecf73e3ed49ee85388db78798e9a35e455cd5",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/security-guidance/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "ce10c86c226f0c0dc0caf3046c8098d9153efd5a4449883c8843e56d65f0c06d",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "845ff418a0f81d9a07f867f6d6b7ad9d06d57ddf7de5b115c8cbe5807dd5a5a9",
+      "findings": [
+        "A03"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/structured-writing/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "5cae5cb9c00159ceff23d6e5b481669e22c5d6301210fb619ab6fdb5bb6f1840",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "skills",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md",
+      "reviewed": true,
+      "baselineSha256": "ea8f54c45142185671809a47f89750ea702edb5a988238bd30624c59d57a7fd2",
+      "findings": [
+        "A08"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md",
+      "reviewed": true,
+      "baselineSha256": "9c07fa9e6dea0d820f4c8015ddca38992ce0c30879a9a398bf6e99909d6a8c5d",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/claude-md-audit.md",
+      "reviewed": true,
+      "baselineSha256": "a773600c5e8b5851e691b616a9fffab7417e505a0acecac2d63aa0cc52ee54f3",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/commit-message.md",
+      "reviewed": true,
+      "baselineSha256": "f9a67dec5cfd8990644880f1d8aa0efa414cc05c4d03c7ece1b9c72c8104003d",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/dependency-inventory.md",
+      "reviewed": true,
+      "baselineSha256": "8654206dec85cb68e89dcfcaadf5c19ff811630cbd2067ae30af72df0f38dd1d",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/explain-project.md",
+      "reviewed": true,
+      "baselineSha256": "2e10249e578583a204689af7be19f57160443b7977bbefb71523a96100b0bfa7",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md",
+      "reviewed": true,
+      "baselineSha256": "1e48a37ccb54949acfa7470601f472bbb8cb9161523dbddd3cfaed9e2b0381d6",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md",
+      "reviewed": true,
+      "baselineSha256": "9a93c8783613e920c4e78154c4fcc8c4714185171f74ba91cf7d91bb68c9e38f",
+      "findings": [
+        "A06"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/offline-code-review.md",
+      "reviewed": true,
+      "baselineSha256": "75cfbfb18b11a45fe9f11d38dc97c02893364bd91513af6dcbd873d45d1f2174",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md",
+      "reviewed": true,
+      "baselineSha256": "3daa87e2767258c6a6d34f605300e9efe1c261cf8f0636f57988b5ae26d1f0bf",
+      "findings": [
+        "A09"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/security-check.md",
+      "reviewed": true,
+      "baselineSha256": "70772a1e570ccd791cb3df36dac841ef382d814e2d6e5791d7dd61c984e73001",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md",
+      "reviewed": true,
+      "baselineSha256": "85af23db01679df40c27264a43177f1e4f9675103cf28bc1656ecb3f3cfde170",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md",
+      "reviewed": true,
+      "baselineSha256": "afcd3bc2a07b891a6b1b35dd58ea4a2ecda3779c6305d6ba2c5359f85135438b",
+      "findings": [
+        "A07"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "commands",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md",
+      "reviewed": true,
+      "baselineSha256": "8865ce2460fb4b9002c57b6850f20a71ceb9952f617ae6359dbd694946908b82",
+      "findings": [
+        "A09"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "plugin_agents",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/code-reviewer-offline.md",
+      "reviewed": true,
+      "baselineSha256": "153326eec6310fee2eef5550023015068e0fd7c302b768ed49b0aaa8c70f3ee6",
+      "findings": [],
+      "assessment": "platform-neutral/no Mac-specific correction required"
+    },
+    {
+      "category": "plugin_agents",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md",
+      "reviewed": true,
+      "baselineSha256": "4b332512582dabceb8ace0434db75f8c8214e6be059425b10d152889f1d9bbda",
+      "findings": [
+        "A06"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "plugin_agents",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md",
+      "reviewed": true,
+      "baselineSha256": "1393298d07714bc3cb13d42fc81c68fe17ed59deaa9b9bbf7351a05bbef790a1",
+      "findings": [
+        "A09"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "plugin_agents",
+      "path": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md",
+      "reviewed": true,
+      "baselineSha256": "7c0b74a21f611c8d4cd1b5ebf8e362698739dcdbec43b1ab44cab9f690fa1d8e",
+      "findings": [
+        "A08"
+      ],
+      "assessment": "review listed platform/capability conditions; implementation may already be in progress"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "explorer",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "worker",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "coder",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "reviewer",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "verifier",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "planner",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "researcher",
+      "reviewed": true,
+      "findings": [
+        "A11"
+      ],
+      "assessment": "no Windows/macOS command, path or desktop assumption; network prerequisite remains intentional"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "critic",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "synthesizer",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_roles",
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "id": "analyst",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "debate-and-judge",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "implement-review-fix-test",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "deep-research",
+      "reviewed": true,
+      "findings": [
+        "A11"
+      ],
+      "assessment": "no Windows/macOS command, path or desktop assumption; network prerequisite remains intentional"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "design-and-decide",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "codebase-audit",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "debug-root-cause",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "doc-from-scratch",
+      "reviewed": true,
+      "findings": [],
+      "assessment": "no Windows/macOS command, path or desktop assumption; platform-neutral role/workflow content"
+    },
+    {
+      "category": "builtin_workflows",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "id": "data-insights",
+      "reviewed": true,
+      "findings": [
+        "A11"
+      ],
+      "assessment": "no Windows/macOS command, path or desktop assumption; format-specific reader prerequisite"
+    }
+  ],
+  "conclusion": "content corrections and explicit capability boundaries identified; final implementation requires separate code/content review"
+}

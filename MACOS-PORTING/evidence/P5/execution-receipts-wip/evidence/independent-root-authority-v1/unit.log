@@ -1,0 +1,234 @@
+✔ preview is side-effect free; commit merges credentials, preserves unrelated settings and consumes ticket (150.851709ms)
+✔ preview cannot overwrite a newer configuration or restore while a turn is running (143.423292ms)
+✔ rollback preserves exact credentials after before failure (89.722667ms)
+✔ rollback preserves exact credentials after after failure (91.900959ms)
+✔ rollback preserves exact credentials after remove failure (91.663834ms)
+✔ interrupted journal write recovers under a fresh transaction instance and is idempotent (89.735125ms)
+✔ tampered recovery journal fails closed without deleting the journal or rewriting configuration (89.354ms)
+✔ concurrent config readers wait for an active switch instead of rolling back or observing a provisional commit (86.785709ms)
+✔ concurrent previews reserve ticket capacity before password work begins (217.109083ms)
+✔ an unavailable old wrapping key cannot mutate the old profile; the portable package imports under a fresh independent key (131.897792ms)
+✔ CLI startup prints fresh-profile recovery guidance only for a locked credential vault (1.82125ms)
+✔ startup diagnostic retains its schema, size limit and original error while exposing safe locked-vault guidance (2.1005ms)
+✔ startup diagnostic checks actual authority before mkdir and again before writing (1.084375ms)
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (10.3245ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (11.546166ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (14.728042ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (10.643583ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (28.29175ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (8.144084ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (2.82925ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (2.993041ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (6.131375ms)
+✔ capacity refuses without pruning any unresolved row (19.263792ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (10.661125ms)
+✔ unknown records cannot be retired even if a caller confirms closure (8.593291ms)
+✔ client facts and receipt content are snapshotted before asynchronous ledger IO (2.718208ms)
+✔ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (3.404209ms)
+✔ two live authorities for the same canonical directory cannot create independent write chains (4.111291ms)
+✔ strict root record validation rejects contradictory returned-unknown state without resetting the file (3.029292ms)
+✔ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (4.547667ms)
+✔ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (12.933167ms)
+✔ loss of authority during the actual write cannot return a dispatchable preparation (4.042625ms)
+✔ ordinary business exit codes remain result data and are not invented as receipt flags (5.252125ms)
+✔ receipt code projection uses Python code points and preserves astral-boundary distinctions (14.447125ms)
+✔ authority handover refuses until the old write has drained, then preserves it as an unknown record (3.729083ms)
+✔ retired turns remain closed across reopen and explicit newer rewind generation gets a distinct admission (15.590208ms)
+✔ prepare and dispatch require the explicit live host turn, not a caller-supplied newer generation (2.179542ms)
+✔ late actual results remain recordable after the host turn stops, while new dispatch is refused (6.551209ms)
+✔ retirement confirmation receives an exact scope even when the turn has no records (2.582542ms)
+✔ actual admitted object prepares against live turn and stores no argument plaintext (86.062875ms)
+✔ copying session or owner identities cannot authorize preparation (87.734667ms)
+✔ cancel, supersede, sequence or generation mutation makes prior preparation hold the same-process successor (267.822042ms)
+✔ release revokes live preparation and an old finalizer cannot delete a newer admission (55.896708ms)
+✔ released actual OS owner blocks guard, admit and preparation without writing a new row (24.475541ms)
+✔ replacing owned data directory cannot create a fresh execution authority under the old root lock (24.497416ms)
+✔ string, null and nonfinite rewind generations cannot alias a real host generation (25.942083ms)
+✔ replacement between acquiring OS ownership and initializing runtime cannot reset execution evidence (61.339542ms)
+✔ cold missing data root binds its first identity under the original startup gate (27.232ms)
+✔ legacy migration binds the acquired source inode even when its old name becomes a symlink (30.345542ms)
+✔ confirmed legacy rename releases startup gate when creating the old junction failed (28.817542ms)
+✔ OS gate is exclusive; repeated old release cannot release a new owner (52.134291ms)
+✔ canonical roots collapse junctions and missing leaves without creating directories (6.480125ms)
+✔ protocol selection retains Node 20.0 and non-Linux POSIX compatibility (0.284959ms)
+✔ Mac kernel lock is independent of TMPDIR and retained through a live legacy socket (14.224584ms)
+✔ Mac refuses symlink and hardlink lock files without touching their targets (10.71625ms)
+✖ Mac preserves unknown residual sockets and malformed ownership evidence (33.52025ms)
+✔ unknown legacy runtime blocks without modifying files and releases the acquired gate (12.801458ms)
+✖ Mac never removes a live socket even with matching stale-owner metadata (29.629458ms)
+✔ Mac ownership namespace is protected from file tools even in bypass workspaces (12.860167ms)
+✖ Mac FIFO ownership records fail promptly on both read and write paths (32.01175ms)
+✖ Mac socket ownership reads remain bounded when the record grows after stat (30.345833ms)
+✔ Mac APFS Data-volume aliases share one cold-start lock and missing-leaf identity (20.797167ms)
+✖ Mac stored casing and trailing whitespace produce one existing-root lock with legacy aliases (9.592875ms)
+✔ Mac startup gate covers partially created ancestors and queues unrelated new roots (133.469459ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 59
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1236.618542
+
+✖ failing tests:
+
+test at dev-harness/unit/server-ownership.test.js:93:1
+✖ Mac preserves unknown residual sockets and malformed ownership evidence (33.52025ms)
+  AssertionError [ERR_ASSERTION]: node:events:487
+        throw er; // Unhandled 'error' event
+        ^
+  
+  Error: listen EINVAL: invalid argument /tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5024e694e544a20abe532cbb2001ace8.sock
+      at Server.setupListenHandle [as _listen2] (node:net:1986:21)
+      at listenInCluster (node:net:2065:12)
+      at Server.listen (node:net:2187:5)
+      at [eval]:1:31
+      at runScriptInThisContext (node:internal/vm:219:10)
+      at node:internal/process/execution:451:12
+      at [eval]-wrapper:6:24
+      at runScriptInContext (node:internal/process/execution:449:60)
+      at evalFunction (node:internal/process/execution:283:30)
+      at evalTypeScript (node:internal/process/execution:295:3)
+  Emitted 'error' event on Server instance at:
+      at emitErrorNT (node:net:2044:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    code: 'EINVAL',
+    errno: -22,
+    syscall: 'listen',
+    address: '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5024e694e544a20abe532cbb2001ace8.sock',
+    port: -1
+  }
+  
+  Node.js v24.15.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:102:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dev-harness/unit/server-ownership.test.js:129:1
+✖ Mac never removes a live socket even with matching stale-owner metadata (29.629458ms)
+  Error: listen EINVAL: invalid argument /tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-54ac920bcd98a5c89e32b811c33c90dd.sock
+      at Server.setupListenHandle [as _listen2] (node:net:1986:21)
+      at listenInCluster (node:net:2065:12)
+      at Server.listen (node:net:2187:5)
+      at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:136:81
+      at new Promise (<anonymous>)
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:136:9)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    code: 'EINVAL',
+    errno: -22,
+    syscall: 'listen',
+    address: '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-54ac920bcd98a5c89e32b811c33c90dd.sock',
+    port: -1
+  }
+
+test at dev-harness/unit/server-ownership.test.js:177:1
+✖ Mac FIFO ownership records fail promptly on both read and write paths (32.01175ms)
+  AssertionError [ERR_ASSERTION]: node:events:487
+        throw er; // Unhandled 'error' event
+        ^
+  
+  Error: listen EINVAL: invalid argument /tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-d45efa273c3794aa127938cc785cf0b6.sock
+      at Server.setupListenHandle [as _listen2] (node:net:1986:21)
+      at listenInCluster (node:net:2065:12)
+      at Server.listen (node:net:2187:5)
+      at [eval]:1:31
+      at runScriptInThisContext (node:internal/vm:219:10)
+      at node:internal/process/execution:451:12
+      at [eval]-wrapper:6:24
+      at runScriptInContext (node:internal/process/execution:449:60)
+      at evalFunction (node:internal/process/execution:283:30)
+      at evalTypeScript (node:internal/process/execution:295:3)
+  Emitted 'error' event on Server instance at:
+      at emitErrorNT (node:net:2044:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    code: 'EINVAL',
+    errno: -22,
+    syscall: 'listen',
+    address: '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-d45efa273c3794aa127938cc785cf0b6.sock',
+    port: -1
+  }
+  
+  Node.js v24.15.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:189:14)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dev-harness/unit/server-ownership.test.js:212:1
+✖ Mac socket ownership reads remain bounded when the record grows after stat (30.345833ms)
+  AssertionError [ERR_ASSERTION]: node:events:487
+        throw er; // Unhandled 'error' event
+        ^
+  
+  Error: listen EINVAL: invalid argument /tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5013129dd1977f042397f48b2746e509.sock
+      at Server.setupListenHandle [as _listen2] (node:net:1986:21)
+      at listenInCluster (node:net:2065:12)
+      at Server.listen (node:net:2187:5)
+      at [eval]:1:31
+      at runScriptInThisContext (node:internal/vm:219:10)
+      at node:internal/process/execution:451:12
+      at [eval]-wrapper:6:24
+      at runScriptInContext (node:internal/process/execution:449:60)
+      at evalFunction (node:internal/process/execution:283:30)
+      at evalTypeScript (node:internal/process/execution:295:3)
+  Emitted 'error' event on Server instance at:
+      at emitErrorNT (node:net:2044:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    code: 'EINVAL',
+    errno: -22,
+    syscall: 'listen',
+    address: '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5013129dd1977f042397f48b2746e509.sock',
+    port: -1
+  }
+  
+  Node.js v24.15.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:221:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dev-harness/unit/server-ownership.test.js:272:1
+✖ Mac stored casing and trailing whitespace produce one existing-root lock with legacy aliases (9.592875ms)
+  Error: ENOENT: no such file or directory, lstat '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-7170357ab47f86e28f4ed02a203aeeb5.sock'
+      at Object.lstatSync (node:fs:1702:25)
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/server-ownership.test.js:283:21)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: '/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-7170357ab47f86e28f4ed02a203aeeb5.sock'
+  }

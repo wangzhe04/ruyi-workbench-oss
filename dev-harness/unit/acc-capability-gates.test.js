@@ -1,7 +1,7 @@
 'use strict';
 // 2026-10 能力总闸补桥接面(07 toolDisabledByPolicy / ACC_POLICY_TOOL_FAMILIES)的纯逻辑与生成物。真 server.js、临时 HOME。
 //   [G1] 名单里每个名字都是 ACC 真实注册的工具(读 mcp/ai-computer-control/src/ai_computer_control/tools/*.py 的
-//        @mcp.tool 定义);三族互不相交、无重复;55 件。ACC 改名 / 删工具时这里先红,名单不会悄悄失效。
+//        @mcp.tool 定义);三族互不相交、无重复;56 件。ACC 改名 / 删工具时这里先红,名单不会悄悄失效。
 //   [G2] 判据矩阵:命令闸 / 桌面闸 / 会话覆盖三者的每一种组合下,桌面族与原生 desktop_screenshot 的判决逐格相同
 //        (「与原生同口径」不是口号);命令族只看 allowCommandTools;转调器任一闸关就关。
 //   [G3] 只认内置桌面 MCP:外部服务器的同名工具恒放行;名单外的 ACC 工具恒放行。
@@ -47,10 +47,13 @@ function accRegisteredToolNames() {
 
 test('[G1] 名单里的每个名字都是 ACC 真实注册的工具;三族互不相交', () => {
   const real = accRegisteredToolNames();
-  assert.equal(real.size, 108, `ACC 工具总数变了(got ${real.size}):先核对能力总闸名单要不要跟着增删`);
+  assert.equal(real.size, 110, `ACC 工具总数变了(got ${real.size}):先核对能力总闸名单要不要跟着增删`);
+  assert.ok(real.has('execution_receipt'), '新增工具必须是实际注册的严格回执只读工具');
+  assert.equal(srv.bridgedToolTier('execution_receipt', {}, {}), 'read');
   const all = [...F.command, ...F.desktop, ...F.dispatcher];
+  assert.ok(!all.includes('execution_receipt'), '读取历史回执不应被桌面/命令动作总闸隐藏');
   assert.equal(new Set(all).size, all.length, '名单里有重复名字');
-  assert.equal(all.length, 55);
+  assert.equal(all.length, 56);
   const missing = all.filter(n => !real.has(n));
   assert.deepEqual(missing, [], `名单里有 ACC 不存在的名字:${missing.join(', ')}`);
   for (const k of ['command', 'desktop', 'dispatcher']) assert.ok(Object.isFrozen(F[k]), `${k} 族应冻结`);

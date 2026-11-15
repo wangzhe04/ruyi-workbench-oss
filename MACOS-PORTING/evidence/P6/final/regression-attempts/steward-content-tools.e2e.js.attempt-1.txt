@@ -1,0 +1,35 @@
+── (A) playbook_draft ──
+PASS A1 起草正向返回(got ok)
+PASS A2 带回一份草稿对象
+PASS A3 明确告诉模型「保存走 POST /api/playbooks」(它自己不保存)
+PASS A4 真的调了一次模型(起草不是编的)
+PASS A5 起草【零落盘】(用户 playbook 目录没变)
+PASS A5b 草稿没有被存成用户 playbook 文件
+PASS A6 同一回合第二次起草 -> quota_exceeded(got quota_exceeded)
+PASS A7 下一回合配额重置
+PASS A8 不存在的线程 -> not_found
+PASS A9 管家会话自己不能被起草成 playbook
+── (B) skill_toggle ──
+PASS B1 无 userPressed -> propose_required(got propose_required)
+PASS B2 附 {reason:confirm_required, sessionId}
+PASS B3 零写入(会话的 skills 没变)
+PASS B4 有 userPressed 时真写入(got ok)
+PASS B5 返回启用集
+PASS B6 会话头上落了 {id, source}(来源锁定,防调包)
+PASS B7 管家会话自己没有技能面 -> steward.forbidden
+PASS B8 不存在的线程 -> not_found
+PASS B9 skills 不是数组 -> invalid_request
+── (C) 共用 setSessionSkillsCore ──
+PASS C0a 核心抽在 13-http-router 顶层
+PASS C0b POST /api/session/skills 只剩壳,调核心
+PASS C0c steward_skill_toggle 调同一个核心(不另写第二套判据;13g 族里恰好一处)
+PASS C1 路由写入成功
+PASS C2 工具写入成功
+PASS C3 两边清洗结果逐字节相同(去重/丢无效 id/截 8/带 source)
+      tool  = [{"id":"skill-1","source":"user"},{"id":"skill-2","source":"user"},{"id":"skill-3","source":"user"},{"id":"skill-4","source":"user"},{"id":"skill-5","source":"user"},{"id":"skill-6","source":"user"},{"id":"skill-7","source":"user"},{"id":"skill-8","source":"user"}]
+      route = [{"id":"skill-1","source":"user"},{"id":"skill-2","source":"user"},{"id":"skill-3","source":"user"},{"id":"skill-4","source":"user"},{"id":"skill-5","source":"user"},{"id":"skill-6","source":"user"},{"id":"skill-7","source":"user"},{"id":"skill-8","source":"user"}]
+PASS C4 截 8 生效(got 8)
+PASS C5 注册表里不存在的 id 被丢掉
+PASS C6 去重生效
+
+STEWARD CONTENT TOOLS E2E: ALL PASS

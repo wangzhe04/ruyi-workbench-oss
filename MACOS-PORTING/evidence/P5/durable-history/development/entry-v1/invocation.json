@@ -1,0 +1,19 @@
+{
+  "mode": "entry",
+  "cwd": "/tmp/ruyi-p5-durable-history-worktree",
+  "outerRoot": "/tmp/p5hist-7z65tdft",
+  "environment": {
+    "HOME": "/tmp/p5hist-7z65tdft/h",
+    "TMPDIR": "/tmp/p5hist-7z65tdft/t",
+    "USERPROFILE": "/tmp/p5hist-7z65tdft/u",
+    "APPDATA": "/tmp/p5hist-7z65tdft/a",
+    "LOCALAPPDATA": "/tmp/p5hist-7z65tdft/l",
+    "WCW_DATA_DIR": "/tmp/p5hist-7z65tdft/w",
+    "RUYI_HOME": "/tmp/p5hist-7z65tdft/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5hist-7z65tdft/c",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  }
+}

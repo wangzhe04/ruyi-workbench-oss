@@ -1,0 +1,40 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 3,
+  "nativePID" : 88656,
+  "page" : {
+    "additional" : {
+      "capture" : {
+        "authorization" : "denied",
+        "coordinate_space" : "macos_global_points",
+        "installed" : true,
+        "ready" : false,
+        "reasonCode" : "permission_denied",
+        "supported" : true
+      },
+      "offered" : false,
+      "shot" : {
+        "code" : "permission_denied",
+        "ok" : false
+      }
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "DA2CE7C0-E28C-A846-68E9-F88B77AB469B",
+  "servicePID" : 88670,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

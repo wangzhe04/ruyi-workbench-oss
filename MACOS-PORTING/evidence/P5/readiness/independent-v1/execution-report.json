@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T09:21:41.635233+00:00",
+  "status": "passed_independent_readiness_freeze_v5",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/freeze-v5.json",
+    "bytes": 2888,
+    "sha256": "5e60e15d4c3e1c21c614e8fbd9eeb44cfc5e21983dcfafaf904b36a550778b28"
+  },
+  "sourceCount": 14,
+  "runtimeArtifactCount": 2,
+  "additionalReviewedDependencies": 30,
+  "engineeringRerun": false,
+  "nativeInvocationCount": 1,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "observedRootBirth": 1794388888467854,
+  "observedIdentityCount": 61,
+  "remainingObservedIdentities": [],
+  "cleanupSafe": true,
+  "GUIReleased": true,
+  "temporaryIsolationRoot": "/tmp/p5ri-458begi4",
+  "scope": "Independent one-shot current-host ordinary provider readiness/catalog/registry/master-switch and actual controlled recording replay. Actual helper1cc; Node service launch. Generated CLI policy configuration read only, no CLI runtime or Node registry-removal claim. No real TCC revoke/lock/App/Windows/environment closure.",
+  "phaseStatus": "in_progress"
+}

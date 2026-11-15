@@ -1,0 +1,108 @@
+PASS workbench starts
+PASS A1 首发 200 带 ETag(session-<hash> 弱标签)
+PASS A2 cache-control: no-store(浏览器不自己缓存,条件请求只由前端 net.js 显式带)
+PASS A3 体里是完整会话(至少 user+assistant 两条)
+PASS A4 providerHistory 仍在体里(不删,e2e/脚本在读)
+PASS A5 信封其余键原样(resumable / displayTitle)
+PASS B1 带 If-None-Match 且没变 → 304、无体、ETag 不变
+PASS B2 重复来仍是 304(稳定,不是一次性)
+PASS B3 304 也带 no-store
+PASS B4 If-None-Match 列表里含当前标签也算命中
+PASS G1 标签对不上 → 200 全量,标签还是当前那个
+PASS G2 不存在的会话仍是 404 且不发 ETag
+PASS C1 追加消息之后旧标签不再命中:200 + 新标签
+PASS C2 体里是新消息
+PASS C3 新标签随即又是 304
+PASS D0 回合在跑,provider 已收到请求(被我们扣住)
+PASS D1 回合起跑后(活回合标志进标签):旧标签不再命中
+PASS D2 体里 resumable.live === true
+PASS D3 活态没变时(provider 还没吐字)同一标签仍是 304
+PASS D4 provider 吐出新文本 → liveTail 变了 → 标签变、200
+PASS D5 体里 liveTail.full 是新文本
+PASS L1 回合在跑 → ?view=live 回轻量信封(view:'live')
+PASS L2 轻量信封不带历史(session 只有标量,没有 messages / providerHistory)
+PASS L3 resumable.live === true(与全量那份一致)
+PASS L4 liveTail / liveTurn 与全量那份逐字相同
+PASS L5 标量与全量那份对得上(messageCount 5 / 5)
+PASS L6 字节数远小于全量(1177 / 5833)
+PASS E0 前提:改档前这个活态标签是 304
+PASS E1 活回合中途 PATCH permissionMode → 200
+PASS E2 前提成立:回合期间头文件没变(改档延后落盘,只在内存覆盖表里)
+PASS E3 头文件没变,但覆盖表变了 → 标签变(否则会拿 304 + 旧档)
+PASS E4 体里的会话权限档是新档(loadSession 把内存覆盖盖上去了)
+PASS D6 回合收尾 → 标签变、200、liveTail 键消失、resumable.live 不再是 true
+PASS D7 体里是回合收尾落盘的新消息
+PASS D8 延后落盘的权限档随回合收尾落到了头上
+PASS D8b 权限补丁确实写入磁盘头，不只是内存覆盖
+PASS L7 回合收尾后 ?view=live 落回整份会话(前端「换上来」那一支拿的就是它)
+PASS D9 收尾后达到稳态:连续两次 GET 同一个标签,且带它的条件 GET 是 304
+PASS H1 后台任务账本出现 → 标签变(头与正文都没动,只有账本变了)
+PASS H2 体里带着合并进来的回执消息
+PASS H3 账本稳定后同一标签又是 304
+PASS F1 带当前标签 → 304
+PASS F2 304 之后残留快照原样还在 —— 304 路径没有装载会话(装载会清掉它)
+PASS F3 标签对不上走全量:这一次装载了会话,顺手清掉了残留快照(对照:证明上一条的判据有效)
+PASS F4 PATCH 标题 → 头变了
+PASS F5 头一变 → 200 + 新标签
+PASS F6 体里是新标题
+PASS M1 回合起点的 session 事件带 messagesStamp(m1.<N>.<sha1>,N = 下发的条数 4)
+PASS M2 前缀对得上 → 增量:messagesFrom=4、messageCount=整份条数
+PASS M3 增量的 messages 正是全量的 messages[N..]
+PASS M4 增量不带 providerHistory(全量照旧带)
+PASS M5 增量里会话头的其余字段与全量逐项相同(title/todos/mission/turnSeq/…)
+PASS M6 信封上的 resumable / displayTitle 与全量相同
+PASS M7 增量体比全量小(3191 / 6225 字节)
+PASS M8 客户端只发一发增量(/api/sessions/sess_a06bb53ca129b0a3?fromIndex=4&prefixStamp=m1.4.29ceff124b31dafc065cc12b2d33e10b60a8badb)
+PASS M9 客户端拼出来的信封与全量(去掉 providerHistory)深相等
+PASS M10 拼接出的是新数组,底子那份一条没多(不就地改共享数组)
+PASS M11 同一状态下增量与全量的 ETag 不同
+PASS M12 增量带自己的标签再来 → 304
+PASS M13 拿增量的标签去问无参全量 → 200 全量(不会错配成 304)
+PASS M14 增量回的 messagesStamp 就是整份的戳(从末尾接着增量 → 空尾巴)
+PASS M15 fromIndex 非数字 → 全量,体与无参全量逐字节相同
+PASS M15 fromIndex 负数 → 全量,体与无参全量逐字节相同
+PASS M15 fromIndex 小数 → 全量,体与无参全量逐字节相同
+PASS M15 fromIndex 超出条数 → 全量,体与无参全量逐字节相同
+PASS M15 fromIndex 与戳的条数不符 → 全量,体与无参全量逐字节相同
+PASS M15 戳的哈希被改一位 → 全量,体与无参全量逐字节相同
+PASS M15 戳的版本不认识 → 全量,体与无参全量逐字节相同
+PASS M15 戳为空 → 全量,体与无参全量逐字节相同
+PASS M15 只有 fromIndex → 全量,体与无参全量逐字节相同
+PASS M15 只有 prefixStamp → 全量,体与无参全量逐字节相同
+PASS R1 前提:改写后条数不变、第 0 条是新内容
+PASS R1 前缀被原地改写 → 旧戳对不上 → 全量(逐字节同无参)
+PASS R1 客户端拿到的就是全量(改写后的第 0 条),不是拼上旧前缀
+PASS R2 前提:新回合起点下发的底子里是改写后的第 0 条
+PASS R2 账本只往末尾追加 → 仍是一发增量
+PASS R2 拼出来的信封与全量深相等,且带着合并进来的回执
+PASS R3 前提:压缩成功(200 )
+PASS R3 链式:拿 R2 增量回的戳接着增量
+PASS R3 压缩后拼出来的信封与全量(去掉 providerHistory)深相等
+PASS R3 「已压缩」那条系统消息是从增量尾巴里拼进来的
+PASS R4 前提:撤回到第 2 回合之前
+PASS R4 前提:撤回后条数变少(2 < 10)
+PASS R4 撤回后旧底子(N 超长)→ 服务端回全量,客户端原样收下
+PASS R4 前提:撤回后又跑回合,条数补回到不少于旧底子
+PASS R4 条数够了但前缀内容已变 → 旧戳对不上 → 全量
+PASS R4 客户端拿到的就是全量
+PASS S0 前提:收尾拼出来的底子带着新戳(12 条)
+PASS S1 带 knownMessages 且戳对得上 → 起点事件是增量(messagesFrom=12、messageCount=12)
+PASS S2 增量事件不带 providerHistory,messages 只是尾巴
+PASS S3 拼回前缀后整份的戳 = 事件给的新戳(与服务端那一刻的整份逐条相同)
+PASS S4 拼出来的新数组记着新戳(收尾那一发可以接着增量)
+PASS S5 拼出来的 messages 是回合收尾后全量的前缀
+PASS S6 增量事件的会话头键集与全量事件相同(除 messages/providerHistory)
+PASS S7 不带 knownMessages → 修前那条全量事件(带 providerHistory 与 messagesStamp)
+PASS S8 knownMessages 字符串 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages count 非整数 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages count 为字符串垃圾 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages count 与戳条数不符 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages 戳哈希不对 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages count 超出条数 → 全量事件(带 providerHistory,戳与整份相符)
+PASS S8 knownMessages 缺 stamp → 全量事件(带 providerHistory,戳与整份相符)
+
+SESSION GET ETAG E2E: ALL PASS
+(node:80107) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/chat-stream-runtime.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

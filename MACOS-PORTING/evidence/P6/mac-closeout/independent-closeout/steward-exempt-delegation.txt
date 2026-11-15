@@ -1,0 +1,85 @@
+── (R) 定时任务线程 × 真收件箱轮询(stewardPollMs 15000 = 出厂值)──
+PASS R00 workbench 起来了、runtime token 可读
+PASS R01 收件箱轮询器已跑完冷启动那一拍(cursor-v1.json 落盘)
+PASS R02 建一条 prompt 定时任务,任务级档位「智能自动」(实得 {"permissionMode":"auto"})
+PASS R03 调度器开的线程头与真机那条同形:origin:schedule / kind:mission / launchedBy:steward / 头上没有 permissionMode(实得 {"origin":"schedule","kind":"mission","launchedBy":"steward","createdBy":"steward"})
+PASS R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\tmp -Recurse 停下来问了(实得 {"tool":"shell_run","input":"rm -rf ./tmp"})
+PASS R11 ① 没有任何人按:轮询 → 管家收件箱回合 → steward_decide 代批落定,tmp 真被删了(实得 status=allowed tmpExists=false decidedBy=steward)
+PASS R12 ① 工具结果告诉模型:代批了、是「删数据」类(实得 {"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"})
+@ 3.2s R ① done
+PASS R20 前提:web_fetch 之后的 git push 停下来问了(实得 {"command":"printf '%s\\n' 'ran' > '/private/tmp/ruyi-p6-independent-closeout-IjLKkI/ruyi-exempt-delegation-r-rK1pFC/pushR.txt' # git push origin main","cwd":"/private/tmp/ruyi-p6-independent-closeout-IjLKkI/ruyi-exempt-delegation-r-rK1pFC/work","timeoutMs":30000})
+PASS R21 ② 同一回合读过网页再 git push → 不代批 blockedBy:tainted, taintBy:turn:web_fetch(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","missionId":"sess_41b18e11d1dbb7e2","interventionId":"perm_566491271fbf0d24","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"tainted","taintBy":"turn:web_fetch"})
+PASS R22 管家没批的那条仍在等用户 —— 夹具以用户身份拒掉(实得 denied)
+@ 4.9s R ③ done
+PASS R23 ② 同一回合同样读过网页,删文件类仍代批(实得 status=allowed tmp2Exists=false)
+PASS R24 被拒的那条 push 命令没执行(标记文件不在)
+PASS R25 run-now 收尾(实得 outcome=needs_you)
+@ 6.5s R ④ done
+PASS R30 ① 决策账本:两条代批各一行 basis.delegation{categories,exemptBy,commandExcerpt,riskNote,tainted:false,taintBy:null}、undoRef.kind:none(实得 2 行,{"basis":{"interventionId":"perm_d427ea26836bd306","interventionVersion":2,"delegation":{"categories":["delete_data"],"exemptBy":"command_text","commandExcerpt":"rm -rf ./tmp /private/tmp/ruyi-p6-independent-closeout-IjLKkI/ruyi-exempt-delegation-r-rK1pFC/work ","riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","tainted":false,"taintBy":null}},"undoRef":{"kind":"none","note":"不可撤销"},"mayAct":"auto","permissionMode":"aut)
+PASS R31 ① 审计日志 steward_exempt_delegated 两行,只有元数据(无命令摘录、无理由正文)(实得 [{"ts":"2026-11-12T15:19:28.866Z","kind":"steward_exempt_delegated","sessionId":"sess_41b18e11d1dbb7e2","interventionId":"perm_d427ea26836bd306","toolName":"shell_run","categories":["delete_data"],"exemptBy":"command_text","riskNoteChars":33,"windowCount":1},{"ts":"2026-11-12T15:19:32.174Z","kind":"steward_exempt_delegated","sessionId":"sess_41b18e11d1dbb7e2","interventionId":"perm_04e2d59e8023ba4b","toolName":"shell)
+PASS R32 ① 确定性回执:两次代批各在那一回合的回执(落盘的章 actions)里出一行「代批「删数据」 · 线程「…」」,模型自己的话里没提(实得 ["代批「删数据」 · 线程「A股盘中巡检(B2 夹具)」","代批「删数据」 · 线程「A股盘中巡检(B2 夹具)」"])
+── (D) 真活回合停在真待决上,从管家按钮入口逐道造反例 ──
+@ 7.1s D start
+PASS D00 workbench 起来了、runtime token 可读
+PASS D01 线程交给管家盯(stewardWatch:true),会话头档位 = 智能自动(实得 "auto")
+@ 7.3s turn 清理 d1
+PASS D10 ⑦ 会话头 auto(信封里 permissionMode 仍报会话头)、回合实效 default → 不代批 blockedBy:mode(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","missionId":"sess_9438ed39b3e92740","interventionId":"perm_f8568a9ff6a38d6d","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"mode"})
+PASS D11 ⑦ d1 仍在(命令没跑)
+@ 8.8s turn 清理 d1b
+PASS D12 ⑦ 对照:会话头 default、回合请求级 auto → 代批落定、d1b 被删(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_d08ffb36e29faa72","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+PASS D13 会话头档位改回智能自动
+@ 9.0s turn 三条底线
+PASS D20 ③ shutdown /s、rm -rf /、rm -rf b && shutdown /s 带理由也一律不代批 blockedBy:floor(实得 [["printf '%s\\n' 'f1' # shutdown /s /t 0",{"blockedBy":"floor","ok":false,"cat":"system_change"}],["printf '%s\\n' 'f2' # rm -rf /",{"blockedBy":"floor","ok":false,"cat":"delete_data"}],["printf '%s\\n' 'f3' # rm -rf b && shutdown /s",{"blockedBy":"floor","ok":false,"cat":"delete_data"}]])
+@ 9.5s turn S1 三条
+PASS D21 107-S1:拼接构造 → indirect_command;C:\Users 与 /home/me/notes 两个绝对删除目标 → absolute_target;927 字 → scan_limit(实得 [["printf '%s\\n' 'g1' # Remove-Item .\\tmp -Re",{"blockedBy":"indirect_command","ok":false,"cat":"delete_data"}],["printf '%s\\n' 'g2' # Remove-Item C:\\Users ",{"blockedBy":"absolute_target","ok":false,"cat":"delete_data"}],["printf '%s\\n' 'g3' # rm -rf /home/me/notes",{"blockedBy":"absolute_target","ok":false,"cat":"delete_data"}],["printf '%s\\n' 'g4' # rm -rf ./tmp xxxxxxxx",{"blockedBy":"scan_limit","ok":false)
+PASS D21b 四条的信封仍是 B1 那一份 propose_required(只是 blockedBy 换了名字)
+@ 10.0s turn 清理 d3
+PASS D30 ⑥ 没写理由 / 理由只有空白 → 不代批 blockedBy:risk_note(实得 ["risk_note","risk_note"])
+PASS D31 ⑥ 补上理由再批同一条 → 代批、d3 被删(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_854b8902400371f0","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+PASS D40 用户在设置里关掉代批(POST /api/config,实得 200)
+PASS D41 ⑧ 管家经 steward_config_set 翻开关(哪怕走用户按下的按钮入口)→ steward.forbidden(实得 {"ok":false,"error":"steward.forbidden","message":"these keys can never be changed through the steward: stewardExemptDelegationV1","keys":["stewardExemptDelegationV1"]})
+@ 10.3s turn 清理 d4
+PASS D42 ④ 开关关:信封除 delegable/blockedBy 两键外与 B1 逐键同序同值(实得键 ["ok","error","message","reason","exemptBy","exemptCategory","missionId","interventionId","type","toolName","permissionMode","delegable","blockedBy"] message=工具 shell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定)
+PASS D43 ④ d4 仍在
+PASS D44 ⑧ 盘上的开关仍是关的(管家那一下没写进去;实得 false)
+PASS D45 用户在设置里重新打开
+@ 10.5s turn 把巡检结果报给任务点名的接口,然后推送
+PASS D46 前提:写型 http_request(POST)停在待决上,此刻会话头没有粘性污染位(实得 tool=http_request stewardTaint=null)
+PASS D47 写型 http_request 打本机接口带理由也不得代批(实得 {"ok":false,"error":"propose_required","message":"工具 http_request 这次要访问本机或内网地址 —— 这一条必须你亲自决定","reason":"internal_target","missionId":"sess_9438ed39b3e92740","interventionId":"perm_45a5f7d86696f2c6","type":"permission","toolName":"http_request","tier":"exec","permissionMode":"auto","delegable":false,"blockedBy":"internal_target"})
+PASS D48 被拒的 POST 没有发到夹具接口(实得 [])
+PASS D49 调用返回之后会话头的粘性污染位 = http_request(实得 {"by":"http_request","at":"2026-11-12T15:19:36.435Z","turnSeq":7})
+PASS D49b 紧跟着的 git push → blockedBy:tainted(读回来的是接口响应),命令没跑(实得 {"blockedBy":"tainted","taintBy":"turn:http_request"})
+@ 10.9s turn 读网页再推送
+PASS D50 ② 本回合读过网页后 git push → blockedBy:tainted, taintBy:turn:web_fetch,命令没跑(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","missionId":"sess_9438ed39b3e92740","interventionId":"perm_55a89f9749a48f06","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"tainted","taintBy":"turn:web_fetch"})
+PASS D51 ② 同一回合删文件类 → 代批(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_ee79c646a1fd1185","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+PASS D52 ② 会话头落下粘性污染位 stewardTaint(实得 {"by":"web_fetch","at":"2026-11-12T15:19:36.693Z","turnSeq":8})
+@ 11.3s turn (管家递话)
+PASS D60 ② 上一回合读过网页、这一回合(管家递话起的)只 push → blockedBy:tainted, taintBy:sticky:web_fetch(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","missionId":"sess_9438ed39b3e92740","interventionId":"perm_c5e69e99e86c062c","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"tainted","taintBy":"sticky:web_fetch"})
+@ 11.7s turn 我确认过了,推吧
+PASS D70 ② 用户亲发的下一条消息起手时会话头的 stewardTaint 已清掉(实得 null)
+PASS D71 ② 清掉之后同样的 push → 代批(「推送远端」类)、命令真跑了(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_1364aa7fcdad4e32","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["push_remote"],"labels":["推送远端"],"riskNote":"推送任务点名的 main 分支","note":"已按代批规则替用户放行这条「推送远端」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+@ 11.9s turn 经代理读一下网页再推
+PASS D75 ② 经 tool_invoke_read 代理调 web_fetch 之后 push → blockedBy:tainted(代理目标由粘性位在同一回合接住,taintBy:sticky:web_fetch)(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","missionId":"sess_9438ed39b3e92740","interventionId":"perm_b4f3c7853eb52532","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"tainted","taintBy":"sticky:web_fetch"})
+@ 12.5s turn 清理 d8
+PASS D80 用户按过「别盯了」(stewardWatch:false)的线程 → blockedBy:not_watched(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","missionId":"sess_37635bc550f8cc9c","interventionId":"perm_a5ec12d9a3db6eee","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"not_watched"})
+@ 12.7s turn 跑一下
+PASS D85 智能自动线程里拼出来的命令(& ('Set-' + 'Content') …)停下来问了(实得待决 1 条)
+PASS D86 管家放行它 → propose_required / indirect_command,命令没跑(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令是拼接、编码或求值出来的,看不出真正要跑什么 —— 这一条必须你亲自决定","reason":"indirect_command","missionId":"sess_9438ed39b3e92740","interventionId":"perm_bb536d1daf8246fe","type":"permission","toolName":"shell_run","tier":"exec","permissionMode":"auto","delegable":false,"blockedBy":"indirect_command"})
+@ 12.9s turn 清理 d9
+PASS D90 回合里模型直调 steward_decide 代批落定(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_64ad400dfd0db988","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+PASS D91 确定性回执:steward_reply.actions 里恰一行「代批「删数据」 · 线程「B2 看管线程」」,模型的 say 没提(实得 ["代批「删数据」 · 线程「B2 看管线程」"] say=好的,我看过了。)
+@ 13.3s turn 清理 d10
+PASS D92 第 6 次真实代批仍可执行(实得 {"ok":true,"missionId":"sess_9438ed39b3e92740","interventionId":"perm_171d9eeea68c8b30","type":"permission","action":"allow","status":"allowed","interventionVersion":2,"delivered":true,"undoRef":{"kind":"none","note":"不可撤销"},"exemptDelegation":{"delegated":true,"categories":["delete_data"],"labels":["删数据"],"riskNote":"这是线程受托的巡检任务自己的临时目录,只动它的工作文件夹,不碰凭据","note":"已按代批规则替用户放行这条「删数据」类命令;工作台会给用户出一行回执,并把理由记进行动流水"}})
+PASS D95 ⑤ 前提:本实例到此恰好代批过 6 次,第 6 次(D92)照常落定(实得 6)
+@ 13.6s turn 再清一个
+PASS D97 ⑤ 第 7 次 → blockedBy:hourly_cap、c7 仍在(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","missionId":"sess_9438ed39b3e92740","interventionId":"perm_c327b04de4eb4f35","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"hourly_cap"})
+@ 13.9s turn 清理 c8
+PASS D97b 用户自己开、没交给管家的智能自动线程过了闸 3(修前 not_watched),额度用完时停在 hourly_cap(实得 {"ok":false,"error":"propose_required","message":"工具 shell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","missionId":"sess_8bc1165cfa48a39d","interventionId":"perm_8863fd735f817bfd","type":"permission","toolName":"shell_run","permissionMode":"auto","delegable":false,"blockedBy":"hourly_cap"})
+@ 14.1s D scenarios done
+PASS D98 决策账本:六次代批六行、全带 basis.delegation(含 push_remote 那条的理由);被拦下的零行(实得 steward_decide 6 行 / 带 delegation 6 行)
+PASS D99 对照那条(会话头 default、回合 auto)账本如实记会话头档位、mayAct 按活回合 = auto(实得 {"permissionMode":"default","mayAct":"auto"})
+LATENCY ① Remove-Item .\tmp(代批): 1707 ms
+LATENCY ② git push(拒代批): 1642 ms
+LATENCY ④ Remove-Item .\tmp2(代批): 1601 ms
+
+STEWARD EXEMPT DELEGATION E2E: ALL PASS

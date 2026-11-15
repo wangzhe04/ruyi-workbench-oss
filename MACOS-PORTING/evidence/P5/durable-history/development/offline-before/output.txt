@@ -1,0 +1,8 @@
+PASS actual file effect completes before the pending second call
+FAIL pending batch call IDs and requested model arguments are committed before whole-batch completion
+FAIL Error: Stopped after: pending batch call IDs and requested model arguments are committed before whole-batch completion
+    at check (/private/tmp/ruyi-p5-durable-history-worktree/dev-harness/provider-tool-history.e2e.js:20:70)
+    at /private/tmp/ruyi-p5-durable-history-worktree/dev-harness/provider-tool-history.e2e.js:120:5
+PASS all observed service birth identities exit
+
+PROVIDER TOOL HISTORY E2E: FAIL (2)

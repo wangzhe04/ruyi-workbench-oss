@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_balanced_receiver_explicit_json_boolean_addendum",
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-11T23:58:41.291827+00:00",
+  "status": "passed_single_line_fixture_source_delta_no_acceptance_semantics_relaxed",
+  "reviewedSource": {
+    "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+    "bytes": 14521,
+    "sha256": "8bec0d3dd566b7fabffe77085fd71b8b9fc8c841ae6271db2bac0323b7bf6575"
+  },
+  "priorApprovedSource": {
+    "bytes": 14511,
+    "sha256": "c740e4aade3a7734d444f1cc2598c03ed0deae2a890e33c6d6964b6a175c0bdf",
+    "review": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-window-source-review-v2.json",
+      "bytes": 9783,
+      "sha256": "bc2e1ff95ddaf4a06853db19e2d4f2799a2cb043bee0dae78d7cc02baf6e9c4e"
+    }
+  },
+  "exactDeltaVerification": {
+    "method": "Reverse the sole exact frontmost ternary replacement in memory;reconstructed complete14511-byte source hashes to prior approved c740e4.No files modified.",
+    "changedLines": 1,
+    "sourceLine": 68,
+    "before": "@\"frontmost\":@(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier == getpid())",
+    "after": "@\"frontmost\":NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier == getpid() ? @YES : @NO",
+    "allOtherBytesIdentical": true
+  },
+  "semanticAssessment": {
+    "predicateUnchanged": "NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier == getpid() remains the exact foreground ownership predicate.",
+    "representationChange": "Objective-C boxing of a C equality int can serialize as NSNumber numeric0/1.The explicit conditional selects @YES/@NO,which serializes as JSONfalse/true.",
+    "noRelaxation": "The receiver does not admit any additional foreground process or accept a false comparison.Both equality outcomes map to the same truth value;only the JSON type is made explicit.Existing arm [state.frontmost boolValue] behavior is unchanged.Strict harness boolean comparisons can now consume the intended boolean contract without permissive truthiness.",
+    "unaffected": "No input posting,event selection,PID/birth,nonce,time/point/flags,hit,TIS,neutral,journal/fsync,EOF,cleanup or production source logic changed."
+  },
+  "preservedDevelopmentFailure": {
+    "files": [
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1.json",
+        "bytes": 2233,
+        "sha256": "1f3d4acf704e5703ad2985be81db34c59adb318b9fe29d979c44b3973cc078c0"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1.log",
+        "bytes": 1044,
+        "sha256": "f21784e02a1eee9abca2c67060ecce038c89d2517eaf44afb1186a21f8855475"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1-binding.json",
+        "bytes": 127,
+        "sha256": "8ed178e4095a9b8ce92e7abf0c82f6d8bacf60208ea676012a0219d2454c9a53"
+      }
+    ],
+    "offlineJSONCounts": {
+      "reports": 0,
+      "attempts": 0,
+      "proof": 0
+    },
+    "log": "First readiness assertion failed before any saved receiver report/model attempt;parent reports native status readiness fields were numeric1.No balanced runtime success inferred.",
+    "scopeLimit": "These existing artifacts were read only.The reviewer did not execute readiness,native/GUI or input;harness readiness correction is reviewed by its separate reviewer and outside this one-line addendum."
+  },
+  "actions": "Only source/evidence reads,hash reconstruction and this exclusive0600 review JSON write.No source changes,tests,compile,native helper,GUI,event posts,process probes,TCC/lock/keepawake actions.",
+  "confirmedRemainingBlockingFixtureSourceFindings": [],
+  "qualificationDecision": "Prior v2 static fixture approval carries to exact8bec0d3 source for controlled stageA,with all v2 mandatory complete-harness checks retained.Final shared source/artifact freeze must be refreshed after this byte change before qualification.Old freeze/development failure remain immutable;no balanced runtime,rescue/held,App/release or fullP5 acceptance granted.",
+  "constraintsRetained": [
+    "Default-off/P5in_progress",
+    "Noheldfault before independently reviewed/qualified bounded out-of-tree rescue",
+    "No intentional lock/TCCrevoke or physical你好/drag/Finder repeat",
+    "All original10local+4external and background/API0/resume/CLI/manual/schema2/reconciliation/retention/globalquota requirements retained"
+  ]
+}

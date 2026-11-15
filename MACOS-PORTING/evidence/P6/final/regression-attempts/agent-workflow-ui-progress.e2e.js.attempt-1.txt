@@ -1,0 +1,14 @@
+PASS workbench starts
+PASS async workflow launch returns immediately with a run id
+PASS agent-runs exposes live node progressLog entries
+PASS progressLog intermediate entry is readable while the node is still running (throttled mid-exec persistence)
+PASS finished run persists readable summary and node result
+PASS workflow completion delivers exactly one agent envelope into the session background ledger (no assistant summary message)
+PASS no legacy agent_workflow assistant summary message is appended to the session
+PASS fake provider actually exercised sub-agent tool progress
+PASS async Claude-engine workflow launches
+PASS Claude-engine node succeeds via fake-claude long-text fixture
+PASS persisted progressLog contains a 生成中 · N 字 streamed-text milestone
+PASS final 子 Agent 完成 entry appended independently (did not overwrite the 生成中 milestone)
+
+AGENT WORKFLOW UI PROGRESS E2E: ALL PASS

@@ -1,0 +1,151 @@
+PASS E1 向导模块零 innerHTML / insertAdjacentHTML / document.write
+PASS E2 DOM 全部经 el() 与 replaceChildren() 构建
+PASS E3 模块零 import(壳无关:每个环境依赖都从工厂注入,117 管家可零 DOM 复用纯函数)
+PASS E4 向导零「复制路径」出口(无 copyPath/copied/copyFailed 键、无 onboard-wiz-copy、无 clipboard、无手册相对路径)
+PASS E5 完成页手册入口改为调用注入的 openHelpViewer(应用内阅读器)
+PASS E6 手册阅读器零 innerHTML / insertAdjacentHTML / document.write
+PASS E7 阅读器零 import、markdown 只经注入的 renderMarkdownInto 落 DOM、零剪贴板出口
+PASS E8 overlay 离线载荷含手册阅读器模块
+PASS E9 阅读器样式在已注册的 onboarding.css 层内(含窄屏单栏收敛),不新增样式层
+PASS E10 阅读器实例与向导同一接线口径:经典壳持有,组合根只透传 markdown 渲染原语
+PASS F1 经典壳(session-experience)持有唯一向导实例
+PASS F2 经典首跑卡有「开始引导」主按钮
+PASS F3 经典壳导出 openOnboardingWizard 供组合根分发
+PASS F4 引导的实现只住 onboarding-wizard.js 一处，别的模块只从组合根拿注入（实测另起实现的文件 []）
+PASS F5 设置页「重新打开引导」按钮由运维域接线
+PASS F6 组合根把经典壳导出的那一个向导入口注入设置运维域（全仓只有这一个实例）
+PASS F7 index.html 设置基础页含可重开入口且文案走 i18n
+PASS F8 provider 序列化只有一份实现,设置页与向导共用
+PASS F9 首跑卡渲染体检摘要红点(无待办时 buildHealthSummaryChip 返回 null,不渲染)
+PASS F10 红点可点且直达体检页签(force=true,不被简易模式收敛弹回基础页)
+PASS G1 index.html 已加载新样式层
+PASS G2 styles.css 兼容清单同步
+PASS G3 CSS 载荷组清单登记新层
+PASS G4 overlay 离线载荷含新模块与新样式层
+PASS G5 样式层含卡片/步骤条/状态行规则
+PASS G6 无自带动画且显式尊重 reduced-motion
+PASS G7 含窄屏(390px 档)收敛规则
+PASS A1 导出 ONBOARDING_VERSION
+PASS A1 导出 ONBOARDING_STEP_IDS
+PASS A1 导出 ONBOARDING_SAFETY_MODES
+PASS A1 导出 ONBOARDING_PLAYBOOK_IDS
+PASS A1 导出 shouldShowOnboarding
+PASS A1 导出 onboardingStepsFor
+PASS A1 导出 validateApiKeyShape
+PASS A1 导出 validateBaseUrlShape
+PASS A1 导出 createOnboardingWizardDomain
+PASS A2 ONBOARDING_VERSION === 1
+PASS A3 完成页三张任务卡 = 清理下载文件夹/整理会议纪要/翻译文档
+PASS A4 本地端点示例是 Ollama 默认地址(仅预填,需用户确认)
+PASS A4b errorMessageOf 同时读裸字符串与 {code,params,message} 信封(不渲染 [object Object])
+PASS A5 空配置 + 无会话 -> 提示引导
+PASS A6 已有会话 -> 不再提示
+PASS A7 已有最近工作区 -> 不再提示
+PASS A8 已完成 -> 不再提示
+PASS A9 已跳过 -> 不再自动提示(仍可从设置重开)
+PASS B1 步骤定义恒为 7 步（实测 7）
+PASS B2 步骤次序 = 语言/引擎/密钥/管家模型/文件夹/安全档/完成（实测 language,engine,provider,steward,workspace,safety,done）
+PASS B3 每步带 index 与 onboarding.wizard.* 文案键(117 管家可直接复用)
+PASS B4 done 位纯由 config 派生(全配齐 -> 六步全绿)
+PASS B5 locale=auto 不算已选语言
+PASS B6 安全档:出厂的智能自动不算选过;显式键里有 permissionMode 才算
+PASS C1 空 key 被拦
+PASS C2 本地端点允许空 key
+PASS C3 含空格 -> keyWhitespace
+PASS C4 含换行 -> keyWhitespace
+PASS C5 遮盖值 -> keyMasked
+PASS C6 过短 -> keyTooShort
+PASS C7 过长 -> keyTooLong
+PASS C8 正常 sk- key 通过且无提示
+PASS C9 非 sk- 前缀只提示不拦(自建端点合法)
+PASS C10 非 sk- 家族(其它 id)不做前缀提示
+PASS C11 空地址 -> urlEmpty
+PASS C12 缺协议 -> urlScheme
+PASS C13 含空格 -> urlSpace
+PASS C14 合法 http/https 地址通过
+PASS C15 免 Key 预设 = ollama + lmstudio
+PASS C16 presetAllowsEmptyKey 只对本地端点与两个本机预设放行
+PASS C17 两个本机预设允许空 Key,云端预设照旧要求填
+PASS C18 只有本机预设有「没在跑」的人话,云端端点仍用服务端那句
+PASS C19 isLocalEndpointUrl 认回环地址,不认云端域名
+PASS C20 设置页判定认 <id>-2 去重副本,也认手搭的本机端点
+PASS D1 模态是 role=dialog + aria-modal=true
+PASS D2 状态行是 aria-live=polite 的 live region
+PASS D3 模态已挂载到 document.body
+PASS D4 backdrop 暴露 __cancel/__close(全局 Esc 处理器据此把 Esc 当「以后再说」)
+PASS D5 步骤条 7 格（121-K7 加了「管家用哪个模型」那一步）
+PASS D6 已有向导打开时不叠第二个
+PASS D7 第 1 步是语言选择
+PASS D8 第 2 步是引擎三选一
+PASS D9 第 3 步只显示密码型 API Key 输入
+PASS D10 baseUrl/模型收在默认折叠的「高级」里
+PASS D11 密钥步可跳过(无 key 也能走完向导)
+PASS D11b 第 4 步是「管家用哪个模型」（跟随主端点 / 另挑一个 两张卡 + 一个模型名框）
+PASS D11b-bis 这一步在既有那句提示之外，多一句「快档模型可能守不住输出契约，建议选强档」（实测 ["onboarding.wizard.steward.hint","onboarding.wizard.steward.contractHint"]）
+PASS D11c 填模型名即落 config.stewardModel（与设置·管家页同一个字段；实测 cheap-model）
+PASS D11d 「跟随主端点」写空串（实测 ""）
+PASS D12 第 5 步是工作文件夹拖放/选择区
+PASS D13 「选择文件夹」走注入的原生选择器
+PASS D14 第 5 步是四档安全单选,默认「每步都问」
+PASS D15 选安全档立即落 permissionMode
+PASS D15b 点「智能自动」先就地展开确认，不落盘、卡片也不标成选中
+PASS D15c 「再想想」收起确认，配置不变
+PASS D15d 确认之后带 confirm:true 落盘成功（桩照服务端的 409 门写），卡片标成选中、确认收起
+PASS D15e 点已选中的那张卡:不落盘、不弹确认
+PASS D16 完成页三张 Playbook 卡
+PASS D17 完成页已无手册路径文本与复制按钮(反模式已消除)
+PASS D18 完成页手册入口是「打开手册」按钮
+PASS D18b 点「打开手册」调注入的 openHelpViewer({docId:user-guide}),不碰剪贴板/文件管理器
+PASS D19 「完成」写入 onboarding{completedAt,version:1,skipped:false}
+PASS D20 完成后模态关闭并从 body 摘除
+PASS D21 「以后再说」写入 skipped:true(completedAt 留空)
+PASS D22 跳过后不再自动提示,但仍可显式重开
+PASS D23 「测试连接」走既有 /api/provider/test,带上草稿与明文密钥
+PASS D24 测试成功后模型输入变成服务端返回的可选清单
+PASS D25 保存写 providers[] 并把新端点设为活动引擎
+PASS D26 provider 形状来自注入的设置页序列化器(不是第二套)
+PASS D27 明文密钥只在这一次请求里发给本机服务
+PASS D28 保存后界面不再持有/回显密钥
+PASS D28b 同一端点再存一次：仍只有一条 fakeco，不新增 fakeco-2
+PASS D28c 没重填密钥时回传掩码（服务端据此保留原密钥），不把密钥清空
+PASS D28d 复用判据：同谱系（id 或 id-N，不含 localhost-x 这种前缀撞名）＋同地址（忽略末尾斜杠与大小写）
+PASS D29 测试失败显示服务端人话 + 复用 errorClass 的「怎么办」文案
+PASS D30 失败态状态行带 err 样式钩子
+PASS D31 前置校验不通过时不发网络请求
+PASS D6b openOnboardingWizard({startStep}) 直接打开指定步骤
+PASS D6c 全自动用户打开安全步:四张卡都不亮
+PASS D6d 全自动用户点「每步都问」真的落盘收紧
+PASS I1 阅读器导出 HELP_DOC_IDS
+PASS I1 阅读器导出 HELP_LOCALES
+PASS I1 阅读器导出 helpDocRequestPath
+PASS I1 阅读器导出 helpAnchorId
+PASS I1 阅读器导出 helpDocRefFor
+PASS I1 阅读器导出 isCrossOriginHref
+PASS I1 阅读器导出 createHelpViewerDomain
+PASS I2 文档 id 是写死的白名单枚举
+PASS I3 取文 URL 只带 id/lang 两个受控参数(不带任何路径)
+PASS I4 非白名单 id(含穿越串)在前端就被挡住,连请求都不发
+PASS I5 锚点 id 由标题文本推导(中英都可用,目录跳转与 anchor 参数同一套)
+PASS I6 阅读器是 role=dialog + aria-modal=true 的模态
+PASS I7 打开即按当前语言请求手册正文
+PASS I8 抬头用服务端返回的文档标题
+PASS I9 目录由正文 h2 生成,条目是可键盘到达的按钮
+PASS I10 两种语言都在时给出中英切换
+PASS I11 切换语言重取同一份文档的另一语种
+PASS I12 已打开时不叠第二个阅读器
+PASS I13 阅读器在 document 捕获相位自持 Esc(叠层语义)
+PASS I14 Esc 关掉阅读器并阻止冒泡(全局 Esc 不会连带取消底下的向导)
+PASS I15 关闭后摘掉 Esc 监听(不泄漏处理器)
+PASS I16 手册文件缺失时给应用内解释(help.doc.missingBody),不给路径
+PASS I17 管理员手册同一条通道(白名单第二项)
+PASS I18 手册互引的磁盘文件名被翻译成应用内 {id,lang}(非手册的相对链接不认领)
+PASS I19 跨站判定:只有真外站算外链(相对链接与同源一律按应用内处理)
+PASS I20 正文相对链接不留死链(手册互引变按钮,其余降级为文字)且样式已就位
+PASS H1 onboarding.wizard.* 键齐(124 条)
+PASS H2 四个 locale 文件逐字一致
+PASS H4 help.doc.* 文案键四文件齐
+PASS H5 复制路径相关文案键已从四个 locale 文件里删除
+PASS H6 完成页手册提示语不再教用户复制路径
+PASS H3 模块引用的每个向导文案键都能解析
+
+ONBOARDING STATIC E2E: ALL PASS

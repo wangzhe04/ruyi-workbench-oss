@@ -1,0 +1,40 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS U14 首屏可见文字零硬编码中文残留（除已登记的两条后端字面量豁免）
+PASS U14 safety-mode chip title 无中文（实测 "Default permission for new threads: Ask me every step"）
+PASS U14 safety-mode chip aria-label 无中文（实测 "Default permission for new threads: Ask me every step"）
+PASS U14 workspacePicker aria-label 无中文（实测 "Choose workspace folder"）
+PASS U14 composer「更多」title 无中文（实测 "More"）
+PASS U14 composer「添加文件」title 无中文（实测 "Attach file"）
+PASS U14 composer 发送按钮文案无中文（实测 "Send"）
+PASS U14 线程头 chips 宿主 aria-label 无中文（实测 "Thread settings"）
+PASS U14 右栏拖拽手柄 title 无中文（实测 "Drag to resize the right panel · double-click to cycle widths"）
+PASS U14 右栏拖拽手柄 aria-label 无中文（实测 "Drag to resize the right panel, double-click to cycle widths"）
+PASS U15 changes.fileCount 单数是 "1 file"（实测 "1 file"）
+PASS U15 changes.fileCount 复数仍是 "N files"（实测 "2 files"）
+PASS U17 工作流模板下拉已加载内置模板（实测 8 项）
+PASS U17 en-US 下工作流模板下拉零中文残留（实测 [{"value":"debate-and-judge","text":"Built-in · Debate (Pro vs Con) → Verdict"},{"value":"implement-review-fix-test","text":"Built-in · Implement → Independent Review → Targeted Fix → Acceptance"},{"value":"deep-research","text":"Built-in · Deep Research → Verify → Synthesize"},{"value":"design-and-decide","text":"Built-in · Requirements → Multiple Options → Decision → Rollout Checklist"},{"value":"codebase-audit","text":"Built-in · Codebase Audit: Parallel Dimensions → Verify → Fix Backlog"},{"value":"debug-root-cause","text":"Built-in · Bug Hunt: Reproduce → Hypothesize → Verify → Root-Cause Fix"},{"value":"doc-from-scratch","text":"Built-in · Document from Scratch: Outline → Section Drafts → Fact-Check → Final Pass"},{"value":"data-insights","text":"Built-in · Data Insights: Profile → Plan → Multi-Angle Analysis → Verify → Insights"}]）
+PASS U17 debate-and-judge 模板标题已译（实测 {"value":"debate-and-judge","text":"Built-in · Debate (Pro vs Con) → Verdict"}）
+PASS U14b 打开一次设置页之后标题自愈成英文（实测 "Settings"）
+PASS U14b 打开一次设置页之后空工作区提示自愈成英文（实测 "No workspaces yet"）
+PASS F1a 夹具 A 零未捕获异常（[]）
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS U14c 切语言前基线：管家首跑自我介绍是中文（实测 "我是如意。说你想做的事，我来判断该接着哪条线程做，或者另起一件。※\n | 看看我有哪些线程 | 明天 9 点提醒我交周报"）
+PASS U16 切语言前基线：停机键是中文（实测 "一键停机"）
+PASS U16 切语言前基线：管家状态点是中文（实测 "空闲"）
+PASS U17 zh-CN 下内置工作流模板标题仍是原文中文（实测 "内置 · 正反辩论 → 裁决"）
+PASS U16 POST /api/config 切 locale 成功
+PASS U14c 运行时切语言后管家首跑自我介绍与例子跟着换成英文、不重复（实测 "I'm Ruyi. Tell me what you want done and I'll work out which thread should pick "，例子 3 个）
+PASS U14d 运行时切语言重画首跑那一行后管家头像仍在、态照常画(实测 avatar=true state="idle")
+PASS U16 运行时切语言后「一键停机」按钮不停在旧中文（实测 "Stop the steward"）
+PASS U16 运行时切语言后管家状态点文案不停在旧中文（实测 "Idle"）
+PASS F1b 夹具 B 零未捕获异常（[]）
+
+LOCALE EN-US BROWSER E2E: ALL PASS

@@ -1,0 +1,59 @@
+PASS workbench starts
+PASS S1 launch manual workflow returns a run id
+PASS A5.1 propose_task → run.taskPool 出现 2 个 proposed 项（run 仍 live/未阻塞）
+PASS 豁免：白名单角色下 propose_task/send_to_agent 仍被注册（元工具豁免 role.openaiTools）
+PASS 豁免佐证：白名单仍生效（file_read 在、file_list 被过滤），仅元工具被豁免
+PASS 回归：禁嵌套守卫未误杀——子回合仍无 spawn_agent/orchestrate_agents
+PASS S1 两条提案分别对应 HELPERA / HELPERB
+PASS A5.2 manual 批准 → 200 + 物化返回 nodeId（{"ok":true,"status":"materialized","poolId":"pool-c6f1e85b6d737f7a","nodeId":"pool-c6f1e85b6d737f7a"}）
+PASS A5.2 manual 拒绝 → 200 + status rejected
+PASS P3-8 同一 poolId 连批两次 → 第二次 409（该提案已处理）
+PASS P3-8 reject 后 approve 同一提案 → 409（该提案已处理）
+PASS P3-8 假 poolId → 404（提案不存在）
+PASS S1 run 到达终态
+PASS A5.4 物化节点：failurePolicy continue + engine 继承 openai + 本例失败（failed）
+PASS A5.2 物化节点缺省 dependsOn=[提案者]
+PASS A5.4 failurePolicy continue：帮手失败不把 run 拉成 partial（run.status=succeeded）
+PASS A5.2 被拒提案 status=rejected
+PASS A5.2 被拒提案不物化任何节点
+PASS A5.4 物化节点用量入账（月账本含 kind:subagent 行）
+PASS A5.5 全节点终态 + 有 proposed → 进入宽限窗（run.status=waiting_pool）
+PASS A5.5 宽限窗内批准 → 200（窗内 closing=false 可批）
+PASS S2 run 到达终态
+PASS A5.5 宽限窗内批准的节点被调度并执行成功
+PASS S2 窗内批准后 run 收尾为 succeeded
+PASS S3 进入宽限窗（waiting_pool）
+PASS S3 宽限窗过后 run 自动收尾
+PASS A5.5 窗过未决提案置 expired（expired）
+PASS A5.5 run 结束后批准 → 409「运行已结束…」（409 / [object Object]）
+PASS S4 auto-capped run 到达终态
+PASS A5.3 总数 >8 被拒（taskPool 恰 8 项，第 9/10 条提案被拒不入池）
+PASS A5.3 auto-capped：前 3 条自动物化（decidedBy=auto），cap 用尽后转 manual
+PASS A5.3 cap 之后的提案留 proposed（收尾时非 manual 策略置 expired）
+PASS A5.3 恰好 3 个 auto 帮手节点被物化执行
+PASS S5 chain run 到达终态
+PASS A5.3 链深 1、2 的节点被物化（CHAIN1/CHAIN2）
+PASS A5.3 链深 >2 被拒：CHAIN3 既不入池也不物化
+PASS B4.1 A→B 发消息 → 目标下一迭代请求体含 [节点 sender 消息] MAILMARK
+PASS B4.5 schema 目标：同一条 user 消息同时含发件前缀与 JSON 提醒（steerReminder）
+PASS P2-2 伪造 [编排者插话] 前缀被中和为全角括号（收件体不含原样 ASCII 冒充前缀）
+PASS S6 mailbox run 到达终态
+PASS B4.2 发送端里程碑「发消息 → receiver」
+PASS B4.2 接收端里程碑「收到 sender 消息」
+PASS B4.2 run.messages 持久化（含 sender→receiver 条目）
+PASS B4.3 目标已终态（quick）→ run.messages 标 dropped
+PASS B4.4 每目标邮箱 cap 3：queuedtarget 5 条中 2 条满溢 dropped（5/2）
+PASS B4.4 每发送者 cap 8：sender 名下恰 8 条（第 9 条 OVERCAP 被拒不入库，got 8）
+PASS B4.4 自发自收拒绝：无 target=sender 的消息入库
+PASS S7 launch(6 节点=maxNodes)成功
+PASS S7 squeezer 提交提案且 run 仍 live（keeper7 保活）
+PASS P3-8 压 maxNodes 后物化 → 409「节点已达上限」（409 / [object Object]）
+PASS P2-1 第 1 窗：rearmroot 提案 CHILD1 → waiting_pool
+PASS P2-1 第 1 窗内批准 CHILD1 → 200 物化
+PASS P2-1 重新武装：窗内物化的 CHILD1 再提案 CHILD2 → 能进入第 2 个宽限窗（旧一次性语义下不会开）
+PASS P2-1 第 2 窗内批准 CHILD2 → 200 物化
+PASS S8 run 到达终态
+PASS P2-1 两代帮手(CHILD1/CHILD2)均被物化执行（两窗各物化一个）
+PASS S8 两窗批准后 run 收尾 succeeded
+
+TEAM POOL MAILBOX E2E: ALL PASS

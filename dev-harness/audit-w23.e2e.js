@@ -125,9 +125,8 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
 
   // ---- P2 #5: runProcess 超时杀进程树 + 单次结算门 ----
   {
-    const i = src.indexOf('const finish = payload => {'); // runProcess 内唯一
-    const slice = i > 0 ? src.slice(i - 200, i + 1400) : '';
-    ok(/killChildTree\(child\.pid\)/.test(slice), 'P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程');
+    const slice = require('./lib/source-slice').functionBlock(src, 'runProcess');
+    ok(/cleanup = killChildTree\(child\)/.test(slice), 'P2#5 超时把实际child对象交给按出生身份核验的整树清理,不再只杀直接子进程');
     ok(/let settled = false/.test(slice) && /if \(settled\) return/.test(slice), 'P2#5 单次结算门 finish() 防重复 resolve(close/error/超时兜底共用)');
     ok(/killGraceTimer = setTimeout/.test(slice), 'P2#5 超时后设二次硬兜底(整树杀后 close 仍不触发也不悬挂 promise)');
   }
@@ -150,7 +149,7 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
   {
     // v1.9 存储 v2 后 saveSession 显著变长(头构建+prevbody 防线),窗口 1400 → 6000;锁定的不变量本身不变。
     // 代码走查 C2(旧副本补齐:写链内先把盘上多出来的消息补进旧副本再写)又加了约 430 字,头写落在 6320 处,窗口 6000 → 8000。
-    const ss = src.slice(src.indexOf('async function saveSession('), src.indexOf('async function saveSession(') + 8000);
+    const ss = require('./lib/source-slice').functionBlock(src, 'saveSession');
     // hunt2-P7 在写链里加了「只在当前 config 可解析时才刷新 .prev」的注释与判断,固定 600 字窗口够不着委托行 → 改按函数切。
     const wc = src.includes('let configWriteChain') ? require('./lib/source-slice').functionBlock(src, 'writeConfigAtomic') : '';
     ok(/atomicWriteJson\(finalPath, payload\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');
@@ -164,7 +163,7 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
   }
 
   // ---- P2 #9: degraded 透传 ----
-  ok(/node\.degraded = !!\(sub && sub\.degraded\);/.test(src), 'P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)');
+  ok(/node\.degraded = !sub\.cleanupIncomplete && !!\(sub && sub\.degraded\);/.test(src), 'P2#9 DAG透传sub.degraded且清理未确认时不得伪装降级成功');
 
   // ---- 节点数上限 bug(回合内 orchestrate 误用 subagentMaxPerTurn)+ 迁移 + 上限放宽 ----
   {

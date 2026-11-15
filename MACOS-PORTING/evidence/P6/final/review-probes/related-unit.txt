@@ -1,0 +1,20 @@
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (14.48425ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (5.207125ms)
+✔ an App root replaced with a symlink to an external copy is refused (2.582291ms)
+✔ asset lock rejects changed components and missing provenance before building (6.166042ms)
+✔ manifest paths cannot escape their payload root (1.837125ms)
+✔ native audit handles parenthesis paths and rejects a real missing loader-relative dylib (1752.828208ms)
+✔ [T1] 区间覆盖本段 + 子表(含带引号的表头),不串到 foobar / other / 表数组 / "foo.bar" (2.150625ms)
+✔ [T2] 替换:本段与子表里的旧值都改,别的服务器不动 (1.162416ms)
+✔ [T3] CRLF 文件与带行尾注释的表头同样认 (0.138166ms)
+✔ [T4] 端到端:Codex config.toml 的 env 子表里的老包路径被扫出来、改写落盘、撤销还原(单项也不再 nothing-applied) (262.984333ms)
+✔ [U1] 部分文件还原失败:不置 undoneAt、如实报 failed;修好后重试只做剩下的,最后才算撤销完成 (62.573916ms)
+✔ [U2] 全部成功的撤销形状不变(restored / skipped / 写 undoneAt);值被用户改过的按设计 skipped,不算失败 (7.707625ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1927.138667

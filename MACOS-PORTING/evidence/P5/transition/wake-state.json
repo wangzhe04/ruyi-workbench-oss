@@ -1,0 +1,11 @@
+{
+  "standingUserInstruction": "Do not automatically lock during authorized P5 work",
+  "previousCaffeinatePid": 49085,
+  "previousPidAbsentOnResume": true,
+  "currentOwnedCaffeinatePid": 31171,
+  "currentCommand": "/usr/bin/caffeinate -d -i -u -t43200",
+  "execSession": 78412,
+  "screensaverIdleReadExit": 0,
+  "screensaverIdleValue": "0",
+  "scope": "Restore previously authorized awake assertion; no lock or TCC action"
+}

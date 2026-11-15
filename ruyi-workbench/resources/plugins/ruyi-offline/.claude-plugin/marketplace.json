@@ -4,17 +4,29 @@
     "name": "Ruyi Workbench (如意)"
   },
   "metadata": {
-    "version": "0.3.0",
-    "description": "Offline-local Claude Code plugin bundle for Windows projects, reviews, frontend audits, desktop handoff, Office workflows, browser debugging and packaging."
+    "version": "0.3.1",
+    "description": "Offline local workflows with explicit Windows and macOS capability boundaries; Mac desktop automation and signed packaging remain pending."
   },
   "plugins": [
     {
       "name": "offline-toolkit",
-      "version": "0.3.0",
-      "description": "Skills, commands and agents for using Ruyi Workbench (如意 Ruyi) MCP tools in offline Windows environments.",
+      "version": "0.3.1",
+      "description": "Skills, commands and agents for Windows and supported macOS source workflows through Ruyi Workbench MCP.",
       "source": "./offline-toolkit",
       "category": "windows",
-      "tags": ["windows", "offline", "mcp", "office", "browser", "scripts", "review", "frontend", "security", "docs"]
+      "tags": [
+        "windows",
+        "offline",
+        "mcp",
+        "office",
+        "browser",
+        "scripts",
+        "review",
+        "frontend",
+        "security",
+        "docs",
+        "macos"
+      ]
     }
   ]
 }

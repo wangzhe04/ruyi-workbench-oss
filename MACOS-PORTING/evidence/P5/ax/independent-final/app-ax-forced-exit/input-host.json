@@ -1,0 +1,301 @@
+{
+  "nativePID": 5224,
+  "servicePID": 5236,
+  "launch": "LaunchServices",
+  "ax": {
+    "element": {
+      "actions": [
+        "AXShowMenu"
+      ],
+      "bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "center": [
+        560,
+        497
+      ],
+      "element_ref": "58660473-281A-4962-A938-F2F2F88C01D9",
+      "focused": true,
+      "offscreen": 0,
+      "type": "AXTextArea",
+      "value_settable": true,
+      "visibility": "geometric",
+      "visible_bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      }
+    },
+    "foundCount": 1,
+    "restored": {
+      "acted": true,
+      "action_sent": true,
+      "confirmed": true,
+      "control": {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        },
+        "center": [
+          560,
+          497
+        ],
+        "focused": true,
+        "offscreen": 0,
+        "type": "AXTextArea",
+        "value_settable": true,
+        "visibility": "confirmed",
+        "visible_bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        }
+      },
+      "ok": true,
+      "protocolVersion": 1,
+      "verification": "attribute_readback"
+    },
+    "written": {
+      "acted": true,
+      "action_sent": true,
+      "confirmed": true,
+      "control": {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        },
+        "center": [
+          560,
+          497
+        ],
+        "focused": true,
+        "offscreen": 0,
+        "type": "AXTextArea",
+        "value_settable": true,
+        "visibility": "confirmed",
+        "visible_bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        }
+      },
+      "ok": true,
+      "protocolVersion": 1,
+      "verification": "attribute_readback"
+    }
+  },
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": null,
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 2108,
+      "height": 528,
+      "pid": 5214,
+      "process_start": "1794303411:73892",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 2108,
+        "pid": 5214,
+        "process_start": "1794303411:73892",
+        "ref": "CF6E1375-5EF4-4B8F-8655-10A0683ADAC1"
+      },
+      "title": "Ruyi P5 Input 5214",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": null,
+  "typed": null,
+  "observedProcesses": [
+    {
+      "pid": 5224,
+      "ppid": 1,
+      "created": "1794303411722976"
+    },
+    {
+      "pid": 5236,
+      "ppid": 5224,
+      "created": "1794303411907935"
+    },
+    {
+      "pid": 5250,
+      "ppid": 5236,
+      "created": "1794303412038324"
+    },
+    {
+      "pid": 5249,
+      "ppid": 5236,
+      "created": "1794303412037370"
+    },
+    {
+      "pid": 5285,
+      "ppid": 5236,
+      "created": "1794303412356342"
+    },
+    {
+      "pid": 5290,
+      "ppid": 5236,
+      "created": "1794303412422175"
+    },
+    {
+      "pid": 5297,
+      "ppid": 5236,
+      "created": "1794303412516764"
+    },
+    {
+      "pid": 5298,
+      "ppid": 5297,
+      "created": "1794303412518346"
+    },
+    {
+      "pid": 5299,
+      "ppid": 5298,
+      "created": "1794303412519318"
+    },
+    {
+      "pid": 5321,
+      "ppid": 5299,
+      "created": "1794303412781755"
+    },
+    {
+      "pid": 5326,
+      "ppid": 5236,
+      "created": "1794303412807830"
+    },
+    {
+      "pid": 5353,
+      "ppid": 5299,
+      "created": "1794303413167500"
+    },
+    {
+      "pid": 5358,
+      "ppid": 5299,
+      "created": "1794303413207848"
+    },
+    {
+      "pid": 5361,
+      "ppid": 5299,
+      "created": "1794303413236089"
+    },
+    {
+      "pid": 5364,
+      "ppid": 5299,
+      "created": "1794303413264423"
+    },
+    {
+      "pid": 5367,
+      "ppid": 5299,
+      "created": "1794303413292062"
+    },
+    {
+      "pid": 5373,
+      "ppid": 5299,
+      "created": "1794303413328339"
+    },
+    {
+      "pid": 5378,
+      "ppid": 5236,
+      "created": "1794303413360092"
+    },
+    {
+      "pid": 5377,
+      "ppid": 5236,
+      "created": "1794303413358889"
+    },
+    {
+      "pid": 5379,
+      "ppid": 5377,
+      "created": "1794303413360164"
+    },
+    {
+      "pid": 5380,
+      "ppid": 5379,
+      "created": "1794303413360503"
+    },
+    {
+      "pid": 5383,
+      "ppid": 5299,
+      "created": "1794303413386360"
+    },
+    {
+      "pid": 5386,
+      "ppid": 5236,
+      "created": "1794303413410799"
+    },
+    {
+      "pid": 5387,
+      "ppid": 5386,
+      "created": "1794303413412285"
+    },
+    {
+      "pid": 5394,
+      "ppid": 5236,
+      "created": "1794303413457551"
+    },
+    {
+      "pid": 5400,
+      "ppid": 5236,
+      "created": "1794303413537694"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {},
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

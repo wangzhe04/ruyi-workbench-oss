@@ -1,0 +1,106 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_reviewed_local_scope",
+  "phaseStatus": "in_progress",
+  "remainingCodeFindings": 0,
+  "candidate": {
+    "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "deliveryState": "uncommitted_worktree",
+    "nativeSourceSHA256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+    "physicalRunSourceFingerprintsVerified": 9,
+    "sourceFingerprintMismatches": 0,
+    "nativeBuildInputsVerified": 6,
+    "physicalRunBuildMatchesTestedBundle": true,
+    "strictSignatureVerification": "passed",
+    "scope": "The physical run recorded native inputs, probe, generated server and composer source hashes before launch. These matched current files during independent review. The same frozen bundle was used for the four native regressions and the post-permission host rerun."
+  },
+  "staticReview": {
+    "status": "passed",
+    "scope": [
+      "Acceptance report plus explicit microphone-deadline flag gate the native observer and polling.",
+      "A strongly retained initial/new KVO observer reads the view state at callback time.",
+      "A monotonic per-run deadline retains its start across muted state, uses UUID ownership and marks a fired limit permanently.",
+      "The normal stop completion cancels only its own run's deadline. In-flight stop counting prevents an old completion from clearing a newer pending stop.",
+      "The physical probe permits refused-permission retries and one successful capture, preventing re-entry during the delayed reported-active interval.",
+      "Completion checks page track release, native normal-stop completion within three seconds, valid nonzero PCM within three seconds, final reported none, zero sends and owned-process cleanup.",
+      "Detached App and service cleanup uses unique report argv, recorded parent relationships and repeated creation-identity checks. Missing ownership remains unverified."
+    ]
+  },
+  "measurementSemantics": {
+    "independentlyVerifiedPublicSources": [
+      "https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/WebPageProxy.h",
+      "https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm",
+      "https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/WebPageProxy.cpp",
+      "https://github.com/WebKit/WebKit/blob/main/Source/WebKit/WebProcess/WebPage/WebPage.cpp",
+      "https://developer.apple.com/documentation/webkit/wkwebview/setmicrophonecapturestate(_:completionhandler:)"
+    ],
+    "finding": "Public WebKit code gives reported capture state a default three-second indicator interval. WKWebView reads that reported state, while setMicrophoneCaptureState none uses the stop-media-capture completion path. Apple documents completion after changing whether the page uses the microphone.",
+    "acceptanceBoundary": "Actual stop is evaluated through same-run native stop completion and ended page tracks, together with valid PCM duration. Reported-state duration is retained separately and must eventually reach none.",
+    "limitation": "The exact source revision of installed WebKit is unknown. Public source behavior is consistent with the observed timing.",
+    "retainedFailures": "Earlier KVO-duration failures and the five-byte WebM run remain failed historical records. They were not relabeled as passed."
+  },
+  "independentNativeRegression": {
+    "hostBeforePermissionRefresh": { "passed": 30, "failed": 1, "exitCode": 1, "log": "host-independent.txt", "failure": "LaunchServices service_start_timeout with TCC code-requirement mismatch and a new Documents prompt", "ownedProcessesExited": true },
+    "hostAfterPermissionRefresh": { "passed": 31, "failed": 0, "exitCode": 0, "log": "host-after-permission-independent.txt", "launchServicesState": "ready", "nativePID": 8138, "servicePID": 8141, "bothPIDsAbsentAtIndependentCheck": true },
+    "media": { "passed": 36, "failed": 0, "exitCode": 0, "log": "media-independent.txt", "input": "synthetic oscillator" },
+    "lifecycle": { "passed": 23, "failed": 0, "exitCode": 0, "log": "lifecycle-independent.txt", "scope": "simulated NSWorkspace callbacks, real backend suspension, scheduler reconciliation and MCP/CLI tree cleanup" },
+    "bridge": { "passed": 47, "failed": 0, "exitCode": 0, "log": "bridge-independent.txt", "unexecutedConditionalBranches": 3, "reason": "Notification permission was granted. The original denied/ungranted conditions did not execute." },
+    "execution": "All runs completed naturally. No assertions, production files or media sources were changed by the reviewer."
+  },
+  "physicalRunIndependentArtifactReview": {
+    "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-JLGGzP",
+    "executionActor": "Implementation agent and user through the normal LaunchServices App and composer UI",
+    "probeExitCode": 0,
+    "probePassed": true,
+    "reviewerInitiatedPhysicalCapture": false,
+    "audio": {
+      "file": "capture-1-voice.wav",
+      "fileBytes": 20764,
+      "pcmBytes": 20720,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "sampleRate": 16000,
+      "frames": 10360,
+      "durationMs": 647.5,
+      "normalizedRMS": 0.0001347873224791896,
+      "peakInt16": 30,
+      "nonzeroSamples": 7536,
+      "sha256": "e6f4f97f810b046d252793749b18589f8eccc557bb73e25368aa4431682de2b9",
+      "matchesUploadMetadata": true,
+      "repositoryCopyCreatedByReviewer": false
+    },
+    "pageTracksEndedMs": 1110,
+    "nativeStopRequestedMs": 1408.8475832249969,
+    "nativeStopCompletedMs": 1417.1177498064935,
+    "reportedCaptureDurationMs": 3000.7043331861496,
+    "limitFired": false,
+    "finalNativeState": "none",
+    "nativeStopInFlight": false,
+    "successfulUploads": 1,
+    "inputContainsFixtureTranscription": true,
+    "automaticSends": 0,
+    "cleanup": { "complete": true, "scope": "tracked-processes", "nativePID": 6799, "servicePID": 6802, "bothPIDsAbsentAtIndependentCheck": true }
+  },
+  "tccIndependentReview": {
+    "service": "kTCCServiceMicrophone",
+    "requestID": "6799.6",
+    "subject": "org.ruyi.workbench.development",
+    "nativePID": 6799,
+    "promptTimeLocal": "2026-11-08 03:05:05.068 +0800",
+    "resultTimeLocal": "2026-11-08 03:08:52.063 +0800",
+    "authValue": 2,
+    "authReason": 2,
+    "resultError": null,
+    "sourceLog": "/tmp/ruyi-p4-reporting-delay-physical-tcc-independent.txt",
+    "scope": "The system microphone request and allowed result are attributed to this LaunchServices development App. This successful attempt did not exercise an OS-level refusal-and-recovery sequence."
+  },
+  "remainingAcceptance": [
+    "V10 actual Finder-to-WK file and directory drag-and-drop remains unverified by this review.",
+    "The current candidate's complete engineering-gate result should retain its own source binding when archived.",
+    "Formal signing identity and Keychain/TCC upgrade acceptance remain deferred by the user.",
+    "Actual macOS 14 and related same-candidate Windows acceptance remain unverified.",
+    "The earlier physical sleep review covers one short Software Sleep/DarkWake cycle. Deep or long sleep and physical-cycle scheduler compensation were not exercised."
+  ],
+  "conclusion": "The reviewed reporting-delay candidate, physical microphone artifacts and independent native regressions pass their stated local scopes after permission refresh. This record does not complete the whole P4 acceptance matrix."
+}

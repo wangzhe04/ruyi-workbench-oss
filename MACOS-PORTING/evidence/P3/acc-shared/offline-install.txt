@@ -1,0 +1,58 @@
+
+Looking in links: /tmp/ruyi-p3-wheelhouse
+Processing /tmp/ruyi-p3-wheelhouse/ai_computer_control-1.9.1-py3-none-any.whl
+Processing /tmp/ruyi-p3-wheelhouse/mcp-1.30.0-py3-none-any.whl (from mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/python_docx-1.2.0-py3-none-any.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/openpyxl-3.1.5-py2.py3-none-any.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pdfplumber-0.11.10-py3-none-any.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pyperclip-1.11.0-py3-none-any.whl (from ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/anyio-4.16.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/httpx_sse-0.4.3-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/httpx-0.28.1-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/jsonschema-4.26.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pydantic_settings-2.16.2-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pydantic-2.14.3-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pyjwt-2.15.1-py3-none-any.whl (from pyjwt[crypto]>=2.10.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/python_multipart-0.0.33-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/sse_starlette-3.6.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/starlette-1.10.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/typing_extensions-4.16.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/typing_inspection-0.4.5-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/uvicorn-0.54.0-py3-none-any.whl (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/python_dotenv-1.2.4-py3-none-any.whl (from mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/typer-0.28.0-py3-none-any.whl (from mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/et_xmlfile-2.0.0-py3-none-any.whl (from openpyxl>=3.1.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pdfminer_six-20260107-py3-none-any.whl (from pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl (from pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (from pdfminer.six==20260107->pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (from pdfminer.six==20260107->pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (from python-docx>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/idna-3.20-py3-none-any.whl (from anyio>=4.5->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/certifi-2026.10.23-py3-none-any.whl (from httpx<1.0.0,>=0.27.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/httpcore-1.0.9-py3-none-any.whl (from httpx<1.0.0,>=0.27.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/h11-0.16.0-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0,>=0.27.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/attrs-26.1.0-py3-none-any.whl (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/referencing-0.37.0-py3-none-any.whl (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/annotated_types-0.8.0-py3-none-any.whl (from pydantic<3.0.0,>=2.11.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl (from pydantic<3.0.0,>=2.11.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/shellingham-1.5.4-py2.py3-none-any.whl (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/rich-15.0.0-py3-none-any.whl (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/annotated_doc-0.0.5-py3-none-any.whl (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/click-8.5.0-py3-none-any.whl (from uvicorn>=0.31.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (from cryptography>=36.0.0->pdfminer.six==20260107->pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/markdown_it_py-4.2.0-py3-none-any.whl (from rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pygments-2.21.0-py3-none-any.whl (from rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/pycparser-3.12-py3-none-any.whl (from cffi>=2.0.0->cryptography>=36.0.0->pdfminer.six==20260107->pdfplumber>=0.10.0->ai-computer-control)
+Processing /tmp/ruyi-p3-wheelhouse/mdurl-0.1.2-py3-none-any.whl (from markdown-it-py>=2.2.0->rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->ai-computer-control)
+Installing collected packages: pyperclip, typing-extensions, shellingham, rpds-py, python-multipart, python-dotenv, pypdfium2, pyjwt, pygments, pycparser, psutil, Pillow, mdurl, lxml, idna, httpx-sse, h11, et-xmlfile, click, charset-normalizer, certifi, attrs, annotated-types, annotated-doc, uvicorn, typing-inspection, referencing, python-docx, pydantic-core, openpyxl, markdown-it-py, httpcore, cffi, anyio, starlette, rich, pydantic, jsonschema-specifications, httpx, cryptography, typer, sse-starlette, pydantic-settings, pdfminer.six, jsonschema, pdfplumber, mcp, ai-computer-control
+Successfully installed Pillow-13.0.0 ai-computer-control-1.9.1 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.16.0 attrs-26.1.0 certifi-2026.10.23 cffi-2.1.1 charset-normalizer-3.5.2 click-8.5.0 cryptography-50.0.2 et-xmlfile-2.0.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 httpx-sse-0.4.3 idna-3.20 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 lxml-6.1.3 markdown-it-py-4.2.0 mcp-1.30.0 mdurl-0.1.2 openpyxl-3.1.5 pdfminer.six-20260107 pdfplumber-0.11.10 psutil-7.2.2 pycparser-3.12 pydantic-2.14.3 pydantic-core-2.50.4 pydantic-settings-2.16.2 pygments-2.21.0 pyjwt-2.15.1 pypdfium2-5.14.0 pyperclip-1.11.0 python-docx-1.2.0 python-dotenv-1.2.4 python-multipart-0.0.33 referencing-0.37.0 rich-15.0.0 rpds-py-2026.9.1 shellingham-1.5.4 sse-starlette-3.6.0 starlette-1.10.0 typer-0.28.0 typing-extensions-4.16.0 typing-inspection-0.4.5 uvicorn-0.54.0
+
+No broken requirements found.
+
+{"installed_package": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p3-offline-JBZ1f9/venv/lib/python3.12/site-packages/ai_computer_control/server.py", "tool_count": 43, "unsupported_modules": ["act_and_verify", "application", "audio", "batch", "capture", "clipboard", "desktop_extra", "dialog", "keyboard", "mouse", "observe", "ocr", "record", "screen", "sync", "system", "uia", "vision", "window"], "load_errors": {}}
+
+P3 OFFLINE WHEEL INSTALL: ALL PASS

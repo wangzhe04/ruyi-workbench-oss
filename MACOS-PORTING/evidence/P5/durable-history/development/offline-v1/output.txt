@@ -1,0 +1,6 @@
+FAIL Error: Timed out: real pending question
+    at until (/private/tmp/ruyi-p5-durable-history-worktree/dev-harness/provider-tool-history.e2e.js:24:9)
+    at async /private/tmp/ruyi-p5-durable-history-worktree/dev-harness/provider-tool-history.e2e.js:116:5
+PASS all observed service birth identities exit
+
+PROVIDER TOOL HISTORY E2E: FAIL (1)

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T11:39:00.842875+00:00",
+  "status": "prepared_awaiting_four_gates_and_explicit_run_message",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v2.json",
+    "bytes": 23370,
+    "sha256": "8ef30ad431d17c0c3c217dc9309055e161b240f0d89d333bbf03f8ed3a60b989"
+  },
+  "codeReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/code-review-v1.json",
+    "bytes": 23388,
+    "sha256": "f0c0550fac6d54babadee4ea6448a12120e6ae1d34644211e98180f9f7382c3d"
+  },
+  "sourceCount": 126,
+  "sourceDigest": "74190b252fc3c619360e3f3abb09173e3761db05972d9a21a8da84ac77848008",
+  "plannedRuns": [
+    {
+      "name": "unit",
+      "expectedTests": 9,
+      "scope": "Only new session-required-persistence.test.js, not full unit or preexisting shrink15."
+    },
+    {
+      "name": "offline",
+      "expectedAssertions": 11,
+      "scope": "Actual private file_write prefix, question pending/root death, intent/results and denial."
+    },
+    {
+      "name": "native",
+      "expectedAssertions": 12,
+      "scope": "Existing zero-input approved/pending macro intent calibration; parse new provider intent/tool_calls restart, no ACC entry ACK claim."
+    }
+  ],
+  "testsStarted": 0,
+  "GUIUsed": false,
+  "engineeringRerunsPlanned": 0,
+  "phaseStatus": "in_progress"
+}

@@ -1,0 +1,9 @@
+PASS isolated workbench creates a real session for checkpoint ownership
+FAIL Error: chart_image: {"ok":false,"code":"tier-mismatch","error":"tier mismatch (bridged recheck): chart_image is 'exec' for these arguments, higher than 'edit'","hint":"call tool_invoke_exec for this tool with these arguments"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-office-artifacts.e2e.js:84:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-office-artifacts.e2e.js:88:19
+
+PASS owned workbench process exits during fixture cleanup
+
+MACOS OFFICE ARTIFACTS E2E: FAIL (1)

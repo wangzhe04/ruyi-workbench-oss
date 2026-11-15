@@ -1,0 +1,27 @@
+── (A) 班组面 ──
+PASS A1 被停的班组 + 用户不在跟前 -> retry_node 只提议(got target_stopped)
+PASS A1b 拒绝理由自己说清「按钮还在」(got "这条班组是被停下来的,管家不会自动把它重新拉起来;要接着跑,按这枚按钮")
+PASS A1c 班组快照一个字没动(没有被重新拉起)
+PASS A2 同一道闸也挡自动续跑(且排在续跑分级之前;got target_stopped)
+PASS A3 收紧类 pause 不受这道闸约束(got run_action_failed)
+PASS A4 用户自己按仍然照做(这一刀是「不自动重开」,不是「不许重开」;got run_action_failed)
+── (B) 线程面 ──
+PASS B1 末回合被停 + 用户不在跟前 -> 自动递话只提议(got target_stopped)
+PASS B1b 线程面用的是线程那一句(两句各说各的)
+PASS B2 用户自己按那枚按钮照旧递得进去(got ok)
+── (C) 账过期 ──
+PASS C1 头上那条账盖不住当前回合(seq 2 < turnSeq 5)-> 不拦,否则被停过一次的线程永远挡住(got ok)
+── (D) 自己挂了照旧能自理 ──
+PASS D1 班组是自己挂的(status:'failed')-> 这道闸不管(got run_action_failed)
+PASS D2 线程末回合是自己挂的(aborted:false)-> 照旧可以自动递话(got ok)
+── (E) 自理预闸 ──
+PASS E0 收件箱回合跑通(got ok)
+PASS E1 自理没有动手,降级成提议(got self_serve_gate)
+PASS E2 被停的目标不白占一个小时窗名额(acted 没有被置 true)
+PASS E3 走完一整个收件箱回合,班组快照仍然是 stopped
+PASS E4 降级成的那枚按钮还在(用户自己按得到 —— 这一刀不夺走用户的选择)
+PASS E5 这一回合里零成功的班组动作
+── (F) 对照 ──
+PASS F1 目标没被停(末回合 aborted:false)-> 自理照旧递「继续」(got acted/steward.queued)
+
+STEWARD STOP RESPECTED E2E: ALL PASS

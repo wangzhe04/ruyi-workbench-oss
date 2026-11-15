@@ -1,0 +1,15 @@
+✔ staging copy retains payload inventory and cannot mutate the frozen source (9.797792ms)
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (6.708458ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (5.814625ms)
+✔ an App root replaced with a symlink to an external copy is refused (2.072625ms)
+✔ asset lock rejects changed components and missing provenance before building (4.700625ms)
+✔ manifest paths cannot escape their payload root (3.440042ms)
+✔ native audit handles parenthesis paths and rejects a real missing loader-relative dylib (1879.338416ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2103.6105

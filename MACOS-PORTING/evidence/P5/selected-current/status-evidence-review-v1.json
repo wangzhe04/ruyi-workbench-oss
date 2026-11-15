@@ -1,0 +1,3066 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T08:43:39.131421+00:00",
+  "status": "passed_staged_selected_current_status_evidence_review",
+  "scope": "Read-only review of staged selected-current evidence, source binding, phase status and next steps. No GUI, tests, builds, process sampling, codesign/comparator invocation, staging or commit. Only this review report is written.",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "stagedSnapshot": {
+    "fileCount": 115,
+    "selectedCurrentFileCount": 110,
+    "bytes": 1213033,
+    "insertions": 27331,
+    "deletions": 9,
+    "allWorkingFilesEqualIndex": true,
+    "allUtf8TextNoNul": true,
+    "productOrExistingFixtureChanges": [],
+    "binaryOrTemporaryDirectoryContentStaged": false,
+    "manifest": [
+      {
+        "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+        "gitBlob": "541f5bc70c9b832134226ab95ed7a56de0dad9f1",
+        "bytes": 8702,
+        "sha256": "ca645be4bd80c620c37f0160a15ffa9a2aa9c3006fb0136e3654826a05c87064"
+      },
+      {
+        "path": "MACOS-PORTING/10-TRACKING.md",
+        "gitBlob": "827d47a83ccbc77b92749516a3b2a6166e4cbecb",
+        "bytes": 37755,
+        "sha256": "0915ac4a6f4156d6d8e32bb374dc8518adff5036117d37552d2ed41803f6a65c"
+      },
+      {
+        "path": "MACOS-PORTING/README.md",
+        "gitBlob": "c942f3d7f97a76ddf8ef291d048cd5f594c09bfc",
+        "bytes": 9186,
+        "sha256": "c928d37836798a0c28515fa0ccf5c7de9144bcb648f700547b39e8597cc6060c"
+      },
+      {
+        "path": "MACOS-PORTING/TASKS.json",
+        "gitBlob": "dae1f85aeb5702b4412132a92a1ad211175c75f1",
+        "bytes": 95972,
+        "sha256": "8339093786557318f32bb4bf8bdf68eb375ab43b634677a2a223b90346c68294"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/NEXT-STEPS.txt",
+        "gitBlob": "1c66fa697e6ea5d9c546fbda657e50946e91b505",
+        "bytes": 2977,
+        "sha256": "a3f9de258471a3a49e06713ac312af4b2858d514f8fbb0e656fc48cc99613252"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/README.md",
+        "gitBlob": "a5500954f9d7e8fd5fb1cf3bd42da3fa79ac6994",
+        "bytes": 4162,
+        "sha256": "d6ededdee1631c9c5320ea0fb37602591bc0dcaaa2e466d3fbfcb95de7afa931"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/current-source-binding.json",
+        "gitBlob": "8dcf16ac913cb7e0dc2f2a44323a0f59772449b9",
+        "bytes": 47489,
+        "sha256": "0aac0c91fb108ae7e5ad5739c20246db7a7289fcb46be55617a5f1ca2ad00b42"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/artifacts-after.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/artifacts-before.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/browser-startup.json",
+        "gitBlob": "c388269d9234544e25bcde6f724c33d1c23c64ab",
+        "bytes": 823,
+        "sha256": "6111a1799bf2e9cb3dcbf4dc9657f67dae3d5c1fa5277c2bd8dae3583bc3884a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/helpers.json",
+        "gitBlob": "0ecfe590fdd61ea2844bc563792b5cdfb7e73d1b",
+        "bytes": 332,
+        "sha256": "c8ed11e682745a8e07f1d8661d3d5855e4fbbf1a3b0850b5b32adfa762b56934"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/invocation.json",
+        "gitBlob": "9cd1fb28cc32bb822a4663fbf19528ac4cdaec30",
+        "bytes": 1597,
+        "sha256": "497bc740db8db815c613300493cb637ed10267bbbe9cbdd9ff43dee2e4fd9af3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/observed-identities.json",
+        "gitBlob": "9eda0fdfb655841f106c8297d48325ff41cc19c4",
+        "bytes": 2992,
+        "sha256": "f01f7c3099eb524b038e4649366295725b5fdf7ea3c0af926b7ec1984b1d354d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/output.txt",
+        "gitBlob": "3036932c04f49daff43a0da840e7e6c9b3c4dc75",
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/report.json",
+        "gitBlob": "38bea0faa1dd7ae4ad4f70f8275187a9e82496c7",
+        "bytes": 6160,
+        "sha256": "ad689d6f9e76db4c761014f3d82d1dad5c74b0023522ddd2f5193b9e133ba003"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/selected-apps.json",
+        "gitBlob": "3ae5a93b266911ac0e7e3220ab4f7c23f069f7f5",
+        "bytes": 1727,
+        "sha256": "5c192d745241d4a065db7288e9811d74a6b7ac378e3e620312e7a75e26055b09"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/after-user-response.json",
+        "gitBlob": "a72268f01eed1339d468c36b1224398a0888bc0e",
+        "bytes": 650,
+        "sha256": "fcc549e7cf8c1a2538bfc9a748e68c942e5f226e050bbde540dd24a2d48f5b15"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/provenance.json",
+        "gitBlob": "3de30596a74e2b884a62bae87a5042d6a4d49b65",
+        "bytes": 886,
+        "sha256": "1fa5ff7e571d99638214743cbb8657584918c7fe4bfac5efe8b67c9dc4a3668a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/shallow-baseline.json",
+        "gitBlob": "87318dec4a1a80182e5852cbdf4b5ee1e8f3fc1a",
+        "bytes": 1227,
+        "sha256": "7413923d27c569381b3a4760fcf92de4f5563b677625c15c9f217b2c279fb2b2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/shallow-only.m",
+        "gitBlob": "111c6a0a4e87187ae41efb2965742428ef033996",
+        "bytes": 7820,
+        "sha256": "a565b3c22fe7191469d8c2d97f7add36d0dbbf287d0ce60be804c7b137e9b2f0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/artifacts-after.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/artifacts-before.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/helpers.json",
+        "gitBlob": "fe51488c7066f6687ef680d6bfaa4f7768ef205c",
+        "bytes": 3,
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/invocation.json",
+        "gitBlob": "b57f28b4d38346e55debab4d8019c213967f6183",
+        "bytes": 1565,
+        "sha256": "7492bc6714920b6d6bc8c83801f64a6e9c077b51d3d07d991e33e964d97d2b6c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/observed-identities.json",
+        "gitBlob": "b9182f6ed27ebccf38c10e5125387e04e63ee7a8",
+        "bytes": 307,
+        "sha256": "d3d3109f95d3b3cdb4c2f4d92c1d7c34659a0071e2ae42e94d832116572e4ac5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/output.txt",
+        "gitBlob": "d72ff490b9a650e1c63416699e73b913edff1a02",
+        "bytes": 993,
+        "sha256": "68e695496d35e1c64b8225da1cc7012fd81c9731ceba14740895a050bd427018"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+        "gitBlob": "0b904a10ebf60e0b1cb2f0e485b308437b08c85f",
+        "bytes": 916,
+        "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/action.json",
+        "gitBlob": "4c89531cc672ff3cd211bf7f0abe3aff05023ed6",
+        "bytes": 25809,
+        "sha256": "e278f48e09410e34e25fc66dc69381702de1374b1fbb2bfeaad6a38bd7d92fca"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/artifacts-after.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/artifacts-before.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/baseline.json",
+        "gitBlob": "d62c02c81e6994ac2dfab87404b94a333bb514c6",
+        "bytes": 1599,
+        "sha256": "1ec849302fca77c72102dfa8f8a00b53b96c23735380143d91fa828072c3e224"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/cleanup.json",
+        "gitBlob": "9af70c37c48ad968cbf307a2c165d22d1b1f9055",
+        "bytes": 1817,
+        "sha256": "be0fc99e0a3b9528c5658ff31ba808c1fe0d4b33e12562d7e8d9b864bf40ab37"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/helpers.json",
+        "gitBlob": "6a2442366c92480b3bd4e611d392426fa5afebb7",
+        "bytes": 334,
+        "sha256": "abd9c185f0f114207f82a74b321d798d2ee3020647b5e21c698d3ef20f69d3b0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/invocation.json",
+        "gitBlob": "a3035f14be292e84ad98cb6ac551f9fadb41dbb3",
+        "bytes": 1565,
+        "sha256": "1645a1e592b338072204838a93d4f8fb113503b466488c1c510409f411047718"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/observed-identities.json",
+        "gitBlob": "27c0ba9f88275aa32648f1b44f05e882b668049b",
+        "bytes": 1599,
+        "sha256": "f7cd866ac87d036a60ac07e36780d5cf977e3493066d68c01804c4a28fa66ab5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/output.txt",
+        "gitBlob": "4ad3ac9392b77846b70bdf97d2b03c3fcd5666e0",
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/owned-identity.json",
+        "gitBlob": "923c5be6d9fe3c3f09818c50b03e90a92575c146",
+        "bytes": 29568,
+        "sha256": "453c7367675fa1b30325a7d4c6937f6850eba9b24228947aebfc27947aa39f3e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/report.json",
+        "gitBlob": "a136ad527dbcecaeb5ce02698b129f17a6a31680",
+        "bytes": 6160,
+        "sha256": "64e085fec73ae9d6fa900ed8734b7df50b81a03fc9db35b264c0762d9214968c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/tree.json",
+        "gitBlob": "47b37403647dd4aabd3f19961cb615fa2d980ebe",
+        "bytes": 135320,
+        "sha256": "4efae9454360e68f59faa077a012ebf61a921fccbbe1e27c4dada53c4e723b49"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/observer-v1.py",
+        "gitBlob": "c7171dac71462e3c9b5c3ff5141d989413b90094",
+        "bytes": 10298,
+        "sha256": "ecdf207a3125a05252c34b39d642718e487fcd681e51e0f633b74ad9177229a2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/artifacts-after.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/artifacts-before.json",
+        "gitBlob": "529c7956fda79720a6b44a6c73265c7e1856765e",
+        "bytes": 515,
+        "sha256": "495bbfee3e44a2be68e8db86f3cba598061916e46e401975a80db22d7319379f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/browser-startup.json",
+        "gitBlob": "262cd7d17b17f77b1ad132dde225383dc6504ef6",
+        "bytes": 822,
+        "sha256": "dfcecd9a2863ef8bc6ee59d6bbfea6921e35a6705a2d4d813ca5affcc01d7e6f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/helpers.json",
+        "gitBlob": "d7cab57b2417be042855be92008fdc46913ac561",
+        "bytes": 332,
+        "sha256": "015c191a6ee09417f6ea138e23b098d88c56791775b9b09f5b8bc3174b041313"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/invocation.json",
+        "gitBlob": "034cbe64a068b9a79faf75395dd0ba0dd49dc226",
+        "bytes": 1599,
+        "sha256": "9ddec09e96c7b04c25b3cd57c9f6105d52676141c45a06c5f9842c3c41e4e060"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/observed-identities.json",
+        "gitBlob": "87584fc1c02a73b37e6b59784a739c246cd58492",
+        "bytes": 2840,
+        "sha256": "934e02ae98dc37af715236ce4070793a686d78ce316eaebc7de2f01d1fdb648b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/output.txt",
+        "gitBlob": "95853115b2ee6d1861106c8bb1b9cebef532e2a1",
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/report.json",
+        "gitBlob": "443a98b76ff740a7396a0541e77ede96f48eb65e",
+        "bytes": 6161,
+        "sha256": "15c2dc985f1a60531d811d07d224e75d19da0d295a0d9b05ac6de85f83ced5ac"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/selected-apps.json",
+        "gitBlob": "a801a7b36a9fdf5cebc3ca4282e2f502f8c6ed08",
+        "bytes": 1840,
+        "sha256": "31ced36d87d0da5fb8ed60b1f37dd3bd447e616088f01cc2b4a0ff52fc3048cf"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/report.json",
+        "gitBlob": "f9028f7d82a9d33000c5d20485248b6c01ded2a2",
+        "bytes": 2827,
+        "sha256": "e73aba4a59bb64ae4c6235390bbcf7ff6e33ba691a034b8307e6ef20c2c7397a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-source-binding.json",
+        "gitBlob": "0c4c447685b304d46a817ee5eec80d6ded9b02f5",
+        "bytes": 125077,
+        "sha256": "b3d6565eeb49a5fc427677b88f3ecdc942850fc4afd2bbb4f5fe06586983cff8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "gitBlob": "0e6a7b4eb2053403948e4c77b6416ba024694485",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+        "gitBlob": "d0739504beb4c1c5d447a6585599c2a826ee5b53",
+        "bytes": 3416,
+        "sha256": "c00cdbb98b1af10c4db630aa9fe01797ab5d501c2c9db50435e633070faf5f92"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-dispatch.json",
+        "gitBlob": "7c810bdb126e3d706fd9602911a385e1ba0f4dcd",
+        "bytes": 390,
+        "sha256": "9079b5de0866bf2cfe28b66c2bd29e5cd659cbb0d7cb9cbc29e4283caf762d8f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-outer.txt",
+        "gitBlob": "a5b95e15331744b5a78ab90978d12bc09cd9d38c",
+        "bytes": 147,
+        "sha256": "51e8abb406190a41a9dbb50f19c6b955fe47dea55759895d5c03950fb85f4d46"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-after.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-before.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/browser-startup.json",
+        "gitBlob": "01aa68d8af0f7ed83e0aee51cf722dcd34a9520c",
+        "bytes": 822,
+        "sha256": "53e72bfc6bb5d47fd2c209934fe3213acfa6b0d5c0ca99a1f9e1e8e290e709a0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/helpers.json",
+        "gitBlob": "5387b7374c6dcb6717a464a14158e70cb0afc96b",
+        "bytes": 332,
+        "sha256": "4967b988586bd0ec5a1314108a175f17267ea5dfdc59cd1e934bdce85fef81d4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/invocation.json",
+        "gitBlob": "d2694d404279f11f943338177900cabd2e2b21ee",
+        "bytes": 1597,
+        "sha256": "98df7e56c173edc7a723458c2095790ab71e7b4dd181ac4ee37f16d51ad72dac"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/observed-identities.json",
+        "gitBlob": "206142f6c0d7989320d573198bc7d28df5fcd902",
+        "bytes": 2916,
+        "sha256": "c9fde8546f955f3f897c16015c535a659895c5ec9eaa0f66966e677faa96765f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/output.txt",
+        "gitBlob": "3036932c04f49daff43a0da840e7e6c9b3c4dc75",
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/report.json",
+        "gitBlob": "294192389b5faef0d48ee9ba24a0d34c7f973ad7",
+        "bytes": 6178,
+        "sha256": "39a17afb29d493367d932389bce9a14a59dd0bda827e31c598cc4539401c6d5c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/selected-apps.json",
+        "gitBlob": "18fa92e801e57681b9a546de5feb7fbe3b1fde32",
+        "bytes": 1727,
+        "sha256": "f933098d09655c56583fadbc500f2742367c414956f7535a92b9c92a0c82354a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+        "gitBlob": "6929a1304e206980679c81d8af8fce145947e697",
+        "bytes": 10103,
+        "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-dispatch.json",
+        "gitBlob": "9b17af26cbf4e9f4d1f717c32274deac28b5db80",
+        "bytes": 461,
+        "sha256": "0ecadfdd60131db9263c5253000cd720cc47819187cde2f58405888969943136"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-independent-run.json",
+        "gitBlob": "46198f91e83c8611fa853c197f5b3fb39cf6bf16",
+        "bytes": 7170,
+        "sha256": "b89657ae5cdfdc68e7f893b69e9289ba1f24b4a73c59e89dd3a7f12798e89a16"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-outer.txt",
+        "gitBlob": "f722a9a7a822185fe49f799a4ad3c0e9d926722f",
+        "bytes": 146,
+        "sha256": "5de39aea2034d19e47d0a08863fff3aca40d4cdb85b18ed765a28a9e60764b9d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-preflight.json",
+        "gitBlob": "d4636ccc5d7922af5bbb0037bf5529bc27bdda93",
+        "bytes": 2176,
+        "sha256": "63bf7992f41bbfef03ce31fd70afa3bada382fe32872f0f1990d284e63d5872d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-runner.py",
+        "gitBlob": "54b7f88915384e14ca4682adefbb4b5ca0097b86",
+        "bytes": 2846,
+        "sha256": "056be99ce5ee8b4d2949e6ee2cc379edf76e0b2bdc5283447aac78162471f94d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/action.json",
+        "gitBlob": "a186b622bd83da390f6ffd665c8f4e0d5207e9b6",
+        "bytes": 29822,
+        "sha256": "0d6d6837507eeddd32dcceee202deb10e243c5e6c86afe173c81a383f7aa782f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-after.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-before.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/baseline.json",
+        "gitBlob": "d62c02c81e6994ac2dfab87404b94a333bb514c6",
+        "bytes": 1599,
+        "sha256": "1ec849302fca77c72102dfa8f8a00b53b96c23735380143d91fa828072c3e224"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/cleanup.json",
+        "gitBlob": "9af70c37c48ad968cbf307a2c165d22d1b1f9055",
+        "bytes": 1817,
+        "sha256": "be0fc99e0a3b9528c5658ff31ba808c1fe0d4b33e12562d7e8d9b864bf40ab37"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/helpers.json",
+        "gitBlob": "26617fee2f658cd96f5bc401b70f9e02535d82be",
+        "bytes": 334,
+        "sha256": "3175b19c516e0eea0b6890008ff25e348679b9b421350f5808f3e4adfab839eb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/invocation.json",
+        "gitBlob": "7c67ada6e53e7949de272f729c2c8ab6500dc047",
+        "bytes": 1565,
+        "sha256": "2f003d700ef4facc1a25ff80406e9bfc5bc79e6e2f617b92a58f92907720c653"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/observed-identities.json",
+        "gitBlob": "cbd1c081ec72130645023ea8f0abcd7e20c8e3d5",
+        "bytes": 1599,
+        "sha256": "9e9d1afda0e56c8704027d1b898d81b03225b329caf133e8c948db8bf7458979"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/output.txt",
+        "gitBlob": "4ad3ac9392b77846b70bdf97d2b03c3fcd5666e0",
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/owned-identity.json",
+        "gitBlob": "c2c08c3e90f41a4cc15e0018f2cb96a1907e1940",
+        "bytes": 25559,
+        "sha256": "6bbe2ccfb1c6803e4251141748497e4353de7b438d1a318d59b37326df2dddee"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/report.json",
+        "gitBlob": "a229b3be9152f2cb7824033acaf0be7e40fd7936",
+        "bytes": 6179,
+        "sha256": "cd02eadd3b552f36169716e27741bac5a5db031ba477680bfe755c0c660cc09c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/tree.json",
+        "gitBlob": "a1b70d82c3aafabaee15a007a4e3eef33e3fa084",
+        "bytes": 110666,
+        "sha256": "46f17e283fa15ffea42bb8b6172ccbbeb525a8a8739978807d8494eddebc3cda"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/frozen-sources.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer-binding.json",
+        "gitBlob": "af4e3f86a7a0067f3c4533eb5d2f8d95496d3027",
+        "bytes": 4350,
+        "sha256": "913a8cbbeafc695120415f8d4a1ca5594db544ca7e03f7055357a202f4a793c7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+        "gitBlob": "a64376c76761914a583cd6845e736ef0377231cb",
+        "bytes": 10316,
+        "sha256": "bfc538b1d3930389d188850b4985c7894c1ac589030de2e598936ba4bdd218c0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/preflight.json",
+        "gitBlob": "9db4bee1a90d5f5bde6e7fe764132048f93258e0",
+        "bytes": 7105,
+        "sha256": "fc416713533d3c9daf8d234c2e575ec6454fa9755ad09adc63af9b1c4a9a69fd"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-dispatch.json",
+        "gitBlob": "fba574d815bd2d93c268745df745266674c04ccf",
+        "bytes": 392,
+        "sha256": "af99ffc3f0f2581b907ed4c22782eacb1d4814f88cdbe640dd4ce6788c8766a7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-outer.txt",
+        "gitBlob": "e36d86cb1845806df168445c6254ee3153d82f44",
+        "bytes": 148,
+        "sha256": "09d2a5cfbec792280239cbe10c37ac01ed003115baacd75b80e2253921be8b73"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-after.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-before.json",
+        "gitBlob": "b947a106446598d6b34c18bf1ddd78a90e8c4395",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/browser-startup.json",
+        "gitBlob": "943fbca0ebb213ea38372717874a3449fb2378b2",
+        "bytes": 815,
+        "sha256": "d39b7cb8b9f894ad16555aa912d8a045b66e7d766be6da586cf953af77ec8e17"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/helpers.json",
+        "gitBlob": "b0d00e01960b2de7340863c0f30d4ea85926215a",
+        "bytes": 332,
+        "sha256": "d0fbc6107693d78a173c320e52020a4b10b0a50b6cff0f62b6a0338440d99f00"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/invocation.json",
+        "gitBlob": "6391cc0a16dd3160033eded2c91f64c36358607b",
+        "bytes": 1599,
+        "sha256": "93e3bed4e261be137781e87124e33624747bae7ad45a29cc59ba51c221da977b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/observed-identities.json",
+        "gitBlob": "2e950607cdaeecb4a6a9c0ba79dc906bc0d53629",
+        "bytes": 2840,
+        "sha256": "3d0e8f97e3f2fa6bf6374a5616820fef327aad841ff05007da79ecba8c3f56d5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/output.txt",
+        "gitBlob": "95853115b2ee6d1861106c8bb1b9cebef532e2a1",
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/report.json",
+        "gitBlob": "a1a08317b49b9fd72c5bc7a8be4073258982ba05",
+        "bytes": 6179,
+        "sha256": "a8aca782fc691a6ae111242eb224d1eb4e8c3499adee627238b62994379a3d4e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/selected-apps.json",
+        "gitBlob": "f8a534efb3a0b43808212b8cdb4d0f9399c98340",
+        "bytes": 1840,
+        "sha256": "3831db2d24c9509909fef0eceab15aac947d749ef0315359db1f35fcf94c2204"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-after.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-before.json",
+        "gitBlob": "2b77131b5a4182f2f46813f4494498406047207b",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/report.json",
+        "gitBlob": "251a77318ce3ec503cb3dad9c27baa8972b18bcd",
+        "bytes": 15281,
+        "sha256": "1e74fa77f958a5c4dd2a1112bb723ec4a406f7dadaa8cf9346cfe8bd82061157"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/results.json",
+        "gitBlob": "55a4be3c22179d5b0059416ace9b6d4c23a6edc7",
+        "bytes": 13788,
+        "sha256": "671e775c6babd144302b049037866ef7c84a88d37adf017cf513577208700e70"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/runner.py",
+        "gitBlob": "38880fb64a8290f8a2f1ee0b89bd8db97ec4be7c",
+        "bytes": 3545,
+        "sha256": "07ca75ef5909002cc0b4275956854a2579bebe7549f78050d641d4e68f2b3724"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/observer-code-review-v1.json",
+        "gitBlob": "cfd32caf3e868f8fec397922a44b23017e120c9f",
+        "bytes": 7589,
+        "sha256": "81321c330850455c8ef2212886debca7bfe5b22853e520158bc77997540a7cc0"
+      }
+    ]
+  },
+  "sourceBinding": {
+    "runtimeImplementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+    "executionHead": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+    "documentationOnlyAdvance": {
+      "files": 71,
+      "allWithinMACOS_PORTING": true,
+      "changedFileListSha256": "d0ddace79df37c3e26473b7a531f19ba884ec95730860a19eb63be36afb1db21"
+    },
+    "sourceCount": 106,
+    "bothCommitsAndCurrentWorkingBytesMatched": true,
+    "sources": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "bytes": 3434,
+        "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93",
+        "gitBlobInBothCommits": "854b681c7eefdf423fd33d2292b83c64deeef128",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/fake-claude-long-process.jsonl",
+        "bytes": 8269,
+        "sha256": "1166f76a605ca0927d618e99e65f4892d8007415f3bd4d6eb4ab91b28e8c49eb",
+        "gitBlobInBothCommits": "e4dbaebf500dc4ec92821df13eedd4ab82fe0204",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-audit-cancel-server.py",
+        "bytes": 1265,
+        "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655",
+        "gitBlobInBothCommits": "05e6c032edcceeeab78e6421e8c6d79c7a0ebcc9",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-ax-window.m",
+        "bytes": 11136,
+        "sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+        "gitBlobInBothCommits": "dd462e7b5fee5755144af4871a64b560d5885c5f",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-window.m",
+        "bytes": 6245,
+        "sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+        "gitBlobInBothCommits": "dc52ef99395a9084c890619e7debaf5c64aeadbf",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobInBothCommits": "66157f31a6d4182bf74c94135294977b5f80786b",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-finder-identity.m",
+        "bytes": 7537,
+        "sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+        "gitBlobInBothCommits": "169bad4eb1a5c747a504ac3c265fd2515a590708",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "gitBlobInBothCommits": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-ocr-window.m",
+        "bytes": 7227,
+        "sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+        "gitBlobInBothCommits": "bb9f6d0b1bb01529ed30a44e3d669b4410226c9c",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/provider-wire-stream.golden.json",
+        "bytes": 81206,
+        "sha256": "4c240f7c570971b02581da3eee971c7859a9787c638ced50ce620115c4615219",
+        "gitBlobInBothCommits": "0cd33c723254ba8c163138265f8b6886dfe63340",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/summary-task-evidence-candidate.json",
+        "bytes": 5243,
+        "sha256": "f9f3bbe17617a3a991d5415799a9421bec12fa13ba2c4fe3d8210dbd3b57dcb7",
+        "gitBlobInBothCommits": "ac84df7a4846ed6044f8c305ad526e0084a8f447",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/summary-task-evidence-real-maps.json",
+        "bytes": 62586,
+        "sha256": "72d5ffb102259d97c003ec295357b9f070df1b32c57842a77a60be7be550cac1",
+        "gitBlobInBothCommits": "f63161d76528238dd01661d926226aac3ab3fd52",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/browser-fixture.js",
+        "bytes": 21509,
+        "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+        "gitBlobInBothCommits": "7c21a90b5e7d425c2634411d24629d19ff07c3da",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "bytes": 7828,
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "gitBlobInBothCommits": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "bytes": 10301,
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "gitBlobInBothCommits": "468c909bfa921a3ef6115c5409443cc651820d11",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/self-isolate-home.js",
+        "bytes": 2772,
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+        "gitBlobInBothCommits": "2121418a003fd170a93fce278da1c2a6140733e5",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/server-internals.js",
+        "bytes": 4571,
+        "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+        "gitBlobInBothCommits": "5ce3c7076746a13ece00dd005a21fc2558bbddfd",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/macos-ax-finder.e2e.js",
+        "bytes": 11628,
+        "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+        "gitBlobInBothCommits": "9ac4a59198e29454c0a30bd9851533e738252325",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/macos-input-apps.e2e.js",
+        "bytes": 29397,
+        "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+        "gitBlobInBothCommits": "5e647e46a740e0addba70f63b257e26a537c2017",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+        "bytes": 189,
+        "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea",
+        "gitBlobInBothCommits": "02d8d0a4fc394dbcae463b0510da0c3522e4857c",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/__main__.py",
+        "bytes": 397,
+        "sha256": "e3532ff41fd74c729b5e42abcf6c411e4f5d7e2216c1136609028d9d08128d26",
+        "gitBlobInBothCommits": "395ff05253187d937611241b698b18ae387e52b6",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+        "bytes": 1539,
+        "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5",
+        "gitBlobInBothCommits": "e73b7590536c6a903fb225d4bffbf42c2da2325c",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+        "gitBlobInBothCommits": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/__init__.py",
+        "bytes": 44,
+        "sha256": "cec602ce29f18d99ea1af22336ed5739f0634191d65f57a01f8256fc5d867d3d",
+        "gitBlobInBothCommits": "63f3dcf869a86c90b8c1754563115a74dba6a3e7",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+        "bytes": 11509,
+        "sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+        "gitBlobInBothCommits": "db45db3b6657f63d3dfde4a0a1c4952441fcd1ca",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/application.py",
+        "bytes": 16076,
+        "sha256": "0665d296c1266b726b91ce103d68d8c1447924570dcdc0b92a6048911fad7981",
+        "gitBlobInBothCommits": "6a131c30ff661ea4f45dd23757723ea0c41cd0e5",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audio.py",
+        "bytes": 2295,
+        "sha256": "aad83f7a7e8afc8c425c9b211d4fe86eaca9d804da947c968a6b7b0179ab5bab",
+        "gitBlobInBothCommits": "6837ec4b98cf7e717dccf0a969ea0ce7eb626e69",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+        "bytes": 9948,
+        "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917",
+        "gitBlobInBothCommits": "870c38d5670223c39e769bb8403c190e78a98f0e",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+        "gitBlobInBothCommits": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+        "bytes": 29505,
+        "sha256": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f",
+        "gitBlobInBothCommits": "9af98daa5d0f5158bb703c8e6cc0b38ec747ed56",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+        "bytes": 4060,
+        "sha256": "cd25a59226edbe4ba0e6a0998da214a8a9f314233d8240e592f607d4dc93f3f1",
+        "gitBlobInBothCommits": "340979286d73992da63f456b02122f1e8d747f5b",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/clipboard.py",
+        "bytes": 2853,
+        "sha256": "645d0be19ad9237f4ce8bbe3cd4f35874dbd5b38029d1329f85422ffe862d282",
+        "gitBlobInBothCommits": "614e9fb0c4946e3f10ad7342ba9f39c4b1fccd0a",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+        "bytes": 13544,
+        "sha256": "518a3134f71e6e6132b0c9538ce4614e2163aca897b757b11e0b18c361fc3a5e",
+        "gitBlobInBothCommits": "142485cde0881b70e46c4851af90b0c131cd56dc",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "bytes": 11463,
+        "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2",
+        "gitBlobInBothCommits": "dd767af5ce0179180ab5e068ff79ab32db7225b5",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/dialog.py",
+        "bytes": 5855,
+        "sha256": "fee53572527b3388e13a93b60f593d22447841b1de45a2472c495ae926f383a8",
+        "gitBlobInBothCommits": "e26c1730f39a6bc0cc48803c4b3a2ef8ae7422f4",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+        "bytes": 79168,
+        "sha256": "6ca80952eac12ad9c3d11a50c06d6c7a9f51fa59fc255fe1f953a2847c09f456",
+        "gitBlobInBothCommits": "15f2db9aa062314a52d27ff9e559f278113f0823",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/editing.py",
+        "bytes": 14944,
+        "sha256": "26bcaea431dda18240fb590a3bd847d981fc254c3ee74ddaaee4f6a88f935e1a",
+        "gitBlobInBothCommits": "b6e8fd0cec94a481eb94617c86e7154639da939d",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/filesystem.py",
+        "bytes": 21680,
+        "sha256": "e58c29268ef58063b49857170f2c33700461d72928f17aacbe9a6578d5c2ae6e",
+        "gitBlobInBothCommits": "8523dfd8e35ad71d33d75e7108095b5d62a9f4eb",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/image_tools.py",
+        "bytes": 8342,
+        "sha256": "4160ce9528e037f531ec2d015279d5438ebb5a00ad8885d6eba4f8667a21f981",
+        "gitBlobInBothCommits": "8b0fa806bc98449c0a164355a1373aa41820a4cf",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+        "bytes": 9275,
+        "sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+        "gitBlobInBothCommits": "2737d3eff6a8d8604e1e250e4a075fcf6f519333",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+        "bytes": 12096,
+        "sha256": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca",
+        "gitBlobInBothCommits": "d50835cd1588019d7fa32b5bbfa10c391b767a80",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+        "bytes": 1685,
+        "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+        "gitBlobInBothCommits": "3bd217b70d02483d4e684c406de816a7414c77de",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+        "bytes": 3163,
+        "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+        "gitBlobInBothCommits": "f860a5472938b7204527c3eda03a37c37aaa2064",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+        "bytes": 5201,
+        "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+        "gitBlobInBothCommits": "7071e92279c9c124136f5e083e52bfdbdb3184e4",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "bytes": 11174,
+        "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880",
+        "gitBlobInBothCommits": "1c8fbadf0d417f501fe4299e520999f0e3537dd4",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+        "bytes": 5512,
+        "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+        "gitBlobInBothCommits": "fc47faa73e1a5f4a5fa0e0578f27342d8d13adfc",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+        "bytes": 9182,
+        "sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+        "gitBlobInBothCommits": "5138ab05e87c0a9f75c537509b0c63eedd922d62",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+        "bytes": 6119,
+        "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+        "gitBlobInBothCommits": "bb5d0b2d4867230a519ca944d4c6056bf973ab63",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+        "bytes": 7462,
+        "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44",
+        "gitBlobInBothCommits": "a45ce42f36029c27e97d41de7d23109b79e588d9",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+        "bytes": 6903,
+        "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+        "gitBlobInBothCommits": "ee4b4a06e0d52e5e0d53879e68d194da10a8ca85",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/memory.py",
+        "bytes": 8459,
+        "sha256": "2f076a102656f7604106e6597340f5bd3063a6128048b678ba583e03a2b124d8",
+        "gitBlobInBothCommits": "38d56d7200b0100484fbb72d38ae19a0b4042280",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+        "bytes": 8369,
+        "sha256": "c4264670c233c5ba137cf6ee6792bcd2f2e55adfbaf46deff10f071e47b47b7a",
+        "gitBlobInBothCommits": "44d4dbd56e00ba43cdb53718bc0cb0f139f789b5",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+        "bytes": 19005,
+        "sha256": "1d1e425effc00ff81e77856bdfcb2b3b0c25db4defb279a17e6ad75b5c45a014",
+        "gitBlobInBothCommits": "3640169241a11431b7da4607c4a3a5b56825d7ac",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+        "bytes": 32996,
+        "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+        "gitBlobInBothCommits": "6cc90752f4532f3b98db9a4e99062e06971d3de5",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+        "bytes": 28272,
+        "sha256": "e5cce5766a751dc4f14d64bc705dfb1ff19392ca0c54b5f6b80fd717f811b7cb",
+        "gitBlobInBothCommits": "8214a326444152eb56d5b32393f340f8ceb0ec2c",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_excel.py",
+        "bytes": 26972,
+        "sha256": "7e9cdef2d030366a8c07728656e647f3e801f0dfda463119345a6d4f53bc3510",
+        "gitBlobInBothCommits": "5f24da4e8bc1054bddde7d052976efe6d2d9bd5f",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_io.py",
+        "bytes": 5526,
+        "sha256": "4952c2f0f92bbd62095770cbeb8a4cafd85aa45fddaecfb364920a5a4b09b809",
+        "gitBlobInBothCommits": "84951c52b777cd57cfa741dddf5a5ac36a5b9f4a",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_markup.py",
+        "bytes": 10629,
+        "sha256": "fdad4422fb2256950e8a2382ad99b6b00edffe0341a79aab39aaf6989da3d694",
+        "gitBlobInBothCommits": "5562c5bebe89c6a741a754105d42fa4fe53319e1",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_pptx.py",
+        "bytes": 53982,
+        "sha256": "aba8f918bc20d5aad1d900bbcec73001e4b3305600ec4e0f6a0a5c2e8c76442e",
+        "gitBlobInBothCommits": "7e606bcd761155dddf594556f874c9966765ef69",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+        "bytes": 23601,
+        "sha256": "433d93acf6ee8756a9d121c925d4c7942ec4461fffdc4ee7329e73274cac28e4",
+        "gitBlobInBothCommits": "06d0ad55870b8c525ae331bab91a49969aea5666",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+        "bytes": 18523,
+        "sha256": "5d40e1d164ebb65ec244a9cc989f91143f66c9f0e8ffe277607a379c70327bf7",
+        "gitBlobInBothCommits": "60b12258f0f481117107be3d19d548ec2adc5cc9",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+        "bytes": 14860,
+        "sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+        "gitBlobInBothCommits": "cd3364109e01b5e6bf966c8bde680d74addb0105",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py",
+        "bytes": 13745,
+        "sha256": "ed7a288074843768dba0b2745d706dc2d98819e6e2257ce62ce60a2679aeed5d",
+        "gitBlobInBothCommits": "eb2cc085c469faf2d1ead5a688eaee44ff29ed5d",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+        "bytes": 9651,
+        "sha256": "79ebf4919b496a6f04e3bb6fdfaa33c9e92db9b88ecc6705b8531ae040297e5c",
+        "gitBlobInBothCommits": "76011d077383a5a6acda8ff0ac7f711b22140456",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/shell.py",
+        "bytes": 14779,
+        "sha256": "32cd73b1a9a560c05b5a5646c3b4a6b49c698e6d1520e107caa51caa2e99397e",
+        "gitBlobInBothCommits": "770c227ef735bab35e6d0030f11e73a9cbf85b53",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/sync.py",
+        "bytes": 3308,
+        "sha256": "e43d02ca8c24ee294ea9cede367035c443c492257f0929ff45a56df8dc948869",
+        "gitBlobInBothCommits": "112cf2158ca87775463a08441bdc613ec1cf5cbe",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/system.py",
+        "bytes": 2723,
+        "sha256": "b18bff083ba9225ffa941a9f6544fba5feff1889c4549a3510e40a4e8a79925f",
+        "gitBlobInBothCommits": "a8ae88a6da034310f9759061e3e83b19c359b824",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/thinking.py",
+        "bytes": 3807,
+        "sha256": "b76b1ef426037f09703b2c13498a90d64dc48887790d4d6e6d9795c895c339c3",
+        "gitBlobInBothCommits": "99adcc08d2ab0c4e8b71019e4593215e4849c0e1",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+        "bytes": 29605,
+        "sha256": "9cf7e0d407310311443a40d2e8bd21e6e9b1cacc2d2e9a6e4efeef85043810e8",
+        "gitBlobInBothCommits": "8c7f726df144905143fcd0ad2d77824db0c862c8",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+        "bytes": 11015,
+        "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+        "gitBlobInBothCommits": "95aba596b0c654c126d55d5614ef12e93b25fd74",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/web_fetch.py",
+        "bytes": 21827,
+        "sha256": "80cc46522129594c0371254962f8f22c698ff761a72ebe81f5a34fdc87b96afd",
+        "gitBlobInBothCommits": "d715344d0f8ada960b1da464cdc93457042165cd",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+        "bytes": 16785,
+        "sha256": "edce6d3fc4b1dca8d4839378c1ea8e0a9c34ac8c70b57b7215094229c6ee9af4",
+        "gitBlobInBothCommits": "dc930ae609d1fef993bab5bcaa64ddf9f20a0c90",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/__init__.py",
+        "bytes": 23,
+        "sha256": "ed29dbc69c4a10d2bed9e7142f935f9d9f6890623b08e298c38585e3ad7bd873",
+        "gitBlobInBothCommits": "183c974fd4ca1925d6278be86ffb6bc13652aaac",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+        "bytes": 7011,
+        "sha256": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d",
+        "gitBlobInBothCommits": "c3fcca4bb4de35e894d4d60bee5f966c7fff8ed6",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/geometry.py",
+        "bytes": 2214,
+        "sha256": "65cb954c065e2b95d6582b4ecf007343653d77e9e17135738a97a780d002c7b5",
+        "gitBlobInBothCommits": "06671b30be6ef2aa4f6963fabb316f95cced5a8b",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/image.py",
+        "bytes": 10458,
+        "sha256": "c4b76a4f6fde5bb3ecb1d735bc3228a8aee3ca8d308ff5e27319a7e9dc830505",
+        "gitBlobInBothCommits": "fb64c01f82bdb1c0437a5949b9e027dc09ebcdfe",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "bytes": 13332,
+        "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682",
+        "gitBlobInBothCommits": "fccd070ef03c66c146415843b3ad81bda9355804",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+        "bytes": 4493,
+        "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+        "gitBlobInBothCommits": "dfa1410655484266f0dc23b127b8fa12cee37dcb",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+        "bytes": 11734,
+        "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+        "gitBlobInBothCommits": "72602dc77eccf01d1a965972af09d1d616d9cbac",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+        "bytes": 7972,
+        "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f",
+        "gitBlobInBothCommits": "2a95114a510c4f711244133bee2a99c5b1bc5840",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+        "gitBlobInBothCommits": "0af7a4f592209710d0f6831ead2291c8cd45465f",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+        "bytes": 4104,
+        "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+        "gitBlobInBothCommits": "f018957486411e7c479b0aa6aaaf45daeffeac87",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+        "bytes": 3620,
+        "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+        "gitBlobInBothCommits": "5990cbfd3fb8181c1464b19c9fe15ee2d4aeed8f",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+        "bytes": 8532,
+        "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+        "gitBlobInBothCommits": "8bb46dbfd561a85e959e2cc02cc448935f9129d3",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+        "bytes": 8643,
+        "sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+        "gitBlobInBothCommits": "65188e6d7000c8242470a23933ab83d715440c1d",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/optional.py",
+        "bytes": 1032,
+        "sha256": "e1cac86b06d1be9068c8cac87683b6e317a5a4d53bdc655c6b076703a9174857",
+        "gitBlobInBothCommits": "44a1a0fbfe29a1a7f3a9b00ce1a7f69f29696b27",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+        "bytes": 3820,
+        "sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+        "gitBlobInBothCommits": "21ccc7d4792137dd9ed97495b78a2a3224357927",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+        "gitBlobInBothCommits": "328e184bbbfebabe0405c1f67068905f0b721ff2",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+        "bytes": 5321,
+        "sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+        "gitBlobInBothCommits": "854804f8e190f2d4798f9034740c71e5cddcf309",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/waits.py",
+        "bytes": 1047,
+        "sha256": "dd34a7fd06832568d8f78e2b3e89946432d57111500bc0347bdd4d4c438beccf",
+        "gitBlobInBothCommits": "cb6d2696db553bf8dfbf46657197dc1bd836586e",
+        "matched": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/wincap.py",
+        "bytes": 12947,
+        "sha256": "e464ae003b3f1a47c2c9aa604cda09a4f90f9cc6cb60317f3b3726f03133d9fb",
+        "gitBlobInBothCommits": "6a190d1d87a814726080fc63fee7097133a36c6e",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+        "gitBlobInBothCommits": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+        "gitBlobInBothCommits": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-ax.m",
+        "bytes": 36819,
+        "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+        "gitBlobInBothCommits": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "bytes": 45551,
+        "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+        "gitBlobInBothCommits": "82ab216b0568f56d92662356d6f0990b33f897d0",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "bytes": 23083,
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "gitBlobInBothCommits": "6d32ea70c71a62713cb4c10b27330540a09441a0",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+        "gitBlobInBothCommits": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+        "bytes": 11356,
+        "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+        "gitBlobInBothCommits": "d17d67f9ac2a3a10791a53c3c706a67efc626e60",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+        "bytes": 11119,
+        "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+        "gitBlobInBothCommits": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record.m",
+        "bytes": 15464,
+        "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+        "gitBlobInBothCommits": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+        "bytes": 28315,
+        "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+        "gitBlobInBothCommits": "5d0c13e99777641a62cb58ad5ace0f0432e423ca",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+        "gitBlobInBothCommits": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "bytes": 4588,
+        "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b",
+        "gitBlobInBothCommits": "e2e80381d56c82e80a81778420876898cb92544b",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-keychain-helper.m",
+        "bytes": 4717,
+        "sha256": "1e1dfdea92eca0f86fccc52016db14576878e2f1bbc90bbe8257638fc36d5615",
+        "gitBlobInBothCommits": "e690724c5dc2e536ec4fdfe2ea465f22785d48eb",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-process-helper.c",
+        "bytes": 24177,
+        "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+        "gitBlobInBothCommits": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+        "gitBlobInBothCommits": "c177ca6ed174c2efa7b42a7da1c90d5e89b506be",
+        "matched": true
+      }
+    ],
+    "scenarioBeforeAfterLists": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "count": 106,
+        "exactOrderedMatch": true
+      }
+    ],
+    "ordered106ListsIdentical": true
+  },
+  "evidenceBinding": {
+    "referenceCount": 141,
+    "checks": [
+      {
+        "label": "primary.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/observer-code-review-v1.json",
+        "bytes": 7589,
+        "sha256": "81321c330850455c8ef2212886debca7bfe5b22853e520158bc77997540a7cc0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "primary.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/report.json",
+        "bytes": 2827,
+        "sha256": "e73aba4a59bb64ae4c6235390bbcf7ff6e33ba691a034b8307e6ef20c2c7397a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "primary.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "primary.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+        "bytes": 10103,
+        "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "primary.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+        "bytes": 3416,
+        "sha256": "c00cdbb98b1af10c4db630aa9fe01797ab5d501c2c9db50435e633070faf5f92",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.mainEvidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/observer-code-review-v1.json",
+        "bytes": 7589,
+        "sha256": "81321c330850455c8ef2212886debca7bfe5b22853e520158bc77997540a7cc0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.mainEvidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/report.json",
+        "bytes": 2827,
+        "sha256": "e73aba4a59bb64ae4c6235390bbcf7ff6e33ba691a034b8307e6ef20c2c7397a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.mainEvidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.mainEvidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+        "bytes": 10103,
+        "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.mainEvidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+        "bytes": 3416,
+        "sha256": "c00cdbb98b1af10c4db630aa9fe01797ab5d501c2c9db50435e633070faf5f92",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.reviewedScript",
+        "path": "/tmp/ruyi-p5-selected-refresh.py",
+        "bytes": 10298,
+        "sha256": "ecdf207a3125a05252c34b39d642718e487fcd681e51e0f633b74ad9177229a2",
+        "matched": true,
+        "readFrom": "outside-git retained file"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/macos-input-apps.e2e.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js",
+        "bytes": 29397,
+        "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/macos-ax-finder.e2e.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js",
+        "bytes": 11628,
+        "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:ruyi-workbench/tools/build-macos-automation-helper.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "bytes": 3434,
+        "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/lib/kill-own-tree.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/kill-own-tree.js",
+        "bytes": 10301,
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/lib/fixture-home.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home.js",
+        "bytes": 7828,
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/lib/self-isolate-home.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/self-isolate-home.js",
+        "bytes": 2772,
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:dev-harness/lib/harness.js",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/harness.js",
+        "bytes": 2520,
+        "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.observer.source:MACOS-PORTING/evidence/P5/entry/next-selected-apps-plan.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/next-selected-apps-plan.json",
+        "bytes": 15743,
+        "sha256": "6c5ff78a4f8e6ba04e9d9513c0af45f4f1d7e0c9659e9a9202e2e7a092f9956f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.primary.run:default-v1",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/default-v1/report.json",
+        "bytes": 6160,
+        "sha256": "ad689d6f9e76db4c761014f3d82d1dad5c74b0023522ddd2f5193b9e133ba003",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.primary.run:renderer-v1",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/report.json",
+        "bytes": 6161,
+        "sha256": "15c2dc985f1a60531d811d07d224e75d19da0d295a0d9b05ac6de85f83ced5ac",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.primary.run:finder-v1",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+        "bytes": 916,
+        "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.primary.run:finder-v2",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/report.json",
+        "bytes": 6160,
+        "sha256": "64e085fec73ae9d6fa900ed8734b7df50b81a03fc9db35b264c0762d9214968c",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:report.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/report.json",
+        "bytes": 15281,
+        "sha256": "1e74fa77f958a5c4dd2a1112bb723ec4a406f7dadaa8cf9346cfe8bd82061157",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:results.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/results.json",
+        "bytes": 13788,
+        "sha256": "671e775c6babd144302b049037866ef7c84a88d37adf017cf513577208700e70",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:runner.py",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/runner.py",
+        "bytes": 3545,
+        "sha256": "07ca75ef5909002cc0b4275956854a2579bebe7549f78050d641d4e68f2b3724",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:preflight.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/preflight.json",
+        "bytes": 7105,
+        "sha256": "fc416713533d3c9daf8d234c2e575ec6454fa9755ad09adc63af9b1c4a9a69fd",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:frozen-sources.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/frozen-sources.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:observer-binding.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer-binding.json",
+        "bytes": 4350,
+        "sha256": "913a8cbbeafc695120415f8d4a1ca5594db544ca7e03f7055357a202f4a793c7",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:observer.py",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+        "bytes": 10316,
+        "sha256": "bfc538b1d3930389d188850b4985c7894c1ac589030de2e598936ba4bdd218c0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/artifacts-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/artifacts-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/browser-startup.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/browser-startup.json",
+        "bytes": 822,
+        "sha256": "53e72bfc6bb5d47fd2c209934fe3213acfa6b0d5c0ca99a1f9e1e8e290e709a0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/helpers.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/helpers.json",
+        "bytes": 332,
+        "sha256": "4967b988586bd0ec5a1314108a175f17267ea5dfdc59cd1e934bdce85fef81d4",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/invocation.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/invocation.json",
+        "bytes": 1597,
+        "sha256": "98df7e56c173edc7a723458c2095790ab71e7b4dd181ac4ee37f16d51ad72dac",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/observed-identities.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/observed-identities.json",
+        "bytes": 2916,
+        "sha256": "c9fde8546f955f3f897c16015c535a659895c5ec9eaa0f66966e677faa96765f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/output.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/output.txt",
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/report.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/report.json",
+        "bytes": 6178,
+        "sha256": "39a17afb29d493367d932389bce9a14a59dd0bda827e31c598cc4539401c6d5c",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/selected-apps.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/selected-apps.json",
+        "bytes": 1727,
+        "sha256": "f933098d09655c56583fadbc500f2742367c414956f7535a92b9c92a0c82354a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/source-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default/source-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default-outer.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-outer.txt",
+        "bytes": 147,
+        "sha256": "51e8abb406190a41a9dbb50f19c6b955fe47dea55759895d5c03950fb85f4d46",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:default-dispatch.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-dispatch.json",
+        "bytes": 390,
+        "sha256": "9079b5de0866bf2cfe28b66c2bd29e5cd659cbb0d7cb9cbc29e4283caf762d8f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/artifacts-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/artifacts-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/browser-startup.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/browser-startup.json",
+        "bytes": 815,
+        "sha256": "d39b7cb8b9f894ad16555aa912d8a045b66e7d766be6da586cf953af77ec8e17",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/helpers.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/helpers.json",
+        "bytes": 332,
+        "sha256": "d0fbc6107693d78a173c320e52020a4b10b0a50b6cff0f62b6a0338440d99f00",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/invocation.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/invocation.json",
+        "bytes": 1599,
+        "sha256": "93e3bed4e261be137781e87124e33624747bae7ad45a29cc59ba51c221da977b",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/observed-identities.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/observed-identities.json",
+        "bytes": 2840,
+        "sha256": "3d0e8f97e3f2fa6bf6374a5616820fef327aad841ff05007da79ecba8c3f56d5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/output.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/output.txt",
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/report.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/report.json",
+        "bytes": 6179,
+        "sha256": "a8aca782fc691a6ae111242eb224d1eb4e8c3499adee627238b62994379a3d4e",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/selected-apps.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/selected-apps.json",
+        "bytes": 1840,
+        "sha256": "3831db2d24c9509909fef0eceab15aac947d749ef0315359db1f35fcf94c2204",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/source-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer/source-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer-outer.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-outer.txt",
+        "bytes": 148,
+        "sha256": "09d2a5cfbec792280239cbe10c37ac01ed003115baacd75b80e2253921be8b73",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.acceptance-review.json:renderer-dispatch.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-dispatch.json",
+        "bytes": 392,
+        "sha256": "af99ffc3f0f2581b907ed4c22782eacb1d4814f88cdbe640dd4ce6788c8766a7",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.helper:default",
+        "path": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "bytes": 291712,
+        "sha256": "9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "matched": true,
+        "readFrom": "outside-git retained file"
+      },
+      {
+        "label": "independent.helper:renderer",
+        "path": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "bytes": 291712,
+        "sha256": "98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "matched": true,
+        "readFrom": "outside-git retained file"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/action.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/action.json",
+        "bytes": 29822,
+        "sha256": "0d6d6837507eeddd32dcceee202deb10e243c5e6c86afe173c81a383f7aa782f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/baseline.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/baseline.json",
+        "bytes": 1599,
+        "sha256": "1ec849302fca77c72102dfa8f8a00b53b96c23735380143d91fa828072c3e224",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/cleanup.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/cleanup.json",
+        "bytes": 1817,
+        "sha256": "be0fc99e0a3b9528c5658ff31ba808c1fe0d4b33e12562d7e8d9b864bf40ab37",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/helpers.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/helpers.json",
+        "bytes": 334,
+        "sha256": "3175b19c516e0eea0b6890008ff25e348679b9b421350f5808f3e4adfab839eb",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/invocation.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/invocation.json",
+        "bytes": 1565,
+        "sha256": "2f003d700ef4facc1a25ff80406e9bfc5bc79e6e2f617b92a58f92907720c653",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/observed-identities.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/observed-identities.json",
+        "bytes": 1599,
+        "sha256": "9e9d1afda0e56c8704027d1b898d81b03225b329caf133e8c948db8bf7458979",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/output.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/output.txt",
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/owned-identity.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/owned-identity.json",
+        "bytes": 25559,
+        "sha256": "6bbe2ccfb1c6803e4251141748497e4353de7b438d1a318d59b37326df2dddee",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/report.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/report.json",
+        "bytes": 6179,
+        "sha256": "cd02eadd3b552f36169716e27741bac5a5db031ba477680bfe755c0c660cc09c",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/tree.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/tree.json",
+        "bytes": 110666,
+        "sha256": "46f17e283fa15ffea42bb8b6172ccbbeb525a8a8739978807d8494eddebc3cda",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-preflight.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-preflight.json",
+        "bytes": 2176,
+        "sha256": "63bf7992f41bbfef03ce31fd70afa3bada382fe32872f0f1990d284e63d5872d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-dispatch.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-dispatch.json",
+        "bytes": 461,
+        "sha256": "0ecadfdd60131db9263c5253000cd720cc47819187cde2f58405888969943136",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-runner.py",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-runner.py",
+        "bytes": 2846,
+        "sha256": "056be99ce5ee8b4d2949e6ee2cc379edf76e0b2bdc5283447aac78162471f94d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-outer.txt",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-outer.txt",
+        "bytes": 146,
+        "sha256": "5de39aea2034d19e47d0a08863fff3aca40d4cdb85b18ed765a28a9e60764b9d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.finder-acceptance-review.json:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-independent-run.json",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-independent-run.json",
+        "bytes": 7170,
+        "sha256": "b89657ae5cdfdc68e7f893b69e9289ba1f24b4a73c59e89dd3a7f12798e89a16",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.helper:finder",
+        "path": "/tmp/p5sa-0rwzmtml/artifacts/38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+        "bytes": 291712,
+        "sha256": "38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+        "matched": true,
+        "readFrom": "outside-git retained file"
+      },
+      {
+        "label": "independent.aggregate.report",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.aggregate.report",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+        "bytes": 10103,
+        "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "independent.primaryBinding",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/current-source-binding.json",
+        "bytes": 47489,
+        "sha256": "0aac0c91fb108ae7e5ad5739c20246db7a7289fcb46be55617a5f1ca2ad00b42",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "aggregate.report",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "aggregate.report",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+        "bytes": 10103,
+        "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/report.json",
+        "bytes": 15281,
+        "sha256": "1e74fa77f958a5c4dd2a1112bb723ec4a406f7dadaa8cf9346cfe8bd82061157",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/results.json",
+        "bytes": 13788,
+        "sha256": "671e775c6babd144302b049037866ef7c84a88d37adf017cf513577208700e70",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/runner.py",
+        "bytes": 3545,
+        "sha256": "07ca75ef5909002cc0b4275956854a2579bebe7549f78050d641d4e68f2b3724",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/preflight.json",
+        "bytes": 7105,
+        "sha256": "fc416713533d3c9daf8d234c2e575ec6454fa9755ad09adc63af9b1c4a9a69fd",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/frozen-sources.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer-binding.json",
+        "bytes": 4350,
+        "sha256": "913a8cbbeafc695120415f8d4a1ca5594db544ca7e03f7055357a202f4a793c7",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+        "bytes": 10316,
+        "sha256": "bfc538b1d3930389d188850b4985c7894c1ac589030de2e598936ba4bdd218c0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/browser-startup.json",
+        "bytes": 822,
+        "sha256": "53e72bfc6bb5d47fd2c209934fe3213acfa6b0d5c0ca99a1f9e1e8e290e709a0",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/helpers.json",
+        "bytes": 332,
+        "sha256": "4967b988586bd0ec5a1314108a175f17267ea5dfdc59cd1e934bdce85fef81d4",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/invocation.json",
+        "bytes": 1597,
+        "sha256": "98df7e56c173edc7a723458c2095790ab71e7b4dd181ac4ee37f16d51ad72dac",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/observed-identities.json",
+        "bytes": 2916,
+        "sha256": "c9fde8546f955f3f897c16015c535a659895c5ec9eaa0f66966e677faa96765f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/output.txt",
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/report.json",
+        "bytes": 6178,
+        "sha256": "39a17afb29d493367d932389bce9a14a59dd0bda827e31c598cc4539401c6d5c",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/selected-apps.json",
+        "bytes": 1727,
+        "sha256": "f933098d09655c56583fadbc500f2742367c414956f7535a92b9c92a0c82354a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-outer.txt",
+        "bytes": 147,
+        "sha256": "51e8abb406190a41a9dbb50f19c6b955fe47dea55759895d5c03950fb85f4d46",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/default-dispatch.json",
+        "bytes": 390,
+        "sha256": "9079b5de0866bf2cfe28b66c2bd29e5cd659cbb0d7cb9cbc29e4283caf762d8f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/browser-startup.json",
+        "bytes": 815,
+        "sha256": "d39b7cb8b9f894ad16555aa912d8a045b66e7d766be6da586cf953af77ec8e17",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/helpers.json",
+        "bytes": 332,
+        "sha256": "d0fbc6107693d78a173c320e52020a4b10b0a50b6cff0f62b6a0338440d99f00",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/invocation.json",
+        "bytes": 1599,
+        "sha256": "93e3bed4e261be137781e87124e33624747bae7ad45a29cc59ba51c221da977b",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/observed-identities.json",
+        "bytes": 2840,
+        "sha256": "3d0e8f97e3f2fa6bf6374a5616820fef327aad841ff05007da79ecba8c3f56d5",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/output.txt",
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/report.json",
+        "bytes": 6179,
+        "sha256": "a8aca782fc691a6ae111242eb224d1eb4e8c3499adee627238b62994379a3d4e",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/selected-apps.json",
+        "bytes": 1840,
+        "sha256": "3831db2d24c9509909fef0eceab15aac947d749ef0315359db1f35fcf94c2204",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-outer.txt",
+        "bytes": 148,
+        "sha256": "09d2a5cfbec792280239cbe10c37ac01ed003115baacd75b80e2253921be8b73",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "defaultRenderer.evidence",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer-dispatch.json",
+        "bytes": 392,
+        "sha256": "af99ffc3f0f2581b907ed4c22782eacb1d4814f88cdbe640dd4ce6788c8766a7",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/action.json",
+        "bytes": 29822,
+        "sha256": "0d6d6837507eeddd32dcceee202deb10e243c5e6c86afe173c81a383f7aa782f",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-after.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-before.json",
+        "bytes": 515,
+        "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/baseline.json",
+        "bytes": 1599,
+        "sha256": "1ec849302fca77c72102dfa8f8a00b53b96c23735380143d91fa828072c3e224",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/cleanup.json",
+        "bytes": 1817,
+        "sha256": "be0fc99e0a3b9528c5658ff31ba808c1fe0d4b33e12562d7e8d9b864bf40ab37",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/helpers.json",
+        "bytes": 334,
+        "sha256": "3175b19c516e0eea0b6890008ff25e348679b9b421350f5808f3e4adfab839eb",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/invocation.json",
+        "bytes": 1565,
+        "sha256": "2f003d700ef4facc1a25ff80406e9bfc5bc79e6e2f617b92a58f92907720c653",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/observed-identities.json",
+        "bytes": 1599,
+        "sha256": "9e9d1afda0e56c8704027d1b898d81b03225b329caf133e8c948db8bf7458979",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/output.txt",
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/owned-identity.json",
+        "bytes": 25559,
+        "sha256": "6bbe2ccfb1c6803e4251141748497e4353de7b438d1a318d59b37326df2dddee",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/report.json",
+        "bytes": 6179,
+        "sha256": "cd02eadd3b552f36169716e27741bac5a5db031ba477680bfe755c0c660cc09c",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+        "bytes": 19559,
+        "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/tree.json",
+        "bytes": 110666,
+        "sha256": "46f17e283fa15ffea42bb8b6172ccbbeb525a8a8739978807d8494eddebc3cda",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-preflight.json",
+        "bytes": 2176,
+        "sha256": "63bf7992f41bbfef03ce31fd70afa3bada382fe32872f0f1990d284e63d5872d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-dispatch.json",
+        "bytes": 461,
+        "sha256": "0ecadfdd60131db9263c5253000cd720cc47819187cde2f58405888969943136",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-runner.py",
+        "bytes": 2846,
+        "sha256": "056be99ce5ee8b4d2949e6ee2cc379edf76e0b2bdc5283447aac78162471f94d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-outer.txt",
+        "bytes": 146,
+        "sha256": "5de39aea2034d19e47d0a08863fff3aca40d4cdb85b18ed765a28a9e60764b9d",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.evidence",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-independent-run.json",
+        "bytes": 7170,
+        "sha256": "b89657ae5cdfdc68e7f893b69e9289ba1f24b4a73c59e89dd3a7f12798e89a16",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "finder.earlierAcceptance",
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+        "bytes": 14970,
+        "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "development.run",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/default-v1/report.json",
+        "bytes": 6160,
+        "sha256": "ad689d6f9e76db4c761014f3d82d1dad5c74b0023522ddd2f5193b9e133ba003",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "development.run",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/renderer-v1/report.json",
+        "bytes": 6161,
+        "sha256": "15c2dc985f1a60531d811d07d224e75d19da0d295a0d9b05ac6de85f83ced5ac",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "development.run",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+        "bytes": 916,
+        "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77",
+        "matched": true,
+        "readFrom": "git-index"
+      },
+      {
+        "label": "development.run",
+        "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/report.json",
+        "bytes": 6160,
+        "sha256": "64e085fec73ae9d6fa900ed8734b7df50b81a03fc9db35b264c0762d9214968c",
+        "matched": true,
+        "readFrom": "git-index"
+      }
+    ],
+    "observerFindings": [
+      {
+        "id": "observer-native-source-freeze",
+        "status": "closed"
+      },
+      {
+        "id": "observer-default-helper-binding",
+        "status": "closed"
+      },
+      {
+        "id": "observer-process-ownership",
+        "status": "closed"
+      },
+      {
+        "id": "observer-terminal-evidence",
+        "status": "closed"
+      }
+    ],
+    "unresolvedSourceBindingFindings": []
+  },
+  "recordedSuccessfulRuns": [
+    {
+      "case": "development/default-v1",
+      "counts": {
+        "PASS": 31,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79"
+      }
+    },
+    {
+      "case": "development/renderer-v1",
+      "counts": {
+        "PASS": 33,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63"
+      }
+    },
+    {
+      "case": "development/finder-v2",
+      "counts": {
+        "PASS": 10,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a"
+      }
+    },
+    {
+      "case": "independent-v1/default",
+      "counts": {
+        "PASS": 31,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 2488,
+        "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79"
+      }
+    },
+    {
+      "case": "independent-v1/renderer",
+      "counts": {
+        "PASS": 33,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 2649,
+        "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63"
+      }
+    },
+    {
+      "case": "independent-v1/finder",
+      "counts": {
+        "PASS": 10,
+        "FAIL": 0,
+        "SKIP": 0
+      },
+      "exitCode": 0,
+      "sourceCount": 106,
+      "sourceBeforeAfterMatched": true,
+      "fourArtifactsBeforeAfterMatched": true,
+      "remainingObservedIdentities": [],
+      "logDigest": {
+        "bytes": 850,
+        "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a"
+      }
+    }
+  ],
+  "helperByteVerification": {
+    "method": "Read-only raw hashes and Mach-O load-command parsing; independently zeroed only recorded UUID16 and trailing signature848 bytes and compared every other byte. No new signature or comparator command.",
+    "defaultRawSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "normalizedBodySha256": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+    "cases": [
+      {
+        "case": "development/default-v1",
+        "preservedOutsideGit": "/tmp/p5sa-ta15rvj7/artifacts/b24a3a0be999b578a025b6d4fcc2c49c8dc068d21fdc3bab6403ade760fd9e99",
+        "bytes": 291712,
+        "sha256": "b24a3a0be999b578a025b6d4fcc2c49c8dc068d21fdc3bab6403ade760fd9e99",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      },
+      {
+        "case": "development/renderer-v1",
+        "preservedOutsideGit": "/tmp/p5sa-bcfdwj9a/artifacts/7972d811f788a0f6daca8884f92210f70102147a87c052e9191dc1a2ec2e98d7",
+        "bytes": 291712,
+        "sha256": "7972d811f788a0f6daca8884f92210f70102147a87c052e9191dc1a2ec2e98d7",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      },
+      {
+        "case": "development/finder-v2",
+        "preservedOutsideGit": "/tmp/p5sa-kq633wgm/artifacts/e50f08b9672e956307d95bc96fb8abd631601d201c4265260adc81aade7eafec",
+        "bytes": 291712,
+        "sha256": "e50f08b9672e956307d95bc96fb8abd631601d201c4265260adc81aade7eafec",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      },
+      {
+        "case": "independent-v1/default",
+        "preservedOutsideGit": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "bytes": 291712,
+        "sha256": "9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      },
+      {
+        "case": "independent-v1/renderer",
+        "preservedOutsideGit": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "bytes": 291712,
+        "sha256": "98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      },
+      {
+        "case": "independent-v1/finder",
+        "preservedOutsideGit": "/tmp/p5sa-0rwzmtml/artifacts/38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+        "bytes": 291712,
+        "sha256": "38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+        "rawMatchesDefault": false,
+        "normalizedHash": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+        "excluded": [
+          {
+            "kind": "LC_UUID payload",
+            "offset": 2808,
+            "bytes": 16
+          },
+          {
+            "kind": "LC_CODE_SIGNATURE blob",
+            "offset": 290864,
+            "bytes": 848
+          }
+        ],
+        "completeOtherBytesMatchDefault": true,
+        "recordedCodesignExit": 0
+      }
+    ],
+    "rawOrTccIdentityClaimed": false,
+    "signaturesAreRecordedPriorResults": true
+  },
+  "acceptanceScope": {
+    "independentAssertions": 74,
+    "independentCases": {
+      "default": 31,
+      "renderer": 33,
+      "finder": 10
+    },
+    "independentInvocationsEach": 1,
+    "independentManualRetries": 0,
+    "independentAutomaticRetries": 0,
+    "old350CoreSuiteRerun": false,
+    "newProductOrExistingFixtureCode": false,
+    "versions": {
+      "TextEdit": "1.21",
+      "CFT": "148.0.7778.96",
+      "Finder": "27.0/build1865"
+    },
+    "renderer": {
+      "defaultWebAreaObserved": false,
+      "explicitRendererWebAreaObserved": true,
+      "AXValueRefusal": "element_stale",
+      "AXPressRefusal": "element_stale",
+      "DOMValueAndEventNoMutation": "asserted in stored acceptance/fixture logs"
+    },
+    "finder": {
+      "nativeActionOutcome": "unconfirmed/accessibility_action_accepted",
+      "independentNativeAXValueReadback": 1,
+      "sharedFinderPidBeforeAfter": 692,
+      "ownedWindowCleanup": true
+    },
+    "remainingBoundaries": [
+      "No new App-origin/LaunchServices AX acceptance",
+      "No actual TCC revoke/regrant or action-time lock/hard-kill acceptance",
+      "No physical display, macOS14, Windows or formal identity acceptance",
+      "Other P5 readiness/hidden-tool/environment gates remain open"
+    ],
+    "phaseStatus": "in_progress",
+    "taskStatus": "P5-03 in_progress"
+  },
+  "finderHistory": {
+    "originalPrimaryRefusal": {
+      "pass": 0,
+      "fail": 1,
+      "beforeFolderOpenAndHelperBuild": true,
+      "logDigest": {
+        "bytes": 993,
+        "sha256": "68e695496d35e1c64b8225da1cc7012fd81c9731ceba14740895a050bd427018"
+      }
+    },
+    "userDecision": "我关闭现有 Finder 窗口后，再补验",
+    "changedPrecondition": "User closed existing content windows; shallow read-only diagnosis then recorded AXScrollArea and five untitled/offscreen internal windows. Primary-v2 and later independent run each passed10.",
+    "diagnosticSource": {
+      "path": "MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/shallow-only.m",
+      "bytes": 7820,
+      "sha256": "a565b3c22fe7191469d8c2d97f7add36d0dbbf287d0ce60be804c7b137e9b2f0",
+      "onlyChangeFromCommittedVerifier": "Four-line shallow Tree early return under RUYI_FINDER_SHALLOW_DIAGNOSTIC",
+      "notProductOrAcceptanceVerifier": true
+    },
+    "earlierDefaultRendererReportRetainsOriginalFinderNotRunSnapshot": true,
+    "developmentAllZeroFailureClaimed": false
+  },
+  "documentationChecks": {
+    "markdownFileTargets": 196,
+    "allMarkdownTargetsResolveInIndex": true,
+    "taskEvidenceReferences": 279,
+    "allTaskEvidenceReferencesResolveInIndex": true,
+    "parsedJsonFiles": 95,
+    "authoredWhitespace": {
+      "exitCode": 0,
+      "checkedFiles": 105,
+      "rawTxtExcluded": true,
+      "authoredManualNextStepsIncluded": true
+    },
+    "currentStatuses": [
+      {
+        "id": "P5",
+        "status": "in_progress"
+      },
+      {
+        "id": "P5-03",
+        "status": "in_progress"
+      }
+    ]
+  },
+  "closedDocumentFindings": [
+    {
+      "id": "SC-D1",
+      "priority": 3,
+      "path": "MACOS-PORTING/evidence/P5/manual/NEXT-STEPS.txt",
+      "issue": "Remaining gates still generically listed current selected-app bindings after the new74 selected assertions were recorded as passed.",
+      "resolution": "Primary executor removed that already-completed gate phrase and restaged NEXT-STEPS. Verified updated index retains actual remaining gates.",
+      "status": "closed_by_primary_document_update"
+    }
+  ],
+  "excludedUntrackedDirectories": [
+    "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/",
+    "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/"
+  ],
+  "rawEvidencePreservation": "All original staged/working evidence read only, including untrimmed raw .txt. Raw logs excluded from whitespace checks; authored manual/NEXT-STEPS.txt checked separately.",
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "processSampling": 0,
+    "codesignOrComparatorInvocations": 0,
+    "productOrFixtureEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stagingChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/selected-current/status-evidence-review-v1.json"
+    ]
+  },
+  "findings": [],
+  "unresolvedBlockers": [],
+  "phaseStatus": "in_progress"
+}

@@ -1,0 +1,12 @@
+PASS public AXWindows and all-space WindowServer baseline exclude existing Finder content windows
+PASS new Finder window exposes the exact controlled content file URIs and no additional tab surface
+PASS ownership verifier rejects a duplicate URL in place of the exact controlled content set
+PASS ownership verifier rejects an additional Finder content window
+PASS ownership verifier rejects a tab group even when its AXTabs count is unavailable
+PASS ownership verifier rejects multiple publicly reported tabs
+PASS real Finder exposes a complete bounded AX tree for the owned folder
+PASS Finder AXPress changes the owned folder view with independent native AXValue state readback
+PASS only the proved Finder window closes and the shared Finder process survives
+PASS Finder scenario MCP and native helper exit completely
+
+MACOS AX FINDER E2E: ALL PASS

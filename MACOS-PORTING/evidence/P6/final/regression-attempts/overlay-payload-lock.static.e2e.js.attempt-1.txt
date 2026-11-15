@@ -1,0 +1,23 @@
+PASS external bot control page and its optional deployment gateway are both shipped by overlay
+PASS 载荷清单可重建(字面 181 + src 模块 93,manifest 的每个模块都在表里)
+PASS 109a 可选 vendor mermaid 已登记(文件缺失不阻塞打包)
+PASS 109a 可选载荷不与必需载荷重复
+PASS 109a 打包器对可选载荷做存在性跳过而非报错
+PASS ② 根目录载荷只有桌面壳两件编译产物(实得 RuyiDesktop.exe, WebView2Loader.dll)
+PASS ② 载荷表每条在磁盘存在
+PASS ② Kimi ACP loader/register 均登记进 overlay 载荷
+PASS ② Kimi ACP register 的 loader 依赖仍在资源包内
+PASS ① 引用面可枚举(73 项)
+PASS ①b 载荷里没有 Start-Workbench.cmd(128g)
+PASS ①b 载荷里没有 tools/fake-claude.js(128g)
+PASS ①b 载荷里没有 tools/dev-serve.cmd(128g)
+PASS ① index.html/app.js 引用全在载荷表
+PASS ③ 每个敏感目录都扫到了文件(实得 app/public=114、app/src=97、resources/playbooks=16、resources/plugins/ruyi-offline/offline-toolkit/skills=20、resources/plugins/ruyi-offline/offline-toolkit/commands=13)
+PASS ③ 敏感目录(app/public 整棵、app/src、resources 下运行时读的三个目录)无未登记文件
+PASS ③b 服务端 resources 读口扫得到(实得 5 处:resources/kimi-acp-compat-register.mjs、resources/playbooks、resources/native-file-read.py、resources/plugins/ruyi-offline/offline-toolkit、resources/scripts/install-workbench.ps1)
+PASS ③b 每个服务端 resources 读口都有载荷覆盖(文件已登记／目录在 ③ 扫描里)
+PASS #21 build-overlay 不再有写死的默认版本号
+PASS #21 不带版本号运行 -> 用法提示 + 退出码 1(实得 rc=1)
+PASS #21 缺版本号时没有动 dist/overlay(校验先于清理与装配)
+
+OVERLAY PAYLOAD LOCK STATIC E2E: ALL PASS

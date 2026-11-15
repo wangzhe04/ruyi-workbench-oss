@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "kind": "independent_read_only_native_capture_fault_harness_interim_review",
+  "createdAt": "2026-11-11T22:30:53.935977+00:00",
+  "workspace": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "status": "interim_harness_review_not_final_freeze_or_acceptance",
+  "boundary": {
+    "sourceEdits": false,
+    "testRuns": false,
+    "nativeOrGuiRuns": false,
+    "productionFilesUnchangedAgainstInitialReview": 7,
+    "latestRuntimeResult": "Parent reported actual-native-v4 failed an immediate post-HTTP phase expectation; failure/log/JSON retained. No successful runtime execution independently performed here.",
+    "freeze": "New fixture and expanded e2e not bound to earlier native-wip-freeze-v1; require later complete freeze/helper/native qualification."
+  },
+  "reviewedInstrumentation": {
+    "fixture": "Real registered ACC tools and SDK unchanged; instrument ReceiptJournal.append only. Stop gates run after real native_entered or native_continue_sent durable append, and native-terminal EIO is injected immediately before actual native_terminal append. No native packet,decoder,tool result or authorization replacement.",
+    "capacity": "Per-fixture root/control file,one fired boundary,5second bound; actual helper/ACC PIDs from current owned session are sampled with OS birth identities.",
+    "imageFailure": "Existing execution-image-preload rejects actual session head rename only after target tool result plus required image row appear; completed native trace remains distinct from failed consumer delivery."
+  },
+  "findings": [
+    {
+      "id": "NH1",
+      "priority": "P2",
+      "area": "Stop could be confused with fixture timeout",
+      "originalIssue": "Absence of capture-release alone did not rule out5s gate timeout before Stop; ok=true without stopped=true allowed idle Stop to appear accepted.",
+      "repairObserved": "Fixture now records opened/deadline timestamps and gate-exit timeout/cancel/manual reason. E2e requires live nonempty expected execution,exact gate invocation,exact ACC/native birth identities live immediately before Stop,remaining gate margin,and response.stopped=true. Entry Stop also occurs within1.5s of native_prepared,below native2s continue timeout.",
+      "state": "closed_by_static_rereview"
+    },
+    {
+      "id": "NH2",
+      "area": "HTTP Stop receipt is not native quiescence",
+      "originalIssue": "Initial test sampled ledger immediately after HTTP turn completed and demanded unknown,although actual product intentionally returns while an invoked noninterruptible tool can still finish cleanup.",
+      "sourceContract": "09.awaitProviderTool races running runner against turn abort and returns explicit background-cleanup warning;04.requestSessionExecutionStop marks owner canceled and requests abort;13 returns stop receipt without awaiting native process/ledger terminal. No existing source requirement makes HTTP completion synchronouslyunknown.",
+      "repairObserved": "Preserves immediateRows/events/records first,then waits exact observed ACC/native birth identities absent plus same invocation strict phaseunknown,all before5s gate expiry/manual release. Original no-write/no-provider/cold hold requirements remain; no dispatching-or-unknown acceptance predicate introduced.",
+      "state": "correct_boundary_split_by_static_review"
+    },
+    {
+      "id": "NH3",
+      "priority": "P2",
+      "area": "Provider continuation census is incomplete",
+      "issue": "continuations is appended only if every spec call already has a tool reply. An erroneous model request carrying partial/unpaired history after a fault does not enter that array,so !continuations.some(label) alone cannot prove no subsequent provider request.",
+      "requiredRepair": "Record every matched spec provider handler entry or inspect all provider.requests filtered by the spec label; require only initial pretool request/no count growth after boundary. Retain existing cold-restart global provider request count equality.",
+      "state": "pending_at_this_read",
+      "location": "dev-harness/macos-execution-capture.e2e.js fake provider handler and fault no-continuation assertion"
+    },
+    {
+      "id": "NH4",
+      "area": "Evidence scope metadata",
+      "originalIssue": "Final evidence scope still said no Stop/fault despite newly added cases.",
+      "repairObserved": "Current scope explicitly describes root Stop before continue/after continue before terminal observation,exact cleanup,native terminal EIO,image history EIO,cold holds,and excludes input/held/background/CLI/fullP5.",
+      "state": "closed_by_static_rereview"
+    }
+  ],
+  "positiveChecks": [
+    "Two Stop gates preserve real durable boundaries; entry_stop cannot prove native body effects occurred,and asserts no committed continue/native terminal.",
+    "continue_stop can occur after native capture body already completed and terminal bytes reached pipe,but beforePython persisted native_terminal. It proves root Stop/cleanup and conservative unknown,not interrupted capture execution or actual SDK observer cancellation.",
+    "Image-history EIO intentionally expects returned but unacknowledged before restart,then unknown on cold reopen; this distinguishes lost consumer delivery from native terminal loss.",
+    "Native terminal EIO requires actual continue evidence and no committed native_terminal; root row stays unacknowledgedunknown.",
+    "Later same-batch file_write is prohibited by both missing tool_use event and absent file; cold restart also prohibits provider count growth and replay.",
+    "No production bytes changed while resolving fixture lifecycle assertions. Existing generic feature,immutable frame identity,observer quarantine and original native hook contracts retain initial reviewed hashes."
+  ],
+  "remainingQualification": [
+    "Repair/rereview complete provider-entry census before claiming no post-fault model request.",
+    "Actual final-byte independent serial runs with all new fixture/source/helper hashes; preserve failed v4 timing assumption and environment/config failures.",
+    "This root cleanup proof is narrower than direct SDK cancellation-observer qualification.",
+    "EOF,large-history16MiB overflow,late callbacks/duplicate completions and remaining capacity/deadline cases are separate unless explicitly implemented and proven.",
+    "No balanced input,held state/rescue,background/API0/CLI/resume,retention/reconciliation,default activation or fullP5 acceptance."
+  ],
+  "productionBindings": [
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "sha256": "2c9ea109d227d2483c50df2606787b2ad521b9299164f56ee63bf425c5796de3",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "sha256": "e117594fa5bb6f8ce59a2a3a184c3cb42ce2a4bed46fd0c7dd9f1f0fc5b6f08b",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "sha256": "371287a8644b9746d5e6b1559997e9e5ad80f10e7bce0e55de51fa3d41c40987",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-helper.m",
+      "sha256": "78309aa3e36a7d4d75f2aa1788e896b182b2773e90e3b1c931ce40ca352f6ad4",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-session.m",
+      "sha256": "d647510e88323cdba786022147adf0beb3bc921ed96e001dd45fa2560a0aa7c3",
+      "matchesInitialSourceReview": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation.h",
+      "sha256": "5eb063a03f058272a7f59335a0dbfc46f69cc7166b67cae78a63ec9ecfae5cf2",
+      "matchesInitialSourceReview": true
+    }
+  ],
+  "sourceManifest": [
+    {
+      "file": "dev-harness/fixtures/execution-capture-server.py",
+      "bytes": 2876,
+      "sha256": "3e566aed89647a1c6717b3b1ce91925e7133ec094a9cb05a6ea2a1a79218da1f"
+    },
+    {
+      "file": "dev-harness/macos-execution-capture.e2e.js",
+      "bytes": 22308,
+      "sha256": "08369721dfcd9e20b25fa4eeb55d0404c7a5f18349487483ad2fa44127b86613"
+    },
+    {
+      "file": "dev-harness/fixtures/execution-image-preload.cjs",
+      "bytes": 2506,
+      "sha256": "457c7970a97111c5676254bb143425ddf7ee69f9d89f4f1440cffb7520213173"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 363565,
+      "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 198564,
+      "sha256": "c054a79b4f046a2a55fc9685bdd98191fac9e5cde48520ee64efc227eb37c087"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 222006,
+      "sha256": "dec468e99c0e33e928dfe73bbca328afdceb356c75e6e37c32f566058b201107"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+PASS A1 engineModelOptions 按引擎产出模型列表
+PASS A1 openai 引擎取当前激活 provider 的 models
+PASS A1 claude 引擎取 config.knownModels + extraModels
+PASS A1 rebuildModelOptions 跟随引擎联动重建选项(对抗轮P3:换引擎重置外来模型)
+PASS A1 模型下拉首项「继承（角色/全局默认）」(value=空+i18n)
+PASS A1 模型下拉尾项「自定义」切出文本输入
+PASS A1 engine=自动 时模型下拉禁用 + 跟随默认提示
+PASS A1 有效继承链 hint 三态（节点/角色/全局）
+PASS A1 继承链解析：角色默认 / 全局默认 各有解析器
+PASS A1 保存回写 node.model（引擎为自动时清空）
+PASS A2 质量门下拉含五种模式
+PASS A2 保存回写 node.gate={...,mode}/false 显式无门(对抗轮P2:null 会被服务端按角色回填)
+PASS A2 迭代预算 maxIters（number 1-300，空=默认）
+PASS A2 maxIters 空=删除 / 有值 clamp 回写
+PASS A2 工具权限 toolTier 下拉（继承/read/edit/exec;第22波文案含联网）
+PASS A2 toolTier 保存回写/删除
+PASS A2 依赖失败处理支持 all_success / all_settled 并保存
+PASS A2 循环语义进度字段可编辑并保存
+PASS A2 事实探针可要求成功工具调用证据
+PASS A3 高级区 <details class=wf-insp-advanced>
+PASS A3 textarea 预填当前节点完整 JSON
+PASS A3 应用按钮 JSON.parse 校验，坏 JSON toast 拒绝(50c i18n:toast.wfJsonParseFail)
+PASS A3 应用 JSON 原地重写节点（保持 draft 引用）
+PASS A4 group() 分组装配器
+PASS A4 分组「身份」存在(i18n)
+PASS A4 分组「执行」存在(i18n)
+PASS A4 分组「编排」存在(i18n)
+PASS A4 分组「质量」存在(i18n)
+PASS A4 .wf-insp-group-title muted 小字（122 波 §2.9 起不再大写/加字距）
+PASS A4 组间距 var(--sp-4)
+PASS B1 节点卡复用 agentEngineBadge（替代 engineTag 文本拼接）
+PASS B1 旧 engineTag 文本拼接已移除
+PASS B1 有 node.model 时第二行 mono 显示模型名（截 18 字；33 号文 §4 改走 util.js 的唯一截短口径，按码点数不再切半代理对）
+PASS B1 有 gate 时显示 ⚖ 小标
+PASS B1 选中态 box-shadow 升 var(--elev-2)
+PASS B2 fitView 计算包围盒并 scrollTo 居中
+PASS B2 右下角悬浮控件组「适应视图」
+PASS B2 空画布引导浮层 .wf-canvas-empty
+PASS B2 空态两按钮引导（模板 / 加首节点）
+PASS C1 节点卡右缘连接手柄 .wf-port
+PASS C1 拖拽时画临时虚线 .wf-temp-edge
+PASS C1 落点吸附成边（复用 addWorkflowEdge 校验）
+PASS C1 保留既有「连接箭头」按钮流程（触屏兜底）
+PASS C1 手柄 hover 放大
+PASS C2 validateDraft 校验器
+PASS C2 环依赖 DFS 检测
+PASS C2 覆盖悬空依赖 / 空任务 / 重复 ID
+PASS C2 防抖 300ms 调度
+PASS C2 问题节点卡加 .wf-node-invalid（danger 描边）
+PASS C2 工具栏「⚠ N 个问题」chip
+PASS C2 .wf-node-invalid danger 描边
+PASS C3 draft 快照撤销栈 + snapshot()
+PASS C3 深拷贝 structuredClone
+PASS C3 快照栈 cap 20
+PASS C3 外部 draft 替换（载入/新建/另存）时清空撤销栈（一致性）
+PASS C3 Delete 删除选中节点/边
+PASS C3 Ctrl+Z 撤销
+PASS C3 双击节点卡聚焦检查器任务框(对抗轮P2:中间新增 flushInspector)
+PASS C4 底部「保存并运行」primary 按钮已接入 i18n
+PASS C4 保存并运行串联 saveDraft→launchAgentWorkflow
+PASS D v2 CSS 块可定位
+PASS D v2 CSS 块无 #hex 硬编码色（全走 token/color-mix）
+PASS D v2 CSS 无引用未定义 token
+
+WORKFLOW EDITOR V2 STATIC E2E: ALL PASS

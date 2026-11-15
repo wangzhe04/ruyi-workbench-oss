@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "implementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "parentCommit": "d42bba09c1b559f434600008666ce1ae20d34192",
+  "originalFreezeBase": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+  "documentationOnlyParentAdvance": "d42bba09 adds previously reviewed manual evidence/phase docs; all 15 frozen files remain unchanged by this fast-forward.",
+  "changedFiles": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/checkpoint-proxy-session.e2e.js",
+    "dev-harness/fixture-home.static.e2e.js",
+    "dev-harness/macos-native-entry.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "docs/architecture/route-inventory.json",
+    "docs/architecture/route-inventory.md",
+    "facts.json",
+    "ruyi-workbench/app/server.js",
+    "ruyi-workbench/app/src/12-tool-dispatch.js",
+    "ruyi-workbench/app/src/manifest.json"
+  ],
+  "files": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "gitBlob": "aec4c8a054c05913be3b2fc61eee09ecc74717ec",
+      "bytes": 22359,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+      "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+      "gitBlob": "132c24d38308246c9205a1ca1c3825e0086ccb15",
+      "bytes": 7531,
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+      "gitBlob": "1126002b0cb5c6f3882453fe3579f1eb7da736d0",
+      "bytes": 1335,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+      "bytes": 301569,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+      "gitBlob": "14e703cb842365d73eb3831c91019d4c4ad59d1d",
+      "bytes": 23789,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "gitBlob": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+      "bytes": 6777831,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlob": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+      "bytes": 18974,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "gitBlob": "fc742c77ccb701f1c5762257c185489b82dfbf69",
+      "bytes": 124245,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+      "gitBlob": "e5f4e6474c8a2e57fa925fcacd785114e575b078",
+      "bytes": 411515,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+      "gitBlob": "9669ec0cdbc9cee26f428de12ec4b61000fff8e3",
+      "bytes": 206712,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+      "gitBlob": "2dc909fc989ca255484e8d7cab5e65c473a66c88",
+      "bytes": 34115,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+      "gitBlob": "3c3b63d1c79ba010ea5c1bb2a6283ff7be8bd593",
+      "bytes": 14066,
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+      "gitBlob": "3cca8ff4a0f23ed38d9acdc1bd40deee7765f6cf",
+      "bytes": 65808,
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+      "gitBlob": "9e6310de02de403eef208a8f36a211c64b1fa96e",
+      "bytes": 72914,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+      "gitBlob": "13f8be6e82846897eda153c13c620c675768ab67",
+      "bytes": 41727,
+      "matched": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytes": 291712,
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "bytes": 505584,
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "bytes": 1038,
+      "matched": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "freeze-v4.json",
+      "sha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73",
+      "bytes": 3314
+    },
+    {
+      "path": "code-review-v1.json",
+      "sha256": "4d29b020f07e26bcc31faf7da77a46e0855b548bd68c69898abcb9d3acf95177",
+      "bytes": 19637
+    },
+    {
+      "path": "independent-v1/report.json",
+      "sha256": "950593e23ea7fb1228c8b81e0c580cdb6ed797001bf4a79c987d2f44b4284e0b",
+      "bytes": 573853
+    },
+    {
+      "path": "independent-v1/results.json",
+      "sha256": "73f48cf918f7eaa441ce213ce7356737d5af7071469a18447f9ee635cc8bc0b7",
+      "bytes": 566978
+    },
+    {
+      "path": "independent-v1/source-artifact-checks.json",
+      "sha256": "8b4b3f7524f4c1574a580eba4e95ced04880e86b327acdd2a7ba0b7d6a26f349",
+      "bytes": 46816
+    },
+    {
+      "path": "independent-v1/artifact-signatures.json",
+      "sha256": "a7b2fb23ef750eb0c2c28bfc5db58695cff035f79aec4e6d22bb8977fb4c149f",
+      "bytes": 1642
+    },
+    {
+      "path": "independent-v1/offline/output.txt",
+      "sha256": "634d3cd0b0ce509c1cd3b2b03acc2c90c9d75c3ca653f5c56a796d86de8907da",
+      "bytes": 1438
+    },
+    {
+      "path": "independent-v1/native/output.txt",
+      "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+      "bytes": 2208
+    },
+    {
+      "path": "independent-v1/native/results.json",
+      "sha256": "f50d2e737812b1337a53e9425ab24b54d2c5da620a9fc24bdd83258013d91d92",
+      "bytes": 210635
+    },
+    {
+      "path": "independent-v1/fast/output.txt",
+      "sha256": "69a83ea0ffcdf671d2dddc1091c3c89ef5853ca51fb0a62ec1eb97a2ba2fa604",
+      "bytes": 5741
+    }
+  ],
+  "scope": "Provider proxy checkpoint fix plus offline/native session tests and generated fixture inventories. Node service launch, actual ACC/native helper. Ruyi.app not rebuilt/re-signed/launched by this acceptance. Entry worktree process helper is separately recorded by independent report; native/Python manual runtime was unchanged and not rerun.",
+  "independentResult": {
+    "offline": 13,
+    "native": 31,
+    "fast": 80,
+    "unitPass": 2499,
+    "unitExistingSkip": 18,
+    "fastLiveSkip": 7
+  },
+  "phaseStatus": "in_progress"
+}

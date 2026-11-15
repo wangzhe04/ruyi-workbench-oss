@@ -1,0 +1,23 @@
+[
+  {
+    "binary": "numpy",
+    "otool_exit": 0,
+    "deploymentCommands": [
+      "      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform 1\n    minos 14.0\n      sdk 14.5\n   ntools 1\n     tool 3"
+    ]
+  },
+  {
+    "binary": "chromium",
+    "otool_exit": 0,
+    "deploymentCommands": [
+      "      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform 1\n    minos 13.0\n      sdk 26.5\n   ntools 1\n     tool 4"
+    ]
+  },
+  {
+    "binary": "optional-ffmpeg",
+    "otool_exit": 0,
+    "deploymentCommands": [
+      "      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform 1\n    minos 15.0\n      sdk 26.2\n   ntools 1\n     tool 3"
+    ]
+  }
+]

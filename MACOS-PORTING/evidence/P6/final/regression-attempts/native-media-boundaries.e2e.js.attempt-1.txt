@@ -1,0 +1,37 @@
+PASS commonjs: invalid module syntax is rejected
+PASS commonjs: failed write preserves original bytes
+PASS commonjs: failed edit preserves original bytes
+PASS commonjs: valid source still passes
+PASS module: invalid module syntax is rejected
+PASS module: failed write preserves original bytes
+PASS module: failed edit preserves original bytes
+PASS module: valid source still passes
+PASS dependency package without type defaults to CommonJS
+PASS dependency package can explicitly select ESM
+PASS main/vision: tool loop reaches a subsequent request
+PASS main/vision: every fresh image reaches the first request
+PASS main/vision: subsequent text-only tool iteration retains at most two old images
+PASS main/vision: tool JSON contains no base64 pixels
+PASS main/vision: saved history obeys the image budget
+PASS main/text: tool loop reaches a subsequent request
+PASS main/text: every fresh image reaches the first request
+PASS main/text: subsequent text-only tool iteration retains at most two old images
+PASS main/text: tool JSON contains no base64 pixels
+PASS main/text: non-vision placeholders remain explicit
+PASS main/text: saved history obeys the image budget
+PASS subagent/vision: tool loop reaches a subsequent request
+PASS subagent/vision: every fresh image reaches the first request
+PASS subagent/vision: subsequent text-only tool iteration retains at most two old images
+PASS subagent/vision: tool JSON contains no base64 pixels
+PASS subagent/text: tool loop reaches a subsequent request
+PASS subagent/text: every fresh image reaches the first request
+PASS subagent/text: subsequent text-only tool iteration retains at most two old images
+PASS subagent/text: tool JSON contains no base64 pixels
+PASS subagent/text: non-vision placeholders remain explicit
+PASS main/vision/attachments: tool loop reaches a subsequent request
+PASS main/vision/attachments: every fresh image reaches the first request
+PASS main/vision/attachments: subsequent text-only tool iteration retains at most two old images
+PASS main/vision/attachments: tool JSON contains no base64 pixels
+PASS main/vision/attachments: saved history obeys the image budget
+
+NATIVE MEDIA BOUNDARIES E2E: ALL PASS

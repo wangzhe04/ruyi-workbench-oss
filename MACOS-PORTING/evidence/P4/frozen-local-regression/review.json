@@ -1,0 +1,141 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_archived_engineering_scope",
+  "phaseStatus": "in_progress",
+  "method": "Read-only inspection of the archived engineering logs and acceptance records, independent SHA-256 calculation against current files, and comparison of archived native build metadata with the current dist bundle. No tests, physical capture, system sleep or UI operations were initiated during this audit.",
+  "candidate": {
+    "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "deliveryState": "uncommitted_worktree",
+    "sourceFingerprintFile": "source-fingerprint.json",
+    "sourceFingerprintsVerified": 39,
+    "sourceFingerprintMismatches": 0,
+    "nativeBuildFile": "native-build.json",
+    "nativeBuildMatchesDistMetadata": true,
+    "distMetadata": "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+    "nativeBuildInputsVerified": 6,
+    "nativeBuildInputMismatches": 0,
+    "nativeSourceSHA256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+    "architecture": "arm64",
+    "deploymentTarget": "14.0",
+    "identity": "ad-hoc-development",
+    "runtimeScope": "current macOS27.0.1 arm64 host"
+  },
+  "archivedEngineeringChecks": {
+    "executionActor": "Implementation agent",
+    "reviewerReranChecks": false,
+    "unit": {
+      "tests": 2509,
+      "passed": 2491,
+      "failed": 0,
+      "skipped": 18,
+      "cancelled": 0,
+      "summaryVerifiedFromLog": true,
+      "log": "unit.txt"
+    },
+    "static": {
+      "passed": 80,
+      "failed": 0,
+      "liveExcluded": 7,
+      "individualPassRowsVerified": 80,
+      "summaryVerifiedFromLog": true,
+      "log": "static.txt"
+    },
+    "syntax": {
+      "files": 1134,
+      "failed": 0,
+      "summaryVerifiedFromLog": true,
+      "log": "syntax.txt"
+    },
+    "buildFreshness": {
+      "result": "fresh",
+      "summaryVerifiedFromLog": true,
+      "log": "freshness.txt"
+    },
+    "commandExitCodes": {
+      "allRecordedAs": 0,
+      "source": "validation.json",
+      "scope": "Exit codes are the implementation agent's archived execution record. The reviewer independently checked log content and source bindings."
+    },
+    "diffWhitespace": {
+      "result": "passed_as_recorded_by_implementation_agent",
+      "source": "validation.json",
+      "separateRawLog": false
+    }
+  },
+  "independentlyExecutedRelatedCoverage": {
+    "nativeAndPhysicalReview": "../media/physical/reporting-delay/review.json",
+    "hostAfterPermissionRefresh": { "passed": 31, "failed": 0, "exitCode": 0 },
+    "mediaSynthetic": { "passed": 36, "failed": 0, "exitCode": 0 },
+    "lifecycle": { "passed": 23, "failed": 0, "exitCode": 0 },
+    "bridge": {
+      "passed": 47,
+      "failed": 0,
+      "exitCode": 0,
+      "unexecutedNotificationConditionalBranches": 3
+    },
+    "workspaceResolve": {
+      "passed": 38,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../bridge/workspace-alias/workspace-independent-current.txt",
+      "scope": "Current production tree HTTP and workspace persistence coverage. Real WK drag-and-drop remains pending."
+    },
+    "browser": {
+      "browser": "Google Chrome for Testing 148.0.7778.96",
+      "voicePassed": 98,
+      "streamPassed": 39,
+      "warmupPassed": 58,
+      "failed": 0,
+      "record": "../media/native-gum-stages/browser-regression.json",
+      "limitation": "Ordinary Chrome156 native fake-getUserMedia hang and earlier failures remain recorded. Exact cause remains unconfirmed."
+    },
+    "physicalMicrophone": {
+      "artifactReview": "../media/physical/reporting-delay/review.json",
+      "captureActor": "Implementation agent and user",
+      "validNonzeroPCMDurationMs": 647.5,
+      "pageTracksEndedMs": 1110,
+      "sameRunNativeStopCompletedMs": 1417.1177498064935,
+      "deadlineFired": false,
+      "finalReportedState": "none",
+      "automaticSends": 0,
+      "ownedProcessCleanupVerified": true,
+      "scope": "LaunchServices development App system grant and successful physical capture. The earlier real refusal/retry evidence is at the WebKit origin layer."
+    }
+  },
+  "taskScopeAudit": {
+    "file": "MACOS-PORTING/TASKS.json",
+    "phase": "in_progress",
+    "P4-01": "done_current_host_scope_supported",
+    "P4-02": "in_progress_real_drop_pending",
+    "P4-03": "done_explicit_current_local_development_scope_supported",
+    "P4-04": "in_progress_local_delivery_done_formal_identity_deferred",
+    "completionAudit": "not_proven_is_accurate",
+    "fullPhaseCompletionClaimed": false
+  },
+  "findings": [
+    {
+      "id": "frozen-review-doc-01",
+      "severity": "minor",
+      "file": "MACOS-PORTING/TASKS.json",
+      "field": "P4.latestNativeAcceptance.hostFailure",
+      "finding": "The latest result recorded hostPassed 31 and hostFailed 0 while hostFailure contained the pre-permission-refresh Documents code-requirement failure. This created ambiguity between historical and current results.",
+      "requestedCorrection": "Rename hostFailure to priorHostFailure or otherwise explicitly mark it historical while preserving the original failed run.",
+      "status": "resolved_and_independently_verified",
+      "resolution": "The implementation agent renamed hostFailure to priorHostFailure. The reviewer verified the historical value is preserved, the ambiguous field is absent and the current host result remains 31 passed and 0 failed."
+    }
+  ],
+  "remainingNecessaryCodeFindings": 0,
+  "remainingLocalAcceptance": [
+    "Real Finder file drop into WK with visible attachment/upload and zero automatic sends.",
+    "Real Finder directory drop through entry/readEntries, confirmation and cancellation, with session cwd and config persistence verified.",
+    "Final candidate evidence and independent closeout after the real drop acceptance."
+  ],
+  "retainedLimitations": [
+    "Formal bundle ID, Team ID and Developer ID Keychain/TCC upgrade validation is deferred by user decision.",
+    "Actual macOS14 execution remains unverified. A deployment target of 14.0 is build metadata.",
+    "Same-candidate Windows P4 validation remains unverified and has no recorded P4 scope waiver.",
+    "Physical sleep evidence covers one approximately 2.816-second Software Sleep/DarkWake cycle. The physical fixture had scheduler disabled. Deep or long sleep, physical-cycle scheduler compensation and precise pre-sleep cursor continuity remain unverified."
+  ],
+  "conclusion": "The archived engineering checks and current source/build bindings pass their recorded local scope. P4-03 local completion is supported. The whole P4 phase correctly remains in progress pending real drag-and-drop and final closeout."
+}

@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T08:29:46.445506+00:00",
+  "status": "passed_independent_default_renderer",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "productionImplementation": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "sourceCount": 106,
+  "sourceMatchesPreflightAfterAllCases": true,
+  "runs": [
+    {
+      "case": "default",
+      "outerExitCode": 0,
+      "report": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default/report.json",
+      "reportDigest": {
+        "bytes": 6178,
+        "sha256": "39a17afb29d493367d932389bce9a14a59dd0bda827e31c598cc4539401c6d5c"
+      },
+      "result": {
+        "case": "default",
+        "executor": "/root/p5_acceptance",
+        "status": "passed_independent_selected_case",
+        "startedAt": "2026-11-11T08:29:25.165965+00:00",
+        "seconds": 10.925910458999999,
+        "exitCode": 0,
+        "childPid": 6974,
+        "childStillRunning": false,
+        "observedRootBirth": 1794385765181984,
+        "pass": 31,
+        "fail": 0,
+        "skip": 0,
+        "sourceCount": 106,
+        "sourceUnchanged": true,
+        "artifactsUnchanged": true,
+        "observedIdentityCount": 35,
+        "remainingObservedIdentities": [],
+        "samplerErrors": [],
+        "helpers": [
+          {
+            "originalPath": "/tmp/p5sa-h2c1eu0n/t/ruyi-p5-apps-EqQ77L/helper",
+            "preservedOutsideGit": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+            "bytes": 291712,
+            "sha256": "9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+            "codesignExit": 0
+          }
+        ],
+        "helperComparisons": [
+          {
+            "helper": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+            "exitCode": 0,
+            "stdout": "{\n  \"at\": \"2026-11-11T08:29:36.064Z\",\n  \"equivalent\": true,\n  \"artifacts\": [\n    {\n      \"file\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\",\n      \"bytes\": 291712,\n      \"sha256\": \"1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5\",\n      \"bodySha256ExcludingUUIDAndSignature\": \"8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084\",\n      \"excluded\": [\n        {\n          \"kind\": \"LC_UUID payload\",\n          \"offset\": 2808,\n          \"bytes\": 16\n        },\n        {\n          \"kind\": \"LC_CODE_SIGNATURE blob\",\n          \"offset\": 290864,\n          \"bytes\": 848\n        }\n      ],\n      \"codesign\": {\n        \"exitCode\": 0,\n        \"stdout\": \"\",\n        \"stderr\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\\n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\\n\"\n      }\n    },\n    {\n      \"file\": \"/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547\",\n      \"bytes\": 291712,\n      \"sha256\": \"9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547\",\n      \"bodySha256ExcludingUUIDAndSignature\": \"8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084\",\n      \"excluded\": [\n        {\n          \"kind\": \"LC_UUID payload\",\n          \"offset\": 2808,\n          \"bytes\": 16\n        },\n        {\n          \"kind\": \"LC_CODE_SIGNATURE blob\",\n          \"offset\": 290864,\n          \"bytes\": 848\n        }\n      ],\n      \"codesign\": {\n        \"exitCode\": 0,\n        \"stdout\": \"\",\n        \"stderr\": \"/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547: valid on disk\\n/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547: satisfies its Designated Requirement\\n\"\n      }\n    }\n  ],\n  \"interpretation\": \"Only the UUID payload and trailing code-signature blob are excluded. All remaining file bytes and load-command fields must match.\"\n}\n",
+            "stderr": "",
+            "result": {
+              "at": "2026-11-11T08:29:36.064Z",
+              "equivalent": true,
+              "artifacts": [
+                {
+                  "file": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+                  "bytes": 291712,
+                  "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+                  "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+                  "excluded": [
+                    {
+                      "kind": "LC_UUID payload",
+                      "offset": 2808,
+                      "bytes": 16
+                    },
+                    {
+                      "kind": "LC_CODE_SIGNATURE blob",
+                      "offset": 290864,
+                      "bytes": 848
+                    }
+                  ],
+                  "codesign": {
+                    "exitCode": 0,
+                    "stdout": "",
+                    "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\n"
+                  }
+                },
+                {
+                  "file": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+                  "bytes": 291712,
+                  "sha256": "9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+                  "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+                  "excluded": [
+                    {
+                      "kind": "LC_UUID payload",
+                      "offset": 2808,
+                      "bytes": 16
+                    },
+                    {
+                      "kind": "LC_CODE_SIGNATURE blob",
+                      "offset": 290864,
+                      "bytes": 848
+                    }
+                  ],
+                  "codesign": {
+                    "exitCode": 0,
+                    "stdout": "",
+                    "stderr": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547: valid on disk\n/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547: satisfies its Designated Requirement\n"
+                  }
+                }
+              ],
+              "interpretation": "Only the UUID payload and trailing code-signature blob are excluded. All remaining file bytes and load-command fields must match."
+            }
+          }
+        ],
+        "temporaryEvidenceRoot": "/tmp/p5sa-h2c1eu0n",
+        "scope": "Only sampled birth-verified descendants and exact LaunchServices TextEdit fixture tag are counted; transient unobserved processes are outside this sampler. The unchanged fixtures independently assert their own cleanup and clipboard restoration. Shared Finder is never killed by the sampler.",
+        "phaseStatus": "in_progress",
+        "passed": true
+      }
+    },
+    {
+      "case": "renderer",
+      "outerExitCode": 0,
+      "report": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/renderer/report.json",
+      "reportDigest": {
+        "bytes": 6179,
+        "sha256": "a8aca782fc691a6ae111242eb224d1eb4e8c3499adee627238b62994379a3d4e"
+      },
+      "result": {
+        "case": "renderer",
+        "executor": "/root/p5_acceptance",
+        "status": "passed_independent_selected_case",
+        "startedAt": "2026-11-11T08:29:36.192717+00:00",
+        "seconds": 10.221977083999999,
+        "exitCode": 0,
+        "childPid": 7215,
+        "childStillRunning": false,
+        "observedRootBirth": 1794385776209068,
+        "pass": 33,
+        "fail": 0,
+        "skip": 0,
+        "sourceCount": 106,
+        "sourceUnchanged": true,
+        "artifactsUnchanged": true,
+        "observedIdentityCount": 34,
+        "remainingObservedIdentities": [],
+        "samplerErrors": [],
+        "helpers": [
+          {
+            "originalPath": "/tmp/p5sa-4nmal2so/t/ruyi-p5-apps-TVjyQz/helper",
+            "preservedOutsideGit": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+            "bytes": 291712,
+            "sha256": "98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+            "codesignExit": 0
+          }
+        ],
+        "helperComparisons": [
+          {
+            "helper": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+            "exitCode": 0,
+            "stdout": "{\n  \"at\": \"2026-11-11T08:29:46.398Z\",\n  \"equivalent\": true,\n  \"artifacts\": [\n    {\n      \"file\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\",\n      \"bytes\": 291712,\n      \"sha256\": \"1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5\",\n      \"bodySha256ExcludingUUIDAndSignature\": \"8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084\",\n      \"excluded\": [\n        {\n          \"kind\": \"LC_UUID payload\",\n          \"offset\": 2808,\n          \"bytes\": 16\n        },\n        {\n          \"kind\": \"LC_CODE_SIGNATURE blob\",\n          \"offset\": 290864,\n          \"bytes\": 848\n        }\n      ],\n      \"codesign\": {\n        \"exitCode\": 0,\n        \"stdout\": \"\",\n        \"stderr\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\\n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\\n\"\n      }\n    },\n    {\n      \"file\": \"/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f\",\n      \"bytes\": 291712,\n      \"sha256\": \"98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f\",\n      \"bodySha256ExcludingUUIDAndSignature\": \"8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084\",\n      \"excluded\": [\n        {\n          \"kind\": \"LC_UUID payload\",\n          \"offset\": 2808,\n          \"bytes\": 16\n        },\n        {\n          \"kind\": \"LC_CODE_SIGNATURE blob\",\n          \"offset\": 290864,\n          \"bytes\": 848\n        }\n      ],\n      \"codesign\": {\n        \"exitCode\": 0,\n        \"stdout\": \"\",\n        \"stderr\": \"/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f: valid on disk\\n/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f: satisfies its Designated Requirement\\n\"\n      }\n    }\n  ],\n  \"interpretation\": \"Only the UUID payload and trailing code-signature blob are excluded. All remaining file bytes and load-command fields must match.\"\n}\n",
+            "stderr": "",
+            "result": {
+              "at": "2026-11-11T08:29:46.398Z",
+              "equivalent": true,
+              "artifacts": [
+                {
+                  "file": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+                  "bytes": 291712,
+                  "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+                  "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+                  "excluded": [
+                    {
+                      "kind": "LC_UUID payload",
+                      "offset": 2808,
+                      "bytes": 16
+                    },
+                    {
+                      "kind": "LC_CODE_SIGNATURE blob",
+                      "offset": 290864,
+                      "bytes": 848
+                    }
+                  ],
+                  "codesign": {
+                    "exitCode": 0,
+                    "stdout": "",
+                    "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\n"
+                  }
+                },
+                {
+                  "file": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+                  "bytes": 291712,
+                  "sha256": "98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+                  "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+                  "excluded": [
+                    {
+                      "kind": "LC_UUID payload",
+                      "offset": 2808,
+                      "bytes": 16
+                    },
+                    {
+                      "kind": "LC_CODE_SIGNATURE blob",
+                      "offset": 290864,
+                      "bytes": 848
+                    }
+                  ],
+                  "codesign": {
+                    "exitCode": 0,
+                    "stdout": "",
+                    "stderr": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f: valid on disk\n/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f: satisfies its Designated Requirement\n"
+                  }
+                }
+              ],
+              "interpretation": "Only the UUID payload and trailing code-signature blob are excluded. All remaining file bytes and load-command fields must match."
+            }
+          }
+        ],
+        "temporaryEvidenceRoot": "/tmp/p5sa-4nmal2so",
+        "scope": "Only sampled birth-verified descendants and exact LaunchServices TextEdit fixture tag are counted; transient unobserved processes are outside this sampler. The unchanged fixtures independently assert their own cleanup and clipboard restoration. Shared Finder is never killed by the sampler.",
+        "phaseStatus": "in_progress",
+        "passed": true
+      }
+    }
+  ],
+  "error": null,
+  "independentInvocations": {
+    "default": 1,
+    "renderer": 1
+  },
+  "manualRetries": 0,
+  "finderRun": false,
+  "finderStatus": "blocked_existing_user_content_window; not retried by independent executor",
+  "scope": "Independent execution by /root/p5_acceptance of current-helper selected TextEdit and CFT default/renderer scenes. Actual native helper bytes are retained outside Git and compared to default1cc excluding only UUID/signature. Wrapper executor/status labels were changed and exact diff retained. No full core/manual/engineering reruns, Finder, App-origin AX route, TCC revoke, OS lock or external environment acceptance.",
+  "GUIReleased": true,
+  "phaseStatus": "in_progress"
+}

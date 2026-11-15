@@ -1,0 +1,82 @@
+PASS 0 HTML 中栏 .chat-pane 带 data-main-view="chat"(状态机根)
+PASS 0 HTML 主视图 Tab(对话/工作台)就位
+PASS 0 HTML 两 Tab 带 data-main-view=chat|canvas（多 agent 面板叫「班组」，不叫「工作台」；文案由 i18n span 承载）
+PASS 0 HTML 工作台 Tab 亮点标 .wb-mv-dot 占位
+PASS 0 HTML 工作台视图容器 #workbenchView.wb-view
+PASS 0 HTML 三区容器 run 栏 / 画布 / 用量条就位
+PASS A JS switchMainView 状态机存在
+PASS A switchMainView 切 [data-main-view](一处切换全局响应)
+PASS A switchMainView 记忆到 localStorage(wcw.mainView)
+PASS A 进画布即时重绘 + 复用轮询骨架
+PASS A restoreMainView 恢复记忆(boot 接入)
+PASS A boot() 调用 restoreMainView
+PASS A 有活动 run 时主 Tab 亮点标(.has-activity ← AGENT_RUN_ACTIVE)
+PASS A Workbench 域自持主 Tab → switchMainView 绑定
+PASS A CSS canvas 态隐藏对话消息流 + composer
+PASS A CSS chat 态隐藏工作台视图
+PASS A CSS .wb-view flex 列布局占满中栏
+PASS A CSS 亮点标仅在 .has-activity 时可见
+PASS B layoutDAG 纯函数 layoutWorkbenchDAG(nodes) 存在
+PASS B 布局常量对齐 §5.2 伪码(220×88 / H48 / V64 / PAD32)
+PASS B 记忆化:已算层号直接返回(O(V+E))
+PASS B 环保护:成环节点回退层 0(防御编辑器已禁的环)
+PASS B 只认存在的依赖(忽略悬空/自指)
+PASS B 层号 = 1 + max(依赖层号),无依赖 = 0
+PASS B 层内均布 + 居中对称(centerX - rowW/2)
+PASS B 输出 {x,y,cx,layer}(cx 供连线端点)
+PASS B 拓扑签名 wbTopoSig + 布局缓存 wbLayoutFor
+PASS B id 位置记忆:拓扑未变复用 posCache(防抖动)
+PASS B 布局函数挂 window(供 preview eval 单测直接调)
+PASS C SVG 连线层构建器 wbBuildEdges 存在
+PASS C 走 createElementNS 造 SVG(命名空间正确)
+PASS C 连线源底缘中点 → 靶顶缘中点
+PASS C 三次贝塞尔路径 d(C 控制点落中垂线)
+PASS C r2 userSpaceOnUse 方向渐变(色沿依赖方向衰减)
+PASS C 端口:源实点 + 靶空心环
+PASS C 边着色按源节点显示状态(复用 nodeDisplayStatus)
+PASS C 边分类 run/reject/wait/done/fail
+PASS C 源运行中边:流动虚线(wb-flow 动画)
+PASS C 靶端口空心环(fill:--canvas-bg)
+PASS D 节点卡构建器 wbBuildNode 存在
+PASS D 复用同源纯函数(状态派生/徽标/引擎)
+PASS D 卡区:模型名 + 活动行(运行 shimmer)+ 门 verdict/迭代条
+PASS D CSS 节点卡固定 220×88
+PASS D 渗透:状态色 13% 渐变洗(与 P2 监控卡同族)
+PASS D 运行态 --glow-accent 光渗 + 脉动(wb-breathe)
+PASS D 选中态 accent 描边 + glow
+PASS D 状态类隔离前缀 wb-st-*(不复用裸 .st-*)
+PASS D 节点点击处置器 wbFocusRunNode 存在
+PASS D 点节点 → 标选中 + 填右板段1(P3b 取代 switchTab)
+PASS D CSS .wb-flash 高亮动画(保留)
+PASS E run chips 渲染器 renderWorkbenchRunbar 存在
+PASS E chip 状态映射(活动优先 → wb-st-running)
+PASS E 待批准池徽标(taskPool proposed 计数)
+PASS E 已完成 chip 鎏金 ✦(授权清单唯一处之一)
+PASS E 点 chip 或历史选择框切换选中 run 并重绘画布
+PASS E live chip 状态点脉动(wb-blink)
+PASS F 用量条渲染器 + 指标聚合 wbRunMetrics
+PASS F 时长复用 runElapsedMs
+PASS F 大数字复用 fmtTokens/fmtDuration
+PASS F 大数字仪表列(.wb-um + .num tabular-nums)
+PASS F 点击跳右栏用量看板
+PASS F CSS 大数字 --fs-lg(仪表风;122 波前是 --fs-xl 别名)
+PASS G 空态渲染器 renderWorkbenchEmpty 存在
+PASS G 空态引导卡(标题 + 两个引导按钮，代码与中文 locale 双向锁)
+PASS G 云纹水印(--ruyi-cloud mask)
+PASS G 无 run 分派到空态(renderWorkbench;对抗轮P2:新增签名跳过的 force 参数)
+PASS H 复用现有 2s 轮询(setInterval → agentRunsTick → loadAgentRuns 2000,协议未改)
+PASS H 投递尾段将同一快照与读取质量喂工具箱及画布，画布入口不新增请求或轮询
+PASS H loadAgentRuns 全量与增量成功均走同一 publish→deliverAgentRuns 投递
+PASS H 轮询期望态通过窄接口并入画布视图(监控页签 ∪ 画布)
+PASS H wbOnRuns 缓存 runs + 画布态重绘 + 刷新亮点标
+PASS H wbBuildNode 无 innerHTML(el()/textContent,XSS 安全)
+PASS H wbBuildEdges 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchRunbar 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchUsage 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchEmpty 无 innerHTML(el()/textContent,XSS 安全)
+PASS H 定位到 P3a CSS 追加块
+PASS H P3a CSS 块零硬编码十六进制色(全 token/color-mix)
+PASS H P3a CSS 块零裸 px 字号(全 var(--fs-*))
+PASS H styles.css 全局裸 px 字号仍仅 2 处基线锚点
+
+UI V3 P3A STATIC E2E: ALL PASS

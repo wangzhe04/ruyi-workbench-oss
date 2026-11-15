@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T12:50:50.960617+00:00",
+  "userInstruction": "后续开发无人值守，你完成后整体验收P5，然后恢复自动锁屏",
+  "execution": "Continue P5 development and independent whole-phase acceptance autonomously. Restore automatic locking after full P5 acceptance; do not restore at completion of only this compound-effect slice.",
+  "existingWakeState": {
+    "caffeinatePid": 31171,
+    "command": "/usr/bin/caffeinate -d -i -u -t 43200",
+    "screenSaverIdleTimeSeconds": 0,
+    "historicalScreenSaverIdleTimeSeconds": 300
+  },
+  "restorationStatus": "pending_full_P5_acceptance",
+  "scope": "The unattended instruction does not itself prove remaining hardware/OS/Windows/release-environment gates passed. Historical settings must be verified before final restoration.",
+  "restorationEvidence": {
+    "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v2.json",
+    "sha256": "2d11257d74971f28c6587debf7e542eebfa96e55490f987a205e00d4486c543d",
+    "priorIdleTimeSeconds": 300
+  },
+  "readOnlyObservation": {
+    "at": "2026-11-11T12:54:36.656037+00:00",
+    "screensaverIdleTimeSeconds": 0,
+    "caffeinatePid31171ConfirmedLive": true,
+    "pmsetDisplaySleepMinutes": {
+      "battery": 20,
+      "AC": 20
+    },
+    "settingsChangedThisObservation": false
+  }
+}

@@ -449,6 +449,16 @@ def section_pdf_pages():
     if not HAVE_RL:
         print("  [skip] reportlab 未装,跳过")
         return
+    for count in (1, 3, 7):
+        small = os.path.join(_TMP, f"default-pages-{count}.pdf")
+        _make_pdf(small, pages=count, text_lines=3)
+        r = _FNS["pdf_read_pages"](path=small)
+        check(r.get("ok") is True and [p["page"] for p in r.get("pages", [])] == list(range(1, min(5, count) + 1)),
+              f"省略页码读取实际前5页，短PDF不越界 ({count}页)")
+        if count == 1:
+            explicit = _FNS["pdf_read_pages"](path=small, pages="1-5")
+            check(explicit.get("ok") is False and "越界" in explicit.get("error", ""),
+                  "显式越界页码仍拒绝，不借默认策略放宽校验")
     pdf = P("long.pdf")
     _make_pdf(pdf, pages=30, text_lines=60)
     r = _FNS["pdf_read_pages"](path=pdf, pages="1-30", max_chars=12000)

@@ -202,7 +202,7 @@ function Assert-FullAccOcrPayload([string]$PayloadRoot, [string]$PythonExe, [swi
   if ($RequireReleaseManifest) {
     $requirements = Join-Path $PayloadRoot 'requirements_offline.txt'
     if (-not (Test-Path -LiteralPath $requirements -PathType Leaf) -or
-        -not (Select-String -LiteralPath $requirements -Pattern '^winsdk==1\.0\.0b10$' -Quiet)) {
+        -not (Select-String -LiteralPath $requirements -Pattern "^winsdk==1\.0\.0b10(?:; sys_platform == 'win32')?`r?$" -Quiet)) {
       throw "Full package requires the exact offline OCR dependency winsdk==$requiredVersion."
     }
     $manifestPath = Join-Path $PayloadRoot 'offline-manifest.json'

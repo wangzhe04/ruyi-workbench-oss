@@ -1,0 +1,47 @@
+PASS workbench up
+PASS runtime token available
+PASS (a) 会话已建
+PASS (a) 工作流已启动
+PASS (a) 3 条提案到齐(proposed)
+PASS (a) 三条提案按 task 可辨
+PASS (a1) 提案注册 pending Intervention(pool,带 runId)
+PASS (a1) 三条提案全部落盘 pending
+PASS (a2) /api/missions pending.pool=3(统一读形计数)
+PASS (a) contract pool approve 200
+PASS (a) pool_reject 200
+PASS (a3) 批准 -> settle approved(decidedBy=user)
+PASS (a3) 拒绝 -> settle rejected(decidedBy=user)
+PASS (a) run 已终态(succeeded)
+PASS (a4) 宽限窗到期 -> 余留提案 expire + settle expired(decidedBy=auto)
+PASS (a5) 全部终态后 pending.pool=0
+PASS (b) workbench 重启 up
+PASS (b) 重启后重读 token
+PASS (b1) boot 对账补登记存量提案(backfilled,pending,带 runId)
+PASS (b2) paused run 的 pool pending 不被重启一刀切(分流保留)
+PASS (b2) paused-pending 契约决策 -> 409 run_paused
+PASS (b2) run_paused 不推进 Intervention 状态
+PASS (b3) 崩溃 running run -> boot 中断 + 提案 expire + settle expired(auto)
+PASS (b3) run 快照同步:interrupted + 提案 expired
+PASS (b4) 孤儿 pool pending(run 不存在)-> cancelled_restart
+PASS (b5) 重启后 pending.pool=1(只有补登记的 pool-l1)
+PASS (b6) 并集兜底:无 iv 记录的 proposed 也计入(pool=2)
+PASS (b7) permission pending 段 -> cancelled + note
+PASS (b7) permission paused 段 -> cancelled(存档暂停同失效)
+PASS (b7) plan pending 段 -> cancelled
+PASS (b7) question pending 段 -> cancelled
+PASS (b7) 已终态段(allowed)不动
+PASS (b8) 清理落盘持久(二次装载仍 cancelled)
+
+── [s] 静态锁 ──
+PASS s 02 有 healStalePendingSegments 清理器
+PASS s 02 loadSession 竞态守卫(activeChildren + turnSettlers)
+PASS s 02 markInterruptedInterventions pool 分流(paused 保留)
+PASS s 08 中断 expire 旁路 settle
+PASS s 08 存量对账补登记(legacyPoolProposed + backfilled)
+PASS s 09 proposeTaskImpl 注册 pool Intervention
+PASS s 09 收尾 expire 旁路 settle
+PASS s 13d pool_approve/pool_reject 适配到 decideIntervention
+PASS s 13d pool 实际动作仅在 command core
+PASS s 13d missionPendingCounts 四源统一(pool 从 iv + 并集兜底)
+
+INTERVENTIONS POOL E2E: ALL PASS

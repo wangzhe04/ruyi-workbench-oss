@@ -1,0 +1,35 @@
+── [U] 开关与确定性抽取 ──
+PASS U1 默认配置 summaryEntityCheckEnabled=true(采用门后默认开)
+PASS U2 显式 false 关闭(可回退旧行为)
+PASS U3 sanitize 只认 JSON 布尔(字符串 "true" 洗回 false)
+PASS U4 抽取/检查函数已导出
+PASS U5 Responses 悬空 function_call 补恰好 1 条合成 output
+PASS U6 Responses 配对适配只改浅拷贝,不污染持久化历史
+PASS U7 Responses payload 含缺失 call_id 的合成 output(防 HTTP 400)
+PASS U8 八类实体全部抽出(8 个):7.5% | 12345 条 | 夜莺 | payGateway | 2026-08-30 | v9.8.7 | pay/gateway/router.js | E:\proj\pay\app.ts
+PASS U9 噪声过滤(and/or、10/20 不进实体)
+PASS U10 采样上限 maxSamples=12(实际 12)
+PASS U11 尾部优先:超上限时最近实体保留、最早实体淘汰
+PASS U12 包含清扫:短项不重复抽检(v2.6.2 | 2026-08-31)
+PASS U13 缺失清单完整(首稿全无实体 → 全量 missing)
+PASS U14 修补稿逐字含全部实体 → missing 为空
+PASS U15 空实体集 → 空缺失(不臆造检查)
+── [H] 真实历史抽取 ──
+SKIP H1-H3 本机无真实 checkpoints 快照(CI/他机显式跳过,不计通过)
+── [E] fake-openai 集成 ──
+PASS E1 场景1流程跑通
+PASS E2 摘要调用恰好 2 次(首稿+一次定向修补,实际 2)
+PASS E3 修补请求体含缺失清单(逐字实体)
+PASS E4 修补不重发全量历史(只发 当前摘要+缺失清单)
+PASS E5 reseed 采用修补稿(实体已回摘要)
+PASS E6 遥测 summary_entity_check outcome=repaired 且缺失计数正确
+PASS E7 场景2流程跑通
+PASS E8 修补稿非法时总调用恰好 2 次(不二次重试,实际 2)
+PASS E9 保留原摘要(修补稿被拒)
+PASS E10 遥测 outcome=repair_rejected
+PASS E11 场景3流程跑通
+PASS E12 显式关闭时摘要调用恰好 1 次(零修补,实际 1)
+PASS E13 显式关闭时原样采用首稿(回退旧行为)
+PASS E14 显式关闭时零 summary_entity_check 事件
+
+SUMMARY-ENTITY-CHECK E2E: ALL PASS (1 skipped)

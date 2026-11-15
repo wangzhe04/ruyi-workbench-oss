@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-12T00:08:53.211086+00:00",
+  "status": "passed_read_only_census_only_delta_review_no_runtime_executed",
+  "source": {
+    "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/process-safety.static.e2e.js",
+    "bytes": 14813,
+    "sha256": "80a0591f7766779b5fb3b90ef5055204cf49a5bb07b7e731ad70622d95646e13"
+  },
+  "reconstructedPriorFreezeV3": {
+    "bytes": 14714,
+    "sha256": "19802bad84da86bdd75bc303c405331b9a63360e2e8f4b62819787f29b09efae"
+  },
+  "onlyDelta": "KILL_OWNERS377->378 and comment naming the new balanced harness cleanup owner;inverse replacement exactly reconstructs previous complete source hash.",
+  "meaning": "Census expectation increases by exactly the newly added harness require(lib/kill-own-tree).Scanner regex,walk scope,strict equality assertion and all process cleanup implementation remain byte-identical.This is inventory maintenance,not weakened process ownership semantics.",
+  "sourceReason": "Reviewed macos-execution-input.e2e.js imports killOwnTree and calls it only after actual drivers/native receipts settle plus independent neutral receiver observation.New fixture cleanup identity code had separate source review;this constant change introduces no signal/postinput path.",
+  "primaryFailureBoundary": "Parent reports first fast run failed actual378 versus expected377,with runner automatic retry preserved.This report does not reinterpret it as process cleanup behavior failure or as an independently executed census pass.",
+  "actions": "Read source/diff and reconstruct prior source in memory.Hash files and create this exclusive0600 evidence only.No tests/static scanner execution,native helper,GUI,compile,process probe or source edit.",
+  "independentRuntimeState": "Still waiting updatedfreeze-v4/final engineering gates and parent explicit native exclusivity release.No independent balanced run has started.",
+  "constraints": "Default-off/fullP5open;no heldfault/rescue/lock/revoke/physicaldemo.All earlier failure evidence retained."
+}

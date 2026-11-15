@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "elapsed": 2.000354415999027,
+  "isolation": "/tmp/rc-rcxhukmg",
+  "scope": "21adapter cases, real request_scope async cancellation -> real native worker exits while actual generic entry persistence wrapper is blocked; not actual MCP/root Stop."
+}

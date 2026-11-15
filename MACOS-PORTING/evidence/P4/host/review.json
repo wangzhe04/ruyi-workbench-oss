@@ -1,0 +1,97 @@
+{
+  "reviewer": "/root/p4_host_review",
+  "status": "passed",
+  "scope": "P4-01 current macOS development host, source, real AppKit/WKWebView e2e, build rollback, visual output, source freshness",
+  "independentNative": {
+    "command": "RUYI_DESKTOP_TEST_APP=\"$PWD/ruyi-workbench/dist/Ruyi.app\" node dev-harness/macos-desktop-host.e2e.js",
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "log": "native-independent.txt"
+  },
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "P1",
+      "issue": "Native forced default data root bypassed existing legacy data resolution/migration",
+      "resolution": "Leave direct serve environment resolution in place, match runtime by owned PID in next/legacy roots, retain empty and relative path semantics",
+      "status": "closed"
+    },
+    {
+      "id": "R2",
+      "severity": "P2",
+      "issue": "Failed replacement plus failed restoration deleted the only old App during staging cleanup",
+      "resolution": "Preserve previous.app on double rename failure, report recovery path, add fault injection",
+      "status": "closed"
+    },
+    {
+      "id": "R3",
+      "severity": "P1",
+      "issue": "Default WebKit profile shared localStorage across business data roots",
+      "resolution": "Use macOS14 named persistent website data stores keyed by canonical data root, test same-origin cross-root isolation and same-root persistence",
+      "status": "closed"
+    },
+    {
+      "id": "R4",
+      "severity": "P2",
+      "issue": "Window movement notification could overwrite frame before restoration",
+      "resolution": "Restore before attaching movement delegate; test a visible non-default frame",
+      "status": "closed"
+    },
+    {
+      "id": "R5",
+      "severity": "P2",
+      "issue": "Strict origin navigation cancelled sandboxed srcdoc previews",
+      "resolution": "Allow about:srcdoc/about:blank only in child frames; retain trusted-origin top-frame policy",
+      "status": "closed"
+    },
+    {
+      "id": "R6",
+      "severity": "P2",
+      "issue": "Lock acquisition failure skipped lifecycle callbacks and Retry did not reacquire lock",
+      "resolution": "Install common callbacks/menu/signals before locking, Retry reacquires lock; actual CUA button press recovers complete UI",
+      "status": "closed"
+    },
+    {
+      "id": "R7",
+      "severity": "P2",
+      "issue": "Foundation path alias differed from Node POSIX canonical identity",
+      "resolution": "Use POSIX realpath with nearest existing ancestor for profile/lock identity",
+      "status": "closed"
+    },
+    {
+      "id": "R8",
+      "severity": "P1",
+      "issue": "AppKit terminateLater nested loop prevented main-queue service cleanup callbacks",
+      "resolution": "Cancel initial termination, finish async owned service cleanup, then terminateNow under completed shutdown flag",
+      "status": "closed"
+    }
+  ],
+  "remainingCodeFindings": 0,
+  "visualInspection": {
+    "status": "passed",
+    "artifact": "workbench.png",
+    "observed": [
+      "navigation",
+      "welcome state",
+      "composer",
+      "actual port fallback notice"
+    ]
+  },
+  "buildFreshness": {
+    "embeddedSourceHashes": 5,
+    "status": "passed",
+    "minimumDeploymentDeclaration": "14.0",
+    "signature": "ad-hoc-development"
+  },
+  "retryInteraction": "retry-interaction.json",
+  "limits": [
+    "Actual macOS14 execution pending O2/P6",
+    "Formal Developer ID identity/Keychain/TCC revalidation deferred by user",
+    "System bridge, notifications and media pending P4-02/P4-03",
+    "MCP/CLI full process trees and sleep/wake pending P4-04",
+    "Windows same-candidate runtime acceptance pending",
+    "Development App resources depend on workbench source directory"
+  ]
+}

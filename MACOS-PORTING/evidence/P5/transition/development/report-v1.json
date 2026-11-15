@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "sourceFreeze": "freeze-v3.json",
+  "pass": 18,
+  "fail": 0,
+  "actualMotionRefusals": [
+    {
+      "label": "moving-0",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 10
+    },
+    {
+      "label": "moving-1",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 9
+    },
+    {
+      "label": "moving-2",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 8
+    },
+    {
+      "label": "moving-3",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 8
+    },
+    {
+      "label": "moving-4",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 8
+    },
+    {
+      "label": "moving-5",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 10
+    },
+    {
+      "label": "moving-6",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 10
+    },
+    {
+      "label": "moving-7",
+      "code": "window_changed",
+      "exitCode": 1,
+      "distinctOwnedFramesDuringRequest": 8
+    }
+  ],
+  "observedIdentities": 12,
+  "retainedRoot": null,
+  "artifacts": [
+    {
+      "path": "development/live-v1.txt",
+      "sha256": "05d38e60a1e132ef65a1bb8397ed9d3c4e8e8ba5ff918d9ffb611bd2b165e7af"
+    },
+    {
+      "path": "development/live-v1/results.json",
+      "sha256": "73a0b3ccce60514ec5d8608d796c7dc98022a78c15fa2acc20320ac5ffa66003"
+    },
+    {
+      "path": "development/live-v1/stable-before.png",
+      "sha256": "17ab599a42cb0eeee3a49e7bacf819647848e3d386ad11927a4164b2da614892"
+    },
+    {
+      "path": "development/live-v1/stable-after.png",
+      "sha256": "17ab599a42cb0eeee3a49e7bacf819647848e3d386ad11927a4164b2da614892"
+    }
+  ],
+  "scope": "Production raw helper; actual owned-window horizontal translation with witnessed window_changed refusal; stable coordinate/backing-scale/pixel controls. No new product implementation, physical display topology, dynamic successful origin proof, input, clipboard, TCC/lock, normal provider/App or Windows runtime acceptance.",
+  "phaseStatus": "in_progress"
+}

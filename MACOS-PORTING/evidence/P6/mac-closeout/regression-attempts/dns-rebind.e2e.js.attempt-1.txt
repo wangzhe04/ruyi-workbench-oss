@@ -1,0 +1,11 @@
+PASS workbench up on :65365
+PASS UI token scraped
+PASS (1) spoofed Host (evil.example) rejected 403 (got 403)
+PASS (1) body is an error, no session created
+PASS (2) loopback+token creates a session (got 200)
+PASS (3) browser Origin without token rejected 403 (got 403)
+PASS (4) same-origin browser WITH token allowed (got 200)
+PASS (5) loopback no-Origin no-token still allowed (got 200)
+PASS (6) rebinding page (Host+Origin both evil, even WITH stolen token) rejected 403 (got 403)
+
+DNS-REBIND E2E: ALL PASS

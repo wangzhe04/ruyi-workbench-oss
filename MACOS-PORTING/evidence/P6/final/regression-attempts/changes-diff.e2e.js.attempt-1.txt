@@ -1,0 +1,11 @@
+PASS workbench listening
+PASS (a) 无 token → 403
+PASS (b) 文本条目 isText=true
+PASS (b) before 含旧内容 line2-OLD
+PASS (b) after 含新内容
+PASS (b) beforeBytes/afterBytes 正确
+PASS (c) 二进制条目 isText=false/binary=true
+PASS (c) 二进制不返回文本内容
+PASS (d) 不存在的 entry → 404
+
+CHANGES-DIFF E2E: ALL PASS

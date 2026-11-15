@@ -1,0 +1,51 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 线程已建(sess_a230fab09daaa1ce)
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 经典壳载入,侧栏里有这条线程
+PASS A7 计时器探针已装上
+PASS A7b 本机壳层偏好已在预绘前钉成经典(121-K0 起首开默认是管家视角,本件的经典壳判据要自己把偏好定下来)
+PASS A8 服务端确认这一回合活着(信封里有 liveTail.full)
+── B 经典壳打开这条线程 ──
+PASS B1 屏幕上出现了「它正在跑」那张气泡(修前这里是一片空白)
+PASS B1b 打开的就是这条线程(sess_a230fab09daaa1ce)
+PASS B2 在途消息复用原生引擎标题(实测「Fake」)
+PASS B3 正文是这一回合真流出来的话(实测「第一段:我先看一眼这件事的现场。」)
+PASS B4 输入框复用原生「停止」
+PASS B5 屏幕上只有一张临时气泡(实测 1 张)
+PASS B6 这一刻 state.currentSession.messages 里一条助手消息都没有(实测 ["user"])
+PASS B6b 屏幕上也没有第二张假的「真消息」(实测 0 条)
+PASS B7 「正在用」写着工具名(实测「正在用：file_read ✓」)
+PASS B8 不再附加独立轮次状态行
+PASS B9 气泡里是【经典壳同一个渲染器】画出来的叙事容器 .turn-narrative(实测 true)
+PASS B10 屏幕上有可折叠的【思考块】(实测 1 个)
+PASS B11 屏幕上有【工具卡】,不是一行「正在用:X」的文字(实测 1 张)
+PASS B12 工具卡上写着工具名(实测「file_read」)
+PASS B13 工具卡上那一行是真参数(与落盘消息的工具卡同一个截断口径;实测「/private/tmp/ruyi-p6-c…v8DBef/home/probe.txt」)
+PASS B14 工具跑完后卡上是【完成】徽章 —— 结果没下发也照样能诚实标终态(实测「完成」)
+PASS B15 运行中不出「本轮记录」索引卡 —— 那张卡读着像回合已经结束(实测 0 张)
+PASS B16 纯文本兜底那一块被藏起来了 —— 同一段话不会在屏幕上出现两遍(实测 hidden=true)
+PASS B17 叙事里就是这一回合真流出来的话(实测「思考 · 22 字我先想一想:这件事得先看一眼现场,再下结论。第一段:我先看一眼」)
+PASS B18 运行中回合左下角有指示动效(实测 content="")
+── S 在途刷新时的阅读位置 ──
+PASS S1 在途正文把【整页】撑长了(可滚动余量 975px) —— 不再是窗中窗
+PASS S2 页面确实变高了(1632 → 2070px) —— 否则 S3 是条空断言
+PASS S3 等到页面真的长高了,视口原地不动(漂移 0px ≤ 24px)
+PASS S4 等到页面再长高一段之后仍贴着底(离底 0px < 120px,与 captureScrollAnchor 的同一个判据)
+── C 节拍与零后台活动 ──
+PASS C1 活回合期间恰好一处 3000ms 计时器(实测 [3000,10000,1000])
+PASS C2 切去管家壳后经典壳这张表停掉(零后台活动)
+PASS C3 切回经典壳并重开线程后气泡与表都回来了
+── D 回合结束后收尾 ──
+PASS D1 回合结束后临时气泡消失,真消息落到屏幕上
+PASS D2 屏幕上的是这一回合的完整正文(含收尾那句;实测 11893 字)
+PASS D3 零残影(data-live 节点 0 个)
+PASS D4 这时候正文才进 state.currentSession.messages(实测 ["user","assistant"])
+PASS D5 回合结束后表自己停了(零后台活动)
+PASS D6 回合结束后「本轮记录」索引卡出现在落盘消息上(实测 1 张)
+PASS D7 回合结束后左下角运行中动效消失(实测 content=none)
+PASS R1 前提:会话有落盘消息,重渲前后行数相同(实测 2 → 2)
+PASS R2 内容没变的重渲不摘下任何一行、行对象原样(摘下 0 行,带原标记 2/2)
+
+LIVE FULL TEXT BROWSER E2E: ALL PASS

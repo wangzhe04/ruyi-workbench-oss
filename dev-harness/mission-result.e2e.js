@@ -228,7 +228,8 @@ function spawnWb() {
     console.log('\n── [s] 静态锁 ──');
     ok(/IRREVERSIBLE_NATIVE_KIND = \{/.test(src) && /CLAUDE_IRREVERSIBLE_KIND = \{/.test(src), 's 02 不可逆账分类表(内建+claude)');
     ok(/function irreversibleToolKind\(name\)/.test(src) && /irreversible\.push\(\{ kind, name/.test(src), 's 02 buildTurnSummary 记账');
-    ok(/return \{ turnSeq: Number\(turnSeq\) \|\| 0, filesChanged, commands, artifacts, irreversible \}/.test(src), 's 02 turnSummary 返回 irreversible');
+    const summaryProbe = require(path.join(WB, 'app/server.js')).buildTurnSummary(1, [], 'openai', []);
+    ok(Array.isArray(summaryProbe.irreversible), 's 02 turnSummary 返回 irreversible');
     ok(/function foldTurnSummaries\(session\)/.test(src) && /legacyCommands/.test(src), 's 02 foldTurnSummaries 单一折叠 + legacyCommands');
     ok(/async function buildMissionResult\(session, opts\)/.test(src) && /rollbackAvailable/.test(src), 's 02 buildMissionResult(含真实回滚引用)');
     ok(/async function maybeFinalizeMission\(session, how\)/.test(src), 's 02 maybeFinalizeMission 盖章/清章');

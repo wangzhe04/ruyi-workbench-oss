@@ -1,0 +1,52 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 四条线程已建（sess_2f729eac7c393545 / sess_d4f52abba9b65584 / sess_9a2b49c630f9163d / sess_f705343128b6c961）
+PASS A4 线程 A 钉了会话级权限档（左栏那一行才会印出 chip）
+PASS A5 事项容器已建（mission_04f70eeb803f9f60）
+PASS A6 线程 A 停在 question 待决（等你）
+PASS A7 线程 B 的回合一直在飞（在跑）
+PASS A8 Edge/Chrome found
+PASS A9 browser target available
+PASS A10 首屏就绪（config 真到达、线程头与那组 chip 已挂上）
+PASS A11 启动对账已呈现线程 A 的待回答提问
+PASS A12 通过稍后处理收起提问，再检查非模态菜单层级
+PASS A13 收起提问后线程 A 仍待回答，保留等你与权限 chip 的夹具
+PASS B0 管家视角：盾牌菜单真的展开了
+PASS B1 管家视角：盾牌菜单在最上面 —— 菜单矩形三点 elementFromPoint 都落在菜单自己身上（实测 ["self","self","self"]）
+PASS B1b 工作台视角：盾牌菜单真的展开了
+PASS B2 工作台视角：盾牌菜单在最上面（右栏「项目与进度」不许盖它；实测 ["self","self","self"]）
+PASS B2b 工作台视角：齿轮菜单真的展开了
+PASS B3 工作台视角：齿轮菜单在最上面（实测 ["self","self","self"]）
+PASS B4 .app-topbar 自己有层级：定位非 static、z-index 在「压得住右栏(30)、压不住抽屉遮罩(44)/模态(50)/浮层(55)」这一档（实测 {"z":"42","position":"relative"}）
+PASS C0 左栏行里找得到一块【不是按钮】的地方（实测 {"x":11,"y":517,"cls":"steward-board-thread steward-tcard"}）
+PASS C1 工作台视角：点行里那块空白 → 中栏真的换成了这条线程（§2.3 点击语义＝整行）
+PASS C2 管家视角：点行里那块空白 → 焦点真的换了（原来是 （无））
+PASS C3 普通密度：悬停一行【不】出那一排动作（实测 display=none）
+PASS C4 普通密度：行尾恰有一枚「⋯」，悬停时可见（实测 1 枚 / display=grid）
+PASS C5 「⋯」点开的就是那一份动作表（置顶／重命名／删除都在里面；实测 {"display":"flex","labels":["prioritize","stop","open","new-thread","pin","rename","delete"],"open":true}）
+PASS C6 看板密度：悬停一行【出】那一排动作（§2.3「悬停动作只属看板密度」；实测 {"actions":"flex","moreCount":1,"moreDisplay":"none","boardMode":true}）
+PASS C7 看板密度：「⋯」让位（动作表已经铺开了，不要两条路；实测 display=none）
+PASS D1 「＋」按钮自己说得出它此刻是哪一义（data-lens；实测 steward / classic）
+PASS D2 两视角的文案与字形都不同（实测 「另起一件」/lensSteward ↔ 「新线程」/plus）
+PASS D3 底色也不同 —— 工作台那一枚是主色实心（.primary 的渐变），管家那一枚是描边次级钮（实测 底 none / 边 color(srgb 0.862745 0.729412 0.458824 / 0.55)/solid ↔ 底 linear-gradient(135deg, rgb(74, 108, 217), color(srgb 0.378039 0.430118 0.876235)) / 边 rgb(74, 108, 217)/solid）
+PASS E0 工作台打开线程 C（线程头那一组 chip 就绪）
+PASS E0b 线程头权限 chip 的菜单真的展开了（实测 {"x":282,"y":119,"w":299,"h":450}）
+PASS E1 线程头 chip 菜单在最上面 —— 「对话｜班组」页签条与消息流都不许叠上来（实测 ["self","self","self"]）
+PASS E2 chip 菜单是实底（alpha ≥ .9 或带 backdrop-filter，§2.10.3 浮层材质；实测 bg=rgb(21, 29, 43) backdrop=none）
+PASS E3 管家视角焦点卡里的同一份 chip 菜单也在最上面（实测 ["self","self","self"]）
+PASS E4 左栏行上的同一份 chip 菜单也在最上面（实测 ["self","self","self"]）
+PASS F0 工作台打开空线程 D（中栏是那张空态，「当前引擎」那一行在场）
+PASS F0b 空态那一行「当前引擎」在场（实测「当前引擎：Fake · fake-model」）
+PASS F0c 指针先落进模型菜单（此后用量迟到也不再重画 —— 下一步量到的位置就是点下去的位置）
+PASS F1 切模型恰发一发 PATCH /api/sessions/:id 且 200（实测 [{"line":"PATCH /api/sessions/sess_f705343128b6c961","status":200}]）
+PASS F2 服务端回读：这条线程的 engineRoute.model 真的变了（实测 {"engine":"openai","providerId":"fake","model":"fake-model-2"}）
+PASS F3 组合根手里那份会话跟着变了（state.currentSession.engineRoute.model；修前实测「fake-model」→ 现在「fake-model-2」）
+PASS F4 线程头模型 chip 的值变了（实测「fake-model-2」）
+PASS F5 空态「当前引擎：…」那一行跟着变了（实测「当前引擎：Fake · fake-model-2」）
+PASS F6 #statusLine 的 title（服务商 · 模型）跟着变了（实测「Fake · fake-model-2」）
+PASS F7 切完有一条【看得见】的回执（工作台视角里 #stewardDrawerNote 是藏着的；实测「仅此任务已选择模型 fake-model-2，从下一回合使用；新任务默认不变。」）
+PASS F8 下一回合真的打到新模型上（fake provider 抓到的 model=["fake-model-2"]）
+PASS F9 切引擎也写得进去（agent 路由形状；服务端回读 {"engine":"agent","agentCliType":"kimi","model":""}）
+PASS F10 切引擎之后组合根手里那份也跟着变（实测 {"engine":"agent","agentCliType":"kimi","model":""}）
+SHOTS {"walkthrough-r1-steward-shield.png":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-njF68q/ruyi-walkthrough-r1-39Bygj/walkthrough-r1-steward-shield.png","walkthrough-r1-classic-chipmenu.png":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-njF68q/ruyi-walkthrough-r1-39Bygj/walkthrough-r1-classic-chipmenu.png"}
+ALL PASS

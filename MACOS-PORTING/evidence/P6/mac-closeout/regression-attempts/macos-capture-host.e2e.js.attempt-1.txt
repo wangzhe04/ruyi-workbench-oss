@@ -1,0 +1,10 @@
+PASS LaunchServices App owns the actual workbench Node service
+FAIL App-launched helper has its own verified capture authorization
+PASS App status directory and capability snapshot agree on capture readiness
+FAIL normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+INFO Failed App fixture retained at /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-host-w264ww
+
+MACOS CAPTURE HOST E2E: FAIL (2)
+
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-qPhLJW

@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-11-13T02:36:21.638430+00:00",
+  "status": "waiting_for_user_to_confirm_top_screen_capture_picker",
+  "app": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "oldRecordingPermissionTarget": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01/Ruyi.app",
+  "requestedPermissions": [
+    "Screen Recording and System Audio",
+    "Accessibility"
+  ],
+  "userCredentialsEnteredByAgent": false,
+  "systemPermissionsChangedByAgent": false,
+  "originalFullPackageProductionSourceFingerprintMatches": 492,
+  "productionSourceMismatches": [],
+  "fixtureCodeReview": "fixture-code-review.json",
+  "changedFixturesAwaitingRuntimeRecheck": [
+    "dev-harness/macos-capture-host.e2e.js",
+    "dev-harness/macos-input-host.e2e.js"
+  ],
+  "testExecution": "No further UI/input test started during user permission handoff. The two earlier failed outputs remain preserved.",
+  "next": "After the user confirms authentication, observe Settings/readiness, close CUA handoff, and serially run capture and input with RUYI_DESKTOP_TEST_APP pointing to this exact immutable App; independent serial rerun before closing gates.",
+  "power": "Previous one-shot sleep command was accepted. This resumed attended run has made no new wake setting or sleep request.",
+  "updatedAt": "2026-11-13T02:50:51.892707+00:00",
+  "newObservation": "Top screen-capture Ruyi still reveals old Slim; bottom system-audio-only Ruyi reveals the correct new Full. Exact new Full is selected in picker opened from TOP Add button, awaiting user Open/authentication.",
+  "afterUserReportedGrant": "main-after-authorization: source-tested capture observer initially missed empty-name process snapshots and was corrected; actual capture/input still denied. input receipt now proves installed bundled helper SHA3131822a.",
+  "fixtureReviewEvidence": [
+    "fixture-code-review.json",
+    "fixture-name-delta-review.json"
+  ]
+}

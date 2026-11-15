@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T16:55:38.113Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Read-only source supplement and existing log inspection; no reviewer tests, native/helper/MCP/GUI execution or edits.",
+  "priorFactoryReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/node-ledger-source-review-v1.json",
+    "bytes": 11814,
+    "sha256": "2e253a8bcc86dec5fd5625c9a310eb318e4427267610c387a0e9a70823339e3c"
+  },
+  "priorFactoryReviewPreserved": true,
+  "factorySourceUnchanged": {
+    "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+    "bytes": 24211,
+    "sha256": "ffe334f18fa1a1fdc668e705c892e197c8708c90f11b4d48d19d16ec419a07d8"
+  },
+  "sourceInputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234157,
+      "sha256": "2e1929164f57f94b52bfbb811991b94bc10e33c917a0c7d13325a192c0075ac2"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/acc-capability-gates.test.js",
+      "bytes": 12099,
+      "sha256": "ec4d059cfbe207a92bab40d6bd81868e286cebbfd02d72c36564f5273e0bb47b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 22113,
+      "sha256": "056661b8f8f3b3b224d7cd4d09e14167e583945fb81b282724129d96733dc3be"
+    }
+  ],
+  "scope": "Read-tier classification for execution_receipt, positive capability registration/family assertions, and POSIX-only factory test skip. This supplement does not overwrite the factory review test hash or extend runtime acceptance.",
+  "findings": [],
+  "outcome": "No new actionable source issue identified.",
+  "checks": [
+    "execution_receipt is an explicit BRIDGED_READ_TOOLS member; configured tier overrides and existing tier-floor logic remain unchanged.",
+    "The reader reads validated metadata/private evidence without returning raw arguments or dispatching native actions. Its probe is a safe control read, so desktop/command action switches must not hide it.",
+    "Capability test now expects110 registered tool names, positively asserts the reader exists and has read tier, and excludes it from command/desktop/dispatcher action families.",
+    "The factory test wrapper skips only on Windows because the private-file feature is POSIX. The condition introduces no Mac skip; it is a platform limitation, not evidence of Windows feature acceptance."
+  ],
+  "existingEvidence": {
+    "fullUnitV1": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/full-unit-node-storage-v1.log",
+      "bytes": 402689,
+      "sha256": "66ff75fda59ef943393110dfa248f8de3470449cec5de600d1c277ac2d4cb860"
+    },
+    "fullUnitV1Counts": {
+      "tests": 2591,
+      "pass": 2572,
+      "skipped": 18,
+      "fail": 1
+    },
+    "fullUnitV1Failure": "The single failure is the old109 count assertion against actual110; preserve this original failed run.",
+    "relatedPolicy": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/reader-policy-v1.log",
+      "bytes": 783,
+      "sha256": "194e2de65fdc8bca955cc931b5a96d89bc0853c48536bce6ea5d5dc4f2061126"
+    },
+    "relatedPolicyCounts": {
+      "tests": 6,
+      "pass": 6,
+      "skipped": 0,
+      "fail": 0
+    },
+    "countClarification": "The available reader-policy-v1.log reports six tests, not seven. This report follows the original artifact.",
+    "finalFullUnitRerun": "Pending at review time; no final full-unit success inferred.",
+    "reviewerExecuted": false
+  },
+  "implementationState": "Uncommitted full execution-receipts WIP. Classification and factory unit checks do not implement real root/provider/CLI dispatch, history delivery, retention or restart runtime.",
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  }
+}

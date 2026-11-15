@@ -1,0 +1,470 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_balanced_input_checkpoint_document_archive_review",
+  "reviewer": "/root/p5_acceptance",
+  "createdAt": "2026-11-12T00:29:54.202939+00:00",
+  "verdict": "pass_after_three_documentation_clarifications_closed_no_open_findings",
+  "phaseStatus": "in_progress",
+  "fullP5Accepted": false,
+  "reviewScope": "Uncommitted P5 checkpoint documentation, current-state schema8, unchanged before-balanced snapshot, evidence indexv12, new balanced input summary/nextplan/source archives/runtime raw evidence/reports/dual commit binding. No implementation review expansion or runtime rerun.",
+  "actions": "Read documentation, actual Git blobs/patches, logs/JSON and tar-member bytes in memory; independently hash existing files and receipts/history prefixes. No repository tests/gates, native helper, GUI, compile, input, process sampling/signals, TCC/lock/keepawake changes or source edits. Only requested review JSON, exact main evidence copy and authorized outsideV12 pointer written.",
+  "reviewedDocumentsBeforeReviewPointerInsertion": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "bytes": 13579,
+      "sha256": "e933712d5838828485f2a9b868781fddd2936958d88cac5d5c4a27920ba21837"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/TASKS.json",
+      "bytes": 111598,
+      "sha256": "f96992ae12103cbf114ae3535b4860055a9f7fff83e272f17741178de41558de"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "bytes": 4690,
+      "sha256": "9a54549283eaecb38a1248bce7be7bfcdb31b622289c98ab082fd915bb6761b9"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state.json",
+      "bytes": 61673,
+      "sha256": "2fec1c86387beca04d9ff994dbac654e41656df933643dabbd6c2b92087d037b"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-before-balanced-input-20261112T0020Z.json",
+      "bytes": 55038,
+      "sha256": "59435f172b9e9938630477139b053e9b256adf02331fdd49dc1f1442882e80de"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "DOC-PATH-1",
+      "severity": "P2",
+      "finding": "Four balancedQualified relative references copied from evidence-based plan lacked evidence/ prefix in root current-state.",
+      "resolution": "summary/freeze/sourceReview/independentReport now have evidence/ prefix and resolve from current-state directory. Their actual bytes/hashes match authoritative top-level references. Indexed plan and raw evidence were not rewritten.",
+      "location": "current-state.json nextConcreteImplementation.balancedQualified",
+      "closed": true
+    },
+    {
+      "id": "DOC-PROOF-1",
+      "severity": "P2",
+      "finding": "Engineering beforeAfterSnapshots8 could be read as eight persisted full131-row snapshots.",
+      "resolution": "Current state now says beforeAfterChecks8 and explicitly explains engineering stores empty mismatch lists; only independent runtime has two full131-row snapshots. Receipts README states the same. Raw engineering reports and index remain unchanged.",
+      "location": "current-state.json engineeringChecks; execution-receipts-wip/README.md final paragraph",
+      "closed": true
+    },
+    {
+      "id": "DOC-SCOPE-1",
+      "severity": "P2",
+      "finding": "Failure-path halt/no-new-dispatch/armed unresolved handling needed an explicit source-only evidence level beside successful cleanup runtime proof.",
+      "resolution": "Current state proofLimits and receipts README now explicitly state those unresolved/active-failure paths are source-reviewed only. Actual run verified successful settled-neutral cleanup; no active-input failure/unresolved-live drill is claimed.",
+      "location": "current-state.json proofLimits; execution-receipts-wip/README.md final paragraph",
+      "closed": true
+    }
+  ],
+  "openFindings": [],
+  "archiveIntegrity": {
+    "index": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v12.json",
+      "bytes": 190596,
+      "sha256": "9b6c6f949399af50618e016fd98817ef481452f0b3fb17e72f624705eaa65ad4"
+    },
+    "indexedFiles": 998,
+    "sumIndexedBytes": 100685229,
+    "all998MainFilesBytesShaMatchIndex": true,
+    "all998MainFilesEqualTmpOriginalsByteForByte": true,
+    "previousIndex": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v11.json",
+      "bytes": 180540,
+      "sha256": "bbcb349885f409d31d237438af2027c067653746a54c4cf0b98cdbb3117baa72"
+    },
+    "prior944EntriesUnchangedAndPresent": true,
+    "newIndexedFiles": 54,
+    "beforeBalancedSnapshot": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-before-balanced-input-20261112T0020Z.json",
+      "bytes": 55038,
+      "sha256": "59435f172b9e9938630477139b053e9b256adf02331fdd49dc1f1442882e80de"
+    },
+    "beforeBalancedIsByteIdenticalToHeadPreviousCurrentState": true,
+    "sourceArchives": [
+      {
+        "version": 1,
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v1.tar.gz",
+          "bytes": 4454083,
+          "sha256": "269c119fd9f3a6e0d8e14a9ccbb5dda38f37b58ee8077af92dac4b986ee8fef4"
+        },
+        "sources": 127,
+        "namedArtifacts": 4,
+        "regularMembers": 132,
+        "allSourceAndArtifactPayloadHashesIndependentlyMatched": true
+      },
+      {
+        "version": 2,
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v2.tar.gz",
+          "bytes": 4454504,
+          "sha256": "f7d564d36bd2bb4ebbd178c7d3677158335fccd16476a71a53d1b32ae8c6a127"
+        },
+        "sources": 127,
+        "namedArtifacts": 4,
+        "regularMembers": 132,
+        "allSourceAndArtifactPayloadHashesIndependentlyMatched": true
+      },
+      {
+        "version": 3,
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v3.tar.gz",
+          "bytes": 4454412,
+          "sha256": "91012888078650e07accd6e2062d72a6ccb49e5096300ab2ea2a53863f788f13"
+        },
+        "sources": 127,
+        "namedArtifacts": 4,
+        "regularMembers": 132,
+        "allSourceAndArtifactPayloadHashesIndependentlyMatched": true
+      },
+      {
+        "version": 4,
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-source-freeze-v4.tar.gz",
+          "bytes": 4454556,
+          "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085"
+        },
+        "sources": 127,
+        "namedArtifacts": 4,
+        "regularMembers": 132,
+        "allSourceAndArtifactPayloadHashesIndependentlyMatched": true
+      }
+    ],
+    "runtimeRawArchives": [
+      {
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/raw-root.tar.gz",
+          "bytes": 45436,
+          "sha256": "98ba175b4a74af077009534069d6efb5584589e9883b5e497464eecd3f183e0a"
+        },
+        "manifest": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/raw-root-manifest.json",
+          "bytes": 16929,
+          "sha256": "ccb5519e6ddf6f19620ebb7f1817ab0b501e6ec50a9277908d10f906629803b7"
+        },
+        "files": 81,
+        "originalBytes": 260919,
+        "allMemberBytesShaIndependentlyMatched": true
+      },
+      {
+        "archive": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v2-raw.tar.gz",
+          "bytes": 47359,
+          "sha256": "e49f70135d3132efe7ce1c8073f7fc251bfa0915840f78715005c53b8615146d"
+        },
+        "manifest": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v2-raw-manifest.json",
+          "bytes": 16697,
+          "sha256": "b2be63c47040cc335cb5a999c550176153850f245b9efbb3d0c28189a0e33db1"
+        },
+        "files": 81,
+        "originalBytes": 260971,
+        "allMemberBytesShaIndependentlyMatched": true
+      }
+    ],
+    "cutoff": "Indexv12 covers exactly998 pre-document-review files. This new review is outsideV12 cutoff. Existing index and indexed evidence are not rewritten to incorporate it."
+  },
+  "commitAndSourceBinding": {
+    "mainCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+    "mainParent": "f9d338ab91db13a0360f1fb6e568a960ed70c208",
+    "candidateCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+    "candidateParent": "56c970cf885de4a249c637fe10d3419115ffa979",
+    "all127FrozenGitBlobSha1Sha256AndWorkingBytesMatchBothCommits": true,
+    "currentState127SourceRowsMatchFreezeAndMainGitBlobs": true,
+    "both10FilePatchesIdentical": true,
+    "patchSha256": "c5fb2640e3ce2e338dbaf32dff1c201059e5bbd7ba0d2a631808c1da4a67493a",
+    "changedPaths": [
+      "README.md",
+      "README_EN.md",
+      "dev-harness/facts.static.e2e.js",
+      "dev-harness/fixtures/macos-balanced-input-window.m",
+      "dev-harness/macos-execution-input.e2e.js",
+      "dev-harness/process-safety.static.e2e.js",
+      "dev-harness/run-all.js",
+      "docs/architecture/route-inventory.json",
+      "docs/architecture/route-inventory.md",
+      "facts.json"
+    ],
+    "productionRuntimeChangedInThisCommit": false,
+    "all4NamedArtifactsIndependentlyRehashedMatch": true,
+    "namedArtifactRoles": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18",
+        "role": "Old955input-receipt-only helper,hash-preservation only in this suite;no generic or legacy fallback invoked."
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e",
+        "role": "Frozen OS process helper used by existing ownership/snapshot/cleanup infrastructure."
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "role": "Unchanged original main1cc automation helper,hash-preservation only;not rebuilt/re-signed or substituted."
+      },
+      {
+        "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "bytes": 309968,
+        "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0",
+        "role": "Currentec6named helper used by actual status and admitted native input-session requests."
+      }
+    ],
+    "separateCompiledReceiver": {
+      "bytes": 77480,
+      "sha256": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da",
+      "sameActualBytesDevelopmentAndIndependent": true,
+      "preservedIn81FileRawArchives": true,
+      "notOneOf4NamedFrozenArtifacts": true,
+      "noProductHelperOrAppRecompileResign": true
+    },
+    "postqualificationBinding": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/postqualification-commit-binding.json",
+      "bytes": 91635,
+      "sha256": "26ecb4e68ced22d7a61011767e6b0725d6ae17708334a0b442b3410ac326edad"
+    },
+    "commitDoesNotCauseRuntimeRerunClaim": true
+  },
+  "actualRuntimeEvidenceCheckedReadOnly": {
+    "execution": {
+      "startedAt": "2026-11-12T00:12:57.229399+00:00",
+      "endedAt": "2026-11-12T00:13:02.235436+00:00",
+      "elapsedSeconds": 5.006037582992576,
+      "exitCode": 0,
+      "executions": 1,
+      "automaticRetries": 0,
+      "logPassCount": 51,
+      "allPassSentinel": true,
+      "rawRoots": [
+        "/tmp/rei-HxJJZa"
+      ],
+      "beforeAllMatched": true,
+      "afterAllMatched": true,
+      "resultExists": true
+    },
+    "log": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/run.log",
+      "bytes": 4493,
+      "sha256": "1fe1408ab437895ec59af05b266cd82ad3d9693c08d8ec05b7481bc7fb6c0892"
+    },
+    "result": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/result.json",
+      "bytes": 1784187,
+      "sha256": "19a795cb1f576a56bb2f6760ac1d8c1388a3bdfa5d5c239a59a1af6e0c44e7db"
+    },
+    "logIndependentlyCounted": {
+      "PASS": 51,
+      "FAIL": 0,
+      "SKIP": 0,
+      "allPassSentinel": true
+    },
+    "caughtErrors": [],
+    "cleanupSafe": true,
+    "permissionScenarios": [
+      {
+        "action": "allow",
+        "permissionRequests": 1,
+        "middleDowns": 1,
+        "middleUps": 1,
+        "rootRows": 4,
+        "independentHIDAndCombinedNeutralAtEnd": true
+      },
+      {
+        "action": "deny",
+        "permissionRequests": 1,
+        "middleDowns": 0,
+        "middleUps": 0,
+        "rootRows": 3,
+        "independentHIDAndCombinedNeutralAtEnd": true
+      },
+      {
+        "action": "cancel",
+        "permissionRequests": 1,
+        "middleDowns": 0,
+        "middleUps": 0,
+        "rootRows": 2,
+        "independentHIDAndCombinedNeutralAtEnd": true
+      }
+    ],
+    "actualEvents": 2,
+    "nativeWorkerPid": 89021,
+    "nativeBirth": "1794442380:17537",
+    "bothReceiverEventSourcePIDsAndBirthsMatch": true,
+    "flags": [
+      0,
+      0
+    ],
+    "journalRecords": 23,
+    "journalEqualsAllStdoutReports": true,
+    "finalHealthySeal": "quit",
+    "timing": {
+      "plannedOffsetsUs": [
+        0,
+        40000
+      ],
+      "actualCGTimestampsNs": [
+        162657641346458,
+        162657669568166
+      ],
+      "independentlyComputedIntervalNs": 28221708,
+      "actualIntervalMs": 28.221708,
+      "developmentIntervalMs": 28.735875,
+      "noMeasured40msSLA": true
+    },
+    "all9RootLedgerRowsReturnedWithDeliverySha": true,
+    "all9RawReceiptCommitByteShaSequenceAndArgsSnapshotsIndependentlyRehashed": true,
+    "all9SavedProviderPrefixDeliveryDigestsIndependentlyRehashed": true,
+    "allowInputMacroAndWait": true,
+    "denyCancelHaveNoMacroOrInputRows": true,
+    "actualStep0MacroCallEffectAndMissionAPIColdOneEffect": true,
+    "explicitColdNewRequestNoInputReplay": true,
+    "observedOwnedExitRecord": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/owned-process-exit-check.json",
+      "bytes": 549,
+      "sha256": "214f57edbc76fd2988af8e0849cf78c98bf06694d63dd784fc31abfa10df84af"
+    },
+    "observedOwnedIdentities": 11,
+    "exitEvidenceWasReadOnlyNotRerun": "Existing exact-owned-PID absence record read; no new ps/process query. No global unseen-escape completeness claim.",
+    "beforeAfterFullSnapshots": {
+      "checkpoints": 2,
+      "rowsEach": 131,
+      "sourcesEach": 127,
+      "artifactsEach": 4,
+      "recordedAllMatched": true
+    },
+    "proofBoundary": "One ordinary positive-turn default-permission owned passive middle-button Node-serve/frozen-helper chain. Failure halt/pending-dispatch/unresolved armed-witness handling remains source-reviewed only; no active-input fault/held/rootkill/rescue qualification."
+  },
+  "engineeringAndFailureHistory": {
+    "finalGates": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-final-gates-v2.json",
+      "bytes": 1136,
+      "sha256": "6f0144281b39156397e19eb6ddc5c255d5b44a27107dc04cd248662dd4084d0c"
+    },
+    "fourCommandsExit0AndAll8MismatchListsEmpty": true,
+    "logsVerifiedAgainstSummary": {
+      "syntaxFiles": 1180,
+      "syntaxFail": 0,
+      "buildFresh": true,
+      "unitTests": 2644,
+      "unitPass": 2626,
+      "unitExistingSkip": 18,
+      "unitFail": 0,
+      "fastPass": 80,
+      "fastFail": 0,
+      "fastFlaky": 0,
+      "centralLiveSkip": 14
+    },
+    "engineeringEvidenceLevel": "Primary summaries record empty before/after mismatch lists at eight checks, not eight complete131-row stored snapshots. Independent runtime separately stores two complete131-row snapshots.",
+    "firstReadinessTypeFailureRetained": {
+      "log": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v1.log",
+        "bytes": 1044,
+        "sha256": "f21784e02a1eee9abca2c67060ecce038c89d2517eaf44afb1186a21f8855475"
+      },
+      "result": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v1.json",
+        "bytes": 2233,
+        "sha256": "1f3d4acf704e5703ad2985be81db34c59adb318b9fe29d979c44b3973cc078c0"
+      },
+      "binding": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/development-balanced-input-v1-binding.json",
+        "bytes": 127,
+        "sha256": "8ed178e4095a9b8ce92e7abf0c82f6d8bacf60208ea676012a0219d2454c9a53"
+      },
+      "actualPosition": "Fails first status assertion before fixture compile/receiver/provider/root; proof/specs/reports/attempts/decisions/cleanups empty. No GUI/input run inferred."
+    },
+    "firstFastCensusFailureRetained": {
+      "log": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-final-fast-v1.log",
+        "bytes": 7700,
+        "sha256": "06690a5bb2bb9e51da666a431d8191a7b3f39550673c8d175629a6eb26163ca3"
+      },
+      "gates": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-final-gates-v1.json",
+        "bytes": 1137,
+        "sha256": "e38ba1df270c40407b754d650342cc835133f40dc4b8eeeb547c8a40b15e6322"
+      },
+      "failure": "Strict owner census377 vs378; original automatic runner retry also fails and is visibly retained. Other safety assertions unchanged; final freezev4 count378 narrowly source-reviewed."
+    },
+    "noFailureHistoryErasedOrRetrospectiveZeroRetryClaim": true,
+    "noEngineeringCommandRunByThisReviewer": true
+  },
+  "documentationScopeAndOriginalRequirements": {
+    "summary": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-final-summary-v1.json",
+      "bytes": 5314,
+      "sha256": "ce6f8d9eda1ab771b69e1308c63de3e764b454e5b72302fe0f182da016ebee72"
+    },
+    "nextPlan": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/next-implementation-plan-v12.json",
+      "bytes": 20574,
+      "sha256": "ecfced8e11fd04c2ffb710a3504af633a5995c76243c74eb4c86f98f54379837"
+    },
+    "allCheckedAuthoritativePathShaReferencesMatch": 27,
+    "markdownLocalLinksChecked": 58,
+    "markdownMissingLinks": 0,
+    "fourCurrentStateNestedRelativePathsCorrectedAndExist": true,
+    "tasksJsonOnlyAddsBalancedInputReceiptsSliceExistingTasksStatusesUnchanged": true,
+    "mapping": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/../remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    },
+    "mappingByteIdenticalToGitHead": true,
+    "localIDs": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIDs": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "defaultOffConfirmedAt": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js:10 requires darwin and env exactly1",
+    "phaseP5Status": "in_progress",
+    "noNewHeldRescueAppReleaseFullP5Acceptance": true,
+    "nextWork": "Authentic versioned independent background/API0/persisted-resume admission and durable actual transcript; later CLI/manual/reconciliation/retention/capacity and original environment gates. No fabricated parent turn or blanket fallback.",
+    "lockKeepawake": {
+      "restoration": "only_after_full_P5_acceptance",
+      "originalIdleTime": 300,
+      "lastRecordedIdleTime": 0,
+      "ownedCaffeinatePid": 19820,
+      "identityRecord": "19820 Thu Nov12 04:53:16 2026 /usr/bin/caffeinate -d -i -u -t43200",
+      "lastObservedAt": "2026-11-12T00:22:23.867690+00:00",
+      "renewalRecord": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/keep-awake-renewal-20261111T205332Z.json",
+        "bytes": 475,
+        "sha256": "169123427ad25e83e36bfdd96c14dbc22bccbfbe077009108feda67ce1bcda58"
+      },
+      "reviewDidNotSampleOrChangeSettingsOrProcess": true
+    }
+  },
+  "archiveReviewPlacement": {
+    "tmpReport": "/tmp/ruyi-p5-receipts-evidence/balanced-input-checkpoint-document-review-v1.json",
+    "mainEvidenceCopy": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/balanced-input-checkpoint-document-review-v1.json",
+    "outsideV12PointerField": "current-state.json additionalEvidenceOutsideV12Cutoff",
+    "reviewedCurrentStateHashIsBeforeAddingOnlyThisPointer": "Report binds reviewed document bytes before self-referential pointer insertion; only the authorized pointer is then appended. Index remains unchanged; report does not claim to hash its own resulting pointer container."
+  },
+  "limits": [
+    "This is independent document and archive review using existing actual evidence; no test/native/GUI/input rerun occurred.",
+    "All full-P5 and held/rescue/App/release/hardware/OS/Windows/lock/revoke/unsupported-entry limits remain.",
+    "The original independent runtime report, summaries, nextplan and all998 indexed raw files remain byte-for-byte unchanged."
+  ]
+}

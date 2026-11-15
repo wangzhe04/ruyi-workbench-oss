@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_balanced_input_receiver_source_review",
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-11T23:45:49.975027+00:00",
+  "status": "changes_requested_before_fixture_qualification",
+  "reviewedSource": {
+    "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+    "bytes": 12853,
+    "sha256": "4b6f41be604309a1d0b8356161e1b6fb99d0fb27cd88e98d4ed0629c2f60074a"
+  },
+  "currentSourceAtReportWrite": {
+    "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+    "bytes": 14345,
+    "sha256": "36ceeae244b0db7f1d767ec31701128d45c2bafe9c84a5c726900e35e66167b9"
+  },
+  "currentStillSameBytes": false,
+  "referenceDesign": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/root-input-hard-abort-next-stage-design-v1.json",
+    "bytes": 32409,
+    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5"
+  },
+  "actions": "Source and approved stageA design read only.No edits,compile,tests,native helper,GUI,event posts,process probes,TCC/lock/keepawake actions.Only this exclusive0600 review JSON written.Parent-reported clang warning-clean compile is not an independently executed review result.",
+  "scope": "StageA passive own-window balanced middle/button2 receiver only.Not a rescue,held-state test or input injector.Production source/default-off/native capture qualification remain unchanged.FullP5 remains in_progress.",
+  "confirmedFindings": [
+    {
+      "id": "BR1",
+      "priority": "P2",
+      "title": "Layer-zero scan can falsely report an unobscured own hit",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+      "line": 59,
+      "state": "open_in_reviewed_bytes",
+      "source": "State iterates CGWindowList front rows but skips every nonzero kCGWindowLayer before choosing the first containing rectangle.",
+      "failure": "A floating/system overlay above the pad with a nonzero layer is ignored,so hit can be true even though actual mouse hit would not reach the pad.Production PointGuard explicitly uses NSWindow.windowNumberAtPoint to cover these overlays;fixture witness is weaker.",
+      "impact": "Incorrect predispatch own-window hit evidence and misleading armed admission.Production guard may still refuse before posting;this is not a confirmed production misdispatch.",
+      "suggestion": "Use actual AppKit windowNumberAtPoint:belowWindowWithWindowNumber:0,require exact own window number and ownerPID,then record the actual hit identifier.Keep production AX/point guard independent;do not infer overlay absence from layer0 geometry only."
+    },
+    {
+      "id": "BR2",
+      "priority": "P2",
+      "title": "Journal is not byte-bounded and command backlog is unbounded",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+      "line": 177,
+      "state": "open_in_reviewed_bytes",
+      "source": "getline allocates an unlimited command line;every command enqueues an asynchronous main block without a pending limit.state.request and rejected.op are copied unchanged into rows.Serial256 caps write count only,not bytes per row;receipts cap does not bound caller-controlled fields.",
+      "failure": "A single large state.request/rejected.op can create arbitrarily large allocations/journal row before serial reaches256;many queued commands can consume unbounded memory despite eventual journal count failure.",
+      "impact": "Does not satisfy approved bounded journal/control design;receiver can stall or die instead of preserving a failure witness.",
+      "suggestion": "Bound input bytes before full line allocation,validate command keys/types and small scalar request IDs,apply a fixed serialized-row plus cumulative-journal byte limit,and cap pending main commands/backpressure reader.Fail closed without terminating a potentially non-neutral receiver.Example bound choices must be frozen with harness;record explicit capacity failure,not silent truncation."
+    },
+    {
+      "id": "BR3",
+      "priority": "P2",
+      "title": "stdout pipe loss defeats the stated EOF keepalive path",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+      "line": 104,
+      "state": "open_in_reviewed_bytes",
+      "source": "Emit uses puts/fflush on stdout with default SIGPIPE behavior and no return/error checks;stdin EOF merely leaves NSApp running.",
+      "failure": "If the external reader/runner closes pipes or dies,an input or later report written to the closed stdout pipe can raise SIGPIPE and terminate the receiver while non-neutral,despite stdin EOF not explicitly calling terminate.",
+      "impact": "The passive witness is not reliably kept alive on control/observation channel loss.Receiver never posts input,so this is a witness/cleanup robustness defect,not a rescue guarantee.",
+      "suggestion": "Ignore SIGPIPE before reporting;detect write/flush errors and disable failed stdout/report the channel fault to its independent journal without recursion.Continue own observation and safe-neutral lifecycle;never emit input or blanket cleanup as fallback.Harness must treat channel loss as failure and only reclaim birth-verified receiver after neutral."
+    },
+    {
+      "id": "BR4",
+      "priority": "P2",
+      "title": "Malformed PID command can crash the receiver",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+      "line": 188,
+      "state": "open_in_reviewed_bytes",
+      "source": "arm invokes intValue on command.pid before validating that it is an integral nonboolean NSNumber in pid_t range;an array/dictionary/NSNull can reach the message under otherwise valid neutral/nonce preconditions.",
+      "failure": "JSON with valid arm nonce and pid:NSNull/array sends unsupported intValue selector and can raise an Objective-C exception instead of an explicit rejection.",
+      "impact": "Malformed own control traffic can destroy passive evidence and the non-neutral-safe lifecycle contract.Caller is a private harness,so no external remote attack claim.",
+      "suggestion": "Validate exact command shape and pid NSNumber type,exclude booleans/nonfinite/fractional values,require2..INT_MAX,and only then convert.Require a wellformed nonempty birth string and validate before state changes.Malformed commands must record bounded rejection rather than crash."
+    }
+  ],
+  "fixtureHarnessContractConditions": [
+    {
+      "id": "BC1",
+      "area": "One fresh bounded observer interval",
+      "classification": "fixture_contract_gap_or_required_explicit_harness_guard",
+      "source": "arm is permitted again after disarm,including the same case nonce;down/up counts and receipt list are reset.No everArmed/usednonce set,arm monotonic timestamp,expiry or frozen frame/point/TIS snapshot.",
+      "required": "For the designed one-pair fixture,prefer exactly one successful arm and fixed bounded acceptance interval,with arm snapshot/time retained.Reject reused/replayed nonce.Ensure events are not accepted merely because they were delivered after arm when their source timestamp predates it.Harness must retain all arm/disarm attempts and require exactly one genuine interval."
+    },
+    {
+      "id": "BC2",
+      "area": "Meaning of matched and exact point/source/state",
+      "classification": "acceptance_semantics_must_be_explicit",
+      "source": "matched checks armed/journalOK,button2/down-up order and sourcePID+current process birth only.It does not check planned point,zero event flags,expected interval,unchanged frame/front/hit/TIS or complete paired40ms shape.State and raw flags/point/timestamps are nevertheless recorded.",
+      "required": "Either include frozen arm conditions in matcher or define matched narrowly as emitter/order only.Harness MUST separately require both event receipts at exact planned point,flags0,proper timing,stable owned frame/front/hit/TIS,expected native worker birth from real native receipt,and postpair HID/combined neutral.No matched-only success predicate.If sourcePID does not actually identify native emitter,fail attribution rather than time-proximity substitute."
+    },
+    {
+      "id": "BC3",
+      "area": "Durability acknowledgement versus pre-fsync row field",
+      "classification": "failure_evidence_contract_not_normal_path_fsync_absence",
+      "source": "row.journalOK=true is serialized before write/fsync.A subsequent fsync failure turns stdout row false and disarms,but a complete-looking disk line may retain true;row.armed also reflects pre-failure state.",
+      "required": "Normal stdout successful Emit occurs after fsync and can acknowledge the raw row.If any write/fsync/channel error occurs,fixture/harness must mark whole run failed/unconfirmed even if disk row says true.Require post-fsync positive ACK/exact sequence or final healthy seal in addition to raw journal;do not infer durability from pre-write disk journalOK alone.Consider making commit acknowledgement semantics explicit in field names and correcting output armed state on failure."
+    },
+    {
+      "id": "BC4",
+      "area": "Parent directory identity",
+      "classification": "robustness_limit_for_harness_private_fresh_root",
+      "source": "Immediate parent lstat checks owner/private nonsymlink,then journal path and parentFD are opened separately.No identity comparison binds those handles against a parent rename/replacement race.",
+      "required": "StageA harness must supply and retain exact fresh private root identity.If adversarial/replaced-root refusal is claimed,use parent dirfd+openat with identity checks.This fixture is not a general hardened multiuser journal service;no such broad acceptance should be inferred."
+    }
+  ],
+  "positiveAssessment": [
+    "No event creation/posting APIs,no clipboard writes,no TIS switching,TCC requests/revoke,lock action,notification center or historical Shift/left recovery appear in this source.It creates/activates its own plain blue titled window as intended;reviewer did not execute it.",
+    "Own-window sendEvent records and swallows middle down/up and other own input without entering text/control/menu behavior.No user text is captured.Event receipt includes actual raw sourcePID,current Birth(pid),CG/NSEvent timestamps,button,flags,global point and match flag.",
+    "Birth uses proc_pidinfo start seconds+microseconds.Saved expected birth is checked again per received event,so PID-only identity is not the acceptance mechanism.Receiver self PID/birth/PPID/PGID/SID and window identity are reported.",
+    "State reads HID and combined buttons0..2,any key0..127,relevant generic/device modifier bits,actual current TIS id/type,frontmost and CG owner/frame.Those are useful observations;aggregate state is not per-hardware ownership evidence.",
+    "Journal file creation uses exclusive create,no-follow,append,close-on-exec,0600;immediate parent must be owned/private directory;directory fsync attempted and each normal complete line write retries EINTR then fsyncs before stdout report.Receipts and journal row count have finite caps,though byte/control limits in BR2 are missing.",
+    "stdin EOF does not directly terminate NSApp,quit requires Neutral and not armed,disarm requires Neutral,and journal failure disarms without posting input.No unqualified rescue is attempted."
+  ],
+  "qualificationLimits": [
+    "This is static source review;no proof of runtime middle-event sourcePID,AX hit,neutral observations,TIS stability,actual file mode/fsync errors or pipe-loss handling was executed.",
+    "No held input fault may run from this review.Existing aggregateHID/sourcePID cannot guarantee external mouse-up hardware noninterference.No independent rescue exists or is qualified here.",
+    "Do not kill receiver/root in cleanup while actual input is non-neutral;ordinary scheduled up and production finally/watchdog need chance to settle.No automatic retries or fallback release.",
+    "Harness remains under implementation and needs its own independent source review/freeze,including exact one admitted provider list_windows->macro pair path,permission/delivery/effect audit and cold no-replay.Compile success alone is not acceptance."
+  ],
+  "requiredBeforeProceeding": [
+    "Repair BR1-BR4 and define/implement BC1-BC3 exact acceptance contract;preserve reviewed v1 findings/bytes binding.",
+    "Independent static rereview of changed fixture and complete harness,then frozen serial normal stageA qualification by authorized owner with no native/GUI concurrency.",
+    "Retain default-off/fullP5open/no-held/no-lock-no-revoke/no-physical-demo and all original10+4 plus background/API0/resume/CLI/manual/schema/retention requirements."
+  ]
+}

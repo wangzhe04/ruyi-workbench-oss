@@ -1,0 +1,17 @@
+INFO input native helper {"path":"/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/macos/ruyi-automation-helper","origin":"installed-app-bundle","sha256":"3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69"}
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS the authorized App launches the isolated server whose bytes match this exact candidate
+PASS App and service process identities were observed before shutdown
+PASS App-launched ACC has its own actual Accessibility and event authorization
+PASS normal App HTTP tool route focuses the exact owned receiver
+PASS normal App HTTP tool route sends Chinese Unicode events
+PASS App launch chain sends guarded pointer and wheel events
+PASS real receiver confirms the App-originated Chinese text
+PASS real receiver confirms the App-originated balanced click and wheel events
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+
+MACOS INPUT HOST E2E: ALL PASS

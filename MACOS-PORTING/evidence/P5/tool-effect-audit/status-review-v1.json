@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T13:04:01.366197+00:00",
+  "verdict": "passed_independent_compound_effect_status_documentation_review",
+  "findings": [],
+  "unresolvedFindings": [],
+  "head": "75c593e3e66155f415e6b73acd84fd6cbe51de6f",
+  "scope": "Read-only final document/state review. No tests, GUI, builds, signatures, process snapshots or lock/settings operations. Only this status-review JSON is written.",
+  "reviewedDocuments": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/TASKS.json",
+      "bytes": 103641,
+      "sha256": "f3399e2e28f694b69f44367c963c430b16d6cda924bf972418929bbe25d11dc8"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 11242,
+      "sha256": "937d9e53519de5d8e0a7ec0017929327cafe8eb019e8e3b9b478095847d6684d"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/10-TRACKING.md",
+      "bytes": 40512,
+      "sha256": "02a3c52d586b381063d867838ac09c2ac70c776d76d43fcffaf24488ee5182c0"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/README.md",
+      "bytes": 4867,
+      "sha256": "85fae27a630ce418fa068c4d5da3ca8996357ebea9fa00791c18a2aa308637e9"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/unattended-instruction-2026-11-11.json",
+      "bytes": 1347,
+      "sha256": "43c2de3d27b733dbb34ddd14a494293237c7c0647e9c4ecf27a0e7facdfb9768"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/development-history.json",
+      "bytes": 1797,
+      "sha256": "66e1bb24a4df4168ff668be0b4ced210dc815644a4c473ca4a221e634fd604ab"
+    }
+  ],
+  "snapshot": {
+    "files": 81,
+    "jsonFiles": 47,
+    "ndjsonFiles": 0,
+    "bytes": 5525763,
+    "inventorySha256": "2a64aef9ca532b67505ed780efd07d98496b731db9713f216b73c570a512adf1",
+    "inventoryBinding": "SHA-256 of ordered JSON rows containing every reviewed file's absolute path, byte length and SHA-256; read-only snapshot excludes this newly written review."
+  },
+  "independentReport": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-report-v1.json",
+    "bytes": 24078,
+    "sha256": "e107827e7ac5ca7459519dff64b4296e891fc00b9ad512ac93f5891407326eae"
+  },
+  "independentCommitBinding": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-commit-binding.json",
+    "bytes": 177803,
+    "sha256": "5cbbc2269114d8862efe3d4e13301efde50aad251745441611d944f0ed81f278"
+  },
+  "bindingVerification": {
+    "mainCommit": "75c593e3e66155f415e6b73acd84fd6cbe51de6f",
+    "worktreeCommit": "5db138733a5dda5723b8427fceeed7d038ac724b",
+    "sourceCount": 208,
+    "allBothCommitBlobsAndWorkingBytesMatch": true,
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "402d561d3800362a490336055a559625797c0ca7b50f25f26a08a03d4acdd2af"
+      }
+    ],
+    "archiveFiles": 64,
+    "allArchiveBytesMatchOriginals": true,
+    "referenceGroups": {
+      "independentInventory": {
+        "count": 25,
+        "allBytesShaMatched": true
+      },
+      "independentCheckpoints": {
+        "count": 10,
+        "allBytesShaMatched": true
+      },
+      "independentEngineering": {
+        "count": 1,
+        "allBytesShaMatched": true
+      },
+      "independentActualNative": {
+        "count": 1,
+        "allBytesShaMatched": true
+      },
+      "engineeringReuseDetailedReferences": {
+        "count": 23,
+        "allBytesShaMatched": true
+      }
+    },
+    "commandCheckpoints": 10
+  },
+  "acceptance": {
+    "totalPassedChecks": 68,
+    "groups": [
+      {
+        "label": "unit",
+        "passed": 13,
+        "log": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-v1/unit.log",
+          "bytes": 1457,
+          "sha256": "108f37e204dc047feecbb35123d35148a082cd9c664213820c80c7079ad9a7ff"
+        }
+      },
+      {
+        "label": "python-env-v2",
+        "passed": 5,
+        "log": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-v1/python-env-v2.log",
+          "bytes": 103,
+          "sha256": "dfd4acabb3cc2a716c75ce069816b8c8c33ff016d3365d59426d3b5807d1cc53"
+        }
+      },
+      {
+        "label": "offline",
+        "passed": 16,
+        "log": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-v1/offline.log",
+          "bytes": 990,
+          "sha256": "ec2182369d589d2bb95f88d74cb08bd5b5bff4eb5e25cf3ec85e1235b1a04eb9"
+        }
+      },
+      {
+        "label": "native",
+        "passed": 34,
+        "log": {
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/independent-v1/native.log",
+          "bytes": 2459,
+          "sha256": "aafadb7288e72af1e39ceb30a929f90a66a67c216e25a777ffa27988c40559c5"
+        }
+      }
+    ],
+    "unitTests": 13,
+    "pythonTests": 5,
+    "offlineAssertions": 16,
+    "nativeAssertions": 34,
+    "pythonProcessStarts": 2,
+    "pythonEffectiveTestExecutions": 1,
+    "firstPythonExitCode": -6,
+    "allCommandsFirstRunPassed": false,
+    "automaticRetries": 0,
+    "actualNativeSummaryRows": 2,
+    "nativeSameTraceCallStepAttribution": true,
+    "GUIReleasedRecorded": true,
+    "noReviewerRuntimeReruns": true
+  },
+  "engineering": {
+    "syntax": 1161,
+    "buildFresh": true,
+    "unitPass": 2521,
+    "unitExistingSkip": 18,
+    "fastPass": 80,
+    "fastFail": 0,
+    "fastFlaky": 0,
+    "liveSkip": 7,
+    "reuse": "Full gates bind unchanged207 engineering sources; corrected mission-result is the sole added208 source. Syntax rerun, corrected related mission62/turnloop31/stop32 and independent acceptance bind final208. Independent full engineering reruns are not claimed.",
+    "fastHasRepeatedUnitPreflight": true
+  },
+  "history": {
+    "attemptIndex": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/development-history.json",
+      "bytes": 1797,
+      "sha256": "66e1bb24a4df4168ff668be0b4ced210dc815644a4c473ca4a221e634fd604ab"
+    },
+    "initialUnitFailureRawArchived": false,
+    "initialUnitFailureSource": "Original chat tool output only; authored attempt summary, no reconstructed raw log.",
+    "priorSourceReviewsUnchanged": true,
+    "priorRawDevelopmentLogsRechecked": 12,
+    "archive64OriginalBytesPreserved": true,
+    "previousAuditAndResolutions": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-audit.json",
+        "bytes": 17014,
+        "sha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+        "bytes": 51090,
+        "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-current.json",
+        "bytes": 15952,
+        "sha256": "570642ba562ad76c77b8dabc546c8d12c9e709463b92eaf1d94345f2ac1c9af8"
+      }
+    ],
+    "firstOfflineHelperFailureRetained": true,
+    "firstFast79Of80AndBuiltInRetryFailureRetained": true,
+    "relatedOldSourceLockFailureRetained": true,
+    "pythonLoaderFailureRetained": true
+  },
+  "remainingRequirements": {
+    "localIds": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIds": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "allOriginal10Plus4Preserved": true,
+    "externalRowsEqualPreviousMapping": true,
+    "onlyReturnedCompoundEffectScopeAdded": true,
+    "irreversibleLedgerIsNotNativeDispatchOrAppSuccessProof": true
+  },
+  "unattended": {
+    "status": "active",
+    "restoreAutomaticLockAfter": "full_P5_acceptance",
+    "restorationStatus": "pending",
+    "originalSettingEvidence": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v2.json",
+      "bytes": 7702,
+      "sha256": "2d11257d74971f28c6587debf7e542eebfa96e55490f987a205e00d4486c543d"
+    },
+    "verifiedField": "settings.screensaver_idleTime_before",
+    "verifiedHistoricalSeconds": 300,
+    "scope": "300 seconds is the recorded historical screensaver-idle value. Current PID/settings observations are archived facts, not newly queried here; no automatic locking is restored at slice completion."
+  },
+  "documentation": {
+    "phaseAndTaskStatus": {
+      "P5": "in_progress",
+      "P6": "planned",
+      "P5-01": "in_progress",
+      "P5-05": "in_progress"
+    },
+    "relativeMarkdownLinksVerified": 172,
+    "remainingMapReferencesVerified": 23,
+    "reviewedAuthoredDocumentsNoTrailingWhitespace": true,
+    "latestReadmeAndDevelopmentHistoryBound": true
+  },
+  "claimLimits": [
+    "Returned known compound/leaf effect summaries with reported/unknown/incomplete and call/step attribution only.",
+    "Python invocation_attempted and local MCP callbacks are attempts, not native dispatch/body-entry or terminal acknowledgements.",
+    "No whole-P5 or broad irreversible-classification acceptance; no new App signing/LaunchServices acceptance.",
+    "Actual native dispatch/terminal durability, unknown future replay protection, held-release/rescue, TCC/action-time lock and original hardware/OS/Windows/release gates remain open.",
+    "Unattended work does not waive remaining phase gates; restore automatic locking only after full-P5 acceptance."
+  ],
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "builds": 0,
+    "signatures": 0,
+    "processSnapshots": 0,
+    "settingsChanges": 0,
+    "sourceEdits": 0,
+    "authoredDocumentEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/tool-effect-audit/status-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "fullP5Acceptance": false,
+  "findingsHandling": "No document scope/count/reference/phase or original-evidence preservation error found. Author's latest README and development-history explicitly distinguish an authored summary of the initial unit failure from unavailable raw stdout. No authored file correction was performed by this reviewer.",
+  "postWriteVerification": {
+    "original81ReviewedFilesUnchanged": true,
+    "headUnchanged": true,
+    "reviewReportUntracked": true
+  }
+}

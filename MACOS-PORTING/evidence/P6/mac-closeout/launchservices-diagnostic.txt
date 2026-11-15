@@ -1,0 +1,90 @@
+{
+  root: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt',
+  open: 46791,
+  env: {
+    HOME: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-N6cotn',
+    USERPROFILE: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-N6cotn',
+    LOCALAPPDATA: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-appdata/Local',
+    APPDATA: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-appdata/Roaming',
+    RUYI_HOME: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/data',
+    WIN_CLAUDE_WORKBENCH_HOME: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/data',
+    RUYI_NODE_PATH: '/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node'
+  }
+}
+report {
+  activationCount: 1,
+  backgroundOnClose: true,
+  loginStartupStatus: 3,
+  nativePID: 46792,
+  previewNavigations: 0,
+  profileIdentifier: 'DE0BF9C7-FFD5-F313-6C7C-AF309A2EEC7F',
+  servicePID: 0,
+  simulatedSystemEvents: false,
+  sleepEvents: 0,
+  state: 'starting',
+  wakeEvents: 0,
+  wakeValidated: false,
+  windowFrame: '{{215, 175}, {1280, 868}}',
+  windowVisible: true
+}
+runtimeExists false
+process 46792     1 /private/tmp/ruyi-p6-mac-closeout-dev/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/report.json --acceptance-auto-quit
+process 46795 46792 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1
+report {
+  activationCount: 1,
+  backgroundOnClose: true,
+  loginStartupStatus: 3,
+  nativePID: 46792,
+  previewNavigations: 0,
+  profileIdentifier: 'DE0BF9C7-FFD5-F313-6C7C-AF309A2EEC7F',
+  servicePID: 0,
+  simulatedSystemEvents: false,
+  sleepEvents: 0,
+  state: 'starting',
+  wakeEvents: 0,
+  wakeValidated: false,
+  windowFrame: '{{215, 175}, {1280, 868}}',
+  windowVisible: true
+}
+runtimeExists false
+process 46792     1 /private/tmp/ruyi-p6-mac-closeout-dev/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/report.json --acceptance-auto-quit
+process 46795 46792 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1
+report {
+  activationCount: 1,
+  backgroundOnClose: true,
+  loginStartupStatus: 3,
+  nativePID: 46792,
+  previewNavigations: 0,
+  profileIdentifier: 'DE0BF9C7-FFD5-F313-6C7C-AF309A2EEC7F',
+  servicePID: 0,
+  simulatedSystemEvents: false,
+  sleepEvents: 0,
+  state: 'starting',
+  wakeEvents: 0,
+  wakeValidated: false,
+  windowFrame: '{{215, 175}, {1280, 868}}',
+  windowVisible: true
+}
+runtimeExists false
+process 46792     1 /private/tmp/ruyi-p6-mac-closeout-dev/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/report.json --acceptance-auto-quit
+process 46795 46792 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1
+report {
+  activationCount: 1,
+  backgroundOnClose: true,
+  loginStartupStatus: 3,
+  nativePID: 46792,
+  previewNavigations: 0,
+  profileIdentifier: 'DE0BF9C7-FFD5-F313-6C7C-AF309A2EEC7F',
+  servicePID: 0,
+  simulatedSystemEvents: false,
+  sleepEvents: 0,
+  state: 'starting',
+  wakeEvents: 0,
+  wakeValidated: false,
+  windowFrame: '{{215, 175}, {1280, 868}}',
+  windowVisible: true
+}
+runtimeExists false
+process 46792     1 /private/tmp/ruyi-p6-mac-closeout-dev/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-ls-diagnostic-fWoTBt/report.json --acceptance-auto-quit
+process 46795 46792 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1
+{ exit: 0, signal: null }

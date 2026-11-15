@@ -1,0 +1,49 @@
+{
+  "at": "2026-11-11T18:35:02.966703+00:00",
+  "beforeFreezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+  "afterFreezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "changes": [
+    {
+      "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+      "beforeSha256": "c26e5e06ff27a94cf0f5d593536d1fc5aaa15c69f8432371bf330cf50b810616",
+      "afterSha256": "f06df45c5fdc24a1c218fe7d710c15de6b3f0880a564887742f1df1272730b78"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "beforeSha256": "c16c4ca1bee9fd389d1ce643b8bb2a3dcca4e43173b1f38a99d5aee1be7a230c",
+      "afterSha256": "6991ddb4604f16a44a13c30f4aa6cf2003e7dbc674318cf6ef6cfe62307c6cb2"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "beforeSha256": "a22c92e85b9dadd263d17d48ab4b6b7afaf0c996c9b5720a72a968a3a96dcb63",
+      "afterSha256": "107f4fbd59f14543cfce49105c294066f7c485d88bc395f128a7f68cc8725dc3"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+      "beforeSha256": "5e46fad5897fb9fd911295953089794b55552b2cab8ecf12eb41a084cbe081c9",
+      "afterSha256": "2bbb4eabcb6718d6a281b1f96080c7f981e3202060478922668a779b59f890d4"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "beforeSha256": "3c11d415869ad716cce3bf6e926b5131a6379888790c84baaa2aeeff0b3cf686",
+      "afterSha256": "00973a49c0f0abba89492ddc57cac529628c1597a37f51626787d8457f2d880e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "beforeSha256": "de89e0ce248ba97ffcc57cd4addda70b25941b94f0c52ac8ccb959cff83e9f88",
+      "afterSha256": "d52c23da5e11a2c0123bb7bacc6a051e8a601cbf5ef26ae9e138cb29db2d57af"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "beforeSha256": "60af8d1f4e4a1c5115a76c295c27abad3f0d6882cacc95f8ba23d2f0270abfb2",
+      "afterSha256": "d6afb8c8da6b145b40464bb3c3c2eb435db7fa384207a6e6ce07bf59c0cfb308"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "beforeSha256": "15ba0660f6d40e44bdfdc703a2b2ea0cdc931863f100d2cb4838e19097589fea",
+      "afterSha256": "7ca23528a556a0a06e138e78e4959cc0ea9f1b779fb6e1ae17b5dcffd5483cac"
+    }
+  ],
+  "productionBehaviorChanged": true,
+  "note": "This is not a byte-equivalence/old-native-acceptance transfer. New image delivery production condition is separately source/pure qualified; V2 repeats actual root/ACC wait/query tests."
+}

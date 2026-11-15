@@ -1,5 +1,8 @@
 # Offline Deployment
 
+For Mac arm64 local/internal trial dependencies, installation, whole-App upgrades, rollback and credential migration, see the [Mac deployment guide](MACOS-RELEASE_EN.md). The scripts and archive contracts below target Windows.
+
+
 This is the English companion to [离线部署说明](OFFLINE_DEPLOYMENT_CN.md).
 
 ## Target-machine requirements

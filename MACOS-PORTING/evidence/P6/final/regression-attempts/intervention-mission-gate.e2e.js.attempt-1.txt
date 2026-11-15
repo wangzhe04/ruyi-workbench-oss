@@ -1,0 +1,26 @@
+PASS A0 服务起来了(拿到 token)
+── (A) 事项容器与线程归属 ──
+PASS A1 五条线程已建(sess_2369e9595dc722b5 / sess_92c3a7309b3e9cbd / sess_28bb120456ee1a2c / sess_7a7a11cc18b37959 / sess_f656f8f57b028968)
+PASS A2 事项容器已建(mission_773662b3eedcd04d)
+PASS A3 attach 之后会话头的 missionId 就是【容器 id】(bug 的前提成立,实测 mission_773662b3eedcd04d)
+PASS A3b 未 attach 的线程 missionId 仍是自己(或缺省)
+── (B) /api/chat/answer ──
+PASS B1 线程 A 挂出了 question 待决
+PASS B2 挂进事项的线程能答 question(实测 200 {"ok":true,"delivered":true,"questionId":"question_9f583269d624c61e"})
+── (C) /api/permission/decision ──
+PASS C1 线程 P 挂出了 permission 待决
+PASS C2 挂进事项的线程能答 permission(实测 200 {"ok":true})
+PASS C3 deny 生效(文件没落盘)
+── (D) /api/plan/decision ──
+PASS D0 线程 B 的线程级权限切到「只做计划」
+PASS D1 线程 B 挂出了 plan 待决
+PASS D2 挂进事项的线程能答 plan(实测 200 {"ok":true})
+── (E) 未 attach 的线程不回归 ──
+PASS E1 未 attach 的线程照旧能答(实测 200)
+── (F) 跨会话与容器 id 仍然 not_found ──
+PASS F0 线程 X 挂出一条 question 待决
+PASS F1 拿别的会话 id 答别人的待决仍然 not_found(实测 404 "not_found")
+PASS F2 拿容器 id 答仍然 not_found(实测 404)
+PASS F3 越权尝试没消费掉待决,拿会话自身 id 仍然答得进(实测 200 {"ok":true,"delivered":true,"questionId":"question_3f9148c06833c826"})
+
+INTERVENTION MISSION GATE E2E: ALL PASS

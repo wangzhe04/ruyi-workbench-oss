@@ -1,0 +1,6 @@
+FAIL Error: Injected TextEdit pre-observation fixture failure
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:137:73
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+
+MACOS INPUT APPS E2E: FAIL (1)

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "candidates": [
+    {
+      "variant": "full",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+      "archive": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip",
+      "archiveBytes": 551162419,
+      "archiveSha256": "f3c7cf3c4006930cda499e754111a71a3354d98b146b0df1868a1f3cd419620d",
+      "sourceCommit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139",
+      "manifestSha256": "e0bf0a457719813270b75e9841543606145cb9a8e6e0f95f6e480e7bd39d7804",
+      "treeSha256": "f86a806de30c53415898e720b5a7e03090835af6d9fabe3ce37c07dad2dd92e5",
+      "files": 9790,
+      "sourceFiles": 484,
+      "nativeFiles": 209,
+      "payloadBytes": 1165679196,
+      "unpackedIntegrityVerified": true
+    },
+    {
+      "variant": "slim",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+      "archive": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01.zip",
+      "archiveBytes": 45914840,
+      "archiveSha256": "ef7f441585b0dee871f3bfc5e17869c02c51f90f4ada053b1261a3a26986ddee",
+      "sourceCommit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139",
+      "manifestSha256": "41e57f111cd92244ace44d63bc378f5f1eb8fd9c49679fe4515b56a900c5b271",
+      "treeSha256": "278a8d22691d969d28b71b59d9962e4b82e5c4a8cf58c8ade868f216c0f49200",
+      "files": 278,
+      "sourceFiles": 484,
+      "nativeFiles": 6,
+      "payloadBytes": 140860335,
+      "unpackedIntegrityVerified": true
+    }
+  ]
+}

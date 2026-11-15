@@ -1,0 +1,39 @@
+PASS native input session rejects malformed frames and exits cleanly on EOF
+PASS native session bounds an unterminated input frame
+PASS ready Mac window and clipboard tools are discovered through real MCP
+PASS all live clipboard file writers retain checkpoint coverage
+PASS actual window observation returns process start identity and bounds
+PASS unknown worker reference is refused before mutation
+PASS pid rejects boolean and fractional identity true
+PASS pid rejects boolean and fractional identity 55589.5
+PASS handle rejects boolean and fractional identity true
+PASS handle rejects boolean and fractional identity 1266.5
+PASS stale process identity is refused before window mutation
+PASS bound fixture window acquires verified foreground focus
+PASS active-window query agrees with the bound target
+PASS overlapping same-process windows keep distinct exact foreground identities
+PASS overlapping fixture windows have identical actual bounds and distinct titles
+PASS a second live native worker cannot consume another worker reference
+PASS foreign-reference MCP fixture cleanup is confirmed
+PASS move verifies actual logical-point position
+PASS old geometry is refused after a real window move
+PASS resize verifies actual window dimensions
+PASS maximize fits the observed display work area
+PASS minimize confirms the actual accessibility state
+PASS minimized window refusal cannot be reported as a successful close
+PASS focus restores the same minimized window identity
+PASS fixture can preserve all prior clipboard types within its capacity limit
+PASS Unicode clipboard write reports character count
+PASS text clipboard write marks its completed side effect for late readiness failure
+PASS system clipboard text round-trips through the production tool
+PASS native image clipboard write reports decoded dimensions
+PASS image clipboard write marks its completed side effect for late readiness failure
+PASS image clipboard read preserves original dimensions and scales only its returned image
+PASS clipboard image saves a full-resolution PNG through the normal path
+PASS protected clipboard destination is refused before native observation
+PASS close confirms the owned window becomes unavailable
+PASS owned MCP subtree cleanup is confirmed
+PASS native fixture restores the original clipboard after its last owned write
+PASS controlled native fixture exits after acceptance
+
+MACOS WINDOW CLIPBOARD E2E: ALL PASS

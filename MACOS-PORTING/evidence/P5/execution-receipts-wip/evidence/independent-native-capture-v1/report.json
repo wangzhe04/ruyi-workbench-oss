@@ -1,0 +1,1419 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T23:14:06.907263+00:00",
+  "verdict": "passed_final_frozen_narrow_native_capture_ocr_receipts_and_regressions",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "implementationState": "Default-off bounded native generic receipt slice. Full original10+4 and wholeP5 acceptance remain open.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-freeze-v2.json",
+    "bytes": 32390,
+    "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b"
+  },
+  "sourceReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-source-review-v2.json",
+    "bytes": 74447,
+    "sha256": "8442608650b46ee7173406bbe61d7dddca4d45b4dd2348a5b987eb1149579e65",
+    "status": "no_confirmed_blocking_source_or_harness_findings_for_explicit_narrow_default_off_slice_ready_for_frozen_independent_runtime_acceptance",
+    "confirmedBlockingFindings": [],
+    "scopeDecision": "Source review supports this explicit narrow slice; no fullP5 or complete input/callback/performance acceptance inferred."
+  },
+  "planHistory": {
+    "v1SetupPreserved": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/setup-plan.json",
+      "bytes": 10738,
+      "sha256": "bcf5777c9fba28f36ab4f92d8d61e3ae46ba56d2f621f6e164eab2614d63a43c"
+    },
+    "v1FreezePreserved": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/native-capture-freeze-v1.json",
+      "bytes": 32004,
+      "sha256": "f3ddd4da67c6678ae49dc5c2d78eee4c08295938c8e441d2338c74acdc5c5e9d"
+    },
+    "exclusiveV2Plan": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/setup-plan-v2.json",
+      "bytes": 11048,
+      "sha256": "8b26888b4bd1c8e8b2c0eb5e25c8e9555ae07d427c6782d80b2e63bcc9da9f0c"
+    },
+    "v2FreezeCopy": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/native-capture-freeze-v2.json",
+      "bytes": 32390,
+      "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b"
+    },
+    "start": "No test/native/GUI was run during WAIT. Parent explicit GO applied only to finalv2 after125+4 primary gates and source review. Old plan was never overwritten.",
+    "testDelta": "Only capture e2e and adapter tests changed afterv1: small native child ACK/cold-reopen proof and actual shared generic/input busy case. v2 counts87/23; source/artifact production remains the final frozen bytes."
+  },
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "commandResults": [
+    {
+      "label": "capture",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-capture.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 87,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 87,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 13.664667416014709,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-invocation.json",
+        "bytes": 2484,
+        "sha256": "5c909edb95c95710e7a1fee310d30dc4cdef18a3abffa100cdb0d2c0fdf25f1e"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture.log",
+        "bytes": 7506,
+        "sha256": "e732c41b2c01cc83ff1f1a41c608692671aeb68f1def07357df23d6066b7913e"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-before-binding.json",
+          "bytes": 34506,
+          "sha256": "a1b490dae95764dbc39afea70623788d72b91e67eac8774bb635a68a44b0fa5c"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-after-binding.json",
+          "bytes": 34506,
+          "sha256": "aea10aff83f5945e1e7bab1d6208f16b5d9987f379e04b55da363768d6039bdc"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-cleanup.json",
+          "bytes": 10337,
+          "sha256": "74d24ca2b72eb0f29ae23346d0d30e14d0c6d7591568f79220e4b3db90410510"
+        },
+        "observedIdentities": 111,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "a6cbac342e38e6b4b122c5ebd9d8a455b5def3ca178e1b6a890f0f39a0bde8fe"
+      }
+    },
+    {
+      "label": "protocol",
+      "argv": [
+        "node",
+        "dev-harness/macos-native-receipts.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 51,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 51,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 3.6886935000075027,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol-invocation.json",
+        "bytes": 2402,
+        "sha256": "47c5309d12eeed6031a0e5051ba5ff26c447a213d11800d1d74e64e8e63e6750"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol.log",
+        "bytes": 3716,
+        "sha256": "dff97770ab40c63e1cd0c02461f615474e800af068f56edc1d8325724df4ab29"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol-before-binding.json",
+          "bytes": 34506,
+          "sha256": "a0dd4c490cab79f344813d13b0351d781fbdfa28972dc652b395879e069cb587"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol-after-binding.json",
+          "bytes": 34506,
+          "sha256": "c918714d187351b01ba4c6266581e580a860f466ce2f665646f0f218f8b27e16"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol-cleanup.json",
+          "bytes": 2327,
+          "sha256": "cc56e116559f78024408aadb6b7950039d7db0c1d3efd2bb83deaa4005aa0b6e"
+        },
+        "observedIdentities": 22,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "f2d69890bd6481370c169f71561fdab918f5edd215531520f2c6e5f704f85299"
+      }
+    },
+    {
+      "label": "adapter",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py"
+      ],
+      "exitCode": 0,
+      "count": 23,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 23,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 2.460032874980243,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter-invocation.json",
+        "bytes": 2547,
+        "sha256": "bff077dc3a6bb5d558af845398e90e8d7e30b8e3e40610bf62fdd86406588ab2"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter.log",
+        "bytes": 122,
+        "sha256": "fef10ecb85bed2ab5b86fa11de7bf0281cd2a5fb4b954b196a67fc7350481e32"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter-before-binding.json",
+          "bytes": 34506,
+          "sha256": "56a22d09539a000369df7c42adb307f6a552914d6db76b5a128919f7e4671d9e"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter-after-binding.json",
+          "bytes": 34506,
+          "sha256": "d45340f217bac6f6f0db7ca5aeeddd4f1a5f6d58a9a72c7d55a151f5ab9a9ea6"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter-cleanup.json",
+          "bytes": 2417,
+          "sha256": "522bab4ee241627ee8cb354c67febf08c03c482589e108d3a477fddfaecb2e15"
+        },
+        "observedIdentities": 23,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/adapter-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "8ffea0876dfdf0107e61acb2ffba8aed6b71d6af865103604e3716b60f425270"
+      }
+    },
+    {
+      "label": "pure-native",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_native_receipts.py"
+      ],
+      "exitCode": 0,
+      "count": 16,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 16,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.05895599999348633,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native-invocation.json",
+        "bytes": 2221,
+        "sha256": "18cbb9953d32d87208587deccd4953ebc0846a7167e2701c101303bfb21b7b11"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native.log",
+        "bytes": 115,
+        "sha256": "bf1d8186df2d63ab6beb6c5dbd7841764bfe6ec831b9b94b3acbe5cbc71d83a5"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native-before-binding.json",
+          "bytes": 34506,
+          "sha256": "1be1056d5b4459e64027a3df9129563b8129d78afcd1a14e3ee989dc15981b00"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native-after-binding.json",
+          "bytes": 34506,
+          "sha256": "cb25885707fd34f7786d0d18be1b9dce666d3e6e3edc891a064c3eecd62abbf8"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native-cleanup.json",
+          "bytes": 437,
+          "sha256": "3f9ae2d4ebf3b3a63ea0b06b2ead01b2e3e994be6365390c32b1607f3c481f32"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-native-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "f8a260e8e825ca29edc7576336c7b5399048c752bf2ea2b2cce68fa70da82297"
+      }
+    },
+    {
+      "label": "pure-required",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_required.py"
+      ],
+      "exitCode": 0,
+      "count": 12,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 12,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.1146845830080565,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required-invocation.json",
+        "bytes": 2227,
+        "sha256": "7fbb27c8447d4740f75d73995105e128a53cbb4c5080e652be190e683d571847"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required.log",
+        "bytes": 111,
+        "sha256": "a9a62c93b51eee640410bdd1924c2eb7632ed5f8a5eac2ea425b405c1a8a196c"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required-before-binding.json",
+          "bytes": 34506,
+          "sha256": "30b031ac091e6d2ca20c0b0d402577c62fad1697ecfa35d317040ef5f3fb44af"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required-after-binding.json",
+          "bytes": 34506,
+          "sha256": "280f96c2cccfc18f4df767e11a2c29f30aa56d42d5e68d9845d9502c5db2f6f1"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required-cleanup.json",
+          "bytes": 437,
+          "sha256": "b7aaa5cf14ed64ebe85059e1e2e7c85b9f1d69397651a6e96062073b6d554783"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-required-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "e7ee4f1763c2a8fa05b4baa72a30b42322b9236fa4e49f7ad8e11e640e4b7390"
+      }
+    },
+    {
+      "label": "pure-journal",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+      ],
+      "exitCode": 0,
+      "count": 18,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 18,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.16735120900557376,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal-invocation.json",
+        "bytes": 2225,
+        "sha256": "2d9c47661557b31b7e6273808f57f9dbd9ae7d3839364fa4e1a083508f3563d8"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal.log",
+        "bytes": 117,
+        "sha256": "405928bae21af3d54206440e2a503ab4bf4a859b6a0ba76afa0efe82bb720664"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal-before-binding.json",
+          "bytes": 34506,
+          "sha256": "b6d321a8be9e92468e81e4d51024002e8d44137e463b27bf096f57a970c55271"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal-after-binding.json",
+          "bytes": 34506,
+          "sha256": "742d0b56bc4d9e035718e0040615eb2ee6b5a5cf54a4d4d31b98201731860aaf"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal-cleanup.json",
+          "bytes": 437,
+          "sha256": "4c86c7ca3e90e268910dc5d7c71f665507b0819de6bcbe0689578fdf02ea272f"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-journal-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "aaf9733e3f7bf84f117671f75f58b76fe01ced8869fd8662e0bf2871905be5b6"
+      }
+    },
+    {
+      "label": "pure-control",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_control.py"
+      ],
+      "exitCode": 0,
+      "count": 4,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 4,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.4754161659802776,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control-invocation.json",
+        "bytes": 2224,
+        "sha256": "9ee1f4c8d28b1c0eb21b43c86571803c6f954b4378abaa7f6fb6504cca5f1426"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control.log",
+        "bytes": 812,
+        "sha256": "d7fe9601134a182cbce788619eefe6beaac054967d3f8c1ce2b9fd861417d5fa"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control-before-binding.json",
+          "bytes": 34506,
+          "sha256": "c1d60deee5c8e3a5fd0f87a92b4e739e08d862997b95a2d19bf4a371164ee4a0"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control-after-binding.json",
+          "bytes": 34506,
+          "sha256": "ddfba4af44bc798ddfcca9d1d0d1f585fe96a9c6209be9d28417d9b206e9c12f"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control-cleanup.json",
+          "bytes": 437,
+          "sha256": "bca618ff282fc8066a4e63a7ae289c603c8d6cf596d4162207a9924d17701fd5"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/pure-control-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "855cb969b727266e4e9110449543a576457af88671da300c1a8f5cf5f55eb540"
+      }
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 38,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 38,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.6180882499902509,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context-invocation.json",
+        "bytes": 2471,
+        "sha256": "340a5fcb1d6fbd2cd08720962cc3b34dc93e43bd6307fc12e5e1a4054bde51a8"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context.log",
+        "bytes": 3183,
+        "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context-before-binding.json",
+          "bytes": 34506,
+          "sha256": "385b41d83583d29e9810ed62acea712ff4d57adca3c0363c18381caf2b56aa96"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context-after-binding.json",
+          "bytes": 34506,
+          "sha256": "98d3d9b83c2789d5b06a0ffe871984568eeadca3de449c08d61c8466f136b538"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context-cleanup.json",
+          "bytes": 887,
+          "sha256": "758d74258ebb7ef73bb289b81334d23beecf7f313628c84a8c8e88714efcc1ba"
+        },
+        "observedIdentities": 6,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "25f0735439e502d11df5cf94fa8e196b02a003ec5e69a750960f29b5dc5fa865"
+      }
+    },
+    {
+      "label": "images",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-images.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 26,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 26,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 5.494079540978419,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-invocation.json",
+        "bytes": 2477,
+        "sha256": "0a7976d8d299b424de8691764fc3fd4698aa1f5f2fe3c3e5009c6bdfe4696e12"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images.log",
+        "bytes": 2137,
+        "sha256": "efc758abd6539c4ff65710ea5cbc082db2cdbbe90e09936174de93f34ac3c1ea"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-before-binding.json",
+          "bytes": 34506,
+          "sha256": "053f40e94c7bf4d5b02f5e5eea2ea7cbb6501f9c058fe3cc488acedf77c7905a"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-after-binding.json",
+          "bytes": 34506,
+          "sha256": "13c73d11c2aa54e3fd6c59ec9b8ce35ade51d73b1abd32e3031c0e228105b4e4"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-cleanup.json",
+          "bytes": 5567,
+          "sha256": "a5ff13110f1fc456ce908ba13f5b6464d8525e9ad249d1998a2b53633ab854ae"
+        },
+        "observedIdentities": 58,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "de7c92a72ed65b4e8648eb656274e87c147a68924ab9f020d1fa6868151a35cf"
+      }
+    },
+    {
+      "label": "dispatch",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-dispatch.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 32,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 32,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 3.5413115420087706,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-invocation.json",
+        "bytes": 2490,
+        "sha256": "a2bf961df39eb8e0df3a531e5c33d7950de1ede408b7d6d2cc089c6a0a45bbe1"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch.log",
+        "bytes": 2853,
+        "sha256": "1b1c427488d350c2760b45519bc3e83c132e93a969723c70018fd01eee4ade07"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-before-binding.json",
+          "bytes": 34506,
+          "sha256": "e34cf462d2500b7db1fe37b10b75b89057ab124768aa776210c16dcc53879b98"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-after-binding.json",
+          "bytes": 34506,
+          "sha256": "5e1e12b6f5db17d00a12f8220da5d486bcff7b822c411e5a4df0bb422bd64332"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-cleanup.json",
+          "bytes": 4127,
+          "sha256": "3c0348ee207aacfc7ed7562bd6b84747612ae53c685db203c222ebd1820e61e6"
+        },
+        "observedIdentities": 42,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "5ebb464091b8f6eeb65b023f09c715b20fa2ca1ffd71d66bc5419c7e35a4860e"
+      }
+    },
+    {
+      "label": "subagents",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-subagents.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 117,
+      "countMeaning": "tests/assertions",
+      "expectedCount": 117,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 15.739816291985335,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-invocation.json",
+        "bytes": 2495,
+        "sha256": "8353ea2ef948c58daf3ea509713b10669f2828d41fb1a0fa407f101803219e1f"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents.log",
+        "bytes": 11851,
+        "sha256": "77e9bb630ad09d3f05bceb3cabeb4cd2fdeb0a7f77df32a77d11874a861fca94"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-before-binding.json",
+          "bytes": 34506,
+          "sha256": "39bbd02139274d13a7b710976020cae5ef21dfa40d353630856ffe31505fdde1"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-after-binding.json",
+          "bytes": 34506,
+          "sha256": "4075c039d0e54976826d9f297ef5c587c67f9d89631f573ba34213359e6fc67a"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-cleanup.json",
+          "bytes": 7547,
+          "sha256": "f442139807fce6475a6270fc479c881ba0a917804660266340870d00750e248f"
+        },
+        "observedIdentities": 80,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "3286eb200f0bb5e55265fc9918fd98c8e9452495b974b3a3e46b96c843e75c69"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 17,
+      "countMeaning": "tests/assertions",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.6141131670156028,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph-invocation.json",
+        "bytes": 2139,
+        "sha256": "dff0226f75a215b676f0ca312a866d56a5ead202f727340e7c32b008df282e97"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph.log",
+        "bytes": 1327,
+        "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph-before-binding.json",
+          "bytes": 34506,
+          "sha256": "fd137010626da6fa339815f9656d6b42aa6492c37c25fd4fba3e5dd598794a1f"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph-after-binding.json",
+          "bytes": 34506,
+          "sha256": "cdfc8373fe352808c39f57877ea8c7c8ed24af53a4efbea6d77d7379b2458737"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph-cleanup.json",
+          "bytes": 527,
+          "sha256": "eff5f0409798634c1c894082d5f091dd4b2a0c93771273202e820d84468f89b2"
+        },
+        "observedIdentities": 2,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/module-graph-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "9d7d70e38c4a432d2f77c9f5320c1d2b540231b9e30897de56013ea2c35a8f52"
+      }
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 14,
+      "countMeaning": "tests/assertions",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.5760414579999633,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes-invocation.json",
+        "bytes": 2119,
+        "sha256": "8c915cb9b24a10f5e77638b834c413b1e74eb7f9e2a11eaf0dbee037dfa39267"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes.log",
+        "bytes": 1024,
+        "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes-before-binding.json",
+          "bytes": 34506,
+          "sha256": "293bc4eab28b3256403c2fb977c9425a37116f23a6c84fa0effeb284f703c805"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes-after-binding.json",
+          "bytes": 34506,
+          "sha256": "ee90b6e738e68a020702a97dbdad06da1491abb2e6862b9ecd5a05c7097deae0"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes-cleanup.json",
+          "bytes": 437,
+          "sha256": "f3b2137b0931e3160b0b57970b29a55bc350077b2ac8aae1897675d495cea622"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/routes-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "2d10c8142cc6851ded736cd2fd9d79978f020a71c2c09adc919af5bcf22fc589"
+      }
+    },
+    {
+      "label": "durable",
+      "argv": [
+        "node",
+        "dev-harness/durable-state-inventory.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "count": null,
+      "countMeaning": "inventory/build check",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.11175579100381583,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable-invocation.json",
+        "bytes": 2132,
+        "sha256": "914b979f7e01d1911cb8b3b12d64948487db9e1306e82a1ef20c929fc76ef316"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable.log",
+        "bytes": 91,
+        "sha256": "9164aa39883cb9d68aa1879626eb0097d305becfa0fa4f20bd25704070a895e9"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable-before-binding.json",
+          "bytes": 34506,
+          "sha256": "2ec336ee8f9ab9902fe4ceecbd3ee481e1029ab7b426f38375e716ab9b439e0d"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable-after-binding.json",
+          "bytes": 34506,
+          "sha256": "23d9072da33c1749a78ee77b2bb8f8d7ecf8b94ff972be99d68c13a7d52aa12b"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable-cleanup.json",
+          "bytes": 437,
+          "sha256": "042b470b784ed2bfbcbb29e639d904cf1af69bfa58407629dc27c8a4199f09a6"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/durable-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "eb23d632b06bdc03e6984c9c5cff898cc37fe7c0384458a00e3c41bf95fe8850"
+      }
+    },
+    {
+      "label": "facts",
+      "argv": [
+        "node",
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 30,
+      "countMeaning": "tests/assertions",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.10755549999885261,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts-invocation.json",
+        "bytes": 2108,
+        "sha256": "5857c73184f5395e95921e870a601545d17babd475d806dbf697782c6c83e35a"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts.log",
+        "bytes": 2337,
+        "sha256": "cdf131bfe15e1a80436a7ad6745636ffd6f4a46139d14e1b1f2d40d54e189c4f"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts-before-binding.json",
+          "bytes": 34506,
+          "sha256": "977074d1d8f5988db3653c0111b3d86142a3c6545cc71a75392239772691310d"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts-after-binding.json",
+          "bytes": 34506,
+          "sha256": "483ddf4b823403e45624742d5156a20581d98f805a02ed4ff84203bdc5e73e66"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts-cleanup.json",
+          "bytes": 437,
+          "sha256": "87536646f211800cc5a50acf8ca570146dc02e9d301d1091beb6cf23748611cd"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/facts-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "33cf600ef152ae5ee32b07b055fc9fd054b33dfaeba2f511923f681826d6e55d"
+      }
+    },
+    {
+      "label": "process-safety",
+      "argv": [
+        "node",
+        "dev-harness/process-safety.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 12,
+      "countMeaning": "tests/assertions",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.21774083300260827,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety-invocation.json",
+        "bytes": 2134,
+        "sha256": "8e7d99bd67f5a16bd930625411fb6885d2a42e98618c802dd751c2220d305d64"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety.log",
+        "bytes": 855,
+        "sha256": "87fcef5e7cbec93167fe90333a2c061eb80be751976cabaf9145cfee1e329b47"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety-before-binding.json",
+          "bytes": 34506,
+          "sha256": "1fe8a2e54c6a176746e98176d485a4bd6474a923ccb10b8decf99b03d001104e"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety-after-binding.json",
+          "bytes": 34506,
+          "sha256": "1e19f4c43eac0b8a48eca7fc5082fd693f7150d8e91043fa4a2faf9042a5dc4c"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety-cleanup.json",
+          "bytes": 437,
+          "sha256": "fb157d11041cc7067c6f605790f47d19dd6fe45c3775be91102fa95b3b6b201f"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/process-safety-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "ddd40f646fea0cea6af75066aac8861d3dc839eaba16aaaee22c7ecadcd4b231"
+      }
+    },
+    {
+      "label": "session-save-census",
+      "argv": [
+        "node",
+        "dev-harness/session-save-census.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "count": 20,
+      "countMeaning": "tests/assertions",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.10966341599123552,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census-invocation.json",
+        "bytes": 2150,
+        "sha256": "06b08f96c5924ab6ce87b0a5aec16b275e684f3920930b00abe5779423fcbf31"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census.log",
+        "bytes": 1906,
+        "sha256": "3b78743dcb63f5d2ea9b8e69fe9e74e6c05acf8427249a06d0c22bc4a8fa2b86"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census-before-binding.json",
+          "bytes": 34506,
+          "sha256": "ba63760ffb4c2ecab2f36a6c6187a452e3afde28c6973ba6bfb238907541df30"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census-after-binding.json",
+          "bytes": 34506,
+          "sha256": "9e43a322f3742452ad485c65fa41c804edddfafa0643d4494f677c9a9c40ff2a"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census-cleanup.json",
+          "bytes": 437,
+          "sha256": "a8deb232776f72789cdf994123d2546362b62e6c56ff655e2b3cf6eb8217e0ff"
+        },
+        "observedIdentities": 1,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/session-save-census-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "6bfc10c8166fc0a80a4598ec9e0dbbbe21731f74566f98860c32e04d5125b82b"
+      }
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "count": null,
+      "countMeaning": "inventory/build check",
+      "expectedCount": null,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "elapsedSeconds": 0.1615286250016652,
+      "invocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build-invocation.json",
+        "bytes": 2116,
+        "sha256": "58ab7f06c2760ed3e8d4d179fcbde6ffc86dd285df3c8396ca4a8fb4c7f139f6"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      },
+      "binding": {
+        "sources": 125,
+        "artifacts": 4,
+        "before": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build-before-binding.json",
+          "bytes": 34506,
+          "sha256": "e1cb04ade503035873a1fdc04fa80523ad3841f1b79159ffd9e34cf68df5761f"
+        },
+        "after": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build-after-binding.json",
+          "bytes": 34506,
+          "sha256": "8ef157c0f97dd09dbc05d806d1897f78ea7bf01e4d36d701b5da36f7811790a5"
+        },
+        "allMatched": true
+      },
+      "cleanup": {
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build-cleanup.json",
+          "bytes": 527,
+          "sha256": "8d76fc4efe4045bd1be08c7108f5152a913ab150fea18699aa7d9ef8a44cddf2"
+        },
+        "observedIdentities": 2,
+        "allObservedExited": true,
+        "remaining": []
+      },
+      "isolation": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/build-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "dc91e3a71fb41005876e1810caa063d9389e5e1d36652a14379edd0e8211c55b"
+      }
+    }
+  ],
+  "resultSummary": {
+    "commands": 18,
+    "allExit0": true,
+    "allCountsMatchPlan": true,
+    "independentFailed": 0,
+    "independentSkipped": 0,
+    "automaticRetries": 0,
+    "capture": 87,
+    "nativeProtocol": 51,
+    "actualAdapter": 23,
+    "pureNative": 16,
+    "pureRequired": 12,
+    "pureJournal": 18,
+    "pureControl": 4,
+    "actualContext": 38,
+    "actualImages": 26,
+    "actualDispatch": 32,
+    "actualSubagents": 117,
+    "staticAssertions": {
+      "moduleGraph": 17,
+      "routes": 14,
+      "facts": 30,
+      "processSafety": 12,
+      "sessionSaveCensus": 20
+    },
+    "durableSurfaces": 72,
+    "buildFresh": true,
+    "countBoundary": "Per-suite executions overlap; inventory surfaces are not runtime tests. No extra tests or whole-unit rerun were added for reporting."
+  },
+  "bindingSummary": {
+    "sourcesPerCheckpoint": 125,
+    "artifactsPerCheckpoint": 4,
+    "checkpointCount": 36,
+    "allMatched": true,
+    "raw129RowCheckpoints": "Each command links original before/after JSON. No129-row source arrays duplicated in this report.",
+    "artifactRoles": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "bytes": 309968,
+        "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0"
+      }
+    ],
+    "roles": "Newec6 helper executes generic capture/status/Vision plus input-session query tests. Old955 input-receipt-only and main1cc no-receipt helpers are negative compatibility tests in adapter, not fallback capture implementations; worktree OS process-helper performs identity/ownership checks. No helper/App rebuilding or re-signing."
+  },
+  "captureEvidence": {
+    "raw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-results.json",
+      "bytes": 1025850,
+      "sha256": "6fca37b7170d82b2c58808aedebb49337b82ea6e784da64e8958d1b9c27da52b"
+    },
+    "nativeWindowImage": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-results-window.png",
+      "bytes": 49751,
+      "sha256": "e693c6fa6a3c315c69f2f52f93780b1971cdad2a4778a153abccd8a48d0007d6"
+    },
+    "actualQuotaImage": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-results-quota.png",
+      "bytes": 9724466,
+      "sha256": "3d87431585cecae47088ec85be21681889f79139a98eb738f540904df039a410"
+    },
+    "positiveMain": "Real root/provider/ACC SDK→negotiated native capture and status, local-file and actual captured-window Vision OCR, available languages, exact raw-frame/worker/operation receipts and actual saved image/result history. Vision recognizes INVOICE42 and中文测试; exported PNG decoded by frozen independent PNG decoder. Remote model endpoint is a fake protocol endpoint, not actual model image understanding.",
+    "negativeWindow": "Missing own window has real native failure terminal and no invented image. A delivered failed tool result is not successful capture.",
+    "smallNativeForegroundNode": {
+      "sessionId": "sess_e16b64ab5aa1e8aa",
+      "invocationId": "053c1a99bdfd896aa80de7e55870998d",
+      "phase": "returned",
+      "deliverySha256": "a325d75ea15a4fcd1ece6ea05dc30c55d4873d3f69b33328a905246621d93bc1",
+      "snapshotHistorySha256": "a325d75ea15a4fcd1ece6ea05dc30c55d4873d3f69b33328a905246621d93bc1",
+      "binding": {
+        "kind": "foreground_workflow_node",
+        "runId": "run_c90e5c1c8aa0b641",
+        "nodeId": "capture",
+        "attempt": 1,
+        "subagentId": "sub_11e4f0e85b056aa4",
+        "batchId": "dbatch_34e418bb1b67fb28",
+        "toolCallId": "native_small_node_image"
+      },
+      "snapshotMessages": 4,
+      "actualChildRequestToolIds": [
+        "native_small_node_image"
+      ],
+      "coldReopenProviderRequestDelta": 1,
+      "coldReopenRows": 1,
+      "meaning": "Actual resized native PNG640px in exact private node history, same PNG in actual child request, separate parent history. Cold reopen permits one explicit new parent request with same acknowledged invocation/snapshot and no capture replay; not complete child transcript resumption."
+    },
+    "stopObservations": [
+      {
+        "kind": "entry_stop",
+        "invocationId": "472dc38ad89e24cf3f8d29c9aa708b69",
+        "gateStage": "native_entered",
+        "ownedIdentities": [
+          {
+            "pid": 61134,
+            "created": "1794437995561666"
+          },
+          {
+            "pid": 61161,
+            "created": "1794437996246740"
+          }
+        ],
+        "stopAfterPreparedMs": 30.936,
+        "observedExitAfterPreparedMs": 46.936,
+        "quiescentAfterPreparedMs": 99.936,
+        "entryExitBeforeEarliest2000msNativeHandshakeTimeout": true,
+        "quiescentBeforeFixtureDeadline": true,
+        "gateExitBeforeCleanup": null,
+        "durableStages": [
+          "acc_request_accepted",
+          "tool_entered",
+          "native_features",
+          "native_prepared",
+          "native_frame_sent",
+          "native_entered"
+        ],
+        "finalRows": [
+          {
+            "phase": "unknown",
+            "deliverySha256": null
+          }
+        ]
+      },
+      {
+        "kind": "continue_stop",
+        "invocationId": "5d6e0313493e22e65e9a0b594fd3847d",
+        "gateStage": "native_continue_sent",
+        "ownedIdentities": [
+          {
+            "pid": 61214,
+            "created": "1794437996939906"
+          },
+          {
+            "pid": 61244,
+            "created": "1794437997697679"
+          }
+        ],
+        "stopAfterPreparedMs": 12.518,
+        "observedExitAfterPreparedMs": 31.518,
+        "quiescentAfterPreparedMs": 58.518,
+        "entryExitBeforeEarliest2000msNativeHandshakeTimeout": null,
+        "quiescentBeforeFixtureDeadline": true,
+        "gateExitBeforeCleanup": null,
+        "durableStages": [
+          "acc_request_accepted",
+          "tool_entered",
+          "native_features",
+          "native_prepared",
+          "native_frame_sent",
+          "native_entered",
+          "native_continue_intent",
+          "native_continue_sent"
+        ],
+        "finalRows": [
+          {
+            "phase": "unknown",
+            "deliverySha256": null
+          }
+        ]
+      }
+    ],
+    "stopMeaning": "entryStop was initiated against live exact ACC/native identities at the committed entry barrier; actual observed exits precede earliest2s handshake timeout and durable unknown arrives before fixture timer/release. continueStop only proves continue was written but no terminal was saved by Python before root cleanup/unknown. It does NOT prove native body interruption. Times are individual observations, not product latency guarantees.",
+    "ioFaults": "Injected native_terminal journal EIO leaves no committed terminal and durable unknown; image-history EIO distinguishes completed native/SDK result from absent consumer delivery. In both, no later same-batch local write or postproposal provider call occurs; cold reopen holds, not replay.",
+    "actualLargeImageQuota": {
+      "bytes": 9724466,
+      "width": 2000,
+      "height": 1456,
+      "minimumSnapshotBytes": 25931956,
+      "encoded": {
+        "invocationId": "f57d8b7e3aab0287fefa75fce6532742",
+        "base64Chars": 12965956,
+        "bytes": 9724466,
+        "sha256": "3d87431585cecae47088ec85be21681889f79139a98eb738f540904df039a410"
+      },
+      "sha256": "3d87431585cecae47088ec85be21681889f79139a98eb738f540904df039a410",
+      "snapshotCapBytes": 16777216,
+      "ledgerPhaseAtRefusal": "returned",
+      "deliverySha256": null,
+      "meaning": "Actual2000x1456 own native screenshot9724466bytes; immutable consumer binding/history copies require minimum25931956bytes, above16MiB. Original PNG hash/bytes are preserved before bounded display projection. No fabricated enlargement/truncated transcript or later local/model continuation; reservation retained and cold restart holds unknown. This is quota-refusal correctness, not large-image positive delivery or performance qualification."
+    },
+    "ownedControls": {
+      "initialCounts": [
+        0,
+        0,
+        0
+      ],
+      "finalCounts": [
+        0,
+        0,
+        0
+      ],
+      "counterTextUnchanged": true
+    },
+    "GUIFixtureRemoved": true
+  },
+  "protocolAndAdapterEvidence": {
+    "protocolRaw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol/results.json",
+      "bytes": 33080,
+      "sha256": "e0d3ee8d716f0bbd11702b2f58684e1763a264bdbfd302e23ab0e739ba64efe8"
+    },
+    "protocolRetained": false,
+    "newGenericOperations": [
+      "capture",
+      "status",
+      "ocr.image",
+      "ocr.languages"
+    ],
+    "scope": "Explicit operation negotiation and correlation; legacy untraced generic requests do not expand old input-session surface. Existing generic/input share one owned worker and_LOCK; real busy and delayed cancel-observer safety cases pass. No input posting in these tests.",
+    "lateDuplicateBoundary": "Source guarded single-completion, pure decoder duplicate/out-of-order rejection and real one-terminal observations are established. No deliberate platform double callback or native OCR operation lasting>12and<60s was induced. No global cross-MCP concurrency qualification."
+  },
+  "regressionRaw": {
+    "context": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context/results.json",
+      "bytes": 106014,
+      "sha256": "b6869d357e2e534c160d3e63e0bfcbb1a18bbff0a857c8404ea0a5279a1daf87"
+    },
+    "images": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-results.json",
+      "bytes": 212633,
+      "sha256": "49a247e4327a074e5c6f1a3f6e841e1813a72f1ab18c8462cafe61ab2622fbd5"
+    },
+    "dispatch": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-results.json",
+      "bytes": 164880,
+      "sha256": "973160c2f59bfd03a4d6809b357517a453b8d22483f3a05d26334b40ec17c491"
+    },
+    "foregroundSubagents": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-results.json",
+      "bytes": 1639914,
+      "sha256": "a561a9a0af570caf7b980c76d0c163850cef5ad48fa4d99aed817eb8984bc58b"
+    }
+  },
+  "ownershipRelease": {
+    "released": true,
+    "allObservedOwnIdentitiesExited": true,
+    "details": "Every executed command links root/descendant birth-identity cleanup receipt. No unrelated process/caffeinate was signalled. Observed-only scope does not certify unobserved escape completeness. All GUI/native/test ownership released before reporting; no subsequent runtime starts."
+  },
+  "primaryFinalEngineeringReadOnlyReuse": {
+    "gates": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/native-final-gates-v2.json",
+      "bytes": 113021,
+      "sha256": "ed9aa74842126ec5762bd6c718ae72208eea7bdcb5444f6d67247f20a55f74b0"
+    },
+    "freezeShaMatches": true,
+    "commands": [
+      {
+        "label": "syntax",
+        "argv": [
+          "node",
+          "dev-harness/syntax-gate.js"
+        ],
+        "exitCode": 0,
+        "log": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/development/native-final-syntax-v2.log",
+          "bytes": 60,
+          "sha256": "99eaaa5ec6dd703a418963530cffb02800f1439dec264e43c4ccbc6db63c6ff0"
+        },
+        "beforeRows": 129,
+        "afterRows": 129,
+        "all129Matched": true
+      },
+      {
+        "label": "build",
+        "argv": [
+          "node",
+          "ruyi-workbench/app/build.js",
+          "--check"
+        ],
+        "exitCode": 0,
+        "log": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/development/native-final-build-v2.log",
+          "bytes": 69,
+          "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+        },
+        "beforeRows": 129,
+        "afterRows": 129,
+        "all129Matched": true
+      },
+      {
+        "label": "fast",
+        "argv": [
+          "node",
+          "dev-harness/run-all.js",
+          "--fast",
+          "--parallel",
+          "4"
+        ],
+        "exitCode": 0,
+        "log": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/development/native-final-fast-v2.log",
+          "bytes": 6027,
+          "sha256": "4377a84d645fc3c3284ef693525bcd858944989fa54062b73e078b4a0edf1909"
+        },
+        "beforeRows": 129,
+        "afterRows": 129,
+        "all129Matched": true
+      }
+    ],
+    "unitPreflight": {
+      "summaryFromFastLog": "# unit 测试: ℹ tests 2644 / ℹ pass 2626 / ℹ fail 0 / ℹ skipped 18",
+      "tests": 2644,
+      "passed": 2626,
+      "existingSkipped": 18,
+      "failed": 0
+    },
+    "fast": {
+      "passed": 80,
+      "failed": 0,
+      "centralLiveSkipped": 13
+    },
+    "syntax": {
+      "files": 1179,
+      "failed": 0
+    },
+    "mode": "Primary syntax/build/fast commands are independently read/hash-referenced, each with129 before/after rows true. Full unit is the fast runner unit preflight, not an invented separate independent command. No fullunit/fast/syntax was repeated.18 existing unit skips remain unverified; six explicit current Mac probes were run independently here, other live probes are outside scope. Earlier v1 after-binding drift is not accepted as final frozen qualification."
+  },
+  "sourceArchiveReference": {
+    "manifest": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-source-freeze-v2.archive.json",
+      "bytes": 43850,
+      "sha256": "3423894230ab194c56b1967b19dd28ca3a9ad84e2267cbbd8a703e75eac9cad1"
+    },
+    "archive": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-source-freeze-v2.tar.gz",
+      "bytes": 4459950,
+      "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448"
+    },
+    "expectedArchiveSha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448",
+    "members": 129,
+    "mode": "Archive/manifest hashed here; primary manifest records full129-member reread. Independent runtime source/artifact assurance is the36 per-command checkpoints, not a new archive/runtime test."
+  },
+  "limitations": [
+    "Original design10+4/fullP5 gates remain open; this is one selected currentMac own-window native capture/Vision slice",
+    "No input posting/held-input hard abort/release/rescue, background/API0/resume/CLI/manual demonstration or global-byte/ACK retention acceptance",
+    "Legacy contextless two-slot one-shot behavior retained; active generic/input share a per-MCP lock, not proved global cross-MCP serialization",
+    "No deliberate OS/platform late duplicate callback stress, body-interruption claim or slow OCR>12<60 runtime experiment",
+    "No broad window/app/display/minimumOS/TCC revoke/lock/formal signing/App package acceptance",
+    "No throughput/latency/long-session/high-concurrency or memory/IO performance SLA; large image only tests explicit refusal",
+    "DeliverySha is a strictly saved historical snapshot, not permanent current prefix, actual model comprehension or replay_safe"
+  ],
+  "actions": {
+    "productOrTestSourceEditsByIndependent": 0,
+    "inputPostingOrClipboardOperations": 0,
+    "heldTccOrDeliberateLockActions": 0,
+    "AppOrExistingHelperBuildSignActions": 0,
+    "userHistoryRestores": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullDesign10Plus4Acceptance": false,
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; reserved until wholeP5 acceptance.",
+  "rawEvidenceDirectory": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1",
+  "postqualificationCommits": "Parent reports worktree56c970cf and mainb7930bde after all qualification without byte edits. Separate immutable Git-tree binding will be reported in a new file; no runtime rerun is justified by commit."
+}

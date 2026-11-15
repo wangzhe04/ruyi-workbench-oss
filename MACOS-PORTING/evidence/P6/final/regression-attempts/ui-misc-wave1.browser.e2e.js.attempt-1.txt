@@ -1,0 +1,65 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S0 线程已建
+PASS S1 文件树画出来了(["big","crowd","dir-a","gone","linkdir","a-very-long-file-name-that-the-tree-will-cut-with-an-ellipsis-0123456789-abcdefghijklmnopqrstuvwxyz.txt","bom-quoted.csv","plain.txt","rows200.csv","rows201.csv"])
+PASS F1a 目录行 role=button、tabindex=0、aria-expanded=false(["big","crowd","dir-a","gone","linkdir"])
+PASS F1b 文件行:.ftree-main 是按钮、@ 并列,没有按钮套按钮(嵌套 0)
+PASS F2 文件行与目录行同高、没被 tap-min 撑开(目录 27px / 文件 27px / 最高 27px)
+PASS F3 .ftree-name 都带 title=完整名(长名 103 字)
+PASS F4 键盘 Enter 展开目录:aria-expanded=true 且子项出现(["inner.txt"])
+PASS F5 键盘空格在文件行上打开预览
+PASS F6 Tab 到 @ 钮上它可见(焦点在 @ 且 opacity 终为 1;实 {"isAt":true,"opacity":"1"})
+PASS F7 目录读不了:本地化的读取失败(「读取失败：文件夹不存在或已被移走」),不是「（空文件夹）」
+PASS F7b 不露服务端中文原文
+PASS F8 600 项目录列全、zzz-sub 子文件夹还在、不报截断({"count":601,"hasSub":true,"trunc":false})
+PASS F9 超过 5000 项:末尾提示「（只列出前 5000 项，更多项未显示）」,前 5000 项照列(5000 行)
+PASS F10a 指向目录的符号链接画成目录行(role=button)
+PASS F10b 点开链接目录能列出目标内容(["inner.txt"])
+PASS F11a 表头 2 列、首列是 name(BOM 没混进去)(["name","note"])
+PASS F11b 带引号的逗号/引号/换行不拆([["Smith, J","ok"],["a \"q\" b","line1\nline2"]])
+PASS F11c 恰好 200 行:不提示「只显示前 200 行」(200 行,提示 false)
+PASS F11d 201 行:只画 200 行并提示(200 行,提示 true)
+PASS A1a #contextMeter:role=button、tabindex=0、aria-label、aria-describedby 指得到({"role":"button","tab":"0","label":"上下文用量（点击查看、设置上限或立即压缩）","hidden":false,"describedBy":true})
+PASS A1b 焦点在电量上按 Enter 打开上下文弹层
+PASS A1c Esc 关闭弹层后焦点回到 #contextMeter
+PASS A1d 空格同样打开弹层
+PASS A2a 审计行头 role=button、tabindex=0、aria-expanded=false({"role":"button","tab":"0","expanded":"false","rows":6})
+PASS A2b Enter 展开详情(.open、.audit-detail、aria-expanded=true)
+PASS A2c 再按 Enter 收起
+PASS A3 #auditSourceFilter 有可访问名称(「按来源过滤」)
+PASS A4 4.3s 后:长 err 提示还在、普通 ok 提示已消失(["长长长长|toast err"])
+PASS H0 键盘在「帮助」项上按 Enter 打开帮助菜单
+PASS H1a 打开即聚焦第一项(焦点 user-guide)
+PASS H1b ↓ 移到第二项(admin-guide)
+PASS H1c End 到最后一项(open-data-dir)
+PASS H1d 末项再 ↓ 循环回第一项(user-guide)
+PASS H1e 首项 ↑ 循环到末项(open-data-dir)
+PASS H1f Home 回第一项(user-guide)
+PASS H3 Esc 关闭帮助菜单后焦点没丢到 body(在 appGearBtn)
+PASS H4a 再次打开帮助菜单
+PASS H4b Enter 选中「使用手册」,应用内阅读器打开
+PASS H4c 关闭阅读器后焦点回 #appGearBtn(修前掉到 body;实 appGearBtn)
+PASS H6a 前置:阅读器打开后齿轮菜单收起、触发项不可见({"rects":0,"gearHidden":true})
+PASS H6b 触发项不可见时关闭阅读器,焦点回 #appGearBtn(实 appGearBtn)
+PASS H5a 打开帮助菜单
+PASS H5b ↓↓↓ 到「查看日志」(view-logs)
+PASS H5c 慢的旧响应(100 行)晚到,没盖掉后发的新结果(「NEW」/「fast.log · 最近 1 行」)
+PASS H5d 关闭日志面板后焦点回 #appGearBtn(实 appGearBtn)
+PASS E1a 中文设置导航无横向溢出({"scroll":0,"wide":[],"count":18})
+PASS E1b 英文设置导航无横向溢出(Permissions & safety 等折行;{"scroll":0,"wide":[],"count":18})
+PASS E2a MCP 兼容性框无中文(stdioCapabilities: initialize, tools/list, tools/call, notifications/cancelledLimitations: No server-pushed tools/list_changed (re-run tools/list to detect tool)
+PASS E2b 能力/局限用的是本地化条目
+PASS E2c 桌面控制连接器名本地化(["Desktop control (ai-computer-control)","Desktop control (ai-computer-control)"])
+PASS E3a 前置:/api/status.models[0] 是 id 为空、label 为服务端中文的默认项({"id":"","label":"默认 (CLI 配置)"})
+PASS E3b 命令面板里 CLI 默认模型是「Default」,不是服务端中文(["Engine → Claude Code · Defaultengine","Engine → Fake · FakeCurrent"])
+PASS E4a 审计行摘要在英文界面没有中文(["ocr_find_text","run_command","ocr_find_text","run_command","scheduler_started","Server started (v3.0.1)"])
+PASS E4b 服务启动那一行是「Server started」
+PASS E4c 来源过滤的可访问名称跟随语言(Filter by source)
+PASS E5a 英文界面打开帮助菜单
+PASS E5b 英文手册里没有由硬折行画出来的 <br>(段落 112,<br> 0)
+PASS Z1 页面零未捕获异常([])
+
+UI MISC WAVE1 BROWSER E2E: ALL PASS

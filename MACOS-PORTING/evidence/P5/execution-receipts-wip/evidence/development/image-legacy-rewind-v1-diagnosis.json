@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "classification": "harness_environment_mismatch_not_source_change",
+  "outerRUYI_HOME": "/tmp/ric-06g8kh5j/data",
+  "fixtureOwnedWIN_CLAUDE_WORKBENCH_HOME": "/tmp/ric-06g8kh5j/TMPDIR/wcw-rewind-e2e",
+  "scope": "test-private persisted roots only",
+  "outer": {
+    "configExists": true,
+    "providerIds": [],
+    "sessions": [
+      {
+        "id": "sess_ec60879ab791006a.messages.ndjson",
+        "assistants": [
+          "未检测到 Claude Code CLI。推荐直接配置 API 引擎(更简单):设置 → 模型服务,填入 DeepSeek 等服务商的 API Key 即可开始。\n若你已安装 Claude Code,可在 设置 → Agent CLI 中指定路径。\n\n已保存你的输入到会话 sess_ec60879ab791006a。\n工作目录:/tmp/ric-06g8kh5j/TMPDIR/wcw-rewind-e2e",
+          "未检测到 Claude Code CLI。推荐直接配置 API 引擎(更简单):设置 → 模型服务,填入 DeepSeek 等服务商的 API Key 即可开始。\n若你已安装 Claude Code,可在 设置 → Agent CLI 中指定路径。\n\n已保存你的输入到会话 sess_ec60879ab791006a。\n工作目录:/tmp/ric-06g8kh5j/TMPDIR/wcw-rewind-e2e"
+        ]
+      }
+    ]
+  },
+  "fixture": {
+    "configExists": false,
+    "providerIds": [],
+    "sessions": []
+  }
+}

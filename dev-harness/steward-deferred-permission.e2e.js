@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib 头注)
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 (async () => {
 'use strict';
 // E2E(128f-⑪;Brief §4.2 第 7 条前半;用户 2026-09-19 拍板 A「立刻通知你,请求挂 600 秒等你处理」)。
@@ -52,9 +53,9 @@ const providerServer = http.createServer(async (req, res) => {
     const lastUser = [...msgs].reverse().find(m => m && m.role === 'user');
     if (lastUser && /追问:/.test(String(lastUser.content || ''))) nudgeTurns += 1;
     say(JSON.stringify({ say: '这条我不代批,留在那儿等你过目。', why: '128f-⑪ 夹具', acts: [], actions: [] }));
-  } else if (names.includes('powershell_run') && last && last.role === 'user') {
-    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), type: 'function', function: { name: 'powershell_run', arguments: '' } }] } }] });
-    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ command: 'Write-Output deferred-probe', timeoutMs: 10000 }) } }] } }] });
+  } else if (names.includes(shellTool) && last && last.role === 'user') {
+    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), type: 'function', function: { name: shellTool, arguments: '' } }] } }] });
+    frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ command: echo('deferred-probe'), timeoutMs: 10000 }) } }] } }] });
     frame({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
   } else {
     say('好的。');
@@ -172,7 +173,7 @@ try {
   if (dW) {
     const dl = Date.parse(dW.data.deadlineAt);
     ok(Math.abs(dl - (t0W + MEDIATED_MS)) <= 4000, `P2b 截止时刻 ≈ 请求时刻 + ${MEDIATED_MS / 1000} s(差 ${dl - (t0W + MEDIATED_MS)} ms)`);
-    ok(/powershell_run/.test(String(dW.data.ask || '')), `P2c 摘要里是工具名(「${dW.data.ask}」),不带命令原文`);
+    ok(String(dW.data.ask || '').includes(shellTool), `P2c 摘要里是工具名(「${dW.data.ask}」),不带命令原文`);
     ok(dW.at - t0W < BASE_MS, `P2d 早于缺省窗口就报了(请求后 ${Math.round((dW.at - t0W) / 1000)} s;「立刻」)`);
   }
   ok(stewardTurns >= 1, `P2e 管家确实跑过收件箱回合(${stewardTurns} 次)`);

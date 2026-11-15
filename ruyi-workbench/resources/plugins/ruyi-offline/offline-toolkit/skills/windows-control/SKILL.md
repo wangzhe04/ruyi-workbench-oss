@@ -3,6 +3,8 @@ name: Windows 桌面操控
 description: 通过工作台 MCP 操控 Windows 工作站(截图/控窗)
 ---
 
+Platform boundary: this skill is for Windows only. On macOS, stop before any desktop/window/input/OCR action: these backends are not implemented. Shared ACC file/Office tools and explicitly configured Playwright DOM automation are separate capabilities. Use absolute POSIX paths and shell_run/script_run for supported Mac file/script tasks; do not run PowerShell, UIA, or Windows key sequences on Mac.
+
 # Windows Control
 
 Use this skill when the user wants Claude to operate a Windows workstation through Ruyi Workbench: the `ruyi` MCP server (tools appear as `mcp__ruyi__<name>` in Claude Code) plus the desktop control MCP for windows, UI Automation, and OCR.

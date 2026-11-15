@@ -1,0 +1,39 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS S00 三条线程已建并各跑一回合
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S00b 在管家视角
+PASS A0 右栏开在 A、标题拿着程序性焦点(实测 title=「整理下载文件夹」focused=true)
+PASS A1 焦点在标题上时【没有】焦点环(box-shadow=none outline=none) —— 它是 tabindex=-1 的程序性落点,Tab 走不到,环只像个输入框
+PASS B0 三条行都在「已收工」(实测 ["done","done","done"])
+PASS B1 每行一行放下:行高 ≤44、卡头 ≤26(实测 ["40/20","40/20","40/20"];修前「已收工＋人形」把时间挤到第二行)
+PASS B2 与组头重复的「已收工」药丸【节点照建、紧凑密度不画】(实测 ["已收工:false","已收工:false","已收工:false"])
+PASS B3 「我开的」人形是缺省值不是信息:data-origin 照写、不画(实测 ["user:false","user:false","user:false"])
+PASS B4 右侧只印相对时间「刚刚」,整话退到 title(实测 ["刚刚","刚刚","刚刚"];修前是「0s 前有动静」)
+PASS B5 看板密度(440px)下五态药丸与来源图形照印(实测 ["true/true","true/true","true/true"])
+PASS B6 切回紧凑密度(收摊)
+PASS C1 右栏展开:头部与输入框共用900上限并适应可用宽,同左缘(实测 header={"x":292,"y":46,"w":732,"h":76,"r":1024,"b":122} composer={"x":292,"y":834,"w":732,"h":50,"r":1024,"b":884})
+PASS C2 右栏收起:头部和输入框居中且同宽900(实测 header.x 292 → 333, w=900/900)
+PASS C3 再展开(收摊)
+PASS D1 单线程任务:页签行整行不印(那唯一一枚与卡头同名;实测 hidden=true tabs=1)
+PASS D2 已收工的线程不印「停止」(按下去什么都不会发生的按钮;实测 hidden=true)
+PASS D3 「发给它」搬到输入框旁、收成圆键(同一枚节点:字形 1、人话「发给它」给读屏、宽 32px)
+PASS D4 动作行此刻只有一枚看得见的按钮,就是金色的「在工作台打开」(其余按态出现或收进「更多」;实测 ["stewardDrawerClassicBtn"] primary=["stewardDrawerClassicBtn"])
+PASS D5 跟全局一样的三枚 chip 收成无边小字(节点与可点性都在:3 枚、可见=true、边=rgba(0, 0, 0, 0))
+PASS D6 没有验收项就不印「没有验收项」那一格(实测 hidden=true)
+PASS E1 0 条在跑、0 条等你 → 状态行空着、不占位(实测 text=「」display=none;修前印「3 个任务 · 0 条在跑,0 条等你」)
+PASS E2 头部只剩 presence 那一句「空闲」＋ 一颗 6px 状态点(实测「空闲」dot=6px)
+PASS E3 旧的第二颗点(steward-avatar.css 的 ::before)已退役 —— 「• • 空闲」只剩一颗(实测 ::before content=none)
+PASS F1 默认递给如意时 chip 收成「@」圆键(is-quiet;label 收起、@ 露出、宽 26px)
+PASS F2 换皮不换字:label 仍是「→ 如意」、可访问名仍是「递给谁」(实测「→ 如意」/「递给谁」)
+PASS F3 点「@」照样开候选列表(功能一个没少)
+PASS F4 Esc 收起(收摊)
+PASS G1 元信息一行安静地印工作区名「work」(实测「work」visible=true)
+PASS G2 悬停出「工作区：work」,整张焦点卡上没有完整路径(实测 title=「工作区：work」)
+PASS H1 390px:分段钮 → 盾牌 → 齿轮从左到右互不重叠、都在视口里(实测 lens=[63,145] shield=[195,246] gear=[338,378])
+PASS H2 390px 整页无横向滚动(差 0px)
+PASS H3 「@」与输入行同一行(实测 @={"x":85,"y":750,"w":26,"h":26,"r":111,"b":776} row={"x":119,"y":745,"w":248,"h":36,"r":367,"b":781};修前 @ 独占一行、输入框掉到第二行)
+PASS I1 全程页面上没有未捕获异常(实 0)
+STEWARD SHELL REDESIGN BROWSER E2E: ALL PASS

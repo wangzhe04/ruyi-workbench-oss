@@ -1,0 +1,51 @@
+PASS A1 only explicit QQ success is sent
+PASS A2 QQ token fixed official host and credential fields
+PASS A3 QQ C2C passive reply uses original message identity and stable seq
+PASS A4 QQ group reply stays in original group
+PASS A5 Feishu internal tenant token uses appSecret
+PASS A6 Feishu replies to original message with stable uuid
+PASS A7 Feishu group uses reply API, no arbitrary recipient send
+PASS A8 token await cannot retarget captured identity
+PASS A9 long reply clearly marked and Unicode/UTF8 intact
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B invalid input/config rejected before outbound
+PASS B9 invalid inputs make zero HTTP requests
+PASS C token-401 classified failed
+PASS C no automatic retry token-401
+PASS C token-reset classified failed
+PASS C no automatic retry token-reset
+PASS C token-bad classified failed
+PASS C no automatic retry token-bad
+PASS C send-400 classified failed
+PASS C no automatic retry send-400
+PASS C send-401 classified failed
+PASS C no automatic retry send-401
+PASS C send-429 classified failed
+PASS C no automatic retry send-429
+PASS C429 bounded Retry-After surfaced without retry
+PASS C send-500 classified unknown
+PASS C no automatic retry send-500
+PASS C send-redirect classified unknown
+PASS C no automatic retry send-redirect
+PASS C send-reset classified unknown
+PASS C no automatic retry send-reset
+PASS C send-large classified unknown
+PASS C no automatic retry send-large
+PASS C send-malformed classified unknown
+PASS C no automatic retry send-malformed
+PASS C send-empty classified unknown
+PASS C no automatic retry send-empty
+PASS C send-rejected classified failed
+PASS C no automatic retry send-rejected
+PASS D1 dispatched reply timeout remains unknown
+PASS D1b QQ ill-typed code cannot claim delivery despite a message id
+PASS D2 pre-abort performs no request
+PASS D3 in-flight abort never claims known failure or retries
+
+EXTERNAL CHANNEL DELIVERY E2E: ALL PASS

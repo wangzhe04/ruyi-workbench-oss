@@ -1,0 +1,16 @@
+PASS 重算非空: 175 判定点 / 161 鉴权行
+PASS 双向校验零漂移(problems=0)
+PASS docs/architecture/route-inventory.json 存在且 schema=1(不存在则跑 node dev-harness/route-inventory.js)
+PASS route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS docs/architecture/route-inventory.md 存在(人读表随 JSON 一起生成)
+PASS route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS route-inventory.json 不含 app/src 行号字段(实得 0 处;行号入库会让加一行注释就漂移)
+PASS deny-by-default: 合成未知 /api 路由无首配(落空 = 运行期 403)
+PASS POST /api/bootstrap 保持 open(47c 浏览器握手唯一通道)
+PASS contract 决策端点保持 token(75b)
+PASS GET /api/interventions 保持 token-browser(56 波)
+PASS sessions 读/删保持 token-browser
+PASS POST /api/tools/ 前缀保持 token
+PASS overlay 回滚保持 token(53b 破坏性档)
+
+ROUTE INVENTORY STATIC E2E: ALL PASS

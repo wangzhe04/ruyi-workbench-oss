@@ -1,0 +1,92 @@
+{
+  "work": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG",
+  "wb": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/real/Ruyi.app/Contents/Resources/workbench",
+  "alias": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/alias/Ruyi.app/Contents/Resources/workbench",
+  "canonicalSame": true,
+  "refs": [
+    {
+      "id": "e7be96d636c8",
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/home/.claude.json",
+      "displayFile": "~/.claude.json",
+      "kind": "json",
+      "owner": "claude-code",
+      "container": [
+        "mcpServers"
+      ],
+      "serverId": "old",
+      "entryLabel": "old",
+      "packageRoots": [
+        "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/real/Ruyi.app/Contents/Resources/workbench"
+      ],
+      "action": "rewrite",
+      "changes": [
+        {
+          "field": "args.0",
+          "from": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/real/Ruyi.app/Contents/Resources/workbench/app/server.js",
+          "to": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js"
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/alias/Ruyi.app/Contents/Resources/workbench",
+      "version": "probe",
+      "lastLaunchedAt": "",
+      "firstSeenAt": "2026-11-12T10:04:11.614Z",
+      "launchMode": "",
+      "running": false,
+      "discoveredBy": [
+        "registry"
+      ],
+      "key": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/alias/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 0,
+      "refIds": [],
+      "containsCurrent": false,
+      "sizeBytes": null,
+      "sizeCapped": null
+    },
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/real/Ruyi.app/Contents/Resources/workbench",
+      "version": "probe",
+      "lastLaunchedAt": "",
+      "firstSeenAt": "2026-11-12T10:04:11.613Z",
+      "launchMode": "",
+      "running": false,
+      "discoveredBy": [
+        "registry",
+        "reference"
+      ],
+      "key": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-U2BSTG/real/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 1,
+      "refIds": [
+        "e7be96d636c8"
+      ],
+      "containsCurrent": false,
+      "sizeBytes": null,
+      "sizeCapped": null
+    }
+  ],
+  "result": {
+    "ok": false,
+    "error": "referenced",
+    "status": 409,
+    "refs": [
+      {
+        "id": "e7be96d636c8",
+        "file": "~/.claude.json",
+        "entry": "old",
+        "action": "rewrite"
+      }
+    ]
+  },
+  "helperInvocations": [],
+  "expected": "referenced refusal, zero helper calls",
+  "sourceUnchanged": true,
+  "sourceBindings": {
+    "ruyi-workbench/app/server.js": "dfe60965b15bb925ea669a06cc0f3dbf0c91ff43f4ad445f0cdd701f6e483f38",
+    "ruyi-workbench/app/src/13u-migration-center.js": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+    "ruyi-workbench/app/src/00-boot.js": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25"
+  },
+  "checkedOnRefreshedServer": true
+}

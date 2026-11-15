@@ -1,0 +1,14 @@
+{
+  "source": "https://pypi.org/pypi/opencv-python-headless/4.14.0.94/json",
+  "filename": "opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl",
+  "bytes": 46491231,
+  "sha256": "bc7db37dc234f7bb3190a158fd9dd750357246fc7d8adb23698843ef721a993b",
+  "pypiSha256": "bc7db37dc234f7bb3190a158fd9dd750357246fc7d8adb23698843ef721a993b",
+  "verified": true,
+  "artifactCache": "/Users/jiming/.cache/ruyi-macos-wheels/vision-p5/opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl",
+  "tlsCAFile": "/etc/ssl/cert.pem",
+  "runtimeInstall": "offline --no-index --no-deps",
+  "minimumWheelTag": "macosx_13_0_arm64",
+  "numpyRequirement": "numpy>=2 on Python>=3.9",
+  "numpyExisting": "2.5.4"
+}

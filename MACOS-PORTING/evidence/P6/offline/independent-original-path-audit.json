@@ -1,0 +1,22 @@
+{
+  "scope": "Extra independent native re-audit on original dist/Documents path",
+  "sourceCommit": "b33d1c6a",
+  "outcome": "failed_timeout_not_accepted",
+  "command": [
+    "/Library/Developer/CommandLineTools/usr/bin/lipo",
+    "-archs",
+    "/dev/fd/3"
+  ],
+  "timeoutMs": 180000,
+  "nativeToolPID": 63231,
+  "ownerPID": 63191,
+  "fd3MappedTo": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/MacOS/RuyiDesktop",
+  "sampleObservation": "main -> open -> __open during all 777 captured samples",
+  "rootCause": "unconfirmed; resolving selector shims did not eliminate this original-path boundary",
+  "cleanup": "run() killed its dedicated process group after timeout",
+  "processAbsentAfterCleanup": true,
+  "processCheckExitCode": 1,
+  "processCheckOutput": "",
+  "checkedAt": "2026-11-12T07:30:18.766064+00:00",
+  "followup": "Functional Full/Slim acceptance and independent native audit on exact-byte /tmp clones; preserve original failure separately"
+}

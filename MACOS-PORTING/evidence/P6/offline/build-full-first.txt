@@ -1,0 +1,12 @@
+Error: otool failed: error: /Library/Developer/CommandLineTools/usr/bin/otool-classic: can't open file: /private/tmp/.ruyi-offline-VPmER1/candidate/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper  (No such file or directory)
+
+    at run (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:68:50)
+    at nativeAudit (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:111:20)
+    at buildMacOffline (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-offline.js:106:65)
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-offline.js:141:19)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)

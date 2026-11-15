@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T10:39:31.550135+00:00",
+  "verdict": "changes_requested_original_balanced_prefix_neutral_source",
+  "baseCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+  "originalSourceProvenance": {
+    "paths": [
+      "dev-harness/macos-neutral-abort.e2e.js",
+      "dev-harness/fixtures/macos-abort-window.m"
+    ],
+    "evidence": "Original source was read directly in tool outputs before the reviewer sent findings to the parent. Parent was explicitly told it could start one consolidated repair.",
+    "rawWholeFileHashesCapturedBeforeEdits": false,
+    "originalSourceArchiveAvailable": false,
+    "limitation": "Original full-file SHA/immutable source copy was not captured before authorized concurrent repair. Original line references and source observations are historical tool-read evidence, not a hash-bound approval of the current working files. No hash is reconstructed or invented."
+  },
+  "plan": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/plan-review-v1.json",
+    "bytes": 25434,
+    "sha256": "c531a47463c9a1f0e064157fa2f60c0479f573ee011d471b5ff377abda782779"
+  },
+  "findings": [
+    {
+      "id": "N1",
+      "priority": 1,
+      "title": "Neutral fault can drift into the second real input sequence",
+      "originalLines": "JS172-180,193-209",
+      "issue": "Original macro was focus, real40ms balanced click,wait30,and a second real balanced click. GET/ps/snapshot work before kill had no monotonic deadline. A final neutral sample could be followed by suffix down and then root SIGKILL, producing an unarmed held fault.",
+      "requiredChange": "Remove future input from this neutral calibration. Use the agreed wait-only macro and a monotonic stream-start-to-fault deadline below15s, plus a final pending/no-result and exact birth check; late/finished means no injected fault.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N2",
+      "priority": 1,
+      "title": "Failure cleanup could interrupt input before neutral completion was known",
+      "originalLines": "JS117-122,233-240",
+      "issue": "Errors before completed-prefix proof entered finally and killOwnTree(server), potentially inside the40ms pair. Receiver was then closed. This adds a hard input fault even if planned fault preconditions were never reached.",
+      "requiredChange": "Wait-only zero-input rewrite removes this mechanism. Future input cases need separately reviewed settlement/neutral-aware cleanup and must preserve observer/identities rather than force unknown held input; no recovery input is authorized by this calibration.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N3",
+      "priority": 2,
+      "title": "Dead root skipped original survivor cleanup",
+      "originalLines": "JS117-122,209-240",
+      "issue": "After root-only SIGKILL, gone(rows) timeout leaves guardian/ACC/native survivors. stopOwned returns immediately for an exited root and does not handle retained original identities.",
+      "requiredChange": "Retain original born rows; classify product observation as failed before any separate exact PID+birth survivor cleanup. Never walk an exited/reused root, blanket-kill by name/group, or credit external cleanup as product automatic exit.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N4",
+      "priority": 2,
+      "title": "Topology strings did not prove numeric independent group ownership",
+      "originalLines": "JS27-34,197-202;C23-25",
+      "issue": "PGID was only part of a command string; substring matches did not check numeric guardian/primary/ACC/native chain, receiver group exclusion or command/birth coherence.",
+      "requiredChange": "Record numeric PID/PPID/PGID/SID with command observations bracketed by consistent births. Prove bound root→guardian→primary→ACC→native chain and receiver outside supervised groups. Receiver can share external root/runner PGID; do not incorrectly require its PGID differ from root.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N5",
+      "priority": 2,
+      "title": "Input receipt source, point and timing were not attributed",
+      "originalLines": "JS183-207;C48-57",
+      "issue": "Receiver one down/up plus ACC success could be accepted without checking recorded sourcePID/coordinates/timing against the actual native worker and expected point.",
+      "requiredChange": "Wait-only removes input attribution by requiring zero counts/receipts. If input is later reintroduced, qualify actual sourcePID support, matching native birth and point/time; absent reliable attribution is inconclusive, not a made-up nonce or held gate pass.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N6",
+      "priority": 2,
+      "title": "JSON key order comparison and incomplete final-state preflight",
+      "originalLines": "JS188-207",
+      "issue": "JSON.stringify of NSDictionary-derived frame/input_source can reject equal values due to key order. Final state only checked neutral/counts, omitting prior geometry/frontmost/source/otherInput conditions.",
+      "requiredChange": "Compare fixed finite frame fields and explicit source id/type; recheck exact owner/stationary/focus/source/no-input conditions at final fault preflight. In wait-only require counts0 and empty receipts throughout.",
+      "status": "open_in_original_source_pending_v2_review"
+    },
+    {
+      "id": "N7",
+      "priority": 2,
+      "title": "Original crash evidence omitted Node logs and discarded service output",
+      "originalLines": "JS60-93,239-249",
+      "issue": "Snapshots copied sessions/ACC logs only; service stdout/stderr was resumed and discarded. Late cleanup/archive failures could bypass the final result writer, weakening crash/restart evidence.",
+      "requiredChange": "Retain isolated Node logs, per-generation raw service outputs, and guarded terminal failure/incomplete evidence. Mark cross-file snapshots non-atomic; do not manufacture missing persisted macro/cleanup receipts.",
+      "status": "open_in_original_source_pending_v2_review"
+    }
+  ],
+  "unresolvedFindings": [
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+    "N7"
+  ],
+  "acceptedFollowupDirection": {
+    "decision": "Parent chose the narrower plan step2 wait-only macro, zero input_sequence/focus mutation steps, actual list_windows for worker existence, zero-input neutral receiver, root-only SIGKILL and GET-only restart.",
+    "reviewStatus": "Final revised sources are to receive a separate full v2 review; no closure or runtime pass inferred by this historical report."
+  },
+  "scope": "Source-only review of original neutral balanced-prefix candidate; no GUI, test, compilation, snapshot process tool, signature, signal, input or runtime probe performed by reviewer. This is not held-state/rescue/TCC/lock/clipboard/App/Windows or whole-P5 acceptance.",
+  "actionsThisReview": {
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stageChanges": 0,
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress"
+}

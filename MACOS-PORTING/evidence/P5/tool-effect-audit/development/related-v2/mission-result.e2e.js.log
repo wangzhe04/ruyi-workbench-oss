@@ -1,0 +1,66 @@
+PASS workbench up
+PASS runtime token available
+PASS legacy delivery/followup 摘要加载时迁移为验收标准
+PASS (a) 会话已建
+PASS (a) mission start(trusted)
+PASS (a) turn_summary 事件带 irreversible 账
+PASS (a) powershell_run 入账(exec + detail)
+PASS (a) file_read 只读不记账
+PASS (a) snapshot.result 已盖章(complete)
+PASS (a) 盖章来源 how=update + finishedAt
+PASS (a) 验收状态 2/2 done
+PASS (a) 未完成项为空
+PASS (a) 结果内不可逆账 total=1(exec)
+PASS (a) 真实回滚能力引用(checkpoints)
+PASS (a) changes.commands 是数字=1(第70波 NaN bug 修复回归)
+PASS (a) 快照级不可逆账(活投影)total=1 legacy=0
+PASS (a) result.deliverableText 含最后 assistant 正文(不依赖 SSE 流时序)
+PASS (a) 首次盖章 resultHistory 为空
+PASS (a2) complete 任务可追加第二回合
+PASS (a2) 第二回合完成后主交付正文来自第二回合
+PASS (a2) 第一回合交付仅保留在历史验收记录
+PASS (b) 再武装(加 pending 里程碑)-> 旧 complete 章清理
+PASS (b) stop -> 盖 stopped 章
+PASS (b) stopped 章列出未完成项(m3 pending)
+PASS (b) stopped 章验收 3/4
+PASS (b) 剩余标 done -> 路由路径盖 complete 章
+PASS (b) complete 章验收 4/4
+PASS (b) 重复 update 不重复盖章(finishedAt 稳定)
+PASS (b) resultHistory 留存追加回合前后与 stopped 旧章
+PASS (b) 历史首条 = 旧 complete@2/2
+PASS (b) 历史末条 = stopped 章
+PASS (b) 历史轮次带 deliverableText(归档保留完整正文,支持应用内全文阅读)
+PASS (b) 新 complete 章保持最新回合 deliverableText
+PASS (c) workbench 重启 up
+PASS (c) 重启后重读 token 已轮换(新增断言,117q-P1-32)
+PASS (c) 旧回合 commands=2 单列 legacyCommands(不混入新账)
+PASS (c) 新账 total 仍为 1(旧计数不污染明细)
+PASS (c) 重启后 complete 章仍在(持久化)
+
+── [s] 静态锁 ──
+PASS s 02 不可逆账分类表(内建+claude)
+PASS s 02 buildTurnSummary 记账
+PASS s 02 turnSummary 返回 irreversible
+PASS s 02 foldTurnSummaries 单一折叠 + legacyCommands
+PASS s 02 buildMissionResult(含真实回滚引用)
+PASS s 02 maybeFinalizeMission 盖章/清章
+PASS s 02 normalizeMission 深拷携带 result
+PASS s 13 stop 复用整单控制核心盖 stopped 章
+PASS s 13 check/update 接线盖章
+PASS s 09 回合内 mission_update 推迟盖章 + 收尾 finalize(含本回合交付)
+PASS s 05 claude 收尾先落盘前合并、再盖当前轮 result 章（不沿用上一轮交付，也不被合并盖掉）
+PASS s 13d 快照带 result
+PASS s 13d 折叠走 foldTurnSummaries(NaN bug 修复)
+PASS s 02 archiveMissionResult 归档旧 result
+PASS s 02 normalizeMission 深拷携带 resultHistory
+PASS s 02 buildMissionResult 取最后 assistant content 作 deliverableText
+PASS s 02 追加回合建立验收标准，不把用户提示原文重复为验收项
+PASS s 02 旧 delivery/followup 摘要项加载时迁移为验收式表述
+PASS s 13d 快照带 resultHistory
+PASS s 02 stop/retry/next_turn/rollback + 再武装 前归档旧 result
+PASS s 02 archiveMissionResult 不再裁 2000(保留完整正文)
+PASS s 13 update 分支把磁盘权威 result 同步回活回合(防回合收尾覆盖丢失新章)
+PASS s 13 update 分支把磁盘权威 resultHistory 同步回活回合
+PASS s 10 驱动器机器验收全 done 补盖 complete 章(收工卡有验收报告)
+
+MISSION RESULT E2E: ALL PASS

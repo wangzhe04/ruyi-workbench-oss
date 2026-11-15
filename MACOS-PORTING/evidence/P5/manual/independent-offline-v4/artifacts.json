@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "normal",
+    "path": "/tmp/ruyi-v4-build-ipdi070k/normal-helper",
+    "bytes": 291168,
+    "sha256": "484a239de41b0cdc955d3faa476b112250989aa6913dc782f1cb11b3786e8c55"
+  },
+  {
+    "mode": "testing",
+    "path": "/tmp/ruyi-v4-build-ipdi070k/testing-helper",
+    "bytes": 308512,
+    "sha256": "6ad71980c395d9aeb8b1cfe4a73769f8c8fada9da07592ca4465abd14cca405a"
+  }
+]

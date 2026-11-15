@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T15:43:38.770Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review and inspection of pre-existing parent development stdout/results. No tests, pure probes, MCP/native/helper execution, GUI, build or source edits by reviewer in this integration round.",
+  "scope": "Product execution_receipt integration with graph/private-blob validation, stricter Node metadata probe acceptance, strict archived journal JSON decoding, and the changed real-stdio/unit qualification sources.",
+  "scopeSeparation": "Earlier context and pure-validator/preparation freezes retain their historical scopes. This source snapshot contains acknowledged drift and does not inherit runtime acceptance from those earlier frozen inputs.",
+  "sourceInputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11166,
+      "sha256": "d821887a8867abdd710b8a61ae3d03376dc5ce17940a1c0450449bcad420f15d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19893,
+      "sha256": "9ee32da54e86a439b60ce8e9a9fcabc34df9b9198cbcab1922cace2be063087b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 11277,
+      "sha256": "840a68cf894af6b123019bcb941e793490aee9a33098fb18f6c8824d9ebb1901"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197549,
+      "sha256": "b817f08dfca5fe7fe75beb1c4425246c21bf832510be92fbbd593fe8cf122aba"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 6192,
+      "sha256": "5f8900407070b0afb4237de335768b7929779db4fd4a3d828f4c8756d72e98df"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4662,
+      "sha256": "d2d4aea58c1a3f332b8f1d6ca25506b7ad32ae8020a1750a2d07a220ccac9a5f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js",
+      "bytes": 14294,
+      "sha256": "31475a9f813062edcb77e928aef06eee76664f60eaae8dbd60cb477ada48d286"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 12714,
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798"
+    }
+  ],
+  "findings": [],
+  "outcome": "No new actionable source finding identified within this reader-integration slice.",
+  "sourceChecks": [
+    "Product execution_receipt now calls read_validated_receipts; returned semantic_validation is produced only after graph and every referenced private argument/native frame blob are validated.",
+    "ExecutionJournalError from semantic/private-blob validation returns explicit ok=false, typed code, outcome=unknown, incomplete=true and request_terminal_observed=false. That branch does not expose raw records, private blob contents, semantic success or metadata_probe.",
+    "The probe result is computed from real SDK metadata, but is attached only to the successful validated-reader return. A failed blob validation cannot return a positive probe ACK through the ordinary typed error branch.",
+    "Node safe probe requires ok===true and semantic_validation.semantic_version===1 in addition to nonce, expected SDK numeric fingerprint, codec and worker identity checks. Unit counterexamples cover explicit failed reader and missing semantic reader capability.",
+    "Journal marker and event decoding now rejects duplicate object keys at any depth, NaN/Infinity and floating exponent overflow. Published hash validity alone cannot cause the last duplicate ok field to become an authoritative terminal.",
+    "Ambiguous event JSON is handled as a bounded valid prefix with incomplete=true. It can remain a successful read operation while lifecycle completeness remains unknown; read success is not execution success or replay safety.",
+    "Graph lifecycle completeness and reported terminal outcomes stay separate. Root/handler terminal and lifecycle_unknown=false do not establish application consumption, absence of side effects or replay_safe.",
+    "No write-protocol, metadata authority or normal well-formed trace semantics were changed by the strict JSON reader addition."
+  ],
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v7.log",
+        "bytes": 2718,
+        "sha256": "f1d440509b00933ab82b58e123613c374e0c9f35e5a4c3b2f304fe0def43232e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v8.log",
+        "bytes": 2815,
+        "sha256": "8ca75dfd236ce98831603c0bcbf3c418fec74bd105f53c3a8ee10ce9ab2f053f"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/journal-v4.log",
+        "bytes": 117,
+        "sha256": "166a19e481e74e542a6a933f18db7892e7ecf92497c833712a8d196b8860492e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/preparation-arguments-v4.log",
+        "bytes": 1363,
+        "sha256": "fe27666c579cf951b337e4b4ed67f18c9336e03b21fafe5518f49d697903c531"
+      }
+    ],
+    "results": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v7/results.json",
+        "bytes": 93092,
+        "sha256": "c6cdf56244560000c956deddbaa627fc6a788f6a49ff0cde1df1ec4cdfe6e1d4"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v8/results.json",
+        "bytes": 104730,
+        "sha256": "67ec8225132ca559c8c2376abdc339c08e37f5b90ab9d2e07937ae68fab58421"
+      }
+    ],
+    "currentCounts": {
+      "realMcpContextV8": 33,
+      "journalV4": 18,
+      "nodeArgumentAndPreparationV4": 12
+    },
+    "history": "context-v7 had 32 PASS before the final strict-journal JSON negative. context-v8 has 33 PASS and includes a hash-matching duplicate-terminal-field archive that cannot produce an observed terminal; journal-v4 has 18 OK and Node combined has 12 PASS. Existing historical attempts remain separate and unmodified.",
+    "scope": "Parent real MCP stdio run used wait and mouse-position read-only queries. Corrupt private blob and ambiguous archive writes were confined to the isolated fixture; no held-state or posted-input scenario was exercised.",
+    "reviewerExecuted": false
+  },
+  "fixtureRetentionClarification": "The test immediately verifies that failed reader validation does not rewrite/reset the corrupted private blob. A successful harness run then removes its entire isolated root, and context-v7 results records retained=false. Thus preservation is a reader nonmutation assertion at validation time, not an archival guarantee that the original corrupted blob remains after successful fixture cleanup. Raw stdout and results.json are separately retained.",
+  "implementationState": "Uncommitted full execution-receipts WIP. This is actual product reader integration, but Node durable preparation/store, provider dispatch activation and restart reconciliation remain unimplemented.",
+  "remaining": [
+    "Independent acceptance for the newly frozen integration inputs is still to be executed and recorded separately; this review does not count the planned 33+18+12 independent run as done.",
+    "Node durable preparation, exact immutable argument handoff to direct/proxy dispatch, received-result persistence and restart reconciliation.",
+    "Per-invocation matching of prepared tool/argument/worker identities and required backend receipt coverage; a generic complete graph alone does not prove every expected effect layer was exercised.",
+    "Acknowledged-terminal retention/global storage management, single-request helper coverage, source-bound ordinary owned-action and fault-window end-to-end qualification.",
+    "Held-state fault qualification requires independent qualified rescue and remains open."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no locking settings inspected or changed."
+}

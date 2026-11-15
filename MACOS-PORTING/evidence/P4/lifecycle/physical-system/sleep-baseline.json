@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-07T17:45:22.787Z",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-UlaFID",
+  "app": {
+    "pid": 97075,
+    "created": "1794073415843230"
+  },
+  "service": {
+    "pid": 97078,
+    "created": "1794073416007839"
+  },
+  "sleepEvents": 0,
+  "wakeEvents": 0,
+  "simulatedSystemEvents": false,
+  "url": "http://127.0.0.1:8766/",
+  "health": {
+    "ok": true,
+    "app": "如意 Ruyi",
+    "version": "3.0.1",
+    "overlayId": "de4136981123",
+    "launchMode": "node",
+    "uptimeSec": 107
+  },
+  "sourceFingerprint": {
+    "desktop-macos/DesktopService.swift": "93d865770d762fde93fe91a40b630fa87c4f5c2a965e1fb7d9a8cc291985d6d9",
+    "desktop-macos/MacHostBridge.swift": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5",
+    "desktop-macos/RuyiDesktop.swift": "d57d760d590354b82f7b1305ecaf448d47860abb416788ae8356b389f025b59b",
+    "desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+    "desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+    "tools/build-macos-desktop.js": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216"
+  },
+  "probeSHA256": "8560f4b1fe013f5ffbd25a57db831461f92b69f5dac284a53b3937d39df6951e",
+  "scriptSHA256": "7445cff29beb11a3047cb7d862184281d2c74f1fcffb7235f952bfca9cb70d17"
+}

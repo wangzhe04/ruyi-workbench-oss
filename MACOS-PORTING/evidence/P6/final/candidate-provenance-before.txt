@@ -1,0 +1,61 @@
+{
+  "results": [
+    {
+      "variant": "full",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "native": 210,
+      "fingerprints": 492,
+      "checks": {
+        "applicationSourceCommit": true,
+        "packagerCommit": true,
+        "sourceFingerprint": true,
+        "packagerFingerprint": true,
+        "sourceManifest": true,
+        "sourceTree": true,
+        "nativeTrashCapability": true,
+        "nativeCount": true,
+        "helperNativeInventory": true,
+        "helperHashMode": true,
+        "trust": true
+      }
+    },
+    {
+      "variant": "slim",
+      "imageSha256": "85470381ebeace5fb01c65bbf0452fdca73f80b8b752247c902e658a8ad9b9a0",
+      "imageBytes": 51628631,
+      "native": 7,
+      "fingerprints": 492,
+      "checks": {
+        "applicationSourceCommit": true,
+        "packagerCommit": true,
+        "sourceFingerprint": true,
+        "packagerFingerprint": true,
+        "sourceManifest": true,
+        "sourceTree": true,
+        "nativeTrashCapability": true,
+        "nativeCount": true,
+        "helperNativeInventory": true,
+        "helperHashMode": true,
+        "trust": true
+      }
+    }
+  ],
+  "retained": [
+    {
+      "variant": "full",
+      "p6_01ManifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "p6_01TreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "p6_02ImageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "p6_01ManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "p6_01TreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "p6_02ImageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+      "pass": true
+    }
+  ],
+  "pass": true
+}

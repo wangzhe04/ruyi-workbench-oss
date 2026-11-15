@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T11:48:57.794163+00:00",
+  "status": "passed_independent_durable_history_freeze_v3",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v3.json",
+    "bytes": 23550,
+    "sha256": "8804365cc4c97b34c4b1e6e6cb0f4e0abbf403fe57a177371b69d9c29f7109b3"
+  },
+  "sourceCount": 127,
+  "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+  "artifactCount": 2,
+  "runs": [
+    {
+      "name": "unit",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "skipped": 0
+      },
+      "seconds": 9.050803125006496,
+      "rootBirth": 1794397719101801,
+      "observedOuterIdentities": 3,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/unit/output.txt",
+      "logDigest": {
+        "bytes": 2200,
+        "sha256": "1d92266c803cf7bc07bcefb2df412b75fea5cb04298e5caf3c0e54548375f652"
+      },
+      "runtimeEvidenceDigest": null,
+      "passed": true
+    },
+    {
+      "name": "offline",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 11,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 1.498341333004646,
+      "rootBirth": 1794397728176421,
+      "observedOuterIdentities": 10,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/offline/output.txt",
+      "logDigest": {
+        "bytes": 825,
+        "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 38992,
+        "sha256": "69859cf86da463b26a10c3171d401a5508474f4c2002344f18b94a138620190e"
+      },
+      "passed": true
+    },
+    {
+      "name": "native",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 12,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 3.5210702500044135,
+      "rootBirth": 1794397729700583,
+      "observedOuterIdentities": 15,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/native/output.txt",
+      "logDigest": {
+        "bytes": 1002,
+        "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 33141,
+        "sha256": "f4738fb66790f5f1af3c1ecc0bf17831133e444252b4c72bf8312316e2d5b806"
+      },
+      "passed": true
+    },
+    {
+      "name": "entry",
+      "executor": "/root/p5_acceptance",
+      "exitCode": 0,
+      "counts": {
+        "pass": 31,
+        "fail": 0,
+        "skip": 0
+      },
+      "seconds": 4.517074167000828,
+      "rootBirth": 1794397733244999,
+      "observedOuterIdentities": 17,
+      "remainingOuterIdentities": [],
+      "remainingRecordedIdentities": [],
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/output.txt",
+      "logDigest": {
+        "bytes": 2208,
+        "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880"
+      },
+      "runtimeEvidenceDigest": {
+        "bytes": 210588,
+        "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691"
+      },
+      "passed": true
+    }
+  ],
+  "error": null,
+  "childStillRunning": false,
+  "independentInvocations": {
+    "unit": 1,
+    "offline": 1,
+    "native": 1,
+    "entry": 1
+  },
+  "manualRetries": 0,
+  "engineeringReruns": 0,
+  "remainingFinalObservedIdentities": [],
+  "remainingFinalRecordedIdentities": [],
+  "GUIReleased": true,
+  "scope": "Requested/model tool intent before processing and received-prefix result persistence, targeted effect/image/owner cases plus zero-input native root-only calibration. Native requested callID/name/args survives and GET restart kind tool_calls; existing entry31 separately exercises actual default approvals, balanced input, image checkpoints/rollback and restoration. No actual dispatch/ACC await entry/terminal or held hard-abort guarantee is inferred from the zero-input calibration.",
+  "hardAbortGateStatus": "open",
+  "phaseStatus": "in_progress"
+}

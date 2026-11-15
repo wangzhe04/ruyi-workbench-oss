@@ -1,0 +1,48 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS T00 两条线程已建（sess_f3bc2118d366885c / sess_ed9de04c68a95ebd）
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS T0 工作台视角
+PASS T0b 左栏两条线程都在
+PASS T1a 点 B（它的 GET 被扣住）
+PASS T1b B 的那一发 GET /api/sessions/:id 确实在飞
+PASS T1c 紧接着点 C
+PASS T1d C 先回来、页面画成 C
+PASS T1 B 晚到的回包不许把页面写回 B（实测会话 sess_ed9de04c68a95ebd、标题「后来点的那一条」）
+PASS S1a 服务端知道你坐在 C 上
+PASS S1b 服务端把 B 交给管家盯（PATCH /api/sessions/:id {stewardWatch:true}）
+PASS S1c /api/missions 行上 B 的 watched 翻面
+PASS S1d 扣住事件流，点 B
+PASS S1e 页面换到 B
+PASS S1f 换会话那一次重连被扣住了（服务端此刻不知道你坐在哪）
+PASS S1g 前置成形：服务端行上 B 没人坐（seatedBy 空）、管家条是「如意盯着这条」
+PASS S1h 放行之后服务端记下你坐在 B 上
+PASS S1 在场登记之后管家条跟上：「如意盯着这条，你坐着时它不动手」（实测「如意盯着这条，你坐着时它不动手」）
+PASS W1a 扣住取行的回包，点开关（别盯了）
+PASS W1b 第一下的 PATCH 落了（服务端 watched=false）
+PASS W1c 写完之后那一发取行（带着 watched=false）被扣在半路 —— 修前「忙」一直占到它回来
+PASS W1c2 旧行被扣时标题observer重画不许回勾刚关掉的开关
+PASS W1d 这时再点一下（再交给它盯）
+PASS W1 第二下没被吞：服务端 watched 回到 true（true），开关与管家条跟着是「盯着、你坐着」（true）
+PASS W1d2 两次真实点击分别PATCH false/true
+PASS W1e 扣着的 2 发旧取行放行之后，管家条一次都没被盖回旧状态（变化记录 ["如意盯着这条，你坐着时它不动手|true","如意盯着这条，你坐着时它不动手|true"]；最终「如意盯着这条，你坐着时它不动手」/ 勾选 true）
+PASS W2a 起点：B 盯着（开关勾着）
+PASS W2b 事件流重连被扣住（推送与在场回执此刻都到不了）
+PASS W2c 点开关（别盯了）
+PASS W2d PATCH 落了（服务端 watched=false）
+PASS W2e 写完之后那一发取行 #A 扣在回包阶段
+PASS W2f 放行事件流 → 补发的行事件／在场回执发出更晚的 #B（也扣住）
+PASS W2 只放行 #A（被 #B 取代）：开关与管家条不许拿旧行画一帧「勾着」（变化记录 ["如意盯着这条，你坐着时它不动手|false"]）
+PASS W2g 全部放行之后落在服务端的事实上：「如意看得见、不插手」、开关没勾
+PASS T2a 刷新页面；开机那一发会话列表被扣住（「打开上次那条」还没发），左栏已经点得了
+PASS T2b 用户先点了 C（它的 GET 扣在半路，wcw.lastSession 还没写）
+PASS T2c 用户那一发 GET /api/sessions/C 在飞
+PASS T2 开机的「打开上次那条（B）」让路给用户的选择（实测会话 sess_ed9de04c68a95ebd、标题「后来点的那一条」）
+PASS P1a 管家视角
+PASS P1b 右栏（现在这一件）是 B
+PASS P1 预判请求带着右栏那条的 focus（实测 /api/steward/preroute?q=%E7%BB%A7%E7%BB%AD%E9%82%A3%E4%B8%AA&focus=sess_f3bc2118d366885c）
+PASS P1c 输入区 chip 说接着 B（实测「→ 如意 · 像是接着「后发先至那一条」」）—— 只是提示，递给谁仍由如意定
+PASS T9 页面没有未捕获异常（无）
+THREAD SWITCH RACE BROWSER E2E: ALL PASS

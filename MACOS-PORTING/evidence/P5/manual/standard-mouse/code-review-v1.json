@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T06:07:02.608991+00:00",
+  "verdict": "passed_frozen_standard_mouse_source_review_with_nonblocking_harness_observation",
+  "scope": "Final independent static review of the standard_mouse keyboard/standard-pointer projection in freeze-v1.json, including its sixteen changed files, App standard-mode fixture and supplemental physical-controller source. All 34 frozen file hashes and sizes were independently recomputed. This report does not execute or independently accept any GUI/App/physical demonstration and does not close P5.",
+  "candidateWorktree": "/private/tmp/ruyi-p5-touch-worktree",
+  "candidateBranch": "codex/p5-manual-touch",
+  "candidateBaseCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+  "frozenSource": {
+    "manifest": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v1.json",
+    "manifestSha256": "a855a64d2feb22bcf277d11a3b128d0ae8a11b7a5d4848d8800f7310d1756090",
+    "sourceFiles": 34,
+    "sourceBytes": 7650514,
+    "all34FileHashesAndSizesMatch": true,
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 65808,
+        "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "README_EN.md",
+        "bytes": 72914,
+        "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "dev-harness/macos-input-host.e2e.js",
+        "bytes": 32559,
+        "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "dev-harness/macos-manual-record.e2e.js",
+        "bytes": 42257,
+        "sha256": "339cd720c25aafd523b4aaace07e1886e15ebda34de2f103774af28ccb7d11dd",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "bytes": 13981,
+        "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "dev-harness/unit/acc-capability-gates.test.js",
+        "bytes": 11806,
+        "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "facts.json",
+        "bytes": 1335,
+        "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "bytes": 11463,
+        "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "bytes": 11174,
+        "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+        "bytes": 7462,
+        "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "bytes": 13332,
+        "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+        "bytes": 11734,
+        "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+        "bytes": 7972,
+        "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+        "bytes": 8718,
+        "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+        "bytes": 16622,
+        "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+        "bytes": 22572,
+        "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+        "bytes": 16964,
+        "sha256": "4a38e9d905cf33042d998383e3b64936c748d30474e3685aa3e12cd332a7df29",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 6777726,
+        "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+        "bytes": 18239,
+        "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "ruyi-workbench/app/src/07-autonomy.js",
+        "bytes": 234136,
+        "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "bytes": 45551,
+        "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "bytes": 23083,
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+        "bytes": 11119,
+        "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record.m",
+        "bytes": 15464,
+        "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+        "bytes": 28315,
+        "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "bytes": 4588,
+        "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b",
+        "matchesFrozenV1": true,
+        "changedFromBase": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+        "matchesFrozenV1": true,
+        "changedFromBase": false
+      }
+    ],
+    "changedFromBase": [
+      "dev-harness/fixtures/macos-input-window.m",
+      "dev-harness/macos-input-host.e2e.js",
+      "dev-harness/macos-manual-record.e2e.js",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+      "ruyi-workbench/resources/macos-automation-events.m",
+      "ruyi-workbench/resources/macos-automation-helper.m",
+      "ruyi-workbench/resources/macos-automation-record-events.m",
+      "ruyi-workbench/resources/macos-automation-record.m",
+      "ruyi-workbench/resources/macos-automation-sequence.m",
+      "ruyi-workbench/resources/macos-automation.h"
+    ],
+    "changedCount": 16,
+    "productHelper": {
+      "path": "/tmp/ruyi-p5-standard-mouse-helper",
+      "bytes": 291712,
+      "sha256": "a9cdfdb529827a01edf5e5d844f559d4c05f5f3064fe68d31ad96c0889cb0f61",
+      "matchesFrozenV1": true
+    }
+  },
+  "priorStrictReview": {
+    "path": "MACOS-PORTING/evidence/P5/manual/code-review-v6.json",
+    "sha256": "988bb0ea0d87042d43f937d0bbf78988a6653c0d28705a65d1a77b7cfbe53c8f",
+    "relationship": "The committed v6 strict implementation is the base. Eighteen manifest files remain byte-identical; the sixteen profile delta files are reviewed here. Earlier source-review limits and full-phase requirements remain separate."
+  },
+  "closedFindings": [
+    {
+      "id": "STANDARD-PROFILE-SCHEMA-DOWNGRADE",
+      "status": "closed_in_frozen_source",
+      "originalProblem": "A schema1 controlled document could select standard_mouse at action level without schema3/root replay scope.",
+      "resolution": [
+        "A normalized manual document must be schema 3 with exactly pointer_profile=standard_mouse and replay_scope=keyboard_and_standard_mouse; schema2 manual and schema1 controlled contexts retain exact defaults.",
+        "Python action profile must equal its validated root context. Manual action-level profile overrides are additionally forbidden. Thus a standard action in schema1 is rejected before any native request.",
+        "Native whole-recording preflight rejects action/root profile disagreement before any sequence dispatch. An active controlled-request recorder ends as recording_profile_mismatch when an explicitly projected input.sequence is requested; the separately authorized tool still executes with its explicit profile.",
+        "prepare_recording carries the validated root profile to both record.target whole-recording preflight and every input_sequence step; all events and translated pointer hits are checked before a replay prefix."
+      ]
+    },
+    {
+      "id": "STANDARD-PRESSURE-CANONICALIZATION",
+      "status": "closed_in_frozen_source",
+      "originalProblem": "The first standard prototype retained raw mouse pressure/subtype despite excluding device pressure semantics.",
+      "resolution": [
+        "Standard capture emits canonical subtype 0 (omitted defaults to 0) and binary button pressure: down/drag=1, up/move=0. Original subtype 3 is recorded only as source_subtype provenance.",
+        "Python and native validators require those canonical standard values and reject variable pressure or subtype3 standard rows before input. Both accept source_subtype only for standard mode and only numeric integer-valued 0/3; booleans, null, strings and unsupported values are rejected.",
+        "associated_events_mask is integer-only provenance for standard button rows, bounded to 53-bit-safe values and a shared known-bit mask. Native rejects float CFNumbers as Python rejects float values; bool/null/string/negative/unknown bits are refused. Move rows cannot contain this mask.",
+        "The event builder reads only the canonical replay fields. It never writes source_subtype or associated_events_mask into a posted event. Exact capture retains its previous association/subtype comparison and pressure-device refusal."
+      ]
+    }
+  ],
+  "otherSourceReview": {
+    "explicitProjection": "Tool docs, diagnostics, schema3, record.stop completion_scope and excluded_features consistently define keyboard_and_standard_mouse projection. Pressure telemetry/stages, multitouch and tablet behavior are excluded. The profile does not promise automatic detection/refusal of every pressure gesture or equal application state in pressure-driven software. Global pressure monitors, fixed drain intervals and stage-based completeness claims are absent.",
+    "bounds": "Only standard MouseMoved outside the target is omitted, and only when no supported button 0..2 is held in either recorded sequence ownership or combined session state. Observe checks current source, PID, exact foreground window and recording validity before that filter. Down/up/drag and held MouseMoved continue through existing bounds/hit checks. Balanced flushes preserve the owned-button guard across chunk boundaries.",
+    "compatibility": "Default exact/schema2 assertions and legacy schema1 exact action semantics remain. Direct input_sequence requires an explicit standard profile to accept its provenance fields. Cancellation, desktop lease/master gates, runtime source checks and native release lifecycle are inherited and are not loosened by the profile.",
+    "testFixture": "The new RUYI_MANUAL_FIXTURE commands post only to the owned receiver PID. They allocate the entire down/outside-move-or-drag/up group before any post, then post the balanced group consecutively and release every allocated event. Marker ticks are arrival receipts; refusal tests still require point_outside_target and no saved recording. Existing cooperative native cleanup precedes client forced cleanup.",
+    "appMode": "RUYI_P5_APP_POINTER_PROFILE accepts exact or standard_mouse only and permits standard only in the manual App scenario. The App record_start uses the selected profile; a distinct peer sends raw Pinyin plus canonical drag through the ordinary native input_sequence tool. Standard assertions check schema3/profile/replay_scope/excluded pressure semantics and actual receiver totals of two down/up pairs and at least two drag events across demonstration and replay. Exact remains the default and retains the schema2/text assertions. This is synthetic peer-driven App integration, not physical trackpad proof.",
+    "memoryAndPythonTestScope": "The exact native matrix remains 50 cases; the standard projection matrix has 20 cases over two source subtypes and ten mouse event types, checking canonical rebuild and provenance/validation behavior without dispatch. Python contracts cover explicit-profile metadata, canonical invalid variants, whole-document profile propagation, schema2/schema1 downgrade rejection and dispatch forwarding. Native testing-only operations are excluded from production."
+  },
+  "nonblockingFindings": [
+    {
+      "id": "STANDARD-STARTUP-SOURCE-RECEIPT",
+      "priority": 3,
+      "status": "open_nonblocking_test_evidence_observation",
+      "file": "dev-harness/macos-manual-record.e2e.js",
+      "line": 567,
+      "problem": "The before-selection startup fallback compares lastState?.inputSource === ready?.inputSource. If the receiver fails before either receipt exists, undefined === undefined can report PASS for unchanged input source without observation.",
+      "impact": "The primary startup failure still fails the suite, and the normal GUI-v2 path selects an input source and uses the original restoration assertion. This does not invalidate the standard profile runtime behavior or turn that failed startup into a passing run, but the fallback evidence wording can overstate what was observed.",
+      "recommendation": "Require both source IDs to be observed nonempty strings before equality, or record an explicitly unobserved/skipped source check for a before-ready failure."
+    }
+  ],
+  "unclosedBlockingSourceFindings": [],
+  "developmentEvidenceInspected": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v1.txt",
+      "bytes": 1752,
+      "sha256": "c1bc95423244fb44e7f10b28df9cee4843c9afb94bfee220a2540e280b0c787c",
+      "executedByReviewer": false,
+      "passLines": 15,
+      "failLines": 2,
+      "skipLines": 0,
+      "allPassMarker": false,
+      "failureLines": [
+        "FAIL Error: spawn failed: Mac process supervisor is unavailable",
+        "FAIL owned fixture conditionally restores its original keyboard source"
+      ]
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v1/results.json",
+      "bytes": 3703,
+      "sha256": "09a0e9704c02226d290f757b0fbb6af73bf6832384c0b8ff4f2e8007ff7bfeda",
+      "executedByReviewer": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v2.txt",
+      "bytes": 7384,
+      "sha256": "b45146d5bf04452aff5eb8f487db03da5ca77973781a637ecc646141a0f6b511",
+      "executedByReviewer": false,
+      "passLines": 87,
+      "failLines": 0,
+      "skipLines": 0,
+      "allPassMarker": true,
+      "failureLines": []
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v2/results.json",
+      "bytes": 358501,
+      "sha256": "3a7b22f9f7729833441b97036b9a6ad653a79f81aa704ef3dc65d40c9c2c09aa",
+      "executedByReviewer": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/app-v1.txt",
+      "bytes": 1437,
+      "sha256": "f211982eb45099719fd400cc03d11fc5808f27aef26b827050442dc14a4d7266",
+      "executedByReviewer": false,
+      "passLines": 19,
+      "failLines": 0,
+      "skipLines": 0,
+      "allPassMarker": true,
+      "failureLines": []
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/app-v1/manual-host.json",
+      "bytes": 15561,
+      "sha256": "6a7142238f68ca08dc5c0ad07d23648c21a43851f404e8b9ce67352369c72ac1",
+      "executedByReviewer": false
+    }
+  ],
+  "developmentEvidenceInterpretation": [
+    "GUI-v1 is preserved as a failed startup run: 15 PASS and 2 FAIL, including missing process supervisor and missing source restoration assertion. It is not reclassified as a pass.",
+    "GUI-v2 contains 87 PASS, zero FAIL/SKIP and ALL PASS after the process helper was made available and the startup cleanup assertion was adjusted. It is an explicit later run, not proof of an uninterrupted zero-rerun development history.",
+    "App-v1 contains 19 PASS, zero FAIL/SKIP and ALL PASS for standard-mode integration. The reviewer inspected the retained log/native receipt but did not execute it.",
+    "Current-host development evidence does not substitute for final frozen independent runtime acceptance, physical input evidence, delivery/commit binding or original P5 remaining-audit gates."
+  ],
+  "supplementalPhysicalController": {
+    "partOfFrozen34Files": false,
+    "path": "/tmp/ruyi-p5-human-controller.js",
+    "sha256": "285137f0707aa279a9b8409cd96aefe964f3376d1259447ad0909d0f5929e49d",
+    "archivedSourcePath": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/controller.js",
+    "archivedSha256": "285137f0707aa279a9b8409cd96aefe964f3376d1259447ad0909d0f5929e49d",
+    "currentAndArchivedSourceMatch": true,
+    "staticObservations": [
+      "The controller selects the touch worktree and frozen standard helper, starts native_window_events with explicit standard_mouse, and requires schema3 plus both profile/scope fields before replay.",
+      "Pre-record_start mouse_move positions the cursor in the blue pad and is logged outside-capture. Capture-time tool calls are only final record_stop; fixture commands are state/title. No synthetic peer or fixture pointer generation command is used during physical capture.",
+      "Trim is only the completion recognizer for human text. Replay compares exact demonstrated.text and an increased drag count with released input. Quiet signature includes counts, cursor and HID flags.",
+      "The RPC bound is 360 seconds, covering the maximum captured manual idle gaps; this changes the client timeout, not the native per-sequence bound or runtime safety gates.",
+      "Final passed/ALL PASS remains gated on MCP cleanup, receiver exit0 and original input-source restoration."
+    ],
+    "physicalExecutionOrOutcomeReviewed": false,
+    "physicalReportRead": false,
+    "limit": "The parent owns the ongoing physical demonstration. No physical report, result or success is inferred by this source review."
+  },
+  "verification": {
+    "method": "Read manifest-listed bytes, recompute SHA256 and lengths, compare all 34 against Git base blobs, inspect changed source/control flow and parse retained development artifacts.",
+    "gitDiffCheckExitCode": 0,
+    "guiUsedByReviewer": false,
+    "runtimeTestsExecutedByReviewer": false,
+    "buildsExecutedByReviewer": false,
+    "candidateSourceOrTestsModifiedByReviewer": false
+  },
+  "fullP5Completion": false,
+  "phaseStatus": "in_progress",
+  "conclusion": "The two previously reported projection defects are closed and no blocking concrete source defect remains in frozen standard-mouse v1. One low-priority startup test-evidence observation remains open. Approval is limited to the reviewed standard keyboard/mouse projection source; pressure semantics, physical acceptance, final independent runtime validation and full P5 completion are not established by this report."
+}

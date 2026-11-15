@@ -1,0 +1,366 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2509 / ℹ pass 2491 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/80) [fast] acc-offline-installer.static.e2e.js ... PASS (36ms)
+(  2/80) [fast] action-feedback.static.e2e.js ... PASS (40ms)
+(  3/80) [fast] agent-mode-v2.static.e2e.js ... PASS (123ms)
+(  4/80) [fast] agent-team-budget.static.e2e.js ... PASS (187ms)
+(  5/80) [fast] agent-workflows-polling-visibility.static.e2e.js ... PASS (34ms)
+(  6/80) [fast] architecture-contract-snapshots.static.e2e.js ... PASS (155ms)
+(  7/80) [fast] asr-config-ui.static.e2e.js ... PASS (128ms)
+(  8/80) [fast] browser-mcp.static.e2e.js ... PASS (172ms)
+(  9/80) [fast] c2-evidence-spawn-budget.static.e2e.js ... PASS (34ms)
+( 10/80) [fast] copy-path-guard.static.e2e.js ... PASS (107ms)
+( 11/80) [fast] copy-terms.static.e2e.js ... PASS (72ms)
+( 12/80) [fast] cost-zero.static.e2e.js ... PASS (34ms)
+( 13/80) [fast] css-typography-debt.static.e2e.js ... PASS (34ms)
+( 14/80) [fast] desktop-dpi.static.e2e.js ... PASS (34ms)
+( 15/80) [fast] desktop-shell.static.e2e.js ... PASS (33ms)
+( 16/80) [fast] durable-state-inventory.static.e2e.js ... PASS (112ms)
+( 17/80) [fast] ec-d-closure.static.e2e.js ... FAIL exit=1 (重跑仍失败, 92ms)
+( 18/80) [fast] engine-env-brief.static.e2e.js ... PASS (400ms)
+( 19/80) [fast] eol-policy.static.e2e.js ... PASS (1648ms)
+( 20/80) [fast] facts.static.e2e.js ... PASS (115ms)
+( 21/80) [fast] finalize-segments.static.e2e.js ... PASS (32ms)
+( 22/80) [fast] fixture-home.static.e2e.js ... PASS (869ms)
+( 23/80) [fast] frontend-domains.static.e2e.js ... FAIL exit=1 (重跑仍失败, 89ms)
+( 24/80) [fast] health-i18n.static.e2e.js ... PASS (46ms)
+( 25/80) [fast] i18n-en-terms.static.e2e.js ... PASS (36ms)
+( 26/80) [fast] i18n.static.e2e.js ... PASS (231ms)
+( 27/80) [fast] inline-script-csp-hash.static.e2e.js ... PASS (50ms)
+( 28/80) [fast] kimi-plan-ui.static.e2e.js ... PASS (41ms)
+( 29/80) [fast] live-full-text.static.e2e.js ... PASS (45ms)
+( 30/80) [fast] manifest-ranges.static.e2e.js ... PASS (68ms)
+( 31/80) [fast] mcp-ops-gui.static.e2e.js ... PASS (58ms)
+( 32/80) [fast] memory-toolbox.static.e2e.js ... PASS (38ms)
+( 33/80) [fast] mermaid-render.static.e2e.js ... PASS (367ms)
+( 34/80) [fast] model-menu-classes.static.e2e.js ... PASS (38ms)
+( 35/80) [fast] module-dependency-graph.static.e2e.js ... PASS (664ms)
+( 36/80) [fast] ndjson-line-feeder.static.e2e.js ... PASS (76ms)
+( 37/80) [fast] net-token-replay.static.e2e.js ... PASS (34ms)
+( 38/80) [fast] new-thread-engine-default.static.e2e.js ... PASS (50ms)
+( 39/80) [fast] onboarding.static.e2e.js ... PASS (62ms)
+( 40/80) [fast] overlay-payload-lock.static.e2e.js ... FAIL exit=1 (重跑仍失败, 169ms)
+( 41/80) [fast] overlay-update-gui.static.e2e.js ... PASS (51ms)
+( 42/80) [fast] process-safety.static.e2e.js ... PASS (210ms)
+( 43/80) [fast] progress-events.static.e2e.js ... PASS (213ms)
+( 44/80) [fast] prompt-snapshot.static.e2e.js ... PASS (119ms)
+( 45/80) [fast] provider-reasoning-effort-ui.static.e2e.js ... PASS (32ms)
+( 46/80) [fast] rail-pocket.static.e2e.js ... PASS (35ms)
+( 47/80) [fast] resume-banner-dismiss.static.e2e.js ... PASS (34ms)
+( 48/80) [fast] route-inventory.static.e2e.js ... FAIL exit=1 (重跑仍失败, 1243ms)
+( 49/80) [fast] runtime-optimization.static.e2e.js ... PASS (281ms)
+( 50/80) [fast] scheduler-ui.static.e2e.js ... PASS (110ms)
+( 51/80) [fast] session-save-census.static.e2e.js ... PASS (81ms)
+( 52/80) [fast] software-engineering-prompt.static.e2e.js ... PASS (108ms)
+( 53/80) [fast] start-experience.static.e2e.js ... PASS (48ms)
+( 54/80) [fast] steward-avatar.static.e2e.js ... PASS (40ms)
+( 55/80) [fast] steward-board.static.e2e.js ... FAIL exit=1 (重跑仍失败, 141ms)
+( 56/80) [fast] steward-config.static.e2e.js ... PASS (172ms)
+( 57/80) [fast] steward-conversation.static.e2e.js ... PASS (72ms)
+( 58/80) [fast] steward-drawer.static.e2e.js ... FAIL exit=1 (重跑仍失败, 128ms)
+( 59/80) [fast] steward-events.static.e2e.js ... PASS (139ms)
+( 60/80) [fast] steward-runner.static.e2e.js ... PASS (243ms)
+( 61/80) [fast] steward-settings.static.e2e.js ... FAIL exit=1 (重跑仍失败, 158ms)
+( 62/80) [fast] steward-shell.static.e2e.js ... PASS (62ms)
+( 63/80) [fast] steward-tools.static.e2e.js ... PASS (1637ms)
+( 64/80) [fast] steward-walkthrough.static.e2e.js ... FAIL exit=1 (重跑仍失败, 150ms)
+( 65/80) [fast] streaming-responsiveness.static.e2e.js ... PASS (41ms)
+( 66/80) [fast] thinking-boundary.static.e2e.js ... PASS (35ms)
+( 67/80) [fast] thread-brief.static.e2e.js ... PASS (86ms)
+( 68/80) [fast] thread-commission.static.e2e.js ... PASS (63ms)
+( 69/80) [fast] tool-image-inline.static.e2e.js ... PASS (46ms)
+( 70/80) [fast] tool-verb-coverage.static.e2e.js ... PASS (105ms)
+( 71/80) [fast] turn-narrative.static.e2e.js ... PASS (109ms)
+( 72/80) [fast] ui-bugfix.static.e2e.js ... PASS (42ms)
+( 73/80) [fast] ui-v3-p1.static.e2e.js ... PASS (52ms)
+( 74/80) [fast] ui-v3-p2.static.e2e.js ... PASS (56ms)
+( 75/80) [fast] ui-v3-p3a.static.e2e.js ... FAIL exit=1 (重跑仍失败, 144ms)
+( 76/80) [fast] ui-v3-p3b.static.e2e.js ... PASS (66ms)
+( 77/80) [fast] ui-v3-wave1.static.e2e.js ... PASS (57ms)
+( 78/80) [fast] ui-v4-glass.static.e2e.js ... PASS (40ms)
+( 79/80) [fast] v17-review-fixes.static.e2e.js ... PASS (139ms)
+( 80/80) [fast] workflow-editor-v2.static.e2e.js ... PASS (49ms)
+
+# 汇总: 71 pass / 9 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== ec-d-closure.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）
+FAIL E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS E4 消息重绘使用 keyed reconciliation，并保留滚动锚点与活动回合
+PASS E5 双引擎统一有序 segments，并保留并行工具 batchId
+PASS E6 回合末工具记录、变更/回滚与产物入口保持可达
+PASS E7 聊天 CSS 按 shell/primitives/narrative/live/composer 物理所有权分层
+PASS E8 session、permission、agent-runs 实现与 API 编排均完成后端物理拆域
+FAIL E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）
+EC-D CLOSURE STATIC E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-6ogVT1
+[retry] 重跑 tail:
+PASS E1 回合同构、DOM、视觉、模式与性能验收件齐全
+PASS E2 真实浏览器性能门锁定冷启动 1.5s 与视图 P95 200ms，并覆盖 layout/paint
+PASS E3 消息日志具备读屏增量语义与静态重进 busy 抑制
+PASS E4 消息重绘使用 keyed reconciliation，并保留滚动锚点与活动回合
+PASS E5 双引擎统一有序 segments，并保留并行工具 batchId
+PASS E6 回合末工具记录、变更/回滚与产物入口保持可达
+PASS E7 聊天 CSS 按 shell/primitives/narrative/live/composer 物理所有权分层
+PASS E8 session、permission、agent-runs 实现与 API 编排均完成后端物理拆域
+FAIL E9 前端组合根不超过 1200 行，会话/干预/Agent 工作流边界独立（118b 重钉护栏 1240→1280）
+EC-D CLOSURE STATIC E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-XuWX45
+
+=== frontend-domains.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL D45 聊天实现离开 app.js 且组合根低于 1240 行（118b 重钉护栏 1240→1280）
+--- 末 25 行 ---
+PASS D42 chat-render-primitives 持有 toolCard()
+PASS D42 chat-render-primitives 持有 renderContextMeter()
+PASS D42 chat-render-primitives 显式接收并注入 DOM 查询 helper
+PASS D42 chat-static-renderer 持有 renderStaticMessage()
+PASS D42 chat-static-renderer 持有 renderStaticTurnNarrative()
+PASS D42 chat-static-renderer 持有 compactNarrativeProcessRuns()
+PASS D42 chat-static-renderer 持有 turnToolIndexCard()
+PASS D43 chat-stream-runtime 持有 sendPrompt()
+PASS D43 chat-stream-runtime 持有 handleStreamLine()
+PASS D43 chat-stream-runtime 持有 createLiveAssistantShell()
+PASS D43 chat-stream-runtime 持有 renderSteeredMessage()
+PASS D43 chat-stream-runtime 持有 handleSubagentEvent()
+PASS D44 实时回合与插话状态只由 chat-stream-runtime 持有
+PASS D44 实时流 UI 同步入口已显式导出并注入会话领域
+FAIL D45 聊天实现离开 app.js 且组合根低于 1240 行（118b 重钉护栏 1240→1280）
+PASS D46 三层聊天子域均进入 overlay 载荷
+PASS D47 index.html 按既定级联顺序直接加载全部 CSS 层
+PASS D48 styles.css 兼容清单与直接加载顺序一致
+PASS D49 CSS 层磁盘文件与 overlay 载荷完整
+PASS D50 tokens/themes/chat/tooling/modes/usage/workbench 关键层事实齐全
+PASS D51 分层 CSS 重组后与原单体样式字节等价（仅新增层说明注释）
+PASS D53 组合根 navigation 解构含 refreshToolPane 并注入 chat 流(每轮结束自动刷新接线完整)
+PASS D52 chat.css 兼容入口按 shell/primitives/narrative/live/composer 所有权顺序导入
+FRONTEND DOMAINS STATIC E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-XVfcSM
+
+=== overlay-payload-lock.static.e2e.js (exit=1) ===
+--- FAIL 行 3 条 ---
+FAIL ③ 敏感目录(app/public 整棵、app/src、resources 下运行时读的三个目录)无未登记文件(漏登记: app/public/js/host-bridge.js)
+FAIL ① index.html/app.js 引用全在载荷表(漏: app/public/js/host-bridge.js)
+FAIL ③ 敏感目录(app/public 整棵、app/src、resources 下运行时读的三个目录)无未登记文件(漏登记: app/public/js/host-bridge.js)
+--- 末 25 行 ---
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-BdEjd1
+[retry] 重跑 tail:
+PASS external bot control page and its optional deployment gateway are both shipped by overlay
+PASS 载荷清单可重建(字面 180 + src 模块 89,manifest 的每个模块都在表里)
+PASS 109a 可选 vendor mermaid 已登记(文件缺失不阻塞打包)
+PASS 109a 可选载荷不与必需载荷重复
+PASS 109a 打包器对可选载荷做存在性跳过而非报错
+PASS ② 根目录载荷只有桌面壳两件编译产物(实得 RuyiDesktop.exe, WebView2Loader.dll)
+PASS ② 载荷表每条在磁盘存在
+PASS ② Kimi ACP loader/register 均登记进 overlay 载荷
+PASS ② Kimi ACP register 的 loader 依赖仍在资源包内
+PASS ① 引用面可枚举(73 项)
+PASS ①b 载荷里没有 Start-Workbench.cmd(128g)
+PASS ①b 载荷里没有 tools/fake-claude.js(128g)
+PASS ①b 载荷里没有 tools/dev-serve.cmd(128g)
+FAIL ① index.html/app.js 引用全在载荷表(漏: app/public/js/host-bridge.js)
+PASS ③ 每个敏感目录都扫到了文件(实得 app/public=114、app/src=93、resources/playbooks=16、resources/plugins/ruyi-offline/offline-toolkit/skills=20、resources/plugins/ruyi-offline/offline-toolkit/commands=13)
+FAIL ③ 敏感目录(app/public 整棵、app/src、resources 下运行时读的三个目录)无未登记文件(漏登记: app/public/js/host-bridge.js)
+PASS ③b 服务端 resources 读口扫得到(实得 5 处:resources/kimi-acp-compat-register.mjs、resources/playbooks、resources/native-file-read.py、resources/plugins/ruyi-offline/offline-toolkit、resources/scripts/install-workbench.ps1)
+PASS ③b 每个服务端 resources 读口都有载荷覆盖(文件已登记／目录在 ③ 扫描里)
+PASS #21 build-overlay 不再有写死的默认版本号
+PASS #21 不带版本号运行 -> 用法提示 + 退出码 1(实得 rc=1)
+PASS #21 缺版本号时没有动 dist/overlay(校验先于清理与装配)
+OVERLAY PAYLOAD LOCK STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-yrel5d
+
+=== route-inventory.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+FAIL route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+--- 末 25 行 ---
+PASS POST /api/bootstrap 保持 open(47c 浏览器握手唯一通道)
+PASS contract 决策端点保持 token(75b)
+PASS GET /api/interventions 保持 token-browser(56 波)
+PASS sessions 读/删保持 token-browser
+PASS POST /api/tools/ 前缀保持 token
+PASS overlay 回滚保持 token(53b 破坏性档)
+ROUTE INVENTORY STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-YCRG0D
+[retry] 重跑 tail:
+PASS 重算非空: 175 判定点 / 161 鉴权行
+PASS 双向校验零漂移(problems=0)
+PASS docs/architecture/route-inventory.json 存在且 schema=1(不存在则跑 node dev-harness/route-inventory.js)
+FAIL route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS docs/architecture/route-inventory.md 存在(人读表随 JSON 一起生成)
+FAIL route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS route-inventory.json 不含 app/src 行号字段(实得 0 处;行号入库会让加一行注释就漂移)
+PASS deny-by-default: 合成未知 /api 路由无首配(落空 = 运行期 403)
+PASS POST /api/bootstrap 保持 open(47c 浏览器握手唯一通道)
+PASS contract 决策端点保持 token(75b)
+PASS GET /api/interventions 保持 token-browser(56 波)
+PASS sessions 读/删保持 token-browser
+PASS POST /api/tools/ 前缀保持 token
+PASS overlay 回滚保持 token(53b 破坏性档)
+ROUTE INVENTORY STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-UUg5iH
+
+=== steward-board.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL F11b net.js 的 403 换 token 重放只有 apiRaw 一份实现，api() 复用它（零自我重复）
+FAIL G0d 组合根仍在 D45 护栏内（实测 1286 行）
+--- 末 25 行 ---
+PASS P3b 这条门真的挂在画药丸那一处（不是算完就扔）
+PASS P4 全模块只有一处调用它（没有第二条路；实得 1）
+PASS P5 措辞键在 ACCEPTANCE_KEYS 里登记，中英双份齐备（判据共享、措辞各说各的）
+PASS P6 missionStateSettled 的正身住在叶子里，看板只 import 不实现
+PASS S1 偏好键与窄条阈值是导出常量；1181 与 layout.css §7.3 的 1180 是同一条线的两面
+PASS S2 三态只由 syncNow 一处写（hidden ＋ data-collapsed），抽屉不碰它
+PASS S3 抽屉两条事件路先过 openGate；门由看板迟绑定注入，判据 sideCollapsedActive 只住看板一处
+PASS S4 开关钮与窄条住在 #stewardSide 里、窄条默认 hidden、都排在挂点 #stewardFocus 之前
+PASS S4b 样式层：窄条的 [hidden] 守卫、收起态宽度、列宽规则、reduced-motion 关过渡 —— 四样都在
+PASS S5 行菜单只剩一枚「打开」（去工作台），退役的「在工作台打开」不再长回来
+PASS S6 本机偏好读写都包 try/catch
+PASS S7 常驻栏上的 ×／Esc／「交回管家」＝收起右栏（closeNow 先问 stripAllowed；抽屉带那一档保留松钉子的旧语义）
+PASS S8 文案键 stewardShell.side.collapse 中英齐备
+PASS S8 文案键 stewardShell.side.expand 中英齐备
+PASS S8 文案键 stewardShell.side.fresh 中英齐备
+PASS S8 文案键 threadHead.backToSteward 中英齐备
+PASS T1 一行状态只说有的那一档（statusRunning／statusNeedsYou 用「 · 」连，旧的 statusLine 模板键退役，中英齐备）
+PASS T2 行右侧只印相对时间（「刚刚」60 秒界线 ＋ stewardAgoLabel），整话「最后动静：…」退到 title
+PASS T3 紧凑密度那组 display:none 只收 running／dispatching／needs_you／done／quick_ask 五档药丸与 user 来源，「已停工」照印，每条都钉在 :not(.rail-board) 下
+STEWARD BOARD STATIC E2E: FAIL (2)
+(node:7116) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-board.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-Ou0K5L
+
+=== steward-drawer.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL I1 组合根仍在 D45 护栏内（实测 1286 行）
+--- 末 25 行 ---
+PASS N4d 中英都说清两件事：下一回合生效 ＋ 不打断正在跑的回合（中「切了下一回合生效；正在跑的回合不会被打断，它用的还是原来那个。」）
+PASS N5a 「最近 30 天／最多 5 条／候选 > 8 才出搜索框」三条裁剪都是【前端这一处】的导出常量 —— M1 交付记录写明 byModel 全量返回、后端不切片（实测 30／5／8）
+PASS N5b 子串表只用来【打标 + 折叠】：定义一处、调用一处（实测 2 处含定义），收起来靠的是 body.hidden 而不是把行删掉
+PASS N5c chips 剥注释后零出现 \.vision\b —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 \.reasoning\b —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 contextWindow —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 maxTokens —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 pricing —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 pricePer —— 界面只说我们真握着的事实
+PASS N5c chips 剥注释后零出现 tokensPerSecond —— 界面只说我们真握着的事实
+PASS N5d 「常用」的唯一数据源是账本的 byModel（M1 那个维度），读它时自防「键可能不在」（usage-dashboard.js:80 同一写法）；全文件恰好一处 GET（实测 1 处），且拉的是 range=all —— 端点只有 today／week／month／all 四档，month 是【本自然月】，用它的话月初会把上个月用过的全判成没用过
+PASS P1 走查①：程序性聚焦的标题（tabindex=-1，Tab 走不到）不画焦点环 —— base.css 那圈 :focus-visible 在它身上只像个输入框
+PASS P2 走查④：单线程任务的页签行整行不印（那唯一一枚与卡头同名），[hidden] 守卫在（display:flex 会盖掉 UA 规则）
+PASS P3 停止可见性复用live/activeTurn/queued及有效非idle execution，包含starting/子回合间隙且不新认业务五态
+PASS P4 走查④：「发给它」是输入框的发送键 —— 同一枚节点搬到输入框旁（幂等），动作行只剩主动作与按态出现的次动作
+PASS P5 走查④：跟全局一样的三枚 chip 收成无边小字（换皮不收控件，与 E4d 同一条纪律）
+PASS P6 走查④：没有验收项就不印那一格（判据仍只有 stewardAcceptanceText，这里只决定印不印）
+PASS P7 走查⑦：元信息一行印工作区【名字】，ruyiOwned 的不印，路径一个字都不读（W7 的 missionWorkspace 只加字段，前端只读 name／ruyiOwned）
+PASS P8 走查②：焦点卡的「多久以前」60 秒内说「刚刚」，与左栏行同一条界线、同一个键
+STEWARD DRAWER STATIC E2E: FAIL (1)
+(node:7128) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-drawer.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-9QLO3D
+
+=== steward-settings.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL F1 app.js 仍在 1280 行护栏内（实测 1286）
+--- 末 25 行 ---
+PASS K6 胶囊右边的角标是一枚【图标】不是文字字符 —— 否则盾牌按钮的 textContent 就不再逐字等于档位名（既有 C0b 读的就是它）
+PASS K7 盾牌是「盾＋档位名＋角标」的胶囊（档位名常驻，图标不再是唯一信号）；停机键仍是那颗 34px 圆键
+PASS K8 换了外形没换行为：菜单仍进同一个 Esc 栈（连「点别处算不算我的」那份判据一起）、四档仍是 menuitemradio ＋ aria-checked ＋ aria-controls，需要二次确认的那一档仍先过确认
+PASS L1 定时任务两枚不可逆动作的确认键在 confirm-panel 的登记表里（scheduleRunNow / scheduleDelete）
+PASS L1b settings.steward.schedule.runNowConfirm 中英各一条，且带 {{title}} 占位（i18n 的插值是双花括号——单花括号会原样上屏）
+PASS L1b settings.steward.schedule.deleteConfirm 中英各一条，且带 {{title}} 占位（i18n 的插值是双花括号——单花括号会原样上屏）
+PASS L2 「立即运行」先过确认再发 run-now
+PASS L2b 「删除」先过确认再发 DELETE
+PASS L2c 这两条路各只有一处 —— 不存在绕过确认的第二个入口
+PASS L3 定时任务组里有「稍后推迟多久」的入口（min/max 只是浏览器输入提示）
+PASS L3b 读服务端的数、写回服务端、再把【服务端钳过的】那个数回填（与 threadIndexRecent 同一个模具）
+PASS L3c 两条新键中英各一
+PASS L4 设置域订 schedule.changed，且没打开过这一块（scheduleLoaded 假）就不刷
+PASS L4e 重画那一刻才读「展开着哪一条」，重画完展开回来（在飞期间展开的也护得住）
+PASS L4e2 展开态只由 loadSchedule 与 toggleRuns 两处清空（实得 reopenRuns 调用 1 处、清空 2 处）
+PASS L4b 只订这一帧 —— 设置页不是第二个事件消费中心
+PASS L4f runs 一律画进【还在文档里】的那个落点（host 脱离了就按 taskId 重新找）
+PASS L4c 组合根把同一条流递给它（迟绑定 setter，构造那一行仍被 F4 逐字钉着）
+PASS L4d 仍然零计时器：推送只是多了一个刷新时刻，不是轮询
+STEWARD SETTINGS STATIC E2E: FAIL (1)
+(node:7132) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-settings.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-qiqlaO
+
+=== steward-walkthrough.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL F1f 组合根没有因为本片长胖（117j 纪律「app.js 不增行」；实测 1285 行）
+--- 末 25 行 ---
+PASS H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）
+PASS H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」
+PASS H5c zh-CN 有 drawer.loading
+PASS H5c en-US 有 drawer.loading
+PASS H6 答完待决后把节拍闸清零，让已经在跑的那张表下一拍真的去拉一次（不加新计时器：抽屉零 setTimeout 是 C2 的契约）
+PASS H7 Esc 栈同时管「点别处收回」：判据抛错一律当【点在里面】（宁可不关，绝不误关用户正在点的那个）
+PASS H7b 只有一处 document click，且是【捕获阶段】（冒泡的话，同一次点击里刚被别的处理器打开的菜单会当场被关掉）
+PASS H7c 五处浮层（chip 菜单／※／头像菜单／盾牌／递送候选）都带上了 owns 判据
+PASS I1 ② 预判只当提示：没手选就发给管家并带 routeHint（修前 routeHits[0] 直接被当成目标直递）
+PASS I1b routeHint 与附件都与用户那句话分开走（用户消息逐字不动的纪律）
+PASS I2 ⑥ 管家在流时用户还能接着说：第二句入队而不是被静默丢弃
+PASS I2b 队列在当前这条流的 finally 里 shift（按序发，不并发）
+PASS I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫
+PASS I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点
+PASS I4 ①⑥ 「直接对这条线程说」走 /api/steward/relay 单口（修前猜错就 supersede 掉待决提问）
+PASS I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）
+PASS J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役
+PASS J2 用户走测：读宽共用一个 900 token，四行居中并受可用宽度约束
+PASS J3 走查⑧：≤640 顶栏三格改 auto｜1fr｜auto，≤480 分段钮与盾牌只留字形（人话收成读屏文字，不删）、状态胶囊收起
+STEWARD WALKTHROUGH STATIC E2E: FAIL (1)
+(node:7144) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-conversation.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-oF8U4C
+
+=== ui-v3-p3a.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL A boot() 调用 restoreMainView
+--- 末 25 行 ---
+PASS F 时长复用 runElapsedMs
+PASS F 大数字复用 fmtTokens/fmtDuration
+PASS F 大数字仪表列(.wb-um + .num tabular-nums)
+PASS F 点击跳右栏用量看板
+PASS F CSS 大数字 --fs-lg(仪表风;122 波前是 --fs-xl 别名)
+PASS G 空态渲染器 renderWorkbenchEmpty 存在
+PASS G 空态引导卡(标题 + 两个引导按钮，代码与中文 locale 双向锁)
+PASS G 云纹水印(--ruyi-cloud mask)
+PASS G 无 run 分派到空态(renderWorkbench;对抗轮P2:新增签名跳过的 force 参数)
+PASS H 复用现有 2s 轮询(setInterval → agentRunsTick → loadAgentRuns 2000,协议未改)
+PASS H 投递尾段将同一快照与读取质量喂工具箱及画布，画布入口不新增请求或轮询
+PASS H loadAgentRuns 全量与增量成功均走同一 publish→deliverAgentRuns 投递
+PASS H 轮询期望态通过窄接口并入画布视图(监控页签 ∪ 画布)
+PASS H wbOnRuns 缓存 runs + 画布态重绘 + 刷新亮点标
+PASS H wbBuildNode 无 innerHTML(el()/textContent,XSS 安全)
+PASS H wbBuildEdges 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchRunbar 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchUsage 无 innerHTML(el()/textContent,XSS 安全)
+PASS H renderWorkbenchEmpty 无 innerHTML(el()/textContent,XSS 安全)
+PASS H 定位到 P3a CSS 追加块
+PASS H P3a CSS 块零硬编码十六进制色(全 token/color-mix)
+PASS H P3a CSS 块零裸 px 字号(全 var(--fs-*))
+PASS H styles.css 全局裸 px 字号仍仅 2 处基线锚点
+UI V3 P3A STATIC E2E: 1 FAIL
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2LFQuT

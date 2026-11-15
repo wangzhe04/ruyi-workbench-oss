@@ -1,0 +1,84 @@
+{
+  "source_sha256": "b0ed2cdc9376d867f88b6965e69caf1d47b80cfdbb78680fc102dc9c1181d7ba",
+  "results": [
+    {
+      "fixture": "truncated-thin-header",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "truncated Mach-O header",
+      "matched": true
+    },
+    {
+      "fixture": "truncated-fat-header",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "truncated fat header",
+      "matched": true
+    },
+    {
+      "fixture": "truncated-fat-table",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "invalid fat architecture table",
+      "matched": true
+    },
+    {
+      "fixture": "fat-table-overlap",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "invalid fat slice bounds",
+      "matched": true
+    },
+    {
+      "fixture": "fat-arm64-cpu-mismatch",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "fat arm64 slice CPU mismatch",
+      "matched": true
+    },
+    {
+      "fixture": "fat-nested-fat",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "fat arm64 slice is not a thin Mach-O",
+      "matched": true
+    },
+    {
+      "fixture": "fat-arm64-not-mach-o",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "fat arm64 slice is not a thin Mach-O",
+      "matched": true
+    },
+    {
+      "fixture": "commands-size-unconsumed-padding",
+      "expected_parse": false,
+      "parsed": false,
+      "targets": null,
+      "error": "load command sizes do not match sizeofcmds",
+      "matched": true
+    },
+    {
+      "fixture": "valid-build-tool-table",
+      "expected_parse": true,
+      "parsed": true,
+      "targets": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "error": null,
+      "matched": true
+    }
+  ],
+  "allMatched": true
+}

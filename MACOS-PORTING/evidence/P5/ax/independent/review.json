@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T09:11:46.070919+00:00",
+  "workPackage": "P5-03",
+  "scope": "Frozen current-host native AX core with App-origin AX and earlier input/capture/shared regressions",
+  "candidateBinding": "../source-fingerprint.json",
+  "sourceFingerprintSha256": "36ac4f480362e1b9a863cceb938c8d366287650f398f8cd02a4909cd759e7223",
+  "frozenFiles": 56,
+  "status": "current_host_core_independent_acceptance_passed",
+  "serialExecution": true,
+  "productSourceEditedByReviewer": false,
+  "commands": "runs.json",
+  "executionHarness": "run-validation.py",
+  "processEvidence": "process-cleanup.json",
+  "results": {
+    "positiveNodeCommands": 10,
+    "nodeAssertionsPassed": 261,
+    "positivePythonCommands": 5,
+    "pythonTestsPassed": 61,
+    "unexpectedFailures": 0,
+    "skipLines": 0,
+    "sourceChecksPerCommand": {
+      "before": 56,
+      "after": 56
+    },
+    "allBeforeAfterAndFinalSourceHashesMatch": true,
+    "all16CommandsExitedNaturally": true,
+    "allExpectedExitCodesMatched": true,
+    "allObservedAndAppRecordedProcessBirthIdentitiesAbsent": true
+  },
+  "caseSummary": [
+    {
+      "name": "ax-ttl",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 36,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 73.407
+    },
+    {
+      "name": "app-ax",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 12,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 5.544
+    },
+    {
+      "name": "app-unicode",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 13,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 5.0
+    },
+    {
+      "name": "app-paste",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 16,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 5.496
+    },
+    {
+      "name": "events",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 42,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 26.502
+    },
+    {
+      "name": "window-clipboard",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 37,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 7.612
+    },
+    {
+      "name": "selected-apps",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 19,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 7.996
+    },
+    {
+      "name": "capture",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 31,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 8.416
+    },
+    {
+      "name": "capture-contract",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 38,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 6.733
+    },
+    {
+      "name": "shared",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 17,
+      "failLines": 0,
+      "pythonTests": null,
+      "durationSeconds": 0.843
+    },
+    {
+      "name": "python-ax",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonTests": 8,
+      "durationSeconds": 0.426
+    },
+    {
+      "name": "python-input",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonTests": 17,
+      "durationSeconds": 7.443
+    },
+    {
+      "name": "python-shared",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonTests": 8,
+      "durationSeconds": 2.536
+    },
+    {
+      "name": "python-events",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonTests": 15,
+      "durationSeconds": 0.429
+    },
+    {
+      "name": "python-capture",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonTests": 13,
+      "durationSeconds": 2.132
+    },
+    {
+      "name": "app-ax-forced-exit",
+      "exitCode": 1,
+      "naturalExit": true,
+      "passLines": 11,
+      "failLines": 1,
+      "pythonTests": null,
+      "durationSeconds": 4.931
+    }
+  ],
+  "intentionalNegative": {
+    "command": "app-ax-forced-exit",
+    "exitCode": 1,
+    "expectedFailure": "Injected App-exit cleanup fixture failure",
+    "failLines": 1,
+    "passLines": 11,
+    "cleanupConfirmed": true,
+    "classification": "Intentional negative cleanup probe retained as an exit-1 failure. It is excluded from the 261 positive Node assertions."
+  },
+  "actualAXCoverage": [
+    "Real native tree inspection and role/identifier/state/geometry observation with explicit depth/node truncation and input-limit rejection.",
+    "AXFocused and exact Chinese/emoji AXValue readback. Writable standard NSTextView without AXEnabled succeeds. Read-only NSTextView refuses before action.",
+    "AXPress receiver effect, duplicate-label exact references, disabled/unsupported rejection, binary toggle and actual AXExpanded expand/collapse readback.",
+    "Cross-session reference rejection, exact same-process foreground refusal, moved signature rejection, retained replacement rejection and fresh-reference success.",
+    "Retained detached ghost with old AXParent fails reciprocal current membership. Screen-intersecting scroll-clipped element reports outside_clip, visible-only excludes it and invoke refuses it.",
+    "App menu-bar open, visible menu item query and actual callback effect. Stalled provider returns accessibility_timeout in 136ms without action metadata.",
+    "Actual 62-second idle wait causes element_stale while the window reference remains valid. Fresh observation produces a new reference.",
+    "LaunchServices Ruyi App through normal Node HTTP and ACC route performs confirmed native AXValue writes with actual receiver readback."
+  ],
+  "regressionCoverage": [
+    "Normal App Unicode and Cmd+V branches preserve original receiver, balanced pointer/wheel, clipboard restoration and process cleanup assertions.",
+    "Events42, window/clipboard37, TextEdit and CFT148 input19, capture31, capture contracts38 and shared17 independently pass.",
+    "TextEdit exact Chinese UTF-8 save/close and CFT Chrome/148.0.7778.96 trusted click, Chinese paste, vertical/horizontal scroll and ambiguous-window refusal are input regressions. Real selected-app AX scenarios remain pending."
+  ],
+  "binaryVerification": {
+    "evidence": "runs.json binaryBefore and binaryAfter",
+    "stableAcrossEntireRun": true,
+    "defaultAutomationHelperSha256": "5410745ad8a508fbd54b039c0109efcfddb4d5fe0bd993e6d61dd29df4f93c55",
+    "strictHelperSignatureVerified": true,
+    "strictAppSignatureVerified": true,
+    "signingIdentity": "org.ruyi.workbench.automation.development, ad-hoc development, no TeamIdentifier",
+    "appBuildSixSourceHashesMatch": true,
+    "measurementScope": "Binary, App executable, build metadata and plist fingerprints were measured before and after the whole serial run. Every functional native e2e independently builds its fixture helper from the frozen sources.",
+    "finalDeliveryNote": "Default helper was rebuilt after engineering gates. Final identity and independent read-only status/signature checks are in engineering-review.json. Its digest differs from the helper present during functional execution, while all 56 source hashes match."
+  },
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "arch": "arm64",
+    "sdk": "15.2",
+    "display": "One 1710x1107 logical-point Retina display at scale2",
+    "authorization": "Actual unlocked desktop with Screen Recording, Accessibility and event-post authorization granted",
+    "isolation": "Every command uses fresh HOME, USERPROFILE, LOCALAPPDATA, APPDATA and WCW_DATA_DIR. Case-specific flags are cleared between commands."
+  },
+  "historicalEvidencePreserved": [
+    "Earlier AXPress read-timeout and AXWindows/layout timeout logs remain in ../action-timeout and related directories. Later passing runs do not remove them.",
+    "The earlier single pre-action focus_changed failure remains cause-undetermined. This run needed no repeated commands and does not claim a root-cause fix.",
+    "The earlier P5-02 clipboard preservation incident and original content loss remain documented at ../../input/events/clipboard-test-incident.json. These passing restoration checks do not erase that loss."
+  ],
+  "pending": [
+    "Real TextEdit, Finder and Chromium AX scenarios in the next P5-03 slice.",
+    "Actual mid-action permission revocation and locked-session transitions for AX, physical multiple/non-Retina displays and supported real input methods.",
+    "Windows runtime, minimum macOS14 runtime and formal signing identity.",
+    "P5-04 OCR and P5-05 recording/composite work."
+  ],
+  "phaseCompletion": "Current-host core slice independently accepted. P5 and P5-03 remain in_progress.",
+  "guiExecutionOwnership": "All independent GUI/test commands have completed. Ownership released to /root after this record.",
+  "finalEngineeringReview": "engineering-review.json",
+  "finalEngineeringBound": true,
+  "finalDefaultRuntimeSha256": "36cac46f63d6a37504ced84a0711d2d3f026c992cbad28307fa8972034de85d5",
+  "commitReadiness": "Current-host core slice may be committed. P5 and P5-03 remain in_progress."
+}

@@ -1,0 +1,6 @@
+Fontconfig warning: no <cachedir> elements found. Check configuration.
+Fontconfig warning: adding <cachedir>/@.__________________________________________________OOO/var/cache/fontconfig</cachedir>
+Fontconfig warning: adding <cachedir prefix="xdg">fontconfig</cachedir>
+convert /tmp/ruyi-p3-02-artifacts/sample-4rQCxg/report.docx as a Writer document -> /private/tmp/ruyi-p3-02-artifacts/sample-4rQCxg/renders/report.pdf using filter : writer_pdf_Export
+convert /tmp/ruyi-p3-02-artifacts/sample-4rQCxg/data.xlsx as a Calc document -> /private/tmp/ruyi-p3-02-artifacts/sample-4rQCxg/renders/data.pdf using filter : calc_pdf_Export
+convert /tmp/ruyi-p3-02-artifacts/sample-4rQCxg/slides.pptx as a Impress document -> /private/tmp/ruyi-p3-02-artifacts/sample-4rQCxg/renders/slides.pdf using filter : impress_pdf_Export

@@ -1,0 +1,49 @@
+{
+  "label": "unit",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/desktop-execution-dispatch.test.js",
+    "dev-harness/unit/desktop-execution-runtime.test.js",
+    "dev-harness/unit/desktop-execution-ledger.test.js",
+    "dev-harness/unit/execution-preparation.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-iwaps2zs/home",
+    "USERPROFILE": "/tmp/rd-iwaps2zs/userprofile",
+    "APPDATA": "/tmp/rd-iwaps2zs/appdata",
+    "LOCALAPPDATA": "/tmp/rd-iwaps2zs/localappdata",
+    "RUYI_HOME": "/tmp/rd-iwaps2zs/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-iwaps2zs/data",
+    "WCW_DATA_DIR": "/tmp/rd-iwaps2zs/acc-data",
+    "TMPDIR": "/tmp/rd-iwaps2zs/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-iwaps2zs/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-iwaps2zs/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T18:35:57.234988+00:00",
+  "freezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T18:35:57.956927+00:00",
+  "elapsedSeconds": 0.721853374998318,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v2/unit.log",
+    "bytes": 5371,
+    "sha256": "c16496f58e994603ae54d5d74bb990d18196fa575406757a26342e6f8842b218"
+  }
+}

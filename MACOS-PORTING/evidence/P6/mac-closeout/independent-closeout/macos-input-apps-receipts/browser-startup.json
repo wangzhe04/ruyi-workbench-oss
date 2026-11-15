@@ -1,0 +1,12 @@
+{
+  "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "launchExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "pid": 7090,
+  "exitCode": null,
+  "signal": null,
+  "targetObserved": true,
+  "elapsedMs": 1030.9917090000008,
+  "injectedNonrespondingEndpoint": false,
+  "reason": null,
+  "diagnostics": "[7090:5586364:1112/232155.459561:ERROR:net/cert/internal/trust_store_mac.cc:764] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:62128/devtools/browser/dd7762ac-ed3d-4339-b1f7-4b98832099c7\nTrying to load the allocator multiple times. This is *not* supported.\n"
+}

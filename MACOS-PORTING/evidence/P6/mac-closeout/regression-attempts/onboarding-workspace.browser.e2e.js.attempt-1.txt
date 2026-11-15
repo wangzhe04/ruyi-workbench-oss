@@ -1,0 +1,22 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS W0 向导打开了
+PASS W5 走到第二步时，当前与后面的步骤不预先画成「已完成」（实测 {"cur":1,"doneAhead":[],"skip":"退出引导"}）
+PASS W6a 整个向导的退出叫「退出引导」（实测 "退出引导"）
+PASS W8 本机服务那一支，步骤计数行不写「填入 API Key」（实测 "第 3 / 7 步 · 连接本机的模型服务"）
+PASS W1 这一步常驻一个手填框和「用这个文件夹」（实测 {"input":true,"label":"工作文件夹的完整路径","use":true}）
+PASS W4 工作文件夹＝整个用户目录：醒目提示并给「用一个专用文件夹」（实测 {"text":"现在的工作文件夹是你整个用户目录：AI 能读、改、在里面跑命令的范围太大了。建议换成一个专用文件夹。用一个专用文件夹（文档\\如意工作区）","btn":true,"dw":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ylB9KN/ruyi-onboard-ws-uLBpO6/home","home":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ylB9KN/ruyi-onboard-ws-uLBpO6/home"}）
+PASS W4b 点它：建出「如意工作区」、设成默认、提示消失（实测 /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ylB9KN/ruyi-onboard-ws-uLBpO6/home/如意工作区）
+PASS W4c POST /api/workspace/dedicated 再调一次：复用同一个文件夹（实测 {"ok":true,"path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ylB9KN/ruyi-onboard-ws-uLBpO6/home/如意工作区"}）
+PASS W2 选择器打不开：向导里就地说清原因（role=alert，服务端那句人话、不是「[object Object]」；实测 {"text":"文件夹选择器没能打开：原生文件夹选择器仅支持 Windows。可以在下面直接粘贴文件夹的完整路径。","role":"alert","focus":true}）
+PASS W2b 焦点落到手填框上
+PASS W3 粘贴带引号的完整路径 → 成为默认工作文件夹、原因那句消失（实测 {"current":true,"error":false}）
+PASS W3b 落盘：config.json 的 defaultWorkspace 就是它（实测 /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ylB9KN/ruyi-onboard-ws-uLBpO6/my-folder）
+PASS W6 最后一步只有「完成」，没有「退出引导」（实测 {"finish":true,"skip":false}）
+PASS W7 走完文件夹这一步，一条线程都没有被建出来（实测 0 条：[]）
+PASS F1 零未捕获异常（[]）
+
+ONBOARDING WORKSPACE BROWSER E2E: ALL PASS

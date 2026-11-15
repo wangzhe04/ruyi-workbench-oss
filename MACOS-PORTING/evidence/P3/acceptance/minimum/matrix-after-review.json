@@ -1,0 +1,185 @@
+{
+  "probe_sha256": "b0ed2cdc9376d867f88b6965e69caf1d47b80cfdbb78680fc102dc9c1181d7ba",
+  "results": [
+    {
+      "fixture": "valid-thin-little",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-thin-big",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-legacy",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat32",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat64",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat64-little",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-command",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "truncated build version command"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-legacy-command",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "truncated minimum version command"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-command-region",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "invalid load command size"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-fat-slice",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "load commands exceed Mach-O slice"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "out-of-file-fat-slice",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "invalid fat slice bounds"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "truncated-tool-table",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "truncated build version tool table"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "excess-command-count",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "truncated load command header"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "over-target-15",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": [
+        {
+          "path": "review.dylib",
+          "minimums": [
+            [
+              15,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "allMatched": true
+}

@@ -1,4 +1,5 @@
 'use strict';
+import { isMacHost, macNotificationPermission, refreshHostPermissions, requestHostNotifications } from './host-bridge.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // notify-policy.js — 「需要你」本地提醒的纯策略层（121 波 K1，34 号文 §8.3 第 2 条）。
@@ -151,6 +152,7 @@ export function bindNotifySettings({
   let settings = readNotifySettings(storage);
 
   function permission() {
+    if (isMacHost()) return macNotificationPermission();
     // 桌面壳（WebView2）自带托盘通道，权限恒为已授予。
     if (globalThis.__ruyiDesktop === 1 && globalThis.chrome?.webview
       && typeof globalThis.chrome.webview.postMessage === 'function') return 'granted';
@@ -160,7 +162,7 @@ export function bindNotifySettings({
   function statusText() {
     const granted = permission();
     if (granted === 'unsupported') return t('notify.unsupported');
-    if (granted === 'denied') return t('notify.denied');
+    if (granted === 'denied') return t(isMacHost() ? 'host.notification_denied' : 'notify.denied');
     if (!settings.enabled) return t('notify.off');
     return t('notify.on', { p1: settings.quietStart, p2: settings.quietEnd });
   }
@@ -186,14 +188,21 @@ export function bindNotifySettings({
   }
 
   const toggle = byId('cfgNotifyEnabled');
+  let toggleGeneration = 0;
   if (toggle) {
     toggle.onchange = async event => {
+      const generation = ++toggleGeneration;
       if (!event.target.checked) { save({ enabled: false }); return; }
       let granted = permission();
-      if (granted === 'default' && notificationApi && typeof notificationApi.requestPermission === 'function') {
+      if (isMacHost()) {
+        try {
+          granted = await refreshHostPermissions();
+          if (granted === 'default') granted = await requestHostNotifications();
+        } catch { granted = 'denied'; }
+      } else if (granted === 'default' && notificationApi && typeof notificationApi.requestPermission === 'function') {
         try { granted = await notificationApi.requestPermission(); } catch { granted = 'denied'; }
       }
-      save({ enabled: granted === 'granted' });
+      if (generation === toggleGeneration) save({ enabled: granted === 'granted' });
     };
   }
   const start = byId('cfgNotifyQuietStart');
@@ -205,6 +214,7 @@ export function bindNotifySettings({
   // 运行时切语言也一样 —— 听 i18n.js setLocale 末尾派的那发全局 i18n:change，把状态行按新语言重算一遍（不动开关与时段的值）。
   try {
     if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('i18n:change', syncControls);
+    if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('ruyi:host-permission', syncControls);
   } catch { /* 无 window（单测）时不挂 */ }
   return settings;
 }

@@ -1,0 +1,18 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 真实管家工具循环创建单事项并启动第一步
+PASS 原有工作流面板显示同一 run 的两个步骤
+PASS 页面所读权威运行中，后序仍排队
+PASS 班组画布可直接查看两步骤
+PASS 1440px 可见画布中的两步骤状态仍可查看
+PASS 768px 可见画布中的两步骤状态仍可查看
+PASS 390px 可见画布中的两步骤状态仍可查看
+PASS 处理中刷新不重复创建 run
+PASS 刷新后既有执行继续，最终两步真实成功
+PASS 浏览器无未捕获异常
+ARTIFACTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-FXkbAU/ruyi-multistep-ui-4KQiW3
+
+STEWARD MULTISTEP BROWSER E2E: ALL PASS

@@ -1,0 +1,2 @@
+80017     1 /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop --acceptance-report /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p4-launchservices-diagnostic-yv93Ny/launch-services.json --acceptance-auto-quit
+80020 80017 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ubUedS/.local/bin/node --require /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/service-lease.cjs /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js serve --host 127.0.0.1

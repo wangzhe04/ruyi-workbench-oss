@@ -1,0 +1,93 @@
+{
+  "schema": 5,
+  "at": "2026-11-11T20:09:24.441078+00:00",
+  "status": "image_delivery_and_protected_storage_independently_qualified_frozen_v2_default_off_full_P5_active",
+  "previousPlan": "next-implementation-plan-v4.json",
+  "goal": "Full original P5 remains active with original10 local+4 external IDs; no whole-P5 acceptance or implementation integration/commit.",
+  "implementedNow": [
+    "Actual SDK/native input-session receipts, strict product reader, versioned SDK-decoded numeric binding and real metadata probe.",
+    "Explicit required-context mode refuses absent host correlation at SDK, registered wrapper and native adapter; only receipt read and exact native status are contextless. Node ordinary runtime has not enabled this mode.",
+    "Shared ordinary-JSON descriptor copier and DurableJsonStore opt-in bounded/canonical/private reads, fixed queued bytes and exclusive private temp writes.",
+    "Node ledger factory with digests, persistent phases, old-epoch holds, current-host admission callback, canonical in-process authority drain, durable closed turn/rewind watermarks and mandatory retirement confirmation. File tests use simulated owner/current-turn/receipts; no actual server/controller activation.",
+    "Actual Mac serve holds kernel gate and root-directory identity, opens strict ledger before startup recovery/clients, binds actual live turnSettlers + exact session object/driver/turnSeq/rewindGen to host-generated admission IDs. Provider/CLI/driver/subagent entry and normal iteration gates hold recovered uncertainty before model continuation.",
+    "Root ownership captures existing directory identity during acquisition; replacement before/after runtime initialization is refused. Cold missing root binds under original startup gate; verified rename preserves source identity with/without a legacy junction. Startup diagnostics refuse unknown/replaced root before mkdir and after it.",
+    "Same-epoch prepared/dispatching rows are no longer considered live after cancel/supersede/release/sequence-generation change. They hold successor turns rather than disappearing.",
+    "Default-off RUYI_DESKTOP_EXECUTION_RECEIPTS=1 now routes actual provider direct and adaptive proxies through13ac. Actual McpStdioClient spawn forces REQUIRED=1 including recognized aliases; exact object/child/real ACC nonce+PID probe required. Unknown/remote/unrequired detected ACC cannot silently fallback.",
+    "Opaque per-call host contexts bind actual parent driver, batch and call identity. Final _rpc packet is descriptor-copied/frozen null-prototype and serialized once; immutable args/meta and current peer/admission are rechecked synchronously immediately before stdin write. Inherited/own executable JSON hooks cannot change the prepared packet.",
+    "Actual return reads independent strict receipts and commits Node result metadata before exposure. Main history stages actual PrivacyGateway/truncated projected tool row, requirePersisted save+real load verifies full saved JSON/turn/rewind before markDelivered; actual direct/proxy two-call wait+position batches and model continuation are qualified.",
+    "Fixed contextless execution_receipt(control=readiness) exposes exact native status+module flags without monitor/DPI wrapper/browserdriver dispatch; other controls refused and contextless tool allowlist remains only execution_receipt. Actual root capabilities lane and pure4 negatives qualified.",
+    "Per-local-tool guards09/08, common12/toolCall and invoke guard actual session before further dispatch. Shared streaming, summary and nonstream provider HTTP hooks check actual AsyncLocalStorage/explicit scope after privacy projection before POST. Thread brief carries explicit sid. Actual wait result-observation EIO blocks following same-batch local file_write, model continuation and restart replay.",
+    "Candidate main batch saves each image in actual provider history before later tool dispatch; tool replies insert before trailing images. Exact assistant anchor is set before first intent save; Stop preserves attempted prompts and acknowledged images; interrupt pairs all skipped calls before images.",
+    "Protected session revision+commit hashes bind both exact NDJSON bodies. Stale copies reject across feature flag changes; either surviving protection field remains protected; bad/missing/nonobject heads and legacy downgrade refuse. Queued live arrays/head/revision snapshot is coherent. Verified uncommitted append tails recover in the write chain; failed truncation refuses.",
+    "Hash-bound same-count rewrites keep both rollback snapshots until recovery; committed/uncertain head publication retains live revision and rewind highwater even on lost acknowledgement or postcommit error. Protected omit-provider fast views remain disabled and no performance acceptance is claimed.",
+    "Private one-shot root send permit is required in actual stdio callTool/raw RPC and HTTP refusal. The actual AI Computer Control brand catches wrapped aliases; invented metadata+checker cannot send business calls.",
+    "Actual root/provider/real ACC SDK synthetic-PNG harness26 verifies one/two image mixed batches, next actual tool reads saved image/delivery digest, Stop, explicit interrupt, next-batch intent head EIO, image-history head EIO and actual restart hold. This is not native screenshot/capture/input acceptance.",
+    "Engineering inventory now600 e2e/288 unit/44 Python smoke groups. Four new explicitly qualified Mac receipts probes are in the central opt-in set (11 total). README explains platform registry and counts vs outcomes. No existing failed assertion was waived; fast v1 three stale-census failures remain archived."
+  ],
+  "nextRequiredWork": [
+    "Continue actual runtime integration, not another standalone foundation. Root main direct/proxy text path is real and independently qualified. Candidate stays default-off until all required paths are complete.",
+    "Implement subagent actual admissions and strict durable sub-history delivery. Candidate currently rejects subagent ACC because no opaque host context is supplied; do not present this refusal as subagent support. Inspect actual parentSession identity, real run/node/controller ownership and existing saveAgentRun/history/event persistence before choosing storage. Background agent runs may not have parent turnSettlers ownership; do not invent a driver/turn to bypass current checks.",
+    "Implement authenticated root-owned CLI MCP relay and actual CLI response persistence. Candidate currently rejects all runClaudeTurn calls. Full-mode direct ACC configuration bypass must be replaced/disabled through legitimate proxy routing, with real WCW driver identity and root authority; never child-managed ledger writes or user/model-provided admission facts.",
+    "Preserve independently qualified image-delivery-freeze-v2 and archive exact source/evidence binding. Actual synthetic images complete the main batch delivery design; native capture/OCR and real screenshot/image creation remain separate open qualification scopes.",
+    "Inspect manual API-tools/MCP/standalone surfaces before default activation: calls with no genuine admission currently refuse ACC in candidate mode. A real user HTTP action/CLI/agent must get its actual host request lifetime and proper durable response/history; do not fabricate a parent turn or silently fall back.",
+    "Implement actual root restart reconciliation using stored peer/worker/arguments and independent strict reader. Complete ACC terminal without saved result/history cannot recreate lost output or prove application consumption. Unknown effects and lost delivery remain separate and must block automatic mutation replay.",
+    "Implement exact trusted history/ACC-retention confirmation, ACKed private-trace lifecycle/global bytes-files quotas/session deletion/rewind. Current Node256 rows/4MiB/4096 watermarks and ACC256*32MiB limits will exhaust; no automatic unknown eviction. Root prepare still lacks persisted connector/data-root locator for historical worker recovery.",
+    "Implement one-shot native capture/OCR receipts. Current one-shot context admission/status exception is not actual native entry/terminal evidence for those operations.",
+    "Qualify balanced ordinary owned input through normal root paths next, then reviewed faults. Before any held-state root fault independently source-review and qualify bounded out-of-tree rescue; never historical Shift/left or UserNotificationCenter. No repeat physical你好/drag/Finder demonstrations or unattended TCC revoke/lock.",
+    "README/test directory counts and four Mac receipt probe opt-in semantics are updated. Platform registry runtime counts must still be measured and qualified on the same final Windows/Mac candidate; the Windows-source count108 is not a Mac registry count.",
+    "Current frozen image candidate targeted63pass and fullunit2611pass/18existingSkip/0fail; syntax1176/0, fast80pass/11centralLiveSkip/0fail, and independent12commands/0fail/0skip/0retry are qualified. These are slice gates; final full-feature independent review and implementation commit/integration remain required.",
+    "Preserve every original10 local+4 external ID. Actual permission revoke/OS-lock, displays/nonRetina/mixedscale/negativeorigin/macOS14, same-final-candidate Windows, formal identity/App/release/credentials/clean-install gates remain open. Do not infer waivers.",
+    "Restore original screensaver idleTime300 and stop only owned keep-awake after whole-P5 acceptance. Current idle0; caffeinate31171 lastobserved10:12:13 of12h; verify exact process and renew before expiry."
+  ],
+  "qualification": {
+    "freeze": "root-dispatch-freeze-v2.json",
+    "sourceReview": "root-dispatch-source-review-v2.json",
+    "independentReport": "independent-root-dispatch-v2/report.json",
+    "nodeRelated": 49,
+    "pythonControl": 4,
+    "actualRootDispatch": 31,
+    "actualRequiredContext": 38,
+    "moduleStatic": 17,
+    "routeStatic": 14,
+    "durable": 71,
+    "buildFresh": true,
+    "productionDefault": "off",
+    "fullUnit": {
+      "tests": 2609,
+      "pass": 2591,
+      "skip": 18,
+      "fail": 0,
+      "log": "development/full-unit-dispatch-v3.log"
+    },
+    "scopeLimits": "No new input mutation/GUI/held/TCC/OS-lock/actualimage/CLI/subagent/retention/fullP5 acceptance."
+  },
+  "preservedFailures": [
+    "Development actual-dispatch-v2 wrongly combined no-resume with type:error instead of actual result{ok:false}; corrected separated assertions and retained fault events before assertions in v3/v4. No provider fault resume was observed in v2.",
+    "Independent root-dispatch-v1 had all runtime assertions pass but route JSON/MD freshness fail because newcapabilities e2e coveredBy was not regenerated; durable/build not run. V1 report/log/freeze unchanged.",
+    "V1 image/steer missing-part false delivery identified in source review; V2 production fix source+pure-qualified and actual read-only suites re-run rather than claiming old-byte equivalence. Windows control puretest platform expectation corrected."
+  ],
+  "standingInstructions": {
+    "noNativeOrGUIConcurrency": true,
+    "noHeldFaultBeforeIndependentlyQualifiedRescue": true,
+    "noIntentionalUnattendedLockOrTCCRevoke": true,
+    "noRepeatPhysical你好DragOrFinder": true,
+    "restoreAutomaticLockOnlyAfter": "full_P5_acceptance",
+    "originalIdleTime": 300,
+    "currentIdleTime": 0,
+    "ownedCaffeinatePid": 31171,
+    "lastObservedElapsed": "08:42:13 of12h"
+  },
+  "subagentDesignInspection": {
+    "status": "read_only_design_no_subagent_support_implemented",
+    "actualEntry": "09 runAgentWorkflow creates exact runtime/run, registers activeAgentRuns, then nodeControls.set(node.id,nodeCtrl) before runSubAgent; runSubAgentCore owns actual subHistory, projection, image pipeline and model loop.",
+    "actualOwnership": "Use exact live workflow runtime+run+node+attempt+nodeCtrl identities, root ownership, session tombstone/rewind checks and authentic origin. Background tasks outlive parent turnSettlers; do not mint a fake main owner or turn.",
+    "clonedSession": "Node agentSession may be a cwd-isolated copy. Keep original host workflow identity separate from this tool working-directory projection.",
+    "durabilityGap": "saveAgentRun snapshots and best-effort events do not currently persist actual subHistory. In-memory savepoint is not delivery proof. Choose a bounded root-owned transcript store with strict write+reload validation and actual projected images before markDelivered.",
+    "freshApiRun": "run.turnSeq can be0 for a genuine fresh API workflow, while current receipt metadata requires >=1. Must define authentic admission schema/lifecycle or actual request sequence reservation; never substitute invented parent turn facts.",
+    "nextImplementation": "Design opaque workflow/node admission and strict per-node transcript scope before enabling ACC in subagents. Existing candidate refusal remains until this is implemented and actual foreground/background/cancel/fault/restart paths qualify."
+  },
+  "imageQualificationFreeze": "image-delivery-freeze-v2.json",
+  "imageIndependentReport": "independent-image-delivery-v2/report.json",
+  "imageSourceReview": "development/image-source-review-v2.json",
+  "developmentSummary": "image-development-summary-v1.json"
+}

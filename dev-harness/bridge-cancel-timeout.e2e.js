@@ -15,7 +15,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *
  * Run: node dev-harness/bridge-cancel-timeout.e2e.js
  */
-const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
+const { killOwnTree, snapshotProcessTable } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -67,11 +67,20 @@ function postStream(port, payload) {
 }
 async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
+const observedPids = new Map();
+function rememberPids() {
+  if (!fs.existsSync(PID_CAPTURE)) return;
+  const table = snapshotProcessTable();
+  if (!table) throw new Error('Cannot observe owned MCP birth identities');
+  for (const pid of fs.readFileSync(PID_CAPTURE, 'utf8').trim().split(/\r?\n/).map(Number)) {
+    const row = table.find(item => item.pid === pid);
+    if (row && !observedPids.has(pid)) observedPids.set(pid, row.created);
+  }
+}
 function pidAlive(pid) {
-  try {
-    const out = cp.execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8', windowsHide: true });
-    return new RegExp('\\b' + pid + '\\b').test(out) && !/No tasks/.test(out);
-  } catch { return false; }
+  const table = snapshotProcessTable();
+  if (!table) throw new Error('Cannot verify owned MCP identities');
+  return table.some(row => row.pid === pid && row.created === observedPids.get(pid));
 }
 
 (async () => {
@@ -113,6 +122,7 @@ function pidAlive(pid) {
     cwd: WB, windowsHide: true,
     env: { ...process.env, RUYI_HOME: HOME, WCW_BRIDGED_TIMEOUT_OVERRIDE: 'slow_task:1500' },
   });
+  const observer = setInterval(rememberPids, 50);
   try {
     ok(await up(WP), 'workbench starts');
     const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port: WP, path: '/' }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(b)); }));
@@ -133,7 +143,10 @@ function pidAlive(pid) {
     const slowResult = events.find(e => e.type === 'tool_result' && slowTool && e.id === slowTool.id);
     const slowText = JSON.stringify((slowResult && slowResult.content) || '');
     ok(!!slowResult && /timed out|超时/.test(slowText), 'A1 ①的工具结果为超时错误 (got ' + slowText.slice(0, 120) + ')');
-    ok(/桥接进程树已终止/.test(slowText), 'A2 错误文本如实告知"桥接进程树已终止"(无僵尸执行)');
+    ok(process.platform === 'darwin' ? slowResult?.content?.cleanupScope === 'owned-group-and-observed'
+      && slowResult.content.cleanupIncomplete === false && slowResult.content.cleanupEscapeCoverage === 'observed-only'
+      && slowResult.content.cleanupUnconfirmed === 0 : /桥接进程树已终止/.test(slowText),
+      'A2 timeout reports the actual verified cleanup scope without claiming unobserved descendants');
 
     // B: cancelled 通知(可能在进程被杀前落盘 —— 通知先于 kill 发出)
     let notifyLines = [];
@@ -150,6 +163,8 @@ function pidAlive(pid) {
     // C: pid 日志一行一个(首个=被杀的旧客户端,末个=重连的新客户端)。
     const pids = fs.existsSync(PID_CAPTURE) ? fs.readFileSync(PID_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean).map(Number) : [];
     ok(pids.length === 2, 'C0 fake-mcp 先后两个 pid(被杀 + 重连) (got ' + pids.join(',') + ')');
+    rememberPids();
+    ok(pids.every(pid => observedPids.has(pid)), 'C0b both actual MCP birth identities observed');
     const firstPid = pids[0] || 0;
     let firstAlive = true;
     for (let i = 0; i < 30 && firstAlive; i++) { await sleep(300); firstAlive = pidAlive(firstPid); }
@@ -166,7 +181,7 @@ function pidAlive(pid) {
     ok(!!turnSummary, '回合正常收尾(turn_summary 在)');
   } catch (e) { console.error('ERROR ' + (e && e.stack || e)); failures++; }
   finally {
-    kill(wb); kill(fakeProvider);
+    clearInterval(observer); kill(wb); kill(fakeProvider);
     await sleep(200);
     fs.rmSync(HOME, { recursive: true, force: true });
   }

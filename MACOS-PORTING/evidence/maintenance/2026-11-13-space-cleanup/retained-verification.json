@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-11-13T03:30:59.208Z",
+  "currentDistributions": [
+    {
+      "variant": "full",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "verified": true
+    },
+    {
+      "variant": "slim",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+      "imageSha256": "341207021a6c6114dab886ee189b5aa98484911d966193eea0f850fd03cf5918",
+      "imageBytes": 51629071,
+      "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "verified": true
+    }
+  ],
+  "authorizedApp": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+    "appTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+    "deepStrictSignatureVerified": true
+  },
+  "deferredWorktree": {
+    "path": "/private/tmp/ruyi-p5-workflow-receipts-worktree",
+    "exists": true,
+    "modifiedOrUntrackedEntries": 39,
+    "sourcePreserved": true
+  },
+  "retainedDevelopmentDependencies": [
+    "mcp/ai-computer-control/.venv",
+    "ruyi-workbench/runtime/macos",
+    "ruyi-workbench/app/vendor-bin"
+  ],
+  "sourceHead": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+  "scope": "No business data, system privacy permission, user cache outside the two temporary roots, source code, Git history, or current installed App was removed."
+}

@@ -1,0 +1,216 @@
+{
+  "independentFullEngineeringReruns": 0,
+  "runs": [
+    {
+      "name": "engineering-v1",
+      "execution": [
+        {
+          "label": "syntax",
+          "argv": [
+            "node",
+            "dev-harness/syntax-gate.js"
+          ],
+          "exitCode": 0,
+          "seconds": 25.83247387499432
+        },
+        {
+          "label": "build",
+          "argv": [
+            "node",
+            "ruyi-workbench/app/build.js",
+            "--check"
+          ],
+          "exitCode": 0,
+          "seconds": 0.20411199999216478
+        },
+        {
+          "label": "unit",
+          "argv": [
+            "node",
+            "--test",
+            "dev-harness/unit/*.test.js"
+          ],
+          "exitCode": 0,
+          "seconds": 111.41423424999812
+        },
+        {
+          "label": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 1,
+          "seconds": 123.51241041700996
+        }
+      ],
+      "sourceCount": 126,
+      "sourceDigest": "74190b252fc3c619360e3f3abb09173e3761db05972d9a21a8da84ac77848008",
+      "hashCheckpoints": 8
+    },
+    {
+      "name": "engineering-v2",
+      "execution": [
+        {
+          "label": "syntax",
+          "argv": [
+            "node",
+            "dev-harness/syntax-gate.js"
+          ],
+          "exitCode": 0,
+          "seconds": 26.22800108299998
+        },
+        {
+          "label": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 0,
+          "seconds": 122.38261520800006
+        }
+      ],
+      "sourceCount": 127,
+      "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+      "hashCheckpoints": 4
+    }
+  ],
+  "relatedFinalExecution": [
+    {
+      "label": "provider-tool-history.e2e",
+      "argv": [
+        "node",
+        "dev-harness/provider-tool-history.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.609543082988239
+    },
+    {
+      "label": "parallel-read-island.e2e",
+      "argv": [
+        "node",
+        "dev-harness/parallel-read-island.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 7.112897291997797
+    },
+    {
+      "label": "provider-turnloop-hardening.e2e",
+      "argv": [
+        "node",
+        "dev-harness/provider-turnloop-hardening.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 23.70659312499629
+    },
+    {
+      "label": "turn-stop-supersede.e2e",
+      "argv": [
+        "node",
+        "dev-harness/turn-stop-supersede.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 8.787767875008285
+    }
+  ],
+  "relatedFinalSourceCheckpoints": 8,
+  "files": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/build.txt",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/execution.json",
+      "bytes": 664,
+      "sha256": "298579baa2b1187a9e1abc9db44ae8c5669873ed8b943ada0028eeb5067963d6"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/fast.txt",
+      "bytes": 8421,
+      "sha256": "a6f67fec3f877b2132f7acefe6233061280bb4e0cdb5df074f3b836572d04e99"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/invocation.json",
+      "bytes": 531,
+      "sha256": "c9b55069c23a878d9911435785e9e4fe69fa6830272a01624e34ec33c9acf548"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/source-artifact-checks.json",
+      "bytes": 5725,
+      "sha256": "5219030d6b44b5c76f033768ec67aab2586b9d0c7c92e2eca52a0093c3e42f1c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/syntax.txt",
+      "bytes": 60,
+      "sha256": "566ae8ceea74732a46f7942b05213c10f96de0988168325ae544e73922f359d2"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/unit.txt",
+      "bytes": 394700,
+      "sha256": "0d4a08921e09c3484eb17c473e5a591d2c651daf3e1091c85204e64f17dd1ecf"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/execution.json",
+      "bytes": 322,
+      "sha256": "565709e2f23d92e70a75e9615c650d943d03e9e52324f8853c7234194dfc855f"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/fast.txt",
+      "bytes": 5739,
+      "sha256": "6cd58ef31dea70a20801cdf47b45c19ab325505665023691b8ab6213ba0bd8e7"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/invocation.json",
+      "bytes": 538,
+      "sha256": "6280611e66adb9ed5cab1d654644afe5586a381396f4210cc1058dd6c9f8c608"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/source-artifact-checks.json",
+      "bytes": 2865,
+      "sha256": "b56906a41d34adaed8017510e975d36f67d77d17c31e66de6824540560945bbb"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/engineering-v2/syntax.txt",
+      "bytes": 60,
+      "sha256": "566ae8ceea74732a46f7942b05213c10f96de0988168325ae544e73922f359d2"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/execution.json",
+      "bytes": 757,
+      "sha256": "fb9bd26966ffceed0ce223e4d964e20bc20f68281c56861002cc05763782b797"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/invocation.json",
+      "bytes": 699,
+      "sha256": "717533b8811f7a9eb35180bb666e136835ee3f4218b5b333885db23b98887867"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/parallel-read-island.e2e.txt",
+      "bytes": 850,
+      "sha256": "c48e9443765bd2d62da8dd87f797806fce5accc3cc2f7a803f3f68cec3c3cb02"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/provider-tool-history.e2e.txt",
+      "bytes": 825,
+      "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/provider-turnloop-hardening.e2e.txt",
+      "bytes": 2655,
+      "sha256": "b41625d2c0b7d2c63b29e69d02fb2dc799be1826d63eadb03c7f91fbf3ce877e"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/source-artifact-checks.json",
+      "bytes": 5893,
+      "sha256": "ae204e9feff5fb7818e2cf6faf077973e50b2c79f95fdaefe1ab6e00080620af"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-final/turn-stop-supersede.e2e.txt",
+      "bytes": 2458,
+      "sha256": "756511b27115ecaad07514c48c970929fae61c13ecd8b494dc67ff86c27b5143"
+    }
+  ],
+  "history": "Primary v1 syntax/build/unit passed, fast79/80 failed session-save-census with built-in retry. Only static census changed outside original126-source freeze. Final v2 syntax/fullfast includes another unit preflight; build/standalone unit reused by unchanged126-source/2-artifact hashes. Independent runs only new unit9/offline11/native12 plus separately authorized unchanged entry31, not full unit/fast."
+}

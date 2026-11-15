@@ -1,0 +1,28 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 线程已建（sess_8286d0ed48647bb2）—— B 组要左栏真的有一行
+PASS A0d Edge/Chrome found
+PASS A0e browser target available
+PASS A0f 首屏就绪
+PASS A1 视口已压到 640×480（实测 640×480）
+PASS A2a 管家视角
+PASS A2 管家视角 640px 下整页无横向滚动（scrollWidth 640 − clientWidth 640 = 0px；撑宽的：[]）
+PASS A3 管家视角：分段钮／盾牌／齿轮三枚都整个在视口里（[{"selector":"#lensSeg","found":true,"x":117,"y":6,"w":186,"h":34,"inside":true},{"selector":"#stewardShieldBtn","found":true,"x":408,"y":8,"w":104,"h":30,"inside":true},{"selector":"#appGearBtn","found":true,"x":596,"y":7,"w":32,"h":32,"inside":true}]）
+PASS A4a 工作台视角
+PASS A4 工作台视角 640px 下整页无横向滚动（差 0px；撑宽的：["#toolPane.tool-pane@1032",".tool-tabs@1018","#tab-files.tool-section@1018",".pane-section-head@1018","#fileTreeRefreshBtn.mini@1018"]）
+PASS A5 工作台视角：三枚全局控件都整个在视口里（[{"selector":"#lensSeg","found":true,"x":137,"y":6,"w":186,"h":34,"inside":true},{"selector":"#stewardShieldBtn","found":true,"x":448,"y":8,"w":104,"h":30,"inside":true},{"selector":"#appGearBtn","found":true,"x":596,"y":7,"w":32,"h":32,"inside":true}]）
+PASS B0 左栏第一行在场
+PASS B1 第 3 下 Tab 到达视角分段钮（预算 ≤25）
+PASS B2 第 11 下 Tab 到达左栏第一行的标题按钮（行本身故意不进 Tab 序，见 steward-board.js bindRowClick 头注；预算 ≤25）
+NOTE 裸 Tab 距离：到 #promptInput 要 34 下（.msg-actions 随对话长度增长，这是 U05 抓到的那条产品债的体温计，不当判据）
+NOTE Tab 序实测前 34 站：["BODY","skipToComposer",".lens-btn",".lens-btn","stewardShieldBtn","appGearBtn","railBoardBtn","sessionSearch","newSessionBtn",".rail-gh-toggle",".steward-board-thread-title",".icon-btn",".rail-pocket-item",".rail-pocket-item",".rail-pocket-item",".rail-pocket-item","threadStewardWatch","threadBackToStewardBtn","workspacePicker","toggleToolsBtn",".steward-chip",".steward-chip",".steward-chip","contextMeter","mainViewTabChat","mainViewTabCanvas","BUTTON","BUTTON","BUTTON","BUTTON","BUTTON","BUTTON","BUTTON","promptInput"]
+PASS B3 Tab 序的第一站就是跳转链接 #skipToComposer（实得「skipToComposer」，落在第 2 下）—— 它必须是整个应用的第一枚可聚焦元素
+PASS B3b 它拿到焦点就滑进来、整个在视口里、且在最上面（平时被 translateY 收到顶栏上方、由 .app-frame 的 overflow:hidden 裁掉；实测「跳到输入框」 {"x":8,"y":4,"w":92,"h":34}）
+PASS B3c 没焦点时它收在视口【上方】、不制造任何方向的滚动（bottom -64px，横向溢出 0px，纵向 0px）
+PASS B4 工作台视角：焦点在跳转链接上按 Enter，焦点落进 #promptInput（实得「promptInput」）—— 一下 Tab ＋ 一下 Enter，与对话有多长无关
+PASS B5 管家视角：同一枚链接落进 #stewardComposerInput（实得「stewardComposerInput」）—— 它读 data-shell-mode，不自己写
+PASS C0 视口已压到 800×900（实测 800）
+PASS C1 左栏折叠规则真的生效：@container frame (max-width: 980px) 把左栏折成 56px 图标栏（栏头标题与搜索框 display:none）
+PASS C2 800px 下整页仍无横向滚动（差 0px）
+PASS C3 对话区宽度 ≥ 视口 60%（实测 744px / 800px = 93%）
+A11Y WALKTHROUGH BROWSER E2E: ALL PASS

@@ -1,0 +1,46 @@
+PASS DeepSeek 配置可保存和重新读取
+PASS 搜索密钥沿用现有遮罩
+PASS 遮罩配置往返不清空密钥
+PASS 未知后端仍回落默认
+PASS 普通搜索工具接入 DeepSeek 并保留摘要
+PASS 官方路径、POST 与 Bearer 鉴权正确, /v1 不重复
+PASS 条数与操作符原样传递,搜索不额外拉全文
+PASS 超出 128 Unicode 字符在本地拒绝
+PASS 128 个非 BMP 字符合法,不按 UTF-16 单元误拒绝
+PASS 普通抓取工具使用 DeepSeek 并保留分页
+PASS Fetch 只发送目标网址
+PASS 续页使用完整缓存,不重复付费抓取
+PASS 跨页无遗漏、无重复,Unicode 保持完整
+PASS 管家搜索共用 DeepSeek 配置
+PASS 管家 Fetch 共用后端,外部内容保留围栏
+PASS 拒绝私网、非 HTTP 或带凭据目标: http://127.0.0.1/private
+PASS 拒绝私网、非 HTTP 或带凭据目标: http://10.0.0.1/secret
+PASS 拒绝私网、非 HTTP 或带凭据目标: file:///etc/passwd
+PASS 拒绝私网、非 HTTP 或带凭据目标: 8.8.8.8/private
+PASS 非法目标不外发给 DeepSeek
+PASS 真实空结果仍成功,不冒充故障
+PASS HTTP 400 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 400 的缓存回退边界正确
+PASS HTTP 401 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 401 的缓存回退边界正确
+PASS HTTP 402 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 402 的缓存回退边界正确
+PASS HTTP 403 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 403 的缓存回退边界正确
+PASS HTTP 404 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 404 的缓存回退边界正确
+PASS HTTP 429 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 429 的缓存回退边界正确
+PASS HTTP 500 如实失败,不泄露响应正文或默认回退
+PASS Fetch HTTP 500 的缓存回退边界正确
+PASS html 响应不伪装空结果,不跟随重定向
+PASS html Fetch 不用缓存掩盖契约错误
+PASS bad 响应不伪装空结果,不跟随重定向
+PASS bad Fetch 不用缓存掩盖契约错误
+PASS redirect 响应不伪装空结果,不跟随重定向
+PASS redirect Fetch 不用缓存掩盖契约错误
+PASS 用户取消及时中断 Fetch,不伪装缓存成功
+PASS 用户取消也中断 Search,不转发给其它引擎
+PASS 缺少密钥时不发送请求
+
+DEEPSEEK SEARCH FETCH E2E: ALL PASS

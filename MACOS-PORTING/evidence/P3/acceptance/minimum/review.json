@@ -1,0 +1,106 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3 static minimum macOS follow-up",
+  "date": "2026-11-07",
+  "scope": [
+    "MACOS-PORTING/probes/audit-macos-minimum.py",
+    "dev-harness/macos-browser-runtime.e2e.js",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py"
+  ],
+  "source_hashes": {
+    "MACOS-PORTING/probes/audit-macos-minimum.py": "b0ed2cdc9376d867f88b6965e69caf1d47b80cfdbb78680fc102dc9c1181d7ba",
+    "dev-harness/macos-browser-runtime.e2e.js": "206313b20a4537dc03d7cb6302eb7be8c870417847741a547b1182d5acb6ccd0",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f"
+  },
+  "findings": [
+    {
+      "id": "P3-MIN-R1",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "MACOS-PORTING/probes/audit-macos-minimum.py",
+      "title": "Reject deployment metadata outside its declared Mach-O command or architecture slice",
+      "initialEvidence": "The real CLI returned staticDeploymentCheckPassed=true for a short LC_BUILD_VERSION command and a fat arm64 slice shorter than its load-command region. Required browser binaries were present in the fixture, so these were true top-level false greens. otool reported malformed commands. Expanded initial matrix reproduced six false greens.",
+      "resolution": "inspect now validates explicit slice boundaries, fat header/table and slices, thin CPU identity, sizeofcmds, command sizes, BUILD_VERSION and VERSION_MIN_MACOS minimum sizes, tool table bounds, and total command-region consumption. Independent 14-case CLI matrix and 9 additional parser boundary controls all match expectations."
+    }
+  ],
+  "validation": [
+    {
+      "method": "Independent real CLI synthetic-wheel matrix",
+      "cases": 14,
+      "matched": 14,
+      "evidence": "/tmp/ruyi-p3-minimum-matrix-review.json",
+      "initialFailureEvidence": "/tmp/ruyi-p3-minimum-matrix-before-review.json",
+      "probe_sha256": "b0ed2cdc9376d867f88b6965e69caf1d47b80cfdbb78680fc102dc9c1181d7ba"
+    },
+    {
+      "method": "Independent additional parser boundary controls",
+      "cases": 9,
+      "matched": 9,
+      "evidence": "/tmp/ruyi-p3-minimum-extra-review.json"
+    },
+    {
+      "method": "Independent system otool cross-check of three real binaries",
+      "result": "NumPy minimum14.0, Chromium13.0, optional ffmpeg15.0 agree with audit. This independently corroborates selected deployment metadata, not runtime compatibility.",
+      "evidence": "/tmp/ruyi-p3-minimum-otool-review.json"
+    },
+    {
+      "method": "Review real Chromium-only E2E execution evidence and production browser paths",
+      "assertions": 26,
+      "allPass": true,
+      "evidence": "/tmp/ruyi-p3-browser-chromium-only.txt",
+      "result": "Production new_page() has no video-recording options or video API. Requiring complete Chromium while omitting optional ffmpeg and headless shell preserves current P3 browser tools; actual 26-assertion run exercises Chromium launch, DOM operations, isolated profiles and cleanup without those caches."
+    },
+    {
+      "method": "Read required-cache static audit",
+      "wheelCount": 64,
+      "arm64BinaryCount": 98,
+      "maxDeclaredMinimum": [
+        14,
+        0,
+        0
+      ],
+      "passed": true,
+      "evidence": "/tmp/ruyi-p3-minimum-required.json"
+    },
+    {
+      "method": "Retain original cache negative evidence",
+      "wheelCount": 64,
+      "arm64BinaryCount": 99,
+      "maxDeclaredMinimum": [
+        15,
+        0,
+        0
+      ],
+      "passed": false,
+      "overTarget": [
+        {
+          "path": "ffmpeg-1013/ffmpeg-mac",
+          "minimums": [
+            [
+              15,
+              0,
+              0
+            ]
+          ],
+          "bytes": 3012616,
+          "sha256": "e71dd6610cbc984022ff51b07a95f8d2526aba120406d8cdd0686f6421c464ac"
+        }
+      ],
+      "evidence": "/tmp/ruyi-p3-minimum-audit.json"
+    },
+    {
+      "method": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "remaining_code_findings": [],
+  "conclusion": "approved_with_environment_limitations",
+  "source_modifications": false,
+  "limitations": [
+    "Static arm64 Mach-O declaration audit only; does not establish imported-symbol compatibility, complete binary closure, signing or clean-machine offline release.",
+    "No actual macOS14 execution performed. Current host execution is not counted as the macOS14 gate.",
+    "Required browser paths are pinned to the prepared Chromium1248/156.0.8078.4 candidate and must be updated deliberately if the prepared runtime changes.",
+    "Windows same-candidate CI is outside this review; no Windows pass is claimed.",
+    "Optional video recording is not provided by current browser tools; adding it requires dependency/OS validation including ffmpeg rather than reusing this result."
+  ]
+}

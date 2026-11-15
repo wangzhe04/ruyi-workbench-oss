@@ -1,0 +1,37 @@
+PASS local OCR tools are registered independently of desktop input
+PASS new observations preserve file checkpoint coverage
+PASS installed offline Vision exposes Chinese and English language tags
+PASS real native OCR preserves mixed Chinese, English and monetary punctuation
+PASS local image coordinates and raw decoded orientation are explicit
+PASS Unicode tokenization splits CJK characters and preserves non-CJK punctuation
+PASS native token rectangles and centers remain inside image pixels
+PASS ordinary image symlinks read the same validated opened file
+ocr_image failure {"ok":false,"error":"DesktopError: Requested language is not supported by the installed Vision recognizer","code":"ocr_language_unsupported","available_languages":["en-US","fr-FR","it-IT","de-DE","es-ES","pt-BR","zh-Hans","zh-Hant","yue-Hans","yue-Hant","ko-KR","ja-JP","ru-RU","uk-UA","th-TH","vi-VT","ar-SA","ars-SA","tr-TR","id-ID","cs-CZ","da-DK","nl-NL","no-NO","nn-NO","nb-NO","ms-MY","pl-PL","ro-RO","sv-SE","fi-FI","hi-IN","mr-IN"]}
+PASS unsupported language fails with bounded installed-language details
+ocr_image failure {"ok":false,"error":"DesktopError: Input has no decodable image properties","code":"ocr_image_invalid"}
+PASS invalid local image fails explicitly
+ocr_image failure {"ok":false,"error":"DesktopError: OCR requires a nonempty regular image file of at most 50MB","code":"ocr_capacity"}
+PASS non-regular image input is refused without blocking
+PASS ready screen OCR and OpenCV tools appear in real tools/list
+PASS ScreenCaptureKit and Vision read the owned bilingual window in logical points
+PASS actual capture dimensions map both OCR axes into the logical capture bounds
+PASS Chinese phrase location maps into the actual receiver button
+PASS text miss remains a successful observation with no input
+PASS duplicate English labels remain two explicit OCR candidates
+ocr_click failure {"ok":false,"error":"DesktopError: Select nth or nearest_to for multiple matches","code":"ocr_ambiguous","count":2,"candidates":[{"text":"Save Draft","left":294.5,"top":765.5,"width":111.5,"height":22.5,"center":[350.25,776.75],"match_type":"phrase"},{"text":"Save Draft","left":690,"top":766,"width":135.5,"height":21.5,"center":[757.75,776.75],"match_type":"phrase"}]}
+PASS ambiguous OCR text is refused before native input
+PASS explicit OCR choice posts guarded input and only the second receiver counter changes
+PASS unique Chinese OCR click reaches the receiver and releases native input state
+PASS bounded OpenCV worker finds both owned template occurrences with logical-point centers
+PASS response truncation preserves the full template match count
+PASS template observation needs no input target
+vision_click failure {"ok":false,"error":"DesktopError: Select nth or nearest_to for multiple matches","code":"vision_ambiguous","count":2,"candidates":[{"confidence":1,"left":270,"top":767,"width":160,"height":32,"center":[350,783]},{"confidence":1,"left":670,"top":767,"width":160,"height":32,"center":[750,783]}]}
+PASS duplicate template input requires explicit selection
+PASS template-selected native click changes exactly one receiver counter and releases input
+PASS asynchronous template polling returns an observed match through the Mac worker
+ocr_click failure {"ok":false,"error":"DesktopError: Cannot identify the focused accessible window","code":"window_not_found"}
+PASS changed active owned window refuses OCR input before recognition
+PASS real diagnostics reports ready Vision and OpenCV backends
+PASS owned visual MCP and helper cleanup is confirmed
+
+MACOS OCR E2E: ALL PASS

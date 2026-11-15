@@ -1,0 +1,10 @@
+PASS actual SDK registry advertises the independent evidence reader
+FAIL safe actual SDK roundtrip acknowledges metadata nonce, numeric categories and owned worker
+FAIL Error: Stopped after safe actual SDK roundtrip acknowledges metadata nonce, numeric categories and owned worker
+    at check (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js:17:70)
+    at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js:46:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS owned ACC and native process cleanup is confirmed
+Retained execution context fixture: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-context-CFhI44
+
+MACOS EXECUTION CONTEXT E2E: FAIL (2)

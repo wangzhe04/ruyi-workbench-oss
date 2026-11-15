@@ -1,0 +1,24 @@
+{
+  "textEdit": {
+    "pid": 52908,
+    "ownDocumentExact": true,
+    "closed": true
+  },
+  "chromium": {
+    "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "product": "Chrome/148.0.7778.96",
+    "pid": 52945,
+    "windowTitle": "Ruyi P5 Chromium 52813",
+    "bounds": {
+      "height": 850,
+      "width": 1200,
+      "x": 22,
+      "y": 56
+    },
+    "clipboardRestored": true,
+    "trustedClick": true,
+    "scrollY": 160,
+    "scrollX": 120,
+    "ambiguousRebindRefused": true
+  }
+}

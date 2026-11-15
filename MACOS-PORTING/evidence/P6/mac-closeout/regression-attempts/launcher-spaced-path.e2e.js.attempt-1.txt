@@ -1,0 +1,3 @@
+SKIP launcher spaced-path: Windows only (cmd.exe + Windows PowerShell 5.1)
+
+LAUNCHER SPACED PATH E2E: ALL PASS

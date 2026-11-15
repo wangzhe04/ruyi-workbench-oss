@@ -1,0 +1,12 @@
+{
+  "initialPreflight": "No tests started; raw git blob comparison stopped on expected .gitattributes checkout CRLF difference.",
+  "correction": "Use git cat-file --filters for74d57 commit checkout bytes; additionally compare current actual bytes against all492 frozen source fingerprints.",
+  "example": {
+    "file": "mcp/ai-computer-control/installer/install.bat",
+    "manifestAndWorkingSHA256": "5d45e79f4182352dfe21f28917f997059bc01f05f5cef076d73823f2608c80fd",
+    "rawLFBlobSHA256": "b8ded987e79a9514884b20aecaeebdbcbe96904e46ba0d1655df6ad8a7935143",
+    "gitCheckoutFilteredSHA256": "5d45e79f4182352dfe21f28917f997059bc01f05f5cef076d73823f2608c80fd",
+    "crlfLines": 35
+  },
+  "testRetries": 0
+}

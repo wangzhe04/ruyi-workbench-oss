@@ -1,0 +1,26 @@
+PASS prepared cache is resolved by the SDK; installed binary alone is not reported ready
+PASS bundled Chromium attaches with its own ephemeral profile
+PASS actual Chromium command line uses fixture-only user-data-dir paths
+PASS cleanup observations include the actual browser process, not only its driver
+PASS real browser fills and submits a Chinese form only to the local fixture
+PASS real page screenshot returns a valid bounded PNG
+PASS browser back navigation preserves the local history
+PASS tabs can be listed and switched without losing their page state
+PASS unavailable local site returns an actual navigation error
+OWNED_CLOSE={"closed":{"ok":true,"success":true,"mode":"bundled","closed":true,"hint":"Owned browser closed."},"processesGone":true,"profilesGone":true,"remaining":[]}
+PASS browser_close removes owned Chromium/driver processes and temporary profiles
+PASS closed backend no longer claims readiness
+PASS stdio EOF lifespan closes the owned browser, driver and profile without browser_close
+PASS auto-discovered installed Mac Chromium also launches with an isolated fixture profile
+FAIL installed-browser automation cleans only its owned runtime and profile
+PASS missing offline browser cache reports the real dependency gap without downloading
+PASS browser runtime failure does not disable unrelated shared file tools
+PASS failed runtime lookup creates no browser cache
+PASS absent Playwright package returns a precise failure while MCP remains available
+FAIL Error: browser_type: {"ok":false,"cleanupScope":"owned-group-and-observed","cleanupIncomplete":false,"cleanupEscapeCoverage":"observed-only","cleanupUnconfirmed":0,"error":"tool timed out after 30s; 已核验的桥接子进程已终止,下次调用将自动重连"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-browser-runtime.e2e.js:69:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-browser-runtime.e2e.js:201:5
+PASS all fixture Chromium processes are gone after final cleanup
+
+MACOS BROWSER RUNTIME E2E: FAIL (2)

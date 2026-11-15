@@ -1,0 +1,61 @@
+[79944:16926160:1108/002208.735150:INFO:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:241] No machine level policy manager exists.
+[79944:16926226:1108/002208.741235:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+
+DevTools listening on ws://127.0.0.1:62778/devtools/browser/65b6c523-5d6d-4d9c-b9bf-729bcd141b91
+Trying to load the allocator multiple times. This is *not* supported.
+[79950:16926297:1108/002208.954335:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002208.955364:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002208.955457:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002208.955528:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002208.955647:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002208.955703:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79944:16926227:1108/002208.990032:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDDH::OnAudioGotSaltAndOrigin: pending_audio_input_capabilities_requests_.size()=1
+[79944:16926227:1108/002208.990046:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::EnumerateAndRankDevices({request_id=0})
+[79944:16926227:1108/002208.990053:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::EnumerateDevices({request_id=0})
+[79944:16926227:1108/002208.990229:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::StartMonitoringAndPopulateCache({request_id=0}, {audio=true}, {video=false})
+[79944:16926227:1108/002208.990241:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::EnumerateSystemDevices({request_id=0}, {type=AUDIO_INPUT})
+[79944:16926227:1108/002208.990251:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::EnumerateSystemDevices({request_id=0}, {type=AUDIO_OUTPUT})
+[79944:16926227:1108/002208.990279:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::NotifyDevicesChanged({device_type=DEVICE_AUDIO_INPUT})
+[79944:16926227:1108/002208.990345:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::DevicesEnumerated({request_id=0}, {type=AUDIO_INPUT}, {labels=[Fake Default Audio Input, Fake Audio Input 1, Fake Audio Input 2]})
+[79944:16926227:1108/002208.990395:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::DevicesEnumerated({request_id=0}, {type=AUDIO_OUTPUT}, {labels=[Fake Default Audio Output, Fake Audio Output 1, Fake Audio Output 2]})
+[79944:16926160:1108/002208.990398:WARNING:chrome/browser/media/prefs/capture_device_ranking.h:256] Can't initialize the value of media.audio_input.user_preference_ranking because media.default_audio_capture_device isn't registered or is empty
+[79944:16926227:1108/002208.990544:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDDH::GotAudioInputEnumeration: no devices found or fake device command flag is passed,
+[79944:16926227:1108/002208.990551:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDDH::FinalizeGetAudioInputCapabilities: pending_audio_input_capabilities_requests_.size()= 1,
+[79944:16926227:1108/002208.990793:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::GenerateStreams({render_process_id=7}, {render_frame_id=1}, {requester_id=0}, {page_request_id=0})
+[79944:16926227:1108/002208.990851:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::DeviceRequest({label=}, {requesting_process_id=7}, {requesting_frame_id=1}, {requester_id=0}, {request_type=MEDIA_GENERATE_STREAM})
+[79944:16926227:1108/002208.990874:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::AddRequest([requester_id=0]) => (label=89755ecd-b8bb-4de5-89b1-73c5571d231a)
+[79944:16926227:1108/002208.990882:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::SetUpRequest([requester_id=0] {label=89755ecd-b8bb-4de5-89b1-73c5571d231a})
+[79944:16926227:1108/002208.990886:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetAudioType({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {audio_type=DEVICE_AUDIO_CAPTURE})
+[79944:16926227:1108/002208.990891:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetVideoType({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {video_type=NO_SERVICE})
+[79944:16926227:1108/002208.990894:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::StartEnumeration({requester_id=0}, {label=89755ecd-b8bb-4de5-89b1-73c5571d231a})
+[79944:16926227:1108/002208.990898:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetState({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {stream_type=DEVICE_AUDIO_CAPTURE}, {new_state=STATE_REQUESTED})
+[79944:16926227:1108/002208.990905:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MDM::EnumerateDevices({request_id=0})
+[79944:16926227:1108/002208.990909:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DevicesEnumerated({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, {requester_id=0}, {request_type=MEDIA_GENERATE_STREAM})
+[79944:16926227:1108/002208.990912:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetState({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {stream_type=DEVICE_AUDIO_CAPTURE}, {new_state=STATE_PENDING_APPROVAL})
+[79944:16926227:1108/002208.990917:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::SetUpDeviceCaptureRequest([requester_id=0] {label=89755ecd-b8bb-4de5-89b1-73c5571d231a})
+[79944:16926227:1108/002208.990923:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::CreateUIRequest({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {requested_audio_device_id=default,fake_audio_input_1,fake_audio_input_2}, {requested_video_device_id=})
+[79944:16926227:1108/002208.990928:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::PostRequestToUI({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}
+[79944:16926227:1108/002208.990931:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetState({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {stream_type=DEVICE_AUDIO_CAPTURE}, {new_state=STATE_PENDING_APPROVAL})
+[79944:16926227:1108/002208.990984:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::HandleAccessRequestResponse({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, {request=MEDIA_GENERATE_STREAM}, {result=OK})
+[79944:16926227:1108/002208.990993:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] AIDM::Open({session_id=928A04F2BD88C41B08F2B745294E818E}, {device=[type: DEVICE_AUDIO_CAPTURE, id: default, group_id: fake_group_audio_input_default, name: Fake Default Audio Input, parameters: [format: FAKE, channel_layout: 3, channels: 2, sample_rate: 44100, frames_per_buffer: 441, effects: NONE, mic_positions: , latency_tag: LatencyUnknown]]})
+[79944:16926227:1108/002208.991019:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetState({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {stream_type=DEVICE_AUDIO_CAPTURE}, {new_state=STATE_OPENING})
+[79944:16926227:1108/002208.991026:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::HandleAccessRequestResponse([label=89755ecd-b8bb-4de5-89b1-73c5571d231a]) => (opening device: [id: default, session_id: 928A04F2BD88C41B08F2B745294E818E])
+[79944:16926227:1108/002209.080828:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] AMB::LogAudioManagerStartup => AudioManager starts.
+[79944:16926227:1108/002209.080988:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] AIDM::Opened({session_id=928A04F2BD88C41B08F2B745294E818E})
+[79944:16926227:1108/002209.081001:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::Opened({stream_type=DEVICE_AUDIO_CAPTURE}, {session_id=928A04F2BD88C41B08F2B745294E818E})
+[79944:16926227:1108/002209.081008:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::DR::SetState({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, [requester_id=0], {stream_type=DEVICE_AUDIO_CAPTURE}, {new_state=STATE_DONE})
+[79944:16926227:1108/002209.081016:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::FinalizeGenerateStreams({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, {requester_id=0}, {request_type=MEDIA_GENERATE_STREAM})
+[79944:16926227:1108/002209.081026:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::OnStreamStarted({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, {requester_id=0}, {request_type=MEDIA_GENERATE_STREAM})
+[79944:16926227:1108/002209.081044:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] DeviceEnum::GetAudioObjectIDs: Returning AudioObjectIDs of size 2 for property 1634429294 for device/object 97
+[79944:16926227:1108/002209.081097:VERBOSE1:content/browser/renderer_host/media/media_stream_manager.cc:1559] MSM::PanTiltZoomPermissionChecked({label=89755ecd-b8bb-4de5-89b1-73c5571d231a}, {requester_id=0}, {request_type=MEDIA_GENERATE_STREAM}, {pan_tilt_zoom_allowed=0})
+[79950:16926297:1108/002211.063412:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.084540:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.125383:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.150717:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.186487:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.215631:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[79950:16926297:1108/002211.252050:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670

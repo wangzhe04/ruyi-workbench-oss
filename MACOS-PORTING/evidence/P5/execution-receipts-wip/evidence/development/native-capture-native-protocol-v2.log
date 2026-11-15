@@ -1,0 +1,53 @@
+PASS legacy request still returns a single ordinary terminal
+PASS legacy clean EOF exits zero with no extra receipt rows
+PASS worker incarnation changes across helper processes
+PASS committed entry binds actual body, worker, operation and exact raw frame
+PASS test entry is file-fsynced before the matching continue is sent
+PASS committed continue permits the actual read-only query and correlated terminal
+PASS committed worker has clean EOF cleanup
+PASS wrong-challenge entry binds actual body, worker, operation and exact raw frame
+PASS wrong-challenge refuses this body after entry
+PASS wrong-challenge worker closes instead of reusing a stale confirmation
+PASS withheld entry binds actual body, worker, operation and exact raw frame
+PASS withheld refuses this body after entry
+PASS withheld worker closes instead of reusing a stale confirmation
+PASS eof entry binds actual body, worker, operation and exact raw frame
+PASS eof refuses this body after entry
+PASS eof worker closes instead of reusing a stale confirmation
+PASS prefetched-business entry binds actual body, worker, operation and exact raw frame
+PASS prefetched-business refuses this body after entry
+PASS prefetched-business worker closes instead of reusing a stale confirmation
+PASS wrong worker binding is rejected before body entry
+PASS wrong worker closes the protocol session
+PASS oversized input retains its nonzero framing exit
+PASS truncated input retains its nonzero framing exit
+PASS actual helper explicitly advertises exactly four generic receipt operations
+PASS generic-status entry binds actual body, worker, operation and exact raw frame
+PASS status actual generic completion is bound to the admitted frame and retains success/failure
+PASS status emits one terminal and closes cleanly
+PASS actual helper explicitly advertises exactly four generic receipt operations
+PASS generic-ocr.languages entry binds actual body, worker, operation and exact raw frame
+PASS ocr.languages actual generic completion is bound to the admitted frame and retains success/failure
+PASS ocr.languages emits one terminal and closes cleanly
+PASS actual helper explicitly advertises exactly four generic receipt operations
+PASS generic-ocr.image entry binds actual body, worker, operation and exact raw frame
+PASS ocr.image actual generic completion is bound to the admitted frame and retains success/failure
+PASS ocr.image emits one terminal and closes cleanly
+PASS status cannot expand the legacy input-session surface without control
+PASS status legacy refusal does not corrupt the old session protocol
+PASS generic-status-eof entry binds actual body, worker, operation and exact raw frame
+PASS status eof produces an actual correlated refusal before generic dispatch
+PASS status eof closes the exact owned worker
+PASS generic-status-wrong-challenge entry binds actual body, worker, operation and exact raw frame
+PASS status wrong-challenge produces an actual correlated refusal before generic dispatch
+PASS status wrong-challenge closes the exact owned worker
+PASS ocr.languages cannot expand the legacy input-session surface without control
+PASS ocr.languages legacy refusal does not corrupt the old session protocol
+PASS generic-ocr.languages-eof entry binds actual body, worker, operation and exact raw frame
+PASS ocr.languages eof produces an actual correlated refusal before generic dispatch
+PASS ocr.languages eof closes the exact owned worker
+PASS generic-ocr.languages-wrong-challenge entry binds actual body, worker, operation and exact raw frame
+PASS ocr.languages wrong-challenge produces an actual correlated refusal before generic dispatch
+PASS ocr.languages wrong-challenge closes the exact owned worker
+
+MACOS NATIVE RECEIPTS E2E: ALL PASS

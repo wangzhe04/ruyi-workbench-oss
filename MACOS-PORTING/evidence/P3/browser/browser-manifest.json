@@ -1,0 +1,20 @@
+{
+  "cacheNotDistributed": true,
+  "playwright": "1.64.1",
+  "chromiumVersion": "156.0.8078.4",
+  "revision": 1248,
+  "architecture": "arm64",
+  "files": [
+    {
+      "relativePath": "ffmpeg-1013/ffmpeg-mac",
+      "bytes": 3012616,
+      "sha256": "e71dd6610cbc984022ff51b07a95f8d2526aba120406d8cdd0686f6421c464ac"
+    },
+    {
+      "relativePath": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "bytes": 52112,
+      "sha256": "c8509aee32abd6977968e9999769980b7a420dea05402d90042d9e5b41db15ef"
+    }
+  ],
+  "note": "Acceptance launches full Chromium explicitly; headless-shell download present in preparation cache but not used. Browser binaries remain external preparation assets."
+}

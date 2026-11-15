@@ -1,0 +1,10 @@
+{
+  "capture": {
+    "supported": true,
+    "installed": true,
+    "authorization": "granted",
+    "ready": false,
+    "reasonCode": "session_locked",
+    "coordinate_space": "macos_global_points"
+  }
+}

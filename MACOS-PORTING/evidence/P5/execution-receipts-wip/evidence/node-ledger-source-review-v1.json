@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T16:49:08.595Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review plus two isolated all-memory VM state-machine probes. No reviewer real-file ledger test, OS ownership probe, MCP/ACC/native/helper/GUI execution, build or source edit.",
+  "scope": "Root ledger factory, manifest registration, in-process authority/await state machine, strict DJS configuration, immutable receipt/result flag binding, recovery holds and retirement watermarks. Ordinary dispatch is not activated.",
+  "sourceInputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 24211,
+      "sha256": "ffe334f18fa1a1fdc668e705c892e197c8708c90f11b4d48d19d16ec419a07d8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 22113,
+      "sha256": "056661b8f8f3b3b224d7cd4d09e14167e583945fb81b282724129d96733dc3be"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/manifest.json",
+      "bytes": 24260,
+      "sha256": "7f3256efe0f131568e8530738a13095a297a9370eeb4cf754daee786ffbc5d03"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/00-boot.js",
+      "bytes": 99405,
+      "sha256": "c6b8fffd816160a806b5bcb466da3eefbdda9f983dd596fb6f1679fa27c6a72b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/01-config.js",
+      "bytes": 296227,
+      "sha256": "36ebe66a701261130bfb2fef1ea40b1afce00e3f59b3aebb8fe97aafd5d75453"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 3957,
+      "sha256": "653350f8ffdf3c17ee5e5dc9509f1be9a5c7b0121074b8d7b1df2538c1b01898"
+    }
+  ],
+  "findings": [
+    {
+      "id": "unicode-code-projection-collision",
+      "priority": 2,
+      "status": "closed",
+      "original": "Node code.slice(0,100) used UTF16 code units, unlike Python code[:100] Unicode points; distinct valid astral-boundary receipt/result codes could collapse and be accepted as matching.",
+      "correction": "Node projection uses Array.from(code).slice(0,100).join, preserving the same 100-codepoint projection as Python.",
+      "verification": "Current source and three astral-boundary subcases inspected: 50 or 99 rockets followed by different X/Y remains unknown; exactly 100 rockets followed by omitted suffix matches only the intended bounded projection."
+    },
+    {
+      "id": "authority-handover-overwrites-new-owner-evidence",
+      "priority": 1,
+      "status": "closed",
+      "original": "A previous callback becoming false allowed a new factory to claim the directory while the old factory still awaited a store write. The old rename could erase a newly dispatching record even though its postcheck then reported owner_lost.",
+      "correction": "Canonical authority entries now carry queued/inflight activity count through all work, persistence and postchecks. A different authority cannot claim while previous.pending is nonzero; only drained plus no-longer-owned permits transfer.",
+      "verification": "Original isolated source VM reproduced newDispatchedEntryLost=true and new-session guard ok=true after releasing the old write. Current-source VM instead receives execution_owner_draining, then after old owner_lost preserves one unknown row and guard ok=false. Parent real-file regression also inspects drain-before-handover behavior."
+    },
+    {
+      "id": "retirement-forgets-closed-turn-admission",
+      "priority": 1,
+      "status": "closed",
+      "original": "Deleting a verified delivered row on retirement also deleted duplicate identity protection; the same closed session/turn/call could be prepared again.",
+      "correction": "Persistent bounded closedTurns high watermarks include session, rewind generation and turn sequence; prepare/markDispatch reject closed or older generations/turns. Required isTurnCurrent callback and admissionId independently verify actual host scope before, inside and after async preparation/dispatch persistence.",
+      "verification": "Current source and reopen/retired-turn/new-turn/explicit-generation regressions inspected. A caller cannot establish a valid newer generation solely by changing a number; trusted live-host admission must approve it."
+    }
+  ],
+  "relatedStrengthening": [
+    "Constructor now requires both root isOwner and synchronous live-host isTurnCurrent callbacks. Scope objects are copied/frozen and include sessionId, turnSeq, rewindGen and admissionId.",
+    "prepare snapshots client and argument data before async IO; admission is rechecked in the queue and after persistence before adding live status. markDispatch rechecks real client and host scope after recording the dispatch marker.",
+    "recordResult deliberately preserves late actual facts after the host turn stops, while new preparation/dispatch is refused. Ownership remains required; stopping a turn does not erase an executed result.",
+    "Retirement confirmation receives frozen rows plus explicit session/turn/generation scope, including for an empty turn; it no longer lacks target identity when rows is empty."
+  ],
+  "stateAndStorageAssessment": [
+    "Strict cache:false, strictRead:true, quarantine:false, canonical/ordinary/bounded/private-owned DJS is used. The directory is private/owned/non-symlink with stable identity; state file reads are checked before/after the shared fd reader.",
+    "Canonical-directory authority prevents independent live write chains, now including pending transfer protection. This is an in-process policy and relies on the real external root/kernel ownership callback for cross-process exclusivity.",
+    "Prepared metadata is returned only after the ledger write/checks. In-epoch live preparations/dispatches are distinguished from missing live authority. Write/client/owner failures do not substitute a memory-only returned outcome.",
+    "Reopen converts undelivered prepared, dispatching and returned rows into persistent unknown holds. Delivered verified returned rows may remain terminal. Unknown stays held and cannot be retired.",
+    "Results and receipts are copied before awaits. Sidecar stores digests and bounded typed flags, not raw argument/result payloads. Ordinary numeric business exit codes are ignored as receipt code flags, consistent with Python.",
+    "Receipt inspection binds the actual invocation, ACC worker/PID, host session/turn/call/tool, raw preparation digest and decoded-value digest; top wrapper terminal flags must match the received result projection. Explicit unknown or incomplete lifecycle is held.",
+    "Receipt graph/private-blob validation still comes from the actual ACC product reader; this factory does not independently re-read Python private blobs. Synthetic claimed summaries in unit fixtures are not runtime provenance.",
+    "Entry capacity256 and closed-session-watermark capacity4096 refuse instead of pruning unknown state. Retirement requires verified delivered records plus explicit trusted closed-history/ACC-retention confirmation."
+  ],
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v1.log",
+        "bytes": 1405,
+        "sha256": "5a1139049d2b6239173c363c35c5b0c3a0062572f96255fa5f829461d7c53f18"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v2.log",
+        "bytes": 1717,
+        "sha256": "c18889b0d38a1e5d52102f36359c6c90f019e3000494ddc8afef3e9efc430bc8"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v3.log",
+        "bytes": 2186,
+        "sha256": "377ceaf2c2b18c26ac3b75884fce91250af0ddc289fa22b0a7a7755f5da9272e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v4.log",
+        "bytes": 2289,
+        "sha256": "0ee9c1cdfb625c5f46a45f88fd1cc319202872c63a8b343b7dfaf744d723bc37"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v5.log",
+        "bytes": 2388,
+        "sha256": "067bd8512dc5a5c98d210ae9252761f6afe2b79eac7fd601c55649736da7ee8a"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v6.log",
+        "bytes": 2636,
+        "sha256": "b3f03368f60eea4a31cf95323a1bed3f39a29f54763de495ffd7b86058ea6784"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/node-ledger-v7.log",
+        "bytes": 2959,
+        "sha256": "db0f5bea7293f9c0dc6f86a138ec7bb4e3a5a094d9326078ae39bf0c6040d2df"
+      }
+    ],
+    "observedCounts": {
+      "v1": 12,
+      "v2": 15,
+      "v3": 19,
+      "v4": 20,
+      "v5": 21,
+      "v6": 23,
+      "v7": 26
+    },
+    "currentResult": "PASS26",
+    "scope": "Isolated real private files, simulated ownership/admission callbacks and synthetic receipts. These unit logs are not actual OS-root/provider/ACC/native/CLI/subagent or process-restart runtime acceptance.",
+    "reviewerExecuted": false
+  },
+  "reviewerPureProbes": {
+    "storage": "All-memory stub filesystem/store; executed actual source slices in isolated VM.",
+    "originalResult": {
+      "newAuthority": "opened",
+      "oldWriteRejected": "execution_owner_lost",
+      "newDispatchedEntryLost": true,
+      "newSessionGuardOk": true
+    },
+    "currentResult": {
+      "newAuthority": "execution_owner_draining",
+      "oldWriteRejected": "execution_owner_lost",
+      "preservedRows": 1,
+      "preservedPhase": "unknown",
+      "oldSessionGuardOk": false
+    },
+    "evidenceTreatment": "Summaries from original chat tool outputs; no standalone original-stdout or old source snapshot artifact was captured/reconstructed."
+  },
+  "outcome": "All three actionable findings identified in this factory review are closed in current v7 source. No remaining actionable source finding identified within this standalone factory scope.",
+  "mandatoryRemaining": [
+    "Implement and independently qualify real kernel/server ownership and live session/turn/rewind/driver admission callbacks. A supplied function returning true in a fixture is not proof of ownership.",
+    "Only bind actual validated ACC reader responses and probe identities from the same captured real client; enforce required backend receipt coverage. This unit factory does not prove actual native entry or terminal by itself.",
+    "Wire exact immutable preparation plus dispatch marker at the actual direct/proxy/subagent/CLI bridge boundary, and recheck ownership/admission/client immediately before transmission.",
+    "Wire durable provider-history save and actual delivery digest before markDelivered; this factory stores a caller-supplied digest and does not yet prove a real history commit.",
+    "Implement trusted closed-turn history/ACC-retention confirmation and source-bound restart/runtime reconciliation. Unknown records must never be auto-replayed or retired.",
+    "New store remains the reviewed atomic-replacement primitive, without a newly claimed power-loss/fsync transaction guarantee. Whole persistence semantics and failure windows need end-to-end acceptance.",
+    "One-shot backend coverage, global retention behavior, ordinary owned action/fault-window acceptance and independent held-state rescue gates remain separate and open."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no locking settings inspected or changed."
+}

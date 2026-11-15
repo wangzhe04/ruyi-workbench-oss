@@ -1,0 +1,11 @@
+PASS workbench up
+PASS runtime token
+PASS sessions 目录起初确实为空(未造数据)
+PASS 管家第一拍 tick 已在空目录上跑完(lastTickAt 非空)
+PASS GET /api/missions 200
+PASS GET /api/missions 必须看见迟到的 2 条 mission(实 total=2)
+PASS missions 数组长度为 2
+PASS 两条 mission 的 id 都在(不是碰巧凑出 total=2)
+PASS (静态锁)空目录守卫的判据字面量在编译产物里
+
+MISSION INDEX LATE MATERIALIZE E2E: ALL PASS

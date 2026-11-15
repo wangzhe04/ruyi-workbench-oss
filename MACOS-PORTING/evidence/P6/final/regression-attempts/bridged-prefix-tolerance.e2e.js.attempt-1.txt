@@ -1,0 +1,13 @@
+PASS (A) resolveBridge exported
+PASS (A①) 精确前缀名命中
+PASS (A②) 裸名 excel_read 容错路由到桥接工具
+PASS (A②) 裸名 write_pptx 容错路由
+PASS (A③) 内建名 file_read 不被桥接遮蔽(→null 走内建)
+PASS (A④) 裸名歧义(≥2 同名)→ 不猜返回 null
+PASS (A⑤) 未知裸名 → null
+PASS (A⑤) 空输入安全 → null
+PASS (A⑥) 裸名 write_excel 仍进快照表(检查点不漏)
+PASS (A⑥) 前缀名 write_excel 快照表命中(行为不变)
+SKIP (B) real ACC not bridged (python/deps missing?) bridgedTools=0
+
+BRIDGED-PREFIX-TOLERANCE E2E: ALL PASS

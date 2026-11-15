@@ -1,0 +1,54 @@
+{
+  "freeze": "balanced-input-freeze-v3.json",
+  "results": [
+    {
+      "label": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "beforeMismatches": [],
+      "afterMismatches": [],
+      "at": "2026-11-12T00:01:44.141660+00:00"
+    },
+    {
+      "label": "build",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "beforeMismatches": [],
+      "afterMismatches": [],
+      "at": "2026-11-12T00:01:44.298829+00:00"
+    },
+    {
+      "label": "unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/*.test.js"
+      ],
+      "exitCode": 0,
+      "beforeMismatches": [],
+      "afterMismatches": [],
+      "at": "2026-11-12T00:03:41.603039+00:00"
+    },
+    {
+      "label": "fast",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 1,
+      "beforeMismatches": [],
+      "afterMismatches": [],
+      "at": "2026-11-12T00:05:53.098191+00:00"
+    }
+  ],
+  "complete": true,
+  "allPass": false
+}

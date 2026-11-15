@@ -1,0 +1,2 @@
+PHYSICAL CAPTURE READY
+{"status":"failed","evidence":"/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/development/physical-v2","error":"Error: Physical demonstration timed out\n    at until (/private/tmp/ruyi-p5-human-controller.js:22:9)\n    at async /private/tmp/ruyi-p5-human-controller.js:88:26","cleanupErrors":[]}

@@ -1,0 +1,157 @@
+PASS ① manifest 收录 13h-steward-runner.js
+PASS ① 13g 之后是 T2 拆出的运行器族、以 13h 收尾(13m-steward-runner-base.js -> 13n-steward-arbiter.js -> 13o-steward-runner-prompt.js -> 13p-steward-runner-actions.js -> 13q-steward-runner-turn.js -> 13h-steward-runner.js;实得 ["13m-steward-runner-base.js","13n-steward-arbiter.js","13o-steward-runner-prompt.js","13p-steward-runner-actions.js","13q-steward-runner-turn.js","13h-steward-runner.js"])
+PASS ① 14-main.js 仍是组合根(manifest 最后一个模块)
+PASS ① 13h 在 14-main.js 之前
+PASS ① 13g 不超过 SPEC 目标 2000 行(got 500;116f 另起 13h 就是为了这条)
+PASS ① 13j-steward-tool-base.js 也在 SPEC 目标 2000 行以内(got 564;拆分不许把债换个文件放)
+PASS ① 13k-steward-threads.js 也在 SPEC 目标 2000 行以内(got 1886;拆分不许把债换个文件放)
+PASS ① 13l-steward-ops.js 也在 SPEC 目标 2000 行以内(got 1577;拆分不许把债换个文件放)
+PASS ① 13m-steward-runner-base.js 也在 SPEC 目标 2000 行以内(got 335;拆分不许把债换个文件放)
+PASS ① 13n-steward-arbiter.js 也在 SPEC 目标 2000 行以内(got 648;拆分不许把债换个文件放)
+PASS ① 13o-steward-runner-prompt.js 也在 SPEC 目标 2000 行以内(got 739;拆分不许把债换个文件放)
+PASS ① 13p-steward-runner-actions.js 也在 SPEC 目标 2000 行以内(got 902;拆分不许把债换个文件放)
+PASS ① 13q-steward-runner-turn.js 也在 SPEC 目标 2000 行以内(got 1269;拆分不许把债换个文件放)
+PASS ① 13h-steward-runner.js 也在 SPEC 目标 2000 行以内(got 493;拆分不许把债换个文件放)
+PASS ① 117l companion: stewardRelayChannelFor 的实现不在 13g 族(新判定往 13h/06i 放)
+PASS ① 117l companion: stewardHumanizeIds 的实现不在 13g 族(新判定往 13h/06i 放)
+PASS ① 117l companion: stewardThreadEngineRoute 的实现不在 13g 族(新判定往 13h/06i 放)
+PASS ① 117l companion: stewardAsksYou 的实现不在 13g 族(新判定往 13h/06i 放)
+PASS ② 13h 顶层函数抽取到 123 个(锁的样本足够大)
+PASS ② 06/09/10/13g 源码里零 13h 符号(前向边的机器判据)
+PASS ② 13h 的文件名只出现在注释里,不出现在任何代码行
+PASS ② 13h 填充 21 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1 + 121-K5 1 + 129g 1 + external context 1;got 21: buildSystemPrompt,contextBudget,visitNotesPrompt,onInboxBatch,runnerState,handleRunnerApiRoutes,stopRunner,resumeRunner,preroute,acquireTurnSlot,arbiterWait,cancelQueuedTurn,appendUserStop,arbiterRefresh,threadPrioritize,threadStop,relayChannel,relayDeliver,currentTurnTrigger,currentTurnContext,applyThreadTier)
+PASS ② 117m-A4 companion:新增的键是 threadStop,且它的实现真的在 13h、不在 13g(13g 的 2000 行闸就是这么守住的)
+PASS ② 117l companion:117l 那两个键 relayDeliver 与 applyThreadTier 都还在
+PASS ② 117s-G companion:relayChannel 上了命名空间,且 13d 只经 StewardHooks.relayChannel 消费它
+PASS ② 每个钩子键都被 09/10/12/13/13d/13g/13s 族之一消费
+PASS ② 键集抽取自 Object.assign 块(样本自洽)
+PASS ② 每个键都登记在 06i 的契约注释里
+PASS ③ 06b 新增 steward 段且中英双包齐全
+PASS ③ 中英两包键集逐条对齐(与 PROMPT_ZH/PROMPT_EN 其余段同纪律)
+PASS ③ 129a 尺子在(estimateTextTokens 已导出;拿不到 = 下面几条在比空气)
+PASS ③ 129a 尺子自检:中英文都量得出非零 token
+PASS ③ 中文稳定层 ≤1250 tok(§11.2 稳定层预算;got 1173 tok / 2141 字符)
+PASS ③ 英文稳定层 ≤1250 tok(got 1245 tok / 4482 字符)
+PASS ③ 136 中英稳定层都有口吻 few-shot 样例行(形容词管不住口吻,对照样例才管得住)
+PASS ③ 136 中英双包都有 personaBlock 模板函数(人设块,由 13o 装配进易变层)
+PASS ③ 136 personaBlock 只给口吻时不出空名字引号(两键皆空时 13o 整段不装配)
+PASS ③ 138 中英稳定层都写明「四个键每次都写全」(13o 契约兜底判的正是缺 why,提示词侧同一口径)
+PASS ③ 138 中英稳定层都有「说到做到」(say 里的完成时陈述必须有同回合的工具调用或 actions 背书)
+PASS ③ 授权完整请求当轮执行,完成声明仍须实际回执(未执行的 actions 不能当已完成证据)
+PASS ③ 138 电报体「职责:看(…)、递(…)」行已并进第一句(提示词自己不再示范填表体)
+PASS ③ 中文稳定层写明四字段输出契约
+PASS ③ 中文包有 visitNotes 摘要 prompt(到访内 L2 压缩用)
+PASS ③ 中文包的折叠行与收件箱表头是模板函数
+PASS ③ 英文稳定层写明四字段输出契约
+PASS ③ 英文包有 visitNotes 摘要 prompt(到访内 L2 压缩用)
+PASS ③ 英文包的折叠行与收件箱表头是模板函数
+PASS ③ 117v-V3 中文 steward.rules 里有约束 open_thread 措辞的一条(写去处、别写「看…全文」)
+PASS ③ 117v-V3 英文包同步一条同义规则(destination 而非 "See the full ...")
+PASS ③ 117v-V3 这条在易变层 rules、没有塞进 stable(≤2500 硬闸没被顶破;英文 stable 现在 4482)
+PASS ③ 117v-V3 那枚 act 的 label 确实由模型给(13h 族是 row.label 优先、仓里的 stewardActLabel 只兜底),故只能靠提示词管
+PASS ③ 总览上限取 06i 的 STEWARD_DIGEST_LIMITS(不另立第二套数字)
+PASS ③ 总览行由 06i 的 buildStewardDigestLine 生成(与 116a 同一口径)
+PASS ③ 记忆块 ≤3000 字符(§11.2 半稳定层预算)
+PASS ③ 回合层:收件箱事件 ≤30 条、每条 ≤400 字
+PASS ③ 117y-S1(a) 旧名 STEWARD_SAY_MAX 在运行器族里绝迹(got 0 处)
+PASS ③ 117y-S1(a) 13o 里再没有按 say 常量裸 slice 的写法(got 0 处)
+PASS ③ 117y-S1(b) 13o 恰有两处走句界裁剪 = 兜底那条 + say 那条(got 2 处)
+PASS ③ 117y-S1(b) 两处用的是同一个天花板常量 STEWARD_SAY_CEILING(got 2 处)
+PASS ③ 136 13o 装配人设块:两键皆空时整段不输出(零字节纪律,与 routeHintBlock 同)
+PASS ③ 136 13o 预算系数从 stewardContextBudgetRatio 读,缺省回 0.6 并按 [0.3,0.95] 再夹一道
+PASS ③ 117y-S1 两个常量拆开定在 13m(TARGET 600 只是提示词目标 / CEILING 4000 只防病态载荷)
+PASS ③ 117y-S1(c) 句界裁剪的纯函数只在 06i 定义一份,运行器族不另抄
+PASS ③ 117y-S1(d) 06b 输出契约里的字数与 STEWARD_SAY_TARGET 同源(600)
+PASS ③ 117y 反向保护:stewardClipSay 仍是 200 字 + 省略号,没被并进天花板那条路
+PASS ③ 117y-S2 rules 闸严于 stable 闸(不缓存的那一层不许比缓存层更贵)
+PASS ③ 117y-S2 中文 rules ≤860 tok(got 737 tok / 1350 字符)
+PASS ③ 117y-S2 英文 rules ≤860 tok(got 858 tok / 3089 字符)
+PASS ③ 129a 中英两包的真实开销不许拉开超过 35%(zh 1910 tok / en 2103 tok)
+PASS ③ 117y-S2 中英 rules 条数逐条对齐(zh 14 / en 14)
+PASS ③ 117y-S2 中文 rules 有「把话说完整/不说半句/砍话题不砍句子」这一条
+PASS ③ 117y-S2 英文包同步一条同义规则(finish every sentence + drop a topic)
+PASS ③ 117y-S2 这条同样落在易变层 rules、没塞进 stable(英文 stable 仍 4482/2500)
+PASS ③ 123-N1 ② 中文 rules 有「篇幅按场景分档」这一条,且写明【不复述委托书】(它在线程卡上)
+PASS ③ 123-N1 ② 英文包同步一条同义规则(never restating the brief + it is on the thread card)
+PASS ③ 129a 中文分档那条含更细的三个数(问候 120 / 清单每条 30 / 转述交付分三行)
+PASS ③ 129a 英文分档那条同步三个数(120 / 30 / three lines)
+PASS ③ 129a 中文 rules 有「做不了的事一句话收、不解释为什么不行」这一条
+PASS ③ 129a 英文包同步一条同义规则(one line + do not explain + the next step)
+PASS ③ 123-N1 ③ 中文 rules 有「开线程前先澄清」这一条,且两个要素齐全(有先例就不问 + 只问一次)
+PASS ③ 123-N1 ③ 英文包同步一条同义规则(no precedent + ask once + open nothing this turn)
+PASS ③ 123-N1 两条新规则同样落在易变层 rules、没塞进 stable(英文 stable 仍 4482/2500)
+PASS ④ PROMPT_PACK_VERSION 为 138 波值(普通包文字新增跨线程回读指引;管家段不单独 bump 普通包;got 2026-w138-2)
+PASS ④ 普通会话稳定层仍是普通包(身份层 + 工具协议层)
+PASS ④ 管家稳定层绝不泄漏进普通会话
+PASS ④ 管家记忆块与总览绝不泄漏进普通会话易变层
+PASS ④ 09 的分叉读【原始】 session.kind === 'steward'
+PASS ④ 10 的预算分叉同样读原始 kind,且经 StewardHooks 延迟绑定
+PASS ④ 07 的管家工具面收口在唯一出口(管家会话只拿 steward_*)
+PASS ④ 按需装载对管家豁免收口在 07 内部(09 的 createToolLoadingState 调用点逐字节不变)
+PASS ⑤ /api/steward/visit 在 ROUTE_AUTH 里是 token 级
+PASS ⑤ /api/steward/message 在 ROUTE_AUTH 里是 token 级
+PASS ⑤ /api/steward/act 在 ROUTE_AUTH 里是 token 级
+PASS ⑤ 到访归档面已登记进 durable-state-inventory
+PASS ⑤ 13h 有开关 fail-closed 判据(开关关时三条路由 409、零写入)
+PASS ⑤ 管家会话固定 id 定在 06i(13g 与 13h 共用同一常量)
+PASS ⑤ 收件箱轮询排除管家会话自己(防回合自激励成环)
+PASS ⑤ 123-N1 ① 13q 有「最后一条助手消息的 createdAt」这个取数口径(与 stewardStampReply 同一条消息)
+PASS ⑤ 123-N1 ① 回执带 createdAt,且读不到时【不下发这个键】(老回执逐字节不变)
+PASS ⑤ 123-N1 ① 服务端 ?since= 是【严格大于】—— 水位停在本回合末尾正好把这一回合两条消息一起盖住
+PASS ⑤ 123-P1 steward_reply 那一帧可定位
+PASS ⑤ 123-P1 steward_reply 白名单带 say（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 why（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 acts（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 actions（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 parsed（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 contractIncomplete（13q 塞了就必须能到前端）
+PASS ⑤ 123-P1 steward_reply 白名单带 createdAt（13q 塞了就必须能到前端）
+PASS ⑥ stewardVisit 函数体切得到(切不到 = 本组静默失效;实得 5295)
+PASS ⑥ 到访只投影 threads,帽子读 06i 的 STEWARD_DIGEST_LIMITS.maxThreads(不另立第二个数字)
+PASS ⑥ threads 真的进了到访响应体
+PASS ⑥ 到访响应里再没有 focus 这个键,也没有 focusRow 这个中间量
+PASS ⑥ stewardVisit 里不许再出现挑选式片段 "state === 'needs_you'"(挑哪一条不归服务端判)
+PASS ⑥ stewardVisit 里不许再出现挑选式片段 "state === 'running'"(挑哪一条不归服务端判)
+PASS ⑥ stewardVisit 里不许再出现挑选式片段 "rows[0]"(挑哪一条不归服务端判)
+PASS ⑥ stewardVisit 里不许再出现挑选式片段 "rows.find("(挑哪一条不归服务端判)
+PASS ⑥ threads 行恰好四个键 sessionId/title/state/updatedAt(实得 ["sessionId","title","state","updatedAt"])
+PASS ⑥ 判据本体住在叶子 thread-facts.js(零 import / 零 DOM,看板与管家对话都够得着)
+PASS ⑥ steward-board.js 只 re-export,没有第二份函数体(导出名不变,既有的 C1/C3 与 focus-rail B1 照常)
+PASS ⑥ 管家对话经 visitFocusOf 读同一份纯函数
+PASS ⑥ 管家对话里只有一处调用 focusThreadFor(焦点没有第二条路;实得 1)
+PASS ⑥ 管家对话不再读 visit.focus(那个键已经不存在了,读它等于悄悄回到两处判)
+PASS ⑦a 判据 stewardStoppedTarget 的函数体恰一处,且在 06i(现算的判据不许有第二份)
+PASS ⑦a2 13k-steward-threads.js 没有自己那一份判据(只调,不抄)
+PASS ⑦a2 13l-steward-ops.js 没有自己那一份判据(只调,不抄)
+PASS ⑦a2 13p-steward-runner-actions.js 没有自己那一份判据(只调,不抄)
+PASS ⑦b 13k-steward-threads.js 真的调了那个判据(掉了 = 那条路上的停被无视)
+PASS ⑦b 13l-steward-ops.js 真的调了那个判据(掉了 = 那条路上的停被无视)
+PASS ⑦b 13p-steward-runner-actions.js 真的调了那个判据(掉了 = 那条路上的停被无视)
+PASS ⑦c 拒绝话术表恰一处(班组一句、线程一句)
+PASS ⑦c2 13k-steward-threads.js 不自己抄那句话(表唯一;要改文案只改 06i)
+PASS ⑦c3 13k-steward-threads.js 经 stewardStoppedRefusal() 取话
+PASS ⑦c2 13l-steward-ops.js 不自己抄那句话(表唯一;要改文案只改 06i)
+PASS ⑦c3 13l-steward-ops.js 经 stewardStoppedRefusal() 取话
+PASS ⑦c2 13p-steward-runner-actions.js 不自己抄那句话(表唯一;要改文案只改 06i)
+PASS ⑦c3 13p-steward-runner-actions.js 经 stewardStoppedRefusal() 取话
+PASS ⑦d 13k-steward-threads.js 用同一个稳定码 target_stopped
+PASS ⑦d 13l-steward-ops.js 用同一个稳定码 target_stopped
+PASS ⑦e stewardSelfServeGate 函数体切得到(切不到 = 本组静默失效;实得 2508)
+PASS ⑦e2 ③b 排在自理清单与配额计数之前(被停的目标不该白占一个小时窗名额;实得 646/1021)
+PASS ⑦e3 预闸两面都读:班组快照与会话头(只读一面就会漏掉另一半的停)
+PASS ⑦f stewardSelfServePlan 函数体切得到(实得 1671)
+PASS ⑦f2 自理只会「重试」「续跑」「没做完就续」三种意图 —— 不许长出「换个更贵的模型再试一次」(实得 ["continue","resume","retry"])
+PASS ⑧a 取话口 stewardFailureExplain 的函数体恰一处,且在 13m(它读 06 是干净的后向边;放 06i 会造循环边)
+PASS ⑧a2 13i-steward-inbox.js 没有自己那一份取话口
+PASS ⑧b 13i-steward-inbox.js 不直接翻那张表(只能经取话口;直接翻 = 迟早长出第二套口径)
+PASS ⑧a2 13p-steward-runner-actions.js 没有自己那一份取话口
+PASS ⑧b 13p-steward-runner-actions.js 不直接翻那张表(只能经取话口;直接翻 = 迟早长出第二套口径)
+PASS ⑧b2 13m 确实引用了 06 的既有表(而不是自己抄一张)
+PASS ⑧c 管家侧零第二张「机器类 → 人话」表
+PASS ⑧d 事件行里只有一处取话(实得 1)
+PASS ⑧d2 取话就长在事件行那个函数体里(切不到 = 本条静默失效;实得 996)
+PASS ⑧e 13i 的三处 failed 摘要都不再把 errorClass 拼进括号
+PASS ⑧e2 但 payload.errorClass 本身仍然照写(锁的是「给模型看的那一行」,不是把事实删掉)
+PASS ⑧f 「未知类别」只有一处写法(实得 1)
+
+STEWARD RUNNER STATIC E2E: ALL PASS

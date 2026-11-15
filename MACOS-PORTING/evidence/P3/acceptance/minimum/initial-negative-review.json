@@ -1,0 +1,26 @@
+[
+  {
+    "fixture": "valid",
+    "probe_exit": 0,
+    "probe_passed": true,
+    "probe_errors": [],
+    "otool_exit": 0,
+    "otool_output": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p3-minimum-negative-oel9uvda/valid.dylib:\nLoad command 0\n      cmd LC_BUILD_VERSION\n  cmdsize 24\n platform 1\n    minos 13.0\n      sdk 27.0\n   ntools 0\n"
+  },
+  {
+    "fixture": "short-command",
+    "probe_exit": 0,
+    "probe_passed": true,
+    "probe_errors": [],
+    "otool_exit": 0,
+    "otool_output": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p3-minimum-negative-oel9uvda/short-command.dylib:\nLoad command 0\n      cmd LC_BUILD_VERSION\n  cmdsize 8 Incorrect size\n platform 0\n    minos 0.0\n      sdk n/a\n   ntools 0\n"
+  },
+  {
+    "fixture": "short-fat-slice",
+    "probe_exit": 0,
+    "probe_passed": true,
+    "probe_errors": [],
+    "otool_exit": 0,
+    "otool_output": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p3-minimum-negative-oel9uvda/short-fat-slice.dylib:\nLoad command 0\n      cmd ?(0x00000000) Unknown load command\n  cmdsize 0\nload command 0 size zero (can't advance to other load commands)\n"
+  }
+]

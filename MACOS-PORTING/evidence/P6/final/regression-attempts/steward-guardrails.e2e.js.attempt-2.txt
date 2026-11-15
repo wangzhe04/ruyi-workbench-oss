@@ -1,0 +1,226 @@
+── HTTP 阶段(真服务)──
+PASS 工作台启动
+PASS 前提:此刻管家会话尚未落盘
+PASS D0 管家会话未落盘时 GET 回 200 空历史、created:false(got 200)
+PASS D0b 读一次不会把管家会话建出来
+PASS D0c 别的不存在的会话照旧 404(got 404)
+PASS 管家会话经 POST /api/steward/message 建立(got 200)
+PASS 管家会话头 kind === "steward"
+── (D) A2 管家会话的回合入口 ──
+PASS D1 直连 /api/chat/stream 打管家会话 -> 403 steward.forbidden(got 403 steward.forbidden)
+PASS D2 零回合:turnSeq 与 messageCount 一字不动(1/2 -> 1/2)
+PASS D3 GET /api/sessions/steward 保留(117c 历史渲染依赖;got 200)
+PASS K1 不带 since 的旧调用载荷里没有 since 键(逐字节不变)
+PASS K2 since=未来 -> 零条消息(got 0)
+PASS K3 回执带 since 原值与整份消息数(用来判断有没有漏;got 2/2)
+PASS K4 其余字段原样带出(前端拿到的仍是同一个形状)
+PASS K5 since=纪元 -> 全部消息(got 2/2)
+PASS K6 since 解析不了 -> 走原路(不报错、不过滤)
+PASS D4 PATCH /api/sessions/steward -> 403 steward.forbidden(got 403)
+PASS D5 会话头标题没被改动
+PASS D6 回归:普通会话经 /api/chat/stream 照常跑完(got 200)
+PASS K7 普通会话给了 since 也当没给(2 -> 2)
+── (E) B1 全局默认权限的确认门 ──
+PASS E1 缺 confirm:true -> 409 permission.confirm_required(got 409 permission.confirm_required)
+PASS E2 被挡下时磁盘配置一字不动(auto 没被写进去;缺键 = 出厂默认 default)
+PASS E3 错误 params 带上被拒的档位(界面据此说人话)
+PASS E4 bypass 同样要 confirm(got 409)
+PASS E4 bypassPermissions 同样要 confirm(got 409)
+PASS E5 收紧(acceptEdits)不需要确认,直接落盘
+PASS E6 default 同样不需要确认
+PASS E7 带 confirm:true -> 200(got 200)
+PASS E8 确认后真的落盘成 auto
+PASS E9 confirm 是请求级信号,绝不作为配置键落进 config.json
+PASS E9b 响应里的 config 也没有 confirm
+PASS E10 不带 permissionMode 的补丁完全不受影响
+── (L) 117m-A4 线程级停止(真服务)──
+PASS L0 前置:建出一条普通线程(got sess_f1bf67f8c7252f10)
+PASS L1 steward_thread_stop 能作为按钮执行(在 STEWARD_ACTION_HOOKS 里;修前这个工具根本不存在 -> not_allowed;got 200 undefined)
+PASS L2 在跑的线程真的被停掉(stopped:true;got {"ok":true,"sessionId":"sess_f1bf67f8c7252f10","stopped":true,"queuedStopped":false,"undoRef":{"kind":"none","note":"停下的回合不能原样续上;要继续用「接着办」"}})
+PASS L2b undoRef 诚实标 none 并写清替代路径(停下的回合不能原样续上;got {"kind":"none","note":"停下的回合不能原样续上;要继续用「接着办」"})
+PASS L3 那条 /api/chat/stream 在 provider 吐第一个字之前就收尾了 —— 回合是被【掐掉】的,不是自然跑完(158ms < 6000ms;status 200)
+PASS L4 没在跑 -> not_running(不是 invalid_request;got not_running)
+PASS L5 而且是一句人话,不是机器码(got 这条线程现在没有在跑,不用停)
+PASS L6 对照组:只读工具仍进不了 act 白名单(got 400 not_allowed)
+── (N) 117z-E2 createdBy 的 PATCH 面 ──
+PASS N0 前置:建出一条用户自己开的线程(got sess_727f6082a49fd8ed)
+PASS N1 用户自己开的线程会话头上没有 createdBy(存量会话同形)
+PASS N2 PATCH 本身是通的(got 200)
+PASS N3 锁 5:PATCH createdBy 被白名单拒绝,会话头上仍然没有这个字段(got undefined)
+PASS N3b 反向:同一次 PATCH 里的 title 真写进去了(证明拒的是 createdBy 这一个键,不是整条请求;got 改过名的线程)
+PASS N4 desktopTools:true 缺 confirm:true -> 409 permission.confirm_required(与切全自动同一个错误码;got 409 permission.confirm_required)
+PASS N4b 错误 params 带 desktopTools:true(界面据此说人话,与 permissionMode 那条同形)
+PASS N5 被挡下时会话头不变(仍没有 desktopTools 键;got undefined)
+PASS N6 带 confirm:true -> 200(got 200)
+PASS N6b 确认后真的落盘(got true)
+PASS N6c confirm 是请求级信号,不落进会话头
+PASS N6d 审计照 permission_mode 那条的形状记一行(source:'desktop_tools', desktopTools:true, confirmed:true;got {"ts":"2026-11-12T11:04:23.025Z","kind":"session","source":"desktop_tools","sessionId":"sess_727f6082a49fd8ed","desktopTools":true,"confirmed":true})
+PASS N7 desktopTools:false 不需要确认,直接落盘(收紧;got 200 / false)
+PASS N7b 清除(null)同样不需要确认,键被删掉回落全局(got 200 / undefined)
+PASS N7c 野值 'true' 不触发确认门,也不落成放宽(got 200 / undefined)
+PASS N8 每次带 desktopTools 键的 PATCH 通过后都记一行(true/false/null/野值 = 4 行;got 4)
+── (Q) 117z-E2b 「给它开桌面」按钮通路 ──
+PASS Q0 前置:管家回合跑完并吐出 steward_reply 帧(got 200)
+PASS Q1 模型回合里 desktop:true -> propose_required(回合里没有 userPressed;got propose_required)
+PASS Q1b 模型回合零写入(会话头上没有 desktopTools)
+PASS Q2 propose_required 被降级成一枚 kind:'tool' 的按钮(got [{"label":"给它开桌面","kind":"tool","tool":"steward_thread_permission","args":{"sessionId":"sess_guard_q_stewardmade","capabilities":{"desktop":true}},"confirmItems":["capabilities.desktop = true"],"sessionId":"sess_guard_q_stewardmade","primary":true}])
+PASS Q2b 按钮标签是人话:不是兜底的「去做」、不含工具名(got "给它开桌面")
+PASS Q2c 按钮上写的是用户要做的那件事「给它开桌面」(§8.4;got "给它开桌面")
+PASS Q2d 行动流水那一行同一句话(降级与流水走同一个 stewardActLabel,一处口径;got "给它开桌面")
+PASS Q3 按钮按得下去:200 ok:true(修前 STEWARD_ACTION_HOOKS 没有它 -> 400 not_allowed;got 200 undefined)
+PASS Q3b 实现真的拿到 ctx.userPressed 并写入(got {"desktopTools":true})
+PASS Q4 会话头 desktopTools === true 落盘(got true)
+PASS Q5 决策日志恰好多一行(1 -> 2)
+PASS Q6 undoRef.kind === 'desktop' 且带旧值 null(got {"kind":"desktop","sessionId":"sess_guard_q_stewardmade","previous":null})
+── (S) 124 定时任务的 act 面 ──
+PASS S1 steward_schedule_create 能作为按钮执行(修前 not_allowed「不能作为 act 执行」;got 200 undefined)
+PASS S2 任务真的排上了(回 {ok,task};got undefined)
+PASS S3 steward_schedule_pause 按得到,且那条任务真的停了(enabled:false;got undefined)
+PASS S4 steward_schedule_resume 也在 act 白名单里(got 200 undefined)
+PASS S4 steward_schedule_run_now 也在 act 白名单里(got 200 undefined)
+PASS S4 steward_schedule_delete 也在 act 白名单里(got 200 undefined)
+PASS S5 对照组:只读的 steward_schedule_list 仍进不了 act 白名单(got 400 not_allowed)
+── 进程内阶段(工具面直调)──
+── (A) P0-1 永久豁免 ──
+PASS A1 全自动档 + 通用执行工具 Bash:6 条危险命令全部 propose_required(permanently_exempt)
+PASS A2 无害命令(npm run build)不被内容层误伤(got delivery_unavailable)
+PASS A3 read 档待决不扫命令文本(文档正文里出现 git push 不算越权;got delivery_unavailable)
+PASS A4 原有的工具名判据零回归(send_email 仍 propose_required)
+── (B) P0-2 线程族权限门 ──
+PASS B1 relay 未勾选 + inbox 触发 -> propose_required(self_serve_off;got self_serve_off)
+PASS B2 目标线程「每步都问」+ inbox 触发 -> propose_required(target_permission;got target_permission)
+PASS B3 被挡下的递话零决策日志(没做决定就没有决定可记)
+PASS B4 目标线程「改文件不问」+ relay 勾选 -> 放行(got ok)
+PASS B5 决策日志写【真实】判定值(mayAct=auto / permissionMode=acceptEdits)
+PASS B6 trigger:'user' 时对「每步都问」线程也直递(§8.12;got ok)
+PASS B7 inbox 触发的改名对「每步都问」线程 -> propose_required(got target_permission)
+PASS B8 全自动线程照常改名(got ok)
+PASS B9 改名的决策日志同样写真实判定值(got auto)
+PASS B10 「自己新开线程」关掉后 inbox 触发 -> propose_required(got self_serve_off)
+PASS B11 用户在跟前时照常新建(got ok)
+── (C) P0-4 续跑安全档 ──
+PASS C1 全自动档也挡:manual_resume_required 的班组不给自动续跑(got resume_tier)
+PASS C1b 信封带上判定出来的档(got manual_resume_required)
+PASS C2 被挡下的续跑零决策日志
+PASS C3 auto_resumable 的班组过这道闸(之后由核心判定;got ok)
+PASS C4 pause(收紧类)不受续跑档约束
+── (F) P0-5 同 cwd 写互斥 TOCTOU ──
+PASS F1 同一 tick 里四条同 cwd 申请,只放行一条(修前四条全放行;实测 1)
+PASS F2 另外三条在排队等锁,既没被放行也没被拒(实测挂起 3 条)
+PASS F3 放掉第一条之后【只】轮到下一条(逐条串行,不是一次全放;实测 2)
+PASS F4 四条最终都拿到过并发位(排队不丢条目)
+PASS F5 队列灌到硬顶(502 条同 cwd)之后仍然只有 1 条在跑 —— 溢出逃生舱不绕过写互斥(修前会放行第 501/502 条;实测 1)
+── (G) P0-6 到访归档 vs 在途回合 ──
+PASS G1 前置:锚点回合已经归档,活会话里没有它了
+PASS G2 并发的用户回合照常跑完(got ok)
+PASS G3 到访要么等回合收尾再归档、要么如实回 steward.busy(got ok)
+PASS G4 并发写的那条消息不多不少正好在一个地方(活会话 0 处 / 归档 1 处)
+PASS G5 已归档的旧消息没有被在途回合的陈旧快照复活(修前归档卡在回合中间,回合收尾会把整段历史盖回活会话)
+── (H) P1-5/P1-6 速查线程 ──
+PASS H1 普通会话的 thread_status 正常返回(got ok)
+PASS H2 普通会话不再被判成速查线程(got state=done / label=已收工)
+PASS H3 跑完的速查线程如实说已收工,不再被 kind 短路(got done)
+PASS H3b 「是不是速查」这个身份仍然分得开,它住在 kind 上(真速查 got quick_ask / 普通会话 got mission)
+PASS H4 人话跟着真状态走(got 已收工)
+PASS H4b 事实未知时服务端人话仍是「速查中」(§8.1 第 7 条:界面不出现「速问」这个系统标签;got 速查中)
+PASS H5 速查线程收工(got {"ok":true,"sessionId":"sess_real_quick","closedAt":"2026-11-12T11:04:31.408Z","closedTurnSeq":1,"changed":true})
+PASS H6 收工后默认从总览与线程搜索里消失
+PASS H7 收工时记下当时的回合数(重开判据的锚;got 1)
+PASS H8 收工之后用户又聊了一轮 -> 自动重开(修前 closedAt 一旦写入就是终态,管家从此跟丢这条线程)
+PASS H9 重开之后还能再次收工(锚点跟着往前走;got {"ok":true,"sessionId":"sess_real_quick","closedAt":"2026-11-12T11:04:31.409Z","closedTurnSeq":2,"changed":true})
+PASS H10 再次收工后又从总览里消失
+── (J) P2-11 每回合目标上限 / P2-12 §8.6 口径 / A4 主页签名 ──
+PASS J1 五条 actions 都被处理(STEWARD_ACTIONS_MAX=5;got 5)
+PASS J2 只有前 3 个目标真的执行(每回合目标上限 3;修前 5 个全执行;got 3)
+PASS J3 超出的两条降级成提议(propose_required / per_turn_target_max;got 2)
+PASS J4 被拦下的照既有路径降级成按钮(不算失败)
+PASS J5 config_set 切全自动 -> 专门口径 permission.confirm_required(got permission.confirm_required)
+PASS J6 人话写明「它可以在你不在时改文件、跑命令」(§8.6 那段话;got 把【新线程的默认权限】切到「智能自动」要你亲手确认:那之后线程可以在你不在的时候改文件、跑命令、装东西、联网发东西。把它作为提议交给用户按,不要重试)
+PASS J6b 信封带上被拒的档位(界面据此说人话)
+PASS J7 其它 confirm 档键仍走通用口径(两条口径不混;got confirm_required)
+PASS J8 收紧到 plan 走通用 confirm(不套 §8.6 那段吓人的话;got confirm_required)
+PASS A4-0 同一张卡片签名稳定
+PASS A4-1 改事项标题 -> 签名变(修前不变,主页不重绘)
+PASS A4-2 改目标 -> 签名变
+PASS A4-3 勾掉一条验收项 -> 签名变
+PASS A4-4 加一条验收项 -> 签名变
+PASS A4-5 字段缺失时不炸(缺省当空)
+── (M) 117m-A4 停止的权限口径 ──
+PASS M1 「每步都问」档也不拦停止(收紧类;没在跑 -> not_running;got not_running)
+PASS M1b 既不是 propose_required 也不是 invalid_request(修前用户看到的就是那个 invalid;got not_running)
+PASS M1c 人话原样可端给用户(got 这条线程现在没有在跑,不用停)
+PASS M2 同一条线程的 thread_continue 在「每步都问」下仍只提议(没有顺手放开推进;got target_permission)
+PASS M3 not_running 不落决策日志(前 1 行,现 1 行)
+PASS M4 管家会话不是停止目标(got invalid_target)
+PASS M5 run_action{pause} 缺 runId -> no_agent_run 且点名 steward_thread_stop(got no_agent_run: 这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop)
+PASS M5 run_action{stop} 缺 runId -> no_agent_run 且点名 steward_thread_stop(got no_agent_run: 这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop)
+PASS M6 retry_node 缺 runId 仍是逐字不变的 invalid_request(既有行为零回归;got invalid_request: sessionId and runId are required)
+PASS M7 连 sessionId 都没有仍是 invalid_request(那才真是请求非法;got invalid_request)
+── (I) 源码单点锁 ──
+PASS I1 P1-3:超时兜底强制写落一条审计事件(session_meta_defer_forced)
+PASS I1b 审计事件写清楚当时会话还在不在活回合/收尾窗口里
+PASS I2 copy P1-1:※ 脚注优先读 label(读不到先查前端人话表,再落回工具 id),不再直接吐 steward_* 内部标识符
+PASS I3 P1-5:速查线程判据全仓只声明一次,住 13j-steward-tool-base.js(实得 ["13j-steward-tool-base.js"])
+PASS I3b 「非 mission 即 quick_ask」那个兜底在 13g 族/13h 族里一处都不剩
+PASS I3c 三个派生点(threads_search / thread_status / 总览行)都走同一个判据
+── (O) 117z-E2 出身标与会话级桌面覆盖 ──
+PASS O1 前置:steward_thread_new 建出一条线程(got sess_01471bf0e2440700)
+PASS O2 thread_new 建的线程会话头 createdBy === 'steward'(got "steward")
+PASS O3 前置:steward_quick_ask 建出一条速查线程(got sess_b00754a2d13bde8e)
+PASS O4 quick_ask 建的线程也带出身标(got "steward")
+PASS O5 前置:用户自己的线程头上没有 createdBy
+PASS O6 前置:递话成功(got ok)
+PASS O7 锁 6:递话进用户自己的会话【不会】把它变成 createdBy:'steward'(got undefined)
+PASS O7b 对照:同一次递话把 launchedBy 打成了 'steward'(§11.21.1 指出的污染,故出身标另起一个字段;got "steward")
+PASS O8 前置:全局闸 allowDesktopTools = false(got false)
+PASS O9 覆盖落盘到会话头(got true)
+FAIL O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got [])
+PASS O11 锁 3:别的线程仍然不含(got [])
+PASS O12 锁 3:全局 allowDesktopTools 的值一个字没动(会话级覆盖是另一把钥匙)
+PASS O12b 别的线程会话头上根本没有 desktopTools 这个键(存量会话零迁移;got undefined)
+PASS O13 反向:清除覆盖后会话头上的键被删掉(回落全局;got undefined)
+PASS O14 反向:清除后该线程也拿不到桌面工具了
+── (P) 117z-E2 capabilities.desktop ──
+PASS P1 锁 1:desktop:true 在【全自动】档也只提议(got confirm_required)
+PASS P1b 信封如实带出目标线程当时的生效档 auto —— 证明「提议」不是因为档位不够(got auto)
+PASS P1c 收件箱触发同样只提议(got propose_required)
+PASS P1d 被挡下的放宽零写入(会话头上没有这个键)
+PASS P1e 对抗:args 里自称 userPressed 无效,仍然只提议(got propose_required)
+PASS P2 ctx.userPressed === true 时真写入(got {"d":true,"p":null})
+PASS P2b 落盘到会话头(got true)
+PASS P2c undoRef 走既有形状、kind:'desktop'、带旧值(got {"kind":"desktop","sessionId":"sess_guard_stewardmade","previous":null})
+PASS P2d 决策日志记 capabilities 与 previous(got {"capabilities":{"desktop":true},"previousDesktop":null})
+PASS P2e 决策日志如实记「这一次是用户按的」(mayAct='user';got user)
+PASS P3 锁 1:desktop:false(收紧)不需要用户按,直接做(got {"d":false,"p":true})
+PASS P3b 收紧也落盘
+PASS P4 前置:SID_DEFAULT 不是管家开的
+PASS P4b 锁 2:对非管家开的线程放宽 -> invalid_target(【连用户按了按钮也不行】,目标闸在按钮闸之前;got not_steward_created)
+PASS P4c 零写入
+PASS P4d 锁 2 的另一半:desktop:false 对同一条线程照常(收紧总是允许的;got ok)
+PASS P5 锁 7:档位放宽仍然当场拒(用户按了按钮也不给 —— 那把闸从来不读 userPressed;got steward.widen_forbidden)
+PASS P5b 交叉用例:同一次调用里档位放宽 + 能力收紧 -> 整份拒(档位闸在写之前;got steward.widen_forbidden)
+PASS P5c 被拒的那次零写入,档位还是 default(got default)
+PASS P6 零回归:只给 permissionMode 时 undoRef.kind 仍是 'permission'、信封里不多出 desktopTools 键(got {"kind":"permission","sessionId":"sess_guard_stewardmade","previous":"auto"})
+PASS P6b 两条轴一条都不给 -> invalid_request(那是一次没有内容的写;got invalid_request)
+PASS P7 锁 4:steward_config_set 改 allowDesktopTools 仍是 steward.forbidden(用户按了按钮也一样;got steward.forbidden)
+PASS P7b 零写入:config.json 逐字节不变(整份拒绝,不是「能写的写」)
+── (R) 117z-E2b 桥接桌面工具 vs allowDesktopTools(核) ──
+PASS R0 前置:全局闸关、full 模式(got allowDesktopTools=false / toolLoadingMode=full)
+PASS R1 桥接工具的档只有 read/edit/exec,没有 'desktop'(派单里「按 desktop 档滤」是空操作;got {"mouse_click":"exec","type_text":"exec","screenshot":"read","hotkey":"exec"})
+PASS R1b 同一批工具在目录里的【包】是 'desktop'(07:375 按名字归包)—— 「桌面」在工作台里是包名/账本 kind,不是档(got ["desktop","desktop","desktop","desktop"])
+PASS R2 allowDesktopTools:false + 会话覆盖 null -> 两个原生桌面工具被滤掉(got [])
+FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)
+PASS R3 full 模式一次性注入目录里【全部】schema,被闸掉的 ACC 桌面工具不在目录里(got live 54 / fullCount 54 / own 54)
+PASS R4 allowDesktopTools:false 的 full 模式工具面:原生桌面工具 0 个、桥接 ACC 桌面工具 0/4 个(got [])
+PASS R4b 会话覆盖 true -> 桥接 ACC 桌面工具与原生的一起回来(全局值不变)
+PASS R5a auto 模式默认不注入桥接 schema(O1 hb360 的既有行为,不是闸的功劳)
+PASS R5 auto 模式 tool_load 显式拉入被闸掉的桥接 ACC 工具:拉不进来,如实报 unknown(got {"loaded":[],"unknown":["ai-computer-control__mouse_click"]})
+PASS R5b tool_invoke_exec 对它的档校验(12:100)是同档放行:mouse_click 的目录档 = 'exec'(got exec)
+
+STEWARD GUARDRAILS E2E: 2 FAILURE(S)
+(node:80940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/thread-facts.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zd1Oe0

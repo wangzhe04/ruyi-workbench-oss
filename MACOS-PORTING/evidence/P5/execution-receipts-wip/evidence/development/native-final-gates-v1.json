@@ -1,0 +1,2617 @@
+{
+  "freeze": "native-capture-freeze-v1.json",
+  "freezeSha256": "f3ddd4da67c6678ae49dc5c2d78eee4c08295938c8e441d2338c74acdc5c5e9d",
+  "checks": [
+    {
+      "label": "syntax",
+      "argv": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "elapsed": 26.191256124991924,
+      "isolation": "/tmp/rg-6h6hslvw",
+      "log": "native-final-syntax-v1.log",
+      "before": [
+        {
+          "group": "sources",
+          "path": "README.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "README_EN.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/desktop-execution-root.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/durable-state-inventory.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/facts.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-argument-vectors.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-capture-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/macos-ocr-window.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-cleanup.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-path.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-profile-scope.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/composer-race-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/count-fsp-open-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-bot-fixtures.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-channel-delivery-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-anthropic-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-cold-shim.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-openai-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-stream-component.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home-guard.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/harness.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/kill-own-tree.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/local-provider-key.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/macos-keychain-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/png-grid.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/port-audit.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-backup-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-test-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/real-data-root.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/release-checks.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/self-isolate-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/server-internals.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/source-slice.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/stream-event-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/temp-janitor.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/trace-blocking.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/wallclock-window-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-capture.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-context.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-dispatch.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-images.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-subagents.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-native-receipts.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/run-all.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/session-save-census.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/acc-capability-gates.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/credential-recovery.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-image-history.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-node-admission.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/durable-json-bounded.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-arguments.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-preparation.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/server-ownership.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "facts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/server.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/00-boot.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01-config.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02-session-store.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04h-provider-http.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/05-claude-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/07-autonomy.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/08-agent-runs.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/10-context-governance.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/module-contracts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ax.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-helper.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-input.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-session.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation.h",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-process-helper.c",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-receipts-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+          "matched": true
+        }
+      ],
+      "after": [
+        {
+          "group": "sources",
+          "path": "README.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "README_EN.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/desktop-execution-root.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/durable-state-inventory.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/facts.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-argument-vectors.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-capture-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/macos-ocr-window.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-cleanup.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-path.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-profile-scope.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/composer-race-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/count-fsp-open-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-bot-fixtures.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-channel-delivery-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-anthropic-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-cold-shim.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-openai-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-stream-component.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home-guard.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/harness.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/kill-own-tree.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/local-provider-key.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/macos-keychain-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/png-grid.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/port-audit.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-backup-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-test-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/real-data-root.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/release-checks.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/self-isolate-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/server-internals.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/source-slice.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/stream-event-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/temp-janitor.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/trace-blocking.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/wallclock-window-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-capture.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-context.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-dispatch.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-images.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-subagents.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-native-receipts.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/run-all.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/session-save-census.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/acc-capability-gates.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/credential-recovery.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-image-history.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-node-admission.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/durable-json-bounded.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-arguments.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-preparation.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/server-ownership.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "facts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/server.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/00-boot.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01-config.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02-session-store.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04h-provider-http.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/05-claude-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/07-autonomy.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/08-agent-runs.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/10-context-governance.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/module-contracts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ax.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-helper.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-input.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-session.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation.h",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-process-helper.c",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-receipts-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+          "matched": true
+        }
+      ]
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "elapsed": 0.14405783399706706,
+      "isolation": "/tmp/rg-1n7x1z0w",
+      "log": "native-final-build-v1.log",
+      "before": [
+        {
+          "group": "sources",
+          "path": "README.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "README_EN.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/desktop-execution-root.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/durable-state-inventory.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/facts.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-argument-vectors.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-capture-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/macos-ocr-window.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-cleanup.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-path.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-profile-scope.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/composer-race-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/count-fsp-open-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-bot-fixtures.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-channel-delivery-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-anthropic-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-cold-shim.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-openai-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-stream-component.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home-guard.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/harness.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/kill-own-tree.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/local-provider-key.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/macos-keychain-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/png-grid.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/port-audit.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-backup-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-test-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/real-data-root.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/release-checks.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/self-isolate-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/server-internals.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/source-slice.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/stream-event-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/temp-janitor.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/trace-blocking.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/wallclock-window-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-capture.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-context.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-dispatch.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-images.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-subagents.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-native-receipts.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/run-all.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/session-save-census.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/acc-capability-gates.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/credential-recovery.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-image-history.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-node-admission.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/durable-json-bounded.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-arguments.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-preparation.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/server-ownership.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "facts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/server.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/00-boot.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01-config.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02-session-store.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04h-provider-http.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/05-claude-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/07-autonomy.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/08-agent-runs.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/10-context-governance.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/module-contracts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ax.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-helper.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-input.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-session.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation.h",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-process-helper.c",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-receipts-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+          "matched": true
+        }
+      ],
+      "after": [
+        {
+          "group": "sources",
+          "path": "README.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "README_EN.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/desktop-execution-root.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/durable-state-inventory.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/facts.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-argument-vectors.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-capture-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-image-server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/execution-node-preload.cjs",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/fixtures/macos-ocr-window.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-cleanup.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-path.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/browser-profile-scope.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/composer-race-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/count-fsp-open-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-bot-fixtures.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/external-channel-delivery-preload.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-anthropic-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-cold-shim.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-openai-provider.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fake-stream-component.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home-guard.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/fixture-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/harness.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/kill-own-tree.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/local-provider-key.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/macos-keychain-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/png-grid.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/port-audit.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-backup-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/privacy-test-fixture.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/real-data-root.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/release-checks.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/self-isolate-home.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/server-internals.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/source-slice.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/stream-event-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/temp-janitor.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/trace-blocking.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/lib/wallclock-window-scan.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-capture.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-context.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-dispatch.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-images.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-execution-subagents.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/macos-native-receipts.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/run-all.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/session-save-census.static.e2e.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/acc-capability-gates.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/credential-recovery.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-image-history.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/desktop-node-admission.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/durable-json-bounded.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-arguments.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/execution-preparation.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "dev-harness/unit/server-ownership.test.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/durable-state-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/module-dependency-graph.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "docs/architecture/route-inventory.md",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "facts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/server.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/00-boot.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01-config.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02-session-store.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/04h-provider-http.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/05-claude-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/07-autonomy.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/08-agent-runs.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/09-workflow.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/10-context-governance.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/app/src/module-contracts.json",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ax.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-helper.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-input.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-record.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation-session.m",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-automation.h",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/resources/macos-process-helper.c",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+          "matched": true
+        },
+        {
+          "group": "sources",
+          "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-receipts-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+          "matched": true
+        },
+        {
+          "group": "artifacts",
+          "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+          "matched": true
+        }
+      ]
+    }
+  ]
+}

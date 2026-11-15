@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 import { stewardThreadHueFor } from './steward-conversation.js';
 import { isQuietSuppressed, readNotifySettings } from './notify-policy.js';
 import { apiErrorInfo, NETWORK_ERROR_CODE } from './net.js';   // 走查 S-10：候选答案失败要分「断网（卡留着可重试）」与「那件事已经过去了（撤卡）」
+import { isMacHost, macNotificationPermission, sendHostNotification } from './host-bridge.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // quiet-card.js — 安静卡（121 波 K6a，34 号文 §4.3「在场信号与打扰纪律」／§2.6）。
@@ -113,6 +114,7 @@ export function createQuietCard({
     return globalThis.__ruyiDesktop === 1 && bridge && typeof bridge.postMessage === 'function' ? bridge : null;
   }
   function notificationPermission() {
+    if (isMacHost()) return macNotificationPermission();
     if (desktopBridge()) return 'granted';
     return notificationApi && typeof notificationApi.permission === 'string' ? notificationApi.permission : 'unsupported';
   }
@@ -317,6 +319,7 @@ export function createQuietCard({
     const row = missionRowOf(entry.sessionId) || {};
     const title = String(row.missionTitle || row.title || t('quietCard.fallbackTitle'));
     const body = quietCardHeadline(entry.kind, entry.frame && entry.frame.ask);
+    if (isMacHost()) { void sendHostNotification({ id: entry.key, title, body }).catch(() => {}); return; }
     // 桌面壳走宿主托盘气泡（字段名对着 RuyiDesktop.cs 的解析：ruyiNotification.title／.body；id 宿主不读，带上方便对账）。
     const bridge = desktopBridge();
     if (bridge) {

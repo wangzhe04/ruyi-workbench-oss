@@ -1,0 +1,53 @@
+{
+  "defaultWorkspace": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+  "workspaces": [
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+      "read": true,
+      "write": true,
+      "execute": true
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+      "read": true,
+      "write": true,
+      "execute": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": "sess_7376a723d5813c9d",
+      "title": "New session",
+      "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"
+    },
+    {
+      "id": "sess_e3f3761801a17f66",
+      "title": "P4 原生交互验收",
+      "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区"
+    }
+  ],
+  "uploads": [
+    {
+      "id": "file_5b2627cefd036e98",
+      "name": "P4 Finder 可见定位.txt",
+      "bytes": 31,
+      "sha256": "add47e0ac445637dc70a0123cc77047a2c9aeccc491578fd7d944e9dfa135dfc"
+    },
+    {
+      "id": "file_60dff974ad0d6512",
+      "name": "P4 Finder 可见定位.txt",
+      "bytes": 31,
+      "sha256": "add47e0ac445637dc70a0123cc77047a2c9aeccc491578fd7d944e9dfa135dfc"
+    },
+    {
+      "id": "file_9ae48508190b2d4b",
+      "name": "P4 Finder 可见定位.txt",
+      "bytes": 31,
+      "sha256": "add47e0ac445637dc70a0123cc77047a2c9aeccc491578fd7d944e9dfa135dfc"
+    }
+  ],
+  "source": {
+    "bytes": 31,
+    "sha256": "add47e0ac445637dc70a0123cc77047a2c9aeccc491578fd7d944e9dfa135dfc"
+  }
+}

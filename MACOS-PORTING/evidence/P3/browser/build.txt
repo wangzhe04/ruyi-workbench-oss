@@ -1,0 +1,1 @@
+build --check: 产物与 src 一致(新鲜),manifest 行区间自洽

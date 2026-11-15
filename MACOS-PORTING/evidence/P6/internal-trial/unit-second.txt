@@ -1,0 +1,11 @@
+✔ trial integrity binds guides, payload, policy, provenance and the one explicit Applications shortcut (4.326542ms)
+✔ new-location installation refuses existing directories and dangling links without changing them (3.271292ms)
+✔ resource-bearing code targets resolve to the correct nearest app/framework container (0.234083ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50.188125

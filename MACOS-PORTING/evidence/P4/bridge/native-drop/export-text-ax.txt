@@ -1,0 +1,358 @@
+Window: "未命名", App: 文本编辑.
+0 标准窗口 未命名, Secondary Actions: Raise, URL: file:///Users/jiming/Library/Mobile%20Documents/com~apple~TextEdit/Documents/%E6%9C%AA%E5%91%BD%E5%90%8D.txt
+	1 滚动区 Secondary Actions: Scroll Left, Scroll Right, Scroll Up, Scroll Down
+		2 文本输入区 (settable) ID: First Text View, Value: 跳到输入框
+
+管家
+
+工作台
+
+智能自动
+ 
+任务
+2
+
+
+
+新线程
+新开的
+2
+未命名线程
+还没开始
+刚刚
+P4 原生交互验收
+还没开始
+10小时前
+
+定时任务
+
+行动流水
+
+记得的关于你
+
+体检 · 用量
+2
+未命名线程
+在「P4 选择目标文件夹」里干活
+
+交给管家盯
+
+回到管家
+
+P4 选择目标文件夹
+
+
+权限
+跟随全局
+
+模型
+默认
+
+引擎
+Claude Code
+对话余量充足
+未找到 Claude Code（请在设置的 Agent CLI 页配置）
+已改用端口 8766（原来的 8765 被别的程序占着）。功能不受影响。
+×
+对话
+班组
+
+直接开始工作
+
+当前引擎：Claude Code · 默认
+发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。
+
+设置 Agent CLI 路径
+一键任务
+
+🗂️
+按内容归档文件
+读懂一堆杂乱文件的内容,自动分类到有意义的子文件夹里
+
+🏷️
+批量重命名文件
+按统一规则给一个文件夹里的文件重新命名(加前缀、编号、日期等)
+
+🧹
+清洗 CSV 数据
+按明确规则清洗 CSV，并输出变更统计和异常清单
+
+🧹
+清理下载文件夹
+找出下载文件夹里的安装包、重复文件和陈旧文件,给出清理建议
+
+🔍
+对比两份文档
+按主题对比两份文档，列出新增、删除、冲突与影响
+
+📋
+生成文件夹清单表
+把一个文件夹的内容清点成一张表格(文件名/类型/大小/修改时间)
+
+📋
+整理会议纪要
+把录音转写或零散笔记整理成结论、行动项和待定问题
+
+🎯
+生成汇报大纲
+把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑
+
+🗓️
+定时汇总一个文件夹
+到点把指定文件夹里新攒下的记录汇总成一份摘要,适合挂到定时任务上每天或每周自动跑
+
+🌐
+翻译一份文档
+翻译文档并保持标题、列表、表格、数字和专有名词结构
+
+📝
+写周报草稿
+把这一周的零散记录整理成一份条理清晰的周报草稿
+🖱️
+打开应用并操作
+启动一个桌面应用,并在里面完成一件指定的事(点击、输入、保存等)
+需要桌面控制（未检测到 ai-computer-control）
+📊
+合并多个 Excel 表格
+把一个文件夹里的多个 xlsx 表格按列对齐合并成一个总表
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+🔍
+扫描件 OCR 转文字
+把扫描件图片通过 OCR 识别成可编辑文字；带文字层的 PDF 直接提取文字
+需要桌面控制（未检测到 ai-computer-control）
+📄
+PDF 文本汇总
+把一个文件夹里的多份 PDF 提取文本,逐份摘要并汇总成一份总览
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+🌐
+打开网页填表
+在浏览器里打开一个网页,按说明把表单字段填好(填完先给你看,不自动提交)
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+P4 Finder 可见定位.txt · 31 B
+
+
+Agent 团队
+技能
+
+发送
+工作区
+项目与进度
+×
+查看文件、交付物和 Ruyi 的工作记录
+
+▤
+文件
+
+◇
+产物
+
+±
+改动
+
+◉
+记忆
+AI 工作
+工作文件夹
+单击文件即可安全预览
+刷新
+P4 原生交互工作区
+P4 选择目标文件夹
+📂 P4 选择目标文件夹
+📄
+P4 选择验收文件.txt
+@
+R
+需要找内容或读取文件？直接在对话里告诉 Ruyi，它会自动选择合适的工具。
+选择验收文件定位验收文件打开验收编辑器打开验收差异发送验收通知读取通知权限读取唤醒状态读取拖放状态打开验收外链{"events":[{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]}],"requests":[{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_60dff974ad0d6512","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_60dff974ad0d6512/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T04:55:53.324Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_9ae48508190b2d4b","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_9ae48508190b2d4b/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T04:56:05.689Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_5b2627cefd036e98","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_5b2627cefd036e98/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T05:43:00.627Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"selectedPath":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"},"status":200,"result":{"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","favorite":{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","read":true,"write":true,"execute":true},"aliases":["/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"],"matches":[]}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"selectedPath":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"},"status":200,"result":{"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","favorite":{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","read":true,"write":true,"execute":true},"aliases":["/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"],"matches":[]}}],"sends":0}
+		3 滚动条 (disabled, settable, float) 0.1851851791143417
+		4 滚动条 (settable, float) 1
+			5 值指示器 (settable, float) 1
+			6 增箭头按钮
+			7 减箭头按钮
+			8 增页面按钮
+			9 减页面按钮
+	10 关闭按钮
+	11 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	12 最小化按钮
+	13 菜单按钮 (disabled) 已编辑, Description: 文稿操作
+	14 文本 —
+	15 图像 未命名
+	16 文本 未命名
+17 menu bar
+	18 文本编辑
+	19 文件
+	20 编辑
+	21 格式
+	22 显示
+	23 窗口
+	24 帮助
+
+The focused UI element is 2 文本输入区 (settable) ID: First Text View, Value: 跳到输入框
+
+管家
+
+工作台
+
+智能自动
+ 
+任务
+2
+
+
+
+新线程
+新开的
+2
+未命名线程
+还没开始
+刚刚
+P4 原生交互验收
+还没开始
+10小时前
+
+定时任务
+
+行动流水
+
+记得的关于你
+
+体检 · 用量
+2
+未命名线程
+在「P4 选择目标文件夹」里干活
+
+交给管家盯
+
+回到管家
+
+P4 选择目标文件夹
+
+
+权限
+跟随全局
+
+模型
+默认
+
+引擎
+Claude Code
+对话余量充足
+未找到 Claude Code（请在设置的 Agent CLI 页配置）
+已改用端口 8766（原来的 8765 被别的程序占着）。功能不受影响。
+×
+对话
+班组
+
+直接开始工作
+
+当前引擎：Claude Code · 默认
+发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。
+
+设置 Agent CLI 路径
+一键任务
+
+🗂️
+按内容归档文件
+读懂一堆杂乱文件的内容,自动分类到有意义的子文件夹里
+
+🏷️
+批量重命名文件
+按统一规则给一个文件夹里的文件重新命名(加前缀、编号、日期等)
+
+🧹
+清洗 CSV 数据
+按明确规则清洗 CSV，并输出变更统计和异常清单
+
+🧹
+清理下载文件夹
+找出下载文件夹里的安装包、重复文件和陈旧文件,给出清理建议
+
+🔍
+对比两份文档
+按主题对比两份文档，列出新增、删除、冲突与影响
+
+📋
+生成文件夹清单表
+把一个文件夹的内容清点成一张表格(文件名/类型/大小/修改时间)
+
+📋
+整理会议纪要
+把录音转写或零散笔记整理成结论、行动项和待定问题
+
+🎯
+生成汇报大纲
+把主题和素材整理成逐页汇报结构、关键数据与讲述逻辑
+
+🗓️
+定时汇总一个文件夹
+到点把指定文件夹里新攒下的记录汇总成一份摘要,适合挂到定时任务上每天或每周自动跑
+
+🌐
+翻译一份文档
+翻译文档并保持标题、列表、表格、数字和专有名词结构
+
+📝
+写周报草稿
+把这一周的零散记录整理成一份条理清晰的周报草稿
+🖱️
+打开应用并操作
+启动一个桌面应用,并在里面完成一件指定的事(点击、输入、保存等)
+需要桌面控制（未检测到 ai-computer-control）
+📊
+合并多个 Excel 表格
+把一个文件夹里的多个 xlsx 表格按列对齐合并成一个总表
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+🔍
+扫描件 OCR 转文字
+把扫描件图片通过 OCR 识别成可编辑文字；带文字层的 PDF 直接提取文字
+需要桌面控制（未检测到 ai-computer-control）
+📄
+PDF 文本汇总
+把一个文件夹里的多份 PDF 提取文本,逐份摘要并汇总成一份总览
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+🌐
+打开网页填表
+在浏览器里打开一个网页,按说明把表单字段填好(填完先给你看,不自动提交)
+需要配置
+需要桌面控制（未检测到 ai-computer-control）
+P4 Finder 可见定位.txt · 31 B
+
+
+Agent 团队
+技能
+
+发送
+工作区
+项目与进度
+×
+查看文件、交付物和 Ruyi 的工作记录
+
+▤
+文件
+
+◇
+产物
+
+±
+改动
+
+◉
+记忆
+AI 工作
+工作文件夹
+单击文件即可安全预览
+刷新
+P4 原生交互工作区
+P4 选择目标文件夹
+📂 P4 选择目标文件夹
+📄
+P4 选择验收文件.txt
+@
+R
+需要找内容或读取文件？直接在对话里告诉 Ruyi，它会自动选择合适的工具。
+选择验收文件定位验收文件打开验收编辑器打开验收差异发送验收通知读取通知权限读取唤醒状态读取拖放状态打开验收外链{"events":[{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 Finder 可见定位.txt","file":true,"directory":false}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]},{"trusted":true,"types":["Files"],"entries":[{"kind":"file","name":"P4 选择目标文件夹","file":false,"directory":true}]}],"requests":[{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_60dff974ad0d6512","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_60dff974ad0d6512/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T04:55:53.324Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_9ae48508190b2d4b","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_9ae48508190b2d4b/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T04:56:05.689Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/upload","body":{"name":"P4 Finder 可见定位.txt","encodedBytes":67},"status":200,"result":{"ok":true,"file":{"id":"file_5b2627cefd036e98","name":"P4 Finder 可见定位.txt","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_5b2627cefd036e98/P4 Finder 可见定位.txt","size":31,"createdAt":"2026-11-08T05:43:00.627Z","textPreview":"P4 controlled Finder selection\n"}}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"selectedPath":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"},"status":200,"result":{"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","favorite":{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","read":true,"write":true,"execute":true},"aliases":["/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"],"matches":[]}},{"path":"/api/workspace/resolve","body":{"name":"P4 选择目标文件夹","children":["P4 选择验收文件.txt"]},"status":200,"result":{"ok":true,"matches":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","score":1}],"truncated":false}},{"path":"/api/workspace/resolve","body":{"selectedPath":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"},"status":200,"result":{"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","favorite":{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","read":true,"write":true,"execute":true},"aliases":["/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"],"matches":[]}}],"sends":0}

@@ -1,0 +1,63 @@
+{
+  "variant": "slim",
+  "imageSha256": "341207021a6c6114dab886ee189b5aa98484911d966193eea0f850fd03cf5918",
+  "appTreeSha256": "e2bf51d9e3fed6d424a4c7fd08dce6fd07d8e67185cb6ae52e42f11da1ca06fc",
+  "inputSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "uid": 501,
+  "accountScope": "current-account isolated HOME, not a clean standard user",
+  "failures": 0,
+  "downloadedOriginGatekeeperApproval": "unverified",
+  "nativeReport": {
+    "activationCount": 1,
+    "backgroundOnClose": true,
+    "loginStartupStatus": 3,
+    "nativePID": 11021,
+    "page": {
+      "additional": null,
+      "composer": true,
+      "configLoaded": true,
+      "frame": true,
+      "health": true,
+      "readyState": "complete",
+      "title": "如意工作台"
+    },
+    "previewNavigations": 0,
+    "profileIdentifier": "9F101095-8FB8-5C14-EA84-4DFF1A4C0BC2",
+    "servicePID": 11025,
+    "simulatedSystemEvents": false,
+    "sleepEvents": 0,
+    "state": "ready",
+    "url": "http://127.0.0.1:8766/",
+    "wakeEvents": 0,
+    "wakeValidated": false,
+    "windowFrame": "{{215, 175}, {1280, 868}}",
+    "windowVisible": true
+  },
+  "launchServicesReport": {
+    "activationCount": 1,
+    "backgroundOnClose": true,
+    "loginStartupStatus": 3,
+    "nativePID": 11054,
+    "page": {
+      "additional": null,
+      "composer": true,
+      "configLoaded": true,
+      "frame": true,
+      "health": true,
+      "readyState": "complete",
+      "title": "如意工作台"
+    },
+    "previewNavigations": 0,
+    "profileIdentifier": "9F101095-8FB8-5C14-EA84-4DFF1A4C0BC2",
+    "servicePID": 11057,
+    "simulatedSystemEvents": false,
+    "sleepEvents": 0,
+    "state": "ready",
+    "url": "http://127.0.0.1:8766/",
+    "wakeEvents": 0,
+    "wakeValidated": false,
+    "windowFrame": "{{215, 175}, {1280, 868}}",
+    "windowVisible": true
+  }
+}

@@ -1,0 +1,16 @@
+PASS idle EOF: actual workbench handshake succeeds
+PASS idle EOF: real private bridge is discovered
+PASS idle EOF: bridge is actually alive before EOF
+PASS idle EOF: completed tool result is delivered normally
+PASS idle EOF: proxy exits naturally with code zero
+PASS idle EOF: owned bridge exits after the proxy drains accepted requests
+PASS in-flight EOF: actual workbench handshake succeeds
+PASS in-flight EOF: real private bridge is discovered
+PASS in-flight EOF: bridge is actually alive before EOF
+PASS in-flight EOF: request is inside the bridge and has not completed
+PASS in-flight EOF: proxy observes EOF before the held request is released
+PASS in-flight EOF: completed tool result is delivered normally
+PASS in-flight EOF: proxy exits naturally with code zero
+PASS in-flight EOF: owned bridge exits after the proxy drains accepted requests
+
+MCP STDIO EOF E2E: ALL PASS

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "runs": [
+    {
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "startedAt": "2026-11-12T02:24:16.882738+00:00",
+      "endedAt": "2026-11-12T02:24:44.703095+00:00",
+      "exitCode": 0,
+      "log": "engineering-1.log"
+    },
+    {
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "startedAt": "2026-11-12T02:24:44.703476+00:00",
+      "endedAt": "2026-11-12T02:24:44.849498+00:00",
+      "exitCode": 0,
+      "log": "engineering-2.log"
+    },
+    {
+      "command": [
+        "node",
+        "--require",
+        "./dev-harness/lib/self-isolate-home.js",
+        "dev-harness/run-all.js",
+        "--fast",
+        "--parallel",
+        "4"
+      ],
+      "startedAt": "2026-11-12T02:24:44.849808+00:00",
+      "endedAt": "2026-11-12T02:27:43.121151+00:00",
+      "exitCode": 1,
+      "log": "engineering-3.log"
+    },
+    {
+      "command": [
+        "node",
+        "dev-harness/eol-policy.static.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:38.961398+00:00",
+      "endedAt": "2026-11-12T02:28:41.123800+00:00",
+      "exitCode": 0,
+      "log": "focused-1.log"
+    },
+    {
+      "command": [
+        "node",
+        "--require",
+        "./dev-harness/lib/self-isolate-home.js",
+        "dev-harness/external-bot-credentials.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:41.124084+00:00",
+      "endedAt": "2026-11-12T02:28:41.157903+00:00",
+      "exitCode": 0,
+      "log": "focused-2.log"
+    },
+    {
+      "command": [
+        "node",
+        "dev-harness/git.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:41.158175+00:00",
+      "endedAt": "2026-11-12T02:28:43.111428+00:00",
+      "exitCode": 0,
+      "log": "focused-3.log"
+    },
+    {
+      "command": [
+        "node",
+        "dev-harness/provider-tool-history.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:43.111868+00:00",
+      "endedAt": "2026-11-12T02:28:44.903535+00:00",
+      "exitCode": 0,
+      "log": "focused-4.log"
+    },
+    {
+      "command": [
+        "node",
+        "dev-harness/compound-effect-audit.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:44.903837+00:00",
+      "endedAt": "2026-11-12T02:28:47.761557+00:00",
+      "exitCode": 0,
+      "log": "focused-5.log"
+    },
+    {
+      "command": [
+        "node",
+        "dev-harness/desktop-execution-root.e2e.js"
+      ],
+      "startedAt": "2026-11-12T02:28:47.761893+00:00",
+      "endedAt": "2026-11-12T02:28:48.904403+00:00",
+      "exitCode": 0,
+      "log": "focused-6.log"
+    }
+  ],
+  "candidateSourceHead": "c3e0c555d32b2dfb867d871dafcbd35f26b061af",
+  "summary": {
+    "syntaxFiles": 1180,
+    "syntaxFail": 0,
+    "buildFresh": true,
+    "unitPass": 2627,
+    "unitExistingSkip": 18,
+    "unitFail": 0,
+    "firstStaticPass": 79,
+    "firstStaticFail": 1,
+    "firstRunnerAutoRetry": "eol-policy was automatically retried once and still failed; both outputs retained",
+    "staticResolution": "*.gz binary declaration; unchanged bytes and gzip decoding of all 15 tracked archives checked; targeted EOL gate passed. Other 79 static gates remain passed.",
+    "focusedCommands": 6,
+    "focusedCommandFailures": 0,
+    "windowsDpapiRuntime": "explicit platform skip, not acceptance",
+    "liveDesktopRerun": false
+  }
+}

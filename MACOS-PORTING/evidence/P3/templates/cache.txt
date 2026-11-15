@@ -1,0 +1,16 @@
+▶ 能力探针:同步阻塞不再伪造离线
+  ✔ [S1] 对端秒回、探测中同步阻塞 → null(未知),不是 false (2413.649125ms)
+  ✔ [S2] 对端秒回、不阻塞 → true (4.860459ms)
+  ✔ [S3] 对端不回话、不阻塞 → false(真超时仍判离线) (302.015541ms)
+  ✔ [S4] 多目标:任一 true 即 true;全是量不准 → null (809.042333ms)
+  ✔ [S5] 能力缓存:未知 TTL 从探测完成开始计时,几秒后重新探测 (8912.825667ms)
+✔ 能力探针:同步阻塞不再伪造离线 (12449.125292ms)
+✔ [P3-04] browser target cache does not publish an older probe over the current snapshot (85.868916ms)
+ℹ tests 6
+ℹ suites 1
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15316.710166

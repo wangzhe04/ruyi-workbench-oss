@@ -1,0 +1,22 @@
+PASS IMAGE_MIXED_1 completes actual root/provider/SDK mixed batch
+PASS IMAGE_MIXED_1 actual image and observer receipts durably delivered
+PASS IMAGE_MIXED_1 next actual ACC body sees image parts and matching prior delivery digest on disk
+PASS IMAGE_MIXED_1 final disk and next real model request keep contiguous replies before images
+PASS IMAGE_MIXED_1 provider continuation occurs only after all actual delivery commits
+PASS IMAGE_MIXED_2 completes actual root/provider/SDK mixed batch
+PASS IMAGE_MIXED_2 actual image and observer receipts durably delivered
+PASS IMAGE_MIXED_2 next actual ACC body sees image parts and matching prior delivery digest on disk
+PASS IMAGE_MIXED_2 final disk and next real model request keep contiguous replies before images
+PASS IMAGE_MIXED_2 provider continuation occurs only after all actual delivery commits
+PASS stop gate starts only after owned image/history delivery publication
+PASS stop accepted during real image delivery completion
+PASS stop retains acknowledged image and never dispatches remaining ACC observer
+PASS stop saved history pairs missing reply ahead of preserved image
+PASS Stop never resumes parent model after image delivery
+PASS steer gate starts only after owned image/history delivery publication
+PASS steer accepted during real image delivery completion
+PASS steer retains acknowledged image and never dispatches remaining ACC observer
+PASS steer saved history pairs missing reply ahead of preserved image
+PASS steer resumes actual provider with paired replies, acknowledged image and user steering
+
+MACOS EXECUTION IMAGES E2E: ALL PASS

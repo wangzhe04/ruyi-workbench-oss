@@ -1,0 +1,46 @@
+PASS explicit off lists nothing
+PASS explicit off rejects guessed IDs
+PASS fixed set never expands
+PASS fixed set cannot read an unselected global item
+PASS project lock rejects a same-ID substitute
+PASS default list respects exclusion and expiry
+PASS direct reads respect exclusion and expiry
+PASS invalid session binding cannot broaden access
+PASS management read still allows editing expired entries
+PASS confirmed replacement is visible as historical applicability warning
+PASS fixed old selection warns without leaking excluded replacement identity
+PASS late read discarded after selection
+PASS late read discarded after stop
+PASS late read discarded after turn
+PASS late read discarded after library
+PASS late read discarded after relation
+PASS late read discarded after disk-copy
+PASS read rechecks library after usage await
+PASS list rechecks library after usage await
+PASS disable production loop completes tool call and reply
+PASS disable next real request drops stale core snapshot
+PASS disable receipt reflects current switch without claiming a new search
+PASS disable preserves call/result pairing
+PASS library production loop completes tool call and reply
+PASS library next real request drops stale core snapshot
+PASS library receipt reflects current switch without claiming a new search
+PASS library preserves call/result pairing
+PASS reenable production loop completes tool call and reply
+PASS reenable next real request drops stale core snapshot
+PASS reenable receipt reflects current switch without claiming a new search
+PASS reenable preserves call/result pairing
+PASS hook production loop completes tool call and reply
+PASS hook next real request drops stale core snapshot
+PASS hook receipt reflects current switch without claiming a new search
+PASS hook preserves call/result pairing
+如意 Ruyi 3.0.1  (launch: node, overlay 66790964d0e1)
+UI: http://127.0.0.1:61304/
+Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-memory-active-DYQal5/home
+Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS HTTP read uses live selection over a disabled disk copy
+PASS MCP child reads through live parent; model args cannot replace session/turn binding
+PASS MCP parent enforces a newly disabled live selection
+PASS MCP late call cannot read after parent turn stops
+ARTIFACTS /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-memory-active-DYQal5
+
+MEMORY ACTIVE SCOPE E2E: ALL PASS

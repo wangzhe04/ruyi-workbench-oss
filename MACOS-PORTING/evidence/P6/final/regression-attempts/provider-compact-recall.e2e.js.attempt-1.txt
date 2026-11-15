@@ -1,0 +1,32 @@
+PASS workbench starts
+PASS session created
+PASS turn ok: CMD_READ1
+PASS turn ok: CMD_READ2
+PASS turn ok: CMD_CHAT
+PASS precondition: the raw file_read result (with the needle) is in providerHistory
+PASS M1 manual compact stops at L1 when it is enough (got level=1, err=undefined)
+PASS M1 L1 really shrank the estimate
+PASS M1 a snapshot was written, the folded outputs are recoverable
+PASS M1 no summary request was sent to the provider
+PASS M1 old tool results became reduced views carrying a rawRef
+PASS M1 the needle is no longer in the model-visible history
+PASS M2 mode:summary runs the L2 summary (got level=2)
+PASS M2 the summary model was called
+PASS M2 manual L2 still collapses to [summary, ack]
+PASS M2 the summary carries the machine-built tool-call index
+PASS M2 both file_read calls are indexed with a rawRef
+PASS M2 index lines name the call arguments (path)
+PASS M2 index footer tells the model how to recall and to pin facts in the scratchpad
+PASS M4 compacting again right after a summary is a no-op (got {"ok":true,"level":0,"nothingToCompact":true,"freshTokens":0,"beforeTokens":332,"afterTokens":332,"evaporated":0})
+PASS M4 no summary request was sent
+PASS M4 the history is untouched
+PASS M4 the reply carries the numbers the toast shows (fresh / before = after)
+PASS M5 one more chat turn ok
+PASS M5 a short chat after the summary still is not worth a summary call (got level=0)
+PASS M5 the summary and the new turn are kept as they are
+PASS M3 recall turn ok
+PASS M3 the recovery index next to the newest user message lists a rawRef after L2
+PASS M3 observation_recall returned the original output with the needle
+PASS M6 mode:summary still re-summarizes on request (got level=2)
+
+PROVIDER COMPACT RECALL E2E: ALL PASS

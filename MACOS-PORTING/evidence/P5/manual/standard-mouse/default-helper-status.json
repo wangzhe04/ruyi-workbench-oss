@@ -1,0 +1,6 @@
+{
+  "at": "2026-11-11T06:38:08.657Z",
+  "exitCode": 0,
+  "stdout": "{\"applicationReady\":1,\"authorization\":\"granted\",\"axReady\":1,\"axSupported\":true,\"backend\":\"ScreenCaptureKit\",\"clipboardReady\":1,\"coordinate_space\":\"macos_global_points\",\"eventAuthorization\":\"granted\",\"inputReady\":1,\"inputSequenceReady\":true,\"inputSequenceSupported\":true,\"listenAuthorization\":\"granted\",\"locked\":false,\"manualPointerProfiles\":[\"exact\",\"standard_mouse\"],\"manualRecordReady\":true,\"manualRecordSupported\":true,\"monitors\":[{\"height\":1107,\"id\":1,\"index\":0,\"is_primary\":1,\"scale\":2,\"width\":1710,\"x\":0,\"y\":0}],\"ocrBackend\":\"Vision\",\"ocrReady\":1,\"ocrRevision\":3,\"ocrSupported\":true,\"ok\":true,\"permissionRequestsMade\":false,\"pointerQueryReady\":1,\"protocolVersion\":1,\"ready\":1,\"recordInputSource\":{\"id\":\"com.apple.inputmethod.SCIM.ITABC\",\"type\":\"TISTypeKeyboardInputMode\"},\"recordReady\":true,\"recordSource\":\"controlled_native_requests\",\"recordSources\":[\"controlled_native_requests\",\"native_window_events\"],\"recordSupported\":true,\"virtual\":{\"height\":1107,\"width\":1710,\"x\":0,\"y\":0},\"windowAuthorization\":\"granted\",\"windowListReady\":1,\"windowReady\":1}\n",
+  "stderr": ""
+}

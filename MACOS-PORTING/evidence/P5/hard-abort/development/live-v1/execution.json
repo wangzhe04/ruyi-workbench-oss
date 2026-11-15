@@ -1,0 +1,11 @@
+[
+  {
+    "name": "live",
+    "argv": [
+      "node",
+      "dev-harness/macos-neutral-abort.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.07792020899069
+  }
+]

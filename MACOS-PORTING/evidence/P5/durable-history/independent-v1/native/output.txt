@@ -1,0 +1,14 @@
+PASS actual helper has unlocked capture/input prerequisites
+PASS owned receiver begins foreground with neutral HID/combined left and modifiers
+PASS real ACC binds owned target and actual current input source without changing it
+PASS wait-only macro has no receiver input and remains neutral before root-only fault
+PASS enclosing wait-only macro remains pending with no input or final macro audit
+PASS birth-verified root guardian primary ACC native chain excludes external receiver from supervised group
+PASS only original owned Workbench root exits by injected SIGKILL
+PASS original observed supervised process birth identities exit without external child signals
+PASS root-abort calibration keeps neutral state with zero pointer or keyboard input
+PASS same isolated session loads after restart with no active execution
+PASS GET-only restart does not replay macro or request another model turn
+PASS all observed calibration and restart process birth identities exit
+
+MACOS NEUTRAL ABORT E2E: ALL PASS

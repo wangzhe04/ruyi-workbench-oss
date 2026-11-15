@@ -1,0 +1,24 @@
+PASS workbench starts
+PASS G1 no models list + no model → needs_model (got {"code":"provider.test_needs_model","ok":false})
+PASS G2 models 404 → completion probe with the configured model succeeds (got {"ok":true,"models":[],"probe":"completion","model":"ds-reasoner-gw","modelsUnavailable":true,"apiStyle":"anthropic"})
+PASS G2 the probe hit /anthropic/v1/messages with x-api-key
+PASS G2 the models list was tried first
+PASS G3 wrong key → unauthorized code (got {"code":"provider.test_unauthorized","cls":"provider_misconfigured"})
+PASS G4 a pasted full endpoint URL still works (got {"ok":true})
+PASS G7 404 + 正文点名模型 → model_rejected(got {"code":"provider.test_model_rejected","detail":"HTTP 404: {\"type\":\"error\",\"error\":{\"type\":\"not_found_error\",\"message\":\"model: no-such-model\"}}"})
+PASS G7b 裸 404(地址错)仍是 not_found(got {"code":"provider.test_not_found"})
+PASS G8 /models 回 200 html → 当作没有清单,补全试探通了(got {"ok":true,"modelsUnavailable":true})
+PASS G8 /models 回 200 empty → 当作没有清单,补全试探通了(got {"ok":true,"modelsUnavailable":true})
+PASS G9 回显场景确实走到了失败分支(got {"code":"provider.test_model_rejected"})
+PASS G9 detail / error 里没有明文 key 与自定义头的值(got {"ok":false,"models":[],"probe":"completion","model":"echo-model","code":"provider.test_model_rejected","errorClass":"provider_misconfigured","detail":"HTTP 400: {\"error\":{\"message\":\"bad request for model echo-model, key=«redacted», tenant=«redacted»\",\"type\":\"invalid_request_error\"}}","api)
+PASS session created
+PASS G5 the turn completes (errors: [])
+PASS G5 exactly one 400 (max_tokens) in the whole turn, retried at the gateway's cap (got ["Invalid max_tokens value, the valid range of max_tokens is [1, 8192]"])
+PASS G5 thinking goes out in the classic {type:'enabled', budget_tokens} form within max_tokens (got [[8192,{"type":"enabled","budget_tokens":4096}],[8192,{"type":"enabled","budget_tokens":7168}]])
+PASS G5 no output_config is sent to a non-Claude gateway model
+PASS G5 the file_read tool really ran
+PASS G5 the gateway thinking block reaches the thinking stream
+PASS G5 the final answer streams back
+PASS G6 the next turn uses the learned cap directly — no more 400 (new rejects: [])
+
+ANTHROPIC GATEWAY SETUP E2E: ALL PASS

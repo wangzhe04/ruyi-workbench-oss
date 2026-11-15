@@ -1,0 +1,14 @@
+PASS css/components/onboarding.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS 允许名单原文存在且仅一次:css/components/tool-pane.css —— ≥17px 标题负字距（--fs-lg=17px）
+PASS 允许名单原文存在且仅一次:css/components/tool-pane.css —— ≥17px 标题负字距（--fs-lg=17px）
+PASS css/components/tool-pane.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS css/components/chat-primitives.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS 允许名单原文存在且仅一次:css/views/workbench.css —— 等宽代码（font-family: var(--mono)）
+PASS css/views/workbench.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS css/views/workspace.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS css/layout.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS css/states/chat-live.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS css/themes/ui-modes.css 挖掉允许名单后零 letter-spacing／text-transform:uppercase 残留
+PASS 允许名单总数 = 3（tool-pane×2 负字距标题 + workbench×1 等宽代码）
+
+CSS TYPOGRAPHY DEBT STATIC E2E: ALL PASS

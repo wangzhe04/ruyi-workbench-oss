@@ -1,0 +1,60 @@
+PASS (a) 解析到 dark 主题令牌块
+PASS (a) 解析到 light 主题令牌块
+PASS (a) dark 无 light 缺失的令牌
+PASS (a) light 无 dark 缺失的令牌
+PASS (a) 新令牌 --panel-2 两主题均定义
+PASS (a) 新令牌 --accent-hover 两主题均定义
+PASS (a) 新令牌 --link 两主题均定义
+PASS (a) 新令牌 --gold 两主题均定义
+PASS (a) 玻璃令牌 --scene-bg 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-bg-1 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-bg-2 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-bg-3 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-border 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-border-strong 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-highlight 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-shadow 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --glass-shadow-soft 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --accent-2 两主题均定义(UI-DESIGN-V4)
+PASS (a) 玻璃令牌 --noise 两主题均定义(UI-DESIGN-V4)
+PASS (a) Preview theme token --preview-bg is symmetric
+PASS (a) Preview theme token --preview-surface is symmetric
+PASS (a) Preview theme token --preview-surface-2 is symmetric
+PASS (a) Preview theme token --preview-ink is symmetric
+PASS (a) Preview theme token --preview-muted is symmetric
+PASS (a) Preview theme token --preview-accent is symmetric
+PASS (a) Preview theme token --preview-accent-strong is symmetric
+PASS (a) Preview theme token --preview-hot is symmetric
+PASS (a) Preview theme token --preview-line is symmetric
+PASS (a) Preview theme token --preview-shadow is symmetric
+PASS (a) Preview theme token --preview-secondary is symmetric
+PASS (a) Preview theme token --preview-secondary-hover is symmetric
+PASS (a) Preview theme token --preview-disabled-bg is symmetric
+PASS (a) Preview theme token --preview-disabled-ink is symmetric
+PASS (a) Preview theme token --preview-disabled-line is symmetric
+PASS (b) #d97757 仅现于 --eng-claude 行
+PASS (b) #c96442 仅现于 --eng-claude 行
+PASS (c) dark ink/bg = 15.58 (need >=7)
+PASS (c) dark muted/panel = 6.35 (need >=4.5)
+PASS (c) dark accent-ink/accent = 4.73 (need >=4.5)
+PASS (c) dark link/bg = 8.26 (need >=4.5)
+PASS (c) dark preview-ink/bg = 16.07 (need >=7)
+PASS (c) dark preview-muted/surface = 6.50 (need >=4.5)
+PASS (c) dark preview-bg/accent = 6.09 (need >=4.5)
+PASS (c) dark preview-hot/bg = 10.08 (need >=4.5)
+PASS (c) light ink/bg = 14.23 (need >=7)
+PASS (c) light muted/panel = 5.29 (need >=4.5)
+PASS (c) light accent-ink/accent = 6.90 (need >=4.5)
+PASS (c) light link/bg = 6.32 (need >=4.5)
+PASS (c) light preview-ink/bg = 14.72 (need >=7)
+PASS (c) light preview-muted/surface = 5.29 (need >=4.5)
+PASS (c) light preview-bg/accent = 6.54 (need >=4.5)
+PASS (c) light preview-hot/bg = 5.31 (need >=4.5)
+PASS (d) index.html 无 empty-logo">C< 残留
+PASS (d) app.js 无 el('empty-logo','C') 字母兜底残留
+PASS (d) app.js 定义 buildRuyiLogo(JS 侧如意标)
+PASS (d) index.html 存在 .empty-logo 容器
+PASS (d) .empty-logo 内含内联 <svg>
+PASS (d) 内联 svg 走 --brand-qh/--brand-au 填色
+
+THEME E2E: ALL PASS

@@ -1,0 +1,131 @@
+{
+  "date": "2026-11-07",
+  "package": "P3-03",
+  "baselineCommit": "9c7263c34b19e67460a0f4d773b8d5810f060d4f",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "architecture": "arm64",
+    "python": "3.12.10",
+    "node": "24.15.0",
+    "playwright": "1.64.1",
+    "chromium": "156.0.8078.4",
+    "revision": 1248
+  },
+  "localAcceptance": "passed",
+  "phaseAcceptance": "in_progress: P3-04 and actual Windows same-candidate execution remain open",
+  "checks": [
+    {
+      "check": "Real production MCP Chromium",
+      "result": "25 pass, 0 fail, 0 skip",
+      "evidence": "runtime.txt"
+    },
+    {
+      "check": "Fresh noneditable PIP_NO_INDEX replay",
+      "result": "63 runtime pins installed, pip check clean, 25 browser checks passed, 0 skip",
+      "evidence": "offline.txt"
+    },
+    {
+      "check": "Real/fake lifecycle smoke",
+      "result": "8 pass, 0 skip",
+      "evidence": "lifecycle.txt"
+    },
+    {
+      "check": "Existing Office read/browser FakePage regressions",
+      "result": "98 pass, 0 skip",
+      "evidence": "office-read.txt"
+    },
+    {
+      "check": "Whole Node unit suite",
+      "result": "2490 pass, 18 existing skips, 0 fail",
+      "evidence": "unit.txt"
+    },
+    {
+      "check": "Initial fast static suite",
+      "result": "78 pass, 2 fail; PDF EOL attributes and Mac fixture cleanup registry fixed afterwards",
+      "evidence": "fast-first.txt"
+    },
+    {
+      "check": "PDF binary attributes gate",
+      "result": "passed",
+      "evidence": "eol-final.txt"
+    },
+    {
+      "check": "Fixture cleanup registry gate",
+      "result": "passed",
+      "evidence": "fixture-final.txt"
+    },
+    {
+      "check": "Process cleanup scope gate",
+      "result": "passed",
+      "evidence": "process-final.txt"
+    },
+    {
+      "check": "JavaScript syntax",
+      "result": "1127 files, 0 errors",
+      "evidence": "syntax.txt"
+    },
+    {
+      "check": "Build freshness",
+      "result": "passed; Node production source unchanged",
+      "evidence": "build.txt"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "V09-Mac-browser",
+      "status": "passed_local",
+      "evidence": [
+        "runtime.txt",
+        "offline.txt",
+        "samples/runtime.json",
+        "samples/page.png"
+      ],
+      "detail": "Real managed and bundled Chromium, isolated temporary profiles/cache path with spaces and CJK, local Chinese form submission, navigation/tabs/screenshot, missing package/cache downgrade, process/profile cleanup on explicit close and normal EOF; CDP preserves original page, profile sentinel and unsaved draft."
+    },
+    {
+      "id": "cancellation-cleanup",
+      "status": "passed",
+      "evidence": [
+        "lifecycle.txt",
+        "review.json",
+        "status-cancel-after.txt",
+        "status-timeout-after.txt",
+        "launch-cancel-after.txt",
+        "driver-start-cancel-after.txt"
+      ],
+      "detail": "Both independently reproduced driver leaks fixed; actual launch/pre-start-return/status cancellation and status own timeout leave driver/launcher gone, state clear. Held startup gate reports protocol cleanup incomplete truthfully."
+    },
+    {
+      "id": "system-handoff",
+      "status": "passed_contract",
+      "evidence": [
+        "lifecycle.txt"
+      ],
+      "detail": "Mac system URL opening reports requested/navigationVerified=false; does not claim DOM or pending Mac UIA/OCR support. No user default browser was opened during acceptance."
+    },
+    {
+      "id": "offline-dependencies",
+      "status": "passed_local",
+      "evidence": [
+        "wheel-manifest.json",
+        "browser-manifest.json",
+        "offline.txt"
+      ],
+      "detail": "63 runtime distributions pinned; matching ACC wheel built with preprepared build dependencies. Runtime tests do not install or download browsers."
+    },
+    {
+      "id": "windows-minimum-os-release",
+      "status": "pending_actual_environment",
+      "detail": "Windows same-candidate CI/real execution unperformed and unwaived; macOS14 and signed clean-machine offline release remain unverified."
+    }
+  ],
+  "failureHistory": [
+    "Early runtime fixture observed supervisor/Python MCP processes as if owned browser processes; corrected actual browser/driver filter without weakening cleanup requirement.",
+    "CDP target enumeration includes browser_ui/service_worker; only page targets count toward owned page assertion.",
+    "Workbench execute_js guard correctly refused access; fixture independent CDP reader inspects only controlled own draft.",
+    "Fresh external Chrome blocked local navigation without test-keychain flags; minimal control probe confirmed request starts after password-store=basic/use-mock-keychain. Production Playwright already supplies these flags.",
+    "Independent review found launch/pre-start-return cancellation and status-probe cancellation/timeout driver leaks; fixed with retained manager/start-task ownership, shielded bounded cleanup.",
+    "Initial static78/80; binary PDF attributes and Mac-only fixture ownership registration corrected and affected groups retested; not claiming another full80/80 run."
+  ],
+  "implementationCommit": "35ce93b9106d331472ea94f49dfd82e9968f2da4"
+}

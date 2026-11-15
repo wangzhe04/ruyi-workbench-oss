@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T14:02:16.475066+00:00",
+  "phaseStatus": "in_progress",
+  "featureStatus": "uncommitted_WIP_not_integrated_not_formally_accepted",
+  "mainHead": "f4f8ba23b1100f48b0c54335b37a3b859fab5d75",
+  "worktree": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "branch": "codex/p5-execution-receipts",
+  "base": "f4f8ba23",
+  "sources": [
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 18437,
+      "sha256": "122938c40371b755da899a5dbcfece8ddb8a875890f651a959a497f86d1d217f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 11524,
+      "sha256": "79110dbaf5c0d836fb056139feec5863ed6184f7139156688559c24d9bafcb4a"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9"
+    }
+  ],
+  "provedCurrentScope": {
+    "primaryParser": 14,
+    "independentParser": 14,
+    "primaryReadOnlyNativeProtocol": 23,
+    "independentReadOnlyNativeProtocol": 23,
+    "primaryJournalPrimitive": 16,
+    "journalSourceReviewFindingsClosed": 3
+  },
+  "proofLimits": [
+    "Protocol e2e uses test-client fsync, not product journal. Only features and read-only mouse.position plus malformed protocol cases.",
+    "macos_session.py still does not import/use ReceiptDecoder; no runtime path uses execution_journal.py.",
+    "No Node durable preparation, ACC wrapper/meta integration, saved recording substep receipts, product native continue barrier, or restart reconciliation is accepted.",
+    "No full engineering gates run for this uncommitted feature; Windows/macOS14/App/held/TCC/display/full P5 gates remain open."
+  ],
+  "nextRequiredWork": [
+    "Tighten journal reader field/stage semantics and implement safe acknowledged retention/global capacity ownership.",
+    "Integrate strict journal and ContextVar through actual ACC accepted/wrapper entries, defaults, batch step parent IDs and actual raw Thread (copy_context is drafted).",
+    "Integrate negotiated features/ReceiptDecoder into real macos_session input path under existing lock, including continue cancellation write lock, stale helper/worker identity, terminal-failure cleanup.",
+    "Cover single-request native capture/OCR route or keep its original gate explicitly open until implemented.",
+    "Implement Node last-bridge-boundary immutable actual args preparation + strict persistence, reserved MCP metadata for direct/proxy, correct observed result attribution.",
+    "Reconcile independent ACC/native receipts after root restart; preserve unknown and prevent automatic mutation replay/unsafe model or steward continuation.",
+    "Qualify end-to-end neutral/ordinary owned actions and crash/storage/cancel windows; run final engineering, independent source review and acceptance before committing implementation.",
+    "Qualify separately reviewed out-of-tree bounded rescue before any held-state root fault."
+  ],
+  "standingInstructions": {
+    "unattended": true,
+    "restoreAutomaticLockOnlyAfter": "full_P5_acceptance",
+    "doNotIntentionallyLockWithoutSpecificChoice": true,
+    "noMorePhysical你好DragOrFinderSetup": true,
+    "originalHelperUnchanged": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "runtime": {
+    "candidateHelper": "/tmp/ruyi-p5-receipts-helper",
+    "python": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "caffeinatePid": 31171
+  },
+  "thisGoalTurnClassification": "progress: uncommitted native protocol, strict parser and journal primitive implemented, tested, independently reviewed, protocol independently qualified; full feature remains WIP.",
+  "designDecisions": {
+    "native": "Explicit input-session features + per-worker incarnation. Actual InputRequest body hook emits challenge/nonce/op/raw-frame SHA256 entry, then waits at most2s for matching continue before any business cleanup/recording/action. Unique reader owns request+continue bytes, including prefetched tails. Control is stripped before business payload. Legacy single-terminal requests unchanged.",
+    "journal": "Strict exclusive invocation directory, private actual argument blobs, serialized fsync append with atomic committed watermark. pending.json preserves previous watermark across post-rename directory-fsync failures; successful final guard unlink is process-crash publication point. Cross-process EX/SH file locks serialize writer/reader snapshots; NONBLOCK then owned-regular validation prevents FIFO hangs. No power-loss claim.",
+    "node_and_ACC": "Still pending: immutable execution args after approval/privacy repair, strict Node persisted preparation, reserved tools/call _meta host-generated correlation, accepted vs actual wrapper/defaults/native frame stages, batch parent/step IDs, all context cleanup, unknown/replay guard and reconciliation. Metadata is not authorization and supplies no file paths.",
+    "compatibility": "Installed MCP SDK1.30 supports request_context.meta via model_dump; dependency range>=1,<2 means feature detect rather than assume allSDKs. New Python→old helper exact legacy unsupported only; denial/lock/malformed are indeterminate. Default old helper/App not rebuilt."
+  }
+}

@@ -1,0 +1,49 @@
+[
+  {
+    "label": "syntax",
+    "command": [
+      "node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "exitCode": 0,
+    "beforeMismatches": [],
+    "afterMismatches": [],
+    "at": "2026-11-12T00:07:36.330196+00:00"
+  },
+  {
+    "label": "build",
+    "command": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "beforeMismatches": [],
+    "afterMismatches": [],
+    "at": "2026-11-12T00:07:36.491739+00:00"
+  },
+  {
+    "label": "unit",
+    "command": [
+      "node",
+      "--test",
+      "dev-harness/unit/*.test.js"
+    ],
+    "exitCode": 0,
+    "beforeMismatches": [],
+    "afterMismatches": [],
+    "at": "2026-11-12T00:09:34.159899+00:00"
+  },
+  {
+    "label": "fast",
+    "command": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 0,
+    "beforeMismatches": [],
+    "afterMismatches": [],
+    "at": "2026-11-12T00:11:44.440477+00:00"
+  }
+]

@@ -18,11 +18,13 @@ const { killOwnTree } = require('./lib/kill-own-tree');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
-const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
+const SOURCE_WB = path.resolve(__dirname, '..', 'ruyi-workbench');
+const ROOT_TMP = path.join(os.tmpdir(), 'wcw-engine-env-runtime-e2e');
+const WB = process.platform === 'darwin' ? path.join(ROOT_TMP, 'workbench') : SOURCE_WB;
 const VENDOR_BIN = path.join(WB, 'app', 'vendor-bin');
 const RG_NAME = process.platform === 'win32' ? 'rg.exe' : 'rg';
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
-const ROOT_TMP = path.join(os.tmpdir(), 'wcw-engine-env-runtime-e2e');
+const { shellTool } = require('./lib/platform-shell-fixture');
 const HOME_P = path.join(ROOT_TMP, 'provider');
 const HOME_C = path.join(ROOT_TMP, 'claude');
 const WORK = path.join(ROOT_TMP, 'work');
@@ -59,7 +61,7 @@ function rgFreeEnvOverrides() {
   });
   return { [PATH_KEY]: kept.join(path.delimiter), RUYI_RG_PATH: '' };
 }
-const sameDir = (a, b) => path.resolve(String(a || '')).toLowerCase() === path.resolve(String(b || '')).toLowerCase();
+const sameDir = (a, b) => { const key = value => { let result; try { result = fs.realpathSync.native(String(value)); } catch { result = path.resolve(String(value || '')); } return process.platform === 'win32' ? result.toLowerCase() : result; }; return key(a) === key(b); };
 
 (async () => {
   let fail = 0;
@@ -69,7 +71,22 @@ const sameDir = (a, b) => path.resolve(String(a || '')).toLowerCase() === path.r
   try {
     fs.rmSync(ROOT_TMP, { recursive: true, force: true });
     for (const d of [HOME_P, HOME_C, WORK, CAPTURE]) fs.mkdirSync(d, { recursive: true });
-    ok(fs.existsSync(path.join(VENDOR_BIN, RG_NAME)), 'A0 随包 app/vendor-bin/' + RG_NAME + ' 在仓里');
+    if (process.platform === 'darwin') {
+      const { copyTree, verifyPackage, sha256 } = require('../ruyi-workbench/tools/macos-offline-lib');
+      for (const name of ['app', 'tools', 'resources', 'desktop-macos', 'runtime']) copyTree(path.join(SOURCE_WB, name), path.join(WB, name));
+      const input = path.resolve(process.env.RUYI_TEST_MACOS_PACKAGE || path.join(SOURCE_WB, 'dist/Ruyi-macos-arm64-slim-p6-final-source'));
+      const manifest = verifyPackage(input);
+      const distribution = require('../MACOS-PORTING/evidence/P6/final/artifacts/slim/distribution.json');
+      if (sha256(path.join(input, 'package-manifest.json')) !== distribution.inputPackageManifestSha256) throw new Error('Mac rg fixture requires the frozen verified Slim source package');
+      const relative = 'Contents/Resources/workbench/app/vendor-bin/rg';
+      const expected = manifest.files.find(file => file.path === relative);
+      const rg = path.join(input, 'Ruyi.app', relative);
+      const magic = fs.readFileSync(rg).subarray(0, 4).toString('hex');
+      if (!expected || sha256(rg) !== expected.sha256 || !['cffaedfe', 'feedfacf', 'cafebabe', 'bebafeca'].includes(magic)) throw new Error('Mac rg fixture must be the hash-bound Mach-O');
+      fs.copyFileSync(rg, path.join(VENDOR_BIN, RG_NAME)); fs.chmodSync(path.join(VENDOR_BIN, RG_NAME), expected.mode);
+      ok(true, 'A0b isolated source layout uses the actual hash-bound packaged Mach-O rg');
+    }
+    ok(fs.existsSync(path.join(VENDOR_BIN, RG_NAME)), 'A0 fixture has bundled app/vendor-bin/' + RG_NAME);
     // 预载:记下服务进程里【每一次】同步起 rg 的调用(不设耗时门槛,修前那一发 rg --version 常常 <50ms)。
     fs.writeFileSync(PRELOAD, [
       "'use strict';",
@@ -97,7 +114,7 @@ const sameDir = (a, b) => path.resolve(String(a || '')).toLowerCase() === path.r
       activeProvider: 'fake',
     }, null, 2));
     const seq = JSON.stringify([
-      { name: 'powershell_run', args: { command: 'rg --version', timeoutMs: 30000 } },
+      { name: shellTool, args: { command: 'rg --version', timeoutMs: 30000 } },
       { name: 'shell_start', args: { shellId: 'rgshell' } },
       { name: 'shell_send', args: { shellId: 'rgshell', input: 'rg --version' } },
     ]);

@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T10:50:13.417Z",
+  "stage": "Final precommit implementation, tests and documentation code review; final candidate runtime acceptance still pending",
+  "baseline": "20346fba4dcbdcf068b469421236d356dbfae129",
+  "scope": "P6-03 manual same3.0.1 build-to-build whole-App upgrade/snapshot rollback, native Mac Trash and P6-04 current Mac release gates; ad-hoc local/internal channel",
+  "sourceBindings": {
+    "README.md": "21d65cf728a6a95e0f10e81569a4305d65c29d64e9dfc153793be9f5455953e9",
+    "README_EN.md": "f6ee0fe8cbaf40942261bbdac0f85b1d30bd316c1be5aa31e44b333eefbcab61",
+    "dev-harness/fixture-home.static.e2e.js": "3df73be728b1be9fc77a6992853fa10123c3e3d01f48dce3cbbe5ae023886f33",
+    "dev-harness/long-tool-liveness-steer.e2e.js": "d6340c57f7b0ba1be31e028f3e18a91226403888c3ae367deb1f93de4d34c89c",
+    "dev-harness/macos-migration-trash.e2e.js": "5415d8c42ad6dd66b8f2e77b71a794bb0f8bf3a50d2775e3901f1343f795b5bf",
+    "dev-harness/macos-runtime-start.e2e.js": "b3e4566684d5b8a0a9c5aecbac08e6a3db75f43a1b8fdb193715941259643be3",
+    "dev-harness/macos-trial-install.e2e.js": "abe06c2235818e36a3ff5b6bbd1a507aff7d08498ba3fd17285b5ddee036fb71",
+    "dev-harness/macos-upgrade-rollback.e2e.js": "5c8d76169b39dc8a614dd7d7dc71d9e96331829cc111e43427ac76e11a80a443",
+    "dev-harness/mcp-resource-config-mask.e2e.js": "27749aed64527746657aede72f36469b811559b41422ff6ea14d4a5eff361e7a",
+    "dev-harness/process-safety.static.e2e.js": "f423ff92239ada99e5d68b43732a338369523e6b44c29515c435269eb19e1f9f",
+    "dev-harness/provider-pairing-repair.e2e.js": "d4f3189d74306be39184514758b773898021f935e83b660231e3000e0078b9d1",
+    "dev-harness/run-all.js": "18a4f4512a596aa575e2eb20e9374d29587fc9edc862276b217938c118a1156a",
+    "dev-harness/steer-interrupt.e2e.js": "252d2fdc6328363e1c42dec519018605f77ddfcd6366c6de4d62527bc77159c4",
+    "dev-harness/subagent-net-tools.e2e.js": "d53746866486cc7db3f95b39c4d043c74beb7b303f56381bbd5f00a19a6b7c7c",
+    "dev-harness/tool-dispatch.e2e.js": "c806b43b8a78d06a952eb67ba4a1109f4148f3faa0fc702b3add7c9654e9a12c",
+    "dev-harness/unit/macos-migration-trash.test.js": "43eda5394fab34d3ff6b0f9b3581eedca9a5250c7ef1ec11e4aadd0fcaefe607",
+    "dev-harness/unit/macos-offline-package.test.js": "845c5db9b3ecc31f6da94ebb15debf3290dc61c0fad4881076aa3ef7031dfc03",
+    "dev-harness/unit/mcp-bridge-hardening.test.js": "a44973c28e269097ad351a9208a25f571cc18d61d17cd11f38d9cceb03aefa41",
+    "dev-harness/workbench-self-status.e2e.js": "07ae44c4e8a72eb96030444e23368b88dcdb491ebedd64bccba1ca782d56d8ad",
+    "docs/architecture/module-dependency-graph.json": "07034a7b71f2549c73ea51a99bac7a69a400bfc5fa70cff8015822832a720003",
+    "docs/architecture/module-dependency-graph.md": "805450e2c79a07b05e00665c573df021283e4e73c914021d5f7cab4be7589612",
+    "docs/i18n/locales/en-US.json": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+    "docs/i18n/locales/zh-CN.json": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+    "facts.json": "90b39409d8cbe54cdca8bec286bd8757ebc51359f6b887159287adee89b75fe5",
+    "ruyi-workbench/app/public/locales/en-US.json": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+    "ruyi-workbench/app/server.js": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+    "ruyi-workbench/app/src/00-boot.js": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25",
+    "ruyi-workbench/app/src/13-http-router.js": "9149f3f80140d172b9655fd14aecd41a64c501ced110a9afe137715031771f03",
+    "ruyi-workbench/app/src/13u-migration-center.js": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+    "ruyi-workbench/app/src/manifest.json": "c6bfb7eab109ea2e1252e7e9d64857ff0b7b60b187b80772b25d02bc64ea882b",
+    "ruyi-workbench/app/src/module-contracts.json": "caa920ecae24acc5cedf2a85fe5cff67f03dc574505d74da1e1c1af8f6fc2d3b",
+    "ruyi-workbench/desktop-macos/INTERNAL-TRIAL.md": "373728b27f9d3125791a6007f73b158349b285b7ac1021cd9f3fedf11122c751",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt": "f59ccf7ee2e1f46c83b3c14034417873737ed92c4883ee971881addc279c1e01",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt": "a148250bbf240628e503a06f5f64a4b432e8f64dd59b1b43cc551149066632a7",
+    "ruyi-workbench/docs/MACOS-RELEASE_CN.md": "d91646c68fed94ea15b832a1d73cf2dea00132933769416135d4bb2c7adf8b72",
+    "ruyi-workbench/docs/MACOS-RELEASE_EN.md": "a6da9baa91e5397ec943e04522d6b90925e1c63cf65f11e61c07ad122041554f",
+    "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md": "60649d68c710e79223adc8a17daea23d29858cf7bdf3a109a7396276c83457fe",
+    "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md": "c7f63cc4d5c0f862781f350d1ae8a1b0f2537194235cbdeb92ce0a7b2aa42e39",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md": "316df8beddadc03e331a25c0db1db9661de9b52c1c0799b377c51d45e6c37a92",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md": "9b228d2c9526312aaf55a568cb3c87b1a38c64acc21af6a1cfdc24134136ea7e",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_CN.md": "1a8e8d756fadf50b1f96c75fd2eda17f3a135639a81bf70ed42fe67031904004",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_EN.md": "9d8d5837df0fbec10abf4e26386416bf15b141587db60dcf40ad80df6781b50d",
+    "ruyi-workbench/resources/macos-trash-helper.m": "8b7cf348e803ef98d66624d96586a016fd36b652dc74d22a680e3eab8f88d53d",
+    "ruyi-workbench/tools/build-macos-trash-helper.js": "e3ec0b78424a79f2d477fe9bbaa520f9478fede9eb1be6c4b32eaff7b1d22d0d",
+    "ruyi-workbench/tools/macos-offline-lib.js": "f1963208359447f5603225564b1bca1a82240f1ed3c03665973cd547073aac9d",
+    "ruyi-workbench/tools/package-macos-offline.js": "f6fda5a2d3c9858bd2b213b85ed5df116bd033612ce9b9d66bc50b4719b7b560"
+  },
+  "sourceBindingCount": 47,
+  "sourceFreezeNote": "Binds changed implementation/tests/docs plus generated artifacts. TASKS status and evidence archive are evolving closeout documents and excluded. Rebind exact committed blobs after commit and final DMG construction.",
+  "priorReview": "/tmp/ruyi-p603-review/code-review-before-final-tests.json",
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "blocking",
+      "finding": "Same physical App registered through ancestor aliases could bypass reference/running guards keyed by lexical path.",
+      "evidence": "/tmp/ruyi-p603-review/alias-ref-probe-before.json",
+      "resolution": "Before invoking Trash, aggregate all same canonical App targets and enforce all related running states and reference IDs. Also recognize host paths outside workbench as the logical App package.",
+      "status": "closed",
+      "validation": [
+        "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+        "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+        "unit permanent alias/ref/running test"
+      ]
+    },
+    {
+      "id": "R2",
+      "priority": "blocking",
+      "finding": "Case-sensitive .app/layout detection could fall back to trashing only the signed Resources workbench subtree.",
+      "resolution": "Resolve native canonical root; identify .app extension without case sensitivity; allow only exact complete workbench layout within an App and refuse other App subtrees.",
+      "status": "closed",
+      "validation": "/tmp/ruyi-p603-review/guards-probe.json"
+    },
+    {
+      "id": "R3",
+      "priority": "blocking",
+      "finding": "Expanded outer-App target needed lexical and parent-entry protection for data/home symlink entries which resolve outside the App.",
+      "resolution": "Guard target against lexical protected paths, native canonical paths, and canonical parent plus final entry before Trash.",
+      "status": "closed",
+      "validation": "/tmp/ruyi-p603-review/guards-probe.json"
+    },
+    {
+      "id": "R4",
+      "priority": "test correctness",
+      "finding": "Running E2E fixture used own process PID, which migrationPidAlive explicitly excludes.",
+      "resolution": "Use an actual owned live child and killOwnTree cleanup; no earlier direct execution or real Trash side effect occurred.",
+      "status": "closed",
+      "validation": [
+        "MACOS-PORTING/evidence/P6/final/trash-final-first.txt",
+        "MACOS-PORTING/evidence/P6/final/trash-final-second.txt"
+      ]
+    },
+    {
+      "id": "R5",
+      "priority": "user-facing failure handling",
+      "finding": "New Mac failure codes lacked localized messages and unsupported-platform text still claimed only Windows.",
+      "resolution": "Added three actionable failure messages in Chinese and English and generalized unsupported-platform text.",
+      "status": "closed"
+    },
+    {
+      "id": "R6",
+      "priority": "test correctness",
+      "finding": "New permanent alias unit called nonexistent invalidateConfigCache and did not reach running-guard assertions.",
+      "resolution": "Use existing mutateConfig write chain; all four focused units pass including both reference and running cases.",
+      "status": "closed",
+      "evidence": "/tmp/ruyi-p603-review/unit-current.txt"
+    },
+    {
+      "id": "URI-P1",
+      "priority": "blocking",
+      "finding": "MCP resources/read stripped POSIX leading slash from published config file URI.",
+      "resolution": "pathToFileURL/fileURLToPath encode/decode native absolute paths and Unicode/space/#/%, reject remote/nonfile/malformed/query/fragment requests, and samePathKey confines reads to masked configured config.",
+      "status": "closed",
+      "mainRealStdioEvidence": [
+        "MACOS-PORTING/evidence/P6/final/resource-uri-final-first.txt",
+        "MACOS-PORTING/evidence/P6/final/resource-uri-final-second.txt"
+      ]
+    },
+    {
+      "id": "T-CLEANUP",
+      "priority": "acceptance correctness",
+      "finding": "Native shell interruption markers alone could pass despite cleanupIncomplete=true.",
+      "resolution": "Mac MCP and native shell paths now require cleanupScope=owned-group-and-observed and cleanupIncomplete=false; actual first MCP PID/birth identity must disappear. Windows checks retained; no claim about arbitrary escaped descendants.",
+      "status": "closed",
+      "mainEvidence": "MACOS-PORTING/evidence/P6/final/liveness-cleanup-final.txt"
+    },
+    {
+      "id": "T-HOME",
+      "priority": "fixture correctness",
+      "finding": "Mac launcher fixture created fallback node under parent HOME then launched with different child HOME.",
+      "resolution": "One launchHome environment is reused for both seeding .local/bin/node and spawning the real launcher.",
+      "status": "closed",
+      "mainEvidence": "MACOS-PORTING/evidence/P6/final/runtime-start-final.txt"
+    },
+    {
+      "id": "D1",
+      "priority": "documentation accuracy",
+      "finding": "Mac guides cited trial-manifest.json as source of DMG checksum.",
+      "resolution": "Application/packager commits reference trial-manifest, image checksum references distribution.json/.dmg.sha256.",
+      "status": "closed"
+    }
+  ],
+  "finalTestDeltaReview": {
+    "serialInterrupt": "Default first file_write is an actual serial barrier and verifies its filesystem change; next two reads are honestly refused. Original contiguous pairing, steer injection and completion assertions retained.",
+    "readIslandInterrupt": "Explicit RUYI_STEER_READ_ISLAND=1 keeps three actual preexecuted read results and zero false not-executed refusals, with same pairing/steer completion checks.",
+    "cancelTransport": "Remote consumption is INFO on Mac because notifications are fire-and-forget; deterministic production-class unit verifies matching requestId/reason packet before immediate kill. No cleanup delay introduced.",
+    "cleanup": "MCP PID/birth observed disappearance plus own-group/observed complete cleanup metadata required; native bash mirrors Windows PowerShell behavior on Mac.",
+    "packagedTrash": "New candidates declare nativeTrash=true and execute installed backend via RUYI_TEST_SERVER_JS plus bundled helper via RUYI_TRASH_HELPER. Native negative guard permits only exact disposable App in final positive control; helper SHA bound, full App restored and report uses wx. Installed App signature/inventory reverified after the nested journey. Old P6-02 manifests retain prior branch and do not falsely acquire new coverage.",
+    "guiIsolation": "16 existing AppKit/screen/focus/input cases added to existing exclusive set; no previously exclusive files removed and no per-case assertion/timeout altered.",
+    "legacyContracts": "121 inventory retains facts.json equality and other sweeps; subagent wrapper remains required to delegate through desktop context to same body; pairing message honestly states1 missing saved result with execution/impact unconfirmed and no replay."
+  },
+  "independentValidation": {
+    "cancelUnit": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "log": "/tmp/ruyi-p603-review/unit-cancel-final.txt",
+      "scope": "New matching-notification test only"
+    },
+    "cancelLogicProbe": {
+      "pass": 5,
+      "fail": 0,
+      "report": "/tmp/ruyi-p603-review/cancel-notify-contract-probe.json",
+      "scope": "Production class with in-memory stdin/kill seams; no child process"
+    },
+    "exclusiveSelection": {
+      "pass": true,
+      "report": "/tmp/ruyi-p603-review/exclusive-selection-review.json",
+      "added": 16,
+      "removed": 0
+    },
+    "buildFreshness": {
+      "passed": true,
+      "log": "/tmp/ruyi-p603-review/build-check-uri-final.txt"
+    },
+    "priorScopedChecks": "Prior report preserves4 Trash units,16 refreshed package/Trash/trial units,12 clone/trial units,5 protected path probes and alias/case probes at their recorded source hashes. They are scoped evidence, not a second run of the final complete suite."
+  },
+  "mainArchivedEvidence": [
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/trash-final-first.txt",
+      "sha256": "722ecadcb188488f78668e68b0ebc27777b6363dde58db3619c6b85d2c21001c",
+      "pass": 12,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/trash-final-second.txt",
+      "sha256": "722ecadcb188488f78668e68b0ebc27777b6363dde58db3619c6b85d2c21001c",
+      "pass": 12,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/resource-uri-final-first.txt",
+      "sha256": "5adb6b43f852688ca1a9be910f22b3bac838e4e45bac414c26932bbcea6bfc7c",
+      "pass": 12,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/resource-uri-final-second.txt",
+      "sha256": "5adb6b43f852688ca1a9be910f22b3bac838e4e45bac414c26932bbcea6bfc7c",
+      "pass": 12,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/steer-serial-final.txt",
+      "sha256": "fc768d8ae8b2d8d8192400b013aeb0e3b0cc79c4ba46443c3597465764897fa4",
+      "pass": 13,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/steer-parallel-final.txt",
+      "sha256": "bfc721a660d7a4e1b425e87b807dc8fec19c0ef3a967505623235c5620ed3409",
+      "pass": 13,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/liveness-cleanup-final.txt",
+      "sha256": "1b5e42ba097c082d47f1a3c5df42669de9520afd3e589ccc55d7768b0207dede",
+      "pass": 23,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/runtime-start-final.txt",
+      "sha256": "a0850e5a72a9064493af7f24eede47a4c7ec468c87301dfbfbc7bc1ff7c09091",
+      "pass": 36,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/tool-dispatch-final.txt",
+      "sha256": "606603776cd2b37aadfa86d0ffaa603efe07f0d6edec998b5d1b44411fe2502e",
+      "pass": 43,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/self-status-final.txt",
+      "sha256": "1fb09fcdefda9050e33360cf2be2c9c147c8d976318b0873b6f01b99f607b5ca",
+      "pass": 48,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/subagent-contract-final.txt",
+      "sha256": "a33cf632ac606225898025c1340900c8a4566894e0de44327efcda523e0f1fdb",
+      "pass": 25,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/pairing-final.txt",
+      "sha256": "add712874896c24e821ba7433f225fe04c34b38ce710d40b3837572948c16013",
+      "pass": 35,
+      "fail": 0,
+      "allPass": true,
+      "executor": "main; independent reviewer read archived logs, did not run direct E2E"
+    }
+  ],
+  "baselineAssessment": {
+    "report": "/tmp/ruyi-p603-review/baseline-applicability.json",
+    "historicalRunner": "537 process-pass /55 fail /3 flaky /592 selected /14 excluded at baseline20346fba; remains a failed baseline, not silently rewritten.",
+    "dispositionUpdates": "Confirmed URI defect fixed and two pending interruption contracts now have explicit appropriate tests/main logs; runtime-start fixture and stale inventory/source message locks corrected. Missing development venv/rg, Windows fixtures, GUI qualifications and internal SKIPs still require final candidate applicability accounting."
+  },
+  "documentationReview": "/tmp/ruyi-p603-review/docs-runner-review-current.json",
+  "remainingBlockingCodeFindings": [],
+  "remainingAcceptance": [
+    "main current-candidate full runner with raw per-attempt results, failures/flakies/internal skips/applicability audited",
+    "final full unit/static/build freshness gates and exact implementation commit binding",
+    "network-denied final Full/Slim DMG builds and independent per-native signatures/provenance",
+    "serial independent final installed backend/helper native Trash, offline journeys and whole-App upgrade/snapshot rollback",
+    "final scope-limited delivery documentation and cleanup/integrity review"
+  ],
+  "notAccepted": [
+    "Developer ID/notarization/stapling and formal hardened runtime qualification",
+    "actual downloaded-origin Gatekeeper approval",
+    "clean standard user and second clean development-tool-free Mac",
+    "macOS14 runtime",
+    "formal-identity Keychain/TCC upgrade stability",
+    "arbitrary future-schema backwards compatibility",
+    "Windows same-candidate full regression and original deferred P5 environments"
+  ],
+  "reviewerDirectE2ERunsThisStage": 0,
+  "codeReviewPassed": true,
+  "conclusion": "Final current implementation/test/documentation code review passed; no remaining blocking code findings. Do not mark P6-04 or final DMG acceptance complete from this report; complete the listed final candidate and package checks."
+}

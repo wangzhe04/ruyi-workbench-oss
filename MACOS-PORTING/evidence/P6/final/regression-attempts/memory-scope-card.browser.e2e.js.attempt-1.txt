@@ -1,0 +1,45 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS C0 经典壳就绪
+PASS S1 单条卡上看得见作用域(下拉=项目)与「AI 建议:全局 · 已按保守原则改为项目」(got {"cards":1,"id":"proposal_a27a182f7b9911d7","scope":"project","note":"AI 建议：全局 · 已按保守原则改为项目（可用上方的作用域下拉改回）","kicker":"值得记住吗？","tags":["惯例"]})
+PASS S2 刷新页面后,服务端仍待确认的候选卡被画回来(同一个 proposalId、同样的说明)(got {"cards":1,"id":"proposal_a27a182f7b9911d7","scope":"project","note":"AI 建议：全局 · 已按保守原则改为项目（可用上方的作用域下拉改回）","kicker":"值得记住吗？","tags":["惯例"]})
+PASS S2b 切到别的线程再切回来,仍只有一张卡(got {"cards":1,"id":"proposal_a27a182f7b9911d7","scope":"project","note":"AI 建议：全局 · 已按保守原则改为项目（可用上方的作用域下拉改回）","kicker":"值得记住吗？","tags":["惯例"]})
+PASS S3 在卡上改回「全局」→ 说明换成「已按你的选择」(got {"cards":1,"id":"proposal_a27a182f7b9911d7","scope":"global","note":"AI 建议：全局 · 已按你的选择使用全局","kicker":"值得记住吗？","tags":["惯例"]})
+PASS S3b 「查看并保存」弹窗里的范围就是卡上选的(got {"scope":"global","disabled":false})
+PASS S3c 保存后卡片收起
+PASS S3d 落在全局目录、项目目录里没有
+PASS S3e 刷新后不再出现(候选已 settle)
+PASS S4 批量卡每一条都有作用域下拉;被降级的第 0 条有「AI 建议:全局」说明(got {"scopes":["project","project","project"],"notes":["AI 建议：全局 · 已按保守原则改为项目（可用上方的作用域下拉改回）","",""]})
+PASS S4b 每条显示「将加入核心(每轮注入)」开关,默认与单条弹窗一致(偏好/惯例开、教训关)(got ["将加入核心（每轮注入）","不加入核心","将加入核心（每轮注入）"])
+PASS S4c 正文折叠标题带字数;默认仍全勾(got ["正文（17 字）","正文（29 字）","正文（26 字）"])
+PASS S4d 刷新后批量卡同样画回来(一张、三行)(got {"cards":1,"n":3})
+PASS S4e 改了第 0 条的范围、关了第 2 条的核心、取消了第 1 条(got {"scopes":["global","project","project"],"core":["true","false","false"],"checks":[true,false,true]})
+PASS S4f 落盘如用户所选:第 0 条在全局且进核心,第 2 条在项目且不进核心,第 1 条(取消)没写(f0=true f2=true)
+PASS S5 全局记忆的修订卡作用域标签写「全局」(修前恒为「项目」)(got {"cards":1,"id":"proposal_45de1777c41ff060","scope":"","note":"","kicker":"修改记忆建议","tags":["全局","偏好"]})
+PASS S5b 确认后核心摘要随说明更新(修前仍是旧摘要)(got ["REVG-NEW 新的说明","REVG-NEW 新的说明"])
+PASS S6 revise 带 newScope:标签「项目 → 全局」与移动说明(got {"cards":1,"id":"proposal_405cf26122d147d3","scope":"","note":"确认后会把这条记忆从「项目」移到「全局」；它与其它记忆之间的关系边不能跨作用域保留，会一并移除。","kicker":"修改记忆建议","tags":["项目 → 全局","惯例"]} / 确认后会把这条记忆从「项目」移到「全局」；它与其它记忆之间的关系边不能跨作用域保留，会一并移除。)
+PASS S6b 确认后记忆真的挪到了全局目录
+PASS S7 记忆工具箱里有 seed-edit
+PASS S7b 编辑已有记忆时范围下拉可改(修前灰的),未改时没有提示(got {"scope":"project","disabled":false,"summary":"EDITDESC-1","hintHidden":true})
+PASS S7c 改了说明,核心摘要框跟着改;改了范围出现移动提示(got {"summary":"EDITDESC-2 改过的说明","hintHidden":false,"hint":"改变范围会把这条记忆移到新的范围（另存并删除原来的）；它与其它记忆的关系边不能跨范围保留，会被移除。"})
+PASS S7d 保存 → 另存到全局 + 删旧;摘要与说明一致(ge=true summary=EDITDESC-2 改过的说明)
+PASS S8 记忆面板的「每轮最多补充 N 条」读配置(设置里是 5)(got "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 5 条结果。")
+PASS X 页面没有未捕获异常()
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS E1 英文界面单条卡:作用域说明是英文、卡上界面文字零中文(got ["Worth remembering?","AI suggested Global · changed to Project by the conservative default (use the scope menu above to change it back)","Dismiss","Review and save","Convention","Global","Project","Memory scope"])
+PASS E2 刷新后画回来的卡同样是英文(got ["Worth remembering?","AI suggested Global · changed to Project by the conservative default (use the scope menu above to change it back)","Dismiss","Review and save","Convention","Global","Project","Memory scope"])
+PASS E2a 换成中文重画消息后，同一张待确认卡仍在并使用中文
+PASS E2b 换回英文重画后，同一张卡仍在、界面文字全英文
+PASS E3 英文界面批量卡:「加入核心」开关、正文字数、作用域下拉都是英文(got ["Worth remembering? (3)","AI suggested Global · changed to Project by the conservative default (use the scope menu above to change it back)","Dismiss all","Save selected (3)","Convention","Lesson","Convention","Will join core (injected every turn)","Not added to core","Will join core (injected every turn)","Body (17 chars)","Body (29 chars)","Body (26 chars)","Global","Project","Global","Project","Global","Project","Memory scope","Memory scope","Memory scope"])
+PASS E4 过期修订的失败提示是英文(稳定码 memory.proposal_stale → error.api.memoryProposalStale)(got "Apply failed: “kq seed-stale” was edited after this revision was suggested. To avoid overwriting your changes the card was not applied. Dismiss it and, if you still want a change, ask the AI to suggest it again from the latest content.")
+PASS E5 英文界面的面板提示读配置(got "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most 5 matches per turn.")
+PASS EX 英文夹具页面没有未捕获异常()
+
+MEMORY SCOPE CARD BROWSER E2E: ALL PASS

@@ -1,0 +1,83 @@
+PASS 1.1 styles.css 裸 px 字号仅剩 2 处基线锚点(实际 2:["font-size: 14px","font-size: 15px"])
+PASS 1.1 白名单:pro 基线 :root font-size:14px
+PASS 1.1 白名单:simple 基线 :root font-size:15px
+PASS 1.1 --fs-* 阶梯零 rem（本波改整像素五档）
+PASS 1.1 --fs-xs = 12px
+PASS 1.1 --fs-sm = 13px
+PASS 1.1 --fs-md = 14px
+PASS 1.1 --fs-base = 15px
+PASS 1.1 --fs-lg = 17px
+PASS 1.1 --fs-xl / --fs-2xl 两个别名已退役（122 波 §2.9；聚合 CSS 零命中，见 css-typography-debt.static 的全仓姊妹锁）
+PASS 1.1 simple 模式显式 +1px（--fs-base 16px；真浏览器实测 #promptInput 15→16）
+PASS 1.1 app.js/js 内联样式无裸 px 字号
+PASS 1.1 rem 特例 ≥3(装饰大图标 + palette 输入)
+PASS 1.2 -bg/-fg 引用数 ≥25(bg 48 + fg 137 = 185)
+PASS 1.2 背景 -bg 引用 ≥20(手写 color-mix 背景收敛)
+PASS 1.2 无手写 color-mix(--sem N%, transparent) 背景残留
+PASS 1.2 panel-2 面 -bg 豁免有注释存档
+PASS 1.2 --radius → var(--r-md) 别名
+PASS 1.2 --radius-sm → var(--r-sm) 别名
+PASS 3 icons.js 导出 icon()
+PASS 3 icons.js 导出 hydrateIcons()
+PASS 3 icons.js 用 createElementNS 构建(无 innerHTML 赋值,XSS 安全)
+PASS 3 icons.js stroke=currentColor(随文字/引擎色)
+PASS 3 icons.js 描边两档常量 1.75 / 3
+PASS 3 icons.js 字形表里零 stroke-width 字面量（描边只从两个常量出，实际残留 0）
+PASS 3 icons.js stroke-width 的两处写入各取一个常量（实际 2 处）
+PASS 3 icons.js 图标数 ≥20(实际 57)
+PASS 3 图标齐备:folder
+PASS 3 图标齐备:shield
+PASS 3 图标齐备:toolbox
+PASS 3 图标齐备:paperclip
+PASS 3 图标齐备:sparkles
+PASS 3 图标齐备:send
+PASS 3 图标齐备:stop
+PASS 3 图标齐备:settings
+PASS 3 图标齐备:stethoscope
+PASS 3 图标齐备:menu
+PASS 3 图标齐备:more
+PASS 3 图标齐备:close
+PASS 3 图标齐备:pin
+PASS 3 图标齐备:edit
+PASS 3 图标齐备:trash
+PASS 3 图标齐备:plus
+PASS 4 盾牌字形由 steward-settings.js 按档位注入（#permChip 的静态 shield 随它退役）
+PASS 4 index.html data-icon="folder" 就位
+PASS 4 index.html data-icon="toolbox" 就位
+PASS 4 index.html data-icon="send" 就位
+PASS 4 index.html data-icon="plus" 就位
+PASS 4 index.html data-icon="paperclip" 就位
+PASS 4 index.html data-icon="settings" 就位
+PASS 4 index.html data-icon="help" 就位
+PASS 4 index.html data-icon="close" 就位
+PASS 4c 'more' 字形从静态清单挪到运行时唯一使用点（左栏行尾那枚「⋯」，steward-board.js）
+PASS 4b 手动折叠侧栏的两枚钮随左栏进外框而退役（宽度改由 §7.3 的容器查询决定）
+PASS 4 技能按钮 btn-ic(sparkles 由 app.js 重建)
+PASS 4 app.js boot 调用 hydrateIcons()
+PASS 4 index.html 无 chrome emoji 🛡 残留
+PASS 4 index.html 无 chrome emoji 🧰 残留
+PASS 4 index.html 无 chrome emoji ☰ 残留
+PASS 4 index.html 无 chrome emoji ✨ 残留
+PASS 4 index.html 无 chrome emoji 📎 残留
+PASS 4 index.html 无 chrome emoji ▷ 残留
+PASS 4 index.html 无 chrome emoji ✕ 残留
+PASS 4 app.js 技能徽标 sparkles SVG
+PASS 4 app.js 发送⇄停止 SVG 切换
+PASS 4 左栏行上的会话操作(置顶/改名/删)仍是同一组 SVG 字形
+PASS 4 app.js 工具卡 tc-icon SVG(monitor/wrench)
+PASS 4 app.js 旧 tc-icon emoji 三元已清
+PASS 4 app.js 动态关闭 ✕ emoji 已换 close SVG
+PASS 4 app.js 会话项 pin/删 emoji 字面量已清
+PASS 4 保留区:onboard-drop-icon 📁 未被误换(装饰 emoji)
+PASS 5 解析到 dark/light 主题令牌块
+PASS 5 两主题令牌键集对称(dark 独有 [] / light 独有 [])
+PASS 5 语义 --ok-bg 两主题均定义
+PASS 5 语义 --ok-fg 两主题均定义
+PASS 5 语义 --warn-bg 两主题均定义
+PASS 5 语义 --warn-fg 两主题均定义
+PASS 5 语义 --danger-bg 两主题均定义
+PASS 5 语义 --danger-fg 两主题均定义
+PASS 5 语义 --info-bg 两主题均定义
+PASS 5 语义 --info-fg 两主题均定义
+
+UI V3 P1 STATIC E2E: ALL PASS

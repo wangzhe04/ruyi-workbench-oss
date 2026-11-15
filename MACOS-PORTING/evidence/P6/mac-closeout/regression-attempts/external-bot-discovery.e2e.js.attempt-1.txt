@@ -1,0 +1,27 @@
+PASS R1 discovery needs the local workbench token
+PASS R2 a foreign origin is rejected even with a valid token
+PASS R3 discovery rejects unknown fields instead of accepting authority flags
+PASS R4 discovery has no activation path of its own
+PASS R5 an owner probe returns the fixed-host tenant key and bot open_id
+PASS R6 a probe alone creates neither a connection, a state file nor a credential ledger
+PASS R7 only the three fixed official requests are made
+PASS R8 discovery prepares one generated connection id
+PASS R9 the prepared connection is disabled, inbox-only and carries the discovered identity
+PASS R10 only the app secret is stored; ingress and reply stay explicitly unready
+PASS R11 the app secret never reaches logs, responses, configuration or the saved ledger
+PASS R12 the platform access token is not logged either
+PASS R13 repeating the same discovery reuses the disabled connection instead of duplicating it
+PASS R14 verification confirms the stored identity
+PASS R15 a different platform tenant is reported as a mismatch
+PASS R16 verification never rewrites the immutable connection identity
+PASS R17 an enabled connection with this identity is reported and left untouched
+PASS R18 discovery never replaces credentials on an enabled connection
+PASS R19 a manual connection without credentials is accepted as disabled
+PASS R20 verification without a stored secret is an explicit refusal
+PASS R21 verification of an unknown connection is a 404
+PASS R22 a rejected app secret is the platform fact, not a storage failure
+PASS R23 repeated probes are rate limited instead of probing the platform forever
+PASS R24 discovery accepts only POST
+PASS R25 discovery rejects query parameters like the other setup endpoints
+
+EXTERNAL BOT DISCOVERY E2E: ALL PASS

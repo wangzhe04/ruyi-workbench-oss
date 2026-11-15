@@ -1,0 +1,25 @@
+{
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "state": "uncommitted_worktree",
+  "sha256": {
+    "ruyi-workbench/desktop-macos/DesktopService.swift": "793acd09d588c190063a97f6080e3a25fa6f3deb465f4e5c650dd6c73b5b0b45",
+    "ruyi-workbench/desktop-macos/MacHostBridge.swift": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5",
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": "da06ee4a243c542ae6d87bb032d3c87a7b7e59a62c9cf19d37a36c2b12f95ce4",
+    "ruyi-workbench/desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+    "ruyi-workbench/desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+    "ruyi-workbench/tools/build-macos-desktop.js": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+    "ruyi-workbench/app/public/app.js": "7c5d475d7f9025d2c827e5c5e0c4e9a31cf555aa9bbd2d67548d83e441190d81",
+    "ruyi-workbench/app/public/js/host-bridge.js": "ba193e8ecea0071b42ca75bbbf0b231e52b3d92262b88ec0cebc23d60d600989",
+    "ruyi-workbench/app/public/js/net.js": "e569d2a13dd2ba19d58e0bf48c9c1e4188eabbe0b3daf6bc85b264513b6acfc0",
+    "ruyi-workbench/app/public/js/notify-policy.js": "71b90f457531e53ce8e2a6a7aca8e4849c8536c08182b7974d5829ec91d54f4a",
+    "ruyi-workbench/app/public/js/quiet-card.js": "7d8c1320a526fe6524df547ca2bd7932a4c2e864f6f804d2b5d1b1f4a8230f30",
+    "ruyi-workbench/app/src/03-bridge-guard.js": "8d86c7609fef4aeed9df632291b3827b77dd475fed75c0c5304eb9a25b4d3473",
+    "ruyi-workbench/app/src/13-http-router.js": "10f506c3e941acddb40d667b0de7597261e24e0fcfb3285b6c4999d7c84b4ec6",
+    "ruyi-workbench/app/server.js": "dc10fa30b3260812a7154154b46123224390b5ec55d87b8f67f608f5660952d9",
+    "dev-harness/macos-desktop-bridge.e2e.js": "9fec5e8589037825cb56142a83979e1642c09375d1b717681d0075a2910897cf",
+    "MACOS-PORTING/probes/accept-mac-host-ui.cjs": "e8a969350f869cc924ffa9e22f25eed6cbe6951bc6263679b32be60e1ab3c46a",
+    "ruyi-workbench/app/public/js/composer-voice.js": "bc84db54415e74240540bc18eb579ed558132eacd2d72917e5f0bcd8f7eab091",
+    "dev-harness/macos-desktop-media.e2e.js": "cb6d4bce42cbe3de8fd3235bff88b9155164dea38a53559d37a4a6398b21e3cf",
+    "dev-harness/asr-config-ui.static.e2e.js": "857a1b152377c31d026293aa1d9a643274d03f2b15012272162e6aabd6d6bd5a"
+  }
+}

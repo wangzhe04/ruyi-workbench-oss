@@ -1,0 +1,49 @@
+── [U] session-notes 回注白盒契约 ──
+PASS U1 默认配置 sessionNotesInjectEnabled=true(真实历史门后默认开)
+PASS U2 显式 false 时关闭(可回退旧行为)
+PASS U3 sanitize 只认 JSON 布尔(字符串 "true" 洗回 false)
+PASS U4 显式关闭时即便有 notes 也不注入(零行为变化)
+PASS U5 null notes → 不注入
+PASS U6 空串 notes → 不注入
+PASS U7 三节全「无」→ 不注入
+PASS U8 坏 notes(无三节标题)→ 不注入
+PASS U9 注入块以非用户 authored 标记开头
+PASS U10 注入块含使用提示与 notes 正文
+PASS U11 整个注入块 ≤2000 字符且带省略计数标记
+PASS U12 守门:首条 user 含【压缩摘要】→ 跳过
+PASS U13 守门:首条 user 含 (以下是此前对话的压缩摘要) → 跳过
+PASS U14 守门:数组 content 形态同样识别
+PASS U15 守门只看首条 user(次条含标记不跳过)
+PASS U16 空/坏历史安全放行
+PASS U17 string content:贴最后一条 user,首条不动
+PASS U18 数组 content:追加 text part 不改原有 part
+PASS U19 无 user 消息 → false 且不改消息
+PASS U20 空提示 → false(不再动消息)
+── [H] 真实历史 notes 回注 ──
+SKIP H1-H3 realhist fixture 不在当前环境
+── [E] fake-openai 集成(开关开) ──
+PASS E0 workbench A listening on :60422
+PASS E1 turn1 回合 ok 且拿到 session id
+PASS E2 无 notes 文件时请求体零注入(no_notes 跳过)
+PASS E3 turn2 回合 ok
+PASS E4 开关开+预置 notes → 最后一条 user 含注入块头
+PASS E5 注入块含 notes 正文且贴在最新问题旁
+PASS E6 首条 user 不含注入块(只贴最后一条)
+PASS E7 注入不写入 providerHistory(非持久)
+── [E] fake-openai 集成(去重守门) ──
+PASS E8 workbench B listening on :60442
+PASS E9 turn1 回合 ok(首条 user 带摘要标记)
+PASS E10 turn2 回合 ok
+PASS E11 首条 user 含摘要标记 → 跳过注入(summary_in_history)
+PASS E11a 重复同类任务回合成功
+PASS E11b 当前摘要遗漏的有效教学流程与上下文仍送达模型
+PASS E11c 当前摘要已有的决定与文件不重复注入
+PASS E11d 不复活旧待办，当前摘要和用户新要求优先
+PASS E11e 差量回注沿用既有2000字符预算
+── [E] fake-openai 集成(显式关闭) ──
+PASS E12 workbench C listening on :60457
+PASS E13 turn1 回合 ok
+PASS E14 turn2 回合 ok
+PASS E15 显式关闭 → 零注入(完整回退到 105b 只写不回注)
+
+SESSION-NOTES-INJECT E2E: ALL PASS

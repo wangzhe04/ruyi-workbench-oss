@@ -1,0 +1,27 @@
+PASS isolated workbench creates a real session for checkpoint ownership
+PASS real workbench MCP proxy completes chart_image
+PASS Mac chart resolves a real CJK font without a fallback warning
+PASS real workbench MCP proxy completes write_document
+PASS real workbench MCP proxy completes write_excel
+PASS real workbench MCP proxy completes excel_chart
+PASS real workbench MCP proxy completes write_pptx
+PASS real workbench MCP proxy completes write_pdf
+PASS PDF selects a readable Mac TrueType font without a reader-font fallback
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes excel_read
+PASS real workbench MCP proxy completes pdf_read_pages
+PASS DOCX real read tool retains Chinese table content
+PASS PPTX real read tool retains Chinese table content
+PASS XLSX real read tool retains Chinese table content
+PASS PDF real read tool retains Chinese table content
+PASS all five real artifact destinations have checkpoints
+PASS overwriting an existing Word file records its exact original bytes
+PASS every Office/image write tool leaves successful audit evidence
+ARTIFACT_DIR=/tmp/ruyi-p3-02-artifacts/sample-4rQCxg
+PASS production HTTP rollback reverses the real Office tool sequence
+PASS rollback restores the existing Word file byte for byte
+PASS rollback removes the four newly created artifacts, including the edited chart workbook
+PASS owned workbench process exits during fixture cleanup
+
+MACOS OFFICE ARTIFACTS E2E: ALL PASS

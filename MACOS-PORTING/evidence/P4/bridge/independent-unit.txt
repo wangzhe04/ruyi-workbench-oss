@@ -1,0 +1,65 @@
+(node:1592) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/notify-policy.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ 提醒设置：默认值与免打扰时段
+  ✔ B1 默认关闭，且带一个显式的跨夜免打扰窗 (4.522917ms)
+  ✔ B2 免打扰跨午夜：开始时刻含、结束时刻不含 (2.078375ms)
+  ✔ B3 起止相同 = 不设免打扰；同日时段边界同样确定 (0.112333ms)
+  ✔ B4 坏钟点回落到默认值，坏 JSON 不抛 (0.102916ms)
+✔ 提醒设置：默认值与免打扰时段 (7.548625ms)
+▶ 提醒投递：去重、撤回、基线
+  ✔ C1 第一次读只建基线，不把历史待决集体炸出来 (0.528334ms)
+  ✔ C2/C3 新出现的待决恰好提醒一次，再轮询不重复 (0.125459ms)
+  ✔ C4 待决消失（终态/被处理）时撤回它那条已亮的通知 (0.085458ms)
+  ✔ C5/C6 免打扰期内的待决记为已见，出了免打扰也不补炸 (0.079583ms)
+  ✔ C7 权限被拒时一条都不发（也不假装发过） (0.078584ms)
+  ✔ C8 应用重启重建基线，不重放旧决定 (0.084625ms)
+  ✔ C9 关掉总开关时把已亮的全部撤回 (0.065167ms)
+✔ 提醒投递：去重、撤回、基线 (1.213375ms)
+▶ 121-K1 搬家：存储键升版与旧键迁移
+  ✔ D1 新键读写走 wcw.notifyPolicy.v1 (0.149ms)
+  ✔ D2 旧键 wcw.previewNeedsNotifications.v1 只迁移一次（写新键、删旧键） (0.076375ms)
+  ✔ D3 新键在场时旧键一眼都不看 (0.041042ms)
+  ✔ D4 storage 抛异常（隐私模式/禁用站点数据）时退回默认设置，不抛 (0.036625ms)
+✔ 121-K1 搬家：存储键升版与旧键迁移 (0.363625ms)
+▶ 121-K1 搬家：「提醒」设置块的绑定
+  ✔ E1 绑定时把本机偏好画到控件上，状态行走 i18n 键 (0.164833ms)
+  ✔ E2 不支持系统通知时置灰开关，状态行说清原因 (0.041125ms)
+  ✔ E3 改免打扰时段落盘；权限被拒时开关自己弹回关 (0.082083ms)
+  ✔ E4 permission=default 时先问一次；答应了才算开 (0.049459ms)
+✔ 121-K1 搬家：「提醒」设置块的绑定 (0.374875ms)
+(node:1593) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/notify-policy.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ S-15 免打扰时段只在开启本机通知时才压提示
+  ✔ 默认设置（enabled:false，时段 22:00–08:00）夜里不压；isQuietTime 本身仍说「在时段内」 (2.479333ms)
+  ✔ 开启之后时段生效：时段内压、时段外不压，跨午夜与同日段都对 (0.176459ms)
+✔ S-15 免打扰时段只在开启本机通知时才压提示 (3.038333ms)
+▶ S-14 左栏在跑行第二行说人话
+  ✔ stewardThreadToolLabel：表内走人话键，表外（含 mcp__ 机器把手）一律「一个工具」 (16.089958ms)
+  ✔ railRunningLine：不漏工具原名、不印 2s／1m 05s 缩写；没工具名给中性占位；算不出时间就只说工具 (1.870959ms)
+✔ S-14 左栏在跑行第二行说人话 (18.046125ms)
+▶ S-12 deliverableCache 只缓存瘦身后的事实
+  ✔ 瘦身前后 stewardThreadFacts 的输出逐字相同（含「模型缺席时取最后一条助手消息的 model」那条回落） (0.650916ms)
+  ✔ 瘦身后的信封里没有 messages，体积与会话长度无关 (0.132333ms)
+  ✔ 缓存有上限（LRU：命中挪到最新、满了淘汰最老的） (0.804125ms)
+✔ S-12 deliverableCache 只缓存瘦身后的事实 (1.6885ms)
+▶ S-09 桌面壳通知有前端发送方
+  ✔ quiet-card.js 在桌面壳里发 chrome.webview.postMessage({ ruyiNotification:{ title, body } })，且仍保留浏览器 Notification 回落 (0.371958ms)
+  ✔ 宿主 RuyiDesktop.cs 读的正是 ruyiNotification 下的 title／body (1.236166ms)
+✔ S-09 桌面壳通知有前端发送方 (1.686041ms)
+▶ 新增文案键：两语言齐全、占位符一致、镜像逐字节相同
+  ✔ 每个键在 zh-CN／en-US 都有非空文案，占位符名字一致 (0.224625ms)
+  ✔ 后台任务七种终态都有文案（不再显示「[chat.background.partial]」），并有通用回落 (0.044083ms)
+  ✔ docs/i18n/locales 两份镜像与 public/locales 逐字节相同 (1.071583ms)
+✔ 新增文案键：两语言齐全、占位符一致、镜像逐字节相同 (1.39575ms)
+ℹ tests 31
+ℹ suites 9
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 85.470916

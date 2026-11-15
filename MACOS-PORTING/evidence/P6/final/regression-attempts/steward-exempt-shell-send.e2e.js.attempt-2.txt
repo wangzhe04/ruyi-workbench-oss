@@ -1,0 +1,27 @@
+── (H) 原生引擎回合路径(真服务) ──
+PASS H00 workbench 起来了
+PASS H01 线程切到全自动(与用户真机那条同档)
+PASS H0 shell_start 真起了会话(asks=0, result={"ok":true,"shellId":"bis2probe","name":"bis2probe","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-exempt-shell-send-ssw6kQ","mode":"inter)
+PASS H1 ① 全自动 + shell_send 无害输入 → 不弹权限(实得 0 次)
+FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)
+PASS H2 ② 全自动 + shell_send 带 rm -rf → 仍然弹权限,事件里的 input 就是那行命令(实得 1 次,input="Set-Content -LiteralPath '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-exempt-shell-send-ssw6kQ/risky-ran.txt' -Value ran # rm -rf C:\\somewhere")
+PASS H2 ② 权限待决落盘形状 = 用户真机那几条(toolName=shell_send, tier=exec, input={shellId,input,timeoutMs};实得 {"toolName":"shell_send","tier":"exec","keys":["shellId","input","timeoutMs"]})
+FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)
+PASS H3 ② 被拦下的那行确实没执行(标记文件 risky-ran.txt 存在=false)
+PASS H4 真回合留下一条 pending 的 shell_send 权限待决(id=perm_c180bf5d18341317)
+PASS H4 停服前后那行命令都没执行(标记文件不存在)
+── (P) 管家代答路径(进程内直调 steward_decide) ──
+PASS P1 前提:待决仍是 pending、tier=exec、input 里就是那行命令(实得 status=pending, tier=exec)
+PASS P1 ② steward_decide → propose_required 且 exemptBy:'command_text'(内容判据真的收到了 shell_send 的 input;实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 shell_send 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P1 ④ message 带类别人话「删数据」,details 带 exemptCategory:'delete_data'(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 shell_send 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P2 ① 全自动线程 + shell_send 无害输入 → 管家不再以永久豁免拒(实得 {"error":"delivery_unavailable","message":"permission consumer is not live"})
+PASS P3 ① keyboard_send_keys{keys:"Hello{ENTER}"} → 不再以永久豁免拒(实得 {"error":"delivery_unavailable","message":"permission consumer is not live"})
+PASS P3 ② keyboard_send_keys{keys:"git push origin main{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 push_remote(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P3 ② keyboard_send_keys{keys:"git push{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 push_remote(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P3 ② keyboard_send_keys{keys:"rm -rf C:\\x{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 delete_data(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P4 ③ 15 个工具名 × 5 档 × 3 tier = 225 条全部 propose_required(tool_name)
+PASS P5 ④ 6 条内容/结构化命中:exemptBy、exemptCategory 与 message 里的「类别」逐条对得上
+
+STEWARD EXEMPT SHELL_SEND E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zYynKJ

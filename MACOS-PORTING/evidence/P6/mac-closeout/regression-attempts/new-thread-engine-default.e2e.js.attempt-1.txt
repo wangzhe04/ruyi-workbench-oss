@@ -1,0 +1,43 @@
+PASS 00 工作台启动
+── ① 还没有记录 ──
+PASS ①0 起点零记录(管家自己那一回合不算;got null)
+PASS ①1 A 跟全局 = Agent CLI kimi(got {"engine":"agent","agentCliType":"kimi","model":""})
+PASS ①2 「还没有上一次」不是回落,零 new_thread_engine_fallback(got 0)
+── ② 线程头 PATCH engineRoute ──
+PASS ②1 PATCH 成功(got 200)
+PASS ②2 「上次用的」记成了 X(got {"engine":"openai","providerId":"px","model":"model-x"})
+PASS ②3 B = X,不再是全局的 kimi(got {"engine":"openai","providerId":"px","model":"model-x"})
+── ③ 工作台发起的回合(source http) ──
+PASS ③1 显式入参立刻生效(got {"engine":"openai","providerId":"py","model":"model-y"})
+PASS ③2 【建线程时带显式路由本身不记】—— 「上次用的」还是 X(got {"engine":"openai","providerId":"px","model":"model-x"})
+PASS ③3 那一回合跑完
+PASS ③4 会话回到空闲
+PASS ③5 「上次用的」被这一回合改成 Y(got {"engine":"openai","providerId":"py","model":"model-y"})
+PASS ③6 C = Y(got {"engine":"openai","providerId":"py","model":"model-y"})
+── ④ source:steward 的回合 ──
+PASS ④1 D0 钉在 Z 上(got {"engine":"openai","providerId":"pz","model":"model-z"})
+PASS ④2 管家起了一个回合(channel=turn status=200)
+PASS ④3 那个回合跑完
+PASS ④4 「上次用的」【仍是 Y】—— 管家派的回合不算用户的意思表示(got {"engine":"openai","providerId":"py","model":"model-y"})
+PASS ④5 D 仍是 Y,不是 Z(got {"engine":"openai","providerId":"py","model":"model-y"})
+── ⑤ 改成跟随全局设置 ──
+PASS ⑤1 配置落盘(status=200 value=global)
+PASS ⑤2 E 回到全局的 kimi(got {"engine":"agent","agentCliType":"kimi","model":""})
+PASS ⑤3 记录本身没被抹掉,只是不读它(got {"engine":"openai","providerId":"py","model":"model-y"})
+── ⑥ 「上次用的」不可用时回落 ──
+PASS ⑥1 删掉 Y 这个端点(status=200)
+PASS ⑥2 config 里确实没有 py 了
+PASS ⑥3 F 回落全局(不是拿一个已经不存在的端点开线程;got {"engine":"agent","agentCliType":"kimi","model":""})
+PASS ⑥4 审计里多出恰好一条 new_thread_engine_fallback(0 → 1)
+PASS ⑥5 那条审计说清了「哪条线程、为什么、原来是谁」(got {"sessionId":"sess_27ba8d4c8bff99fd","reason":"provider_missing","last":{"engine":"openai","providerId":"py","model":"model-y"}})
+── ⑦ POST /api/sessions 带显式 engineRoute ──
+PASS ⑦1 G = 显式给的 X(got {"engine":"openai","providerId":"px","model":"model-x"})
+PASS ⑦2 显式那一份的 model 也照单收下(got "model-x")
+── ⑧ POST /api/config 改 activeProvider ──
+PASS ⑧1 把全局 activeProvider 改成 X(status=200)
+PASS ⑧2 「上次用的」跟着变成 X(got {"engine":"openai","providerId":"px","model":"model-x"})
+PASS ⑧3 H = X(got {"engine":"openai","providerId":"px","model":"model-x"})
+PASS ⑧4 改回 Claude/Kimi 驱动同样被记住(got {"engine":"agent","agentCliType":"kimi","model":""})
+PASS ⑧5 I 跟着回到 kimi,不再是 X(got {"engine":"agent","agentCliType":"kimi","model":""})
+
+NEW THREAD ENGINE DEFAULT E2E: ALL PASS

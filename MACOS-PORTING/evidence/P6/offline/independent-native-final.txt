@@ -1,0 +1,13 @@
+✔ native closure never borrows an unrelated executable rpath for a reachable dylib (780.380833ms)
+✔ native closure rejects an absolute rpath into a readable build-machine directory (605.949958ms)
+✔ native closure canonicalizes system prefixes before exempting an absolute dependency (814.003708ms)
+✔ a timed-out offline build probe prevents its same-group child from writing afterwards (2014.38325ms)
+✔ a nonzero offline build probe also prevents its same-group child from writing afterwards (1360.268958ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5614.834666

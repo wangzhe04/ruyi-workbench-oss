@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "author": "/root/p5_review_resumed",
+  "createdUTC": "2026-11-11T08:00:36.781596+00:00",
+  "status": "read_only_plan_not_executed",
+  "goal": "Refresh only the current-helper selected TextEdit/CFT-default/CFT-renderer/Finder scenarios via the two existing owned-application E2Es; do not rerun the old350 unrelated core assertions or use olda5/current helper equivalence as runtime proof.",
+  "candidate": {
+    "currentMainHead": "d42bba09c1b559f434600008666ce1ae20d34192",
+    "implementation": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+    "manualEvidenceCommit": "d42bba09c1b559f434600008666ce1ae20d34192",
+    "entryFreezeUntouched": true,
+    "executionRule": "Pin an isolated checkout at the final chosen committed SHA before running. If entry merges first, freeze and bind that new SHA/generated server plus helper inputs explicitly; do not run against a mutable entry worktree or silently reuse this d42 snapshot."
+  },
+  "confirmedScripts": {
+    "applications": "dev-harness/macos-input-apps.e2e.js",
+    "finder": "dev-harness/macos-ax-finder.e2e.js",
+    "incorrectNameNotPresent": "dev-harness/macos-finder-ax.e2e.js",
+    "sourceFingerprints": [
+      {
+        "path": "dev-harness/macos-input-apps.e2e.js",
+        "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+      },
+      {
+        "path": "dev-harness/macos-ax-finder.e2e.js",
+        "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3"
+      },
+      {
+        "path": "dev-harness/lib/browser-path.js",
+        "sha256": "435e5e8968ac124b43ee7cc0b03c34688940bf5fadbd0dd44fc88f5a5cb8d09d"
+      },
+      {
+        "path": "dev-harness/lib/browser-fixture.js",
+        "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525"
+      },
+      {
+        "path": "dev-harness/lib/self-isolate-home.js",
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+      }
+    ]
+  },
+  "cftAvailability": {
+    "requestedExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "realExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "currentlyExists": true,
+    "executableBitObserved": true,
+    "launcherBytes": 68624,
+    "launcherSha256": "2447c7bdea8e8ad38b52594f1ba53e18821c05445e8a07ad1cf3b0f23931d89d",
+    "bundleId": "com.google.chrome.for.testing",
+    "installedVersionFromInfoPlist": "148.0.7778.96",
+    "frameworksDirectoryExists": true,
+    "pathSources": [
+      "Current read-only filesystem inventory of /Users/jiming/Library/Caches/ms-playwright/chromium-*/chrome-mac-arm64/...; the chromium-1223 app is present.",
+      "Historical independent-selected-apps/apps-ax-default/browser-startup.json records this same real path; renderer evidence distinguishes a supplied symlink from its resolved real executable.",
+      "dev-harness/lib/browser-path.js prioritizes RUYI_E2E_BROWSER and does not scan this Playwright cache automatically."
+    ],
+    "launchRule": "Set RUYI_E2E_BROWSER to the real CFT executable above via an environment object, preserving spaces. AX mode already realpath-resolves it. Never copy/launch a naked binary without its .app Frameworks layout. Snapshot current path/version and actual CDP Browser.getVersion/bundle/argv again at execution; this filesystem check did not launch CFT."
+  },
+  "executionIsolation": {
+    "serialOnly": true,
+    "node": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+    "python": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonResolved": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/bin/python3.12",
+    "cwd": "<pinned-checkout-root>",
+    "perCaseRoot": "Fresh /tmp/p5sa-<short-id>/<d|r|f> directory outside Git; short TMPDIR below it, ideally below32 UTF-8 bytes before fixture suffixes. Never reuse a previous case home/profile/data.",
+    "perCaseEnvironment": {
+      "HOME": "<caseRoot>/h",
+      "USERPROFILE": "<caseRoot>/h",
+      "APPDATA": "<caseRoot>/a",
+      "LOCALAPPDATA": "<caseRoot>/l",
+      "WCW_DATA_DIR": "<caseRoot>/w",
+      "RUYI_HOME": "<caseRoot>/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "<caseRoot>/r",
+      "TMPDIR": "<caseRoot>/t",
+      "RUYI_REAL_HOME": "/Users/jiming",
+      "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "RUYI_P5_INPUT_REQUIRED": "1",
+      "RUYI_P5_EVIDENCE": "<new-evidence-directory>/<case-name>",
+      "RUYI_E2E_BROWSER": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    },
+    "precreate": [
+      "All case home/data/appdata/tmp directories, including <h>/AppData/Local and Roaming.",
+      "A new evidence directory per case with no prior result/log overwrite."
+    ],
+    "clearInheritedFailureFlags": [
+      "RUYI_P5_APPS_BLOCK_CDP",
+      "RUYI_P5_TEXTEDIT_FAIL_BEFORE_OBSERVE",
+      "RUYI_P5_FINDER_FAIL_AFTER_OBSERVE",
+      "RUYI_INDEPENDENT_BROWSER_MODE"
+    ],
+    "fixtureBehavior": "Both scripts load self-isolate-home before spawning and then fixtureChildEnv replaces homes/appdata with fresh isolated children. RUYI_HOME and ACC WCW_DATA_DIR are further set to each fixture root. Record effective child env; do not assume the outer HOME is the exact child HOME."
+  },
+  "runOrder": [
+    {
+      "order": 1,
+      "name": "apps-ax-default",
+      "argv": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-input-apps.e2e.js"
+      ],
+      "caseEnv": {
+        "RUYI_P5_APPS_AX": "1",
+        "RUYI_P5_APPS_AX_RENDERER": "0"
+      },
+      "refresh": [
+        "Owned new TextEdit process/document: Chinese+emoji multiline AXValue, CmdS, exact disk readback and verified close.",
+        "CFT native address bar AXValue with controlled URL readback, default window AXWebArea absence/limited metadata or truthful observed outcome.",
+        "Embedded owned-page paste/trusted click/wheels and equal-geometry ambiguity refusal stay enabled because they are part of this selected-app fixture."
+      ],
+      "historicalCountForComparisonOnly": 31
+    },
+    {
+      "order": 2,
+      "name": "apps-ax-renderer",
+      "argv": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-input-apps.e2e.js"
+      ],
+      "caseEnv": {
+        "RUYI_P5_APPS_AX": "1",
+        "RUYI_P5_APPS_AX_RENDERER": "1"
+      },
+      "refresh": [
+        "Fresh isolated CFT instance adds --force-renderer-accessibility=complete.",
+        "Page AXWebArea observation and existing bidirectional-parent membership refusal of AXValue/AXPress, with DOM value/event counters unchanged.",
+        "Preserve explicit provider limitation; do not weaken assertions to manufacture successful renderer mutation. TextEdit and embedded selected-app controls execute as part of the unchanged fixture."
+      ],
+      "historicalCountForComparisonOnly": 33
+    },
+    {
+      "order": 3,
+      "name": "finder",
+      "argv": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-ax-finder.e2e.js"
+      ],
+      "caseEnv": {
+        "RUYI_P5_FINDER_REQUIRED": "1"
+      },
+      "refresh": [
+        "Actual shared Finder owned folder/window: complete bounded AX tree and native view AXPress.",
+        "Independent native selectedValue0→1 readback.",
+        "Re-proven owned-window close while the original shared Finder process survives."
+      ],
+      "historicalCountForComparisonOnly": 10,
+      "preconditionFailure": "Do not satisfy the condition by closing existing user windows. Record the baseline and leave Finder pending if it is not otherwise windowless."
+    }
+  ],
+  "finderOwnership": {
+    "baseline": "The script compiles fixtures/macos-finder-identity.m, reads AXWindows plus all-space WindowServer windows and retains Finder PID/creation identity before opening anything. Requires only allowed AXScrollArea baseline entries and no onscreen or titled CG content window; any existing content/hidden/minimized window is a refusal.",
+    "proof": [
+      "Exactly one new CG handle and one AXWindow with exact title/geometry and unchanged Finder creation identity.",
+      "Public content URLs, canonicalized via file reference URL/symlink resolution, equal exactly the owned P5 child 中文 directory and P5 proof.txt.",
+      "No AXTabGroup, uncertain tabs or multiple tab count.",
+      "Before cleanup re-read and re-prove all identity/content/tab conditions; close only that exact bound window."
+    ],
+    "failurePolicy": "Never kill/relaunch shared Finder or close unknown/user windows. If ownership cannot be re-proved, leave the window and temporary folder intact, record their identities/paths and fail cleanup honestly."
+  },
+  "helperBuildAndBinding": {
+    "automaticBehavior": "Both existing scripts always call buildMacAutomationHelper({output:<fixtureRoot>/helper}) and explicitly pass that built helper to their MCP connection. Setting an outer RUYI_MACOS_AUTOMATION_HELPER does not override these calls. They test a fresh helper built from the pinned current source, not the installed default-helper raw binary.",
+    "buildInputs": [
+      "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "ruyi-workbench/resources/macos-automation.h",
+      "ruyi-workbench/resources/macos-automation-helper.m",
+      "ruyi-workbench/resources/macos-automation-input.m",
+      "ruyi-workbench/resources/macos-automation-events.m",
+      "ruyi-workbench/resources/macos-automation-ax.m",
+      "ruyi-workbench/resources/macos-automation-ocr.m",
+      "ruyi-workbench/resources/macos-automation-record.m",
+      "ruyi-workbench/resources/macos-automation-record-events.m",
+      "ruyi-workbench/resources/macos-automation-sequence.m",
+      "ruyi-workbench/resources/macos-automation-session.m"
+    ],
+    "buildProperties": "Production O2, min macOS14, arm64 on this host, strict warnings and development ad-hoc codesign per existing builder. Never rebuild or re-sign the authorized Ruyi.app for these three direct MCP scenarios.",
+    "evidence": "Record source hashes before/after, build invocation/toolchain/SDK and actual helper --input-session process invocation/creation identity. An external owned-descendant sampler should capture helper hashes/signature metadata and preserve an artifact copy outside Git before the harness removes its temp root. Raw helpers can differ by UUID/signature; any body-equivalence argument is a separate bounded same-source artifact check, not an olda5 acceptance substitute.",
+    "currentInstalledHelperReference": {
+      "path": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "purpose": "Read-only reference only; no claim these scripts directly execute this raw artifact."
+    }
+  },
+  "evidenceCollection": {
+    "directory": "New selected-app-current-candidate evidence subtree chosen by the main executor; this plan writes no run evidence and changes no entry freeze.",
+    "perCase": [
+      "invocation.json with committed SHA, exact argv/cwd/env, case directory and start/end time",
+      "unaltered stdout/stderr with natural exit/signal and PASS/FAIL/SKIP/ALL PASS counts",
+      "source before/after hash snapshots, Node/Python/OS/SDK/app version metadata",
+      "owned Node/MCP/helper/TextEdit/CFT process creation identities sampled independently, with final absence receipts",
+      "actual helper bytes/hash/signature reference preserved outside Git before normal root removal",
+      "apps: browser-startup.json and selected-apps.json, including requested/resolved path, actual bundle/CDP version/argv and AX outcomes",
+      "Finder: baseline.json, owned-identity.json, tree.json, action.json and cleanup.json",
+      "cleanup: actual clipboard restoration, text/window/profile/process receipts and any unconfirmed state"
+    ],
+    "cleanupConstraints": "The apps harness terminates only retained owned TextEdit/CFT identities, waits for MCP cleanup, refreshes clipboard ownership then quits its snapshot fixture, and removes the browser profile only after observed browser descendants are absent. It retains the root when browser cleanup is unconfirmed. Finder retains uncertain ownership artifacts. An outer runner must retain logs/results regardless of outcome and must not blindly delete preserved state.",
+    "existingHarnessRetentionLimit": "The apps fixture does not retain its entire temp root for every functional failure; browserClean=true can still remove it in finally. Therefore collect logs/source/process/helper receipts continuously and copy small useful owned notes/results before removal if required. Never treat a missing post-failure root as proof of successful cleanup.",
+    "firstFailureRule": "Run each positive case once, serially. On an unexpected failure stop subsequent cases, retain the first invocation/log/cleanup state, diagnose read-only and explicitly record any approved later rerun as a new attempt. Do not auto-retry or overwrite failed artifacts."
+  },
+  "preflightBeforeAnyGui": [
+    "Acquire GUI ownership from the main executor; desktop stays awake/unlocked.",
+    "Verify the pinned checkout is clean for tested dependencies and generated server agrees with its source; refresh this plan snapshot if a newer implementation is deliberately selected.",
+    "Verify the Python runtime/DYLD paths and process supervisor executable exist; do not discover a missing supervisor only after opening apps.",
+    "Verify CFT real binary and Frameworks layout; capture current TextEdit/Finder/CFT versions without changing user app state.",
+    "Establish Finder baseline read-only before its positive run; existing user windows mean pending, not permission to close them.",
+    "Use current TCC grants; if readiness is missing, record refusal and arrange a separate explicit recovery interaction rather than silently SKIP."
+  ],
+  "acceptanceScope": "Three source-bound current-helper selected-scene executions with0 unexpected failure/skip and verified owned cleanup. These refresh the affected application path only; they do not rerun or re-credit the historical350 core assertions, the old App-origin AX host scenario, normal approval/checkpoint entry, TCC revoke, OS action-time lock, display hardware/OS/Windows or formal identity gates.",
+  "prohibitions": [
+    "No access to or closure of UserNotificationCenter.",
+    "No user browser/profile changes, no killing shared Finder or existing user TextEdit/browser processes.",
+    "No OS lock, TCC changes, App re-signing, product source edits or entry-freeze mutation for this plan."
+  ],
+  "executionPerformed": false,
+  "guiUsed": false,
+  "e2eRun": false,
+  "productSourceModified": false,
+  "entryFreezeModified": false,
+  "phaseStatus": "in_progress"
+}

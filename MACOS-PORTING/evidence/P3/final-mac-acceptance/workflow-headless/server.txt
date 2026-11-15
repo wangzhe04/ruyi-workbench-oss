@@ -1,0 +1,5 @@
+如意 Ruyi 3.0.1  (launch: node, overlay aedd9340de36)
+UI: http://127.0.0.1:63428/
+Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/workbench
+Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/workbench/generated/workbench.mcp.json

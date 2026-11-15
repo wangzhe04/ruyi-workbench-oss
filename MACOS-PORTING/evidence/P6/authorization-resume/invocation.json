@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-11-13T02:14:40.684Z",
+  "baseCommit": "4e8f1519c8af2b3d2c0f1e61e93410c09f2042e1",
+  "userInstruction": "我回来了，已授权，继续",
+  "existingPermissionTarget": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01/Ruyi.app",
+  "observation": "System Settings Ruyi screen recording on; Reveal in Finder selected this old Slim candidate. User not sure which App was authorized.",
+  "screensaverIdleTime": "300",
+  "priorSleepReceipt": {
+    "status": "request_accepted",
+    "queuedAt": "2026-11-12T16:09:11.709197+00:00",
+    "delaySeconds": 45,
+    "observedAsleep": false,
+    "requestedAt": "2026-11-12T16:09:56.717749+00:00",
+    "exitCode": 0,
+    "returnedAt": "2026-11-12T16:09:56.741497+00:00"
+  }
+}

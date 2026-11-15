@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_balanced_input_receiver_source_review",
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-11T23:49:49.590932+00:00",
+  "status": "passed_exact_fixture_source_for_controlled_stageA_pending_complete_harness_review_freeze_and_runtime",
+  "reviewedSource": {
+    "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-balanced-input-window.m",
+    "bytes": 14511,
+    "sha256": "c740e4aade3a7734d444f1cc2598c03ed0deae2a890e33c6d6964b6a175c0bdf"
+  },
+  "referenceDesign": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/root-input-hard-abort-next-stage-design-v1.json",
+    "bytes": 32409,
+    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5"
+  },
+  "priorReviewPreserved": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-window-source-review-v1.json",
+    "bytes": 12891,
+    "sha256": "dbdc7083a408a99e3bb4cae3702df2b56a660862bc54b8f0a7be24b8252affae"
+  },
+  "actions": "Read-only source and diff/rereview,hash verification only.No source edits,compile,tests,native helper,GUI,event posting,process samples,TCC/lock/keepawake changes.Only this exclusive0600 review JSON written.Strict clang success is parent-reported,not reviewer-executed.",
+  "scope": "Passive owned-window balanced middle/button2 receiver;maximum3 fresh observer intervals,one pair per interval;no injection,rescue,held-root fault or production feature change.FullP5open/default-off/no-lock-no-revoke/no-physical-demo unchanged.",
+  "closedFindings": [
+    {
+      "id": "BR1",
+      "state": "closed_by_static_rereview",
+      "repair": "State.hit now uses actual NSWindow windowNumberAtPoint:belowWindowWithWindowNumber:0 with own CG ownerPID/geometry validation;nonzero-layer overlays no longer skipped by a manual layer0 list."
+    },
+    {
+      "id": "BR2",
+      "state": "closed_by_static_rereview",
+      "repair": "Fixed4098-byte fgets buffer,oversize-line drain,op string<=16/request string<=64 validation,dispatch_sync reader backpressure at most one queued command.Serialized journal line<=96KiB,total<=4MiB,sequence<=256;receipt array<=128.Fail marks journal unhealthy/disarms rather than continuing writes.No arbitrarily large caller field echoed."
+    },
+    {
+      "id": "BR3",
+      "state": "closed_by_static_rereview_for_pipe_close",
+      "repair": "SIGPIPE ignored before balanced reporting;puts/fflush error sets stdoutOK=false and later stdout writes stop.Independent journal/input observation remains active;stdin EOF does not terminate possibly non-neutral NSApp.",
+      "limit": "Blocking filesystem/stdout syscall latency is not bounded or runtime-qualified;this passive source is not an autonomous release watchdog.Channel loss still invalidates harness success."
+    },
+    {
+      "id": "BR4",
+      "state": "closed_by_static_rereview",
+      "repair": "arm.pid validated as NSNumber,nonboolean,integral intValue-equivalent and>1 before admission;malformed array/dictionary/NSNull cannot receive intValue in arm condition.liveBirth acquisition independently checks NSNumber type."
+    },
+    {
+      "id": "BR5",
+      "state": "new_intermediate_finding_closed_before_final",
+      "finding": "An intermediate repair accepted missing/unreadable PID if supplied birth was empty and Birth(pid) also returned empty.",
+      "repair": "Current liveBirth read once;command birth is NSString length1..48;liveBirth.length>0 required and exact equality before arm.No empty process-identity attestation."
+    }
+  ],
+  "observerIntervalAssessment": {
+    "freshness": "usedNonces retains at most3 and rejects reuse even after disarm.Every successful arm freezes actual State,systemUptime start and start+5s deadline,expected PID/nonempty birth.Receipts reset per case;durable journal preserves prior intervals and global noise.",
+    "matching": "Requires own event.window,middle/button2,down/up order,exact expected sourcePID and current birth,raw event present,flags0,exact frozen center point,event.timestamp>=armStart and<=deadline plus current systemUptime<=deadline.Only one matched down/up per arm;duplicates/unmatched inputs are noise.",
+    "nonceMeaning": "Nonce labels observer interval only;no test nonce is present in production CGEvent,and no authenticity/capability proof is invented.",
+    "remainingCallerRequirement": "Maximum3 intervals is a bounded fixture capability,not proof3 actual pairs were authorized/executed.Harness must enumerate and validate every arm/nonce/event,require its planned actual pair count and zero unexpected input,not inspect only last reset counters."
+  },
+  "identityAndStateAssessment": {
+    "receiver": "Self PID/birth/PPID/PGID/SID/windowNumber/title/CGowner/frame reported.Emitter sourcePID and Birth(pid),CG/NSEvent timestamp,button,flags and location retained in every receipt.Harness must bind exact native-worker birth/identity to receipt journal,not merely receiver expectedPID field.",
+    "state": "HID+combined buttons0..2,any key0..127,relevant generic+device modifier mask,actual TIS id/type,frontmost,geometry and real hit observed without modifying input source.",
+    "sourceLimits": "State snapshots are observations,not atomic WindowServer transactions,per-source hardware ownership or proof no concurrent physical input.Expected TIS/frame/front/hit must be compared to arm snapshot by harness;matched itself checks point/flags/identity/time/order only."
+  },
+  "journalAssessment": {
+    "creation": "Exclusive O_CREAT|O_EXCL|O_NOFOLLOW|O_APPEND|O_CLOEXEC,mode0600,immediate private owned nonsymlink parent,opened parent directory fsync,write loop/EINTR handling then fsync before normal stdout report.",
+    "bounds": {
+      "lineBytes": 98304,
+      "totalBytes": 4194304,
+      "rows": 256,
+      "retainedReceipts": 128,
+      "commandBufferBytes": 4098,
+      "maxNonceIntervals": 3
+    },
+    "failure": "Write/fsync/capacity failure sets journalOK=false and disarms.No rescue/input post or silent fallback.Journal stops accepting further writes;stdout normal reports post-fsync result unless channel failed.",
+    "acknowledgementBoundary": "Raw disk row journalOK is serialized before that row write/fsync;an error can leave a complete-looking true disk row while stdout acknowledgement is false.Harness must require exact post-fsync positive ACK or final healthy journal seal and fail on any negative/error/lostchannel regardless of disk field.armed in error row may reflect pre-error value;do not ignore journalOK=false.",
+    "directoryLimit": "Fresh private harness root retained by exact identity is assumed.Open path/lstat are not a complete adversarial ancestor/parent replacement defense;no general multitenant hardened-store acceptance claimed."
+  },
+  "noInputInjectionAssessment": "No CGEventPost/CGEventPostToPid or event creation/keyboard/clipboard/TISSelectInputSource/TCCrequest/lock/notification code found.Source creates and activates only its own plain blue window and swallows own input.No historical Shift/left cleanup,drag,FInder or physical demonstration is invoked.",
+  "mandatoryCompleteHarnessChecks": [
+    "Real admitted provider list_windows obtains target from same actual ACC/native worker;actual default permission flow,actual root->ACC->native macro input_sequence;no direct unadmitted business API or fabricated parent turn.",
+    "Before dispatch require journal healthy,actual receiver identity/window stable,arm success with source metadata known,all button/key/modifier baselines neutral,front/geometry/hit correct and actual source unchanged.",
+    "For every input event require raw exact native sourcePID+nonempty birth matches committed native receipt and original worker;compare current State frame/front/hit/TIS against arm snapshot,point/flags/time/order/pair count/zero noise.HID/combined must actually be neutral after pair;no matched-only success.",
+    "Use post-fsync successful acknowledgements and final healthy seal plus full raw journal,not pre-fsync disk journalOK alone.All interval entries and errors retained;source/pipe/journal failure prevents passing.",
+    "Require native/ACC terminals and exact root strict history delivery ACK before next provider request,effect audit with call/step attribution,cold reopen without input replay.No process-only/native-only success as root success.",
+    "No injected fault/kill while input pending;allow scheduled up and production finally/watchdog to settle.Keep own receiver/root alive until neutral;only then birth-verified cleanup.No unqualified global release or automatic retries.",
+    "Complete harness independent source review and final exact source/artifact freeze still needed before authorized serial ordinary runtime.Native/GUI must never overlap other qualification."
+  ],
+  "confirmedRemainingBlockingFixtureSourceFindings": [],
+  "qualificationDecision": "Exact c740e4 fixture source can proceed to complete stageA harness review/freeze and authorized normal balanced qualification under the stated controlled predicates.This is source approval only.No actual event attribution,state behavior,pipe/fsync fault,GUI acceptance or rescue capability was exercised.",
+  "constraintsPreserved": [
+    "Default-off candidate/fullP5in_progress",
+    "No held-root fault before independently reviewed and actually qualified bounded out-of-tree rescue;aggregate physical/HID state insufficient to prove external release hardware noninterference",
+    "No intentional lock/TCCrevoke;no repeat physical你好/drag/Finder",
+    "All original10local+4external,background/API0/resume/CLI/manual/schema2/reconciliation/retention/globalquota requirements retained"
+  ],
+  "finalSourceHashMustRemain": "c740e4aade3a7734d444f1cc2598c03ed0deae2a890e33c6d6964b6a175c0bdf"
+}

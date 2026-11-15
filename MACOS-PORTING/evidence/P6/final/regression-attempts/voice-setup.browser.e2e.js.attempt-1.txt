@@ -1,0 +1,33 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS V0 工作台视角
+PASS V1a 工作台输入框里有一枚待开启的麦克风(data-state="setup")
+PASS V1b 提示说清「还没开启、点这里去设置」,可访问名仍是「语音输入」(实测 {"state":"setup","title":"语音输入还没开启：点这里去设置里选一个语音识别模型","label":"语音输入","pressed":"false"})
+PASS V1c 管家视角
+PASS V1d 管家输入框里也有一枚待开启的麦克风
+PASS V1e 回到工作台视角
+PASS V2 设置页打开、落在「语音识别」页签(2026-10 起独立成页),「语音识别」那一栏无候选也在,带添加口(实测 {"hasAdd":true,"focused":"asr-add-model"})
+PASS V2b 焦点落在「模型名」输入框(实测 activeElement.className=asr-add-model)
+PASS V3 添加并启用:盘上 config.json 里服务商多了一条带 asr 能力的模型、语音识别选中了它(实测 asr=fake/fake-asr 模型 {"id":"fake-asr","label":"fake-asr","caps":["asr"]})
+PASS V3b 整份服务商回写后,持久凭据解密仍为逐字相同的原值
+PASS V3c 原来那个聊天模型还在
+PASS V4a 工作台那一枚当场变成能录(实测 {"state":"idle","title":"语音输入：点一下开始说，再点一下结束；Esc 取消。每停顿一下，刚说的那句就填进输入框，不会自动发送","label":"语音输入","pressed":"false"})
+PASS V4b 设置页那一栏变成选择器、选中了刚添加的模型
+PASS V4d 添加后再点底部「保存」,那条语音模型还在(实测 {"id":"fake-asr","label":"fake-asr","caps":["asr"]} asrModel=fake-asr)
+PASS V4e 再打开设置,选择器里仍选中它
+PASS V4c 管家那一枚也当场变成能录
+PASS V5a 回到工作台
+PASS V5b 设置页选择器切到「不启用」
+PASS V5 麦克风回到待开启、没被拆掉(实测 {"state":"setup","title":"语音输入还没开启：点这里去设置里选一个语音识别模型","label":"语音输入","pressed":"false"})
+PASS V6a 语音词库一块挂在上面几栏之后:个人词空、计数 0、内置表开着并报条数(实测 {"after":true,"count":"共 0 个词","base":true,"baseText":"同时用内置常用词表（472 个中英文技术、办公、AI 与游戏引擎术语；只在一句话里像是把它们听错了时才提示）","text":""})
+PASS V6b 点「保存词库」:盘上 voice-lexicon.json 两条、计数变 2、认不出的那行跳过(实测 {"hb360":{"term":"HB360","heard":["爱趣比三六零"],"src":"manual","n":0,"at":"2026-11-12T11:08:44.083Z","off":false},"如意":{"term":"如意","heard":["如艺","如一"],"src":"manual","n":0,"at":"2026-11-12T11:08:44.083Z","off":false}})
+PASS V6c 文本框换成服务端规整后的那一份
+PASS V6d 内置表开关选中即存:盘上 base:false
+PASS V6e 「查看内置词表」展开只读全文(实测 6899 字)
+PASS V6f 重画上面几栏不冲掉没存的字、词库一块只有一份(实测 {"n":1,"text":"HB360 = 爱趣比三六零\n如意 = 如艺, 如一\n还没存的词"})
+PASS V6g index.html 零静态词库标记
+PASS V9 页面没有未捕获异常(无)
+VOICE SETUP BROWSER E2E: ALL PASS

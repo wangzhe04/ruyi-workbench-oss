@@ -1,0 +1,42 @@
+PASS actual enabled Workbench helper begins ready with native screenshot visible
+PASS baseline confirms owned foreground focus before starting a recording
+PASS baseline confirms controlled recording before dispatching its one input
+PASS baseline confirms the actual balanced click sequence before collection
+PASS baseline counted down/up receipts make any later erroneous replay observable
+PASS baseline confirms complete collection and actual saved file before replay scenarios
+PASS baseline actually records and saves one owned balanced click sequence for later hidden replay
+PASS ready baseline advertises actual loaded native capability families
+PASS same captured macro replays successfully through ordinary default-mode session before refusal controls
+PASS scenario service and all observed owned process identities exit completely
+PASS actual missing helper makes Workbench capture unavailable and removes its native screenshot
+PASS real ACC missing-helper diagnostic reports capture/input/record/AX unavailable
+PASS actual missing helper omits native capture/input/record/AX/OCR-screen families from compact catalog
+PASS READINESS_MISSING refuses through the ordinary provider proxy with dependency_missing
+PASS READINESS_MISSING has no receiver input or native input/focus dispatch audit
+PASS READINESS_MISSING leaves no pending permission
+PASS scenario service and all observed owned process identities exit completely
+PASS actual ACC registry removes only the requested sequence while normal macro dispatcher remains available
+PASS new hidden-registry worker binds a fresh native-session reference to the same owned receiver
+PASS READINESS_HIDDEN_RECORDING refuses through the ordinary provider proxy with tool_unavailable
+PASS READINESS_HIDDEN_RECORDING has no receiver input or native input/focus dispatch audit
+PASS READINESS_HIDDEN_RECORDING leaves no pending permission
+PASS real hidden registry refuses nested batch input rather than dispatching it
+PASS hidden nested batch has no actual receiver input or sequence audit
+PASS scenario service and all observed owned process identities exit completely
+PASS desktop Node master switch filters the catalog while standalone ACC registry remains unmodified
+PASS desktop generated CLI configuration independently contains product-generated exact hidden tool names
+PASS READINESS_DESKTOP_OFF refuses through the ordinary provider proxy with tool-disabled
+PASS READINESS_DESKTOP_OFF has no receiver input or native input/focus dispatch audit
+PASS READINESS_DESKTOP_OFF leaves no pending permission
+PASS scenario service and all observed owned process identities exit completely
+PASS command Node master switch filters the catalog while standalone ACC registry remains unmodified
+PASS command generated CLI configuration independently contains product-generated exact hidden tool names
+PASS command-off keeps independent desktop reads available
+PASS READINESS_COMMAND_OFF refuses through the ordinary provider proxy with tool-disabled
+PASS READINESS_COMMAND_OFF has no receiver input or native input/focus dispatch audit
+PASS READINESS_COMMAND_OFF leaves no pending permission
+PASS scenario service and all observed owned process identities exit completely
+PASS receiver and all observed owned process identities exit
+PASS fixture restores the original input source after all readiness scenarios
+
+MACOS NATIVE READINESS E2E: ALL PASS

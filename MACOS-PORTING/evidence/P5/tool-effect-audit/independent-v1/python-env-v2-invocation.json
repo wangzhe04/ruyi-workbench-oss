@@ -1,0 +1,22 @@
+{
+  "label": "python-env-v2",
+  "argv": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "mcp/ai-computer-control/tests/smoke_batch_invocation.py"
+  ],
+  "cwd": "/tmp/ruyi-p5-effect-worktree",
+  "envOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T12:53:35.907956+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "nodeVersion": "v24.15.0",
+  "retry": true,
+  "priorAttempt": "python loader failure before test startup; parent verified loader correction",
+  "finishedAt": "2026-11-11T12:53:36.390241+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 0.46738745900802314,
+  "logSha256": "dfd4acabb3cc2a716c75ce069816b8c8c33ff016d3365d59426d3b5807d1cc53"
+}

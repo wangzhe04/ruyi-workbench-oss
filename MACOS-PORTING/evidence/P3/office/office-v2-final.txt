@@ -1,0 +1,166 @@
+[11/07/26 02:58:31] WARNING  Matplotlib is building the     font_manager.py:1249
+                             font cache; this may take a                        
+                             moment.                                            
+[11/07/26 02:58:37] INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/PrivateFramewo                     
+                             rks/FontServices.framework/Res                     
+                             ources/Reserved/PingFangUI.ttc                     
+                             : FT_Open_Face (ft2font.cpp                        
+                             line 200) failed with error                        
+                             0x02: unknown file format                          
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/LastReso                     
+                             rt.otf: tuple indices must be                      
+                             integers or slices, not str                        
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Apple                        
+                             Color Emoji.ttc: Non-scalable                      
+                             fonts are not supported                            
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Suppleme                     
+                             ntal/NISC18030.ttf:                                
+                             Non-scalable fonts are not                         
+                             supported                                          
+                    INFO     generated new fontManager      font_manager.py:1848
+                    WARNING  Ignoring fixed x limits to fulfill    _base.py:2142
+                             fixed data aspect with adjustable                  
+                             data limits.                                       
+                    WARNING  findfont: Failed to find font  font_manager.py:1666
+                             weight bold for Heiti TC, now                      
+                             using 400.                                         
+                    WARNING  Ignoring fixed y limits to fulfill    _base.py:2134
+                             fixed data aspect with adjustable                  
+                             data limits.                                       
+# F2 write_document TABLE perf
+  [ok  ] 300-row TABLE ok
+  [ok  ] 300-row TABLE under 5 s
+  [ok  ] table has 301 rows x 4 cols
+  [ok  ] last cell text read back
+# F3 JSON cell types through the MCP schema
+  [ok  ] write_excel accepts numbers/null/bool
+  [ok  ] int stays numeric
+  [ok  ] null is an empty cell
+  [ok  ] float stays numeric
+  [ok  ] bool stays bool
+  [ok  ] write_pdf accepts numbers/null
+# F4 write_pdf tables
+  [ok  ] pdf table 5 cols x 40 chars ok
+  [ok  ] pdf table 5x40 stays inside the page
+  [ok  ] pdf table 3 cols x 80 chars ok
+  [ok  ] pdf table 3x80 stays inside the page
+  [ok  ] pdf table 2 cols x 240 chars ok
+  [ok  ] pdf table 2x240 stays inside the page
+  [ok  ] pdf table 5 cols x 240 chars ok
+  [ok  ] pdf table 5x240 stays inside the page
+  [ok  ] 400 unbroken ASCII chars wrap
+  [ok  ] pdf markdown (10./11., bold, link, GFM table) ok
+  [ok  ] pdf has no literal ** / pipe table
+  [ok  ] pdf keeps 10. and 11.
+# F6 write_excel number formats
+  [ok  ] write_excel ok
+  [ok  ] year column not thousands-separated
+  [ok  ] phone column not thousands-separated
+  [ok  ] postcode column not thousands-separated
+  [ok  ] real quantity still gets #,##0
+  [ok  ] leading-zero id stays text
+  [ok  ] year values stay numeric
+  [ok  ] year-looking values without a header hint
+  [ok  ] $ header gets a dollar format
+  [ok  ] invalid sheet name gets a hint
+# F8 markdown-lite structure (docx)
+  [ok  ] write_document markdown ok
+  [ok  ] GFM table becomes exactly one real table
+  [ok  ] table has header + 2 rows
+  [ok  ] no literal ** or backticks left
+  [ok  ] '*' and '+' become bullets
+  [ok  ] indented '-' becomes nested bullet
+  [ok  ] **bold** is a bold run
+  [ok  ] *italic* is an italic run
+  [ok  ] link is a real hyperlink
+  [ok  ] 4 numbered paragraphs each carry numPr
+  [ok  ] second list uses a different numId (restarts)
+  [ok  ] restart via startOverride
+  [ok  ] legacy TABLE: block still works
+  [ok  ] blank line does not split a list unless it restarts at 1
+  [ok  ] inline: snake_case / 2*3*4 untouched
+# F12 chart_image layout
+  [ok  ] pyplot loads lazily
+  [ok  ] long-label bar ok and needed a layout step
+  [ok  ] 10 x 8-CJK tick labels do not overlap (wrapped)
+  [ok  ] 40 tick labels do not overlap (thinned)
+  [ok  ] contrast text: dark slice -> white
+  [ok  ] contrast text: light slice -> dark
+  [ok  ] pie with small slices ok
+  [ok  ] negative pie value is a clear error
+  [ok  ] scatter with numeric x ok
+  [ok  ] scatter with wrong-length x is rejected
+  [ok  ] duplicate category labels render
+  [ok  ] 40x3 bar renders
+# F13 write_pptx layout
+  [ok  ] pptx ok
+  [ok  ] every slide has a title placeholder
+  [ok  ] content title text lives in the placeholder
+  [ok  ] 11 bullets -> no orphan slide (each >= 3)
+  [ok  ] bullets are real paragraph bullets, not typed glyphs
+  [ok  ] 5x11 table: every table bottom above the footer
+  [ok  ] table columns proportional, not equal
+  [ok  ] table fits slide width
+  [ok  ] 4K image downscaled to <= 2000 px
+  [ok  ] deck stays small
+# F15 locked target / missing dependency
+  [ok  ] docx: locked file -> ok:false + code
+  [ok  ] docx: hint says close the file / pick another path
+  [ok  ] docx: original bytes untouched, no temp litter
+  [ok  ] xlsx: locked file -> ok:false + code
+  [ok  ] xlsx: hint says close the file / pick another path
+  [ok  ] xlsx: original bytes untouched, no temp litter
+  [ok  ] pdf: locked file -> ok:false + code
+  [ok  ] pdf: hint says close the file / pick another path
+  [ok  ] pdf: original bytes untouched, no temp litter
+  [ok  ] pptx: locked file -> ok:false + code
+  [ok  ] pptx: hint says close the file / pick another path
+  [ok  ] pptx: original bytes untouched, no temp litter
+  [ok  ] png: locked file -> ok:false + code
+  [ok  ] png: hint says close the file / pick another path
+  [ok  ] png: original bytes untouched, no temp litter
+  [ok  ] missing docx: install-hint envelope
+  [ok  ] missing openpyxl: install-hint envelope
+  [ok  ] missing pptx: install-hint envelope
+  [ok  ] missing reportlab: install-hint envelope
+  [ok  ] missing matplotlib: install-hint envelope
+# io helpers
+  [ok  ] io_failure maps WinError 32
+  [ok  ] io_failure maps winerror 32 OSError
+  [ok  ] plain error keeps its text
+# review round: markup / excel / pptx / replace retry
+  [ok  ] one-char bold runs: **A** 或 **B**
+  [ok  ] one-char bold runs: **是**和**否**
+  [ok  ] one-char __bold__ runs
+  [ok  ] multi-char bold unchanged
+  [ok  ] 4-backtick fence keeps inner ``` lines as code
+  [ok  ] '- - -' / '* * *' are rules, '- a' is a bullet
+  [ok  ] inline code regex is linear on a long backtick run
+  [ok  ] code spans still parse
+  [ok  ] write_excel survives inf / 1e999 / nan / control chars
+  [ok  ] non-finite numeric strings stay text
+  [ok  ] '2024_01' / '3,14' / '1,2,3' are not coerced to numbers
+  [ok  ] '=== 汇总 ===' / '= 说明' are text, '=SUM(1,2)' is still a formula
+  [ok  ] control characters are stripped per cell
+  [ok  ] real thousands / percent strings still become numbers
+  [ok  ] write_pptx table rows wider than headers do not crash
+  [ok  ] wide rows are truncated to the header width, short rows padded
+  [ok  ] the truncation is reported
+  [ok  ] atomic_save retries a transient WinError 32 and succeeds
+  [ok  ] retry backs off briefly
+  [ok  ] a persistent lock still surfaces (then maps to file_locked)
+  [ok  ] no orphan temp file after the failure
+  [ok  ] a PermissionError without a sharing-violation winerror is not retried
+# lazy heavy imports
+  [ok  ] server import does not load matplotlib / pptx / reportlab
+  [ok  ] diagnostics still reports the optional libs
+
+OFFICE-V2 SMOKE: ALL PASS

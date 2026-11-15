@@ -1,0 +1,635 @@
+{
+  "schema": 1,
+  "freeze": "foreground-subagent-freeze-v3.json",
+  "freezeSha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863",
+  "bindingsAfter": [
+    {
+      "kind": "sources",
+      "path": "README.md",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "README_EN.md",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/desktop-execution-root.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/durable-state-inventory.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/facts.static.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/fixtures/execution-image-preload.cjs",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/fixtures/execution-image-server.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/fixtures/execution-node-preload.cjs",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/browser-cleanup.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/browser-fixture.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/browser-path.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/browser-profile-scope.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/composer-race-fixture.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/count-fsp-open-preload.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/external-bot-fixtures.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/external-channel-delivery-preload.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fake-anthropic-provider.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fake-cold-shim.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fake-stream-component.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fixture-home-guard.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/fixture-home.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/harness.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/local-provider-key.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/macos-keychain-fixture.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/png-grid.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/port-audit.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/privacy-backup-fixture.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/privacy-test-fixture.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/real-data-root.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/release-checks.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/server-internals.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/source-slice.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/stream-event-scan.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/temp-janitor.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/trace-blocking.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/lib/wallclock-window-scan.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/macos-execution-dispatch.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/macos-execution-images.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/macos-execution-subagents.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/run-all.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/desktop-image-history.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/desktop-node-admission.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/durable-json-bounded.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "dev-harness/unit/server-ownership.test.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/durable-state-inventory.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/durable-state-inventory.md",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/module-dependency-graph.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/module-dependency-graph.md",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/route-inventory.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "docs/architecture/route-inventory.md",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "facts.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/server.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "sources",
+      "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "artifacts",
+      "path": "/tmp/ruyi-p5-receipts-helper",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "artifacts",
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "matchesFreeze": true
+    },
+    {
+      "kind": "artifacts",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "matchesFreeze": true
+    }
+  ],
+  "pass": 32,
+  "allPass": true,
+  "scope": "Actual main dispatch regression after committed-before-failure boundary instrumentation; no GUI or held input."
+}

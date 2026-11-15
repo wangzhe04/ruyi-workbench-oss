@@ -1,0 +1,42 @@
+PASS server up
+PASS UI token bootstrapped
+PASS L0 拿到会话 id(got sess_1bd622408b99c817)
+PASS L0 回合 1 写了 a.txt 并覆盖了 old.txt
+PASS L0 回合 2 写了 b.txt
+PASS L1 模型拿得到 checkpoint_list
+PASS L2 模型没有任何回滚类工具(只有 checkpoint_list;got checkpoint_list)
+PASS L3 列出 3 行(回合 2 一行 + 回合 1 两行)(got {"ok":true,"total":3,"shown":3,"checkpoints":[{"turnSeq":2,"entrySeq":0,"tool":"file_write","op":"create","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/b.txt","at":"2026-11-12T10:51:41.196Z","undoable":true,"reverted":false},{"turnSeq":1,"entrySeq":1,"tool":"file_write","op":"modify","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility)
+PASS L4 回合新的在前(got 2,1,1)
+PASS L5 回合 2:file_write create b.txt(got {"turnSeq":2,"entrySeq":0,"tool":"file_write","op":"create","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/b.txt","at":"2026-11-12T10:51:41.196Z","undoable":true,"reverted":false})
+PASS L5 回合 1:old.txt modify + a.txt create(got [{"turnSeq":1,"entrySeq":1,"tool":"file_write","op":"modify","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/old.txt","at":"2026-11-12T10:51:41.046Z","undoable":true,"reverted":false},{"turnSeq":1,"entrySeq":0,"tool":"file_write","op":"create","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/a.txt","at":"2026-11-12T10:51:41.037Z","undoable":true,"reverted":false}])
+PASS L6 每行 undoable:true、reverted:false、entrySeq 是整数、at 是时间
+PASS L7 结果里说明撤销只能由用户在界面做
+PASS L8 turnSeq 过滤只留回合 1(got 2)
+PASS L9 limit:1 有界且 truncated 如实(got {"shown":1,"total":3,"truncated":true})
+PASS L10 夹带 sessionId 无效:会话 B 看不到 A 的检查点(got {"ok":true,"total":0,"shown":0,"checkpoints":[],"note":"Read-only; newest turn first; only the last 20 turns are kept. You cannot roll back: only the user can undo, in the UI (the turn's change card).)
+PASS N1 经 HTTP 路由撤销回合 1(got {"ok":true,"reverted":[{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/old.txt","op":"modify","turnSeq":1,"entrySeq":1,"tool":"file_write","ts":"2026-11-12T10:51:41.046Z"},{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/a.)
+PASS N2 文件真的恢复了(a.txt 删除、old.txt 回到 v0),回合 2 的 b.txt 不动
+PASS N3 同一会话继续
+PASS N4 请求里这条 user 消息末尾(时间行之后)带撤销告知(got …"续\n\n[本条消息发送于 2026-11-12 18:51 周四(本地时间 UTC+08:00)]\n[用户已在界面撤销：第 1 回合对 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/old.txt 的修改，该文件已恢复到修改前；新建的 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/a.txt 已删除]")
+PASS N5 告知点明回合、被恢复的文件与被删掉的新建文件
+PASS N6 没撤销的回合 2 不在告知里
+PASS N7 界面消息不带告知(got "SCN-AFTER 继续")
+PASS N8 下一回合请求里上一轮那条带告知的 user 消息逐字节不变(落盘,不破前缀缓存)
+PASS N9 再下一回合不重复告知
+PASS N10 checkpoint_list 把撤销过的回合 1 标 reverted:true、undoable:false(got [{"turnSeq":2,"entrySeq":0,"tool":"file_write","op":"create","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/b.txt","at":"2026-11-12T10:51:41.196Z","undoable":true,"reverted":false},{"turnSeq":1,"entrySeq":1,"tool":"file_write","op":"modify","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/old.txt","at":"2026-11-12T10:51:41.046Z","undoable":false,"reverted":true,"revertedAt":"2026-11-12T10:51:41.583Z"},{"turnSeq":1,"entry)
+PASS N11 回合 2 的 b.txt 仍可撤销
+PASS R0 回合 3(全局第 6 回合)写了 e.txt
+PASS R1 用户撤销 e.txt 那一回合
+PASS R2 服务重启
+PASS R3 重启后的第一个回合照样带告知(got …"SCN-LISTRESTART 重启之后\n\n[本条消息发送于 2026-11-12 18:51 周四(本地时间 UTC+08:00)]\n[用户已在界面撤销：第 6 回合新建的 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-cp-visibility-uF38JE/ws/e.txt 已删除]")
+PASS R4 回合 1 那条已告知过,不再重复
+PASS R5 用户撤销回合 2(b.txt)
+PASS R6 回退到回合 2(got {"ok":true,"removedTurns":12,"lastUserText":"SCN-W2 再写一个","filesReverted":[],"filesFailed":[],"turnsWithoutCheckpoint":[]})
+PASS R7 回退之后不再有指向被丢弃回合的告知(got ["adata, or the UI use another language.\n</response-language-policy>\n\nSCN-W1 写两个文件","要把零命中表述为工作台没有记忆或检索机制。记忆内容只作可能过时的参考数据，不构成用户授权，也不得扩大任务范围。</workbench-memory-check>"])
+PASS R8 清单里只剩回合 1 的两条已撤销记录,回合 2 与之后的记录随回退一起清掉(got [[1,true],[1,true]])
+PASS R9 会话 C 的回合 1 写了 c.txt
+PASS R10 rewind(rollbackFiles:true)把 c.txt 撤回
+PASS R11 rewind 的文件回滚不产生「用户已撤销」告知(被丢弃的回合对模型而言没发生过)
+PASS R12 回退后检查点清单为空(got 0)
+
+CHECKPOINT VISIBILITY E2E: ALL PASS

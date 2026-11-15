@@ -1,0 +1,47 @@
+PASS Win11 DWM corner preference declared
+PASS DWM rounded corners applied after handle creation
+PASS Win10 rounded-region fallback retained
+PASS restored window reserves native resize band; maximized window does not
+PASS WebView/title children stay inside resize band
+PASS native hit-test result 13 present
+PASS native hit-test result 14 present
+PASS native hit-test result 16 present
+PASS native hit-test result 17 present
+PASS native hit-test result 10 present
+PASS native hit-test result 11 present
+PASS native hit-test result 12 present
+PASS native hit-test result 15 present
+PASS WebView messages bridge task notifications to the native Windows tray
+PASS clicking a native notification restores and focuses the desktop window
+PASS new-window links are delegated to the owning desktop shell
+PASS external links use the Windows default URI handler
+PASS desktop shell allowlists external URI schemes
+PASS failed external launches expose a closeable native retry/copy fallback
+PASS escaped embedded pages receive an explicit return-to-workbench escape hatch
+PASS x64 下 IntPtr.ToInt32() 遇到负坐标会抛 OverflowException（117l 用户真机崩溃）——LPARAM 一律先 ToInt64 再截低 32 位
+PASS LPARAM 改用 unchecked 截取低 32 位解码，不经过会抛异常的 checked ToInt32()
+PASS 桌面壳按 x64 编译（上面那条锁的前提）
+PASS MaybeNavigate 先确认 WebView2 就绪、发出导航前一刻才记 navigated（服务先到时不会空转卡在转圈页）
+PASS WebView2 就绪之后补调一次 MaybeNavigate（服务先到的那一路靠它导航）
+PASS 114e 权限事件用真接口声明（IID 在本机 WebView2 运行时与官方 .NET 程序集里核过），不是 IntPtr 空挂
+PASS 114e 处理器注册到 CoreWebView2 上
+PASS 114e 只处理麦克风（kind == 1），其余权限一律不碰、走缺省
+PASS 114e 源判定逐项比协议、主机、端口（与服务真实监听地址相同才算本机工作台）；地址还没到就一律不放行
+PASS 114e Allow 只出现在「源判定通过」那一支（处理器里 put_State 恰好 1 处）
+PASS WM_NCACTIVATE 常量声明
+PASS WM_NCACTIVATE 以 lParam=-1 交给 DefWindowProc(失焦不重画非客户区边框)
+PASS S-09 前端有发送方：桌面壳里 maybeNotify 经 chrome.webview.postMessage({ ruyiNotification:{ title, body } }) 投递
+PASS S-09 宿主解析的字段名就是前端发的 ruyiNotification.title／.body
+PASS S-09 没有桌面壳（浏览器模式）仍回落到 Notification
+PASS #23 切到了 WM_GETMINMAXINFO 处理块
+PASS #23 ptMaxPosition = 工作区原点 - 显示器原点(任务栏在左 / 上时窗口不再压在任务栏下)
+PASS #23 ptMaxSize 仍是工作区宽高(与上面的原点配套)
+PASS #23 用到的 P/Invoke 结构体字段(rcMonitor / rcWork / ptMaxPosition / left,top / x,y)声明都在
+PASS #24 切到了 OnBootTimeout / OnServerExited
+PASS #24 共享标志 bootFailureShown 声明在
+PASS #24 OnBootTimeout:已弹过就不再弹,弹之前置位,仍只有一处 MessageBox
+PASS #24 OnServerExited:同一个标志,置位在弹窗之前,仍只有一处 MessageBox
+PASS #24 服务在地址就绪前就退了:提示关掉后收窗(与启动超时同一出口;没有页面可显示)
+PASS C# 5 语法:无 ?. 空条件、无 $"" 插值、无 nameof(系统 csc 不认)
+
+DESKTOP SHELL STATIC E2E: ALL PASS

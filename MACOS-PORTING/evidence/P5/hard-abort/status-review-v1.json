@@ -1,0 +1,925 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T11:05:25.676429+00:00",
+  "status": "passed_staged_neutral_calibration_status_archive_review",
+  "head": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+  "stageSnapshot": {
+    "fileCount": 102,
+    "statusFileCount": 4,
+    "evidenceFileCount": 98,
+    "stateDiff": [
+      {
+        "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "MACOS-PORTING/10-TRACKING.md",
+        "insertions": 2,
+        "deletions": 0
+      },
+      {
+        "path": "MACOS-PORTING/README.md",
+        "insertions": 1,
+        "deletions": 1
+      },
+      {
+        "path": "MACOS-PORTING/TASKS.json",
+        "insertions": 13,
+        "deletions": 0
+      }
+    ],
+    "stateInsertions": 18,
+    "stateDeletions": 1,
+    "allStagedWorkingBytesMatchIndex": true,
+    "indexListingSha256": "1fee799fbf35a8ae3a385680afa3c71cc8eaefa82e9ce2e547a8e5640215a784",
+    "allIndexEntriesUnchangedDuringReview": true,
+    "futureDurableHistoryPlanStaged": false,
+    "newReviewReportIncludedInThis102Snapshot": false
+  },
+  "stagedManifest": [
+    {
+      "status": "M",
+      "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "indexBlob": "87e705c45bb316fce4080a83877d673aa8fdaf4e",
+      "bytes": 9938,
+      "sha256": "427d7075daa8cabdf12b5276045bee63105ac8ee796ec178b37a19b43ad3a9cc",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "M",
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "indexBlob": "9bb3c1eae226141892e63ee1b4575f3a616a8bd0",
+      "bytes": 39200,
+      "sha256": "1fb0369cb76332c92391e8d3922192246db4f7fb2fd1b9325b813a09be975672",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "M",
+      "path": "MACOS-PORTING/README.md",
+      "indexBlob": "40f9feb5b437beb701542101e1946efc2353afb7",
+      "bytes": 9776,
+      "sha256": "68fbed20a8007629cdf7a8e8e2895955f2c32a902e7273d715076fac278d3609",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "M",
+      "path": "MACOS-PORTING/TASKS.json",
+      "indexBlob": "9d05230a65c8ba0231e6e0538174a96921280125",
+      "bytes": 100566,
+      "sha256": "82eb79e9f1917e99062ca58145057270ff32c6a99223c9ebb1a6527367142b82",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/README.md",
+      "indexBlob": "c909d029a660ce9725b80e2e2a09f26a06d2e3f7",
+      "bytes": 2581,
+      "sha256": "78949232a601265eca67f23cf6b0ddfa8829579cd946013ffe8ef749ad7cab28",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/commit-binding.json",
+      "indexBlob": "c06f55c50a480d7871de82fe9a10cb254fcaa28f",
+      "bytes": 9808,
+      "sha256": "6d699000a30709af6d65679958220a7d01c8bbcd170d4392d7916d3afc72bcee",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-reuse-v1.json",
+      "indexBlob": "9bfb9e6dd5699535b3338528a13f81af5c33e91b",
+      "bytes": 1053,
+      "sha256": "cb8f8e0858c84ff19d62b46d9b4d6dd8a66772738e166912faa3863e2e357452",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/build.txt",
+      "indexBlob": "9df2c0ca4603fcdda9bc9213816c9872830f2e64",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/execution.json",
+      "indexBlob": "4a22f7d752095ee8b86729d91633eb6c09c66348",
+      "bytes": 660,
+      "sha256": "1f24b3f32acb17d598a52b9f3fe61ec795d7a5b869b61d574b39e2eefdff2c74",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/fast.txt",
+      "indexBlob": "4640a075829ba65f5381b83874ceb4b6accca2d4",
+      "bytes": 7663,
+      "sha256": "7d042459666d05a458fe89e1d3e2f729f3de78c98ee80c4df963189e83e09c38",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/invocation.json",
+      "indexBlob": "d2aabfbd5a99c3a9a2171ecf7aa3ba6335daf9f0",
+      "bytes": 777,
+      "sha256": "c43123237bd26711b0585de4185fa5d11abccf7b5e0a170aece84e7db062e2a0",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/source-artifact-checks.json",
+      "indexBlob": "aabf5deb64ef6527c7a73e93ce4a8c73f410e9f1",
+      "bytes": 60197,
+      "sha256": "b8b000e17aa9cf84af67c728d4c88e622665f560aa5ed8bb6ce38a17c272ecf2",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/syntax.txt",
+      "indexBlob": "4a3f4f727c6f60d79b8412402e989c69bfbe2b34",
+      "bytes": 60,
+      "sha256": "5645fb975dd27c02615fd8d4ae513097d695646431abd75591481494ed108e8a",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt",
+      "indexBlob": "6c7e80fc52ed04dbbf396a702cd3830c41cccebe",
+      "bytes": 393373,
+      "sha256": "85bbfa2b43aae706e420b61c40083523a36ac6c18beccc23e2c28eaf8ca88a62",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/execution.json",
+      "indexBlob": "f3614642046a938193b4c4ddb835de6516565d01",
+      "bytes": 167,
+      "sha256": "b5f11aff5b43efbdbadcfc2dea7301d8813e6c3fd49c5d3a0e99fe26d1572417",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/fast.txt",
+      "indexBlob": "07d8bd63bab09bd572d12edb160953b196c8459d",
+      "bytes": 5737,
+      "sha256": "f05897b74e198c9d8758422cf8671d9fe715fdd0f2447e9ce2e6fa52715550a7",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/invocation.json",
+      "indexBlob": "5e3d0388908cb71427af8b278a53c45feb65869d",
+      "bytes": 784,
+      "sha256": "2fa196efd731404185f66dcf341db96fa3997409bcae43cde0d19c52138e721d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/source-artifact-checks.json",
+      "indexBlob": "2ae02db7848873e01756263fac2f43091de529be",
+      "bytes": 15784,
+      "sha256": "5e224cd9f033e089e7542de41851b4fc0c7158afebba21251fc7936c8f1a0477",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/inventory-v1/fixture-home-after.txt",
+      "indexBlob": "f1f4baadee6c9ce3d65698aa00d990ba9084514c",
+      "bytes": 3787,
+      "sha256": "024de16c0629757600979308f3409ca7c0c2fbc89d3573ac72b46f661a4dce22",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/inventory-v1/preliminary-results.json",
+      "indexBlob": "e6ccd473e3ae7cc26e8789255530dab026cdc765",
+      "bytes": 595,
+      "sha256": "89fad1b7fd88f969c04430e56fad238108f8b928d9593d4bca4e0bf6072ac42a",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/inventory-v1/process-safety-after.txt",
+      "indexBlob": "04c3d0f3fbe6537e2146a511004706adcd775cc8",
+      "bytes": 855,
+      "sha256": "4a7d128e5a5b7af0b0cb6a0fe56d1d8920707bf6fea99f697bba52a9636c4250",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/inventory-v1/route-inventory-after.txt",
+      "indexBlob": "59c9619f5ed7fb7fd3303d7988c16fef3e4b721e",
+      "bytes": 122,
+      "sha256": "cd2229693217f11d149375f82b6c5602c4ba083dd72309e75b22c8b956bb17e2",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/execution.json",
+      "indexBlob": "08df835e05fae785c7b79acedbe46fe3f601c884",
+      "bytes": 165,
+      "sha256": "457820eccf86dc40ffea54e93d9bd1e9e8c6351ac66d8bebe63c52efe9e51eed",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/initial-service-stderr.txt",
+      "indexBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/initial-service-stdout.txt",
+      "indexBlob": "0d32d41341fd2c40e2d353dab6dfdde5afa95d44",
+      "bytes": 266,
+      "sha256": "a857368fb5b53dbd3532a01aa5db8d0081d9df83c7ca7526c2ecbd279c453fe9",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/invocation.json",
+      "indexBlob": "a6b778d45a7e2ba9defcb4f434c027897aa805bd",
+      "bytes": 1070,
+      "sha256": "2cf2204831f9bd8f0e57e15ad157f3087e27b960487244df50fa073b9215e3f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/live.txt",
+      "indexBlob": "4335b48ccce261bb82453aab5832077095a52ec7",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "34172da350b9ba29f07c3fda7191ce22479e7a8c",
+      "bytes": 2985,
+      "sha256": "24e719972f28e3903f8c19489c679c948babb8b96e79d26f918dc9c9de31773d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "indexBlob": "5cd6852e417e694dc1570d1cc8aaf7111fc16551",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.json",
+      "indexBlob": "419dba455d344b29de596ab3985f153da76699a0",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "indexBlob": "45ee42a01c5d66fdc4fe88dd99eecf466b6b0bb3",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "indexBlob": "5d5e6b72c186504417812247d9aa23b63d7b84d2",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "1167bf48005a9cfdf9f2117122c51fcc75726b00",
+      "bytes": 3092,
+      "sha256": "62f37bbaf91270b983a3bdf454ee046b625a94d531db5a6fbc18a543602319c8",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/.pretender/projection-index.json",
+      "indexBlob": "5cecf8be259ee0400ba0649085dff7133d188d31",
+      "bytes": 2606,
+      "sha256": "b98b826acb1d2491827997f70bccbeb413cf33734147fa60f7d84328391c2987",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "indexBlob": "5cd6852e417e694dc1570d1cc8aaf7111fc16551",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.json",
+      "indexBlob": "419dba455d344b29de596ab3985f153da76699a0",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "indexBlob": "45ee42a01c5d66fdc4fe88dd99eecf466b6b0bb3",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "indexBlob": "5d5e6b72c186504417812247d9aa23b63d7b84d2",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "34172da350b9ba29f07c3fda7191ce22479e7a8c",
+      "bytes": 2985,
+      "sha256": "24e719972f28e3903f8c19489c679c948babb8b96e79d26f918dc9c9de31773d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "indexBlob": "5cd6852e417e694dc1570d1cc8aaf7111fc16551",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.json",
+      "indexBlob": "419dba455d344b29de596ab3985f153da76699a0",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "indexBlob": "45ee42a01c5d66fdc4fe88dd99eecf466b6b0bb3",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "indexBlob": "5d5e6b72c186504417812247d9aa23b63d7b84d2",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/read-only-restart-stderr.txt",
+      "indexBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/read-only-restart-stdout.txt",
+      "indexBlob": "e3d77c9c58aef16299eb79158f8aa80aaaef4155",
+      "bytes": 200,
+      "sha256": "e82576843bbe6212f8c114d0067c498d2d095d3698325038160c65a7c7f6e59d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/results.json",
+      "indexBlob": "7fb433c0ccdcc94c59c8e6f926d55721d299f908",
+      "bytes": 30787,
+      "sha256": "10d62032f50166172fb5d9e4ace5d4891ab632e07ef0e6bbdac915e9e1adc485",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/source-artifact-checks.json",
+      "indexBlob": "4c9188b3f1d97436cccc1884bcb09b0364edf0dd",
+      "bytes": 15784,
+      "sha256": "af417e3f5bd5f305f8c3102b55b9968a6b2e5ccfed7b4508505d2abde1239b65",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "1167bf48005a9cfdf9f2117122c51fcc75726b00",
+      "bytes": 3092,
+      "sha256": "62f37bbaf91270b983a3bdf454ee046b625a94d531db5a6fbc18a543602319c8",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/.pretender/projection-index.json",
+      "indexBlob": "5cecf8be259ee0400ba0649085dff7133d188d31",
+      "bytes": 2606,
+      "sha256": "b98b826acb1d2491827997f70bccbeb413cf33734147fa60f7d84328391c2987",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "indexBlob": "5cd6852e417e694dc1570d1cc8aaf7111fc16551",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.json",
+      "indexBlob": "419dba455d344b29de596ab3985f153da76699a0",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "indexBlob": "45ee42a01c5d66fdc4fe88dd99eecf466b6b0bb3",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "indexBlob": "5d5e6b72c186504417812247d9aa23b63d7b84d2",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/report-v1.json",
+      "indexBlob": "bc49878a113cfc47b561909722fa6aa84af937d6",
+      "bytes": 4484,
+      "sha256": "8cdb2536824f9dfb2da14f515c142b0c0521ae6ab62507bd09e0f2bbc264a839",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/development/signatures-before.json",
+      "indexBlob": "9e35bd0676f13bc587030de67f5edf7eac06c030",
+      "bytes": 964,
+      "sha256": "83970f4851616a8c0a5ba722c0901c888862cfac3ccd9b1babcc489e0f4194d4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/freeze-v2.json",
+      "indexBlob": "d6c78cdd6256be212669fd4fd47f10714ee82cc1",
+      "bytes": 7232,
+      "sha256": "2f70a798aa1ef986b0c211110ed4f0c6059a7abc1a3b2e780f4de6e2b263662f",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/freeze-v3.json",
+      "indexBlob": "bb9f5c0f4ed43b0254bc7e999d806fb1654c234c",
+      "bytes": 7232,
+      "sha256": "71cc3d0eebd97695a4c3109b35dcbb71a9a5e24061200c08659f389f34ad31f7",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+      "indexBlob": "45b8f9ac9b34be727d0b5998594518278fa35b1c",
+      "bytes": 7579,
+      "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-commit-binding.json",
+      "indexBlob": "905841156f7cabb0530d450fb4d2cfd5313d4bb3",
+      "bytes": 92508,
+      "sha256": "4e5c296ecec1cec6b47a9f19d55a5f2fbd147d78e1f9c505b521cedabee26155",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/counts.json",
+      "indexBlob": "09eb9681033a8f4d4d19e6f426193521ad4327e6",
+      "bytes": 43,
+      "sha256": "a369fd877beb1fea9071527d6c98e3e950a1864283c23bf49e603c8da64ce986",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/durable-analysis.json",
+      "indexBlob": "796eb59ac586ab3e62f02a27b146da162d54fc74",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/engineering-reuse.json",
+      "indexBlob": "ab6447974c03ddd880f5c7489bc2ea0a6dbd4f52",
+      "bytes": 4853,
+      "sha256": "70472af25317e6fd5a1eedc907461edd76e2158128f469e76417c7ed820fb5ab",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/execution-report.json",
+      "indexBlob": "2f4956044df5869c85aaa303471790dcd9a9b5ea",
+      "bytes": 1140,
+      "sha256": "e9fb42d213e502ce63033ce31be97cc13cb2ee4142bdd3cf4eeb46683b33773f",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/invocation.json",
+      "indexBlob": "cf85dc39bb6cad9ce923dc9513d5cdf8f544dfa5",
+      "bytes": 1497,
+      "sha256": "62c2c4f831a417e2266f80425fe75927cfc328e9af8b4cfc1e4a5099aff18d00",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stderr.txt",
+      "indexBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stdout.txt",
+      "indexBlob": "185bc8157d8dd28b71a9f42f82daa878cf1789c4",
+      "bytes": 266,
+      "sha256": "a7648095eb934aa94bdde2a99c8168417bb0af7f4a24da6407afbfb7b8e40107",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "172f9bdb57e10dfa40a9b4f39ef3ad0a0e012b51",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "indexBlob": "abb09f0d4325039e043e22651d3e27de9ed5b39c",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.json",
+      "indexBlob": "57ced2e31661d47b0cb618110d03a8a8859d53d1",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "indexBlob": "2ddaae788b4e2396c8b05c1a076327c1ab0023f4",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "indexBlob": "d816d563cb75a4654678fee8b17963b970430243",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "2b4ca872fe895c5617fa8ae433710bb609abe56c",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/.pretender/projection-index.json",
+      "indexBlob": "bac0739b2cd0660fd8a6d5fb6feef5f30f2c5e04",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "indexBlob": "abb09f0d4325039e043e22651d3e27de9ed5b39c",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.json",
+      "indexBlob": "57ced2e31661d47b0cb618110d03a8a8859d53d1",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "indexBlob": "2ddaae788b4e2396c8b05c1a076327c1ab0023f4",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "indexBlob": "d816d563cb75a4654678fee8b17963b970430243",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "172f9bdb57e10dfa40a9b4f39ef3ad0a0e012b51",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "indexBlob": "abb09f0d4325039e043e22651d3e27de9ed5b39c",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.json",
+      "indexBlob": "57ced2e31661d47b0cb618110d03a8a8859d53d1",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "indexBlob": "2ddaae788b4e2396c8b05c1a076327c1ab0023f4",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "indexBlob": "d816d563cb75a4654678fee8b17963b970430243",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stderr.txt",
+      "indexBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stdout.txt",
+      "indexBlob": "602a43edc7cc7b301bdef16bbd9cbcafb8558983",
+      "bytes": 200,
+      "sha256": "35aceb74586aa7fde244addff37ab17df2d85cadd0508fb4c190f23b230b4d4a",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/results.json",
+      "indexBlob": "717b6383bad6c68eeb0f1965f0b828647fe004c2",
+      "bytes": 30784,
+      "sha256": "7f9b75026564a67e68b96b4bb8afa5fa24e180462ed4e454092c0762d1b2be71",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "indexBlob": "2b4ca872fe895c5617fa8ae433710bb609abe56c",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/.pretender/projection-index.json",
+      "indexBlob": "bac0739b2cd0660fd8a6d5fb6feef5f30f2c5e04",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "indexBlob": "abb09f0d4325039e043e22651d3e27de9ed5b39c",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.json",
+      "indexBlob": "57ced2e31661d47b0cb618110d03a8a8859d53d1",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "indexBlob": "2ddaae788b4e2396c8b05c1a076327c1ab0023f4",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "indexBlob": "d816d563cb75a4654678fee8b17963b970430243",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/observed-identities.json",
+      "indexBlob": "f12abd8978cb87871a067c29115983c9aae73d87",
+      "bytes": 1329,
+      "sha256": "3b9a5038119d7c8f4254f7802959cc23458a3d5bdc8444bc74198876a9a68504",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/output.txt",
+      "indexBlob": "4335b48ccce261bb82453aab5832077095a52ec7",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/preflight.json",
+      "indexBlob": "33cf01a7a5420b80deb7dbfc07556459c5e6318b",
+      "bytes": 1206,
+      "sha256": "e1d1a294f19e91770cc9cb0c210e3e94a477a05e8d740999a44ff9b6c20f1f14",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/report.json",
+      "indexBlob": "ecaffd1e4bce4ef48ef7156abdcd8e71ec120d63",
+      "bytes": 13894,
+      "sha256": "1c0dc38970e886526c6f48dda990fee0101b44796f0dc56c126fc85057f6e6d4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/runner.py",
+      "indexBlob": "94e5619d0d57deede1b1891bde7fd9eae23c8776",
+      "bytes": 9457,
+      "sha256": "22bd91ee01c90270227674ea5732151a90e0962e2cd3643b9ee11000d3270add",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/signatures.json",
+      "indexBlob": "2b6a62d7e59f7d90869bf0d331248b327f13b1ec",
+      "bytes": 1100,
+      "sha256": "412992b308630848dca80c4c3351dbffa11b5766d5de1f7fbf20727982f17fdf",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/source-artifact-checks.json",
+      "indexBlob": "3d1d457fb31650979bcc354c0ec0dacf746faed6",
+      "bytes": 51172,
+      "sha256": "e2d15d537d0a682759643404b5508dc50373f32631347abb5747d0e7760d55f4",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v1.json",
+      "indexBlob": "154040de1a844e8a280ae0f4be23a713d7ba0879",
+      "bytes": 7363,
+      "sha256": "dd4b35e3c014dbc3771f2bfdf98a37343eec900fab1b704633008a761e88e686",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v2.json",
+      "indexBlob": "babe389cd2775caffae7fa156b4a940056d00ddb",
+      "bytes": 17356,
+      "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/neutral-metadata-review-v1.json",
+      "indexBlob": "84e4bead916765d43c17724310a304925f037dfb",
+      "bytes": 12665,
+      "sha256": "c7549b7086655f6e86298d1e6a39c3a60ca369052ac0783da98839dcd5ebcf97",
+      "workingMatchesIndex": true
+    },
+    {
+      "status": "A",
+      "path": "MACOS-PORTING/evidence/P5/hard-abort/plan-review-v1.json",
+      "indexBlob": "87a71b8173603587163fd9ad55a9fb1b58113bbf",
+      "bytes": 25434,
+      "sha256": "c531a47463c9a1f0e064157fa2f60c0479f573ee011d471b5ff377abda782779",
+      "workingMatchesIndex": true
+    }
+  ],
+  "reviewedClaims": {
+    "primaryAssertions": 12,
+    "independentAssertions": 12,
+    "eachExecutedOnce": true,
+    "neutralOnly": true,
+    "persistedPermissionRequestNameAndArgumentsAndAllowIntent": true,
+    "dispatchConfirmedAndACCWaitEntryAndTerminalAttribution": "unconfirmed; not promoted to pass",
+    "hardAbortHeldReleaseDurableTotalGate": "open",
+    "P5Status": "in_progress",
+    "P6Status": "planned",
+    "originalEnvironmentGatesRetained": true,
+    "nodeRestartGETOnly": "No new model request/replay observed in measured interval; no broad disk-write-free or indefinite no-replay guarantee",
+    "observedOriginalTopologyIdentities": 5,
+    "primaryObservedExitWallMs": 57,
+    "notProductTimingSLA": true,
+    "runtimeProductSourceChanged": false
+  },
+  "TASKSReview": {
+    "newObjectLocation": ".phases[5].tasks[4].neutralAbortCalibrationSlice",
+    "onlyTaskJsonChangeIsOneNewObject": true,
+    "newObject": {
+      "status": "passed_current_host_zero_input_calibration_total_gate_open",
+      "date": "2026-11-11",
+      "testImplementationCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+      "productRuntimeSourceChanged": false,
+      "primaryAssertions": 12,
+      "independentAssertions": 12,
+      "independentRetries": 0,
+      "scope": "Approved/pending ordinary wait-only call root-only SIGKILL, observed process cleanup,zero input,GET-only restart. Permission intent persists; dispatch/wait-entry/terminal execution attribution unconfirmed. No held-state or full hard-abort gate pass.",
+      "evidence": "evidence/P5/hard-abort/README.md",
+      "independentReport": "evidence/P5/hard-abort/independent-v1/report.json",
+      "commitBinding": "evidence/P5/hard-abort/commit-binding.json"
+    },
+    "allExistingPhaseTaskStatusesAndGateObjectsUnchanged": true
+  },
+  "engineeringReview": {
+    "syntaxFiles": 1156,
+    "buildFreshnessPassed": true,
+    "unitPass": 2499,
+    "unitExistingSkip": 18,
+    "firstFastPass": 79,
+    "firstFastFail": 1,
+    "builtInRetryFailurePreserved": true,
+    "finalFastPass": 80,
+    "finalFastFail": 0,
+    "finalFastFlaky": 0,
+    "finalFastLiveSkip": 7,
+    "eachFastIncludesUnitPreflight": true,
+    "reuseExactScope": "Earlier syntax/build/standalone unit on unchanged37 sources and2 artifacts. Final generated metadata independently reviewed and final39-source fast rerun. Independent executor did not rerun engineering.",
+    "zeroOverallRerunClaimMade": false
+  },
+  "findings": [],
+  "handling": "No edits requested; staged scope and wording agree with immutable raw logs, source/metadata reviews and prior independent execution/binding. Prior v1 source-hash limitation and v2 N7 open history remain in archived reviews. New durable-history plan is future work outside this stage.",
+  "unresolvedFindings": [],
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsOrEngineeringReruns": 0,
+    "sourceOrOriginalLogEdits": 0,
+    "indexChanges": 0,
+    "signatureOrProcessInvocations": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/hard-abort/status-review-v1.json"
+    ]
+  },
+  "scope": "Read-only staged evidence/state archive review. This report does not add runtime coverage or close dispatch/wait-entry/terminal/held hard-abort or external P5 gates.",
+  "phaseStatus": "in_progress"
+}

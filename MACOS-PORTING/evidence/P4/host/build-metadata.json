@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "architecture": "arm64",
+  "sdk": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+  "compiler": "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+  "duplicateSwiftModuleMapOverlay": true,
+  "deploymentTarget": "14.0",
+  "identity": "ad-hoc-development",
+  "workbenchRoot": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench",
+  "sourceFingerprint": {
+    "desktop-macos/DesktopService.swift": "793acd09d588c190063a97f6080e3a25fa6f3deb465f4e5c650dd6c73b5b0b45",
+    "desktop-macos/RuyiDesktop.swift": "a92fa9e9652aaed6fdcf5355b8f32bc33e792291f1f7460187bc6e4dda20094b",
+    "desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+    "desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+    "tools/build-macos-desktop.js": "ea25e740cfebbc30195f932f74218079343cebb643e7828d8d106a0f6ababc17"
+  }
+}

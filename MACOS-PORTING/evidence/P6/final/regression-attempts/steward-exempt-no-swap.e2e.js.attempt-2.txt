@@ -1,0 +1,21 @@
+── (H) 真服务 + 真原生回合:管家从三条入口各批一次,带 updatedInput ──
+PASS H00 workbench 起来了
+PASS H00b runtime token 可读
+PASS H01 会话头档位 = default;回合按它起跑、对 powershell_run 停下来问,问的时候用户再把线程切到 auto
+FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS ctl 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-ctl 用户放行被受理(实得 null)
+FAIL H-ctl 对照组:用户自己的放行保留 updatedInput —— 替换命令真的执行了(swapped=false, orig=false);没有这一条,下面三条「swapped 不在」可能只是消费者不认 updatedInput
+FAIL H-ctl 对照组:带 updatedInput 的决定落盘指纹 ≠ 纯 {action:allow} 的指纹(指纹这把尺子认得出载荷里多了东西)
+FAIL act 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS act 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-act ① 管家放行落定,回执如实列出被剥掉的 updatedInput 与 scope(实得 null)
+FAIL H-act ① 实际执行的仍是待决里的原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-act ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+FAIL tool 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS tool 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )
+FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-yE8mhl

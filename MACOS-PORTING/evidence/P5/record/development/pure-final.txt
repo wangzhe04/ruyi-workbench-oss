@@ -1,0 +1,29 @@
+test_all_bad_documents_refused_before_native_request (__main__.RecordingContracts.test_all_bad_documents_refused_before_native_request) ... ok
+test_all_pointer_and_chord_operations_use_existing_tools (__main__.RecordingContracts.test_all_pointer_and_chord_operations_use_existing_tools) ... ok
+test_expanded_step_limit_is_checked_before_dispatch (__main__.RecordingContracts.test_expanded_step_limit_is_checked_before_dispatch) ... ok
+test_failed_temporary_cleanup_still_closes_anchored_directory (__main__.RecordingContracts.test_failed_temporary_cleanup_still_closes_anchored_directory) ... ok
+test_idle_gaps_use_ended_time_and_cap_at_five_seconds (__main__.RecordingContracts.test_idle_gaps_use_ended_time_and_cap_at_five_seconds) ... ok
+test_interrupted_recordings_are_returned_but_refuse_save (__main__.RecordingContracts.test_interrupted_recordings_are_returned_but_refuse_save) ... ok
+test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) ... ok
+test_listing_never_follows_symlinks_or_opens_fifo_blocking (__main__.RecordingContracts.test_listing_never_follows_symlinks_or_opens_fifo_blocking) ... ok
+test_missing_both_macro_inputs_refuses_but_explicit_empty_steps_succeeds (__main__.RecordingContracts.test_missing_both_macro_inputs_refuses_but_explicit_empty_steps_succeeds) ... ok
+test_missing_hidden_input_and_windows_recording_refuse_dispatch (__main__.RecordingContracts.test_missing_hidden_input_and_windows_recording_refuse_dispatch) ... ok
+test_mixed_or_unbound_recordings_refuse_dispatch (__main__.RecordingContracts.test_mixed_or_unbound_recordings_refuse_dispatch) ... ok
+test_native_preflight_sees_all_text_and_chord_actions (__main__.RecordingContracts.test_native_preflight_sees_all_text_and_chord_actions) ... ok
+test_native_start_is_synchronous_and_explicitly_target_bound (__main__.RecordingContracts.test_native_start_is_synchronous_and_explicitly_target_bound) ... ok
+test_oversized_and_invalid_text_refused (__main__.RecordingContracts.test_oversized_and_invalid_text_refused) ... ok
+test_post_replace_durability_failure_reports_unknown_save_state (__main__.RecordingContracts.test_post_replace_durability_failure_reports_unknown_save_state) ... ok
+test_rebind_translates_global_points_and_drops_old_private_identity (__main__.RecordingContracts.test_rebind_translates_global_points_and_drops_old_private_identity) ... ok
+test_recording_replay_uses_live_registry_and_preserves_plain_steps (__main__.RecordingContracts.test_recording_replay_uses_live_registry_and_preserves_plain_steps) ... ok
+test_replay_gate_refuses_start_and_releases_after_cancellation (__main__.RecordingContracts.test_replay_gate_refuses_start_and_releases_after_cancellation) ... ok
+test_save_failure_retains_collected_recording (__main__.RecordingContracts.test_save_failure_retains_collected_recording) ... ok
+test_saved_complete_recording_is_atomic_and_listed (__main__.RecordingContracts.test_saved_complete_recording_is_atomic_and_listed) ... ok
+test_symlink_directory_refuses_save (__main__.RecordingContracts.test_symlink_directory_refuses_save) ... ok
+test_text_preserves_chinese_and_separates_trailing_enter (__main__.RecordingContracts.test_text_preserves_chinese_and_separates_trailing_enter) ... ok
+test_wrong_application_size_and_pending_recording_refuse_binding (__main__.RecordingContracts.test_wrong_application_size_and_pending_recording_refuse_binding) ... ok
+test_zero_delay_replay_yields_before_every_synchronous_dispatch (__main__.RecordingContracts.test_zero_delay_replay_yields_before_every_synchronous_dispatch) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.212s
+
+OK

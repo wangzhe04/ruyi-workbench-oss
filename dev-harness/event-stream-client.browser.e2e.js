@@ -383,6 +383,7 @@ try {
   browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', '--window-size=1440,1000',
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });
@@ -450,11 +451,26 @@ try {
 
       const log = [];
       window.__ruyiFetchLog = () => log.slice();
+      const nativeTransition = document.startViewTransition?.bind(document);
+      let initialTransition = true;
+      window.__ruyiTransitionSupported = Boolean(nativeTransition);
+      window.__ruyiPendingTransition = false;
+      if (nativeTransition) document.startViewTransition = update => {
+        if (!initialTransition) return nativeTransition(update);
+        initialTransition = false;
+        window.__ruyiPendingTransition = true;
+        return nativeTransition(async () => {
+          await new Promise(resolve => setTimeout(resolve, 800));
+          try { return await update(); }
+          finally { window.__ruyiPendingTransition = false; }
+        });
+      };
       const nativeFetch = window.fetch;
       window.fetch = function (input, init) {
         let url = '';
         try { url = typeof input === 'string' ? input : String((input && input.url) || ''); } catch (e) { url = ''; }
-        log.push({ url: url, at: Date.now() });
+        log.push({ url: url, at: Date.now(), mode: document.documentElement.getAttribute('data-shell-mode'),
+          pendingTransition: window.__ruyiPendingTransition });
         return nativeFetch.call(window, input, init);
       };
 
@@ -485,6 +501,11 @@ try {
   // 且此后每一发的在场参数必须与上一发不同 —— 完全相同的两发 = 无缘无故多开了一条。
   ok(Array.isArray(streamReqs0) && streamReqs0.length === 1,
     `A8b 首屏只建【一条】连接（boot 末尾才 start，config 与首条会话都已落定；实测 ${JSON.stringify(streamReqs0)}）`);
+  const initialTransition = await cdp.evaluate(`(() => ({ supported: window.__ruyiTransitionSupported,
+    first: window.__ruyiFetchLog().find(row => row.url.indexOf('/api/events/stream') >= 0) }))()`);
+  ok(initialTransition.supported === false || (initialTransition.first?.pendingTransition === true
+    && initialTransition.first.mode === 'classic'),
+    `A8c 确定性覆盖首发请求发生在真实视角过渡回调落地之前（实得 ${JSON.stringify(initialTransition)}）`);
 
   /* ═════════ C 连接正常的 60 s 里 /api/missions 请求 ≤2 ═════════ */
   // 刻意排在最前：此刻一条线程都没有、一帧 thread.* 都不会来，量到的就是【纯兜底节拍】。

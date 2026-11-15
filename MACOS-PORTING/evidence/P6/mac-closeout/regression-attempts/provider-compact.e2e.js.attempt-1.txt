@@ -1,0 +1,24 @@
+[fake] [fake-openai] listening on 50692
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 4445ff10fcc0)
+[wb] UI: http://127.0.0.1:50693/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-compact-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :50693
+PASS version === package.json "3.0.1" (got 3.0.1)
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-compact-e2e/generated/workbench.mcp.json
+PASS session id captured
+PASS providerHistory grew before compact (len=2)
+PASS compact returns {ok:true} (err=undefined)
+PASS compact returns before/after token estimates (135→158)
+PASS 128h-J12 捕到了那一发摘要请求(非流式;got 1/4)
+PASS 128h-J12 摘要请求体里带「偏好只保留最后一次那个版本」(压缩回注不会把被推翻的旧偏好当成现行约束)
+PASS 128h-J12 并明确点名【已确认的决定】那一节 —— 回注时被当成现行偏好读的正是它
+PASS providerHistory.length === 2 after compact (got 2)
+PASS providerHistory[0] is the summary user message
+PASS providerHistory[1] is the ack assistant message
+PASS last message role === "system" (got system)
+PASS system message contains 「已压缩」 ("🗜 已压缩上下文（摘要重播种）：135→约 158（估算）")
+PASS post-compact turn streams ("Hello, world! This is a fake s")
+PASS post-compact turn result ok=true
+
+PROVIDER-COMPACT E2E: ALL PASS

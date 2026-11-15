@@ -1,0 +1,11 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS D1 页面在探测在飞时起来:首个 /api/status 242 ms(探测至少 6000 ms),state 里 probing=true
+PASS D2 桌面组件那一行写「正在检测桌面控制组件…（完整版首次启动要几秒，好了会自己更新）」(实「正在检测桌面控制组件…（完整版首次启动要几秒，好了会自己更新）」)
+PASS D3 (模拟用户)在另一个设置输入框里改了一个值、还没保存
+PASS D4 探测完之后那一行自己更新(实「已发现桌面 MCP: /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python3 -X utf8 -m ai_computer_control.server」),state.status.desktopMcp 不再 probing
+PASS D5 用户改到一半的输入框原封不动 —— 跟进只补那两处、没有整页回填(实「http://typed-by-user-not-saved.invalid」)
+DESKTOP PROBE FOLLOW BROWSER E2E: ALL PASS

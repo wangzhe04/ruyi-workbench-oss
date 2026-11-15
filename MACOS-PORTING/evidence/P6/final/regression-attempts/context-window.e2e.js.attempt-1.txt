@@ -1,0 +1,43 @@
+PASS (unit) table: deepseek-v4 → 1000000
+PASS (unit) table: deepseek(其余) → 131072 (大小写不敏感)
+PASS (unit) table: MiMo text 1M, ASR exact guard
+PASS (unit) table: Qwen 3.8/3.7 1M, 3.6-max 256K, 3.5 base 32K
+PASS (unit) table: Qwen Omni 64K, Plus/Flash 1M, Turbo 128K, Max 32K
+PASS (unit) table: GLM 5.2/5.3 1M, 4.6 202752, 4.5 128K
+PASS (unit) table: kimi/moonshot → 262144
+PASS (unit) table: MiniMax M3 1M, M2.7 196608
+PASS (unit) table: Ollama Gemma4/MiniCPM5 131072
+PASS (unit) table: GPT-5.6 Sol/Terra/Luna/alias 1.05M
+PASS (unit) table: GPT-5.5/5.4 1.05M, mini/nano 400K, GPT-5.2/5.1 400K, Chat 128K
+PASS (unit) table: gpt-4o/gpt-4.1 → 128000
+PASS (unit) table: o3/o4 → 200000
+PASS (unit) table: claude → 200000
+PASS (unit) table: Kimi k3 1M, k3-256k/kimi-for-coding 256K
+PASS (unit) table: GPT-6 → 1050000
+PASS (unit) table: Gemini 1M, Grok 500K
+PASS (unit) table: llama-4-scout 10M, 其余 llama 131072
+PASS (unit) table: mistral/doubao/ernie → 131072
+PASS (unit) table: hunyuan → 1000000
+PASS (unit) table: step-5 1M, 其余 step 131072
+PASS (unit) table: yi-large/yi-medium → 32000
+PASS (unit) table: Anthropic opus/sonnet/fable 1M, haiku 200K(具名档先于 claude 家族兜底)
+PASS (unit) table: 无命中 → undefined
+PASS (unit) extract: context_length
+PASS (unit) extract: max_model_len
+PASS (unit) extract: 跳过非正数取第一个正数
+PASS (unit) extract: 无相关字段 → undefined
+PASS (unit) resolve: 手动 contextWindow 优先(source manual)
+PASS (unit) resolve: 无手动无探测 → 命中名称表(source table)
+PASS (unit) resolve: 全无 → 1000000 (source fallback)
+[fake] [fake-openai] listening on 58284
+PASS (unit) fetchOpenAiModels 保留 contextLength=200000
+PASS (unit) resolve: 探测缓存命中(source probe, value 200000)
+PASS (unit) resolve: 手动覆盖探测(manual 优先于 probe)
+PASS workbench up on :58285
+PASS (b) GET /api/models: fake-model.contextLength === 200000 (探测生效)
+PASS (b) GET /api/models: known Qwen model gets table contextLength=1000000 (no probe)
+PASS (b) /api/status 有 contextWindowResolved 附加字段
+PASS (b) contextWindowResolved: source probe, value 200000 (got probe/200000)
+PASS (b) contextWindowResolved 回显 provider+model
+
+CONTEXT-WINDOW E2E: ALL PASS

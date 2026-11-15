@@ -1,0 +1,29 @@
+PASS production protocol rejects test-domain selection before touching Keychain
+PASS new protected bytes identify Keychain and schema without containing plaintext
+PASS real isolated Keychain wraps and unwraps through the production Node protector
+PASS a fresh protector instance reads the existing Keychain key
+PASS decrypt_failed rejects without fallback
+PASS provider_mismatch rejects without fallback
+PASS decrypt_failed rejects without fallback
+PASS Windows rejects Keychain records before invoking DPAPI
+PASS real Mac privacy status reports platform support
+PASS real encryption API saves Keychain-wrapped references rather than plaintext
+PASS real Mac bot credential save and read use the same platform protector
+PASS an ordinary five-connection list does not exceed the Keychain process budget or misreport healthy credentials
+PASS real vault cold load decrypts protected references without plaintext persistence
+PASS existing password-protected recovery package rewraps under the Mac protector
+PASS locked Keychain remains typed through the vault and does not change stored data (credential_vault.keychain_locked)
+PASS unlocking restores cold vault access without replacing any key
+PASS changed Keychain identity does not decrypt or replace old records
+PASS damaged wrapping key is not silently regenerated
+PASS unprotect does not create a replacement for a missing key
+PASS permission_denied reaches the vault with no plaintext or durable write
+PASS permission_required reaches the vault with no plaintext or durable write
+PASS malformed helper JSON is a bounded failure
+PASS helper concurrency is bounded without retrying or queueing extra secret requests
+PASS helper arguments and environment contain neither credentials nor inherited provider secrets
+PASS oversize helper output fails before parsing or saving it
+PASS a stalled native helper has a bounded lifetime
+PASS missing native component fails explicitly
+
+MACOS KEYCHAIN E2E: ALL PASS

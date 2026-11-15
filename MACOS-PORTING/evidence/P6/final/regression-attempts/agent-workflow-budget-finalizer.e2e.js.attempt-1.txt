@@ -1,0 +1,7 @@
+PASS workbench starts
+  status: succeeded | subToolRequests: 2 | subFinalizerRequests: 1 | error: 
+PASS fake sub-agent consumed the entire 2-iteration tool budget
+PASS runtime made one no-tool finalizer request after budget exhaustion
+PASS DAG node succeeds with structured output instead of failing at the iteration limit
+
+AGENT WORKFLOW BUDGET FINALIZER E2E: ALL PASS

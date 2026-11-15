@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-11-13T03:06:55.070532+00:00",
+  "freeBytesBefore": 2932420608,
+  "twoPayloadBytes": 2331513544,
+  "marginRequiredBytes": 268435456,
+  "cloneStaging": false,
+  "scratch": "/private/tmp/ruyi-p6-normal-upgrade-rzvskk1e",
+  "command": [
+    "node",
+    "dev-harness/macos-upgrade-rollback.e2e.js"
+  ],
+  "exitCode": 0,
+  "seconds": 54.359,
+  "finishedAt": "2026-11-13T03:07:49.430289+00:00",
+  "freeBytesAfter": 2890862592,
+  "receiptSource": "/private/tmp/ruyi-p6-normal-upgrade-rzvskk1e/ruyi-upgrade-2tXlED"
+}

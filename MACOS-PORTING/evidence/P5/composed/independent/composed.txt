@@ -1,0 +1,20 @@
+PASS normal Mac registry exposes composed observation, verification and macro replay
+PASS one real observation combines encoded pixels and OCR of the owned counter
+PASS the same observation carries bound native AX references
+PASS observed image mapping preserves actual origin and both logical-point scales
+PASS text-only observation keeps shared native OCR without returning encoded pixels
+PASS guarded verification dispatches exactly one click and the intended receiver counts it
+PASS pixel verification reports a real counter change with explicit target-window scope
+PASS requested evidence and cropped diff carry usable image-coordinate metadata
+PASS a real no-change key observation keeps its evidence and semantic uncertainty
+PASS live macro replay composes guarded action, shared observation and OCR state readback
+PASS nested macro image lifting preserves the actual encoded frame geometry
+PASS zero settle budget still reports the immediately observed counter change
+batch_actions expected/actual failure {"ok":false,"success":false,"completed":0,"failed":1,"results":[{"step":0,"tool":"act_and_verify","ok":false,"result":{"ok":false,"error":"TypeError: act_and_verify() missing 1 required positional argument: 'target'"}}]}
+PASS a missing target stops the batch before the following mutation
+act_and_verify expected/actual failure {"ok":false,"error":"DesktopError: Cannot identify the focused accessible window","code":"window_not_found"}
+PASS changed foreground refuses composed input without changing either receiver counter
+PASS diagnostics agrees with the implemented composed backends
+PASS owned composed MCP and worker cleanup is confirmed
+
+MACOS OBSERVE E2E: ALL PASS

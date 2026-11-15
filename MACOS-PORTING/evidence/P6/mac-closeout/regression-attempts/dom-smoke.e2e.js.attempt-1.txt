@@ -1,0 +1,60 @@
+PASS workbench up on :56644
+PASS workbench seeded with an existing session (exercise openSession boot path)
+── A 段: 静态资源全 200 ──
+PASS A GET / -> 200 (167044B) got 200
+PASS A GET /app.js -> 200 (62061B) got 200
+PASS A GET /js/turn-narrative.js -> 200 (8391B) got 200
+PASS A GET /styles.css -> 200 (1350B) got 200
+PASS A GET /css/tokens.css -> 200 (5669B) got 200
+PASS A GET /css/themes/color-schemes.css -> 200 (9724B) got 200
+PASS A GET /css/base.css -> 200 (5632B) got 200
+PASS A GET /css/layout.css -> 200 (24775B) got 200
+PASS A GET /css/views/chat-shell.css -> 200 (35423B) got 200
+PASS A GET /css/components/chat-primitives.css -> 200 (16693B) got 200
+PASS A GET /css/views/chat-narrative.css -> 200 (7056B) got 200
+PASS A GET /css/states/chat-live.css -> 200 (29584B) got 200
+PASS A GET /css/components/chat-composer.css -> 200 (16726B) got 200
+PASS A GET /css/components/tool-pane.css -> 200 (42745B) got 200
+PASS A GET /css/themes/ui-modes.css -> 200 (5374B) got 200
+PASS A GET /css/views/workspace.css -> 200 (49150B) got 200
+PASS A GET /css/views/usage.css -> 200 (8552B) got 200
+PASS A GET /css/views/workbench.css -> 200 (33242B) got 200
+PASS A GET /css/components/onboarding.css -> 200 (15753B) got 200
+PASS A GET /css/views/steward-shell.css -> 200 (9003B) got 200
+PASS A GET /css/views/steward-avatar.css -> 200 (5948B) got 200
+PASS A GET /css/views/steward-conversation.css -> 200 (35044B) got 200
+PASS A GET /css/views/steward-drawer.css -> 200 (24519B) got 200
+PASS A GET /css/views/steward-settings.css -> 200 (18394B) got 200
+PASS A GET /css/views/settings.css -> 200 (36542B) got 200
+PASS A GET /css/views/steward-board.css -> 200 (31274B) got 200
+PASS A GET /css/views/quiet-card.css -> 200 (2836B) got 200
+PASS A GET /css/views/prompt-dock.css -> 200 (5939B) got 200
+PASS A GET /css/views/background-tray.css -> 200 (5360B) got 200
+PASS A GET /css/views/migration.css -> 200 (2539B) got 200
+PASS A GET /css/views/chat.css -> 200 (305B) got 200
+PASS A GET /locales/zh-CN.json -> 200 (227856B) got 200
+PASS A GET /locales/en-US.json -> 200 (338159B) got 200
+── B/C 段: headless 渲染 DOM ──
+PASS B0 找到系统浏览器(Edge/Chrome headless) -> Google Chrome
+PASS B1 dump-dom 完成 (258396B, status=0)
+PASS B2 token 占位符已替换(__WCW_TOKEN__ 绝迹,抓 S1 注入回归)
+PASS B3 wcw-token meta 在(前端启动凭据送达)
+PASS B4 结构节点 #sidebar 在渲染后 DOM 中
+PASS B4 结构节点 #railList 在渲染后 DOM 中
+PASS B4 结构节点 #messages 在渲染后 DOM 中
+PASS B4 结构节点 #promptInput 在渲染后 DOM 中
+PASS B4 结构节点 #sendBtn 在渲染后 DOM 中
+PASS B4 结构节点 #threadChips 在渲染后 DOM 中
+PASS B4 结构节点 #workflowEditorBtn 在渲染后 DOM 中
+PASS B4 结构节点 #newSessionBtn 在渲染后 DOM 中
+PASS B5 data-testid="sidebar" 语义契约在(50 波拆分重构锚点)
+PASS B5 data-testid="messages" 语义契约在(50 波拆分重构锚点)
+PASS B5 data-testid="promptInput" 语义契约在(50 波拆分重构锚点)
+PASS B5 data-testid="sendBtn" 语义契约在(50 波拆分重构锚点)
+PASS B5 data-testid="workflowEditorBtn" 语义契约在(50 波拆分重构锚点)
+PASS C1 线程头那组 chip 已按 /api/status 渲染引擎标签(engine="Claude Code") = JS boot + API + 渲染全活
+PASS C2 输入框 placeholder 就位(i18n/静态文案管线活)
+PASS C3 bootData 全链完成，未被前端运行时异常误报为本地服务断连
+PASS C4 已有会话启动路径完成渲染（跨聊天模块依赖接线完整）
+
+DOM-SMOKE E2E: ALL PASS

@@ -1,0 +1,18 @@
+PASS real tools/list discovers all ready native AX tools
+PASS native AX registration preserves file checkpoint coverage
+PASS diagnostics identifies the ready AXUIElement backend separately from Windows UIA packages
+PASS real AX traversal reports native roles, exact identifiers and private element references
+PASS element geometry uses finite global logical-point bounds and centers
+PASS depth-limited tree explicitly reports unvisited children
+PASS node limit is enforced before visiting further elements
+PASS out-of-range traversal depth is refused
+PASS native AX focus is confirmed by the element attribute
+PASS AXValue write preserves Chinese and surrogate pairs with exact receiver readback
+FAIL Error: ui_invoke {"ok":false,"error":"DesktopError: Accessibility provider returned error -25204","code":"accessibility_timeout","acted":true,"action_sent":true,"outcome":"unconfirmed","control":{"actions":["AXPress"],"automation_id":"apply","bounds":{"height":30,"width":178,"x":216,"y":531},"center":[305,546],"enabled":true,"focused":false,"name":"Apply 中文","offscreen":0,"type":"AXButton","visibility":"confirmed","visible_bounds":{"height":30,"width":178,"x":216,"y":531}}}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax.e2e.js:33:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax.e2e.js:103:21
+PASS owned AX MCP and native worker cleanup is confirmed
+PASS owned accessibility provider exits after acceptance
+
+MACOS AX E2E: FAIL (1)

@@ -1,0 +1,38 @@
+PASS A0 workbench listening
+PASS 81-P1 persistence assertions use encrypted config references on Windows
+PASS A0b got UI token (POST /api/config is token-level)
+PASS A1 partial patch accepted (status 200)
+PASS A2 partial patch keeps both providers and the real keys on disk
+PASS A3 no backup written for a harmless patch
+PASS B1 GET /api/status masks provider keys
+PASS B2 masked round-trip restores the real keys
+PASS B3 shrinking to a partial list is still honoured
+PASS B4 a backup is written on shrink, not only on clear (config.json.bak-providers-2026-11-12T14-03-47-626Z)
+PASS B5 audit event config_providers_shrunk logged with the lost ids
+PASS B6 re-adding the second provider with an explicit key lands on disk
+PASS C1 clearing providers is still honoured (last-one-deleted is legal)
+PASS C2 exactly one more backup written before the wipe (config.json.bak-providers-2026-11-12T14-03-47-626Z,config.json.bak-providers-2026-11-12T14-03-47-935Z)
+PASS C3 the backup carries both providers with real keys (recoverable)
+PASS C4 audit event config_providers_cleared logged
+PASS C5 no extra backup when there was nothing to lose
+PASS D1 saveSettings uploads providers only when the draft was seeded from config
+PASS D2 fillSettings 只在【真的拿到 config】时才把草稿标成已播种（config 没到就不声称播过种）
+PASS D2b 用户亲手添加 Provider 仍然直接标记已播种（那是用户意图，保存时照常上传）
+PASS D2c fillSettings 那一处不再无条件标 true（防回改）
+PASS E0 fixture provider with a key + sensitive header is on disk
+PASS E1 GET /api/status masks apiKey + sensitive header, baseUrl（无凭据）逐字节不变
+PASS E2 masked echo with an UNCHANGED baseUrl → disk byte-identical
+PASS E3 masked echo with a CHANGED baseUrl is refused (status 409, code config.masked_secret_vector_changed)
+PASS E3 the response says which provider needs its key re-entered（人话里带条目名）
+PASS E3 the refusal carries a machine-readable conflict list and NO secret value
+PASS E4 the refused save wrote nothing at all（连同一次保存里的别的字段一起回滚）
+PASS E4 the real key is still attached to the ORIGINAL endpoint ("sk-S2G…" @ http://127.0.0.1:65099)
+PASS E5 a new plaintext key + header with a changed baseUrl is stored ("sk-S2R…")
+PASS E5b provider restored to the reachable endpoint
+PASS E6 config.json contains no mask anywhere
+PASS E7 provider/test refuses a masked key aimed at a new endpoint (code config.masked_secret_vector_changed)
+PASS E7 …and the attacker endpoint（真在监听）收到 0 个请求，真 key 一个字节都没出门（evil 0 次，首个 undefined）
+PASS E8 the same masked draft against the UNCHANGED endpoint still probes with the real key + header ("Bearer…", len 48)
+PASS E9 maskSecrets 的掩码点恰好 6 处（providers.apiKey / providers.extraHeaders / searchBackend.apiKey / modelsApiKey / externalMcpServers ×2 引用）——实得 6；新增一处就要在 maskedSecretConflicts 里同时声明它的启动向量
+PASS E9 设置页按【稳定码】分支渲染这条拒绝（不匹配中文）
+CONFIG PROVIDERS GUARD E2E: ALL PASS

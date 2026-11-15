@@ -1,0 +1,405 @@
+{
+  "at": "2026-11-11T03:24:09.537684+00:00",
+  "freezePath": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/development/sequence/pure-freeze.json",
+  "freezeSha256": "124a24158a3e4c4157586386d237a6be1fbfc77bfe5faecead15f2587dbc71a0",
+  "count": 33,
+  "allMatched": true,
+  "files": [
+    {
+      "path": "README.md",
+      "expected": {
+        "bytes": 65808,
+        "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913"
+      },
+      "actual": {
+        "bytes": 65808,
+        "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913"
+      },
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "expected": {
+        "bytes": 72914,
+        "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320"
+      },
+      "actual": {
+        "bytes": 72914,
+        "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "expected": {
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055"
+      },
+      "actual": {
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "expected": {
+        "bytes": 13981,
+        "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44"
+      },
+      "actual": {
+        "bytes": 13981,
+        "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "expected": {
+        "bytes": 11806,
+        "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d"
+      },
+      "actual": {
+        "bytes": 11806,
+        "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d"
+      },
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "expected": {
+        "bytes": 1335,
+        "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4"
+      },
+      "actual": {
+        "bytes": 1335,
+        "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "expected": {
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      "actual": {
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "expected": {
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+      },
+      "actual": {
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "expected": {
+        "bytes": 11254,
+        "sha256": "a5179b34e9eb35e159393d928ead56f588c96e01ba18d4147e1913bc6cf12371"
+      },
+      "actual": {
+        "bytes": 11254,
+        "sha256": "a5179b34e9eb35e159393d928ead56f588c96e01ba18d4147e1913bc6cf12371"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "expected": {
+        "bytes": 10259,
+        "sha256": "865c656c68b370b1ddb35a6e1649ff855d99436f5223fdc34d2709aff1802280"
+      },
+      "actual": {
+        "bytes": 10259,
+        "sha256": "865c656c68b370b1ddb35a6e1649ff855d99436f5223fdc34d2709aff1802280"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "expected": {
+        "bytes": 6532,
+        "sha256": "636fde3f3685ed150480a00a7a0f3d33b8e7f26a56604506e21868e052eb4682"
+      },
+      "actual": {
+        "bytes": 6532,
+        "sha256": "636fde3f3685ed150480a00a7a0f3d33b8e7f26a56604506e21868e052eb4682"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "expected": {
+        "bytes": 13250,
+        "sha256": "2b002325ef6efb0542de7a0e73ed3e456734239dfa63a726c9d0f40df21ea03a"
+      },
+      "actual": {
+        "bytes": 13250,
+        "sha256": "2b002325ef6efb0542de7a0e73ed3e456734239dfa63a726c9d0f40df21ea03a"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "expected": {
+        "bytes": 10652,
+        "sha256": "8f1a36b85f9666285d54dddd9bb3eac7266718feac31d137d6fc5764ccd9a985"
+      },
+      "actual": {
+        "bytes": 10652,
+        "sha256": "8f1a36b85f9666285d54dddd9bb3eac7266718feac31d137d6fc5764ccd9a985"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "expected": {
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      "actual": {
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "expected": {
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+      },
+      "actual": {
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+      "expected": {
+        "bytes": 8718,
+        "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+      },
+      "actual": {
+        "bytes": 8718,
+        "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+      "expected": {
+        "bytes": 16622,
+        "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+      },
+      "actual": {
+        "bytes": 16622,
+        "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+      "expected": {
+        "bytes": 22572,
+        "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380"
+      },
+      "actual": {
+        "bytes": 22572,
+        "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "expected": {
+        "bytes": 6777726,
+        "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb"
+      },
+      "actual": {
+        "bytes": 6777726,
+        "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "expected": {
+        "bytes": 18239,
+        "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+      },
+      "actual": {
+        "bytes": 18239,
+        "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "expected": {
+        "bytes": 234136,
+        "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+      },
+      "actual": {
+        "bytes": 234136,
+        "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "expected": {
+        "bytes": 44532,
+        "sha256": "0ab063300a36a0f724fcaeea678f61d7f61ab7751014095812143237ca720f3d"
+      },
+      "actual": {
+        "bytes": 44532,
+        "sha256": "0ab063300a36a0f724fcaeea678f61d7f61ab7751014095812143237ca720f3d"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "expected": {
+        "bytes": 22827,
+        "sha256": "14a1d44002786093724c29d00da4a8cd9a29c20356e94abdd03e6e8dc5fabce5"
+      },
+      "actual": {
+        "bytes": 22827,
+        "sha256": "14a1d44002786093724c29d00da4a8cd9a29c20356e94abdd03e6e8dc5fabce5"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "expected": {
+        "bytes": 48816,
+        "sha256": "b15f4ec125ab3c03902d04eea9aa2c4b06ea2deab25692e74cc1f7cd5b47b8be"
+      },
+      "actual": {
+        "bytes": 48816,
+        "sha256": "b15f4ec125ab3c03902d04eea9aa2c4b06ea2deab25692e74cc1f7cd5b47b8be"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "expected": {
+        "bytes": 13471,
+        "sha256": "1ab08de02dea64fec3888fdee2afab37cc5830dff95deca917490542909d8544"
+      },
+      "actual": {
+        "bytes": 13471,
+        "sha256": "1ab08de02dea64fec3888fdee2afab37cc5830dff95deca917490542909d8544"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "expected": {
+        "bytes": 6355,
+        "sha256": "7acf7bdd39afa2853512fabb41790d07a3254414fd47b7f9bb063467ee27f02f"
+      },
+      "actual": {
+        "bytes": 6355,
+        "sha256": "7acf7bdd39afa2853512fabb41790d07a3254414fd47b7f9bb063467ee27f02f"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "expected": {
+        "bytes": 4130,
+        "sha256": "6aa312b6258556b13029f2b5482fd6efa8ecac47741d815f551da76d38769b0e"
+      },
+      "actual": {
+        "bytes": 4130,
+        "sha256": "6aa312b6258556b13029f2b5482fd6efa8ecac47741d815f551da76d38769b0e"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "expected": {
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+      },
+      "actual": {
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/macos-manual-record.e2e.js",
+      "expected": {
+        "bytes": 29634,
+        "sha256": "4c5f1c1d63a6a06ed9ac8c57b77eaa3defb952921d8b42b16f0f0b35152f5c16"
+      },
+      "actual": {
+        "bytes": 29634,
+        "sha256": "4c5f1c1d63a6a06ed9ac8c57b77eaa3defb952921d8b42b16f0f0b35152f5c16"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "expected": {
+        "bytes": 6662,
+        "sha256": "f1cd6a32c4eb5aa19792cf96814a299533bd56d14e614ede5b730b8a748a1a76"
+      },
+      "actual": {
+        "bytes": 6662,
+        "sha256": "f1cd6a32c4eb5aa19792cf96814a299533bd56d14e614ede5b730b8a748a1a76"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+      "expected": {
+        "bytes": 12079,
+        "sha256": "87461c6e43bd27d122397a8697836f69caa183a0e1e99fb53916f0feb61e5c05"
+      },
+      "actual": {
+        "bytes": 12079,
+        "sha256": "87461c6e43bd27d122397a8697836f69caa183a0e1e99fb53916f0feb61e5c05"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "expected": {
+        "bytes": 9833,
+        "sha256": "edfe30c2b695d0d2b2c6fa353283a2ebfc3f123d18db26e4a4704e1e1b0c8bfe"
+      },
+      "actual": {
+        "bytes": 9833,
+        "sha256": "edfe30c2b695d0d2b2c6fa353283a2ebfc3f123d18db26e4a4704e1e1b0c8bfe"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "expected": {
+        "bytes": 16984,
+        "sha256": "a313027f0637af72c2f249990842971c500d257c8b60e2beb38079de5a9c1176"
+      },
+      "actual": {
+        "bytes": 16984,
+        "sha256": "a313027f0637af72c2f249990842971c500d257c8b60e2beb38079de5a9c1176"
+      },
+      "matched": true
+    }
+  ]
+}

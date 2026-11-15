@@ -1,12 +1,15 @@
 """Append-only audit log for mutating tool calls (NDJSON, one file per day, size-rotated).
 
-`log_action(tool, args, ok, error=None, ms=None)` appends a single JSON line to
+`log_action(tool, args, ok, error=None, ms=None, outcome=None)` appends a single JSON line to
 <data>/logs/audit-YYYYMMDD.ndjson (a day file that grows past ~5 MB is renamed to
 audit-YYYYMMDD.HHMMSS.ndjson and a fresh one started; only the newest 30 files are kept). Each record
 carries the redacted args as a JSON object (not a pre-encoded string), the ok/error outcome and the
 duration. It is deliberately best-effort: any failure to serialize or write is swallowed so auditing can
 NEVER break the tool it is auditing. `audit_tail(n)` reads the most recent n records back (seeking from
 the end of the newest files, never reading whole logs).
+
+Optional outcome fields are limited to typed cancelled/action_sent/confirmed flags and a fixed outcome
+vocabulary. Cancellation of an enclosing macro has unknown effects when only an inner step is known.
 
 Sensitive-looking fields (password/token/secret/key/...) are redacted by KEY name, and string
 VALUES are scrubbed for inline credential shapes (``password=...``, ``Bearer ...``, ``sk-...``,
@@ -150,7 +153,8 @@ def _rotate_if_needed(path: str) -> bool:
         return False
 
 
-def log_action(tool: str, args_summary, ok: bool = True, error: str | None = None, ms: int | None = None) -> None:
+def log_action(tool: str, args_summary, ok: bool = True, error: str | None = None, ms: int | None = None,
+               outcome: dict | None = None) -> None:
     """Append one audit record. Never raises — auditing must not break the audited tool."""
     try:
         rec = {
@@ -164,6 +168,14 @@ def log_action(tool: str, args_summary, ok: bool = True, error: str | None = Non
             rec["error"] = e if len(e) <= _MAX_ERROR_CHARS else e[:_MAX_ERROR_CHARS] + "..."
         if ms is not None:
             rec["ms"] = int(ms)
+        if isinstance(outcome, dict):
+            for key in ('cancelled', 'action_sent'):
+                if type(outcome.get(key)) is bool:
+                    rec[key] = outcome[key]
+            if 'confirmed' in outcome and (outcome['confirmed'] is None or type(outcome['confirmed']) is bool):
+                rec['confirmed'] = outcome['confirmed']
+            if outcome.get('outcome') in ('unknown', 'unconfirmed', 'not_dispatched', 'rolled_back'):
+                rec['outcome'] = outcome['outcome']
         line = json.dumps(rec, ensure_ascii=False, default=str)
         d = logs_dir()
         fname = "audit-" + datetime.datetime.now().strftime("%Y%m%d") + ".ndjson"
@@ -233,3 +245,31 @@ def audit_tail(n: int = 50) -> dict:
         return {"ok": True, "count": len(records), "records": records, "log_dir": d}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": exc_text(e)}
+
+
+@mcp.tool()
+def execution_receipt(invocation_id: str, probe_values: dict | None = None, control: str | None = None) -> dict:
+    """Read the committed execution-evidence prefix for one opaque invocation identity.
+
+    This read never replays an action and does not return private argument-blob contents.
+    Missing, partial or uncommitted evidence remains incomplete/unknown.
+    """
+    from ai_computer_control.utils.execution_journal import ExecutionJournalError
+    from ai_computer_control.utils.execution_receipt_validation import read_validated_receipts
+    from ai_computer_control.utils.execution_context import metadata_transport_supported, metadata_transport_probe
+    if control not in (None, 'readiness'):
+        return {'ok': False, 'code': 'execution_control_invalid', 'incomplete': True,
+                'outcome': 'not_dispatched', 'request_terminal_observed': False}
+    probe = metadata_transport_probe(mcp, probe_values)
+    try:
+        value = read_validated_receipts(invocation_id)
+    except ExecutionJournalError as error:
+        return {'ok': False, 'code': error.code, 'error': 'Cannot validate committed execution evidence',
+                'outcome': 'unknown', 'incomplete': True, 'request_terminal_observed': False}
+    readiness = {}
+    if control == 'readiness':
+        from ai_computer_control.tools.diagnostics import execution_readiness_snapshot
+        readiness['readiness'] = execution_readiness_snapshot()
+    return {**value, **readiness, 'execution_receipt_version': 1,
+            'metadata_transport_supported': metadata_transport_supported(mcp),
+            **({'metadata_probe': probe} if probe is not None else {})}

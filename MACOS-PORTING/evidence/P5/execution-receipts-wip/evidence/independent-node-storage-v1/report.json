@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T17:02:09.115733+00:00",
+  "verdict": "passed_frozen_isolated_node_storage_factory_and_capability_policy_scope",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "implementationState": "Full execution-receipts WIP. Standalone factory and shared storage primitives are qualified with real isolated private-file IO, but real root/current-turn callbacks, dispatch and delivery integration remain absent.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/node-storage-freeze-v1.json",
+    "bytes": 22186,
+    "sha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757"
+  },
+  "sourceReviews": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/durable-bounds-source-review-v1.json",
+      "bytes": 9768,
+      "sha256": "8734263e6e2a0f034aee2f14ad8e36e1b5a207345f55455fac1419b7fcfc5fc7",
+      "outcome": "All three actionable findings identified in this slice are closed in current source; no further actionable source finding identified within the reviewed scope."
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/node-ledger-source-review-v1.json",
+      "bytes": 11814,
+      "sha256": "2e253a8bcc86dec5fd5625c9a310eb318e4427267610c387a0e9a70823339e3c",
+      "outcome": "All three actionable findings identified in this factory review are closed in current v7 source. No remaining actionable source finding identified within this standalone factory scope."
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/node-ledger-source-supplement-v1.json",
+      "bytes": 4006,
+      "sha256": "d83e858ec19489b8aeb54a89869e5aa74846a1d70ee86cc8acee9aa2d1b6949b",
+      "outcome": "No new actionable source issue identified."
+    }
+  ],
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64",
+    "runtimeScope": "Only Node suites execute; MCP/Python SDK and native helpers are not invoked."
+  },
+  "invocations": [
+    {
+      "label": "storage",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-ledger.test.js",
+        "dev-harness/unit/durable-json-bounded.test.js",
+        "dev-harness/unit/durable-json-strict-read.test.js",
+        "dev-harness/unit/execution-preparation.test.js",
+        "dev-harness/unit/execution-arguments.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {},
+      "startedAt": "2026-11-11T17:01:08.216484+00:00",
+      "freezeSha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64",
+        "runtimeScope": "Only Node suites execute; MCP/Python SDK and native helpers are not invoked."
+      },
+      "finishedAt": "2026-11-11T17:01:08.521867+00:00",
+      "elapsedSeconds": 0.3051125000056345,
+      "exitCode": 0,
+      "logSha256": "34275e4bb33bab392325ca7f4fdd41570d7f0f4d5fd492884f94af2bfca51aaf"
+    },
+    {
+      "label": "capabilities",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/acc-capability-gates.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {},
+      "startedAt": "2026-11-11T17:01:15.011992+00:00",
+      "freezeSha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64",
+        "runtimeScope": "Only Node suites execute; MCP/Python SDK and native helpers are not invoked."
+      },
+      "finishedAt": "2026-11-11T17:01:15.293812+00:00",
+      "elapsedSeconds": 0.281676000013249,
+      "exitCode": 0,
+      "logSha256": "af82a33ffdb7f513bea0b002284c8bd1019b96e8ca26b7633b8c0f65d342de3e"
+    }
+  ],
+  "results": {
+    "storageFiveFiles": {
+      "passed": 55,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "breakdown": {
+        "desktopExecutionLedger": 26,
+        "durableJsonBounded": 14,
+        "durableJsonStrictRead": 3,
+        "executionPreparation": 6,
+        "executionArguments": 6
+      }
+    },
+    "capabilityGates": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": "Pure registered-name/family/read-tier and policy/config generation assertions; no actual MCP launch or dispatch."
+    },
+    "totalPassed": 61,
+    "retries": 0,
+    "bothTestProcessesExitedNormally0": true
+  },
+  "coverage": {
+    "factory": "Hash/identity-only durable preparation and immutable arguments; serialized preparations; prior-epoch holds on factory reopen; deduplication; receipt/result flags; callback authority/current-turn/client replacement guards; loss during async storage; sibling uncertainty; corrupt/missing/replaced state; capacity without pruning; retirement watermarks; authority handover/late results. All callback and receipt facts in this suite are simulated.",
+    "sharedStore": "Actual isolated private canonical file roundtrip, fixed enqueue bytes, read/write bounds, strict UTF8/canonical JSON, descriptors and symlink/hardlink/FIFO/private-mode refusal, hooks/accessors rejected, exclusive temp-name collision preserves old/foreign inodes, strict uncached read does not manufacture committed data after failure.",
+    "policy": "execution_receipt positive capability registration/read-tier/family policy is statically/purely checked. This is not external ACC runtime readiness."
+  },
+  "bindings": {
+    "sourceCount": 80,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "artifactMeaning": "All3 existing artifacts are hash-bound only; none executed by this qualification.",
+    "checkpointCount": 4,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities-after-binding.json",
+        "bytes": 24282,
+        "sha256": "5c70bf91846814f77b596066231aeda3eae6e62ee85e8b7c089058c97305df5d",
+        "sources": 80,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities-before-binding.json",
+        "bytes": 24282,
+        "sha256": "444f5ce216341b356095039df8f5f0f67a663e8d4773ceedecb088d03763f2d0",
+        "sources": 80,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage-after-binding.json",
+        "bytes": 24282,
+        "sha256": "405d8953750d73d86a677ef203dc89b6093efd2599027449e64d2e822a0bb4c0",
+        "sources": 80,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage-before-binding.json",
+        "bytes": 24282,
+        "sha256": "0de76a986799ca145db18ad107b1559f37618a9ffa95e9f1e9563aed91897e4a",
+        "sources": 80,
+        "artifacts": 3,
+        "allMatched": true
+      }
+    ]
+  },
+  "isolation": {
+    "fileIO": "Frozen suites allocate/remove their own temporary homes/data/file fixtures. FIFO deadline checks use owned Node subprocesses only.",
+    "ownershipReceiptFacts": "Factory authority, current-turn, client facts, history delivery and ACC retention callbacks are test inputs, not observed actual host runtime.",
+    "nativeOrMcpRuntimeInvocations": 0
+  },
+  "limits": [
+    "Factory reopen/epoch tests are isolated file+object reconstructions, not server OS restart, actual provider recovery or runtime dispatch acceptance",
+    "Actual root/provider/proxy/subagent/CLI dispatch, ordinary product activation and restart reconciliation remain unintegrated",
+    "Real closed-history delivery and ACC retention/retirement callbacks remain unintegrated",
+    "All3 helpers only byte-bound; prior SDK/native/readiness runtime freezes retain separate historical scopes",
+    "No native/GUI/MCP/context/protocol/adapter tests, event posting, clipboard/window mutation, held/lock/TCC/App actions",
+    "Only these two commands were independently executed; parent fullunit2573+18skip is not independently rerun or accepted here as full engineering four gates",
+    "No power-loss/system-crash durability or whole-P5/root-hard-abort/held release/replay guard acceptance"
+  ],
+  "actions": {
+    "productOrTestEditsByReviewer": 0,
+    "nativeOrGuiMcpInvocations": 0,
+    "heldLockTCCOrAppActions": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; standing instruction reserves restoration until full P5 acceptance.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities-after-binding.json",
+      "bytes": 24282,
+      "sha256": "5c70bf91846814f77b596066231aeda3eae6e62ee85e8b7c089058c97305df5d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities-before-binding.json",
+      "bytes": 24282,
+      "sha256": "444f5ce216341b356095039df8f5f0f67a663e8d4773ceedecb088d03763f2d0"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities-invocation.json",
+      "bytes": 823,
+      "sha256": "ef92c1d27f24bd91edb738187c9fe1f33ee557f7ee8a948345ed968ed16e2c98"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/capabilities.log",
+      "bytes": 788,
+      "sha256": "af82a33ffdb7f513bea0b002284c8bd1019b96e8ca26b7633b8c0f65d342de3e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/node-storage-freeze-v1.json",
+      "bytes": 22186,
+      "sha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/run_once.py",
+      "bytes": 3045,
+      "sha256": "b41ae62fc46cfd31f9683433108bd51715b236e5e96de4940907399214efcf49"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/runtime-versions.json",
+      "bytes": 237,
+      "sha256": "18203139b8f9ad5dc20030847f89fd3050b0517ba41d2af16119b20ecdd16979"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage-after-binding.json",
+      "bytes": 24282,
+      "sha256": "405d8953750d73d86a677ef203dc89b6093efd2599027449e64d2e822a0bb4c0"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage-before-binding.json",
+      "bytes": 24282,
+      "sha256": "0de76a986799ca145db18ad107b1559f37618a9ffa95e9f1e9563aed91897e4a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage-invocation.json",
+      "bytes": 1039,
+      "sha256": "c164a6861319fae0a1350e2e0a27ea70f1c4a0adee91c07b92337e06474dd331"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-node-storage-v1/storage.log",
+      "bytes": 5992,
+      "sha256": "34275e4bb33bab392325ca7f4fdd41570d7f0f4d5fd492884f94af2bfca51aaf"
+    }
+  ]
+}

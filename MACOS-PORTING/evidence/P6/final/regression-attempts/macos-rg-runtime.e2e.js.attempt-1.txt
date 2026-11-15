@@ -1,0 +1,17 @@
+PASS pre-aborted cold search starts neither version probe nor search
+PASS file_search uses supervised version discovery and preserves Unicode results
+PASS version probe cleans its writing descendant before search
+PASS main rg search decodes split UTF-8 and confirms descendant cleanup
+PASS search execution registers its tool session owner
+PASS rg exit one remains a valid empty result
+PASS confirmed rg failure safely falls back to JS
+PASS abort stops descendants before returning or safe fallback
+PASS timeout stops descendants before returning or safe fallback
+PASS overflow stops descendants before returning or safe fallback
+PASS high-byte supplementary search is supervised and preserves legacy encoding repair
+PASS missing helper starts no external execution and safely uses JS search
+PASS valid matches cannot conceal unconfirmed cleanup or trigger JS fallback
+PASS supplementary search cleanup uncertainty cannot be swallowed as optional repair failure
+PASS retained pipes report bounded failure without JS fallback
+
+MACOS RG RUNTIME E2E: ALL PASS

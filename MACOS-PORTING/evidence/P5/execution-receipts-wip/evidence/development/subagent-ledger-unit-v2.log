@@ -1,0 +1,39 @@
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (7.276541ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (8.739625ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (10.595042ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (6.834458ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (19.445ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (6.456375ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (2.42175ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (2.9235ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (3.530667ms)
+✔ capacity refuses without pruning any unresolved row (15.340708ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (4.803334ms)
+✔ unknown records cannot be retired even if a caller confirms closure (2.526584ms)
+✔ client facts and receipt content are snapshotted before asynchronous ledger IO (4.552625ms)
+✔ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (3.024ms)
+✔ two live authorities for the same canonical directory cannot create independent write chains (1.395916ms)
+✔ strict root record validation rejects contradictory returned-unknown state without resetting the file (5.06925ms)
+✔ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (4.164ms)
+✔ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (5.975292ms)
+✔ loss of authority during the actual write cannot return a dispatchable preparation (1.4515ms)
+✔ ordinary business exit codes remain result data and are not invented as receipt flags (2.092792ms)
+✔ receipt code projection uses Python code points and preserves astral-boundary distinctions (8.085417ms)
+✔ authority handover refuses until the old write has drained, then preserves it as an unknown record (1.970083ms)
+✔ retired turns remain closed across reopen and explicit newer rewind generation gets a distinct admission (6.571ms)
+✔ prepare and dispatch require the explicit live host turn, not a caller-supplied newer generation (1.486833ms)
+✔ late actual results remain recordable after the host turn stops, while new dispatch is refused (3.859291ms)
+✔ retirement confirmation receives an exact scope even when the turn has no records (2.02325ms)
+✔ node delivery reserves a private slot before dispatch, pins exact actual history and survives cold read (12.847042ms)
+✔ deleting or tampering acknowledged node snapshot causes durable hold on actual cold reopen (41.471209ms)
+✔ warm guard validates node snapshot and generic main acknowledgement cannot bypass node proof (12.109833ms)
+✔ node snapshot capacity refuses before preparation and reserved slot remains usable when namespace becomes full (102.407958ms)
+✔ missing required image parts and scope changes cannot replace a node reservation or acknowledge delivery (5.254791ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 477.086292

@@ -1,0 +1,17 @@
+PASS local OCR tools are registered independently of desktop input
+PASS new observations preserve file checkpoint coverage
+PASS installed offline Vision exposes Chinese and English language tags
+PASS real native OCR preserves mixed Chinese, English and monetary punctuation
+PASS local image coordinates and raw decoded orientation are explicit
+PASS Unicode tokenization splits CJK characters and preserves non-CJK punctuation
+PASS native token rectangles and centers remain inside image pixels
+PASS ordinary image symlinks read the same validated opened file
+ocr_image failure {"ok":false,"error":"DesktopError: Requested language is not supported by the installed Vision recognizer","code":"ocr_language_unsupported","available_languages":["en-US","fr-FR","it-IT","de-DE","es-ES","pt-BR","zh-Hans","zh-Hant","yue-Hans","yue-Hant","ko-KR","ja-JP","ru-RU","uk-UA","th-TH","vi-VT","ar-SA","ars-SA","tr-TR","id-ID","cs-CZ","da-DK","nl-NL","no-NO","nn-NO","nb-NO","ms-MY","pl-PL","ro-RO","sv-SE","fi-FI","hi-IN","mr-IN"]}
+PASS unsupported language fails with bounded installed-language details
+ocr_image failure {"ok":false,"error":"DesktopError: Input has no decodable image properties","code":"ocr_image_invalid"}
+PASS invalid local image fails explicitly
+ocr_image failure {"ok":false,"error":"DesktopError: OCR requires a nonempty regular image file of at most 50MB","code":"ocr_capacity"}
+PASS non-regular image input is refused without blocking
+PASS ready screen OCR and OpenCV tools appear in real tools/list
+
+[fixture home 保留取证] /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-home-LCZQ2W

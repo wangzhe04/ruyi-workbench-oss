@@ -1,0 +1,5 @@
+FAIL Error: App acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:20:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:51:18
+
+MACOS CAPTURE HOST E2E: FAIL (1)

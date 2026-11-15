@@ -1,0 +1,33 @@
+{
+  "name": "session-testing-queued-register",
+  "command": [
+    "/tmp/ruyi-v3-build-jrt3_pv8/testing-helper",
+    "--input-session"
+  ],
+  "request": {
+    "version": 1,
+    "op": "window.list",
+    "id": 71
+  },
+  "framePrequeuedBeforeSpawn": true,
+  "frameBytes": 46,
+  "stdinWriterOpenAtExit": true,
+  "exitCode": 70,
+  "expectedExitCode": 70,
+  "stdout": "",
+  "stderr": "",
+  "elapsedSeconds": 0.01,
+  "environment": {
+    "HOME": "/tmp/ruyi-v3-q-b__l7q6g/h",
+    "USERPROFILE": "/tmp/ruyi-v3-q-b__l7q6g/u",
+    "APPDATA": "/tmp/ruyi-v3-q-b__l7q6g/a",
+    "LOCALAPPDATA": "/tmp/ruyi-v3-q-b__l7q6g/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-v3-q-b__l7q6g/w",
+    "RUYI_HOME": "/tmp/ruyi-v3-q-b__l7q6g/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v3-q-b__l7q6g/c",
+    "TMPDIR": "/tmp/ruyi-v3-q-b__l7q6g/t",
+    "RUYI_TEST_SESSION_MONITOR_FAILURE": "register"
+  },
+  "tmpdirPathBytes": 25,
+  "isolationRootOutsideGit": true
+}

@@ -34,6 +34,10 @@ _browser = None
 _page = None
 _playwright = None
 _backend = ""
+_owned_pages = set()
+_last_start_error = ""
+_playwright_manager = None
+_start_task = None
 _lock = asyncio.Lock()  # Py3.10+: not bound to a loop at construction; safe at module import.
 
 _MODES = {"system", "managed", "custom", "cdp", "bundled"}
@@ -87,8 +91,96 @@ def _managed_executable(mode: str) -> str:
     if explicit:
         return explicit
     if mode == "managed":
+        if sys.platform == "darwin":
+            for app, binary in (("Google Chrome", "Google Chrome"), ("Microsoft Edge", "Microsoft Edge"),
+                                ("Chromium", "Chromium")):
+                for root in ("/Applications", os.path.expanduser("~/Applications")):
+                    candidate = os.path.join(root, app + ".app", "Contents", "MacOS", binary)
+                    if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                        return candidate
         return _windows_default_browser_executable()
     return ""  # bundled deliberately lets Playwright select Chrome for Testing
+
+
+def _headless() -> bool:
+    return os.environ.get("ACC_BROWSER_HEADLESS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _cache_path() -> str:
+    configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured:
+        # Playwright also accepts 0 (package-local cache). The SDK resolves it.
+        return configured  # preserve SDK semantics for relative paths and the special value 0
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Caches/ms-playwright")
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ms-playwright")
+    return os.path.expanduser("~/.cache/ms-playwright")
+
+
+def _system_hint() -> str:
+    if sys.platform == "darwin":
+        return ("System mode only hands the URL to macOS; it does not attach DOM automation. "
+                "Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet.")
+    return ("System mode opens the user's browser. Use desktop screenshot plus UIA/OCR/keyboard tools, "
+            "or choose managed/custom/bundled/CDP for DOM automation.")
+
+
+async def _new_owned_page():
+    page = await _browser.new_page()
+    _owned_pages.add(page)
+    return page
+
+
+async def _close_unlocked() -> dict:
+    """Close only owned resources. Caller holds _lock; also used at MCP lifespan exit."""
+    global _browser, _page, _playwright, _backend, _playwright_manager, _start_task
+    chosen = _backend or _configured_mode()
+    errors = []
+    owned_browser = chosen not in {"system", "cdp"} and bool(_browser and _browser.is_connected())
+    try:
+        if _start_task is not None and _playwright is None:
+            try:
+                _playwright = await asyncio.wait_for(asyncio.shield(_start_task), timeout=5)
+            except Exception as exc:
+                errors.append("driver startup cleanup: " + (str(exc) or type(exc).__name__))
+        if chosen == "cdp":
+            for page in list(_owned_pages):
+                try:
+                    if not page.is_closed():
+                        await page.close()
+                except Exception as exc:
+                    errors.append(str(exc))
+        elif _browser and _browser.is_connected():
+            try:
+                await _browser.close()
+            except Exception as exc:
+                errors.append(str(exc))
+    finally:
+        try:
+            if _playwright:
+                await asyncio.wait_for(_playwright.stop(), timeout=5)
+            elif _playwright_manager:
+                await asyncio.wait_for(_playwright_manager.__aexit__(None, None, None), timeout=5)
+        except Exception as exc:
+            errors.append(str(exc))
+        finally:
+            if _start_task is not None and not _start_task.done():
+                _start_task.cancel()
+            _browser = _page = _playwright = _playwright_manager = _start_task = None
+            _backend = ""
+            _owned_pages.clear()
+    if errors:
+        return {"error": "; ".join(errors), "cleanupIncomplete": True, "mode": chosen}
+    return {"success": True, "mode": chosen, "closed": owned_browser,
+            "hint": "Only tool-owned pages were closed; the external browser was left open." if chosen == "cdp"
+                    else "The system browser is not owned and was left open." if chosen == "system"
+                    else "Owned browser closed." if owned_browser else "No owned browser was active."}
+
+
+async def shutdown_browser() -> dict:
+    async with _lock:
+        return await _close_unlocked()
 
 
 def _unavailable(mode: str | None = None) -> dict:
@@ -100,57 +192,72 @@ def _unavailable(mode: str | None = None) -> dict:
             "error": "the user's system browser is not DOM-attached",
             "mode": "system",
             "hint": (
-                "Use desktop screenshot plus UIA/OCR/keyboard tools. If UIA reports "
-                "accessibilityLimited on a hardware-accelerated page, switch to OCR/screenshot; "
-                "choose CDP/managed/custom mode when DOM access is required."
+                _system_hint()
             ),
         }
     out = {"ok": False, "error": "playwright not installed",
-           "hint": "pip install playwright && playwright install chromium"}
+           "code": "browser.package_missing",
+           "hint": "Install playwright before offline use; provide a prepared PLAYWRIGHT_BROWSERS_PATH cache or ACC_BROWSER_EXECUTABLE. Tools never download browsers."}
     if _IMPORT_ERROR:
         out["detail"] = _IMPORT_ERROR
     return out
 
 
-async def _ensure_browser(mode: str | None = None):
-    """Ensure the browser is launched and return the active page.
+async def _start_driver():
+    """Keep ownership before the SDK can allocate its driver process."""
+    global _playwright, _playwright_manager, _start_task, async_playwright
+    if _playwright is None:
+        if async_playwright is None:
+            from playwright.async_api import async_playwright as _ap
+            async_playwright = _ap
+        _playwright_manager = async_playwright()
+        _start_task = asyncio.create_task(_playwright_manager.start())
+        _playwright = await asyncio.shield(_start_task)
+        _start_task = None
+    return _playwright
 
-    Raises RuntimeError with an install hint if the Chromium binary is absent (package imported but
-    `playwright install chromium` never run) so the caller can convert it to a graceful envelope.
-    """
-    global _browser, _page, _playwright, _backend, async_playwright
+
+async def _ensure_browser(mode: str | None = None):
+    """Start an isolated owned browser, or attach to the explicitly configured CDP session."""
+    global _browser, _page, _playwright, _backend, async_playwright, _last_start_error
+    global _playwright_manager, _start_task
     chosen = (mode or _backend or _configured_mode()).strip().lower()
     if chosen == "system":
-        raise RuntimeError(
-            "the active browser uses the system/user session and is not Playwright-attached; "
-            "use desktop screenshot + UIA/OCR tools, or choose managed/custom/CDP browser mode"
-        )
-    if _page is None or _page.is_closed():
-        if _playwright is None:
-            if async_playwright is None:  # first use: the real (lazy) import
-                from playwright.async_api import async_playwright as _ap  # type: ignore
-                async_playwright = _ap
-            _playwright = await async_playwright().start()
-        if _browser is None or not _browser.is_connected():
-            try:
+        raise RuntimeError(_system_hint())
+    if _browser is None or not _browser.is_connected() or _page is None or _page.is_closed():
+        try:
+            await _start_driver()
+            if _browser is None or not _browser.is_connected():
                 if chosen == "cdp":
                     endpoint = os.environ.get("ACC_BROWSER_CDP_URL", "http://127.0.0.1:9222").strip()
-                    _browser = await _playwright.chromium.connect_over_cdp(endpoint)
+                    _browser = await _playwright.chromium.connect_over_cdp(endpoint, timeout=10000)
                 else:
                     executable = _managed_executable(chosen)
                     if chosen in {"managed", "custom"} and not executable:
-                        raise RuntimeError("no compatible browser executable was found; set a custom executable or use system mode")
-                    launch_args = {"headless": False, "args": ["--force-renderer-accessibility"]}
-                    if executable:
-                        launch_args["executable_path"] = executable
-                    _browser = await _playwright.chromium.launch(**launch_args)
+                        raise RuntimeError("no compatible browser executable was found; set ACC_BROWSER_EXECUTABLE or use system mode")
+                    if not executable:
+                        # Use the SDK-resolved full Chromium for both launch and
+                        # status, including headless mode. No runtime downloads.
+                        executable = _playwright.chromium.executable_path
+                    if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
+                        raise RuntimeError("browser executable is missing or not executable: " + executable +
+                                           "; prepare the offline browser cache or configure ACC_BROWSER_EXECUTABLE")
+                    _browser = await _playwright.chromium.launch(headless=_headless(), executable_path=executable,
+                                                               args=["--force-renderer-accessibility"])
                 _backend = chosen
-            except Exception as e:  # noqa: BLE001 — most often: browser not installed
-                raise RuntimeError(
-                    f"browser backend '{chosen}' is not available: " + str(e)
-                ) from e
-        pages = _all_pages()
-        _page = pages[-1] if pages else await _browser.new_page()
+                _last_start_error = ""
+            pages = _all_pages()
+            _page = pages[-1] if pages else await _new_owned_page()
+        except BaseException as exc:
+            _last_start_error = str(exc) or type(exc).__name__
+            import anyio
+            with anyio.CancelScope(shield=True):
+                cleanup = await _close_unlocked()
+            if cleanup.get("cleanupIncomplete"):
+                _last_start_error += "; cleanup incomplete: " + cleanup["error"]
+            if not isinstance(exc, Exception):
+                raise
+            raise RuntimeError(f"browser backend '{chosen}' is not available: " + _last_start_error) from exc
     return _page
 
 
@@ -198,12 +305,8 @@ async def browser_open(url: str, new_tab: bool = True, mode: str | None = None) 
         try:
             _system_open(url, new_tab)
             return {
-                "success": True, "url": url, "mode": "system", "control": "desktop",
-                "hint": (
-                    "Opened in the user's system browser. Continue with desktop_screenshot plus "
-                    "UIA/OCR/keyboard tools. If UIA reports accessibilityLimited for an accelerated "
-                    "page, use OCR/screenshot instead; browser DOM tools require managed/custom/CDP mode."
-                ),
+                "success": True, "url": url, "mode": "system", "control": "system-handoff" if sys.platform == "darwin" else "desktop",
+                "requested": True, "navigationVerified": False, "hint": _system_hint(),
             }
         except Exception as e:
             return {"error": str(e), "mode": "system"}
@@ -214,11 +317,10 @@ async def browser_open(url: str, new_tab: bool = True, mode: str | None = None) 
         try:
             if _backend and _backend != chosen:
                 return {"error": f"browser backend already active as '{_backend}'; call browser_close before switching to '{chosen}'"}
-            _backend = chosen
             page = await _ensure_browser(chosen)
             preserved_workbench = await _is_workbench_page(page)
             if new_tab or preserved_workbench:
-                _page = await _browser.new_page()
+                _page = await _new_owned_page()
             await _page.goto(url, wait_until="domcontentloaded", timeout=30000)
             return {
                 "success": True, "url": _page.url, "title": await _page.title(), "mode": chosen,
@@ -232,18 +334,41 @@ async def browser_open(url: str, new_tab: bool = True, mode: str | None = None) 
 @mcp.tool()
 async def browser_backend_status() -> dict:
     """Show the configured browser target and whether browser_* automation is attached."""
-    configured = _configured_mode()
-    executable = os.environ.get("ACC_BROWSER_EXECUTABLE", "").strip()
-    if configured == "managed" and not executable:
-        executable = _windows_default_browser_executable()
-    return {
-        "configuredMode": configured,
-        "activeMode": _backend or "",
-        "executable": executable,
-        "cdpUrl": os.environ.get("ACC_BROWSER_CDP_URL", "http://127.0.0.1:9222") if configured == "cdp" else "",
-        "attached": bool(_browser and _browser.is_connected()),
-        "systemControlHint": "system mode uses the user's browser and desktop UIA/OCR tools; managed/custom/CDP modes enable browser_* DOM automation",
-    }
+    async with _lock:
+        configured = _configured_mode()
+        target = _backend or configured
+        executable = _managed_executable(target) if target not in {"system", "cdp"} else ""
+        probe_error = ""
+        if target == "bundled" and not executable and _AVAILABLE:
+            temporary = _playwright is None
+            try:
+                runtime = await asyncio.wait_for(_start_driver(), timeout=5)
+                executable = runtime.chromium.executable_path
+            except BaseException as exc:
+                probe_error = str(exc) or type(exc).__name__
+                if not isinstance(exc, Exception):
+                    raise
+            finally:
+                if temporary:
+                    import anyio
+                    with anyio.CancelScope(shield=True):
+                        cleanup = await _close_unlocked()
+                    if cleanup.get("cleanupIncomplete"):
+                        probe_error += "; cleanup incomplete: " + cleanup["error"]
+        attached = bool(_browser and _browser.is_connected())
+        runtime_installed = bool(executable and os.path.isfile(executable) and os.access(executable, os.X_OK))
+        return {
+            "configuredMode": configured, "activeMode": _backend or "", "targetMode": target, "executable": executable,
+            "cdpUrl": os.environ.get("ACC_BROWSER_CDP_URL", "http://127.0.0.1:9222") if target == "cdp" else "",
+            "attached": attached, "supported": target != "system", "installed": _AVAILABLE,
+            "runtimeInstalled": None if target == "cdp" else runtime_installed,
+            "authorization": "external-session" if target == "cdp" else "not-required" if target != "system" else "not-applicable",
+            "ready": attached, "browserCachePath": _cache_path(),
+            "headless": None if target in {"system", "cdp"} else _headless(),
+            "browserVersion": getattr(_browser, "version", "") if attached else "",
+            "profileIsolation": "external-cdp" if (_backend or configured) == "cdp" else "ephemeral-owned" if attached else "not-attached",
+            "lastStartError": _last_start_error, "probeError": probe_error, "systemControlHint": _system_hint(),
+        }
 
 
 @mcp.tool()
@@ -539,43 +664,5 @@ async def browser_switch_tab(index: int) -> dict:
 async def browser_close() -> dict:
     """Close the browser instance.
     """
-    global _browser, _page, _playwright, _backend
-    if (_backend or _configured_mode()) == "system":
-        return {"success": True, "mode": "system", "closed": False,
-                "hint": "The user's browser is not owned by this tool and was left open."}
-    if (_backend or _configured_mode()) == "cdp":
-        # b2-P0: CDP 连接的是用户真实浏览器 —— Playwright 对 connectOverCDP 的 close() 会连带关闭用户
-        # 整个浏览器(全部标签、未保存表单)。绝不 close();仅关闭本工具打开的标签并断开连接。
-        if not _AVAILABLE:
-            return _unavailable()
-        async with _lock:
-            try:
-                if _page and not _page.is_closed():
-                    await _page.close()
-                if _playwright:
-                    await _playwright.stop()
-                _browser = None
-                _page = None
-                _playwright = None
-                _backend = ""
-                return {"success": True, "mode": "cdp", "closed": False,
-                        "hint": "The user's browser (CDP-attached) was left open; only the tool's page/tab was closed and the connection detached."}
-            except Exception as e:
-                return {"error": str(e)}
-    if not _AVAILABLE:
-        return _unavailable()
     async with _lock:
-        try:
-            if _page and not _page.is_closed():
-                await _page.close()
-            if _browser and _browser.is_connected():
-                await _browser.close()
-            if _playwright:
-                await _playwright.stop()
-            _browser = None
-            _page = None
-            _playwright = None
-            _backend = ""
-            return {"success": True}
-        except Exception as e:
-            return {"error": str(e)}
+        return await _close_unlocked()

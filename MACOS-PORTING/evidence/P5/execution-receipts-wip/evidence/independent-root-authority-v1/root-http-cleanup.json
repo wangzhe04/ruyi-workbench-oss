@@ -1,0 +1,54 @@
+{
+  "at": "2026-11-11T17:51:52.625821+00:00",
+  "rootPid": 70436,
+  "observedIdentities": [
+    {
+      "pid": 70436,
+      "ppid": 70434,
+      "created": "1794419511604543"
+    },
+    {
+      "pid": 70439,
+      "ppid": 70436,
+      "created": "1794419511694135"
+    },
+    {
+      "pid": 70451,
+      "ppid": 70439,
+      "created": "1794419511790433"
+    },
+    {
+      "pid": 70448,
+      "ppid": 70439,
+      "created": "1794419511788619"
+    },
+    {
+      "pid": 70459,
+      "ppid": 70436,
+      "created": "1794419512024810"
+    },
+    {
+      "pid": 70468,
+      "ppid": 70436,
+      "created": "1794419512174544"
+    },
+    {
+      "pid": 70472,
+      "ppid": 70436,
+      "created": "1794419512188978"
+    },
+    {
+      "pid": 70491,
+      "ppid": 70472,
+      "created": "1794419512435820"
+    },
+    {
+      "pid": 70499,
+      "ppid": 70472,
+      "created": "1794419512516052"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

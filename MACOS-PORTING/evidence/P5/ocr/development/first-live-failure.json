@@ -1,0 +1,27 @@
+{
+  "recorded_utc": "2026-11-10T13:26:47.240496+00:00",
+  "first_live_attempt": {
+    "status": "failed",
+    "observed_failures": [
+      "invalid image error classified as ocr_capacity before properties check",
+      "button titles unreadable under inherited dark appearance",
+      "finally called nonexistent McpStdioClient.stop, raising TypeError before evidence export"
+    ],
+    "evidence_limit": "First attempt did not export its in-memory per-call results because the cleanup exception occurred before that export. Tool transcript recorded the failures.",
+    "process_observation": "Subsequent own-pattern process-table check found no live OCR fixture or ACC server from the failed attempt."
+  },
+  "recovery": {
+    "known_owned_temporary_root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-ocr-rRXLpx",
+    "existed_before_cleanup": true,
+    "retained_names_before_cleanup": [
+      "acc-data",
+      "button-template.png",
+      "helper",
+      "invalid.png",
+      "linked.png",
+      "ocr-fixture",
+      "synthetic.png"
+    ],
+    "temporary_root_absent": true
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T04:48:47.084534+00:00",
+  "verdict": "passed_frozen_v3_source_review_for_two_boundary_repairs",
+  "candidateWorktree": "/tmp/ruyi-p5-manual-worktree",
+  "candidateBranch": "codex/p5-manual-events",
+  "candidateBaseCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+  "mainHeadAtFreeze": "057878f2e769abedbf12f4b133c5eab688e9536e",
+  "scope": "Final independent static source review of the EOF monitor lifecycle and manual-fixture in-flight input cleanup repairs in frozen manual candidate v3. The earlier manual implementation reviews remain separate. Supplemental static review confirms the one-time physical controller guards. This reviewer performed no GUI or runtime test, rebuild or implementation edit.",
+  "frozenSource": {
+    "manifest": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v3.json",
+    "manifestSha256": "38af340ac2316c6594f8e670d4e9e107715bb977b6cc4f3e7f1502e8416a52a5",
+    "sourceFiles": 34,
+    "sourceBytes": 7614812,
+    "all34FileHashesAndSizesMatch": true,
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 65808,
+        "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "README_EN.md",
+        "bytes": 72914,
+        "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "dev-harness/macos-input-host.e2e.js",
+        "bytes": 30786,
+        "sha256": "6ec4a0dcd8f78f51a912b8ecb8ac34793955d8b191eb92458941fc858aa213a0",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "dev-harness/macos-manual-record.e2e.js",
+        "bytes": 35594,
+        "sha256": "111c177cdafaa626e5329abe985066474119c6cc08ea28172d161eaad2add5eb",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "bytes": 13981,
+        "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "dev-harness/unit/acc-capability-gates.test.js",
+        "bytes": 11806,
+        "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "facts.json",
+        "bytes": 1335,
+        "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "bytes": 11254,
+        "sha256": "a5179b34e9eb35e159393d928ead56f588c96e01ba18d4147e1913bc6cf12371",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "bytes": 10259,
+        "sha256": "865c656c68b370b1ddb35a6e1649ff855d99436f5223fdc34d2709aff1802280",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+        "bytes": 6532,
+        "sha256": "636fde3f3685ed150480a00a7a0f3d33b8e7f26a56604506e21868e052eb4682",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "bytes": 13250,
+        "sha256": "2b002325ef6efb0542de7a0e73ed3e456734239dfa63a726c9d0f40df21ea03a",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+        "bytes": 10652,
+        "sha256": "8f1a36b85f9666285d54dddd9bb3eac7266718feac31d137d6fc5764ccd9a985",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+        "bytes": 6662,
+        "sha256": "f1cd6a32c4eb5aa19792cf96814a299533bd56d14e614ede5b730b8a748a1a76",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "bytes": 2694,
+        "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+        "bytes": 8718,
+        "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+        "bytes": 16622,
+        "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+        "bytes": 22572,
+        "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+        "bytes": 12079,
+        "sha256": "87461c6e43bd27d122397a8697836f69caa183a0e1e99fb53916f0feb61e5c05",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 6777726,
+        "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+        "bytes": 18239,
+        "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/07-autonomy.js",
+        "bytes": 234136,
+        "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "bytes": 45245,
+        "sha256": "48915e558801171ac84a7411de00735f875d2dcc518186dee83dd88edca73c5f",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "bytes": 22827,
+        "sha256": "14a1d44002786093724c29d00da4a8cd9a29c20356e94abdd03e6e8dc5fabce5",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+        "bytes": 9833,
+        "sha256": "edfe30c2b695d0d2b2c6fa353283a2ebfc3f123d18db26e4a4704e1e1b0c8bfe",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record.m",
+        "bytes": 13471,
+        "sha256": "1ab08de02dea64fec3888fdee2afab37cc5830dff95deca917490542909d8544",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+        "bytes": 16984,
+        "sha256": "a313027f0637af72c2f249990842971c500d257c8b60e2beb38079de5a9c1176",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "bytes": 4130,
+        "sha256": "6aa312b6258556b13029f2b5482fd6efa8ecac47741d815f551da76d38769b0e",
+        "matchesFrozenV3": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2728,
+        "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+        "matchesFrozenV3": true
+      }
+    ],
+    "temporaryHelpers": [
+      {
+        "path": "/tmp/ruyi-p5-manual-native-helper",
+        "sha256": "a1fe414f4e283b55cdb4c4762db0bde979485e69e8a8307c5e65f7aa1d18df5b",
+        "matchesFrozenV3": true
+      }
+    ],
+    "note": "The manifest status/limits describe the pre-execution freeze point. Later GUI/App development logs are inspected below. No physical result is inferred from that manifest."
+  },
+  "findings": [
+    {
+      "id": "V3-EOF-LIFECYCLE",
+      "status": "closed",
+      "files": [
+        "ruyi-workbench/resources/macos-automation-session.m"
+      ],
+      "originalProblems": [
+        "poll(fd0, events=0) did not observe EOF on this Mac during a blocked main frame.",
+        "Asynchronous monitor creation/registration failure left a stopped but live cached worker.",
+        "A runtime monitor error could be hidden by a competing normal EOF exit, or publish fatal state before background release completed."
+      ],
+      "resolution": [
+        "kqueue creation and EVFILT_READ/EV_CLEAR registration complete synchronously before any serialized reader frame is accepted. Creation/registration failure closes the queue as applicable and returns 70.",
+        "The watcher consumes no stdin bytes. EV_EOF invokes StopEvents on a background queue, preserving the serialized reader and response order.",
+        "Runtime kevent failure records atomic fatalExit=70, performs StopEvents, requests main-thread teardown and retains a thirteen-second exit fallback.",
+        "SessionExitCode preserves fatal status through frame, signal, EOF and NSApp return paths. HandleFrame calls StopEvents synchronously before exiting for fatalExit/stopSignal, serializing with any background release. NSApp return also stops owned input."
+      ],
+      "reviewConclusion": "No remaining concrete source defect found in the reviewed EOF monitor initialization, observation or teardown order."
+    },
+    {
+      "id": "V3-HELD-REQUEST-TEST-CLEANUP",
+      "status": "closed",
+      "files": [
+        "dev-harness/macos-manual-record.e2e.js"
+      ],
+      "originalProblems": [
+        "An exception after starting a direct or nested held request could reach supervisor SIGKILL before native cleanup.",
+        "MCP cancellation acknowledgement alone did not prove native input cleanup, and process ownership needed retained creation identities."
+      ],
+      "resolution": [
+        "trackedCall retains the exact outgoing requestId and promise in activeCalls. Finally sends standard cooperative cancellation to outstanding calls before forced process cleanup.",
+        "The fixture waits for those calls, then identifies native workers only through retained live MCP supervisor creation identities, owned descendant relationships and exact allowed helper argv. Worker creation identities are checked again before SIGTERM.",
+        "Native worker exit and balanced receiver/HID state are checked before the normal client.kill path. If observation/cleanup fails, the fixture records failure and gives the native watchdog a full fifteen-second interval before forced teardown.",
+        "Blocked-worker cleanup similarly verifies identity, signals gracefully and checks input balance before force cleanup. Errors are caught so other owned resources still receive teardown.",
+        "Direct and nested injected held-request failure scenarios are present. Their logs each retain the sole intentional FAIL plus positive input-balance and four MCP cleanup assertions."
+      ],
+      "reviewConclusion": "The previously observed immediate hard-kill path is repaired within the reviewed fixture scope. Cleanup errors remain test failures."
+    }
+  ],
+  "unclosedConcreteSourceFindings": [],
+  "evidenceInspected": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v5.txt",
+      "sha256": "9b5d9507783b753dc8c90f4aaa3e0d6f955b2caa36b938edb270f95fda3f4cb8",
+      "passLines": 75,
+      "failureLines": [],
+      "expectedInjectedFailure": false,
+      "reviewerExecuted": false,
+      "countsIndependentlyRecomputedFromLog": true
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/app-manual-v1.txt",
+      "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+      "passLines": 17,
+      "failureLines": [],
+      "expectedInjectedFailure": false,
+      "reviewerExecuted": false,
+      "countsIndependentlyRecomputedFromLog": true
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-direct-v1.txt",
+      "sha256": "cbba9b5cd7e4ad3a75e7ee0c5f7959a92519e81e548337f6a56fd8d56b7adcd2",
+      "passLines": 57,
+      "failureLines": [
+        "FAIL Error: Injected held-request cleanup failure"
+      ],
+      "expectedInjectedFailure": true,
+      "reviewerExecuted": false,
+      "countsIndependentlyRecomputedFromLog": true
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-nested-v1.txt",
+      "sha256": "ebaa4f64a8d45aad96dd6cae9263442323454a9712b9931cbaaa4f181276d800",
+      "passLines": 60,
+      "failureLines": [
+        "FAIL Error: Injected held-request cleanup failure"
+      ],
+      "expectedInjectedFailure": true,
+      "reviewerExecuted": false,
+      "countsIndependentlyRecomputedFromLog": true
+    }
+  ],
+  "supplementalPhysicalController": {
+    "path": "/tmp/ruyi-p5-human-controller.js",
+    "sha256": "8b88ad7edfa2984596ab2a803805818f40763e0c581217384d9d77e5708547c6",
+    "partOfFrozen34Files": false,
+    "staticReview": "The quiet signature includes counts, cursorX/Y and hidFlags. Replay success remains cleanup-pending until guarded teardown checks MCP cleanup, receiver exit0 and original input-source restoration. Final passed/ALL PASS follows those checks. Capture-time commands are state/title and final record_stop; keyboard/pointer calls occur only after collection.",
+    "physicalExecutionOrOutcomeReviewed": false,
+    "status": "Controller result remains outside this source-review decision."
+  },
+  "verification": {
+    "method": "Read all manifest-listed bytes, independently recompute SHA256/length, inspect lifecycle/control-flow source and count existing log PASS/FAIL lines.",
+    "gitDiffCheckExitCode": 0,
+    "runtimeTestsExecutedByReviewer": false,
+    "guiUsedByReviewer": false,
+    "candidateModifiedByReviewer": false
+  },
+  "remainingAcceptance": [
+    "The developing candidate still requires its complete frozen-candidate independent validation and delivery/commit binding.",
+    "The physical user demonstration outcome is outside this review.",
+    "Development GUI/App successes retain their logged current-host scopes.",
+    "Full P5 approval, real checkpoint/rollback, permission revocation/action-time lock and original environment gates remain separately tracked."
+  ],
+  "fullP5Completion": false,
+  "conclusion": "The two boundary repairs pass independent source review against all thirty-four frozen v3 file hashes. No unclosed concrete finding remains within this review scope. This report records source review and inspected development evidence, and does not independently certify physical execution or close P5."
+}

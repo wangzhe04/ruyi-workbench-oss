@@ -1,0 +1,131 @@
+Timestamp               Ty Process[PID:TID]
+2026-11-07 21:35:07.028 Df tccd[486:fcdf99] [com.apple.xpc:connection] [0x771b0b1b80] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[12943].0x771b0b1b80
+2026-11-07 21:35:07.028 Df tccd[486:fce087] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=12943, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=12943.1
+2026-11-07 21:35:07.028 I  tccd[486:fce087] [com.apple.TCC:access] REQUEST_MSG: msgID=12943.1, msg={
+	require_purpose=<xpc_null>
+	service="kTCCServiceListenEvent"
+	function="TCCAccessRequest"
+	preflight=true
+	target_token={NULL}
+	TCCD_MSG_ID="12943.1"
+	background_session=false
+}
+2026-11-07 21:35:07.029 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop},
+2026-11-07 21:35:07.029 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop},
+2026-11-07 21:35:07.029 Df tccd[486:fce087] [com.apple.TCC:access] AUTHREQ_CTX: msgID=12943.1, function=<private>, service=kTCCServiceListenEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-11-07 21:35:07.029 Df tccd[486:fce087] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=12943.1, attribution={requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, },
+2026-11-07 21:35:07.031 Df tccd[486:fce087] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=12943.1, subject=org.ruyi.workbench.development,
+2026-11-07 21:35:07.032 I  tccd[486:fce087] [com.apple.TCC:access] Handling access request to kTCCServiceListenEvent, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Unknown (None), promptType: 1,DB Action:None, UpdateVerifierData)
+2026-11-07 21:35:07.032 Df tccd[486:fce087] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=12943.1, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-11-07 21:35:07.032 Df tccd[486:fce087] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=12943.1
+2026-11-07 21:35:07.032 Df tccd[486:fce087] [com.apple.xpc:connection] [0x771b0b1b80] invalidated because the client process (pid 12943) either cancelled the connection or exited
+2026-11-07 21:35:07.033 I  tccd[486:fcdf99] [com.apple.TCC:access] REQUEST_MSG: msgID=485.3381, msg={
+	require_purpose=<xpc_null>
+	service="kTCCServiceListenEvent"
+	function="TCCAccessRequest"
+	preflight=true
+	target_token={pid:12943, auid:501, euid:501}
+	TCCD_MSG_ID="485.3381"
+	background_session=false
+}
+2026-11-07 21:35:07.033 I  tccd[486:fcdf99] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer},
+2026-11-07 21:35:07.033 I  tccd[486:fcdf99] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer},
+2026-11-07 21:35:07.033 Df tccd[486:fcdf99] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=485.3381, attribution={accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-11-07 21:35:07.033 Df tccd[486:fcdf99] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop
+2026-11-07 21:35:07.036 I  tccd[486:fcdf99] [com.apple.TCC:access] Handling access request to kTCCServiceListenEvent, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Unknown (None), promptType: 1,DB Action:None, UpdateVerifierData)
+2026-11-07 21:35:07.069 Df tccd[754:fcdfca] [com.apple.xpc:connection] [0x76cd095e00] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[12943].0x76cd095e00
+2026-11-07 21:35:07.069 Df tccd[754:fcdfca] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=12943, sender_uid=501, sender_auid=501, function=TCCAccessLaunchDisclosurePromptIfNeeded, msgID=12943.2
+2026-11-07 21:35:07.069 I  tccd[754:fcdfca] [com.apple.TCC:access] REQUEST_MSG: msgID=12943.2, msg={
+	function="TCCAccessLaunchDisclosurePromptIfNeeded"
+	TCCD_MSG_ID="12943.2"
+}
+2026-11-07 21:35:07.070 Df tccd[754:fcdfca] [com.apple.TCC:access] REPLY: (501) function=TCCAccessLaunchDisclosurePromptIfNeeded, msgID=12943.2
+2026-11-07 21:35:07.070 Df tccd[754:fcdf18] [com.apple.xpc:connection] [0x76cd095e00] invalidated because the client process (pid 12943) either cancelled the connection or exited
+2026-11-07 21:35:07.094 I  tccd[486:fce087] [com.apple.TCC:access] REQUEST_MSG: msgID=695.2175, msg={
+	service="kTCCServiceAppleEvents"
+	function="TCCCreateDesignatedRequirementIdentityFromAuditTokenForService"
+	target_token={pid:12943, auid:501, euid:501}
+	TCCD_MSG_ID="695.2175"
+	input_identifier=<xpc_null>
+}
+2026-11-07 21:35:07.094 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.appleeventsd, pid=695, auid=55, euid=55, binary_path=/System/Library/CoreServices/appleeventsd},
+2026-11-07 21:35:07.094 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.appleeventsd, pid=695, auid=55, euid=55, binary_path=/System/Library/CoreServices/appleeventsd},
+2026-11-07 21:35:07.097 I  tccd[486:fce087] [com.apple.TCC:access] Derived team id of (null) for TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop
+2026-11-07 21:35:07.098 I  tccd[486:fce087] [com.apple.TCC:access] REPLY_MSG: msg={
+	target_token={pid:12943, auid:501, euid:501}
+	response_dict=<data: 0x771b035f00>: { length = 775 bytes, contents = 0x62706c6973743030dc0102030405060708090a0b0c0d0e0f... }
+}
+2026-11-07 21:35:07.152 Df tccd[754:fcdfca] [com.apple.xpc:connection] [0x76cd095e00] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[12943].0x76cd095e00
+2026-11-07 21:35:07.152 Df tccd[754:fcdfca] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=12943, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=12943.3
+2026-11-07 21:35:07.152 I  tccd[754:fcdfca] [com.apple.TCC:access] REQUEST_MSG: msgID=12943.3, msg={
+	require_purpose=<xpc_null>
+	service="kTCCServiceMicrophone"
+	function="TCCAccessRequest"
+	preflight=true
+	target_token={NULL}
+	TCCD_MSG_ID="12943.3"
+	background_session=false
+}
+2026-11-07 21:35:07.152 I  tccd[754:fcdfca] [com.apple.TCC:access] AttributionChain: requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop},
+2026-11-07 21:35:07.152 Df tccd[754:fcdfca] [com.apple.TCC:access] AUTHREQ_CTX: msgID=12943.3, function=<private>, service=kTCCServiceMicrophone, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-11-07 21:35:07.152 Df tccd[754:fcdfca] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=12943.3, attribution={requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, },
+2026-11-07 21:35:07.152 Df tccd[754:fcdfca] [com.apple.TCC:access] checking responsible process pid: 12943 for tag: <private>
+2026-11-07 21:35:07.153 Df tccd[754:fcdfca] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=12943.3, subject=org.ruyi.workbench.development,
+2026-11-07 21:35:07.154 I  tccd[754:fcdfca] [com.apple.TCC:access] Handling access request to kTCCServiceMicrophone, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Unknown (None), promptType: 1,DB Action:None, UpdateVerifierData)
+2026-11-07 21:35:07.154 Df tccd[754:fcdfca] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=12943.3, authValue=1, authReason=0, authVersion=1, desired_auth=0, error=(null),
+2026-11-07 21:35:07.154 Df tccd[754:fcdfca] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=12943.3
+2026-11-07 21:35:07.154 Df tccd[754:fcdfca] [com.apple.xpc:connection] [0x76cd095e00] invalidated because the client process (pid 12943) either cancelled the connection or exited
+2026-11-07 21:35:07.215 I  tccd[486:fcdf99] [com.apple.TCC:access] REQUEST_MSG: msgID=1136.15, msg={
+	service="kTCCServiceSystemPolicyAllFiles"
+	TCCD_MSG_SPI_VERSION=2 (0x2)
+	function="TCCAccessRequest"
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_RECORD_UPGRADE_POLICY_POLICY_KEY=1 (0x1)
+	TCCD_MSG_REQUEST_TYPE_KEY=0 (0x0)
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_PROMPT_RIGHTS_MASK_KEY=5 (0x5)
+	TCC_MSG_REQUEST_AUTHORIZATION_SUBJECT_CREDENTIAL_DICTIONARY_KEY={
+		TCCD_MSG_CREDENTIAL_AUTHENTICATOR_TYPE_KEY=1 (0x1)
+		TCCD_MSG_CREDENTIAL_AUTHENTICATOR_AUDIT_TOKEN_KEY={pid:12946, auid:501, euid:501}
+	}
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_USAGE_STRING_POLICY_KEY=2 (0x2)
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_PROMPT_POLICY_KEY=2 (0x2)
+	TCCD_MSG_ID="1136.15"
+}
+2026-11-07 21:35:07.215 I  tccd[486:fcdf99] [com.apple.TCC:access] AttributionChain: responsible={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, accessing={TCCDProcess: identifier=node, pid=12946, auid=501, euid=501, binary_path=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=1136, auid=0, euid=0, binary_path=/usr/libexec/sandboxd},
+2026-11-07 21:35:07.216 I  tccd[486:fcdf99] [com.apple.TCC:access] AttributionChain: responsible={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, accessing={TCCDProcess: identifier=node, pid=12946, auid=501, euid=501, binary_path=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=1136, auid=0, euid=0, binary_path=/usr/libexec/sandboxd},
+2026-11-07 21:35:07.216 Df tccd[486:fcdf99] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=1136.15, attribution={responsible={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, accessing={TCCDProcess: identifier=node, pid=12946, auid=501, euid=501, binary_path=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=1136, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-11-07 21:35:07.221 I  tccd[486:fcdf99] [com.apple.TCC:access] Background Session: service kTCCServiceSystemPolicyAllFiles from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}: determinedPlatformBinaryStatus: 1, clientIsApplePlatformBinary: 0, clientHasGraphicsAccess: 1, validRequester: 1
+2026-11-07 21:35:07.221 I  tccd[486:fcdf99] [com.apple.TCC:access] Handling access request to kTCCServiceSystemPolicyAllFiles, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Denied (Service Policy), promptType: 1,DB Action:None, UpdateVerifierData)
+2026-11-07 21:35:07.222 I  tccd[754:fcdf18] [com.apple.TCC:access] REQUEST_MSG: msgID=1136.16, msg={
+	service="kTCCServiceSystemPolicyDocumentsFolder"
+	TCCD_MSG_SPI_VERSION=2 (0x2)
+	function="TCCAccessRequest"
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_RECORD_UPGRADE_POLICY_POLICY_KEY=1 (0x1)
+	TCCD_MSG_REQUEST_TYPE_KEY=0 (0x0)
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_PROMPT_RIGHTS_MASK_KEY=5 (0x5)
+	TCC_MSG_REQUEST_AUTHORIZATION_SUBJECT_CREDENTIAL_DICTIONARY_KEY={
+		TCCD_MSG_CREDENTIAL_AUTHENTICATOR_TYPE_KEY=1 (0x1)
+		TCCD_MSG_CREDENTIAL_AUTHENTICATOR_AUDIT_TOKEN_KEY={pid:12946, auid:501, euid:501}
+	}
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_USAGE_STRING_POLICY_KEY=2 (0x2)
+	TCCD_MSG_MESSAGE_OPTION_REQUEST_PROMPT_POLICY_KEY=0 (0x0)
+	TCCD_MSG_ID="1136.16"
+}
+2026-11-07 21:35:07.223 I  tccd[754:fcdf18] [com.apple.TCC:access] AttributionChain: responsible={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, accessing={TCCDProcess: identifier=node, pid=12946, auid=501, euid=501, binary_path=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=1136, auid=0, euid=0, binary_path=/usr/libexec/sandboxd},
+2026-11-07 21:35:07.223 Df tccd[754:fcdf18] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=1136.16, attribution={responsible={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, accessing={TCCDProcess: identifier=node, pid=12946, auid=501, euid=501, binary_path=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=1136, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-11-07 21:35:07.228 I  tccd[754:fcdf18] [com.apple.TCC:access] Handling access request to kTCCServiceSystemPolicyDocumentsFolder, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Unknown (None), promptType: 1,DB Action:None, UpdateVerifierData)
+2026-11-07 21:35:07.228 Df tccd[754:fcdf18] [com.apple.TCC:access] AUTHREQ_PROMPTING: msgID=1136.16, service=kTCCServiceSystemPolicyDocumentsFolder, subject=Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, responsible_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop},
+2026-11-07 21:35:07.230 I  tccd[754:fcdf18] [com.apple.TCC:access] No usage string found (key:NSDocumentsFolderUsageDescription) for client[12943] in bundle:<private>
+2026-11-07 21:35:22.457 I  tccd[486:fce087] [com.apple.TCC:access] REQUEST_MSG: msgID=485.3385, msg={
+	require_purpose=<xpc_null>
+	service="kTCCServiceScreenCapture"
+	function="TCCAccessRequest"
+	preflight=true
+	target_token={pid:12943, auid:501, euid:501}
+	TCCD_MSG_ID="485.3385"
+	background_session=false
+}
+2026-11-07 21:35:22.457 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer},
+2026-11-07 21:35:22.458 I  tccd[486:fce087] [com.apple.TCC:access] AttributionChain: accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer},
+2026-11-07 21:35:22.458 Df tccd[486:fce087] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=485.3385, attribution={accessing={TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-11-07 21:35:22.458 Df tccd[486:fce087] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=485, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop
+2026-11-07 21:35:22.464 I  tccd[486:fce087] [com.apple.TCC:access] Handling access request to kTCCServiceScreenCapture, from Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=12943, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, ReqResult(Auth Right: Unknown (None), promptType: 1,DB Action:None, UpdateVerifierData)

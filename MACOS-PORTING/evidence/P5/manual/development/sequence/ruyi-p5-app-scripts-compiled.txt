@@ -1,0 +1,7 @@
+PASS generated App acceptance script compiles for input (5522 bytes)
+PASS generated App acceptance script compiles for paste (5521 bytes)
+PASS generated App acceptance script compiles for ax (5519 bytes)
+PASS generated App acceptance script compiles for visual (5520 bytes)
+PASS generated App acceptance script compiles for composed (5519 bytes)
+PASS generated App acceptance script compiles for record (5517 bytes)
+PASS generated App acceptance script compiles for manual (5520 bytes)

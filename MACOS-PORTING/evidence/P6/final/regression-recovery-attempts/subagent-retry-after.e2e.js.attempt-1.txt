@@ -1,0 +1,8 @@
+PASS workbench starts
+PASS session created
+PASS R2 the parent turn completes
+PASS R1 the sub-agent retried exactly once after the 429 (requests: 2)
+PASS R1 the retry waited for Retry-After: 2 (gap 2008 ms; the fixed backoff alone is 250 ms)
+PASS R2 the sub-agent's answer reached the parent turn
+
+SUBAGENT RETRY AFTER E2E: ALL PASS

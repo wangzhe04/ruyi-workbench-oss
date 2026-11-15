@@ -1,0 +1,29 @@
+test_case_sensitive_apfs_volume_keeps_distinct_future_roots (__main__.MacShared.test_case_sensitive_apfs_volume_keeps_distinct_future_roots) ... FAIL
+test_clean_install_contains_no_windows_desktop_packages (__main__.MacShared.test_clean_install_contains_no_windows_desktop_packages) ... ok
+test_custom_paths_use_identity_without_lowercasing (__main__.MacShared.test_custom_paths_use_identity_without_lowercasing) ... ok
+test_explicit_toolsets_cannot_enable_mac_desktop (__main__.MacShared.test_explicit_toolsets_cannot_enable_mac_desktop) ... ok
+test_future_protection_root_obeys_volume_case_semantics (__main__.MacShared.test_future_protection_root_obeys_volume_case_semantics) ... FAIL
+test_import_failure_is_local_and_diagnosed (__main__.MacShared.test_import_failure_is_local_and_diagnosed) ... ok
+test_registry_and_diagnostics_are_truthful (__main__.MacShared.test_registry_and_diagnostics_are_truthful) ... ok
+test_system_roots_aliases_and_temporary_workspaces (__main__.MacShared.test_system_roots_aliases_and_temporary_workspaces) ... ok
+
+======================================================================
+FAIL: test_case_sensitive_apfs_volume_keeps_distinct_future_roots (__main__.MacShared.test_case_sensitive_apfs_volume_keeps_distinct_future_roots)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_shared.py", line 172, in test_case_sensitive_apfs_volume_keeps_distinct_future_roots
+    self.assertIsNotNone(self.safety.protected_path_reason(str(upper / "Cafe\u0301/x")))
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_future_protection_root_obeys_volume_case_semantics (__main__.MacShared.test_future_protection_root_obeys_volume_case_semantics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_shared.py", line 143, in test_future_protection_root_obeys_volume_case_semantics
+    self.assertIsNotNone(self.safety.protected_path_reason(str(changed_future)))
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.973s
+
+FAILED (failures=2)

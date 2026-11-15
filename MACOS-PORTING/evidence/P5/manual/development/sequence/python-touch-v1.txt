@@ -1,0 +1,22 @@
+test_async_cancellation_waits_for_the_request_worker_and_preserves_dispatch_state (__main__.SequenceContracts.test_async_cancellation_waits_for_the_request_worker_and_preserves_dispatch_state) ... ok
+test_bounds_include_left_top_and_exclude_right_bottom (__main__.SequenceContracts.test_bounds_include_left_top_and_exclude_right_bottom) ... ok
+test_incomplete_scroll_and_missing_phase_prefix_are_rejected (__main__.SequenceContracts.test_incomplete_scroll_and_missing_phase_prefix_are_rejected) ... ok
+test_left_and_right_modifiers_are_owned_independently (__main__.SequenceContracts.test_left_and_right_modifiers_are_owned_independently) ... ok
+test_manual_idle_gaps_retain_duration_instead_of_using_controlled_request_cap (__main__.SequenceContracts.test_manual_idle_gaps_retain_duration_instead_of_using_controlled_request_cap) ... ok
+test_manual_recording_rebinds_every_pointer_point_without_mutating_document (__main__.SequenceContracts.test_manual_recording_rebinds_every_pointer_point_without_mutating_document) ... ok
+test_modified_drag_and_multiple_buttons_retain_balanced_ownership (__main__.SequenceContracts.test_modified_drag_and_multiple_buttons_retain_balanced_ownership) ... ok
+test_modifier_flags_require_the_corresponding_owned_key (__main__.SequenceContracts.test_modifier_flags_require_the_corresponding_owned_key) ... ok
+test_mouse_touch_subtype_preserves_trackpad_gestures_and_refuses_tablets (__main__.SequenceContracts.test_mouse_touch_subtype_preserves_trackpad_gestures_and_refuses_tablets) ... ok
+test_native_flag_bits_are_preserved_without_guessing_their_meaning (__main__.SequenceContracts.test_native_flag_bits_are_preserved_without_guessing_their_meaning) ... ok
+test_overlapping_keys_and_repeat_are_complete (__main__.SequenceContracts.test_overlapping_keys_and_repeat_are_complete) ... ok
+test_raw_overrides_and_full_twenty_utf16_units_are_preserved (__main__.SequenceContracts.test_raw_overrides_and_full_twenty_utf16_units_are_preserved) ... ok
+test_supplied_device_modifier_bits_match_left_right_ownership (__main__.SequenceContracts.test_supplied_device_modifier_bits_match_left_right_ownership) ... ok
+test_three_axis_scroll_and_momentum_preserve_complete_phases (__main__.SequenceContracts.test_three_axis_scroll_and_momentum_preserve_complete_phases) ... ok
+test_unmatched_missing_and_duplicate_keys_are_rejected (__main__.SequenceContracts.test_unmatched_missing_and_duplicate_keys_are_rejected) ... ok
+test_untrusted_fields_types_and_timestamps_reject_before_native_request (__main__.SequenceContracts.test_untrusted_fields_types_and_timestamps_reject_before_native_request) ... ok
+test_whole_document_preflight_rejects_a_bad_final_sequence (__main__.SequenceContracts.test_whole_document_preflight_rejects_a_bad_final_sequence) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.422s
+
+OK

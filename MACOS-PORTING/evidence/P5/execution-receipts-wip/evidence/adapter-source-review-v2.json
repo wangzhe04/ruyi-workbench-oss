@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T14:22:11.686Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review and existing development-log inspection. No reviewer tests, native/helper/GUI execution, builds or source edits.",
+  "priorReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/adapter-source-review-v1.json",
+    "bytes": 6067,
+    "sha256": "d5e2e091276bd0d18055b3de7e993d7f2555b856f9e84d816684eb21deb6d879"
+  },
+  "priorReviewPreservedByteIdentical": true,
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 8715,
+      "sha256": "407cd81d8ef70b6fb1f0f0a8844f74a350ce22f53cf05894f34ac304cb1e9c73"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 13534,
+      "sha256": "38c51f82a3b2f50a277ded184a4bc6aab37ce69f70d9b4a664d84cccdf704d6d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/adapter-v2.log",
+      "bytes": 112,
+      "sha256": "adc31abb4df3edc7e48454e62a30bcc1d4be24605e9119bc56cffb9990df413c"
+    }
+  ],
+  "implementationState": "Uncommitted execution-receipts WIP. Real SDK/ACC and Node still do not establish execution context.",
+  "closedFindings": [
+    {
+      "id": "monitor-start-failure-retains-global-lock",
+      "status": "closed",
+      "correction": "Explicit monitor_started gates joining. The adapter finally uses nested try/finally so lock release occurs even if monitor finalization fails.",
+      "evidence": "New monitor-start resource failure case requires typed unknown, session closure, reacquirable lock and a subsequent successful read-only request."
+    },
+    {
+      "id": "unexpected-protocol-exception-bypasses-session-cleanup",
+      "status": "closed",
+      "correction": "Unexpected ordinary Exception invokes owned cleanup and becomes typed unknown; BaseException also attempts owned cleanup then reraises. Cleanup failure is carried as cleanup_unconfirmed.",
+      "evidence": "New RecursionError injection requires owned closure, typed unknown, reacquirable lock and a subsequent read-only request."
+    }
+  ],
+  "quarantineAssessment": "Core close retains the exact session/Popen marked closing when wait or stream cleanup fails. _session retries that cleanup before any replacement spawn; the new wait-failure test checks no replacement and a released adapter lock. Two adjacent shared-core lifecycle gaps remain below.",
+  "openFindings": [
+    {
+      "id": "legacy-cancel-cleanup-skips-lock-release",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "trigger": "An untraced/legacy request sets cancel_requested and its final _close_input_session raises input_cleanup_unconfirmed.",
+      "path": "Legacy finally still directly calls _close_input_session followed by _LOCK.release. The cleanup exception skips release.",
+      "consequence": "The global lock stays held; subsequent requests or close_input_session cannot retry the quarantined worker. This is the currently active production path while SDK/Node do not establish context.",
+      "recommendation": "Use a nested try/finally in the legacy request finalizer so lock release is unconditional, retaining the precise quarantined Popen and typed cleanup evidence.",
+      "validationNeeded": "Exercise no-context cancellation plus controlled cleanup/wait failure; require quarantine, prompt structured failure, released global lock and no replacement spawn before confirmed cleanup."
+    },
+    {
+      "id": "post-spawn-setup-loses-owned-child",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "origin": "Pre-existing setup ordering exposed by the new ownership/quarantine review, not introduced by the adapter exception fix.",
+      "trigger": "Popen succeeds but os.set_blocking(child.stdin.fileno(), False) raises before _SESSION is assigned.",
+      "path": "The only reference is the local child. Adapter _close_owned observes _SESSION=None and cannot close/quarantine that exact Popen.",
+      "consequence": "A later request can create a replacement while the earlier owned input worker remains untracked and potentially alive.",
+      "recommendation": "Register the exact newly spawned child before descriptor setup, with a nonreusable initialization/quarantine state. Route setup failure through confirmed close/quarantine before permitting replacement.",
+      "validationNeeded": "Inject set_blocking failure after an owned safe worker starts, require confirmed cleanup or retained exact quarantine, and prove a second spawn is barred while cleanup is unconfirmed."
+    }
+  ],
+  "existingDevelopmentEvidence": {
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/adapter-v2.log",
+    "tests": 13,
+    "result": "OK",
+    "reviewerExecuted": false,
+    "scope": "Read-only mouse-position/feature operations and injected lifecycle/storage/cancel faults; no held-state or event-posting scenario."
+  },
+  "outcome": "The two original adapter findings are closed, but two shared-core lifecycle findings remain before adapter/quarantine source closure.",
+  "limitations": [
+    "ACC/MCP metadata, wrappers and batch execution context are not activated.",
+    "Node durable preparation and restart reconciliation are unfinished.",
+    "Single-request capture/OCR path is not integrated.",
+    "Thirteen existing read-only adapter tests do not close the original gate or P5."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  }
+}

@@ -1,0 +1,13 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS T1 没存过主题、系统浅色 → 页面浅色（实测 {"theme":"light","cfg":"system"}）
+PASS T3 服务端缺省 config.theme 是 'system'（实测 system）
+PASS T2 页面开着时系统切到深色 → 跟着变深（实测 dark）
+PASS T4a 显式存成 dark
+PASS T4 存过 dark 的人：系统浅色也仍是深色（实测 dark）
+PASS F1 零未捕获异常（[]）
+
+THEME DEFAULT BROWSER E2E: ALL PASS

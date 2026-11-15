@@ -48,7 +48,7 @@ const src = readServerSource();
 // ---- ③ OpenAI 子代理桥接分级(runSubAgentCore 源检查) ----
 // 回合引擎审计 t8:runSubAgentCore 成了只管「任何出口都停心跳」的外壳,子回合本体在 runSubAgentCoreBody —— 判据切本体。
 {
-  ok(/return await runSubAgentCoreBody\(opts, lifecycle\)/.test(functionBlock(src, 'runSubAgentCore')), '③ runSubAgentCore 外壳委托本体 runSubAgentCoreBody');
+  ok(/return await DesktopExecutionHooks\.runNode\(opts\.desktopNode, \(\) => runSubAgentCoreBody\(opts, lifecycle\)\)/.test(functionBlock(src, 'runSubAgentCore')), '③ runSubAgentCore 经桌面执行上下文委托本体 runSubAgentCoreBody');
   const fnSlice = functionBlock(src, 'runSubAgentCoreBody');
   ok(fnSlice.length > 0, '③ runSubAgentCore 存在');
   ok(!/if \(tier === 'exec'\) \{ try \{ bridged = await collectBridgedTools/.test(fnSlice), '③ 桥接收集不再被 tier===exec 一刀切门控');

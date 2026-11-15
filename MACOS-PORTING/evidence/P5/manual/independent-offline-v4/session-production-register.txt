@@ -1,0 +1,145 @@
+{
+  "mode": "production",
+  "fault": "register",
+  "exitCode": 0,
+  "expectedExitCode": 0,
+  "request": {
+    "version": 1,
+    "op": "window.list",
+    "id": 23
+  },
+  "response": {
+    "coordinate_space": "macos_global_points",
+    "count": 5,
+    "id": 23,
+    "ok": true,
+    "partial": 0,
+    "protocolVersion": 1,
+    "windows": [
+      {
+        "application": "receiver",
+        "handle": 4351,
+        "height": 528,
+        "pid": 6038,
+        "process_start": "1794372896:562368",
+        "target": {
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "handle": 4351,
+          "pid": 6038,
+          "process_start": "1794372896:562368",
+          "ref": "E04587AB-0741-4DC3-8E52-8B9885F17BAC"
+        },
+        "title": "\u5f55\u5236\u4e2d\uff1a\u62fc\u97f3\u8f93\u5165\u201c\u4f60\u597d\u201d\uff0c\u5728\u84dd\u8272\u533a\u57df\u62d6\u52a8\u4e00\u6b21\u5e76\u677e\u624b",
+        "visible": true,
+        "width": 760,
+        "x": 180,
+        "y": 492
+      },
+      {
+        "application": "ChatGPT",
+        "handle": 122,
+        "height": 986,
+        "pid": 1626,
+        "process_start": "1794280929:783739",
+        "target": {
+          "bounds": {
+            "height": 986,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          "handle": 122,
+          "pid": 1626,
+          "process_start": "1794280929:783739",
+          "ref": "E8115605-F21D-43D9-BCFE-5BE6FDD2E141"
+        },
+        "title": "\u68b3\u7406\u5982\u610f\u5de5\u4f5c\u53f0 Mac \u672c\u5730\u5316 P5",
+        "visible": true,
+        "width": 1710,
+        "x": 0,
+        "y": 34
+      },
+      {
+        "application": "\u5fae\u4fe1",
+        "handle": 1356,
+        "height": 839,
+        "pid": 68646,
+        "process_start": "1794296727:896050",
+        "target": {
+          "bounds": {
+            "height": 839,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          "handle": 1356,
+          "pid": 68646,
+          "process_start": "1794296727:896050",
+          "ref": "BFDC642C-C821-4D80-BC02-39E818BC83F1"
+        },
+        "title": "\u5fae\u4fe1",
+        "visible": true,
+        "width": 986,
+        "x": 215,
+        "y": 136
+      },
+      {
+        "application": "QQ",
+        "handle": 3448,
+        "height": 774,
+        "pid": 85159,
+        "process_start": "1794318212:381639",
+        "target": {
+          "bounds": {
+            "height": 774,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          "handle": 3448,
+          "pid": 85159,
+          "process_start": "1794318212:381639",
+          "ref": "55A99975-FBC2-412B-8602-BED3F6E86CB9"
+        },
+        "title": "QQ",
+        "visible": true,
+        "width": 1023,
+        "x": 102,
+        "y": 90
+      },
+      {
+        "application": "\u7cfb\u7edf\u8bbe\u7f6e",
+        "handle": 535,
+        "height": 625,
+        "pid": 44893,
+        "process_start": "1794290149:736919",
+        "target": {
+          "bounds": {
+            "height": 625,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          },
+          "handle": 535,
+          "pid": 44893,
+          "process_start": "1794290149:736919",
+          "ref": "BDBCBD2B-E6ED-40CB-9429-462CE3E58A61"
+        },
+        "title": "\u8bbe\u5907\u63a7\u5236\u548c\u6570\u636e\u8bbf\u95ee",
+        "visible": true,
+        "width": 754,
+        "x": 126,
+        "y": 115
+      }
+    ]
+  },
+  "framesWritten": 1,
+  "stdinOpenAtExit": false,
+  "stdoutAfterResponse": "",
+  "stderr": ""
+}

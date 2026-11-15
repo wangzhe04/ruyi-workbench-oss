@@ -1,0 +1,149 @@
+{
+  "probe_sha256": "e5f208111e1c683ee9d3bd71ce86816df41edc9e4323e68b25020317efc07bda",
+  "results": [
+    {
+      "fixture": "valid-thin-little",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-thin-big",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-legacy",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat32",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat64",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "valid-fat64-little",
+      "expected_pass": true,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-command",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-legacy-command",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-command-region",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "short-fat-slice",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "out-of-file-fat-slice",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "truncated-tool-table",
+      "expected_pass": false,
+      "probe_exit": 0,
+      "probe_passed": true,
+      "matched": false,
+      "probe_errors": [],
+      "overTarget": []
+    },
+    {
+      "fixture": "excess-command-count",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [
+        {
+          "wheel": "review-1.0-cp312-cp312-macosx_11_0_arm64.whl",
+          "path": "review.dylib",
+          "error": "unpack_from requires a buffer of at least 64 bytes for unpacking 8 bytes at offset 56 (actual buffer size is 56)"
+        }
+      ],
+      "overTarget": []
+    },
+    {
+      "fixture": "over-target-15",
+      "expected_pass": false,
+      "probe_exit": 1,
+      "probe_passed": false,
+      "matched": true,
+      "probe_errors": [],
+      "overTarget": [
+        {
+          "path": "review.dylib",
+          "minimums": [
+            [
+              15,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "allMatched": false
+}

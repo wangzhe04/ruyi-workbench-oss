@@ -1,0 +1,25 @@
+PASS legacy request still returns a single ordinary terminal
+PASS legacy clean EOF exits zero with no extra receipt rows
+PASS worker incarnation changes across helper processes
+PASS committed entry binds actual body, worker, operation and exact raw frame
+PASS test entry is file-fsynced before the matching continue is sent
+PASS committed continue permits the actual read-only query and correlated terminal
+PASS committed worker has clean EOF cleanup
+PASS wrong-challenge entry binds actual body, worker, operation and exact raw frame
+PASS wrong-challenge refuses this body after entry
+PASS wrong-challenge worker closes instead of reusing a stale confirmation
+PASS withheld entry binds actual body, worker, operation and exact raw frame
+PASS withheld refuses this body after entry
+PASS withheld worker closes instead of reusing a stale confirmation
+PASS eof entry binds actual body, worker, operation and exact raw frame
+PASS eof refuses this body after entry
+PASS eof worker closes instead of reusing a stale confirmation
+PASS prefetched-business entry binds actual body, worker, operation and exact raw frame
+PASS prefetched-business refuses this body after entry
+PASS prefetched-business worker closes instead of reusing a stale confirmation
+PASS wrong worker binding is rejected before body entry
+PASS wrong worker closes the protocol session
+PASS oversized input retains its nonzero framing exit
+PASS truncated input retains its nonzero framing exit
+
+MACOS NATIVE RECEIPTS E2E: ALL PASS

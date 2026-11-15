@@ -1,0 +1,13 @@
+Error: codesign failed: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-build-L4mVPB/image/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework: replacing existing signature
+/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-build-L4mVPB/image/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework: internal error in Code Signing subsystem
+
+    at run (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:71:50)
+    at signTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:64:5)
+    at buildTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:185:24)
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:242:17)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)

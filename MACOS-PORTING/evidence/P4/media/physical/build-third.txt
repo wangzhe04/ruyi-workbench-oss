@@ -1,0 +1,8 @@
+/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/desktop-macos/RuyiDesktop.swift:349:129: error: cannot convert value of type '_' to expected argument type 'WKContentWorld'
+347 |                       self.allowed(self.webView.url) else { return }
+348 |                 self.microphoneAcceptanceInspecting = true
+349 |                 self.webView.evaluateJavaScript("window.__physicalCaptureMonitor?.trace.requests.at(-1)?.state === 'released'") { [weak self] result in
+    |                                                                                                                                 `- error: cannot convert value of type '_' to expected argument type 'WKContentWorld'
+350 |                     guard let self = self, self.microphoneAcceptanceRun == run else { return }
+351 |                     self.microphoneAcceptanceInspecting = false
+

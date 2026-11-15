@@ -1,0 +1,23 @@
+PASS A0 workbench listening
+PASS 81-P1 persistence assertions use encrypted config references on Windows
+PASS A0b got UI token
+PASS A1 normal write ok
+PASS A2 config.json.prev holds the previous version
+PASS A3 providers intact after the write
+PASS B1 corrupt config recovers from .prev (providers + key survive) instead of being reset to defaults
+PASS B2 recovery logged as config_recovered
+PASS B3 recovering from .prev does not overwrite .prev with the corrupt file
+PASS C1 status still answers on the in-memory last-good copy
+PASS C2 a read never overwrites the broken file
+PASS C3 the failed read is logged as config_read_failed
+PASS C4 a write merges onto the last-good copy and heals the file (providers + key intact)
+PASS D0 restarted workbench listening (degraded from the first read)
+PASS D1 startup never overwrites the broken file with defaults
+PASS D2 writes are refused while degraded (status 500)
+PASS D3 the refused write left the file untouched
+PASS D3b while degraded the permission mode is the conservative default (got default)
+PASS D4 once readable again, writes resume and providers are still there
+PASS E1 missing config.json is restored from .prev
+PASS F1 used installation with missing config stays readable with sparse defaults and unconfirmed privacy policy
+PASS F2 recovery UI remains accessible while the old encrypted vault is unchanged and outbound traffic is paused
+CONFIG READ SAFETY E2E: ALL PASS

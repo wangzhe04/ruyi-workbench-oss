@@ -3,6 +3,8 @@ name: 修复失败测试
 description: 复现测试失败、定位根因、实施最小修复并回归验证
 ---
 
+平台分支：macOS 用 shell_run/script_run（bash/Python/Node）与 POSIX 路径；下面 powershell_run 说明仅用于 Windows。不要为了全绿删除平台护栏或把未执行项算通过。
+
 # 修复失败测试
 
 请完成一次测试修复闭环：

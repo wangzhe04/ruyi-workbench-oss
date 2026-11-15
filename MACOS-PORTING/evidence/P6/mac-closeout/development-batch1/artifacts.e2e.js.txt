@@ -1,0 +1,85 @@
+PASS (unit) kindForPath classifies by suffix
+PASS (unit) pathWithinRoot: nested → true
+PASS (unit) pathWithinRoot: root itself → true
+PASS (unit) pathWithinRoot: prefix-sibling (C:\ws-evil) → false (no substring bug)
+PASS (unit) pathWithinRoot: elsewhere → false
+PASS (unit) pathWithinAnyRoot: any root matches
+PASS (S4 unit) modify xlsx → 入产物
+PASS (S4 unit) modify md/png → 入产物
+PASS (S4 unit) modify txt/log(非已知产物类型)→ 不入
+PASS (S4 unit) create csv → 入产物(原行为保留)
+PASS (S4 unit) create+modify 同 path → 去重(1 条, got 1)
+PASS (T1 unit) bridged write_docx {success,path} → 入产物
+PASS (T1 unit) bridged read_document 回 path → NOT 入产物(名字非写族)
+PASS (T1 unit) 新版 ACC(path+output_path)→ 去重只一条
+PASS (T1 unit) 无 success 字段 → 不收(写失败无产物)
+PASS (T1 unit) 前缀写族 export_report → 入产物
+PASS (T3 unit) write_docx {path} → {write, abs}
+PASS (T3 unit) write_document 识别
+PASS (T3 unit) delete_file → mode delete
+PASS (T3 unit) 相对路径 → null(不快照)
+PASS (T3 unit) 读类工具 → null
+PASS (T3 unit) 缺 path → null
+PASS (v1.6 防回潮) write_pptx 进快照表
+PASS (v1.6 防回潮) excel_beautify 进快照表
+PASS (v1.6 防回潮) excel_chart 进快照表
+PASS (v1.6 防回潮) chart_image 进快照表
+PASS (v1.6 防回潮) script_run 保持不承诺可撤
+PASS (v1.2-B 防回潮) move_file → source delete + destination write 两条
+PASS (v1.2-B 防回潮) copy_file → 只 destination write 一条
+[fake] [fake-openai] listening on 60310
+PASS workbench up on :60311
+PASS version === package.json
+PASS UI token scraped
+PASS session created
+PASS (a) turn_summary emitted
+PASS (a) artifacts has 3 items (got 3)
+PASS (a) report.md → kind md
+PASS (a) data.csv → kind csv
+PASS (a) pic.png → kind img
+PASS (a) GET session: cumulative artifacts persisted (3)
+PASS (b) preview without token → 403
+PASS (b) report.md → kind text
+PASS (b) report.md content returned verbatim
+PASS (b) pic.png → kind image
+PASS (b) pic.png dataUri is a png data URI
+PASS (b) file outside allowed roots → 403 path not allowed
+SKIP (b) win.ini absent
+PASS (b) relative path → 400 must be absolute
+PASS (c) page.html → kind html
+PASS (c) html source returned verbatim (front-end sandbox-iframes it; iframe sandbox="" code-reviewed)
+PASS (d) >1MB text → truncated:true
+PASS (d) truncated content ≤ 1MB
+PASS (e) xlsx → kind binary, canOpen:true (v1.0 defers station preview)
+PASS (f unit) buildRevealSpawn select: 单参数 /select,+path
+PASS (f unit) buildRevealSpawn open: [path]
+PASS (f unit) buildRevealSpawn open evil.bat → 降级 select
+PASS (f unit) buildRevealSpawn open evil.exe → 降级 select
+PASS (f unit) buildRevealSpawn open evil.js → 降级 select
+PASS (f unit) buildRevealSpawn open evil.ps1 → 降级 select
+PASS (f unit) buildRevealSpawn open evil.lnk → 降级 select
+PASS (f unit) buildRevealSpawn open EVIL.CMD → 降级 select
+PASS (f unit) buildRevealSpawn open xlsx: 非可执行不降级
+PASS (f) reveal 无 token → 403
+PASS (f) reveal 越界文件 → 403 拒绝
+PASS (f) reveal 不存在文件 → 404 人话
+PASS (f) reveal 合法路径 → ok:true
+FAIL (f) reveal 打开的资源管理器窗口已收尸,不留在桌面上拖慢后续回归(实得 "")
+PASS (g) bridge workbench up on :60321
+PASS (g) bridge session created
+PASS (g) provider 两次调用 fake__write_docx(got 2)
+PASS (g) made.docx 真被写出
+PASS (g) 末次写覆盖内容为 SECOND
+PASS ① made.docx 进 turn_summary.artifacts(工具名限定 path 收割)
+PASS ① 收割的 kind === docx
+PASS ① 同 path 两写 → 产物去重只一条
+PASS ② journal 有 2 条 made.docx 条目(create+modify, got 2)
+PASS ② 首写 → op:create(文件此前不存在)
+PASS ② 次写 → op:modify 且存了 before 字节(可回撤)
+PASS ② 两条同 turnSeq(同一回合两步)
+PASS ③ rollback(单条 modify)ok
+PASS ③ 回撤 modify → 内容恢复为 FIRST
+PASS ④ rollback(create)ok
+PASS ④ 回撤 create → made.docx 被删除(文件消失)
+
+ARTIFACTS E2E: FAIL (1)

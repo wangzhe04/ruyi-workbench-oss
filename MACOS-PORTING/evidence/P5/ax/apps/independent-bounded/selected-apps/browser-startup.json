@@ -1,0 +1,12 @@
+{
+  "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-selected-apps-0fxwf7jq/CFT wrapper",
+  "launchExecutable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-selected-apps-0fxwf7jq/CFT wrapper",
+  "pid": 32565,
+  "exitCode": null,
+  "signal": null,
+  "targetObserved": true,
+  "elapsedMs": 1258.885292,
+  "injectedNonrespondingEndpoint": false,
+  "reason": null,
+  "diagnostics": "[32565:782997:1110/191857.774921:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:55554/devtools/browser/720ce688-a196-44cf-bb6c-0bda5036ab2e\n"
+}

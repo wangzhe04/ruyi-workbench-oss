@@ -1,0 +1,32 @@
+✔ native closure never borrows an unrelated executable rpath for a reachable dylib (1380.161084ms)
+✔ native closure rejects an absolute rpath into a readable build-machine directory (700.846ms)
+✖ native closure canonicalizes system prefixes before exempting an absolute dependency (855.051542ms)
+✔ a timed-out offline build probe prevents its same-group child from writing afterwards (2015.055459ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5002.175125
+
+✖ failing tests:
+
+test at dev-harness/unit/macos-offline-native.test.js:58:1
+✖ native closure canonicalizes system prefixes before exempting an absolute dependency (855.051542ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/macos-offline-native.test.js:68:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Nonportable native dependency|Unresolved native dependency/,
+    operator: 'throws',
+    diff: 'simple'
+  }

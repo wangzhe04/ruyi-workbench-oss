@@ -1,0 +1,17 @@
+PASS cleanup_refused
+PASS ownership_retained
+PASS permission_ownership_retained
+PASS cross_tool_blocked
+PASS all 18 native mutations refuse a stopped worker
+PASS bounded native flag bits survive validation
+PASS native invalid input suffix or ownership refuses dispatch
+PASS native invalid input suffix or ownership refuses dispatch
+PASS native invalid input suffix or ownership refuses dispatch
+PASS native invalid input suffix or ownership refuses dispatch
+PASS native invalid input suffix or ownership refuses dispatch
+PASS production excludes test_release_allocation
+PASS production excludes test_stopped_mutations
+PASS production excludes test_validate_sequence
+PASS production excludes test_stall_sequence
+
+MACOS MANUAL NATIVE CONTRACTS E2E: ALL PASS

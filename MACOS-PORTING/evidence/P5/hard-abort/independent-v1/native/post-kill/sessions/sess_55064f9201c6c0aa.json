@@ -1,0 +1,38 @@
+{
+  "id": "sess_55064f9201c6c0aa",
+  "schemaVersion": 1,
+  "turnSeq": 1,
+  "title": "P5 neutral hard-abort calibration",
+  "summary": "",
+  "pinned": false,
+  "cwd": "/tmp/p5abort-DU1ncp/work",
+  "createdAt": "2026-11-11T10:56:15.982Z",
+  "updatedAt": "2026-11-11T10:56:16.078Z",
+  "claudeSessionId": null,
+  "providerHistoryCursor": 1,
+  "privacyHistoryV1": false,
+  "attachments": [],
+  "engineRoute": {
+    "engine": "openai",
+    "providerId": "fake",
+    "model": "fake-model"
+  },
+  "mission": null,
+  "missionId": "sess_55064f9201c6c0aa",
+  "kind": "quick_ask",
+  "origin": "user",
+  "titleSource": "user",
+  "todos": [],
+  "skills": [],
+  "memories": [],
+  "memoriesExplicit": false,
+  "memoryExclusions": [],
+  "recentUserRequest": {
+    "text": "P5_NEUTRAL_ABORT_b178596a2b09fb8e",
+    "turnSeq": 1,
+    "at": "2026-11-11T10:56:16.078Z"
+  },
+  "storageVersion": 2,
+  "messageCount": 1,
+  "providerHistoryCount": 1
+}

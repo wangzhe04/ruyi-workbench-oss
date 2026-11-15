@@ -1,0 +1,12 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS W1 打开编辑器：检查器画出任务框、零未捕获异常（异常 []）
+PASS W1b 引擎下拉三项、第一项是本地化的「自动」文案（实测 ["自动（跟随可用引擎）","OpenAI Provider","Claude CLI"]）
+PASS W2 点另一张节点卡（con）后检查器换成它的任务、零未捕获异常（前「从支持方立场分析议题，给出证据、收益、适用条件和主要风险。」→ 后「从反对方立场分析议题，主动寻找反例、成本、失败条件和替代方案。」；异常 []）
+PASS W3 质量门 / 失败策略 / 依赖策略 / 工具级别四个下拉都画出来了（{"gate":true,"failure":true,"deps":true,"tier":true}）
+PASS P1 命令面板「把当前输入存为模板」真存进去了、零未捕获异常（{"saved":[{"name":"回归模板","text":"每周一把上周新增文件整理成清单"}]}；异常 []）
+
+WORKFLOW EDITOR INSPECTOR BROWSER E2E: ALL PASS

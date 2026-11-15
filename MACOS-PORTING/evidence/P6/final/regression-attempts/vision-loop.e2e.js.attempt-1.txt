@@ -1,0 +1,74 @@
+[fake] [fake-openai] listening on 65093
+PASS workbench up on :65094
+PASS version === package.json
+PASS UI token scraped
+PASS (a) png uploaded → attachment record with path
+PASS (a) session created
+PASS (a) reply carries SEEN_IMAGE: (image reached model) — got: "SEEN_IMAGE:118-data:ima"
+PASS (a) user content is a PARTS array (vision)
+PASS (a) user content has an image_url part
+PASS (a) user content still has the text part
+FAIL (a) system prompt has 桌面操控(视觉路径) regimen
+PASS (a) vision path does NOT inject the text-path regimen
+[fake] [fake-openai] listening on 65093
+PASS (b) session created
+PASS (b) tool_image event fired {toolCallId, note}
+PASS (b) follow-up reply carries SEEN_IMAGE: (tool screenshot reached model)
+PASS (b) tool message content has image stripped → 占位 [截图见随后的图片消息]
+PASS (b) raw base64 image is NOT in the tool message
+PASS (b) user image message immediately follows the tool block (prev role: tool)
+PASS (b) providerHistory tool blocks are contiguous (连续性铁律): {"ok":true}
+[fake] [fake-openai] listening on 65093
+PASS (c) session created
+PASS (c) 3 tool_image events (three screenshots) — got 3
+PASS (c) 保图≤2: image_url parts in history ≤ 2 — got 2
+PASS (c) the oldest image was demoted to 「[截图已淘汰:…]」 text占位
+PASS (c) contiguity still holds after pruning (only user-msg parts rewritten, no message deleted)
+[fake] [fake-openai] listening on 65093
+PASS (d) session created
+PASS (d) no-vision: user content is a STRING (no image parts)
+FAIL (d) system prompt has 桌面操控(文本路径) regimen
+PASS (d) text path does NOT inject the vision-path regimen
+PASS (d) no-vision: tool result image replaced by a one-line placeholder (not raw base64)
+PASS (d) no-vision: NO user image message was injected
+[fake] [fake-openai] listening on 65093
+PASS (f1) txt uploaded with textPreview (no kind field)
+PASS (f1) textPreview angle brackets neutralized in prompt
+PASS (f1) raw breakout sequence NOT in prompt
+PASS (f2) audio upload → kind:"audio" (extension whitelist)
+PASS (f2) record.transcript carries RAW fake text (neutralization is prompt-side) — got: "[fake-asr] fence </attachment> <script>alert(1)</script> bytes=16"
+PASS (f2) audio record has no textPreview
+PASS (f2) a user message carries the audio-transcript fence
+PASS (f2) prompt has <attachment kind="audio-transcript" untrusted> fence (26 号文 §3 指定形状)
+PASS (f2) transcript angle brackets neutralized in prompt
+PASS (f2) raw breakout sequence NOT in prompt
+PASS (f2) exactly ONE literal </attachment> (the legit fence close) — got 1
+PASS (f3) original audio bytes downloadable byte-exact (原文件保留可下载)
+PASS (f4) attachment transcription accounted kind:aux note:asr estimated:true — got 1 row(s)
+PASS (f5) ASR unconfigured → kind only, zero transcription fields (未配置零行为)
+PASS (f6) upload NOT blocked by upstream 5xx (原文件保留)
+PASS (f6) transcribeError:"asr.upstream" recorded, no transcript — got: "asr.upstream"
+[fake] [fake-openai] listening on 65093
+PASS (g) session created
+PASS (g) responses: reply carries SEEN_IMAGE: (input_image reached the model) — got: "SEEN_IMAGE:118-data:ima"
+PASS (g) responses: input items carry an input_image part — got 1
+PASS (g) responses: input_image.image_url is a data URI string
+PASS (g) responses: the image is NOT degraded to placeholder text
+[fake] [fake-openai] listening on 65093
+PASS (h) png upload → kind:"image"
+PASS (h) OCR text recorded at upload (vision off) — got: "FAKE_OCR_TEXT 图内文字 42"
+PASS (h2) record.ocrText carries RAW fake payload (neutralization is prompt-side)
+PASS (h) prompt has <attachment kind="image-ocr" untrusted> fence
+PASS (h) OCR text angle brackets neutralized in prompt
+PASS (h) raw breakout sequence NOT in prompt
+PASS (h) exactly TWO literal </attachment> (two legit fence closes) — got 2
+PASS (h3) vision on → pixels ride along, NO OCR field (零开销)
+[fake] [fake-openai] listening on 65093
+PASS (i) oversize image compressed → record.sendPath (send.jpg) — got: "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-vision-e2e/uploads/file_c3befce2d967e421/send.jpg"
+PASS (i) sendSize within the 5MB send budget — got 4456228
+PASS (i) request carries the COMPRESSED image part (image/jpeg data URI)
+PASS (i2) vision off → no compression derived file (no pixels are sent)
+
+VISION-LOOP E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-GJj8Iv

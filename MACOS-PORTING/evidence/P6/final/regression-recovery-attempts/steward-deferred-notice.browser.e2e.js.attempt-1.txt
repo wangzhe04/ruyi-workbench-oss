@@ -1,0 +1,18 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS Q0 页面里建出一份安静卡实例（有宿主 true、有 onDeferred true）
+PASS Q1 工作台、没坐着 → needs_you 安静卡，卡上那句以「还等 10 分钟」起头（实测 {"kind":"needs_you","ask":"如意留给你了，还等 10 分钟：请求执行工具 powershell_run · exec"}）
+PASS Q1b 同时发一次系统通知，前 22 字里就有「还等 10 分钟」（实测 [{"title":"那条线程","body":"如意留给你了，还等 10 分钟：请求执行工具…","tag":"sess_q1|needs_you"}]）
+PASS Q2 工作台、正坐在那条线程上 → 不出卡、不发通知（实测 卡 false / 通知 0）
+PASS Q3 管家视角、页面在前台 → 不出卡、不发通知（实测 卡 false / 通知 0）
+PASS Q4 管家视角、页面不在前台 → 发一条系统通知（标题是线程名）、不出卡（实测 {"notes":[{"title":"那条线程","body":"如意留给你了，还等 7 分钟：请求执行工具 …","tag":"deferred|perm_q4"}],"card":null}）
+PASS Q4b 同一条请求再来一帧不发第二次（实测 0）
+PASS Q4c 页面没藏起来、但窗口没有焦点（用户在别的程序里）也算人不在 → 发（实测 1）
+PASS Q5 静默时段 → 什么都不出（实测 卡 false / 通知 0）
+PASS Q6 没有截止时刻 → 不说分钟（实测「如意留给你了：请求执行工具 powershell_run · exec」）
+PASS Q7 安静卡模块在 bind 里订了 steward.deferred（组合根那一份实例据此收帧）
+PASS Q9 页面没有未捕获异常（无）
+STEWARD DEFERRED NOTICE BROWSER E2E: ALL PASS

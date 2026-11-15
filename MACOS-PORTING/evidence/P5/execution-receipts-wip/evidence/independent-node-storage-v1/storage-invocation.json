@@ -1,0 +1,28 @@
+{
+  "label": "storage",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/desktop-execution-ledger.test.js",
+    "dev-harness/unit/durable-json-bounded.test.js",
+    "dev-harness/unit/durable-json-strict-read.test.js",
+    "dev-harness/unit/execution-preparation.test.js",
+    "dev-harness/unit/execution-arguments.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {},
+  "startedAt": "2026-11-11T17:01:08.216484+00:00",
+  "freezeSha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64",
+    "runtimeScope": "Only Node suites execute; MCP/Python SDK and native helpers are not invoked."
+  },
+  "finishedAt": "2026-11-11T17:01:08.521867+00:00",
+  "elapsedSeconds": 0.3051125000056345,
+  "exitCode": 0,
+  "logSha256": "34275e4bb33bab392325ca7f4fdd41570d7f0f4d5fd492884f94af2bfca51aaf"
+}

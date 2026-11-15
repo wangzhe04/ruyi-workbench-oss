@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "18a4f4512a596aa575e2eb20e9374d29587fc9edc862276b217938c118a1156a",
+  "added": [
+    "macos-desktop-host.e2e.js",
+    "macos-desktop-bridge.e2e.js",
+    "macos-desktop-media.e2e.js",
+    "macos-desktop-lifecycle.e2e.js",
+    "macos-capture.e2e.js",
+    "macos-capture-host.e2e.js",
+    "macos-capture-contract.e2e.js",
+    "macos-input-events.e2e.js",
+    "macos-input-host.e2e.js",
+    "macos-input-apps.e2e.js",
+    "macos-window-clipboard.e2e.js",
+    "macos-ax.e2e.js",
+    "macos-ocr.e2e.js",
+    "macos-observe.e2e.js",
+    "macos-record.e2e.js",
+    "macos-manual-record.e2e.js"
+  ],
+  "removed": [],
+  "allAddedFilesExist": true,
+  "addedCount": 16,
+  "pass": true
+}

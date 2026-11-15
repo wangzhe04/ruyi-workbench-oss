@@ -1,0 +1,54 @@
+{
+  "time": "2026-11-12T09:11:04.832Z",
+  "ownedProcessLines": [],
+  "ownedMountedImages": [],
+  "reports": [
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-G2zO4R/acceptance.json",
+      "pids": [
+        98893,
+        98900,
+        98941,
+        98945
+      ],
+      "presentInSnapshot": []
+    },
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-3WgQ5I/acceptance.json",
+      "pids": [
+        99199,
+        99203,
+        99233,
+        99236
+      ],
+      "presentInSnapshot": []
+    },
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4/acceptance.json",
+      "pids": [],
+      "presentInSnapshot": []
+    },
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4/host.json",
+      "pids": [
+        99124,
+        99127
+      ],
+      "presentInSnapshot": []
+    },
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF/acceptance.json",
+      "pids": [],
+      "presentInSnapshot": []
+    },
+    {
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF/host.json",
+      "pids": [
+        99291,
+        99294
+      ],
+      "presentInSnapshot": []
+    }
+  ],
+  "pass": true
+}

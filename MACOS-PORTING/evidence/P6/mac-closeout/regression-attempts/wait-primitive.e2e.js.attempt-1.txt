@@ -1,0 +1,56 @@
+
+── [S] 静态锁 ──
+PASS S reducer 调用点传 isWaitNode
+PASS S reducer 就绪 wait 节点单列 toArm
+PASS S 外壳 arm:queued→waiting + waitStartedAt
+PASS S 外壳 poll 块调 evalWaitCondition
+PASS S 外壳 tick:仅 waiting 时可中断 sleep(防 busy-spin)
+PASS S wait × worktree 互斥(两归一器均降级 none,无不可启动模板)
+PASS S 对抗轮 P2:timer 的 timeoutMs 抬到 ≥ durationMs+pollMs(超时不抢先)
+PASS S 对抗轮 P3:per-node pollMs 节流
+PASS S 对抗轮 P2:暂停补偿 waitStartedAt
+PASS S 对抗轮 P3:resume 重置 waiting 等待窗
+PASS S process 模式仅发信号 0(绝不真实信号)
+PASS S file 模式过 guardWorkspacePath(按 ctx.cwd 解析 + 工作区/敏感面护栏)
+PASS S url 模式过 ssrfCheck + httpGetGuarded
+PASS S agentWorkflowStatusText 含 waiting:等待条件
+
+── [P] normalizeWaitSpec ──
+PASS P 源抽取 normalizeWaitSpec
+PASS P 非法/未知 mode → null
+PASS P timer 规整
+PASS P pollMs 夹到 ≥500ms
+PASS P timeoutMs 夹到 ≥1s(file 模式)
+PASS P timeoutMs 夹到 ≤24h、pollMs 夹到 ≤60s
+PASS P timer timeoutMs 抬到 ≥ durationMs+pollMs(超时不抢先)
+PASS P file 缺 path → null
+PASS P file exists 默认 true
+PASS P file exists=false 尊重
+PASS P process pid≤1 → null(禁 0/init)
+PASS P process state 默认 alive
+PASS P url 缺 url → null
+
+── [P] evalWaitCondition(注入护栏桩) ──
+PASS P 源抽取 evalWaitCondition
+PASS P timer 已到→done
+PASS P timer 未到→未 done
+PASS P file 存在且 exists=true→done
+PASS P file 不存在且 exists=false→done
+PASS P file 护栏拒(敏感面)→failed
+PASS P file 相对路径按 ctx.cwd 解析(而非进程 cwd)
+PASS P process 自身存活 alive→done
+PASS P process 不存在 exit→done
+PASS P url SSRF 拒→failed
+PASS P url 可达→done
+PASS P url 连不上→维持等待(不 done 不 failed)
+
+── [H] Live ──
+PASS H workbench up on :54946
+PASS H1 timer wait DAG 已启动
+PASS H1 timer wait run → succeeded(实 succeeded)
+PASS H1 wait 节点 succeeded + 保留 wait 规格
+PASS H2 文件未建时节点处于 waiting
+PASS H2 建文件后 → succeeded
+PASS H3 文件永不建 + 短 timeout → failed(超时)
+
+WAIT-PRIMITIVE E2E: ALL PASS

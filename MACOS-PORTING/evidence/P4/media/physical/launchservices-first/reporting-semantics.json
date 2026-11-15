@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-11-08",
+  "publicSourceCommit": "597e544acfe77145f50ada861f0b2721ecdf8f38",
+  "appleCompletionContract": "https://developer.apple.com/documentation/webkit/wkwebview/setmicrophonecapturestate(_:completionhandler:)",
+  "reportedStateGetter": "https://github.com/WebKit/WebKit/blob/597e544acfe77145f50ada861f0b2721ecdf8f38/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm",
+  "indicatorMinimum": "https://github.com/WebKit/WebKit/blob/597e544acfe77145f50ada861f0b2721ecdf8f38/Source/WebKit/UIProcess/WebPageProxy.h",
+  "stateUpdateTimer": "https://github.com/WebKit/WebKit/blob/597e544acfe77145f50ada861f0b2721ecdf8f38/Source/WebKit/UIProcess/WebPageProxy.cpp",
+  "findings": [
+    "WKWebView microphoneCaptureState reads reportedMediaState",
+    "WebPageProxy declares default reporting delay of 3 seconds so capture indicators remain visible long enough",
+    "public setMicrophoneCaptureState none completion is invoked after WebContent StopMediaCapture asynchronous replies",
+    "Installed WebKit exact source commit was not identified. Public mechanism agrees with repeated 3-second observed state duration and earlier stop acknowledgement."
+  ],
+  "nextCriteria": [
+    "JS tracks ended within 3 seconds",
+    "public native stop completion within 3 seconds, independent 2-second deadline until acknowledged",
+    "actual valid nonzero PCM WAV with duration <=3 seconds",
+    "eventual reported none and no pending stop completion",
+    "fake ASR insertion and no send",
+    "tracked App/Node cleanup"
+  ]
+}

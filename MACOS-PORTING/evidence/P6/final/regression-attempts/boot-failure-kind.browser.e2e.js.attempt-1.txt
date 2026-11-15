@@ -1,0 +1,42 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS B0 线程已建
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS B0b 出厂默认的管家视角
+PASS B1 状态接口连接被拒:「无法连接本地服务」＋ 三条原因(实「无法连接本地服务」,3 条)
+PASS B1b 这张卡在【classic】视角里看得见(命中 h2.boot-failure-title)
+PASS B1c 诊断写明「请求没有到达本地服务（传输层失败）」与步骤 refreshStatus(实「出错的那一步: refreshStatus · GET /api/status / 类别: 请求没有到达本地服务（传输层失败）」)
+PASS B2 会话列表回 500:不说「连不上」,标题是「本地服务是通的，但启动时有一步没走通」(实「本地服务是通的，但启动时有一步没走通」)
+PASS B2b 在【管家】视角里看得见,且不列端口／服务没起／安全软件那三条(视角 steward,可见 true,命中 h2.boot-failure-title,0 条;修前画在工作台的 #messages 里,管家视角整个不显示)
+PASS B2c 诊断写明哪一步、HTTP 500、路径、原话(实:
+出错的那一步: refreshSessions · GET /api/sessions
+类别: 本地服务应答了 HTTP 500（/api/sessions）
+说明: index exploded (synthetic)
+时刻: 2026-11-12T10:50:43.514Z · 页面打开后 0.3 秒)
+PASS B2c2 诊断下的提示是整句(修前只有半句「常见原因：」;实「把上面这段原文整段发给开发者，就能看出是哪一步、为什么。」)
+PASS B2d 状态行也不说「无法连接本地服务」(实「已连上本地服务」)
+PASS B2e boot 照走完:推送连接照样发起(本轮 /api/events/stream 1 次;修前一抛就整段中止,推送再也不起)
+PASS B2f 卡上有「先继续用」(服务是通的,界面能用)
+PASS B2g 点「先继续用」卡就收起
+PASS B4 api.internal_error:诊断里有服务端原话与错误码(实:
+出错的那一步: refreshSessions · GET /api/sessions
+类别: 本地服务应答了 HTTP 500（/api/sessions）
+说明: 服务发生内部错误：ENOENT: synthetic boom, open sessions-index.json
+原话: ENOENT: synthetic boom, open sessions-index.json
+错误码: api.internal_error)
+PASS B4b 说明那一行不再只剩「服务发生内部错误。」(实「说明: 服务发生内部错误：ENOENT: synthetic boom, open sessions-index.json」)
+PASS B5 前端异常:诊断写明界面代码出错(TypeError)、步骤 refreshStatus、栈里有出错的那一帧(栈 4 行;首帧「at refreshStatus (http://127.0.0.1:57532/js/provider-settings.js:178:31)」)
+PASS B5b 配置没读到的这一轮,没有一发 POST /api/config 带 locale(实 0 发;否则会拿猜的语言覆盖用户设的)
+PASS B6a 诊断里有「复制诊断」
+PASS B6c 「查看诊断」展开面板(aria-expanded=true)
+PASS B6 交给剪贴板的就是诊断原文(按钮「已复制」,1 次,585 字/原文 585 字)
+PASS B6b 剪贴板不给用时整段选中原文、按钮说怎么办(「复制不了 —— 已选中上面的原文，按 Ctrl+C」,选中 585 字)
+PASS B5c 状态接口回 200 但不是 JSON:诊断点名 SyntaxError、步骤 refreshStatus、原话(实:
+出错的那一步: refreshStatus · GET /api/status
+类别: 界面代码出错（SyntaxError）
+说明: Unexpected token 'h', "this is not"... is not valid JSON)
+PASS B3 拦截撤掉后点「重新加载」:卡消失、左栏出现那条线程
+PASS B3b 重试时状态行写「正在重新连接（第 1 次）…」、没有生花括号(实 ["正在重新连接（第 1 次）…","已连上本地服务","已连上本地服务"])
+BOOT FAILURE KIND BROWSER E2E: ALL PASS

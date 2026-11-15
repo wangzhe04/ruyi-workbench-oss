@@ -1,0 +1,98 @@
+{
+  "removed": [
+    {
+      "branch": "codex/p5-durable-tool-history",
+      "head": "a3403e04c4149ca655284b10858ef53392a56431",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-durable-history-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-durable-history-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-compound-effect-audit",
+      "head": "5db138733a5dda5723b8427fceeed7d038ac724b",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-effect-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-effect-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-native-entry",
+      "head": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-entry-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-entry-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-execution-receipts",
+      "head": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-execution-receipts-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-hard-abort",
+      "head": "97e389b312947475566ecdba90e91f29b9eb9589",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-hard-abort-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-hard-abort-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-manual-events",
+      "head": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-manual-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-manual-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-native-readiness",
+      "head": "229a9021f2ae96e493b9a10c99ea1d50ea22b619",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-readiness-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-readiness-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-manual-touch",
+      "head": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-touch-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-touch-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p5-capture-transition",
+      "head": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+      "mergedIntoHEAD": true,
+      "removed": true,
+      "removedCleanWorktree": "/private/tmp/ruyi-p5-transition-worktree",
+      "ignoredFilesBackup": "/private/tmp/ruyi-p5-closeout-preserved-20261112/ruyi-p5-transition-worktree-ignored.tar.gz"
+    },
+    {
+      "branch": "codex/p3-macos-documents",
+      "head": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+      "mergedIntoHEAD": true,
+      "removed": true
+    },
+    {
+      "branch": "codex/p4-macos-desktop",
+      "head": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+      "mergedIntoHEAD": true,
+      "removed": true
+    }
+  ],
+  "localBranchesRemoved": 11,
+  "cleanWorktreesRemoved": 9,
+  "retained": [
+    "master",
+    "codex/p5-macos-automation (PR head)",
+    "codex/p5-workflow-receipts (uncommitted follow-up)"
+  ],
+  "retainedWorktree": "/private/tmp/ruyi-p5-workflow-receipts-worktree",
+  "remoteP3Branch": "Retained until superseded fork PR is closed.",
+  "note": "P3 local deletion initially refused because its configured upstream lacked the later five commits; HEAD ancestry was proved, obsolete tracking removed, then normal git branch -d succeeded."
+}

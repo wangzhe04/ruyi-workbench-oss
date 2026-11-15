@@ -1,0 +1,12 @@
+✔ Node matches shared cross-language argument identity vectors (0.792084ms)
+✔ JSON key insertion order and binary64-equivalent zero agree without conflating string/number values (0.108416ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.513167ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.338125ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99.449667

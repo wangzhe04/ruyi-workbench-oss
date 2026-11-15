@@ -1,0 +1,103 @@
+
+Looking in links: /tmp/ruyi-p3-02-wheelhouse
+Processing /tmp/ruyi-p3-02-wheelhouse/annotated_doc-0.0.5-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 5))
+Processing /tmp/ruyi-p3-02-wheelhouse/annotated_types-0.8.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 6))
+Processing /tmp/ruyi-p3-02-wheelhouse/anyio-4.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 7))
+Processing /tmp/ruyi-p3-02-wheelhouse/attrs-26.1.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 8))
+Processing /tmp/ruyi-p3-02-wheelhouse/certifi-2026.10.23-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 9))
+Processing /tmp/ruyi-p3-02-wheelhouse/cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 10))
+Processing /tmp/ruyi-p3-02-wheelhouse/charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 11))
+Processing /tmp/ruyi-p3-02-wheelhouse/click-8.5.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 12))
+Processing /tmp/ruyi-p3-02-wheelhouse/contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 13))
+Processing /tmp/ruyi-p3-02-wheelhouse/cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 14))
+Processing /tmp/ruyi-p3-02-wheelhouse/cycler-0.12.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 15))
+Processing /tmp/ruyi-p3-02-wheelhouse/et_xmlfile-2.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 16))
+Processing /tmp/ruyi-p3-02-wheelhouse/fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 17))
+Processing /tmp/ruyi-p3-02-wheelhouse/h11-0.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 18))
+Processing /tmp/ruyi-p3-02-wheelhouse/httpcore-1.0.9-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 19))
+Processing /tmp/ruyi-p3-02-wheelhouse/httpx_sse-0.4.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 20))
+Processing /tmp/ruyi-p3-02-wheelhouse/httpx-0.28.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 21))
+Processing /tmp/ruyi-p3-02-wheelhouse/idna-3.20-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 22))
+Processing /tmp/ruyi-p3-02-wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 23))
+Processing /tmp/ruyi-p3-02-wheelhouse/jsonschema-4.26.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 24))
+Processing /tmp/ruyi-p3-02-wheelhouse/kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 25))
+Processing /tmp/ruyi-p3-02-wheelhouse/lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 26))
+Processing /tmp/ruyi-p3-02-wheelhouse/markdown_it_py-4.2.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 27))
+Processing /tmp/ruyi-p3-02-wheelhouse/matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 28))
+Processing /tmp/ruyi-p3-02-wheelhouse/mcp-1.30.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 29))
+Processing /tmp/ruyi-p3-02-wheelhouse/mdurl-0.1.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 30))
+Processing /tmp/ruyi-p3-02-wheelhouse/numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 31))
+Processing /tmp/ruyi-p3-02-wheelhouse/openpyxl-3.1.5-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 32))
+Processing /tmp/ruyi-p3-02-wheelhouse/packaging-26.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 33))
+Processing /tmp/ruyi-p3-02-wheelhouse/pdfminer_six-20260107-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 34))
+Processing /tmp/ruyi-p3-02-wheelhouse/pdfplumber-0.11.10-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 35))
+Processing /tmp/ruyi-p3-02-wheelhouse/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 36))
+Processing /tmp/ruyi-p3-02-wheelhouse/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 37))
+Processing /tmp/ruyi-p3-02-wheelhouse/pycparser-3.12-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 38))
+Processing /tmp/ruyi-p3-02-wheelhouse/pydantic_settings-2.16.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 39))
+Processing /tmp/ruyi-p3-02-wheelhouse/pydantic-2.14.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 40))
+Processing /tmp/ruyi-p3-02-wheelhouse/pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 41))
+Processing /tmp/ruyi-p3-02-wheelhouse/pygments-2.21.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 42))
+Processing /tmp/ruyi-p3-02-wheelhouse/pyjwt-2.15.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 43))
+Processing /tmp/ruyi-p3-02-wheelhouse/pyparsing-3.3.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 44))
+Processing /tmp/ruyi-p3-02-wheelhouse/pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 45))
+Processing /tmp/ruyi-p3-02-wheelhouse/pyperclip-1.11.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 46))
+Processing /tmp/ruyi-p3-02-wheelhouse/python_dateutil-4.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 47))
+Processing /tmp/ruyi-p3-02-wheelhouse/python_docx-1.2.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 48))
+Processing /tmp/ruyi-p3-02-wheelhouse/python_dotenv-1.2.4-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 49))
+Processing /tmp/ruyi-p3-02-wheelhouse/python_multipart-0.0.33-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 50))
+Processing /tmp/ruyi-p3-02-wheelhouse/python_pptx-1.0.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 51))
+Processing /tmp/ruyi-p3-02-wheelhouse/referencing-0.37.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 52))
+Processing /tmp/ruyi-p3-02-wheelhouse/reportlab-5.1.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 53))
+Processing /tmp/ruyi-p3-02-wheelhouse/rich-15.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 54))
+Processing /tmp/ruyi-p3-02-wheelhouse/rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 55))
+Processing /tmp/ruyi-p3-02-wheelhouse/shellingham-1.5.4-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 56))
+Processing /tmp/ruyi-p3-02-wheelhouse/sse_starlette-3.6.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 57))
+Processing /tmp/ruyi-p3-02-wheelhouse/starlette-1.10.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 58))
+Processing /tmp/ruyi-p3-02-wheelhouse/typer-0.28.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 59))
+Processing /tmp/ruyi-p3-02-wheelhouse/typing_inspection-0.4.5-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 60))
+Processing /tmp/ruyi-p3-02-wheelhouse/typing_extensions-4.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 61))
+Processing /tmp/ruyi-p3-02-wheelhouse/tzdata-2026.6-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 62))
+Processing /tmp/ruyi-p3-02-wheelhouse/uvicorn-0.54.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 63))
+Processing /tmp/ruyi-p3-02-wheelhouse/xlsxwriter-3.3.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt (line 64))
+Installing collected packages: pyperclip, xlsxwriter, tzdata, typing_extensions, shellingham, rpds-py, python-multipart, python-dotenv, pypdfium2, pyparsing, PyJWT, Pygments, pycparser, psutil, pillow, packaging, numpy, mdurl, lxml, kiwisolver, idna, httpx-sse, h11, fonttools, et_xmlfile, cycler, click, charset-normalizer, certifi, attrs, annotated-types, annotated-doc, uvicorn, typing-inspection, reportlab, referencing, python-pptx, python-docx, python-dateutil, pydantic_core, openpyxl, markdown-it-py, httpcore, contourpy, cffi, anyio, starlette, rich, pydantic, matplotlib, jsonschema-specifications, httpx, cryptography, typer, sse-starlette, pydantic-settings, pdfminer.six, jsonschema, pdfplumber, mcp
+Successfully installed PyJWT-2.15.1 Pygments-2.21.0 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.16.0 attrs-26.1.0 certifi-2026.10.23 cffi-2.1.1 charset-normalizer-3.5.2 click-8.5.0 contourpy-1.4.0 cryptography-50.0.2 cycler-0.12.1 et_xmlfile-2.0.0 fonttools-4.68.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 httpx-sse-0.4.3 idna-3.20 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 kiwisolver-1.5.1 lxml-6.1.3 markdown-it-py-4.2.0 matplotlib-3.11.2 mcp-1.30.0 mdurl-0.1.2 numpy-2.5.4 openpyxl-3.1.5 packaging-26.3 pdfminer.six-20260107 pdfplumber-0.11.10 pillow-13.0.0 psutil-7.2.2 pycparser-3.12 pydantic-2.14.3 pydantic-settings-2.16.2 pydantic_core-2.50.4 pyparsing-3.3.3 pypdfium2-5.14.0 pyperclip-1.11.0 python-dateutil-4.0.0 python-docx-1.2.0 python-dotenv-1.2.4 python-multipart-0.0.33 python-pptx-1.0.2 referencing-0.37.0 reportlab-5.1.0 rich-15.0.0 rpds-py-2026.9.1 shellingham-1.5.4 sse-starlette-3.6.0 starlette-1.10.0 typer-0.28.0 typing-inspection-0.4.5 typing_extensions-4.16.0 tzdata-2026.6 uvicorn-0.54.0 xlsxwriter-3.3.1
+
+Looking in links: /tmp/ruyi-p3-02-wheelhouse
+Processing /tmp/ruyi-p3-02-wheelhouse/ai_computer_control-1.9.1-py3-none-any.whl
+Installing collected packages: ai-computer-control
+Successfully installed ai-computer-control-1.9.1
+
+No broken requirements found.
+
+NONEDITABLE_PACKAGE=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-office-offline-ob9bbH/venv/lib/python3.12/site-packages/ai_computer_control/server.py
+
+PASS isolated workbench creates a real session for checkpoint ownership
+PASS real workbench MCP proxy completes chart_image
+PASS Mac chart resolves a real CJK font without a fallback warning
+PASS real workbench MCP proxy completes write_document
+PASS real workbench MCP proxy completes write_excel
+PASS real workbench MCP proxy completes excel_chart
+PASS real workbench MCP proxy completes write_pptx
+PASS real workbench MCP proxy completes write_pdf
+PASS PDF selects a readable Mac TrueType font without a reader-font fallback
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes read_document
+PASS real workbench MCP proxy completes excel_read
+PASS real workbench MCP proxy completes pdf_read_pages
+PASS DOCX real read tool retains Chinese table content
+PASS PPTX real read tool retains Chinese table content
+PASS XLSX real read tool retains Chinese table content
+PASS PDF real read tool retains Chinese table content
+PASS all five real artifact destinations have checkpoints
+PASS overwriting an existing Word file records its exact original bytes
+PASS every Office/image write tool leaves successful audit evidence
+ARTIFACT_DIR=/tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk
+PASS production HTTP rollback reverses the real Office tool sequence
+PASS rollback restores the existing Word file byte for byte
+PASS rollback removes the four newly created artifacts, including the edited chart workbook
+PASS owned workbench process exits during fixture cleanup
+
+MACOS OFFICE ARTIFACTS E2E: ALL PASS
+
+P3 OFFICE LOCKED OFFLINE REPLAY: ALL PASS

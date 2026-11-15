@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-12T15:16:57.882264+00:00",
+  "kind": "Read-only fixture cleanup delta review",
+  "result": "pass_code_review",
+  "reviewedFiles": [
+    {
+      "path": "dev-harness/harness-friction.e2e.js",
+      "sha256": "2a887f4f3dd178030fde3e0253d02fae340a679b64cc786f13e8cf4d71a92257"
+    },
+    {
+      "path": "dev-harness/audit-desktop-records.e2e.js",
+      "sha256": "3006f68754ec353a596bdbad674f6e2a48ebff6d6a77821d312d0f7917d95311"
+    },
+    {
+      "path": "dev-harness/memory-scope.e2e.js",
+      "sha256": "82a9bfa61d6196071da3bac63bd9d96c0f8f161d83833676453fe2fd94e29c55"
+    },
+    {
+      "path": "dev-harness/cli-probe-stall.e2e.js",
+      "sha256": "49ab34e94a1b6103ca827b8c7a38e8d253b76353d2463ce276ce716677b4f8bd"
+    },
+    {
+      "path": "dev-harness/playbook-skill-tools.e2e.js",
+      "sha256": "3aec0057b4101de1447b9807b8a37a641d73e7df7db88a2a8ef44ad502791d04"
+    },
+    {
+      "path": "dev-harness/tool-result-bounds.e2e.js",
+      "sha256": "4137399990aae470a3ffb56b1cc1c0b3082eaff115c532894be42fa3c8fa9b8a"
+    },
+    {
+      "path": "dev-harness/tool-dispatch-hardening.e2e.js",
+      "sha256": "6ec9607a182d1107125e345e13269e155f3f74d0143255227a5c598fcdbfe445"
+    },
+    {
+      "path": "dev-harness/memory-batch-proposal.e2e.js",
+      "sha256": "abe27f8392920723e8f8f192e606e24e2ef17e0f523a7b5023c1b86d430eb42f"
+    }
+  ],
+  "findings": [],
+  "positiveChecks": [
+    "Passing owned ChildProcess object instead of wb.pid restores actual owned-tree cleanup.",
+    "Existing test remains serial and its shared tool-tier/promotion/cache assertions unchanged.",
+    "Original orphan cleanup evidence records exact owned environment/command/birth identities, not a process-name sweep.",
+    "All8 mutations pass exact owned ChildProcess handles; no bare PID/name cleanup was added.",
+    "Cleanup failure now contributes a real test assertion failure before existing fake-provider shutdown and fixture cleanup.",
+    "All8 have existing ok/sleep bindings and valid in-scope ChildProcess references; Windows/Linux successful return shapes remain supported while explicit skipped statuses fail.",
+    "Read-only rg found no remaining killOwnTree(... .pid) calls in dev-harness or ruyi-workbench/tools."
+  ],
+  "noExecution": {
+    "testsRun": 0,
+    "processesStartedOrKilled": 0,
+    "sourceEdits": 0
+  },
+  "limits": [
+    "Review is code-only. Parent direct8 batch and subsequent reviewer-controlled serial tests must supply execution results.",
+    "53-file closeout freeze has not yet been supplied. Historical47 freeze and prior source binding remain separate."
+  ],
+  "initialReview": {
+    "atUTC": "2026-11-12T15:14:06.184078+00:00",
+    "result": "changes_requested",
+    "reviewedFiles": [
+      {
+        "path": "dev-harness/harness-friction.e2e.js",
+        "sha256": "dc804917d046cc74dc6fff40f53497dc3386beaae49bbc5fcb35904b2850a0de"
+      }
+    ],
+    "findings": [
+      {
+        "id": "CLEANUP-1",
+        "priority": 2,
+        "file": "dev-harness/harness-friction.e2e.js",
+        "line": 114,
+        "title": "Do not treat skipped cleanup as confirmed",
+        "basis": "killOwnTree returns skipped:no-pid/root-exited/error and Windows snapshot-failed without incomplete. !cleanup.incomplete is therefore true for unconfirmed cleanup. With an exited root the new assertion may pass while descendant state was not confirmed.",
+        "requestedFix": "Reject cleanup.skipped. On darwin require incomplete===false and scope===observed-tree. Preserve platform-specific successful return shapes for Windows/Linux. Include signalCode in already-exited Promise precheck."
+      }
+    ]
+  },
+  "resolvedFindings": [
+    {
+      "id": "CLEANUP-1",
+      "status": "closed_in_source",
+      "resolution": "All8 cleanup sites reject skipped, and darwin explicitly requires incomplete===false with observed-tree scope. Already-exited promise checks include signalCode. Actual runtime confirmation remains separate."
+    }
+  ]
+}

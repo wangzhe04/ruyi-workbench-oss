@@ -1,0 +1,43 @@
+{
+  "records": [
+    {
+      "branch": "codex/p5-compound-effect-audit",
+      "head": "5db138733a5dda5723b8427fceeed7d038ac724b",
+      "gitCherry": [
+        "- 5db138733a5dda5723b8427fceeed7d038ac724b"
+      ],
+      "qualification": "all unique commits are patch-equivalent to integrated commits"
+    },
+    {
+      "branch": "codex/p5-durable-tool-history",
+      "head": "a3403e04c4149ca655284b10858ef53392a56431",
+      "gitCherry": [
+        "- a3403e04c4149ca655284b10858ef53392a56431"
+      ],
+      "qualification": "all unique commits are patch-equivalent to integrated commits"
+    },
+    {
+      "branch": "codex/p5-execution-receipts",
+      "head": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+      "gitCherry": [
+        "- 56c970cf885de4a249c637fe10d3419115ffa979",
+        "- f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a"
+      ],
+      "qualification": "all unique commits are patch-equivalent to integrated commits"
+    },
+    {
+      "branch": "codex/p5-hard-abort",
+      "head": "97e389b312947475566ecdba90e91f29b9eb9589",
+      "gitCherry": [
+        "- 97e389b312947475566ecdba90e91f29b9eb9589"
+      ],
+      "qualification": "all unique commits are patch-equivalent to integrated commits"
+    }
+  ],
+  "treeBefore": "997c5f67eef6a8287b8e6212e8b1d82663288fdb",
+  "treeAfter": "997c5f67eef6a8287b8e6212e8b1d82663288fdb",
+  "sameTree": true,
+  "mergeCommit": "af506e282d758d99958fd1814364c3e46e138d43",
+  "method": "ours ancestry-only merge after git cherry proved every unique patch already integrated",
+  "normalOctopusAttempt": "Rejected due to historical parallel edits; Git left original tracked source tree unchanged. No conflict resolutions or source changes taken from that attempt."
+}

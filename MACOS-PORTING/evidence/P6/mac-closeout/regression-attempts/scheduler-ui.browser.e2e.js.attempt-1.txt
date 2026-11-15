@@ -1,0 +1,43 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 两条定时任务已建（sch_d0198826a9e3b43b / sch_803b146b85962e60）
+PASS A0d Edge/Chrome found
+PASS A0e browser target available
+PASS A0f 首屏就绪
+PASS A0g 视角是管家（焦点栏「接下来」只在这一侧）
+PASS A0h 设置弹窗的「管家」页签打开了
+PASS A1 口袋「定时任务」角标是 2（修前它恒是空 —— 那条路由 404）
+PASS A2 设置块两行
+PASS A3 焦点栏「接下来」两行
+PASS A4 「接下来」两行【按时间升序】（实得 ["先到的那条 · 1小时后","后到的那条 · 2小时后"]）
+PASS A5 计划印的是 describeSchedule 那一句人话（实得「2026 年 11 月 12 日 23:51，一次」）
+PASS A6 还没跑过时徽标是「还没跑过」（实得「还没跑过」）
+PASS A7 印了下次触发的倒计时（实得「下次 1小时后」）
+PASS B1 schedule.changed 帧到达之后口袋角标变 1（零轮询：本件全程不等任何定时刷新）
+PASS B1b 不按刷新，设置块自己跟着 schedule.changed 变（P0③）
+PASS B2 那一条的上次结果徽标变成「成功」
+PASS B3 展开「最近几次」出恰好一行
+PASS B4 那一行的触发模式是「准时」（实得 mode=ontime 文案「2026/11/12 23:52:26成功 · 准时」）
+PASS B5 快速点两下「最近几次」→ 面板保持收起，晚到的结果不把它重新打开（实得 {"hidden":true,"rows":0,"fetches":1}）
+PASS C0 两条新任务已建（sch_29ba160588b28283 / sch_2df4ccecd1fa3025）
+PASS C1a 带崩溃钩子的服务起来了
+PASS C1b 服务在【登记之后】被钩子打死（exit 3）
+PASS C1c 干净重启
+PASS C1d 服务端事实：U 记成 unknown、L 的上次触发模式是 late
+PASS C2a 页面重载后首屏就绪
+PASS C2b 重新打开「管家」页签
+PASS C2c 设置块四行都在（跑过的 once 也留在表里 —— 它只是没有下一次了）
+PASS C3 J11 界面侧：崩在半路那一条的徽标 data-outcome 是 unknown（实得 unknown）
+PASS C4 J11 界面侧：徽标原文是「结果未知，先核对」（实得「结果未知，先核对 · 补跑」）
+PASS C5 J11 界面侧：**不是**「成功」（实得「结果未知，先核对 · 补跑」）
+PASS D1 J10 界面侧：补跑那一条的徽标 data-mode 是 late（实得 late）
+PASS D2 J10 界面侧：徽标原文带「补跑」（实得「成功 · 补跑」）
+PASS D3 J10 界面侧：**不冒充**「准时」（实得「成功 · 补跑」）
+PASS E0 点「新建」打开表单
+PASS E1 档位只在「跑一个回合 + 每次开新线程」时出现（实得 reminder=true prompt/new=false existing=true）
+PASS E2 三个选项（跟随全局 / strong / fast）与标签走目录（实得 ["","strong","fast"]「用哪一档模型」）
+PASS E3 表单选「简单任务 · 快速模型」提交 → 服务端那一份 target.tier=fast（实得 {"mode":"new-session","tier":"fast"}）
+PASS E4 表单留「跟随全局主端点」→ target 里没有 tier 键（与修前逐字节同形；实得 {"mode":"new-session"}）
+SHOT /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-9SNV1d/ruyi-scheduler-ui-rJ6CTm/scheduler-ui-final.png
+
+SCHEDULER UI BROWSER E2E: ALL PASS

@@ -1,0 +1,10 @@
+PASS 除允许名单外，en-US.json 的值里零 chat/chats/session/sessions（大小写不敏感）
+PASS 允许名单里每一键在 en-US.json 里都还存在且值仍命中该词(否则这条豁免已经名不副实)
+PASS 键名不动:session.new 仍在(只改值,不改键)
+PASS 键名不动:session.name 仍在(只改值,不改键)
+PASS 键名不动:chat.newSession 仍在(只改值,不改键)
+PASS 键名不动:palette.newSession 仍在(只改值,不改键)
+PASS 键名不动:storage.store.sessions 仍在(只改值,不改键)
+PASS zh-CN 与 en-US 键数仍相等(本波只改值不改键,不会打乱两份目录的键集对齐)
+
+I18N EN TERMS STATIC E2E: ALL PASS

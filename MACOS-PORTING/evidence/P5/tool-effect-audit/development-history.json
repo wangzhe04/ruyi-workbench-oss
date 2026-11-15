@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "scope": "Development attempt index; summaries are not reconstructed raw stdout. Existing archived logs are unchanged.",
+  "attempts": [
+    {
+      "id": "initial-new-unit",
+      "command": "node --test dev-harness/unit/compound-effect-audit.test.js",
+      "observedResult": "10 pass,1 fail: batch([null]) test factory read row.ok before exercising the product projector",
+      "resolution": "Factory handles null; later unit13 passes.",
+      "rawLogArchived": false,
+      "observationSource": "Original functions.exec tool output in this chat; this entry is an authored summary, not a raw log."
+    },
+    {
+      "id": "offline-v1",
+      "rawLog": "development/offline-v1.log",
+      "result": "Missing newly built worktree process helper prevented bridge availability; assertion and cleanup preparation failed.",
+      "recovery": [
+        "development/offline-v1-recovery.json",
+        "development/offline-v1-recovery-exit.json"
+      ]
+    },
+    {
+      "id": "gates-v1",
+      "rawLog": "development/gates-v1/fast.log",
+      "result": "79/80; README counts outdated; runner automatic retry also failed.",
+      "resolution": "README inventory sync; finalgates-v2 80/80."
+    },
+    {
+      "id": "related-v1",
+      "rawLog": "development/related-v1/mission-result.e2e.js.log",
+      "result": "One old source-format assertion failed after additive incomplete field.",
+      "resolution": "Same label now tests actual function return value; other assertions retained. related-v2 passes62."
+    },
+    {
+      "id": "independent-python-loader",
+      "rawLog": "independent-v1/python.log",
+      "result": "dyld launch failure before any test.",
+      "resolution": "Existing DYLD loader environment supplied; python-env-v2 ran5 tests once."
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+PASS A1 full 的硬顶是 12000 字
+PASS A2 tools 上限 20 条
+PASS A3 117l 的老语义一字未动:text 仍是最后 600 字
+PASS A4 超顶时从【头部】丢弃(slice 取的是尾段)并置 truncated:true
+PASS A5 工具行只记 id/名字/起止/状态
+PASS A6 工具行不存参数、不存结果(那可能含密钥)
+PASS A7 超过 20 条从最早的开始丢
+PASS B1 liveTail 仍是【条件展开】(回合一结束这个键就不在了 —— 前端据此收尾)
+PASS B1b 四条返回路径(带 since 的、?view=live 轻量信封、增量取、全量)都带上它(实测 4 处)
+PASS B2 信封带上了 full
+PASS B2 信封带上了 truncated
+PASS B2 信封带上了 startedAt
+PASS B2 信封带上了 iterations
+PASS B2 信封带上了 tools
+PASS B3 不 spread 累加器对象,逐字段白名单搬运
+PASS B4 tools 在路由处再截一次 20 条并逐字段重建
+PASS B5 下发的工具行只有 name/status/startedAt/endedAt —— 零参数、零结果
+PASS B6 连工具调用 id 都不下发(信封只回答「它在用什么」)
+PASS C1 session-experience.js 恰好一处 setInterval(实测 1)
+PASS C2 session-experience.js 恰好一处 clearInterval(实测 1)
+PASS C3 开关表的单点叫 syncLivePolling()
+PASS C4 那唯一的一对 setInterval/clearInterval 就在 syncLivePolling() 里
+PASS C5 节拍 3s
+PASS C6 开表前提之一:这张气泡确实该画
+PASS C7 开表前提之二:页面可见
+PASS C8 开表前提之三:人在经典壳里(管家壳有它自己的节拍,零后台活动)
+PASS C9 画之前先认会话:A 的活文本不许画到 B 上
+PASS C10 自己的流在跑就不画这张(实时那一张已经在画了,别画两遍)
+PASS C11 「在不在跑」以服务端的 resumable.live 为准
+PASS C12 开关只走这一个函数(实测 9 处调用点)
+PASS D1 气泡带 data-live="1"(与真消息一眼可分)
+PASS D2 气泡不进 state.currentSession.messages(正文数据面只认落盘的)
+PASS D3 气泡全 el()/textContent 建节点,零 innerHTML
+PASS D4 复用既有 .message.assistant 骨架,不另造一套壳
+PASS D5 truncated 时省略号标在【开头】(后端砍的就是头)
+PASS D6 「正在用」读 tools 的最后一条
+PASS D7 首帧在挂载前就填内容(mounted:false 跳过 isConnected 守卫)
+PASS D8 守卫本身还在(气泡被整份重绘换掉时仍返回 false 让调用方重绘)
+PASS D7 刷新也走 textContent
+PASS D8 气泡挂在会话末尾(renderCurrentSession 待挂行列表的尾巴;原位协调见 reconcileMessageChildren)
+PASS D9 一条落盘消息都没有但回合在跑时不落空态(否则空态把气泡整个吞掉)
+PASS E1 活文本跟着 openSession 同一发既有 GET 回来，读取代数阻止旧进程信封盖新事实
+PASS E2 只读信封上那个键,没有第二个数据源
+PASS E3 「停止」在既有 /api/stop 携带捕获的执行身份，不增请求或端点
+PASS E3b 仅当前执行的成功停止回执能显示已停止，迟到回执不改新执行 UI
+PASS E4 只有 openSession、那一拍、切回工作台重读、后台完成回执这四处会去取会话(实测 4 处)
+PASS F1 .live-turn-body 落在【已注册的】所有权层 css/states/chat-live.css
+PASS F1 .live-turn-tool 落在【已注册的】所有权层 css/states/chat-live.css
+PASS F2 新增规则零硬编码色(全 token / color-mix)
+PASS F3 经典样式载荷锁已按本波的有意新增重钉
+PASS F4 在途气泡的正文列与普通助手消息【同形】:没有自己的边框/底色/内边距(实测规则「整条已删」)
+PASS F5 正文没有自己的滚动上限:靠整页滚动来看,不是窗中窗(narrative / body 两处 max-height + overflow 都已撤)
+PASS F6 每拍重绘前后用 captureScrollAnchor / restoreScrollAnchor 兜住 #messages 的阅读位置
+PASS G1 02c 多了一个【在途只读】快照 liveSnapshot(),并从构建器上导出
+PASS G2 三重硬顶都写死在常量里(段数 / 单段文本 / 总文本预算)
+PASS G3 单段超顶时从【头部】丢弃(slice 取的是尾段)并置 truncated:true
+PASS G4 liveSnapshot 只组 {id,name,inputPreview,status},零结果字段
+PASS G5 参数摘要从【旁挂表】取,不从段上取
+PASS G6 参数摘要不进 segments —— 落盘的 snapshot() 形状一个字节没变
+PASS G7 两条引擎路径(provider / Claude CLI)都把这一份账本挂在活回合登记项上
+PASS G8 liveTurn 与 liveTail 同款【条件展开】,四条返回路径(含增量取)都带(实测 4 处)
+PASS G9 路由只调只读快照,不把构建器本身交出去
+PASS G10 参数字段挑选口径两端逐字相等(server ['path', 'url', 'command', 'pattern', 'root', 'query', 'title', 'text'] / client ['path', 'url', 'command', 'pattern', 'root', 'query', 'title', 'text'])
+PASS H1 在途回合的正文有一个单独的绘制点 paintLiveTurnNarrative()
+PASS H2 它画正文用的就是 renderStaticMessage() —— 经典壳画一条【落盘助手消息】的那个入口
+PASS H3 组装出来的对象与落盘助手消息【同形】(role/segments/toolCalls)
+PASS H4 只读(在途回合没有重跑/回退这些动作)+ 独立锚点作用域(不与落盘消息的工具卡撞 id)
+PASS H5 3 秒一拍重画之前先记下哪些工具卡/思考块是展开的,画完照原样开回去
+PASS H6 内容没变就整拍不重画(既省事也不打断用户的展开态)
+PASS H7 session-experience.js 里没有任何自建的工具卡/思考块/叙事容器(零仿制品)
+PASS H8 有账本走 2.0 那一套、没有才回落 A5 的纯文本 —— 两条路互斥,同一段话不会出现两遍
+PASS H9 「归一空白 + 中间省略」收敛成唯一的 toolArgSummaryText(静态卡也改走它)
+PASS H10 在途卡的那一行走同一个截断函数,不另写一套口径
+PASS H11 tc.status 是纯新增的可选字段:不带它时判据仍是「结果在不在」,既有三个调用点逐字节不变
+PASS H12 在途卡的结果区如实写「结果不随在途信封下发」,不留空框让人以为丢了东西
+PASS I1 左栏（两视角共用的那一份）的渲染里没有任何 kind 过滤
+PASS I2 单条行也不按 kind 分叉(管家开的线程与手工建的会话一视同仁；K3 之后 kind 对两者同样返回 quick_ask，身份改读 row.quick)
+PASS I2b renderSessions 只剩一个转接口（调注入的左栏渲染），它自己一行都不画
+PASS J0 staleCacheDays 函数体切得到(切不到 = 本组静默失效;实得 355)
+PASS J1 判据只读 fromCache 与 ts 两个结构化字段
+PASS J2 判据里不出现 .text(它一读正文就开始猜)
+PASS J2 判据里不出现 staleReason(它一读正文就开始猜)
+PASS J2 判据里不出现 includes((它一读正文就开始猜)
+PASS J2 判据里不出现 match((它一读正文就开始猜)
+PASS J2 判据里不出现 indexOf((它一读正文就开始猜)
+PASS J3 只认 web_fetch 这一个工具(别的工具没有「缓存」这回事)
+PASS J4 回放路径(toolCard)画它
+PASS J5 live 路径(流式 tool_result)画它
+PASS J6 live 那一支【不】按 isError 分叉 —— 回落缓存时 web_fetch 回的正是 ok:true,按错误分叉等于永远不画
+PASS J7 样式落在已注册的所有权层 chat-live.css,且没有 data-stale 时整枚不占位(其余工具卡逐像素不变)
+LIVE FULL TEXT STATIC: ALL PASS

@@ -1,0 +1,138 @@
+PASS D1 app.js 组合产物/变更域并统一绑定
+PASS D2 app.js 组合可观测域并统一绑定
+PASS D3 artifact-changes 持有 collectSessionArtifacts()
+PASS D3 artifact-changes 持有 renderArtifactsGallery()
+PASS D3 artifact-changes 持有 renderArtifactsFromState()
+PASS D3 artifact-changes 持有 loadChanges()
+PASS D3 artifact-changes 持有 renderChanges()
+PASS D3 artifact-changes 持有 openChangeDiff()
+PASS D3 artifact-changes 持有 rollbackChangeEntry()
+PASS D4 产物/变更四条 API 契约齐
+PASS D5 产物/变更刷新按钮由领域模块自持
+PASS D6 导航域只保留产物/变更页签入口
+PASS D7 operations-observability 持有 loadAudit()
+PASS D7 operations-observability 持有 renderAuditList()
+PASS D7 operations-observability 持有 loadStorage()
+PASS D7 operations-observability 持有 renderStorage()
+PASS D7 operations-observability 持有 saveStoragePolicy()
+PASS D7 operations-observability 持有 cleanStorage()
+PASS D7 operations-observability 持有 loadMetrics()
+PASS D7 operations-observability 持有 renderMetrics()
+PASS D7 operations-observability 持有 openAuditTab()
+PASS D7 operations-observability 持有 openStorageTab()
+PASS D8 可观测域五条 API 契约齐
+PASS D9 三个刷新入口保持强制重拉语义
+PASS D10 导航域保留活动页入口，存储已迁入设置体检
+PASS D11 领域实现已从 app.js 清空
+PASS D12 领域内部状态不再泄漏到组合根
+PASS D13 两个新领域模块零 innerHTML 赋值
+PASS D14 locale 变更通过窄接口重绘领域视图
+PASS D15 两个领域模块均进入 overlay 载荷
+PASS D16 app.js 组合文件浏览域并统一绑定
+PASS D17 file-browser 持有 fetchDirLevel()
+PASS D17 file-browser 持有 fileTreeRow()
+PASS D17 file-browser 持有 loadFileTree()
+PASS D17 file-browser 持有 renderFilePreviewInto()
+PASS D17 file-browser 持有 renderTextPreview()
+PASS D17 file-browser 持有 renderCsvTable()
+PASS D17 file-browser 持有 mentionFile()
+PASS D18 文件树与预览 API 契约齐
+PASS D19 HTML 空 sandbox + Markdown 唯一受控 innerHTML
+PASS D20 文件实现离开 app.js 且进入 overlay 载荷
+PASS D21 app.js 组合 Workbench 域并统一绑定
+PASS D22 workbench 持有 layoutWorkbenchDAG()
+PASS D22 workbench 持有 switchMainView()
+PASS D22 workbench 持有 renderWorkbench()
+PASS D22 workbench 持有 renderWorkbenchCanvas()
+PASS D22 workbench 持有 wbNativeClaudeHydratedRuns()
+PASS D22 workbench 持有 wbNativeClaudeOnSubagent()
+PASS D22 workbench 持有 wbNativeClaudeFinalize()
+PASS D22 workbench 持有 wbOnRuns()
+PASS D23 Workbench 状态与实现已从 app.js 清空
+PASS D24 工作流轮询层通过窄接口传递快照与持久读取质量，重绘仍能显示断连
+PASS D25 Workbench 域保持零 innerHTML 赋值
+PASS D26 Workbench 域进入 overlay 载荷
+PASS D27 app.js 组合用量看板域并统一绑定
+PASS D28 usage-dashboard 持有 loadUsage()
+PASS D28 usage-dashboard 持有 renderUsage()
+PASS D28 usage-dashboard 持有 setUsageRange()
+PASS D28 usage-dashboard 持有 usageAggHead()
+PASS D28 usage-dashboard 持有 usageBudgetBanner()
+PASS D28 usage-dashboard 持有 usageBarSvg()
+PASS D28 usage-dashboard 持有 usageTrendSvg()
+PASS D29 用量状态与实现已从 app.js 清空
+PASS D30 用量页签与 locale 重绘只走领域窄接口
+PASS D31 app.js 组合 Agent 角色域并统一绑定
+PASS D32 agent-roles 持有 captureAgentRoleDraft()
+PASS D32 agent-roles 持有 renderAgentRoleEditors()
+PASS D32 agent-roles 持有 resetAgentRoleDraft()
+PASS D32 agent-roles 持有 loadAgentRoles()
+PASS D32 agent-roles 持有 saveAgentRoles()
+PASS D32 agent-roles 持有 addAgentRole()
+PASS D32 agent-roles 持有 populateSubagentPreferenceSelects()
+PASS D33 Agent 角色草稿状态与实现已从 app.js 清空
+PASS D34 Agent 角色 GET/POST 与页签懒加载契约齐
+PASS D35 用量与 Agent 角色领域保持零 innerHTML 赋值
+PASS D36 两个第61波领域模块均进入 overlay 载荷
+PASS D37 skills-memory.js 已组合并进入 overlay
+PASS D38 skills-memory.js 持有 openSkillPanel()
+PASS D38 skills-memory.js 持有 openMemoryPanel()
+PASS D38 skills-memory.js 持有 renderSkillList()
+PASS D37 provider-settings.js 已组合并进入 overlay
+PASS D38 provider-settings.js 持有 refreshStatus()
+PASS D38 provider-settings.js 持有 renderProviders()
+PASS D38 provider-settings.js 持有 saveSettings()
+PASS D37 agent-workflows.js 已组合并进入 overlay
+PASS D38 agent-workflows.js 持有 openWorkflowEditor()
+PASS D38 agent-workflows.js 持有 loadAgentRuns()
+PASS D38 agent-workflows.js 持有 loadAgentWorkflows()
+PASS D37 navigation-controls.js 已组合并进入 overlay
+PASS D38 navigation-controls.js 持有 switchTab()
+PASS D38 navigation-controls.js 持有 openModal()
+PASS D38 navigation-controls.js 持有 openContextPopover()
+PASS D37 session-experience.js 已组合并进入 overlay
+PASS D38 session-experience.js 持有 renderSessions()
+PASS D38 session-experience.js 持有 openSession()
+PASS D38 session-experience.js 持有 renderCurrentSession()
+PASS D37 interaction-prompts.js 已组合并进入 overlay
+PASS D38 interaction-prompts.js 持有 buildModal()
+PASS D38 interaction-prompts.js 持有 handlePermissionRequest()
+PASS D38 interaction-prompts.js 持有 showAskUserModal()
+PASS D37 tool-runtime.js 已组合并进入 overlay
+PASS D38 tool-runtime.js 持有 runTool()
+PASS D38 tool-runtime.js 持有 updateShellPolling()
+PASS D38 tool-runtime.js 持有 handlePlanEvent()
+PASS D37 workspace-preferences.js 已组合并进入 overlay
+PASS D38 workspace-preferences.js 持有 applyTheme()
+PASS D38 workspace-preferences.js 持有 currentWorkspace()
+PASS D38 workspace-preferences.js 持有 pickWorkspace()
+PASS D39 app.js 组合根低于 3000 行
+PASS D40 第62波领域实现已从 app.js 清空
+PASS D41 app.js 组合聊天组件原语、静态渲染与实时流运行时
+PASS D42 chat-render-primitives 持有 messageShell()
+PASS D42 chat-render-primitives 持有 thinkingPanel()
+PASS D42 chat-render-primitives 持有 toolCard()
+PASS D42 chat-render-primitives 持有 renderContextMeter()
+PASS D42 chat-render-primitives 显式接收并注入 DOM 查询 helper
+PASS D42 chat-static-renderer 持有 renderStaticMessage()
+PASS D42 chat-static-renderer 持有 renderStaticTurnNarrative()
+PASS D42 chat-static-renderer 持有 compactNarrativeProcessRuns()
+PASS D42 chat-static-renderer 持有 turnToolIndexCard()
+PASS D43 chat-stream-runtime 持有 sendPrompt()
+PASS D43 chat-stream-runtime 持有 handleStreamLine()
+PASS D43 chat-stream-runtime 持有 createLiveAssistantShell()
+PASS D43 chat-stream-runtime 持有 renderSteeredMessage()
+PASS D43 chat-stream-runtime 持有 handleSubagentEvent()
+PASS D44 实时回合与插话状态只由 chat-stream-runtime 持有
+PASS D44 实时流 UI 同步入口已显式导出并注入会话领域
+PASS D45 聊天实现离开 app.js 且组合根低于 1240 行（118b 重钉护栏 1240→1280）
+PASS D46 三层聊天子域均进入 overlay 载荷
+PASS D47 index.html 按既定级联顺序直接加载全部 CSS 层
+PASS D48 styles.css 兼容清单与直接加载顺序一致
+PASS D49 CSS 层磁盘文件与 overlay 载荷完整
+PASS D50 tokens/themes/chat/tooling/modes/usage/workbench 关键层事实齐全
+PASS D51 分层 CSS 重组后与原单体样式字节等价（仅新增层说明注释）
+PASS D53 组合根 navigation 解构含 refreshToolPane 并注入 chat 流(每轮结束自动刷新接线完整)
+PASS D52 chat.css 兼容入口按 shell/primitives/narrative/live/composer 所有权顺序导入
+
+FRONTEND DOMAINS STATIC E2E: ALL PASS

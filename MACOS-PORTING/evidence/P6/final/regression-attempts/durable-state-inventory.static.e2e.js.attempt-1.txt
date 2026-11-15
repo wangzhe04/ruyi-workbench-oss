@@ -1,0 +1,10 @@
+PASS inventory artifact is fresh and covers every declared surface
+PASS every surface declares owner/schema/write/corruption/capacity/cache/recovery
+PASS every private lifecycle is migrated or has an auditable exemption
+PASS context calibration is the representative full-lifecycle migration
+PASS context calibration no longer carries a private tmp/quarantine/write chain
+PASS memory-import-marker is recorded on the DurableJsonStore lifecycle
+PASS memory-import-marker: 06d writes it only through accMemoryImportStore (no private atomicWriteJson on that file)
+PASS agent-instructions-import is recorded on the DurableJsonStore lifecycle
+PASS agent-instructions-import: 06d writes it only through agentInstructionImportStore (no private atomicWriteJson on that file)
+PASS no undeclared fixed-tmp JSON writer remains

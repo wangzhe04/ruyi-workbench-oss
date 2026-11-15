@@ -1,0 +1,28 @@
+── A 段: McpHttpClient 双 transport 直连 ──
+PASS A1 http transport 握手成功(2025-03-26)
+PASS A2 serverInfo 回传
+PASS A3 mcp-session-id 捕获并回显(initialize 后请求带 session)
+PASS A4 headers ${VAR} 连接时展开(所有请求带真实密钥)
+PASS A5 tools/list 经 SSE 响应形态解析(多行 data 拼接)
+PASS A6 tools/call JSON 响应形态 + ok 包络规范化
+PASS A7 sse transport 握手成功(endpoint 发现 + 流上应答)
+PASS A8 sse tools/list 经流上 message 事件回传
+PASS A9 sse tools/call 全链路(POST 202 + 流回)
+PASS A10 tools/list_changed 通知 → listTools 惰性重列(03 §4.2)
+PASS A11 http 超时 → 远程连接重置人话(非杀进程树) (got tool timed out after 2s; 远程连接已重置,下次调用将自动重连)
+PASS A11b http 超时发 notifications/cancelled(49c 对抗验证修:与 _rpcSse/stdio _rpc 一致)
+PASS A12 客户端 dead 后同实例不再可用(重连走 getBridgedClient 惰性重建)
+── B 段: resolveExternalMcpServers → collectBridgedTools ──
+PASS B1 远程条目直通(缺 url 的被滤) (got 2)
+PASS B2 远程条目不带 command(不会误走 stdio)
+PASS B3 桥目录含双远程工具(前缀规范化) (got remote_http__remote_echo,remote_sse__sse_echo,remote_sse__sse_new_tool)
+PASS B4 safeMcpInventory 回显 transport/url(无 command)
+── S 段: 静态锁 ──
+PASS S1 McpHttpClient 在(双 transport)
+PASS S2 sanitize 远程分支在
+PASS S3 tools/list_changed 响应在
+PASS S4 getMcpClient 按 transport 选类
+PASS S5 sanitize 拒绝非 http(s) url
+PASS S6 sanitize streamable-http 归一 http 且无 command
+
+MCP REMOTE TRANSPORT E2E: ALL PASS

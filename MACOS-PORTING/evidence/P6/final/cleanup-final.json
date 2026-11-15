@@ -1,0 +1,128 @@
+{
+  "checkedAt": "2026-11-12T12:11:38.082678+00:00",
+  "reportChecks": [
+    {
+      "file": "runs/main-full-upgrade/acceptance.json",
+      "pids": [
+        43341,
+        43347,
+        43403,
+        43406,
+        43438,
+        43441
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/main-full-install/acceptance.json",
+      "pids": [
+        42899,
+        42906,
+        42934,
+        42937
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/main-slim-install/acceptance.json",
+      "pids": [
+        43182,
+        43185,
+        43216,
+        43219
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/main-slim-upgrade/acceptance.json",
+      "pids": [
+        43491,
+        43506,
+        43554,
+        43558,
+        43588,
+        43591
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-slim-upgrade/acceptance.json",
+      "pids": [
+        35540,
+        35543,
+        35589,
+        35592,
+        35625,
+        35628
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-slim-install/acceptance.json",
+      "pids": [
+        35192,
+        35195,
+        35227,
+        35230
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-full-install/acceptance.json",
+      "pids": [
+        34822,
+        34829,
+        34862,
+        34865
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-full-upgrade/acceptance.json",
+      "pids": [
+        35371,
+        35379,
+        35434,
+        35437,
+        35470,
+        35473
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-full-install/offline/host.json",
+      "pids": [
+        35067,
+        35070
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/independent-slim-install/offline/host.json",
+      "pids": [
+        35283,
+        35286
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/main-slim-install/offline/host.json",
+      "pids": [
+        43271,
+        43274
+      ],
+      "present": []
+    },
+    {
+      "file": "runs/main-full-install/offline/host.json",
+      "pids": [
+        43089,
+        43092
+      ],
+      "present": []
+    }
+  ],
+  "observedPidCount": 48,
+  "ownedMountedImages": [],
+  "pass": true
+}

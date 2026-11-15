@@ -1,0 +1,12 @@
+{
+  "mode": "testing",
+  "fault": "register",
+  "exitCode": 70,
+  "expectedExitCode": 70,
+  "request": null,
+  "response": null,
+  "framesWritten": 0,
+  "stdinOpenAtExit": true,
+  "stdoutAfterResponse": "",
+  "stderr": ""
+}

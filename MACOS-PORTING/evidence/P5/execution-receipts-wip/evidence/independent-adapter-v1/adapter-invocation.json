@@ -1,0 +1,23 @@
+{
+  "label": "adapter",
+  "argv": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_RECEIPT_SESSION_REQUIRED": "1",
+    "RUYI_RECEIPT_SESSION_HELPER": "/tmp/ruyi-p5-receipts-helper",
+    "RUYI_RECEIPT_SESSION_LEGACY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+  },
+  "startedAt": "2026-11-11T14:26:25.173536+00:00",
+  "freezeSha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899",
+  "attempt": 1,
+  "finishedAt": "2026-11-11T14:26:26.453560+00:00",
+  "elapsedSeconds": 1.2799362079967977,
+  "exitCode": 0,
+  "logSha256": "680528984fa7890c56b30499f342eecb4167cfda030cd53742faafada221434e"
+}

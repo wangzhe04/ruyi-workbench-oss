@@ -1,0 +1,12 @@
+PASS fake provider and workbench start
+PASS launch runId
+PASS one replanPatch
+PASS review 填充 changes: [{"op":"add_node","target":"nodeC","to":"补一个只读证据节点","from":["nodeA"],"reason":"补证据"}]
+PASS changesSource = review
+PASS patch 仍 pending(未自动 apply)
+PASS replan intervention registered
+PASS approve 应用成功: {"ok":true,"missionId":"sess_4c69067d185a20d3","interventionId":"replan_009cc11187880b51","type":"replan","action":"approve","status":"approved","interventionVersion":2}
+PASS patch applied
+PASS add_node 节点 nodeC 已物化
+
+AGENT WORKFLOW REPLAN REVIEW E2E: ALL PASS

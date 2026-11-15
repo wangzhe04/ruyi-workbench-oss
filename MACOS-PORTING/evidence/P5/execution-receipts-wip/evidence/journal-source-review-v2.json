@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T13:59:10.788Z",
+  "reviewer": "/root/p5_review_resumed",
+  "type": "Independent source closure review and inspection of existing development test log. Reviewer did not run tests, build, execute helper/native/GUI actions, or edit source.",
+  "supersedesForCurrentFindingStatus": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/journal-source-review-v1.json",
+    "bytes": 6791,
+    "sha256": "76b66ce42a19ed341c5c12d7c0a6b39071b780db5d06c45f15172597adff2878"
+  },
+  "priorReviewPreservedByteIdentical": true,
+  "implementationState": "Uncommitted execution-receipts WIP; journal primitive is not connected to any runtime path.",
+  "scope": "Strict journal storage primitive for process-crash recovery only; no power-loss or whole-system-crash guarantee is accepted here.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 18437,
+      "sha256": "122938c40371b755da899a5dbcfece8ddb8a875890f651a959a497f86d1d217f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 11524,
+      "sha256": "79110dbaf5c0d836fb056139feec5863ed6184f7139156688559c24d9bafcb4a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/journal-v3.log",
+      "bytes": 115,
+      "sha256": "8a77220dffb7758817abcd4dead693917b4a4c07de44517439560fb9f6f14b7f"
+    }
+  ],
+  "findings": [
+    {
+      "id": "commit-publish-before-final-fsync",
+      "priority": 1,
+      "status": "closed",
+      "original": "A marker rename followed by failing directory fsync exposed a new terminal despite append failure.",
+      "correction": "Before replacement, pending.json durably records the previous watermark. Reader selects that watermark whenever a guard exists. Marker data and rename directory are fsynced before the final successful pending unlink publishes the new watermark.",
+      "sourceAssessment": "The original failure window retains a valid previous guard and exposes an incomplete old prefix. A process killed before unlink stays conservative; a process killed after unlink exposes the published prefix. No subsequent fallible durability syscall follows publication.",
+      "developmentCounterexampleObserved": "test_directory_fsync_failure_after_marker_rename_keeps_previous_prefix injects failure at the second directory fsync, asserts commit sequence advanced while pending guard remains, and requires only the old nonterminal prefix."
+    },
+    {
+      "id": "blocking-special-file-open",
+      "priority": 2,
+      "status": "closed",
+      "original": "FIFO nodes could block open before _regular validated their descriptor types.",
+      "correction": "Potentially existing allocation.lock, events.ndjson, commit.json and pending.json are opened with O_NONBLOCK and O_NOFOLLOW, then validated as owned single-link regular files.",
+      "developmentCounterexampleObserved": "test_fifo_names_are_refused_before_any_blocking_open covers the allocation lock and events/commit leaves; _read_marker shares the same NONBLOCK validation for pending."
+    },
+    {
+      "id": "reader-size-marker-generation-race",
+      "priority": 2,
+      "status": "closed",
+      "original": "A stale events size paired with a newer marker could falsely appear corrupt.",
+      "correction": "append holds exclusive flock on the events descriptor throughout write/publication. read_receipts holds a shared flock, selects a marker snapshot first, then obtains events size and reads the committed prefix under that lock.",
+      "developmentCounterexampleObserved": "test_reader_waits_for_a_coherent_concurrent_commit pauses the writer during data fsync, requires the reader to wait, then requires a consistent complete two-record trace."
+    }
+  ],
+  "additionalChecks": [
+    "Closed writer is rejected structurally before acquiring a lock on a cleared descriptor.",
+    "Existing failure, capacity, exact argument blob, sequence, symlink and context-scope checks remain present.",
+    "Publication unlink is deliberately a process-crash namespace barrier. Reappearing pending after power loss can make recovery conservative; this review does not promote that to a power-loss guarantee."
+  ],
+  "existingDevelopmentEvidence": {
+    "tests": 16,
+    "result": "OK",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/journal-v3.log",
+    "reviewerExecuted": false
+  },
+  "protocolFreezeRechecked": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/protocol-freeze-v1.json",
+    "sha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c",
+    "sources": 49,
+    "artifacts": 2,
+    "allCurrentBytesMatch": true,
+    "sourceOrArtifactWritesByReviewer": false
+  },
+  "outcome": "All three v1 findings closed in the reviewed primitive. No new actionable source findings identified within this narrow scope.",
+  "stillRequired": [
+    "Strict reader field semantics, stage transitions and argument-reference integrity validation.",
+    "Acknowledged-terminal retention and global disk-space management.",
+    "ACC metadata, wrappers and native adapter integration.",
+    "Node durable preparation and restart reconciliation.",
+    "Independent qualification for the journal primitive and later source-bound end-to-end gate evidence."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no settings changed by reviewer."
+}

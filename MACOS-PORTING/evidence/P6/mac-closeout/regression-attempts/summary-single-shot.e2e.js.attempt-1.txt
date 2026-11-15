@@ -1,0 +1,28 @@
+── [U] 105f 开关与上限解析 ──
+PASS U1 默认配置开启(历史派生模拟门通过)
+PASS U2 显式 false 回退旧 map-reduce
+PASS U3 显式 true 生效
+PASS U4 字符串 "true" 洗回 false(严格布尔)
+PASS U4 上限缺省 32768(三档中档)
+PASS U5 全局档位 64K 生效
+PASS U6a 下限钳位 8192(不提供无限档、也不允许过小)
+PASS U6b 上限钳位 131072
+PASS U6c 非数字落回默认 32768
+PASS U7a provider/model 精确覆盖优先
+PASS U7b 无精确覆盖时 provider 级生效
+PASS U7c 仅引擎(style)覆盖兜底
+PASS U7d responses 引擎覆盖独立于 chat
+PASS U7e 覆盖值同样过钳位(坏覆盖不放宽)
+PASS U8 reserve = system+prompt+输出+校准余量,确定且有界(9814.888888888889)
+── [A] 105f 单发优先内核行为 ──
+PASS A1 开关开+64K 档:≈40K 估算在「窗口−reserve」预算内单发成功
+PASS A2 同历史开关关:旧「窗口×50%」预算(30K)容不下 → 分块(现状逐字节不变)
+PASS A3 开关开默认 32K 档:估算超上限仍分块(非 400 降级,无降级标记)
+── [H-sim] 真实历史派生的 20–28K 单发配对 ──
+SKIP H-sim history-24 fixture 缺失
+PASS A4 单发 400(可识别超窗)→ 自动降级 map-reduce ≥2 段并带降级标记
+PASS A4a 降级实际发出分段+总汇请求(额外失败调用已发生并计账)
+PASS A5 开关关:单发 400 原样上浮不降级(现状逐字节不变)
+PASS A6 非超窗失败(空摘要)原样上浮,不误降级
+
+SUMMARY-SINGLE-SHOT E2E: ALL PASS

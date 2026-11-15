@@ -1,5 +1,6 @@
 'use strict';
 require('./lib/self-isolate-home');
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 const fs = require('fs'), path = require('path');
 const { createRunner } = require('./lib/harness');
 const { startBrowserFixture, sleep, READY } = require('./lib/browser-fixture');
@@ -13,7 +14,7 @@ let fx; const ids = {};
       provider: ctx => {
         const text = ctx.messages.filter(m => m.role === 'user').map(m => String(m.content)).join('\n');
         if (ctx.answered) { ctx.text('已收到本条决定。'); ctx.stop(); }
-        else if (text.includes('DECISION_PERMISSION')) ctx.toolCall('powershell_run', { command: 'Write-Output decision-fixture' });
+        else if (text.includes('DECISION_PERMISSION')) ctx.toolCall(shellTool, { command: echo('decision-fixture') });
         else if (text.includes('DECISION_QUESTION')) ctx.toolCall('request_user_input', { questions: [{ header: '取舍', question: '同样的问题？', options: [{ label: '方案甲' }, { label: '方案乙' }], allowOther: true }] });
         else if (text.includes('DECISION_PLAN')) { ctx.text('PLAN:\n' + '计划说明。\n'.repeat(100) + '完整计划结尾'); ctx.stop(); }
         else { ctx.text('无需动作。'); ctx.stop(); }

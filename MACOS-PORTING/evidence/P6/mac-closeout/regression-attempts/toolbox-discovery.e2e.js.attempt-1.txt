@@ -1,0 +1,66 @@
+PASS A1 启动后登记的服务自己起来了:state=running、端口就是登记的那个、是如意拉起的、不认识的能力(time-travel)被跳过(实得 {"id":"fake-asr","kind":"service","name":"假语音识别组件","version":"0.0.1","enabled":true,"provides":["asr"],"state":"running","port":54574,"owned":true})
+PASS A2 组件真的在登记端口上应答(实得 {"ok":true,"component":"fake-asr-component","version":"0.0.1","pid":83595,"unloads":0})
+PASS A3 端口与父进程 pid 经环境变量给到、登记的 env 与 args 原样带上(实得 {"port":54574,"parent":"83570","extra":"from-manifest","argv":["--flag"]},如意 pid=83570)
+PASS B1 自动生成服务商 toolbox-fake-asr:地址指着组件、无密钥、模型带语音识别标记(实得 {"baseUrl":"http://127.0.0.1:54574/v1","models":[{"id":"fake-local-asr","label":"小的（约 2 GB 显存）","caps":["asr"]},{"id":"fake-local-asr-big","label":"大的（约 5 GB 显存）","caps":["asr"]}]})
+PASS B2 用户没配过语音识别 → 自动选中它,并记进 seen(实得 asr=toolbox-fake-asr/fake-local-asr seen=["fake-asr","fake-stream"])
+PASS B3 转写真的打到了组件上(实得 200 {
+  "ok": true,
+  "text": "[fake-toolbox-asr] pid=83595 bytes>0=true",
+  "durationMs": 3,
+  "providerId": "toolbox-fake-asr",
+  "model": "fake-local-asr",
+  "es)
+PASS M1 登记的 provides.models 落成服务商条目里两份带 label 的模型(实得 [{"id":"fake-local-asr","label":"小的（约 2 GB 显存）","caps":["asr"]},{"id":"fake-local-asr-big","label":"大的（约 5 GB 显存）","caps":["asr"]}])
+PASS M1b 组件仍在跑
+PASS M2 同一组件换到另一份模型 → 立刻打了它的 unload 路一次(实得 0 → 1)
+PASS M3 只改别的键(改字方式)→ 不打 unload
+PASS M4 换到别的服务商 → 再打一次(实得 2)
+PASS M5 换【回来】不打(原来选的不是它)
+PASS M6 选择已复位,后面的段照旧
+PASS K1 整份保存的 providers 不带 toolbox 服务商 → 服务端把它保住(那个前缀归自动发现所有:改不了、撤不掉)、语音识别选择不被清空;来件伪造的 toolbox- 条目不落盘(实得 ["cloud-x","toolbox-fake-asr","toolbox-fake-stream"] asr=toolbox-fake-asr/fake-local-asr)
+PASS K2 盘上也还在、没触发「缩水」备份、保存之后转写照样打到组件上(实得 200,备份文件 0 个)
+PASS L1 流式组件被发现并自动配成实时识别端点(模型带 asr-stream 标记),整段识别那一对不受影响(实得 stream=toolbox-fake-stream/fake-stream-model asr=toolbox-fake-asr)
+PASS L2 开流式会话:拿到本进程发的 32 位 id(实得 200 {
+  "ok": true,
+  "id": "cffdaaf8636704cc05cfb9e736663e6d",
+  "sampleRate": 16000
+})
+PASS L3 喂块:partial 与 finals 原样转回,热词经代理传到组件并被截到 40 字(实得 200/200/200 {
+  "ok": true,
+  "partial": "p24000",
+  "finals": [
+    {
+      "text": "句1[如意,xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+      "startMs": 0,
+      "endMs": 7)
+PASS L4 奇数字节 400 / 错 Content-Type 400 / 超 1 MB 413 / 没这个会话 404(实得 400/400/413/404 codes=asr.stream_chunk_too_large/asr.stream_session_missing)
+PASS L5 finish 收尾句、会话随即失效(实得 200 {
+  "ok": true,
+  "finals": [
+    {
+      "text": "尾句",
+      "startMs": 750,
+      "endMs": 750
+    → 404)
+PASS L6 DELETE 关会话(再删 404);不带 token 进不来(实得 200/404/403)
+PASS G1 四份坏登记(相对路径／id 与文件名不符／不认识的 schema／命令不存在)一律当没装(实得组件 ["fake-asr","fake-mcp","fake-stream"])
+PASS G2 坏登记一个都没被执行(组件进程只起过 1 个;流式假组件不写 env 文件)
+PASS H1 MCP 类组件出现在组件清单里(实得 {"id":"fake-mcp","kind":"mcp","name":"假 MCP 组件","version":"0.0.1","enabled":true,"provides":["mcp"],"state":"registered"})
+PASS H2 它被并进外部 MCP 清单,内部 id 是 toolbox-fake-mcp(/api/mcp/connectors 200)
+PASS I1 组件进程被杀之后再转写:如意就地把它重新拉起来、转写成功(旧 pid 83595 → 新 pid 83612,转写 200)
+PASS I2 组件起不来:第一次转写拉起一次(失败),紧接着再转写不再重新拉起(起动次数 1 → 1,转写 502/502)
+PASS I3a 健康超时被杀之后:状态如实是 failed(不是 stopped)、error=health-timeout(实得 {"state":"failed","error":"health-timeout"})
+PASS I3b 紧接着再转写:失败冷却生效,不再重新拉起、不再干等健康窗口(拉起次数 1,转写 502)
+PASS J1 如意退出,自己拉起的组件跟着没(端口不再应答)
+PASS C1 用户关掉语音识别后重启:组件照常拉起、仍是候选,但【不再自动选回来】(实得 asr="")
+PASS C2 条目在盘上丢了(seen 里却有它)→ 重启补回条目、且重新自动选中(实得 asr="toolbox-fake-asr")
+PASS C3 组件改了自己的模型名 → 选的还是这家,模型名跟着变(实得 ["toolbox-fake-asr","fake-local-asr-v2"])
+PASS F1 逐个停用:进程被停、服务商条目撤走、状态如实显示 disabled(实得 {"id":"fake-asr","kind":"service","name":"假语音识别组件","version":"0.0.1","enabled":false,"provides":["asr"],"state":"disabled","port":54574,"owned":true,"cleanupScope":"owned-group-and-observed","cleanupIncomplete":false,"cleanupEscapeCoverage":"observed-only","cleanupUnconfirmed":0})
+PASS F2 再启用:不用重启如意,组件又被拉起来
+PASS F2b 再启用后条目补回 → 用户没配别的语音识别就重新自动选中(实得 asr="toolbox-fake-asr")
+PASS F3 总开关关掉:服务停、MCP 类组件也从清单里撤掉
+PASS D1 登记端口被别的服务占着(它的 /health 也回 200,但 component 对不上)→ 不接管它,换端口拉起,服务商地址跟着变(登记 54574 → 实际 54701,地址 http://127.0.0.1:54701/v1)
+PASS D2 换了端口之后转写照样通(实得 200)
+PASS E1 用户自己已经起好了 → 直接接管、不起第二个(实得 {"id":"fake-asr","kind":"service","name":"假语音识别组件","version":"0.0.1","enabled":true,"provides":["asr"],"state":"running","port":54574,"owned":false},新起进程 0 个)
+PASS E2 如意退出时不杀接管来的那个(它是用户自己起的)
+TOOLBOX DISCOVERY E2E: ALL PASS

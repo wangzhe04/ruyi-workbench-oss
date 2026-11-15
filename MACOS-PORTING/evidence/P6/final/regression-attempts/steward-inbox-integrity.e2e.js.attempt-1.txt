@@ -1,0 +1,37 @@
+── (A) P0-3 单轮上限 vs 游标 ──
+PASS A0 夹具:一次灌入 300 条待决(3 条线程 × 100)
+PASS A1 第 1 轮按单轮上限只写 200 条(got 200)
+PASS A2 游标照常落盘(结转不影响游标的既有语义)
+PASS A3 第 2 轮把结转下来的补齐:300 条全在箱里(got 300)
+PASS A4 零重复(300 个去重键 / 300 行)
+PASS A5 零丢失:300 条待决一条不少
+PASS A6 全部归到 needs_you(最该被看到的那一类)
+PASS A7 结转下来的正是最新的那 100 条(修前被永久丢掉的就是它们;got 100 条)
+PASS A8 第 3 轮零新增(游标 + 去重集合都稳住了;got 300)
+PASS A9 inboxSeq 从 1 连续到 300(结转不留序号洞;got 1..300)
+── (B) P1-7 合并窗口 ──
+PASS B1 两个不同 run 的 failed 不再被合成一条(got 2 行)
+PASS B2 两条摘要都还在(修前只剩后到的那条)
+PASS B3 同一个 run 的两条 failed 照常合并(got 1 行 / count 2)
+PASS B4 nodeId 累加成列表(got ["nodeA","nodeB"])
+PASS B5 errorClass 累加成列表(got ["timeout","oom"])
+PASS B6 mergedSeqs 仍回填(重启重建去重集合的既有口径不变)
+PASS B7 缺省窗口下:同 session 同 kind 同 run、相隔 12s/24s 的三条并成一条(修前 5s 窗口是三条,管家要汇报三次)
+PASS B7b 并成的那一条 count=3(既有「同类 N 条」文案原样复用,不新起措辞)
+PASS B8 距【本组首条】超过 30s 的照样另起一组(窗口是 30s,不是无限攒批)
+PASS B8b 显式传 5000 时仍旧是三条 —— 变的只有缺省常量,函数本身的语义一字未动
+PASS B9 源码常量就是 30000(缺省值的唯一来源,防止有人只改注释)
+PASS B9b stewardTickOnce 用的正是这个常量(没有第二个写死的窗口)
+── (C) P1-8 游标损坏 ──
+PASS C1 真冷启动(压根没有游标文件)只建基线、不把历史灌进箱子(got 0 行)
+PASS C2 游标损坏 -> 真的「从零开始」,5 条历史 failure 补进箱子(修前是 0 —— 基线被悄悄拉到现在;got 5)
+PASS C3 损坏留下痕迹(审计里有 steward_cursor_corrupt;修前连 lastError 都不置)
+── (D) P1-9 预算触顶的持久去重 ──
+PASS D1 第一轮:预算触顶入箱一次(got 1)
+PASS D2 去重键落进游标 sources.budgetSeen(修前这个字段根本不存在;got ["sess_budget_case\u00002026-11-12T11:04:25.387Z"])
+PASS D3 滑出 2000 行尾窗后再跑一轮:仍然只有 1 条(修前会重复入箱;got 1)
+── (E) P1-10 队列自持排空 ──
+PASS E1 45 条事件先全部进内存队列(一个回合最多带 30 条;got 45)
+PASS E2 不再有任何新事件进来,队列仍然自己排空(修前会永久停在 15 条;got 0)
+
+STEWARD INBOX INTEGRITY E2E: ALL PASS

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:09:39.315077+00:00",
+  "status": "passed_independent_transition_freeze_v3",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/freeze-v3.json",
+    "bytes": 2790,
+    "sha256": "6f08fb8139c64f60ea981cad75754db98ef239069f4afaab122a0c122fab8628"
+  },
+  "sourceCount": 12,
+  "artifactCount": 2,
+  "counts": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0
+  },
+  "nativeInvocationCount": 1,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "observedOuterRootBirth": 1794391775179220,
+  "observedOuterIdentities": 14,
+  "remainingOuterObservedIdentities": [],
+  "remainingInnerObservedIdentities": [],
+  "GUIReleased": true,
+  "engineeringRerun": false,
+  "scope": "Independent actual default1cc raw helper and owned-window capture transition with8 serial moving requests and exact static controls. Dynamic success origin is bounded, not instant-exact. No physical displays/scale change, App/provider/Workbench entry, keyboard/mouse/clipboard/TCC/lock or environment acceptance.",
+  "phaseStatus": "in_progress"
+}

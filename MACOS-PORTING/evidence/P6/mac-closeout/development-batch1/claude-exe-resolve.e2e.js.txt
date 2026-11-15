@@ -1,0 +1,15 @@
+PASS (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+PASS (A2) 裸名沿 PATH 解析(命中本夹具=true) — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-b/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+PASS (A3) 无 node_modules 布局 → 原样返回
+PASS (A3b) shim 不存在 → 原样返回
+PASS (A4a) .exe 输入不动
+PASS (A4b) 无扩展名输入不动
+PASS (A4c) 空输入不动
+PASS (A5) 非 Windows 不设防(0)
+PASS (A6) normalizeConfig 替换 claudePath → exe
+PASS (A7) memoize 一致
+PASS (A Mac) POSIX executable symlink remains usable and stable
+PASS (A Mac) normalizeConfig preserves executable POSIX launcher and execution without cmd limits
+SKIP (B) 集成层 — 仅 Windows 有 cmd shim 问题
+
+CLAUDE-EXE-RESOLVE E2E: ALL PASS

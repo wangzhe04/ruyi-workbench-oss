@@ -1,0 +1,26 @@
+PASS ① fake up
+PASS ① workbench up (default mode)
+PASS ① permission_request emitted for file_write
+PASS ① permission_request tier === edit (got edit)
+PASS ① permission_request revertible === true
+PASS ① timed-out permission emits a matching denied semantic state
+PASS ① turn produced a result event (finished normally after auto-deny)
+PASS ① turn waited out the ~6s permission timeout (elapsed 7249ms)
+PASS ① file NOT written (auto-denied)
+PASS ② fake up
+PASS ② workbench up (with allow rule)
+PASS ② toolAllowRules.file_write survived normalize
+PASS ② NO permission_request (allow rule short-circuited the prompt)
+PASS ② file written directly
+PASS ③ workbench up (with illegal exec allow rule)
+PASS ③ powershell_run stripped from toolAllowRules by normalizeConfig
+PASS ③ toolAllowRules is now empty (illegal entry dropped)
+PASS ④ fake up
+PASS ④ workbench up (global mode still default)
+PASS ④ PATCH session permissionMode=plan accepted (sessionMeta echoes the session-level mode)
+PASS ④ sessionMeta.effectivePermissionMode === 'plan' (session level beats global 'default')
+PASS ④ session-level plan → gate is block, NOT ask (no permission_request at all)
+PASS ④ it was blocked, not prompted: tool_use is answered by an ok:false tool_result with NO permission_decision (the ask path always emits one when it times out; got {"ok":false,"error":"计划模式:请先提交 PLAN: 开头的计划"}; elapsed 1387ms is a reading only)
+PASS ④ file NOT written under session-level plan
+
+PERM-V2 E2E: ALL PASS

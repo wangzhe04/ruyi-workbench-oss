@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib 头注)
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 充当「网络在线」(06 networkAnchors 的测试后门,默认关;生产里本机/内网 provider 不再当联网锚点,见 unit/network-anchors.test.js)
 (async () => {
 'use strict';
@@ -144,7 +145,7 @@ try {
   const reqs = fake.requests.filter(r => r.stream && scenarioOf(r.messages) === 'PROMOTE');
   ok(reqs.length === 3, `PROMOTE 三发请求(got ${reqs.length})`);
   const [r1, r2, r3] = reqs;
-  ok(r1 && ['web_search', 'web_fetch', 'powershell_run'].every(n => toolNames(r1).includes(n)), `P6 第一发就带起手工具(got ${r1 && toolNames(r1).join(',')})`);
+  ok(r1 && ['web_search', 'web_fetch', shellTool].every(n => toolNames(r1).includes(n)), `P6 第一发就带起手工具(got ${r1 && toolNames(r1).join(',')})`);
   ok(r1 && toolNames(r1).includes('tool_invoke_read') && !toolNames(r1).includes('file_list'), `P2 第一发工具表里没有 file_list(got ${r1 && toolNames(r1).join(',')})`);
   ok(r2 && toolNames(r2).includes('file_list') && toolNames(r2).includes('glob') && toolNames(r2).includes('file_read'), `P2 代理调过之后,第二发里有 file_list 所在的整个 files_read 包(got ${r2 && toolNames(r2).join(',')})`);
   ok(r2 && r1 && toolNames(r2).slice(0, toolNames(r1).length).join(',') === toolNames(r1).join(','), 'P2 新装的只追加在尾部,原有顺序不变');

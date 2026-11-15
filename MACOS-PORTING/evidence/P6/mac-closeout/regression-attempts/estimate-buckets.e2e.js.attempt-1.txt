@@ -1,0 +1,41 @@
+PASS estimateHistoryTokens is exported
+PASS estimateBucketsEnabled is exported (唯一判定点)
+PASS setEstimateBucketsV1 is exported (镜像 setter)
+PASS classifyTextForEstimate is exported (三桶分类器)
+PASS a 默认 config → true(A/B 回放 + 夹具修复后默认开启)
+PASS a 显式 false → false(完整回退两桶)
+PASS a 显式 true → true
+PASS a 字符串 "true" 洗回 false(严格布尔)
+PASS a 未归一化/null/undefined config 安全(裸判定,非默认归并)
+PASS b 关:纯 CJK 估算精确 = len/1.5(autocompact 同款)
+PASS b 关:JSON 样本仍走两桶(= 参照公式 ±取整)
+PASS b 关:代码样本仍走两桶(= 参照公式 ±取整)
+PASS b 关:散文样本与两桶精确一致(整数值 ===)
+PASS b 关:tool_calls arguments 按 ÷3.6 换算(delta 280 ≈ 280)
+PASS b 关:image part 固定 +1100(autocompact 同款)
+PASS b/c text 桶样本开/关逐字节一致(===,同一 ÷3.6 路径)
+PASS c JSON.parse 成功 → json 桶
+PASS c 代码信号(缩进+标点+关键字)→ code 桶
+PASS c 散文 → text 桶
+PASS d 采样截断的大 JSON 由结构密度兜底 → json 桶
+PASS c CJK 混合 JSON → json 桶
+PASS c json 桶 ascii ÷2.8(±取整)
+PASS c code 桶 ascii ÷3.2(±取整)
+PASS c 同长 JSON 估算 > text 桶(JSON token 密度更高)
+PASS c CJK 混合:ascii 部分走 json ÷2.8、CJK 部分恒 ÷1.5
+PASS c 纯 CJK 开时仍精确 = len/1.5(各桶 CJK 一致)
+PASS f 开时 image part 仍固定 +1100(不受开关影响)
+PASS f tool_calls arguments 命中 json 桶(delta 361 ≈ 360.4,按 ÷2.8)
+PASS d 空串 → text
+PASS d 非字符串 → text
+PASS d 短串 "{}" JSON.parse 成 → json
+PASS d 异常形态历史估算不抛错
+PASS d 非数组历史 → 0(现状语义不动)
+PASS e 边界样本构造自检(400 字符 / 20 结构符)
+PASS e 结构密度恰好 0.05 → json(≥ 阈值)
+PASS e 结构密度低一丝 → 落穿评分(仅标点信号 2 < 3)→ text
+PASS e 代码评分 2(单信号)< 3 → text
+PASS e 代码评分 6(三信号)≥ 3 → code
+SKIP H 项目真实历史夹具缺失(不影响白盒门)
+
+ESTIMATE-BUCKETS E2E: ALL PASS

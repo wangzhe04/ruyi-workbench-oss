@@ -1,0 +1,21 @@
+PASS A0b isolated source layout uses the actual hash-bound packaged Mach-O rg
+PASS A0 fixture has bundled app/vendor-bin/rg
+[fake] [fake-openai] listening on 65209
+PASS A1 provider workbench up (PATH 里没有任何系统 rg)
+PASS A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({"rg":true,"rgSource":"bundled"})
+PASS A3 体检 search-ripgrep 报随包来源且终端可用 ({"id":"search-ripgrep","ok":true,"detail":"bundled: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-engine-env-runtime-e2e/workbench/app/vendor-bin/rg; shell: bundled"})
+PASS A4 体检 diagram-renderer 报 mermaid 随包 ({"id":"diagram-renderer","ok":true,"detail":"present: vendor/mermaid.min.js"})
+PASS A5 启动 + 首个 /api/status 期间没有一次同步 spawn rg(修前 hasRg() 冷缓存 spawnSync)
+PASS B1 powershell_run `rg --version` 成功 ({"ok":true,"stdout":"ripgrep 15.1.0 (rev af60c2de9d)\n\nfeatures:+pcre2\nsimd(compil","stderr":""})
+PASS B2 shell_start 起的交互 shell 里 `rg --version` 成功 ("ripgrep 15.1.0 (rev af60c2de9d)\n\nfeatures:+pcre2\nsimd(compile):+NEON\nsimd(runtime):+NEON\n\nPCRE2 10.45 is available (JIT is available)\n")
+PASS B3 provider 稳定层带 mermaid 成图一句(且不拿 CLI 的整段围栏)
+PASS B4 provider 易变层:能力行写明终端可直接用 rg + 当前权限档含义
+PASS C0 fake-Claude workbench up
+PASS C1 --append-system-prompt 以用户 append 开头,紧跟 <ruyi-environment>
+PASS C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid
+PASS C3 环境说明排在四层工具协议之前(无条件前缀)
+PASS C4 Claude CLI 子进程 PATH 第一项是随包 vendor-bin (/private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-engine-env-runtime-e2e/workbench/app/vendor-bin)
+PASS C5 连续两个回合环境说明逐字节相同(系统提示前缀稳定)
+PASS C6 meta 事件带同一个环境说明指纹 (8496abc0ac16)
+
+ENGINE-ENV-RUNTIME E2E: ALL PASS

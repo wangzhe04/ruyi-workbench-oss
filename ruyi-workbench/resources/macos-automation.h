@@ -1,0 +1,77 @@
+#import <AppKit/AppKit.h>
+#import <ApplicationServices/ApplicationServices.h>
+
+NSDictionary *RuyiAutomationFailure(NSString *code, NSString *message);
+NSDictionary *RuyiAutomationRectFields(CGRect rect);
+CGRect RuyiAutomationFieldsRect(NSDictionary *value);
+BOOL RuyiAutomationLocked(void);
+NSArray *RuyiAutomationDisplays(void);
+NSDictionary *RuyiAutomationEncodeImage(CGImageRef image, BOOL rejectBlank);
+NSDictionary *RuyiAutomationInputStatus(void);
+NSDictionary *RuyiAutomationInputRequest(NSDictionary *request);
+void RuyiAutomationRequest(NSDictionary *request, void (^done)(NSDictionary *));
+NSDictionary *RuyiAutomationAXRequest(NSDictionary *request);
+NSDictionary *RuyiAutomationOCRStatus(void);
+NSDictionary *RuyiAutomationOCRRequest(NSDictionary *request);
+void RuyiAutomationResetAXBindings(void);
+void RuyiAutomationRefreshAXBindings(void);
+void RuyiAutomationRefreshInputBindings(void);
+void RuyiAutomationResetInputBindings(void);
+int RuyiAutomationRunInputSession(void);
+BOOL RuyiAutomationEnterExecutionReceipt(void);
+NSString *RuyiAutomationProcessIdentity(pid_t pid);
+CFTypeRef RuyiAutomationCopyAttribute(AXUIElementRef element, CFStringRef attribute);
+NSDictionary *RuyiAutomationCheckTarget(NSDictionary *target);
+AXUIElementRef RuyiAutomationCopyTargetWindow(NSDictionary *row, NSDictionary **failure);
+BOOL RuyiAutomationForegroundMatches(NSDictionary *row, AXUIElementRef expected);
+NSDictionary *RuyiAutomationPointGuard(NSDictionary *row, AXUIElementRef window, CGPoint point);
+BOOL RuyiAutomationFiniteNumber(id value);
+void RuyiAutomationRunBriefly(void);
+NSArray *RuyiAutomationSnapshotClipboard(NSPasteboard *board, NSInteger *version);
+NSDictionary *RuyiAutomationWriteClipboard(NSPasteboard *board, NSArray *objects, NSArray **previous);
+NSString *RuyiAutomationRestoreClipboard(NSPasteboard *board, NSArray *previous, NSInteger expected);
+NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request);
+NSArray *RuyiAutomationChordKeys(id parts, NSDictionary **failure);
+NSDictionary *RuyiAutomationValidateText(NSDictionary *request);
+NSDictionary *RuyiAutomationRecordRequest(NSDictionary *request);
+NSDictionary *RuyiAutomationRecordStatus(void);
+NSDictionary *RuyiAutomationRecordingInputSource(void);
+NSDictionary *RuyiAutomationStartManualRecording(NSDictionary *target);
+NSDictionary *RuyiAutomationStartManualRecordingProfile(NSDictionary *target, NSString *profile);
+void RuyiAutomationStopManualRecording(void);
+NSString *RuyiAutomationManualRecordingPending(void);
+NSString *RuyiAutomationManualRecordingState(void);
+BOOL RuyiAutomationManualRecordingActive(void);
+void RuyiAutomationAppendRecordedAction(NSDictionary *action, NSTimeInterval began, NSTimeInterval ended);
+NSString *RuyiAutomationKeyName(CGKeyCode code);
+NSDictionary *RuyiAutomationInputSourceGuard(id expected);
+NSDictionary *RuyiAutomationKeyboardEventFlags(id value, CGEventFlags *flags);
+void RuyiAutomationRefreshRecording(void);
+void RuyiAutomationEndRecording(NSString *reason);
+void RuyiAutomationBeforeRecordedRequest(NSDictionary *request);
+void RuyiAutomationAfterRecordedRequest(NSDictionary *request, NSDictionary *result, NSTimeInterval began);
+BOOL RuyiAutomationReleaseEvents(void);
+void RuyiAutomationStopEvents(void);
+BOOL RuyiAutomationEventsStopping(void);
+BOOL RuyiAutomationTrackClipboard(NSArray *previous, NSInteger expected);
+void RuyiAutomationUpdateClipboardVersion(NSInteger expected);
+void RuyiAutomationFinishClipboardWrite(void);
+NSString *RuyiAutomationRestorePendingClipboard(void);
+#ifdef RUYI_AUTOMATION_TESTING
+NSDictionary *RuyiAutomationTestPointerSubtypes(void);
+NSDictionary *RuyiAutomationTestPointerProjection(void);
+NSDictionary *RuyiAutomationTestInputState(void);
+NSDictionary *RuyiAutomationTestStoppedMutations(void);
+NSDictionary *RuyiAutomationTestReleaseAllocation(void);
+NSDictionary *RuyiAutomationTestBlockedSequence(NSDictionary *request);
+NSDictionary *RuyiAutomationTestBlockedClipboard(NSDictionary *request);
+NSDictionary *RuyiAutomationTestAXState(NSDictionary *request);
+#endif
+
+CGEventFlags RuyiAutomationSequenceModifier(CGKeyCode code);
+CGEventFlags RuyiAutomationSequenceDeviceModifier(CGKeyCode code);
+CGEventRef RuyiAutomationCreateSequenceEvent(NSDictionary *row, CGEventSourceRef source);
+NSDictionary *RuyiAutomationSequenceEvent(CGEventRef event, uint64_t offset, NSDictionary **failure);
+NSDictionary *RuyiAutomationSequenceEventProfile(CGEventRef event, uint64_t offset, NSDictionary **failure, NSString *profile);
+NSDictionary *RuyiAutomationValidateSequence(id events, NSDictionary *bounds, BOOL complete);
+NSDictionary *RuyiAutomationValidateSequenceProfile(id events, NSDictionary *bounds, BOOL complete, NSString *profile);

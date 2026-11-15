@@ -1,0 +1,42 @@
+PASS workbench up
+PASS runtime token available
+PASS (A) 会话已建(missionId 派生 = sessionId)
+PASS (A1) contract 无 token -> 403 快照
+PASS (A2) 未知 interventionId -> 404 快照
+PASS (A2) 未知 missionId -> 404 快照
+PASS (A3) 非法 interventionId -> 400 快照
+PASS (A4) 版本冲突 -> 409 快照
+PASS (A5) 不可送达 -> 409 快照
+PASS (A6) 过期 -> 410 快照
+PASS (A6) 已终态 -> 409 快照
+PASS (A7) 成功 replan reject -> 200 快照
+PASS (A8) 同 key 同 payload 重放 -> 200 且与原响应逐字节一致
+PASS (A8) 同 key 异 payload -> 409 快照
+PASS (B1) question 浏览器无 token -> 403 快照
+PASS (B2) 未知 questionId -> 409 快照
+PASS (B3) ask_user 事件到达
+PASS (B3) question 成功 -> 200 快照
+PASS (B4) question 重复决策 -> 409 快照
+PASS (C1) permission 浏览器无 token -> 403 快照
+PASS (C2) 未知 requestId -> 404 快照
+PASS (C3) permission_request 事件到达
+PASS (C3) permission 成功 -> 200 快照
+PASS (C4) permission 重复决策 -> 404 快照
+PASS (C3) deny 未落盘(file_write 被拒)
+PASS (D1) plan 无 token -> 403 快照
+PASS (D2) plan 无挂起(历史 200 形状) -> 200 快照
+PASS (E1) pool 无 token -> 403 快照
+PASS (E2) pool 缺 ids -> 400 快照
+PASS (E3) pool 缺 poolId -> 400 快照
+PASS (E4) pool 死 run -> 409 快照
+PASS (S) contract 路由仍在 13d
+PASS (S) 适配器路由在源码: /api/chat/answer
+PASS (S) 适配器路由在源码: /api/permission/decision
+PASS (S) 适配器路由在源码: /api/plan/decision
+PASS (S) ROUTE_AUTH 等级字面量仍在
+PASS (S2) 116c 未新增任何管家决策路由(管家决定只经 decideIntervention 命令核心)
+PASS (S2) 13d 审计标签 switch 有 source==='steward' -> 'steward_decision' 分支(管家代答一眼可辨)
+PASS (S2) 管家决策以 {source:'steward', decidedBy:'steward', contractRequest:true} 进核心(与 UI 同一条契约路径)
+PASS (S2) 永久豁免清单在真正下决定【之前】拦截,任何权限档都降级为提议
+
+INTERVENTIONS SNAPSHOT E2E: ALL PASS

@@ -1,0 +1,8 @@
+Timestamp               Ty Process[PID:TID]
+2026-11-08 03:05:05.064 Df tccd[754:1062bbb] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=6799, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=6799.6
+2026-11-08 03:05:05.064 Df tccd[754:1062bbb] [com.apple.TCC:access] AUTHREQ_CTX: msgID=6799.6, function=<private>, service=kTCCServiceMicrophone, preflight=no, query=1, client_dict=(null), daemon_dict=<private>
+2026-11-08 03:05:05.064 Df tccd[754:1062bbb] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=6799.6, attribution={requesting={TCCDProcess: identifier=org.ruyi.workbench.development, pid=6799, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop}, },
+2026-11-08 03:05:05.065 Df tccd[754:1062bbb] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=6799.6, subject=org.ruyi.workbench.development,
+2026-11-08 03:05:05.068 Df tccd[754:1062bbb] [com.apple.TCC:access] AUTHREQ_PROMPTING: msgID=6799.6, service=kTCCServiceMicrophone, subject=Sub:{org.ruyi.workbench.development}Resp:{TCCDProcess: identifier=org.ruyi.workbench.development, pid=6799, auid=501, euid=501, binary_path=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop},
+2026-11-08 03:08:52.063 Df tccd[754:1062bbb] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=6799.6, authValue=2, authReason=2, authVersion=1, desired_auth=0, error=(null),
+2026-11-08 03:08:52.063 Df tccd[754:1062bbb] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=6799.6

@@ -1,0 +1,16 @@
+# Ruyi e2e runner
+# 件数: 3 ran / 14 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2671 / ℹ pass 2653 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/3) [main] macos-input-events.e2e.js ... PASS (30697ms)
+(  2/3) [main] macos-observe.e2e.js ... PASS (50669ms)
+(  3/3) [main] macos-ocr.e2e.js ... PASS (14415ms)
+
+# 汇总: 3 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 3 ran / 14 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0

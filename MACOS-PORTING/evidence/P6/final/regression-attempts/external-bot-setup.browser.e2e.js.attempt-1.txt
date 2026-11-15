@@ -1,0 +1,1 @@
+SKIP EXTERNAL BOT SETUP BROWSER: real Windows DPAPI journey

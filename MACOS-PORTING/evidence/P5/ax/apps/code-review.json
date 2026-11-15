@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-03",
+  "slice": "Named real-application AX scenarios and explicit Chromium renderer limitations",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T10:47:41.702824+00:00",
+  "baselineCommit": "d1b01adb5232e3444279d78b42c240316a4762f5",
+  "status": "code_review_passed_effective_independent_functional_acceptance_recorded",
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedByReviewer": false,
+  "sourceHashesAtCodeReview": {
+    "ruyi-workbench/resources/macos-automation-ax.m": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+    "dev-harness/macos-input-apps.e2e.js": "df35ec7ab25013c28b74e40042e6ccb61b908b8b16be1c32d9abb53c16748087",
+    "dev-harness/fixtures/macos-finder-identity.m": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+    "dev-harness/macos-ax-finder.e2e.js": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3"
+  },
+  "generatedFactsSha256AtReview": "5a0cae5cb46186f7052f1e8c4c4817d094da35c6fc7f369bfa86e8db81d97ea0",
+  "reviewScope": [
+    "Production Chromium absence metadata, full-visit WebArea detection, truncation and scope suppression, strict actual-process bundle matching, and membership error wording.",
+    "Existing selected-app input fixture default path and conditional AX additions for TextEdit and CFT default/configured renderer.",
+    "Read-only native Finder identity observer, public AXURL canonicalization, bounded complete role-aware tree, optional attribute handling, version capture and all-WindowServer enumeration.",
+    "Opt-in Finder e2e ownership proof, native AX action effect verification, pure ownership rejection tests, failure injection and shared-process-preserving final cleanup."
+  ],
+  "findings": [
+    {
+      "id": "APPAX1",
+      "severity": "P2",
+      "status": "closed_by_source_review",
+      "file": "dev-harness/fixtures/macos-finder-identity.m",
+      "section": "Tree role and container attribute reads",
+      "finding": "Optional AXRole and silently ignored non-array Children/Tabs values could let incomplete identity observations pass a no-tab-group ownership predicate. Cleanup could then close a window without proving all role and tab structure.",
+      "resolution": "Every visited node now requires a nonempty NSString AXRole bounded to 2048 characters. Unsupported, missing or malformed role fails the observer. Non-NSNull Children/Tabs must be NSArray. Child elements have AXUIElement type validation. Optional label-specific provider failures remain confined to title/description.",
+      "verification": "Latest native verifier and JS ownership predicates independently read-reviewed. Frozen runtime validation pending."
+    },
+    {
+      "id": "APPAX2",
+      "severity": "P2",
+      "status": "closed_by_source_review",
+      "file": "dev-harness/macos-input-apps.e2e.js",
+      "section": "Browser bundle and argv probes",
+      "finding": "Unconditional AX-specific plist probing derived bundle location from the unresolved executable path and could reject previously supported default input scenarios launched through an executable symlink or wrapper.",
+      "resolution": "Hard bundle/argv probes now run only when AX mode is requested. The AX bundle path is derived from fs.realpathSync(executable). The default branch records unprobed identity fields as null and retains its original input assertions.",
+      "verification": "Reviewed the conditional probe path and optional evidence serialization after the fix. Frozen default and AX runtime validation pending."
+    }
+  ],
+  "reviewedBehavior": [
+    "webAreaObserved is updated for every successfully visited node before selector, visibility or enabled filtering. No second hidden traversal or accessibility state write is introduced.",
+    "Chromium-specific reason metadata requires complete nontruncated window traversal, one of the three exact supported actual NSRunningApplication bundle identifiers, and absence of any observed AXWebArea. All truncation reasons suppress the hint. Menu scope and non-Chromium queries omit this reason.",
+    "Production membership validation remains reciprocal and bounded. The revised element_stale message accurately describes an unverified membership proof. No guard or fallback is weakened for embedded renderer objects.",
+    "TextEdit AXValue edits are independently checked through normal Cmd+S and exact owned UTF-8 document bytes. The existing default input assertions remain.",
+    "CFT default native address field is writable through AX. Its complete default tree lacks WebArea and reports a limitation. Configured --force-renderer-accessibility=complete exposes page nodes, whose current asymmetric parent/child link causes AXValue and AXPress refusal before action; DOM value and click count verify unchanged state.",
+    "Real browser tests cover complete inspection, depth/node/result truncation, menu scope, complete zero-match selectors and non-Chromium suppression. Renderer flags, actual bundle and argv are recorded separately for the configured case.",
+    "Finder requires explicit RUYI_P5_FINDER_REQUIRED=1. The baseline permits only the observed desktop AXScrollArea and pre-existing hidden empty-title internal CG handles. Existing content windows are rejected through both AXWindows and all-space layer0 CG observations.",
+    "Finder ownership requires the same process birth, one AXWindow, exactly one new CG handle, matching title/geometry, and the exact two canonical fixture child/file realpaths from the complete window tree. AXDocument NoValue is retained as observed; it is not fabricated as proof.",
+    "Finder rejects any AXTabGroup and AXTabs count greater than one. It proves ownership after observation and re-proves during native readback and immediately before cleanup. A native AXRadioButton AXValue transition from 0 to 1 supplies independent effect verification where AXSelected is absent.",
+    "Finder final cleanup closes only the freshly re-proved fixture window through the normal target-bound tool. It never quits or kills Finder. Uncertain cleanup retains the fixture directory and explicit failure evidence.",
+    "Pure Finder ownership negatives cover duplicate/wrong content URL set, additional AXWindow, unknown-count tab group and multiple reported tabs. Injected failure after observation retains its single expected failure while verifying fixture-window and MCP cleanup."
+  ],
+  "mainAgentEvidenceRead": [
+    {
+      "log": "default-metadata/run.txt",
+      "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79",
+      "passLines": 31,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; existing log read by independent reviewer",
+      "bindingNote": "Source was not frozen for these logs. They are main-agent evidence, separate from the forthcoming final frozen independent execution."
+    },
+    {
+      "log": "renderer-metadata/run.txt",
+      "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63",
+      "passLines": 33,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; existing log read by independent reviewer",
+      "bindingNote": "Source was not frozen for these logs. They are main-agent evidence, separate from the forthcoming final frozen independent execution."
+    },
+    {
+      "log": "finder-guards/run.txt",
+      "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a",
+      "passLines": 10,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; existing log read by independent reviewer",
+      "bindingNote": "Source was not frozen for these logs. They are main-agent evidence, separate from the forthcoming final frozen independent execution."
+    },
+    {
+      "log": "finder-forced-failure/run.txt",
+      "sha256": "a27b6ac1c6875f7de9df850c9c1ca28375c24cbcc59d2907e3005feea73a653b",
+      "passLines": 8,
+      "failLines": 1,
+      "allPass": false,
+      "executor": "main agent; existing log read by independent reviewer",
+      "bindingNote": "Source was not frozen for these logs. They are main-agent evidence, separate from the forthcoming final frozen independent execution."
+    }
+  ],
+  "observedFinderVersion": {
+    "bundleID": "com.apple.finder",
+    "version": "27.0",
+    "build": "1865",
+    "evidence": "finder-guards/baseline.json"
+  },
+  "openActionableFindings": [],
+  "historicalEvidencePreserved": [
+    "The initial Finder AXDocument/attribute observation failure left the self-owned fixture window and directory in place. Subsequent read-only identity proof and recovery are separate evidence. Later successful cleanup does not erase the earlier failure.",
+    "Renderer chain and earlier AX application-property failures remain as failed logs. The configured renderer case now intentionally asserts guarded refusal and unchanged DOM, without counting the earlier failures as successful runs.",
+    "Earlier pre-action focus_changed remains cause-undetermined. Existing P5-02 clipboard content loss remains documented in ../../input/events/clipboard-test-incident.json."
+  ],
+  "pendingAcceptance": [
+    "Freeze the full application-slice sources and independently run default19, default AX31, renderer AX33, Finder10 and the intentional Finder failure cleanup probe, plus the authorized core/App AX regressions.",
+    "Verify source fingerprints, natural exits, relevant process absence, shared Finder survival and exact controlled window absence for each frozen run.",
+    "Root final engineering gates and commit binding for this application-slice candidate.",
+    "Actual TCC revocation and lock transitions, multi-display/non-Retina, supported real input methods, Windows, minimum macOS14 and formal signing environment gates remain pending."
+  ],
+  "phaseCompletion": "This source review covers the selected current-host application scenarios and explicit limitations. P5 and P5-03 remain in_progress. CFT renderer DOM AX mutation remains unsupported under the current membership proof.",
+  "frozenCandidateBinding": "source-fingerprint-final.json",
+  "frozenSourceFiles": 58,
+  "frozenSourceFingerprintSha256": "6f833aad1017e080a1a33ad31032fff40968348bd4f62189f03f6f22391b3397",
+  "previousCandidateBinding": "source-fingerprint.json",
+  "launchPathFollowupReview": "launch-path-review.json",
+  "sourceHashesAtFinalReadOnlyReview": {
+    "ruyi-workbench/resources/macos-automation-ax.m": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+    "dev-harness/macos-input-apps.e2e.js": "89c37aae8d4214d1f0319fc563b4c437b6c0717fd3910c1f84f89b77511783ef",
+    "dev-harness/fixtures/macos-finder-identity.m": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+    "dev-harness/macos-ax-finder.e2e.js": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3"
+  },
+  "independentAcceptanceEvidence": "independent-completion/review.json",
+  "finalSourceFingerprint": "source-fingerprint-worker-ready.json",
+  "sourceReuseEvidence": "source-reuse-review.json"
+}

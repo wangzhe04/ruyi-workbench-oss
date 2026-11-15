@@ -1,0 +1,257 @@
+Collecting annotated-doc==0.0.5 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 6))
+  Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting annotated-types==0.8.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 7))
+  Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting anyio==4.16.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 8))
+  Using cached anyio-4.16.0-py3-none-any.whl.metadata (4.7 kB)
+Collecting attrs==26.1.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 9))
+  Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting certifi==2026.10.23 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 10))
+  Using cached certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+Collecting cffi==2.1.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 11))
+  Using cached cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (2.5 kB)
+Collecting charset-normalizer==3.5.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 12))
+  Using cached charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (46 kB)
+Collecting click==8.5.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 13))
+  Using cached click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting contourpy==1.4.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 14))
+  Using cached contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (3.8 kB)
+Collecting cryptography==50.0.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 15))
+  Using cached cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl.metadata (4.4 kB)
+Collecting cycler==0.12.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 16))
+  Using cached cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting et_xmlfile==2.0.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 17))
+  Using cached et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+Collecting fonttools==4.68.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 18))
+  Using cached fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl.metadata (139 kB)
+Collecting greenlet==3.5.6 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 19))
+  Using cached greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl.metadata (3.8 kB)
+Collecting h11==0.16.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 20))
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting httpcore==1.0.9 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 21))
+  Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting httpx==0.28.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 22))
+  Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting httpx-sse==0.4.3 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 23))
+  Using cached httpx_sse-0.4.3-py3-none-any.whl.metadata (9.7 kB)
+Collecting idna==3.20 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 24))
+  Using cached idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Collecting jsonschema==4.26.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 25))
+  Using cached jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+Collecting jsonschema-specifications==2025.9.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 26))
+  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting kiwisolver==1.5.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 27))
+  Using cached kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (5.2 kB)
+Collecting lxml==6.1.3 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 28))
+  Using cached lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl.metadata (3.3 kB)
+Collecting markdown-it-py==4.2.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 29))
+  Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting matplotlib==3.11.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 30))
+  Using cached matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl.metadata (80 kB)
+Collecting mcp==1.30.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 31))
+  Using cached mcp-1.30.0-py3-none-any.whl.metadata (9.3 kB)
+Collecting mdurl==0.1.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 32))
+  Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+Collecting numpy==2.5.4 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 33))
+  Using cached numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl.metadata (6.6 kB)
+Collecting opencv-python-headless==4.14.0.94 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 34))
+  Using cached opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl.metadata (19 kB)
+Collecting openpyxl==3.1.5 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 35))
+  Using cached openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+Collecting packaging==26.3 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 36))
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pdfminer.six==20260107 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 37))
+  Using cached pdfminer_six-20260107-py3-none-any.whl.metadata (4.3 kB)
+Collecting pdfplumber==0.11.10 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 38))
+  Using cached pdfplumber-0.11.10-py3-none-any.whl.metadata (43 kB)
+Collecting pillow==13.0.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 39))
+  Using cached pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (9.1 kB)
+Collecting playwright==1.64.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 40))
+  Using cached playwright-1.64.1-py3-none-macosx_11_0_arm64.whl.metadata (3.3 kB)
+Collecting psutil==7.2.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 41))
+  Using cached psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl.metadata (22 kB)
+Collecting pycparser==3.12 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 42))
+  Using cached pycparser-3.12-py3-none-any.whl.metadata (9.7 kB)
+Collecting pydantic==2.14.3 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 43))
+  Using cached pydantic-2.14.3-py3-none-any.whl.metadata (141 kB)
+Collecting pydantic-settings==2.16.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 44))
+  Using cached pydantic_settings-2.16.2-py3-none-any.whl.metadata (4.0 kB)
+Collecting pydantic_core==2.50.4 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 45))
+  Using cached pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl.metadata (6.6 kB)
+Collecting pyee==14.0.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 46))
+  Using cached pyee-14.0.0-py3-none-any.whl.metadata (1.8 kB)
+Collecting Pygments==2.21.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 47))
+  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting PyJWT==2.15.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 48))
+  Using cached pyjwt-2.15.1-py3-none-any.whl.metadata (3.5 kB)
+Collecting pyparsing==3.3.3 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 49))
+  Using cached pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+Collecting pypdfium2==5.14.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 50))
+  Using cached pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl.metadata (62 kB)
+Collecting pyperclip==1.11.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 51))
+  Using cached pyperclip-1.11.0-py3-none-any.whl.metadata (2.4 kB)
+Collecting python-dateutil==4.0.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 52))
+  Using cached python_dateutil-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+Collecting python-docx==1.2.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 53))
+  Using cached python_docx-1.2.0-py3-none-any.whl.metadata (2.0 kB)
+Collecting python-dotenv==1.2.4 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 54))
+  Using cached python_dotenv-1.2.4-py3-none-any.whl.metadata (29 kB)
+Collecting python-multipart==0.0.33 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 55))
+  Using cached python_multipart-0.0.33-py3-none-any.whl.metadata (6.3 kB)
+Collecting python-pptx==1.0.2 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 56))
+  Using cached python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)
+Collecting referencing==0.37.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 57))
+  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting reportlab==5.1.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 58))
+  Using cached reportlab-5.1.0-py3-none-any.whl.metadata (1.6 kB)
+Collecting rich==15.0.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 59))
+  Using cached rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+Collecting rpds-py==2026.9.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 60))
+  Using cached rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (4.1 kB)
+Collecting shellingham==1.5.4 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 61))
+  Using cached shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+Collecting sse-starlette==3.6.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 62))
+  Using cached sse_starlette-3.6.0-py3-none-any.whl.metadata (15 kB)
+Collecting starlette==1.10.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 63))
+  Using cached starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting typer==0.28.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 64))
+  Using cached typer-0.28.0-py3-none-any.whl.metadata (16 kB)
+Collecting typing-inspection==0.4.5 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 65))
+  Using cached typing_inspection-0.4.5-py3-none-any.whl.metadata (2.6 kB)
+Collecting typing_extensions==4.16.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 66))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting tzdata==2026.6 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 67))
+  Using cached tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting uvicorn==0.54.0 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 68))
+  Using cached uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting xlsxwriter==3.3.1 (from -r MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt (line 69))
+  Using cached xlsxwriter-3.3.1-py3-none-any.whl.metadata (2.9 kB)
+Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Using cached anyio-4.16.0-py3-none-any.whl (134 kB)
+Using cached attrs-26.1.0-py3-none-any.whl (67 kB)
+Using cached certifi-2026.10.23-py3-none-any.whl (135 kB)
+Using cached cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (184 kB)
+Using cached charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (367 kB)
+Using cached click-8.5.0-py3-none-any.whl (125 kB)
+Using cached contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (284 kB)
+Using cached cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (3.9 MB)
+Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Using cached et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+Using cached fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (3.1 MB)
+Using cached greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl (295 kB)
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Using cached httpx_sse-0.4.3-py3-none-any.whl (9.0 kB)
+Using cached idna-3.20-py3-none-any.whl (69 kB)
+Using cached jsonschema-4.26.0-py3-none-any.whl (90 kB)
+Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Using cached kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (64 kB)
+Using cached lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (8.6 MB)
+Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+Using cached matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl (9.3 MB)
+Using cached mcp-1.30.0-py3-none-any.whl (234 kB)
+Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Using cached numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (5.5 MB)
+Using cached opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl (46.5 MB)
+Using cached openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Using cached pdfminer_six-20260107-py3-none-any.whl (6.6 MB)
+Using cached pdfplumber-0.11.10-py3-none-any.whl (60 kB)
+Using cached pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (4.9 MB)
+Using cached playwright-1.64.1-py3-none-macosx_11_0_arm64.whl (43.2 MB)
+Using cached psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (129 kB)
+Using cached pycparser-3.12-py3-none-any.whl (62 kB)
+Using cached pydantic-2.14.3-py3-none-any.whl (494 kB)
+Using cached pydantic_settings-2.16.2-py3-none-any.whl (81 kB)
+Using cached pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl (2.1 MB)
+Using cached pyee-14.0.0-py3-none-any.whl (15 kB)
+Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+Using cached pyjwt-2.15.1-py3-none-any.whl (33 kB)
+Using cached pyparsing-3.3.3-py3-none-any.whl (126 kB)
+Using cached pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl (3.5 MB)
+Using cached pyperclip-1.11.0-py3-none-any.whl (11 kB)
+Using cached python_dateutil-4.0.0-py3-none-any.whl (92 kB)
+Using cached python_docx-1.2.0-py3-none-any.whl (252 kB)
+Using cached python_dotenv-1.2.4-py3-none-any.whl (23 kB)
+Using cached python_multipart-0.0.33-py3-none-any.whl (32 kB)
+Using cached python_pptx-1.0.2-py3-none-any.whl (472 kB)
+Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+Using cached reportlab-5.1.0-py3-none-any.whl (2.0 MB)
+Using cached rich-15.0.0-py3-none-any.whl (310 kB)
+Using cached rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl (341 kB)
+Using cached shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+Using cached sse_starlette-3.6.0-py3-none-any.whl (17 kB)
+Using cached starlette-1.10.0-py3-none-any.whl (80 kB)
+Using cached typer-0.28.0-py3-none-any.whl (123 kB)
+Using cached typing_inspection-0.4.5-py3-none-any.whl (14 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Using cached uvicorn-0.54.0-py3-none-any.whl (87 kB)
+Using cached xlsxwriter-3.3.1-py3-none-any.whl (180 kB)
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/annotated_doc-0.0.5-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/annotated_types-0.8.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/anyio-4.16.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/attrs-26.1.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/certifi-2026.10.23-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/click-8.5.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/cycler-0.12.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/et_xmlfile-2.0.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/h11-0.16.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/httpcore-1.0.9-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/httpx-0.28.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/httpx_sse-0.4.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/idna-3.20-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/jsonschema-4.26.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/jsonschema_specifications-2025.9.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/markdown_it_py-4.2.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/mcp-1.30.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/mdurl-0.1.2-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/openpyxl-3.1.5-py2.py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/packaging-26.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pdfminer_six-20260107-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pdfplumber-0.11.10-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/playwright-1.64.1-py3-none-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pycparser-3.12-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pydantic-2.14.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pydantic_settings-2.16.2-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pyee-14.0.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pygments-2.21.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pyjwt-2.15.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pyparsing-3.3.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/pyperclip-1.11.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/python_dateutil-4.0.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/python_docx-1.2.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/python_dotenv-1.2.4-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/python_multipart-0.0.33-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/python_pptx-1.0.2-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/referencing-0.37.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/reportlab-5.1.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/rich-15.0.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/shellingham-1.5.4-py2.py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/sse_starlette-3.6.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/starlette-1.10.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/typer-0.28.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/typing_inspection-0.4.5-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/typing_extensions-4.16.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/tzdata-2026.6-py2.py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/uvicorn-0.54.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/xlsxwriter-3.3.1-py3-none-any.whl
+Successfully downloaded annotated-doc annotated-types anyio attrs certifi cffi charset-normalizer click contourpy cryptography cycler et_xmlfile fonttools greenlet h11 httpcore httpx httpx-sse idna jsonschema jsonschema-specifications kiwisolver lxml markdown-it-py matplotlib mcp mdurl numpy opencv-python-headless openpyxl packaging pdfminer.six pdfplumber pillow playwright psutil pycparser pydantic pydantic-settings pydantic_core pyee Pygments PyJWT pyparsing pypdfium2 pyperclip python-dateutil python-docx python-dotenv python-multipart python-pptx referencing reportlab rich rpds-py shellingham sse-starlette starlette typer typing-inspection typing_extensions tzdata uvicorn xlsxwriter

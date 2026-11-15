@@ -1,0 +1,1145 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T18:30:07.410443+00:00",
+  "verdict": "runtime_qualification_passed_route_freshness_failed_followup_pending",
+  "stage": "frozen_v1_results_preserved_awaiting_test_and_generated_inventory_only_v2",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/root-dispatch-freeze-v1.json",
+    "bytes": 29884,
+    "sha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc"
+  },
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "invocations": [
+    {
+      "label": "unit",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-dispatch.test.js",
+        "dev-harness/unit/desktop-execution-runtime.test.js",
+        "dev-harness/unit/desktop-execution-ledger.test.js",
+        "dev-harness/unit/execution-preparation.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-g313wvyw/home",
+        "USERPROFILE": "/tmp/rd-g313wvyw/userprofile",
+        "APPDATA": "/tmp/rd-g313wvyw/appdata",
+        "LOCALAPPDATA": "/tmp/rd-g313wvyw/localappdata",
+        "RUYI_HOME": "/tmp/rd-g313wvyw/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-g313wvyw/data",
+        "WCW_DATA_DIR": "/tmp/rd-g313wvyw/acc-data",
+        "TMPDIR": "/tmp/rd-g313wvyw/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-g313wvyw/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-g313wvyw/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+      },
+      "startedAt": "2026-11-11T18:26:59.689745+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:27:00.346341+00:00",
+      "elapsedSeconds": 0.6565225840022322,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit.log",
+        "bytes": 5170,
+        "sha256": "874ec4f448aaa6734af38b7899133310e89ac7cfa5ca1dc24b011b35c3ec0a96"
+      }
+    },
+    {
+      "label": "python-control",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_control.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-uz90t8vm/home",
+        "USERPROFILE": "/tmp/rd-uz90t8vm/userprofile",
+        "APPDATA": "/tmp/rd-uz90t8vm/appdata",
+        "LOCALAPPDATA": "/tmp/rd-uz90t8vm/localappdata",
+        "RUYI_HOME": "/tmp/rd-uz90t8vm/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-uz90t8vm/data",
+        "WCW_DATA_DIR": "/tmp/rd-uz90t8vm/acc-data",
+        "TMPDIR": "/tmp/rd-uz90t8vm/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-uz90t8vm/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-uz90t8vm/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+      },
+      "startedAt": "2026-11-11T18:27:20.643048+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:27:21.254704+00:00",
+      "elapsedSeconds": 0.6115642079967074,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control.log",
+        "bytes": 812,
+        "sha256": "e3c50897e38ee7b75a168020ac017d0ed60c98690b361a1e1efe4b171eff6e3f"
+      }
+    },
+    {
+      "label": "dispatch",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-dispatch.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-y5svi6oo/home",
+        "USERPROFILE": "/tmp/rd-y5svi6oo/userprofile",
+        "APPDATA": "/tmp/rd-y5svi6oo/appdata",
+        "LOCALAPPDATA": "/tmp/rd-y5svi6oo/localappdata",
+        "RUYI_HOME": "/tmp/rd-y5svi6oo/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-y5svi6oo/data",
+        "WCW_DATA_DIR": "/tmp/rd-y5svi6oo/acc-data",
+        "TMPDIR": "/tmp/rd-y5svi6oo/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-y5svi6oo/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-y5svi6oo/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_DISPATCH_REQUIRED": "1",
+        "RUYI_EXECUTION_DISPATCH_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-results.json"
+      },
+      "startedAt": "2026-11-11T18:27:26.413016+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:27:30.167030+00:00",
+      "elapsedSeconds": 3.753924292017473,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch.log",
+        "bytes": 2727,
+        "sha256": "2e2dc7ec241c1a4aa692c132546fa18a4d9080dffdfb65b0fd8f5a737d5eee32"
+      }
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-14cbbpk6/home",
+        "USERPROFILE": "/tmp/rd-14cbbpk6/userprofile",
+        "APPDATA": "/tmp/rd-14cbbpk6/appdata",
+        "LOCALAPPDATA": "/tmp/rd-14cbbpk6/localappdata",
+        "RUYI_HOME": "/tmp/rd-14cbbpk6/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-14cbbpk6/data",
+        "WCW_DATA_DIR": "/tmp/rd-14cbbpk6/acc-data",
+        "TMPDIR": "/tmp/rd-14cbbpk6/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-14cbbpk6/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-14cbbpk6/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_CONTEXT_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context"
+      },
+      "startedAt": "2026-11-11T18:27:48.944693+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:27:49.554759+00:00",
+      "elapsedSeconds": 0.6099568749777973,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context.log",
+        "bytes": 3183,
+        "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-pcukrzq7/home",
+        "USERPROFILE": "/tmp/rd-pcukrzq7/userprofile",
+        "APPDATA": "/tmp/rd-pcukrzq7/appdata",
+        "LOCALAPPDATA": "/tmp/rd-pcukrzq7/localappdata",
+        "RUYI_HOME": "/tmp/rd-pcukrzq7/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-pcukrzq7/data",
+        "WCW_DATA_DIR": "/tmp/rd-pcukrzq7/acc-data",
+        "TMPDIR": "/tmp/rd-pcukrzq7/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-pcukrzq7/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-pcukrzq7/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+      },
+      "startedAt": "2026-11-11T18:27:56.768754+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:27:57.355500+00:00",
+      "elapsedSeconds": 0.5866454169736244,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph.log",
+        "bytes": 1327,
+        "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+      }
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rd-o765r8nh/home",
+        "USERPROFILE": "/tmp/rd-o765r8nh/userprofile",
+        "APPDATA": "/tmp/rd-o765r8nh/appdata",
+        "LOCALAPPDATA": "/tmp/rd-o765r8nh/localappdata",
+        "RUYI_HOME": "/tmp/rd-o765r8nh/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-o765r8nh/data",
+        "WCW_DATA_DIR": "/tmp/rd-o765r8nh/acc-data",
+        "TMPDIR": "/tmp/rd-o765r8nh/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rd-o765r8nh/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rd-o765r8nh/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+      },
+      "startedAt": "2026-11-11T18:28:03.187577+00:00",
+      "freezeSha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T18:28:03.771186+00:00",
+      "elapsedSeconds": 0.5835200419824105,
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes.log",
+        "bytes": 1024,
+        "sha256": "84c64c654c5fb1cd9af3e3dfa65aea30080ca8c8e643b934d6e0453ea6a58fb1"
+      }
+    }
+  ],
+  "results": {
+    "unit": {
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "pythonControl": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": "Mocked fixed-status/control tests on current Mac; no native invocation by pure control suite. Windows-specific status expectation correction remains pending as parent/reviewer identified."
+    },
+    "actualDispatch": {
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "actualRequiredContext": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "moduleGraph": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "modules": 93,
+      "edges": 655,
+      "largestSccMembers": 31
+    },
+    "route": {
+      "passed": 12,
+      "failed": 2,
+      "skipped": 0,
+      "executions": 1,
+      "exitCode": 1,
+      "failure": "Generated JSON and Markdown route inventory freshness; route/auth policy itself passes with175decision points/161auth rows and no bidirectional drift.",
+      "parentReviewerDiagnosis": "New actual-dispatch e2e adds /api/capabilities coverage; generated coveredBy references need regeneration. Source frozen; reviewer also identified a Windows-only assertion branch in pure control test. Neither correction has been made by independent reviewer."
+    },
+    "notRunAfterFirstFailure": [
+      "durable-state-inventory --check",
+      "build --check"
+    ],
+    "automaticRetries": 0,
+    "nativeRetries": 0,
+    "allCommandsFirstRunPassed": false
+  },
+  "actualDispatchEvidence": {
+    "raw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-results.json",
+      "bytes": 160619,
+      "sha256": "0da96cced41f70b9652e3a07f51713efa2b92726b4a7acef5e87dbdc45210528"
+    },
+    "directProxyRows": [
+      {
+        "invocationId": "55957e157c9346d13c9c650b2847299d",
+        "tool": "wait",
+        "sessionId": "sess_868a055b77815a41",
+        "phase": "returned",
+        "deliverySha256": "3d396cbc474650df452d6f64afc65be873dbc5864394b2d8319f8d4c41e68213",
+        "accWorkerId": "d50e16cdf023424db517baf01790cbd3",
+        "accPid": 83404
+      },
+      {
+        "invocationId": "e5149e2b4e6dd5d63fcea1b8e27b6a46",
+        "tool": "get_mouse_position",
+        "sessionId": "sess_868a055b77815a41",
+        "phase": "returned",
+        "deliverySha256": "d810447cb19cb67b8989cd9e7aed9d38a2a55071884b21488d45b710df40c7cb",
+        "accWorkerId": "d50e16cdf023424db517baf01790cbd3",
+        "accPid": 83404
+      },
+      {
+        "invocationId": "7493ed2c192d165c815469e6b1ad7d96",
+        "tool": "wait",
+        "sessionId": "sess_8b08ed1ae7350ae2",
+        "phase": "returned",
+        "deliverySha256": "125bd7c3de61645aa9a5e20c81375e6bd5401eef29ea688183e65c1b46877a17",
+        "accWorkerId": "d50e16cdf023424db517baf01790cbd3",
+        "accPid": 83404
+      },
+      {
+        "invocationId": "6472ba22394095a116156d1c3959c9ad",
+        "tool": "get_mouse_position",
+        "sessionId": "sess_8b08ed1ae7350ae2",
+        "phase": "returned",
+        "deliverySha256": "5952aaca2ea2b404b631e704115b9d7aeedf32b3ff113653328c1e22cea90a4e",
+        "accWorkerId": "d50e16cdf023424db517baf01790cbd3",
+        "accPid": 83404
+      }
+    ],
+    "providerContinuationLabels": [
+      "DISPATCH_DIRECT",
+      "DISPATCH_PROXY",
+      "DISPATCH_ALIAS"
+    ],
+    "fault": {
+      "sessionId": "sess_d479621f7b4b54b3",
+      "injectedNodeCommitFault": {
+        "invocationId": "8f2919875fdcaebb9499a00e20a64168",
+        "phase": "returned"
+      },
+      "durableRows": [
+        {
+          "invocationId": "8f2919875fdcaebb9499a00e20a64168",
+          "phase": "dispatching",
+          "tool": "wait",
+          "deliverySha256": null
+        }
+      ],
+      "actualAccStages": [
+        "acc_request_accepted",
+        "tool_entered",
+        "tool_terminal",
+        "acc_request_terminal"
+      ],
+      "sameBatchNextToolUseCount": 0,
+      "providerResumedAfterUnknown": false,
+      "restartObservation": {
+        "sessionId": "sess_d479621f7b4b54b3",
+        "message": "new request after result fault",
+        "events": [
+          {
+            "type": "error",
+            "error": "上次桌面操作的执行或结果保存尚未确认，已暂停本会话的自动继续，请先核实执行记录。",
+            "ts": "2026-11-11T18:27:30.110Z"
+          }
+        ]
+      }
+    },
+    "qualifiedScope": "Real OS root/provider flow/direct bridge/adaptive proxy/recognized alias→real owned ACC SDK/native read→strict receipt→actual projected provider-history prefix persist/reload hash before continuation. Provider endpoint is the offline model substitute; ACC/SDK/native remain real. Only wait/mouse.position. Node EIO is single isolated fault after returned wait; following file_write is never dispatched and restart holds uncertainty."
+  },
+  "requiredContextRaw": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context/results.json",
+    "bytes": 106014,
+    "sha256": "9e3f073da31282bec7e53c5483c69fc0f29f07e2c88aa40ffe1017994d7abce6"
+  },
+  "bindings": {
+    "sources": 106,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "checkpointCount": 12,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-after-binding.json",
+        "bytes": 29427,
+        "sha256": "019c848268d7cc74bf06c7161ffad15c72f0a1f74ee30e41e9e18231a5289396",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-before-binding.json",
+        "bytes": 29427,
+        "sha256": "85c805516b54da9f9b33a78593e971a0f65f4f7254c584bb555a2b7b53dcaae7",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-after-binding.json",
+        "bytes": 29427,
+        "sha256": "17dfd7c289ff9324c0cf1345bdb4382c81292b93e33be7f82497c97007c14694",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-before-binding.json",
+        "bytes": 29427,
+        "sha256": "0f637707d8e46208a13636be5996a21b973263c92ac154d83c116ad17ac3d3bb",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-after-binding.json",
+        "bytes": 29427,
+        "sha256": "110eec3860a55ecb7b42b4fd9510cf0ba09d87be1cc854f5640b9095fb0540af",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-before-binding.json",
+        "bytes": 29427,
+        "sha256": "e69e2dfd4b74a17cb412d9d0fad493658572a82d13a8945fb1e673ed640ec9d5",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-after-binding.json",
+        "bytes": 29427,
+        "sha256": "07aab07622b218536c6a83684d7e3aa37f967af8a79c5b35ca6ef0ea6dfbce6f",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-before-binding.json",
+        "bytes": 29427,
+        "sha256": "fde2d7b66aa40e7aabf14e3582e7bc58917019714208334ef2132d5da2de05fd",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-after-binding.json",
+        "bytes": 29427,
+        "sha256": "064f98bb064e4492969b42a70fe08e7c52c91c4ff631152ce7028547724fc169",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-before-binding.json",
+        "bytes": 29427,
+        "sha256": "a45a337ae041f035f58a2e38348c5f4b16b0cbe305b4240dabfa04da1dff3d72",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-after-binding.json",
+        "bytes": 29427,
+        "sha256": "0ba29dd3d21f4ad95eae4db7976adce7a127e24137777ab69d6fd2825df153fb",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-before-binding.json",
+        "bytes": 29427,
+        "sha256": "f8c2794a7ffe8fd9bc8b02445835abc750225831f5c90b40999cdd57894ca715",
+        "sourceCount": 106,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      }
+    ]
+  },
+  "cleanup": {
+    "perCommand": [
+      {
+        "at": "2026-11-11T18:27:00.346075+00:00",
+        "rootPid": 83237,
+        "observedIdentities": [
+          {
+            "pid": 83237,
+            "ppid": 83231,
+            "created": "1794421619690051"
+          },
+          {
+            "pid": 83242,
+            "ppid": 83237,
+            "created": "1794421619721652"
+          },
+          {
+            "pid": 83241,
+            "ppid": 83237,
+            "created": "1794421619721203"
+          },
+          {
+            "pid": 83240,
+            "ppid": 83237,
+            "created": "1794421619720684"
+          },
+          {
+            "pid": 83239,
+            "ppid": 83237,
+            "created": "1794421619719273"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "at": "2026-11-11T18:27:21.254500+00:00",
+        "rootPid": 83361,
+        "observedIdentities": [
+          {
+            "pid": 83361,
+            "ppid": 83360,
+            "created": "1794421640643350"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "at": "2026-11-11T18:27:30.166807+00:00",
+        "rootPid": 83381,
+        "observedIdentities": [
+          {
+            "pid": 83381,
+            "ppid": 83379,
+            "created": "1794421646413350"
+          },
+          {
+            "pid": 83383,
+            "ppid": 83381,
+            "created": "1794421646447831"
+          },
+          {
+            "pid": 83394,
+            "ppid": 83383,
+            "created": "1794421646546166"
+          },
+          {
+            "pid": 83392,
+            "ppid": 83383,
+            "created": "1794421646544730"
+          },
+          {
+            "pid": 83402,
+            "ppid": 83383,
+            "created": "1794421646685052"
+          },
+          {
+            "pid": 83403,
+            "ppid": 83402,
+            "created": "1794421646686492"
+          },
+          {
+            "pid": 83404,
+            "ppid": 83403,
+            "created": "1794421646686867"
+          },
+          {
+            "pid": 83411,
+            "ppid": 83404,
+            "created": "1794421646970625"
+          },
+          {
+            "pid": 83414,
+            "ppid": 83404,
+            "created": "1794421647097307"
+          },
+          {
+            "pid": 83419,
+            "ppid": 83383,
+            "created": "1794421647214168"
+          },
+          {
+            "pid": 83420,
+            "ppid": 83419,
+            "created": "1794421647215921"
+          },
+          {
+            "pid": 83426,
+            "ppid": 83383,
+            "created": "1794421647275931"
+          },
+          {
+            "pid": 83427,
+            "ppid": 83426,
+            "created": "1794421647277218"
+          },
+          {
+            "pid": 83428,
+            "ppid": 83427,
+            "created": "1794421647277495"
+          },
+          {
+            "pid": 83433,
+            "ppid": 83404,
+            "created": "1794421647477197"
+          },
+          {
+            "pid": 83441,
+            "ppid": 83381,
+            "created": "1794421647723708"
+          },
+          {
+            "pid": 83444,
+            "ppid": 83381,
+            "created": "1794421647743760"
+          },
+          {
+            "pid": 83460,
+            "ppid": 83381,
+            "created": "1794421647878012"
+          },
+          {
+            "pid": 83463,
+            "ppid": 83381,
+            "created": "1794421647897905"
+          },
+          {
+            "pid": 83466,
+            "ppid": 83463,
+            "created": "1794421647983044"
+          },
+          {
+            "pid": 83486,
+            "ppid": 83463,
+            "created": "1794421648374487"
+          },
+          {
+            "pid": 83487,
+            "ppid": 83486,
+            "created": "1794421648376509"
+          },
+          {
+            "pid": 83488,
+            "ppid": 83487,
+            "created": "1794421648377067"
+          },
+          {
+            "pid": 83495,
+            "ppid": 83488,
+            "created": "1794421648655222"
+          },
+          {
+            "pid": 83498,
+            "ppid": 83463,
+            "created": "1794421648756808"
+          },
+          {
+            "pid": 83505,
+            "ppid": 83463,
+            "created": "1794421648841678"
+          },
+          {
+            "pid": 83506,
+            "ppid": 83505,
+            "created": "1794421648843134"
+          },
+          {
+            "pid": 83507,
+            "ppid": 83506,
+            "created": "1794421648843447"
+          },
+          {
+            "pid": 83514,
+            "ppid": 83381,
+            "created": "1794421648985307"
+          },
+          {
+            "pid": 83524,
+            "ppid": 83514,
+            "created": "1794421649085545"
+          },
+          {
+            "pid": 83523,
+            "ppid": 83514,
+            "created": "1794421649084463"
+          },
+          {
+            "pid": 83535,
+            "ppid": 83514,
+            "created": "1794421649312716"
+          },
+          {
+            "pid": 83536,
+            "ppid": 83535,
+            "created": "1794421649314348"
+          },
+          {
+            "pid": 83537,
+            "ppid": 83536,
+            "created": "1794421649314890"
+          },
+          {
+            "pid": 83543,
+            "ppid": 83537,
+            "created": "1794421649591565"
+          },
+          {
+            "pid": 83546,
+            "ppid": 83537,
+            "created": "1794421649697694"
+          },
+          {
+            "pid": 83552,
+            "ppid": 83514,
+            "created": "1794421649814462"
+          },
+          {
+            "pid": 83555,
+            "ppid": 83514,
+            "created": "1794421649843169"
+          },
+          {
+            "pid": 83556,
+            "ppid": 83555,
+            "created": "1794421649844511"
+          },
+          {
+            "pid": 83564,
+            "ppid": 83381,
+            "created": "1794421649953104"
+          },
+          {
+            "pid": 83567,
+            "ppid": 83381,
+            "created": "1794421649972692"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "at": "2026-11-11T18:27:49.554565+00:00",
+        "rootPid": 83599,
+        "observedIdentities": [
+          {
+            "pid": 83599,
+            "ppid": 83598,
+            "created": "1794421668945040"
+          },
+          {
+            "pid": 83603,
+            "ppid": 83599,
+            "created": "1794421669035319"
+          },
+          {
+            "pid": 83604,
+            "ppid": 83603,
+            "created": "1794421669036619"
+          },
+          {
+            "pid": 83605,
+            "ppid": 83604,
+            "created": "1794421669037207"
+          },
+          {
+            "pid": 83612,
+            "ppid": 83605,
+            "created": "1794421669306040"
+          },
+          {
+            "pid": 83615,
+            "ppid": 83605,
+            "created": "1794421669424322"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "at": "2026-11-11T18:27:57.355279+00:00",
+        "rootPid": 83621,
+        "observedIdentities": [
+          {
+            "pid": 83621,
+            "ppid": 83620,
+            "created": "1794421676769091"
+          },
+          {
+            "pid": 83623,
+            "ppid": 83621,
+            "created": "1794421676795287"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "at": "2026-11-11T18:28:03.770971+00:00",
+        "rootPid": 83639,
+        "observedIdentities": [
+          {
+            "pid": 83639,
+            "ppid": 83638,
+            "created": "1794421683187893"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      }
+    ],
+    "allObservedOwnIdentitiesExited": true,
+    "dispatchFixtureDirectoryRemoved": true,
+    "contextRetained": false,
+    "contextRetainedRoot": null,
+    "outerIsolation": "Each command retained its own recorded short/tmp/rd-* outer HOME/USERPROFILE/APPDATA/LOCALAPPDATA/data/TMPDIR path for evidence. Fixture inner runtime roots may be removed normally.",
+    "scope": "Only test-root and birth-checked observed descendants, not arbitrary unobserved escape completeness. No unrelated/fullunit process signalled."
+  },
+  "boundaries": [
+    "Feature remains default-off behind RUYI_DESKTOP_EXECUTION_RECEIPTS=1; no default-on activation or full feature acceptance",
+    "Current provider direct/proxy/recognized alias paths now have this real runtime qualification; prior standalone-only dispatch statements remain historical",
+    "Candidate subagent ACC without opaque context and candidate CLI explicitly refuse; successful subagent/CLI integration unaccepted",
+    "Mixed/multiple batches after image results remain held/undelivered rather than followed by new tools; image batching incomplete",
+    "Global byte/file retention, acknowledged trace deletion and complete reconciliation remain open",
+    "Only fixed receipt/readiness control exception is supported; no arbitrary contextless control-tool claim",
+    "No input mutation/GUI/application consumption/held fault/rescue/TCC/OSlock/App/display/minimumOS/Windows or wholeP5 acceptance",
+    "No extra native rerun is authorized automatically after this metadata-only static failure"
+  ],
+  "actions": {
+    "productOrTestSourceEditsByIndependent": 0,
+    "inputMutationGuiHeldTccLockAppActions": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Reserved until wholeP5 acceptance; unchanged.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context/results.json",
+      "bytes": 106014,
+      "sha256": "9e3f073da31282bec7e53c5483c69fc0f29f07e2c88aa40ffe1017994d7abce6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-after-binding.json",
+      "bytes": 29427,
+      "sha256": "019c848268d7cc74bf06c7161ffad15c72f0a1f74ee30e41e9e18231a5289396"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-before-binding.json",
+      "bytes": 29427,
+      "sha256": "85c805516b54da9f9b33a78593e971a0f65f4f7254c584bb555a2b7b53dcaae7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-cleanup.json",
+      "bytes": 887,
+      "sha256": "a42f836d52163ef7eb79536f192566503878fd774a69eea6ef8d3ac49bdee96b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-invocation.json",
+      "bytes": 2454,
+      "sha256": "7a12b02765450bff837ca5fa9b3dcfef47144a73096114b8ed7b9e7d6fbc9634"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "82e49f82b8b938a030062676e6016a4b3a69049248324edd151658a81e6006ab"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/context.log",
+      "bytes": 3183,
+      "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-after-binding.json",
+      "bytes": 29427,
+      "sha256": "17dfd7c289ff9324c0cf1345bdb4382c81292b93e33be7f82497c97007c14694"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-before-binding.json",
+      "bytes": 29427,
+      "sha256": "0f637707d8e46208a13636be5996a21b973263c92ac154d83c116ad17ac3d3bb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-cleanup.json",
+      "bytes": 4037,
+      "sha256": "0ca221511d2532e0d7bedac2c7af18ff5f9f593a2078ab5c415bb2767639b911"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-invocation.json",
+      "bytes": 2472,
+      "sha256": "9c8b539779668e586f2bbc0d9e25149c98e3ef986032b7c51af03d22f0795c30"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "813d9a1487ebebf97c037746d2ce6b02e6fabaa41a5209fd170f0e13198d49a7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch-results.json",
+      "bytes": 160619,
+      "sha256": "0da96cced41f70b9652e3a07f51713efa2b92726b4a7acef5e87dbdc45210528"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/dispatch.log",
+      "bytes": 2727,
+      "sha256": "2e2dc7ec241c1a4aa692c132546fa18a4d9080dffdfb65b0fd8f5a737d5eee32"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-after-binding.json",
+      "bytes": 29427,
+      "sha256": "110eec3860a55ecb7b42b4fd9510cf0ba09d87be1cc854f5640b9095fb0540af"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-before-binding.json",
+      "bytes": 29427,
+      "sha256": "e69e2dfd4b74a17cb412d9d0fad493658572a82d13a8945fb1e673ed640ec9d5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-cleanup.json",
+      "bytes": 527,
+      "sha256": "b6015f6f9afc9d3c94a2696e5c88bb00227e5661b9525106af07f72ca068a591"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-invocation.json",
+      "bytes": 2138,
+      "sha256": "1285aa7050b5293adb4e416ea5da4d911ace33b8cf4a95312770e32292104ec8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "3d9c2263f46639c0d8406de436573a04895aae0c1edd7c47152ff28c0e54f72a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/module-graph.log",
+      "bytes": 1327,
+      "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/os-process-helper-baseline.json",
+      "bytes": 204,
+      "sha256": "19183671c1f66d4ec87c476d8ac5c1a1d746eb25f77953a1af1bb015e72b4a51"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-after-binding.json",
+      "bytes": 29427,
+      "sha256": "07aab07622b218536c6a83684d7e3aa37f967af8a79c5b35ca6ef0ea6dfbce6f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-before-binding.json",
+      "bytes": 29427,
+      "sha256": "fde2d7b66aa40e7aabf14e3582e7bc58917019714208334ef2132d5da2de05fd"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-cleanup.json",
+      "bytes": 437,
+      "sha256": "34189df47af02c590ddfb57488338eb03f9d27149267961c675bb9145e270515"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-invocation.json",
+      "bytes": 2227,
+      "sha256": "dcf227775c30c92b84a1d6fb1c12dc07611120ade54030060fcafa947e3b3540"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "a9ad6132aac3ee48f0cf0a95c280f891a5d0ec87f15ec73e20cc448df2a6f3ad"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/python-control.log",
+      "bytes": 812,
+      "sha256": "e3c50897e38ee7b75a168020ac017d0ed60c98690b361a1e1efe4b171eff6e3f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/root-dispatch-freeze-v1.json",
+      "bytes": 29884,
+      "sha256": "ed4178309b78e119e4428a34dc05e179411def97e74b6a8d77916abc706334bc"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-after-binding.json",
+      "bytes": 29427,
+      "sha256": "064f98bb064e4492969b42a70fe08e7c52c91c4ff631152ce7028547724fc169"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-before-binding.json",
+      "bytes": 29427,
+      "sha256": "a45a337ae041f035f58a2e38348c5f4b16b0cbe305b4240dabfa04da1dff3d72"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-cleanup.json",
+      "bytes": 437,
+      "sha256": "a4e47062becd1785663c5f2ed1bef257a35c01955f7554d6fc135f68d5ef686e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-invocation.json",
+      "bytes": 2118,
+      "sha256": "1bd92ead3ee77772b3019590d245501f8951a5918c5d398d7bd063cf6abbbab3"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "1314398f16e43f0eaeef4ecebea3c0db0d2b5eabbf6221d1f8c866fa171b22eb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/routes.log",
+      "bytes": 1024,
+      "sha256": "84c64c654c5fb1cd9af3e3dfa65aea30080ca8c8e643b934d6e0453ea6a58fb1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/run_once.py",
+      "bytes": 6524,
+      "sha256": "11aa228868c4d023265c5c35149827fba71a9b453cac977e025d3667b0f2bc94"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/runtime-versions.json",
+      "bytes": 715,
+      "sha256": "556792ed67717c8ac677650e722cd767c48316fd5708880e01bf9a3ae91e062d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-after-binding.json",
+      "bytes": 29427,
+      "sha256": "0ba29dd3d21f4ad95eae4db7976adce7a127e24137777ab69d6fd2825df153fb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-before-binding.json",
+      "bytes": 29427,
+      "sha256": "f8c2794a7ffe8fd9bc8b02445835abc750225831f5c90b40999cdd57894ca715"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-cleanup.json",
+      "bytes": 797,
+      "sha256": "d70added7df0a518741439293fe122f4bb35069345519eb8e485122d69535e21"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-invocation.json",
+      "bytes": 2307,
+      "sha256": "ab9ad318b71f2f10b0372204052f39654515bfc2de92ef0d6f5e476c77e8c72c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit-isolation-cleanup.json",
+      "bytes": 152,
+      "sha256": "4b1c51100978e8fda1fa58a4c3bab1b7018385b3d19bad67b3f4d398e0153c97"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v1/unit.log",
+      "bytes": 5170,
+      "sha256": "874ec4f448aaa6734af38b7899133310e89ac7cfa5ca1dc24b011b35c3ec0a96"
+    }
+  ]
+}

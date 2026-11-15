@@ -1,0 +1,31 @@
+PASS actual SDK registry advertises the independent evidence reader
+PASS safe actual SDK roundtrip acknowledges metadata nonce, numeric categories and worker identity
+PASS safe metadata probe creates no execution traces or native actions
+PASS model probe arguments cannot fabricate transport acknowledgement
+PASS real metadata call completes wait plus read-only native query
+PASS separate MCP read observes the committed request terminal
+PASS accepted metadata remains distinct from actual typed entry and binds the probed worker
+PASS actual batch wrappers preserve parent operation and both returned step identities
+PASS actual wrapper entry snapshots applied defaults
+PASS actual SDK child operation links to verified native body and terminal
+PASS product journal records continue intent and completed write
+PASS real SDK accepts its supported numeric coercion
+PASS received JSON arguments and actually typed tool arguments have separate exact snapshots
+PASS duplicate invocation identity refuses before executing or overwriting evidence
+PASS invalid reserved metadata is rejected before any journal or tool execution
+PASS changed actual arguments are refused before a tool body or receipt journal
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 9007199254740992
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 1000000000000000100
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 100000000000000000000
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 1e+21
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 5e-324
+PASS legitimate JSON.stringify numeric token accepted without safe-integer restriction: 1.7976931348623157e+308
+PASS distinct actual SDK integer rejected before journal/body despite binary64 collision: 9007199254740993
+PASS distinct actual SDK integer rejected before journal/body despite binary64 collision: 1000000000000000128
+PASS host prepared tool name is bound independently of argument identity
+PASS model arguments cannot activate the reserved transport context
+PASS SDK transport completion does not convert failed tool outcome into success
+PASS prevalidation refusal has no fabricated child execution entry
+PASS owned ACC and native process cleanup is confirmed
+
+MACOS EXECUTION CONTEXT E2E: ALL PASS

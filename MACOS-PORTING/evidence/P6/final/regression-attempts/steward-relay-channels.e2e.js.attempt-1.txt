@@ -1,0 +1,94 @@
+PASS 工作台启动
+── (A) answer 通道:线程在等回答时,递话 = 回答 ──
+PASS A0 线程挂上了正式待决 question(got question_3bbb749278a7068e)
+PASS A1 递话走 answer 通道(got channel=answer ok=true err=undefined)
+PASS A2 回执带上被回答的 questionId(got question_3bbb749278a7068e)
+PASS A3 answer 之后 pendingQuestions 里那条待决消失
+PASS A4 该线程【没有】turn_kill(superseded)(before=0 after=0)
+PASS A5 该回合正常收尾(不是 aborted;got false)
+PASS A6 request_user_input 的结果被线程收下并继续跑完(会话正文里有它之后的助手消息)
+── (B) permission 通道:有 permission 待决时不代答 ──
+PASS B0 线程挂上了活的 permission 待决(got perm_3f9c2d06e8d1e383)
+PASS B1 有 permission 待决 → propose_required(pending_permission)(got propose_required/pending_permission)
+PASS B2 没有 supersede 掉那个等批准的回合(turn_kill=0)
+PASS B3 会话头的 turnSeq 一字不动
+── (C) steer 通道:线程在跑时插话,不新起回合 ──
+PASS C0 线程已经开跑
+PASS C1 在跑的线程 → steer 通道(got channel=steer err=undefined)
+PASS C2 插话真的入队(queued=1)
+PASS C3 没有 supersede 掉在跑的回合(turn_kill=0)
+── (D) turn 通道:空闲线程起新回合 ──
+PASS D1 空闲线程 → turn 通道(got channel=turn err=undefined)
+PASS D2 真的起了一个回合
+── (E) POST /api/steward/relay 与工具面同核心 ──
+PASS E1 空闲线程 → 200 channel=turn(got 200/turn)
+PASS E2 无 token → 403(got 403)
+PASS E3 非法 sessionId → 4xx(got 400)
+PASS E4 第二条线程挂上了待决
+PASS E5 HTTP 面同样走 answer 通道(got answer)
+PASS E6 HTTP 面同样不 supersede(turn_kill=0)
+── (F) 用户连发两句:服务端严格串行 ──
+PASS F1 两次请求都 200(got 200/200)
+PASS F2 第一句拿到自己的回答
+PASS F3 第二句拿到自己的回答(不是 steward.busy;raw 尾: user","say":"第二句的回答。","why":"用户第二句","acts":[],"actions":[],"parsed":true,"createdAt":"2026-11-12T11:05:50.623Z","circuit":null,"ts":"2026-11-12T11:05:50.628Z"}
+)
+PASS F4 第二句严格排在第一句之后(两回合各 ~2s,合计 4296ms ≥ 3500ms = 没有并跑)
+PASS F5 管家会话里两条 assistant 消息都完整落盘(2 → 4)
+PASS F6 顺序正确(got ["{\"say\":\"第一句的回答。\",\"wh","{\"say\":\"第二句的回答。\",\"wh"])
+PASS F7 真等过的那一次记了 steward_user_turn_queued{waitedMs}
+── (G) 新线程按 tier 选端点/模型 ──
+PASS G0 POST /api/config 收下 stewardThreadModels(got 200)
+PASS G1 整对象落盘并被归一
+PASS G2 strong 线程建起来了(got sess_5811844fbc0a6306)
+PASS G3 strong 线程 engineRoute 对得上(got {"engine":"openai","providerId":"strong-ep","model":"strong-model"})
+PASS G4 fast 档 model 为空 → 用该 provider 自己的模型(got {"engine":"openai","providerId":"fast-ep","model":"fast-model"})
+PASS G5 provider 不存在 → 回落全局主端点(got {"engine":"openai","providerId":"fake","model":"fake-model"})
+PASS G6 回落记了审计 steward_thread_model_fallback
+PASS G8 stewardThreadModels 是 confirm 档:用户按下管家递的按钮(/api/steward/act)后落盘(got ok strong={"providerId":"fake","model":"fake-model"})
+── (H) liveTail:活回合的尾巴 ──
+PASS H1 活回合时 GET /api/sessions/:id 带 liveTail(got {"text":"我正在一步一步地看这件事","tool":"","updatedAt":"2026-11-12T11:05:51.249Z","full":"我正在一步一步地看这件事","truncated":false,"startedAt":"2026-11-12T11:05:51.143Z","iterations":0,"tools":[]})
+PASS H2 liveTail.text 是活回合真正流出来的文本(got 我正在一步一步地看这件事)
+PASS H1b 活回合时 resumable.live === true(got {"dangling":false,"kind":null,"turnSeq":1,"historyLength":1,"live":true})
+PASS H3 回合结束后 liveTail 不再下发(不落盘)
+PASS H3b 回合结束后 resumable.live 不是 true(got {"dangling":false,"kind":null,"turnSeq":1,"historyLength":2})
+── (I2) GET /api/missions 的线程行带 asksYou ──
+PASS I2a 任务线程建起来了(got sess_2a1c40b035be5900)
+PASS I2 看板行带 asksYou(question)(got {"kind":"question","text":"这两个方案你选哪个？","questionId":"question_board_1","interventionId":"question_board_1"})
+PASS I2b 看板行的既有字段一个不少(只加不改)
+PASS I2c 挂着 permission 的看板行也带 asksYou(kind='permission' + 人话 + toolName/tier/revertible)(got {"kind":"permission","text":"等你放行:运行一段脚本","interventionId":"perm_board_1","toolName":"script_run","target":"","tier":"exec","revertible":false})
+-- (J) queued 通道:线程还在排队时递话,不新开回合、不丢那句话 --
+PASS J0 第一条线程占住了这个工作文件夹的写锁(sid=sess_1e237bd1f20b0066)
+PASS J1 第二条线程排在仲裁器队列里(既不在 activeChildren、也没有待决;got {"sessionId":"sess_01c92b912b90e7cd","title":"排队的","cwdKey":"e4ac0d114a49","enqueuedAt":1794481554067,"execution":{"serverInstanceId":"daeba63dd86e","driverRunId":"drun_84408900fda7ed4a"},"priorityBump":false,"wait":{"reason":"lock","label":"等锁：同一个文件夹被「占着文件夹的」占着","blockedBy":{"sessionId":"sess_1e237bd1f20b0066","title":"占着文件夹的"}}})
+PASS J2 排队中递话 -> 409 steward.queued(got 409/steward.queued)
+PASS J3 人话说清了它还在排队、这句没递进去(got "线程「排队的」还在排队(等锁：同一个文件夹被「占着文件夹的」占着),这句先没递进去;等它开跑后再说一次")
+PASS J3b 工具面同一条核心(got steward.queued/channel=queued/wait="lock")
+PASS J4 排队的那条线程只开了 1 个回合(turn_start=1;修前是 2)
+PASS J5 没有 turn_kill(superseded)(got 0)
+PASS J6 排队中的第一句话还在正文里(got ["我是第一句,排队中"])
+PASS J7 那一个回合正常收尾(不是 aborted;got [{"ok":true,"aborted":false}])
+── (K) 线程 ↔ 2.0 会话 1:1 ──
+PASS K1 steward_thread_new 开出一条线程(got sess_ff74c0194fc0fa50)
+PASS K2 它出现在 GET /api/sessions 的列表里 —— 经典壳侧栏读的就是这一份(列表 15 条)
+PASS K3 GET /api/sessions/:id 打得开 —— 「看全文」走的就是这条路(HTTP 200)
+PASS K4 它确实是 kind:'mission' 的线程(got "mission")—— 但 K2/K3 照样成立,kind 不是把它赶出 2.0 会话面的理由
+PASS K5 列表条目上也如实带着 kind(前端渲染无 kind 过滤,由 live-full-text.static 的 I1/I2 从另一头钉着;got "mission")
+PASS K6 列表里恰好一条(不重复、不分身)
+── 进程内阶段(工具面直调)──
+── (I) asksYou 三态 ──
+PASS I1 正式待决 → asksYou.kind='question' + 问题原文(got {"kind":"question","text":"走 A 还是走 B？","questionId":"question_inproc_1","interventionId":"question_inproc_1"})
+PASS I3 末句问号 → asksYou.kind='soft'(got {"kind":"soft","text":"要不要我把汇总也做了？"})
+PASS I4 既无待决也不是问句 → asksYou === null(got null)
+PASS I5 wait 与五态字段照旧在(只加不改)
+── (I6) asksYou 四类待决 + 固定优先级 ──
+PASS I6a permission 待决 → asksYou.kind='permission' + stewardPendingOneLine 的原话 + toolName/tier/revertible(got {"kind":"permission","text":"等你放行:运行一段脚本","interventionId":"perm_a1","toolName":"script_run","target":"","tier":"exec","revertible":false})
+PASS I6b plan 待决 → asksYou.kind='plan' + 计划摘要(got {"kind":"plan","text":"先清库存再补货","interventionId":"plan_a1"})
+PASS I6c pool 待决 → asksYou.kind='pool' + 任务原话(got {"kind":"pool","text":"再加一条子任务","interventionId":"pool_a1"})
+PASS I6d 优先级固定:question 压过 permission,且 question 一支照旧带 questionId(got {"kind":"question","text":"走 A 还是走 B?","questionId":"question_b1","interventionId":"question_b1"})
+PASS I6e permission 的人话逐字来自 stewardPendingOneLine 单点(got "等你放行:运行一段脚本")
+PASS I6f pending 摘要与五态字段照旧在(只加不改)
+── (G7) 速查线程恒 fast 档 ──
+PASS G7a 速查线程建起来了(got ok)
+PASS G7b 返回值带 tier='fast'(got fast)
+PASS G7 速查线程的 engineRoute 走 fast 档(got {"engine":"openai","providerId":"fast-ep","model":"fast-model"})
+
+STEWARD RELAY CHANNELS E2E: ALL PASS

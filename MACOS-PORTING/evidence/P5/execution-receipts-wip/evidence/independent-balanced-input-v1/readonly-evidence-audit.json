@@ -1,0 +1,214 @@
+{
+  "at": "2026-11-12T00:16:57.010143+00:00",
+  "root": "/tmp/rei-HxJJZa",
+  "receiver": {
+    "path": "/private/tmp/rei-HxJJZa/receiver",
+    "bytes": 77480,
+    "sha256": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da"
+  },
+  "receiverSameBytesAsDevelopment": true,
+  "receiverSeparateFrom4FrozenNamedArtifacts": true,
+  "journal": {
+    "path": "/private/tmp/rei-HxJJZa/receiver.ndjson",
+    "bytes": 32877,
+    "sha256": "34e50d49b244023cb4ce9ac357501f8807b2521be6066aaae32cea9dfe4c198c"
+  },
+  "journalRecords": 23,
+  "journalExactlyMatchesReports": true,
+  "journalHealthySeal": true,
+  "freshArmIntervals": 3,
+  "actualInputEvents": 2,
+  "actualCGTimestampsNs": [
+    162657641346458,
+    162657669568166
+  ],
+  "actualCGIntervalNs": 28221708,
+  "plannedOffsetUs": 40000,
+  "measured40msSLAClaimed": false,
+  "actualNativeWorker": {
+    "pgid": 89005,
+    "sid": 89005,
+    "birth": "1794442380:17537",
+    "pid": 89021,
+    "ppid": 89007,
+    "created": "1794442380017537",
+    "name": ""
+  },
+  "inputNativePrepared": {
+    "acc_pid": 89007,
+    "acc_worker_id": "ccdf0a647c5949e68a0149f043570dff",
+    "args_bytes": 815,
+    "args_codec": "exact-native-frame",
+    "args_ref": "args-6bea3efbc4f949af99c7573f8b7ebc94.json",
+    "args_sha256": "0789c694fb0323242c65d65773e2f39e28089458ab0c203c854f7fbceebaedac",
+    "at": "2026-11-12T00:13:00.269428+00:00",
+    "frame_id": 3,
+    "frame_sha256": "0789c694fb0323242c65d65773e2f39e28089458ab0c203c854f7fbceebaedac",
+    "helper_identity": [
+      "16777234",
+      "82610951",
+      "309968",
+      "1794434536964390635"
+    ],
+    "invocation_id": "e8fc04ae69da5e8c616b089cc8789900",
+    "op": "input.sequence",
+    "operation_id": "6bea3efbc4f949af99c7573f8b7ebc94",
+    "parent_operation_id": "a9c33a68eced421f8297b9a900d499d2",
+    "schema": 1,
+    "sequence": 4,
+    "stage": "native_prepared",
+    "worker_id": "f38f087287ed4d02b9e933444fc0cb56",
+    "worker_pid": 89021
+  },
+  "inputNativeTerminal": {
+    "acc_pid": 89007,
+    "acc_worker_id": "ccdf0a647c5949e68a0149f043570dff",
+    "acted": true,
+    "action_sent": true,
+    "at": "2026-11-12T00:13:00.378631+00:00",
+    "frame_id": 3,
+    "invocation_id": "e8fc04ae69da5e8c616b089cc8789900",
+    "ok": true,
+    "operation_id": "6bea3efbc4f949af99c7573f8b7ebc94",
+    "parent_operation_id": "a9c33a68eced421f8297b9a900d499d2",
+    "schema": 1,
+    "sequence": 9,
+    "stage": "native_terminal",
+    "worker_id": "f38f087287ed4d02b9e933444fc0cb56"
+  },
+  "ledgerEntries": 9,
+  "strictCommittedReceiptChecks": [
+    {
+      "invocationId": "f9779401779ad46634b513fcd30a91ee",
+      "tool": "list_windows",
+      "records": 11,
+      "commit": {
+        "bytes": 5507,
+        "schema": 1,
+        "sequence": 11,
+        "sha256": "70c8d9f2295c37d2ba9524d5fee67b301018b7c721d61f64ff253e99dbcb3416"
+      },
+      "argsSnapshotsVerified": 4,
+      "matchingSavedPrefixRows": 3,
+      "deliverySha256": "8360ef89cf9614fb47da58ebb50f6ae616ee2cdd0ee675b07756714981fc7b18"
+    },
+    {
+      "invocationId": "bc3b660728047d4870d8ca8b71d8f840",
+      "tool": "audit_tail",
+      "records": 4,
+      "commit": {
+        "bytes": 2065,
+        "schema": 1,
+        "sequence": 4,
+        "sha256": "017fae7f053f6c8d94014485d742ee6fa40ac80d14b54a2e0cfd03e274dcb175"
+      },
+      "argsSnapshotsVerified": 2,
+      "matchingSavedPrefixRows": 4,
+      "deliverySha256": "12168e610d8e1458c4ea0ffc7b0a3d5c5a0e819c2abc3c9223380402e306dcbf"
+    },
+    {
+      "invocationId": "e8fc04ae69da5e8c616b089cc8789900",
+      "tool": "macro_run",
+      "records": 14,
+      "commit": {
+        "bytes": 6680,
+        "schema": 1,
+        "sequence": 14,
+        "sha256": "013b87819a90dbdf746c2dd75faa9deaf2ade6c2bd50fce3d97889a835614af6"
+      },
+      "argsSnapshotsVerified": 5,
+      "matchingSavedPrefixRows": 6,
+      "deliverySha256": "c00a7521f46ce19bcb5672ffcc95be7934021e4774659b1abf854c1d1ff9cd19"
+    },
+    {
+      "invocationId": "a2d612a5af3896b78a2437075dccc151",
+      "tool": "audit_tail",
+      "records": 4,
+      "commit": {
+        "bytes": 2065,
+        "schema": 1,
+        "sequence": 4,
+        "sha256": "8893d73372d74cdf207a6b78445dcd10ca3b1d24359190adc9e71a40a87bc689"
+      },
+      "argsSnapshotsVerified": 2,
+      "matchingSavedPrefixRows": 8,
+      "deliverySha256": "508125e603b8a19fe99e303d3aa0ec27c16f61ae61bdab3fd5d96237834290e2"
+    },
+    {
+      "invocationId": "a20d3dac86c2ba3d0897e4ecdff1ef46",
+      "tool": "list_windows",
+      "records": 10,
+      "commit": {
+        "bytes": 4950,
+        "schema": 1,
+        "sequence": 10,
+        "sha256": "b0c0269bd7ced77cf9b3f73026286e7622db56ca8a6ae2df64a061f3daceda30"
+      },
+      "argsSnapshotsVerified": 3,
+      "matchingSavedPrefixRows": 3,
+      "deliverySha256": "bcdc6ebe59d58add5f0a8ee1741a97ed80e32a5174d8835a2f076c19ad6a9711"
+    },
+    {
+      "invocationId": "ed268a991d34deb1cdd20228acb08830",
+      "tool": "audit_tail",
+      "records": 4,
+      "commit": {
+        "bytes": 2065,
+        "schema": 1,
+        "sequence": 4,
+        "sha256": "62f931541c2952f77047176d5c5450d7c42b5fe609546ab1573c7267cd52f0ef"
+      },
+      "argsSnapshotsVerified": 2,
+      "matchingSavedPrefixRows": 4,
+      "deliverySha256": "53145652abc8040fd601b9164e8a4c62187ba265e6072a951d62e31a2bd63f07"
+    },
+    {
+      "invocationId": "9dd619c2a54386aebbf5e7bbba68035d",
+      "tool": "audit_tail",
+      "records": 4,
+      "commit": {
+        "bytes": 2065,
+        "schema": 1,
+        "sequence": 4,
+        "sha256": "c92cb507f103f314bc6f7a835d5cdefb0a1d03b7a4288fb29565d275d3c8b990"
+      },
+      "argsSnapshotsVerified": 2,
+      "matchingSavedPrefixRows": 8,
+      "deliverySha256": "ddd6bbca120fcbb8d3d37834ed65a838f575712e31fb7d1935fe2c5d032cf159"
+    },
+    {
+      "invocationId": "05ad46f1116b497dc8053dd9632e6878",
+      "tool": "list_windows",
+      "records": 10,
+      "commit": {
+        "bytes": 4950,
+        "schema": 1,
+        "sequence": 10,
+        "sha256": "ac693619692348224c473042a484b565dc366a8b796517123be29c8f033add32"
+      },
+      "argsSnapshotsVerified": 3,
+      "matchingSavedPrefixRows": 3,
+      "deliverySha256": "3512f655287b90a6094e8e5a15efae579a2ec39cc5e258b3589cc0c9546ee4ee"
+    },
+    {
+      "invocationId": "b3f12e9ffde2d53e864ff36948d144fb",
+      "tool": "audit_tail",
+      "records": 4,
+      "commit": {
+        "bytes": 2065,
+        "schema": 1,
+        "sequence": 4,
+        "sha256": "bade1c3031c9a84d2fff8ba3b2676d00f0946e18875972a31b23b6d2fa74e009"
+      },
+      "argsSnapshotsVerified": 2,
+      "matchingSavedPrefixRows": 4,
+      "deliverySha256": "2046a39a9b3c44ddf71d33608fd91a2a35ecee7dd88fa51a9530f03f72cbd129"
+    }
+  ],
+  "auditRecordCount": 2,
+  "allDeliveryPrefixesRehashed": true,
+  "allowSingleReportedStep0Effect": true,
+  "denyCancelNoMacroOrInput": true,
+  "coldSameACKsNoInputReplay": true,
+  "allObservedOwnedPIDsAbsent": true
+}

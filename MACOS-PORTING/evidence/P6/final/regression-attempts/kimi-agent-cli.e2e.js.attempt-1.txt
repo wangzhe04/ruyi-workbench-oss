@@ -1,0 +1,136 @@
+PASS config preserves Kimi driver selection
+PASS config normalizes Kimi launcher path
+PASS legacy bare Kimi model migrates to its native alias
+PASS unknown driver falls back to Claude
+PASS driver registry contains only Claude and Kimi
+PASS Kimi npm shim resolves to direct Node launch
+PASS direct launch preserves entrypoint and args
+PASS Kimi PowerShell shim resolves to the same direct Node entrypoint
+PASS Kimi PowerShell shim passes readiness probing without PowerShell execution-policy dependence
+PASS global npm shim layout also resolves directly
+PASS POSIX global npm symlink resolves to the direct package entry so ACP compatibility can attach
+PASS a native POSIX launcher is not replaced by a nearby stale npm installation
+PASS bare Kimi command resolves its shim from PATH
+PASS bare PATH shim bypasses cmd.exe through the package entrypoint
+PASS opt-in Kimi ACP loader enables non-Bash process tools without modifying the installed CLI
+PASS version metadata is accepted without chat output
+PASS resume hint binds native Kimi session
+PASS assistant content becomes text
+PASS Kimi function call becomes tool event
+PASS Kimi tool response becomes tool result
+PASS Kimi wire auto-compaction start becomes visible compact event
+PASS Kimi wire compaction application preserves exact before/after usage
+PASS Kimi rebased token count synchronizes Ruyi usage
+PASS Kimi wire subagent spawn maps to the Ruyi subagent card contract
+PASS Kimi child Glob wire event nests in its Ruyi subagent card
+PASS Kimi child tool result preserves output and ownership
+PASS Kimi wire subagent completion settles the Ruyi card
+PASS context panel exposes universal compaction-model selector
+PASS D0b ctx.compact.defaultKimi 在四份 locale 里都有值（缺：无）
+PASS Kimi manual compact routes to native API instead of prompt text
+PASS Kimi status refresh cannot overwrite active Provider compaction usage
+PASS opening the Provider context popover cannot trigger a late Kimi usage overwrite
+PASS live Kimi tool input updates refresh the existing Ruyi tool card
+PASS settings exposes Agent CLI selector with Kimi
+PASS frontend readiness and labels follow selected driver
+PASS engine launches Kimi through ACP with the guarded non-Bash tool compatibility layer
+PASS Kimi MCP sync preserves unrelated user entries
+PASS Kimi MCP sync writes native inferred-transport shape
+PASS Kimi MCP sync grants Ruyi bridge its long-running tool budget
+PASS Kimi MCP sync removes duplicate ACC aliases and avoids the 60-second transport timeout
+PASS Kimi MCP sync preserves per-server timeout and tool filters
+PASS disabling Ruyi MCP removes only Ruyi-owned Kimi entries
+PASS frontend Agent CLI registry lists Kimi Code
+PASS frontend registry: Kimi compacts through the native API, Claude through its /compact turn
+PASS frontend registry: the Kimi compaction default name is the ctx.compact.defaultKimi i18n key
+PASS frontend registry: only Kimi refreshes native usage from /api/kimi/status
+PASS active Kimi session plan markdown is recognized as internal protocol state
+PASS legacy workspace plan markdown remains compatible when ACP names the current file
+PASS unknown legacy plan markdown does not bypass the filesystem guard
+PASS lookalike plan directory cannot bypass the filesystem guard
+PASS plan traversal cannot bypass the filesystem guard
+PASS non-plan files remain on the normal guarded path
+PASS canonical active session plan path is accepted before the file exists
+PASS agents directory junction to an external tree is rejected by canonical-root validation
+PASS session directory junction outside KIMI_CODE_HOME is rejected
+PASS legacy plan directory junction outside cwd is rejected
+PASS native Write approval through a directory alias matches the canonical fs request exactly once before the file exists
+PASS Kimi ACP restore chooses declared resume/load capability paths
+PASS explicitly disabled restore cannot fall through to new-session recovery
+PASS modes-only ACP response becomes an advertised safe mode option
+PASS Kimi mode fallback never reuses stale session actual without activation/connection evidence
+PASS Kimi early content JSON recovers concrete Write and Bash inputs only for native kinds
+PASS Kimi early content recovery rejects illegal, ambiguous, MCP, and empty inputs
+PASS same-id Kimi permission merge keeps the initial stable native name and recovers only that active tool input
+PASS Kimi once approval is concrete, active-tool-bound, and single-use
+PASS settled native tool invalidates its leftover Kimi once approval
+PASS Kimi once approval rejects wrong tier, empty values, and wrong paths without wildcard reuse
+PASS Kimi concurrent same-value once approvals remain manual when ownership is ambiguous
+PASS explicit Kimi session approval remains reusable for the exact same tier and value
+PASS EnterPlanMode revocation requires the stable native name and completed non-error lifecycle
+PASS native Bash wrapper candidate preserves exact executable/argv shape and upstream shell quoting
+PASS native Bash approval reuses only the exact known wrapper and cwd
+PASS native Bash wrapper rejects extra commands, different cwd, wrong tier, workspace pseudo-shell, and empty wrapper command
+PASS removed Kimi plan snapshot updates in place without erasing prior markdown/path
+PASS Kimi late tool update executes with explicit formatter dependencies and updates the live card
+PASS workbench starts with selected fake Kimi driver
+PASS Kimi model refresh queries the selected CLI
+PASS Kimi model refresh returns configured aliases
+PASS Kimi picker excludes bare/Claude remembered model ids
+PASS turn metadata identifies Kimi ACP driver
+PASS direct npm Kimi ACP launch enables the guarded non-Bash tool compatibility layer
+PASS Kimi ACP assistant chunks reach the chat stream
+PASS Kimi tool call reaches the chat stream
+PASS late Kimi tool input updates reach the existing chat card
+PASS Kimi tool result reaches the chat stream
+PASS nested ACP plan_update maps to Ruyi todos
+PASS Kimi ACP plan_update emits a read-only ordered snapshot
+PASS Kimi ACP usage update reaches the context panel
+PASS Kimi process completion closes the turn successfully
+PASS Kimi ACP turn exposes the Ruyi session id
+PASS ACP prompt-response usage is retained alongside context occupancy
+PASS Kimi plan snapshot persists as a read-only narrative segment
+PASS Kimi AskUserQuestion becomes a structured Ruyi prompt
+PASS structured user answer round-trips through ACP reverse RPC
+PASS ACP $/cancel_request only settles the cancelled reverse request; the parallel permission keeps waiting for the user (KIMI_CANCEL_ONE:approve_once:-32800)
+PASS the cancelled request's own permission card is closed as denied
+PASS Kimi ExitPlanMode becomes a visible structured Ruyi plan decision
+PASS Ruyi plan approval round-trips through ACP without aborting the turn
+PASS approved plan execution continues through the normal manual write permission
+PASS Kimi empty-plan read and subsequent plan write complete through ACP
+PASS approved plan execution writes after the ordinary permission decision
+PASS acceptEdits native Write returns allow_once without a second popup
+PASS acceptEdits merges same-id tool_call kind/rawInput and allows a relative Write path once
+PASS acceptEdits does not upgrade a native request that lacks allow_once
+PASS acceptEdits unknown/prefixed edit tool remains interactive
+PASS Kimi tool approval uses the Ruyi permission surface
+PASS session-scoped approval maps to ACP allow_always
+PASS Kimi ACP Bash uses the Ruyi terminal capability and returns output
+PASS released ACP terminal output replaces the opaque terminalId in the Ruyi tool card
+PASS trusted native Kimi search skips execution permission while retaining read-only classification
+PASS Kimi ACP text write/read round-trips through guarded Ruyi filesystem calls
+PASS ACP filesystem write is applied in the selected workspace
+PASS Kimi ACP form elicitation maps to structured Ruyi user input
+PASS ACP $/cancel_request interrupts a pending Ruyi terminal wait with the standard cancellation code
+PASS Kimi steer honestly reports queued ACP follow-up semantics
+PASS queued steer is injected into the same live Kimi ACP session
+PASS queued steer runs as a follow-up ACP prompt before the outer turn closes
+PASS a steer that arrives while the Kimi turn is settling is refused, not silently queued ({"ok":false,"error":{"code":"steer.kimi_settling","message":"当前 Kimi 回合正在收尾，请作为下一条消息发送","params":{}}})
+PASS a user-stopped Kimi turn is not recorded as an ACP failure ("")
+PASS Kimi ACP live turn accepts the common stop endpoint
+PASS stopped Kimi ACP prompt settles as aborted instead of a false success
+PASS Kimi stderr reaches the visible failed-result card
+PASS non-auth ACP required-field errors are not misreported as login failures
+PASS ACP terminal output keeps the newest bytes up to outputByteLimit and reports truncation (8388608/true/true/162)
+PASS 40MB of terminal output is collected without quadratic re-encoding (162ms)
+PASS Kimi wire watcher discovers a live subagent after the ACP session starts
+PASS Kimi wire watcher follows newly-created child-agent tool files
+PASS Kimi wire watcher relays child tool output to Ruyi
+PASS Kimi wire watcher completes the matching Ruyi subagent card
+PASS Kimi wire watcher decodes a CJK character split across two read windows ("One TODO found. 找到一个待办事项。")
+Kimi Agent CLI adapter contract passed.
+[Ruyi Kimi ACP compat] patch-applied: exact isBashToolInvocation source matched
+(node:68940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/agent-cli-registry.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

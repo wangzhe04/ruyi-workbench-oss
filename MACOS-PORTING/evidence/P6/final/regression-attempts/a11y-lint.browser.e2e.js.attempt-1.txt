@@ -1,0 +1,65 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 尺子自检:种下的七条违规逐条被认出(没认出的规则 无)
+PASS A0 专家档:管家视角
+PASS A1 专家档·管家视角:可操作节点都有名字(无名 0)
+PASS A2 专家档·管家视角:没有重复 id(0)
+PASS A3 专家档·管家视角:id 引用都指得到人(断 0)
+PASS A4 专家档·管家视角:role 取值合法(0)
+PASS A5 专家档·管家视角:没有 tabindex>0(0)
+PASS A6 专家档·管家视角:没有嵌套的可操作元素(0)
+PASS A7 专家档·管家视角:aria-hidden 子树里没有可聚焦元素(0)
+PASS A8 专家档·管家视角:左栏「＋」钮的无障碍名包含可见文字（可见「另起一件」，aria-label null）
+PASS A0 专家档:工作台视角
+PASS A1 专家档·工作台视角:可操作节点都有名字(无名 0)
+PASS A2 专家档·工作台视角:没有重复 id(0)
+PASS A3 专家档·工作台视角:id 引用都指得到人(断 0)
+PASS A4 专家档·工作台视角:role 取值合法(0)
+PASS A5 专家档·工作台视角:没有 tabindex>0(0)
+PASS A6 专家档·工作台视角:没有嵌套的可操作元素(0)
+PASS A7 专家档·工作台视角:aria-hidden 子树里没有可聚焦元素(0)
+PASS A8 专家档·工作台视角:左栏「＋」钮的无障碍名包含可见文字（可见「新线程」，aria-label null）
+PASS A0 专家档:设置弹窗打开
+PASS A1 专家档·设置弹窗:可操作节点都有名字(无名 0)
+PASS A2 专家档·设置弹窗:没有重复 id(0)
+PASS A3 专家档·设置弹窗:id 引用都指得到人(断 0)
+PASS A4 专家档·设置弹窗:role 取值合法(0)
+PASS A5 专家档·设置弹窗:没有 tabindex>0(0)
+PASS A6 专家档·设置弹窗:没有嵌套的可操作元素(0)
+PASS A7 专家档·设置弹窗:aria-hidden 子树里没有可聚焦元素(0)
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 尺子自检:种下的七条违规逐条被认出(没认出的规则 无)
+PASS A0 简易档:管家视角
+PASS A1 简易档·管家视角:可操作节点都有名字(无名 0)
+PASS A2 简易档·管家视角:没有重复 id(0)
+PASS A3 简易档·管家视角:id 引用都指得到人(断 0)
+PASS A4 简易档·管家视角:role 取值合法(0)
+PASS A5 简易档·管家视角:没有 tabindex>0(0)
+PASS A6 简易档·管家视角:没有嵌套的可操作元素(0)
+PASS A7 简易档·管家视角:aria-hidden 子树里没有可聚焦元素(0)
+PASS A8 简易档·管家视角:左栏「＋」钮的无障碍名包含可见文字（可见「另起一件」，aria-label null）
+PASS A0 简易档:工作台视角
+PASS A1 简易档·工作台视角:可操作节点都有名字(无名 0)
+PASS A2 简易档·工作台视角:没有重复 id(0)
+PASS A3 简易档·工作台视角:id 引用都指得到人(断 0)
+PASS A4 简易档·工作台视角:role 取值合法(0)
+PASS A5 简易档·工作台视角:没有 tabindex>0(0)
+PASS A6 简易档·工作台视角:没有嵌套的可操作元素(0)
+PASS A7 简易档·工作台视角:aria-hidden 子树里没有可聚焦元素(0)
+PASS A8 简易档·工作台视角:左栏「＋」钮的无障碍名包含可见文字（可见「新线程」，aria-label null）
+PASS A0 简易档:设置弹窗打开
+PASS A1 简易档·设置弹窗:可操作节点都有名字(无名 0)
+PASS A2 简易档·设置弹窗:没有重复 id(0)
+PASS A3 简易档·设置弹窗:id 引用都指得到人(断 0)
+PASS A4 简易档·设置弹窗:role 取值合法(0)
+PASS A5 简易档·设置弹窗:没有 tabindex>0(0)
+PASS A6 简易档·设置弹窗:没有嵌套的可操作元素(0)
+PASS A7 简易档·设置弹窗:aria-hidden 子树里没有可聚焦元素(0)
+A11Y LINT BROWSER E2E: ALL PASS

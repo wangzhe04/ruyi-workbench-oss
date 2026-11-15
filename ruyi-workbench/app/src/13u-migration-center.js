@@ -27,6 +27,10 @@ const MIGRATION_SIZE_BUDGET_MS = 6000;       // 一次扫描里算目录大小�
 const MIGRATION_SIZE_FILE_CAP = 80000;       // 单个包最多数这么多个文件
 const MIGRATION_SIZE_TTL_MS = 10 * 60 * 1000;
 const migrationSizeCache = new Map();        // 包根键 -> { at, bytes, files, capped }
+const MigrationTrashHooks = {
+  helperPath: () => path.resolve(__dirname, '..', 'runtime', 'macos', 'ruyi-trash-helper'),
+  run: (...args) => DesktopShell.runProcess(...args),
+};
 let migrationChain = Promise.resolve();
 
 function migrationSerial(fn) {
@@ -941,6 +945,24 @@ async function migrationForgetPackage(root) {
   if (packages.length === reg.packages.length) return;
   await atomicWriteJson(installRegistryPath(), { schema: reg.schema, updatedAt: nowIso(), packages });
 }
+// Registry/reference paths address workbench; disposing a Mac installation must move its
+// enclosing App, never remove a signed Resources subtree and leave a broken App behind.
+function migrationTrashTarget(root) {
+  if (process.platform !== 'darwin') return root;
+  let actual; try { actual = fs.realpathSync.native(root); } catch { return null; }
+  for (let directory = actual; ; directory = path.dirname(directory)) {
+    if (/\.app$/i.test(directory)) {
+      try {
+        if (fs.realpathSync.native(path.join(directory, 'Contents/Resources/workbench')) === actual
+          && fs.statSync(path.join(directory, 'Contents/Info.plist')).isFile()
+          && fs.statSync(path.join(directory, 'Contents/MacOS/RuyiDesktop')).isFile()) return directory;
+      } catch { /* incomplete App layout */ }
+      return null; // Never dispose just a subtree of an unrecognized App.
+    }
+    if (path.dirname(directory) === directory) break;
+  }
+  return actual;
+}
 async function migrationSendToRecycleBin(root) {
   // 测试钩子:设了 RUYI_MIGRATION_RECYCLE_STUB_DIR 时,不碰系统回收站,把目录挪进这个目录(e2e 用)。
   const stub = String(process.env.RUYI_MIGRATION_RECYCLE_STUB_DIR || '').trim();
@@ -948,6 +970,16 @@ async function migrationSendToRecycleBin(root) {
     await fsp.mkdir(stub, { recursive: true });
     await fsp.rename(root, path.join(stub, path.basename(root) + '-' + migrationStamp()));
     return { via: 'test-stub' };
+  }
+  if (process.platform === 'darwin') {
+    const helper = MigrationTrashHooks.helperPath();
+    if (!fs.existsSync(helper)) return { error: 'trash-helper-unavailable' };
+    const stat = await migrationLstat(root);
+    if (!stat?.isDirectory() || stat.isSymbolicLink()) return { error: 'invalid-trash-target' };
+    const r = await MigrationTrashHooks.run(helper, [root], { timeoutMs: 30000 });
+    let result; try { result = JSON.parse(r.stdout); } catch { /* no confirmed result */ }
+    if (!r.ok || result?.ok !== true || !path.isAbsolute(result.trashedPath || '') || fs.existsSync(root)) return { error: 'recycle-failed' };
+    return { via: 'macos-trash', trashedPath: result.trashedPath };
   }
   if (process.platform !== 'win32') return { error: 'unsupported-platform' };
   // 目标路径经环境变量传入,脚本是纯 ASCII 常量 —— 零拼接、零注入。只移进回收站(SendToRecycleBin),不做永久删除。
@@ -969,22 +1001,54 @@ async function migrationRecycle(body) {
     if (migrationPathInside(currentKey, key)) return { ok: false, error: 'current-package', status: 409 };
     if (migrationPathInside(samePathKey(paths.data), key)) return { ok: false, error: 'contains-data', status: 409 };
     if (migrationPathInside(samePathKey(os.homedir()), key)) return { ok: false, error: 'contains-home', status: 409 };
+    const target = migrationTrashTarget(root);
+    if (!target) return { ok: false, error: 'invalid-app-layout', status: 409 };
+    let physicalTarget;
+    if (process.platform === 'darwin') {
+      // Canonical guards also protect data/current/home reached through an ancestor alias.
+      const stat = await migrationLstat(root);
+      if (!stat?.isDirectory() || stat.isSymbolicLink()) return { ok: false, error: 'invalid-trash-target', status: 409 };
+      const realTarget = samePathKey(await fsp.realpath(target));
+      physicalTarget = realTarget;
+      for (const [protectedPath, error] of [[migrationCurrentRoot(), 'current-package'], [paths.data, 'contains-data'], [os.homedir(), 'contains-home']]) {
+        const realProtected = samePathKey(await fsp.realpath(protectedPath));
+        // Also protect a data/home entry inside the expanded App when that final entry
+        // is itself a symlink to an external directory: moving the App breaks access.
+        const protectedEntry = samePathKey(path.join(await fsp.realpath(path.dirname(protectedPath)), path.basename(protectedPath)));
+        if (migrationPathInside(samePathKey(protectedPath), samePathKey(target))
+          || migrationPathInside(protectedEntry, realTarget) || migrationPathInside(realProtected, realTarget)) return { ok: false, error, status: 409 };
+      }
+    }
     const config = await readConfig();
     const refs = await migrationCollectRefs(config);
     const packages = await migrationListPackages(refs, { withSizes: false });
     const pkg = packages.find(p => p.key === key);
     if (!pkg || !ruyiPackageInfo(root)) return { ok: false, error: 'not-an-old-package', status: 404 };
-    if (pkg.running) return { ok: false, error: 'running', status: 409 };
-    if (pkg.refCount > 0) {
-      return { ok: false, error: 'referenced', status: 409,
-        refs: refs.filter(r => pkg.refIds.includes(r.id)).map(r => ({ id: r.id, file: r.displayFile, entry: r.entryLabel, action: r.action })) };
+    const related = [pkg];
+    if (process.platform === 'darwin') {
+      for (const candidate of packages) {
+        if (candidate === pkg) continue;
+        const candidateTarget = migrationTrashTarget(candidate.root);
+        if (!candidateTarget) continue;
+        try { if (samePathKey(await fsp.realpath(candidateTarget)) === physicalTarget) related.push(candidate); }
+        catch { /* absent old installation cannot alias this existing target */ }
+      }
     }
-    const done = await migrationSendToRecycleBin(pkg.root);
+    if (related.some(p => p.running)) return { ok: false, error: 'running', status: 409 };
+    const refIds = new Set(related.flatMap(p => p.refIds));
+    if (refIds.size > 0) {
+      return { ok: false, error: 'referenced', status: 409,
+        refs: refs.filter(r => refIds.has(r.id)).map(r => ({ id: r.id, file: r.displayFile, entry: r.entryLabel, action: r.action })) };
+    }
+    const done = await migrationSendToRecycleBin(target);
     if (done.error) return { ok: false, error: done.error, detail: done.detail || '', status: 500 };
-    migrationSizeCache.delete(key);
-    await migrationForgetPackage(pkg.root).catch(() => {});
+    for (const item of related) {
+      migrationSizeCache.delete(item.key);
+      await migrationForgetPackage(item.root).catch(() => {});
+    }
     logEvent({ kind: 'migration_recycle', root: pkg.root, version: pkg.version || '', via: done.via });
-    return { ok: true, root: pkg.root, version: pkg.version || '', via: done.via };
+    return { ok: true, root: pkg.root, version: pkg.version || '', via: done.via,
+      ...(done.trashedPath ? { trashedPath: done.trashedPath } : {}) };
   });
 }
 

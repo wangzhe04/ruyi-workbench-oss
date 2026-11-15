@@ -2,7 +2,7 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
 // E2E: a quiet bridged tool stays visible/alive without model polling, then a provider steer interrupts it,
 // closes the tool-call pair, and reaches the next model iteration without waiting for the original 30s sleep.
-const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
+const { killOwnTree, snapshotProcessTable } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -16,6 +16,9 @@ const HOME = path.join(os.tmpdir(), 'ruyi-long-tool-liveness-steer');
 const NOTIFY_CAPTURE = path.join(HOME, 'notify.jsonl');
 const PID_CAPTURE = path.join(HOME, 'fake-mcp.pid');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const mac = process.platform === 'darwin', nativeTool = mac ? 'shell_run' : 'powershell_run';
+const nativeCommand = mac ? 'sleep 30; printf late' : 'Start-Sleep -Seconds 30; Write-Output late';
+const preservedCommand = mac ? 'sleep 2; printf PRESERVED_WORK' : 'Start-Sleep -Seconds 2; Write-Output PRESERVED_WORK';
 let failures = 0;
 const ok = (value, label) => { if (value) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
 const kill = child => { if (child && child.pid) try { killOwnTree(child); } catch {} };
@@ -86,11 +89,15 @@ function pidAlive(pid) {
     const sid = created && created.body && created.body.session && created.body.session.id;
     ok(Boolean(sid), 'session created');
 
-    let steerResponse = null; let steerScheduled = false;
+    let steerResponse = null; let steerScheduled = false, firstIdentity;
     const startedAt = Date.now();
     const events = await stream(workbenchPort, { sessionId: sid, message: 'run the long tool and react to my steer', cwd: HOME }, event => {
       if (event.type === 'tool_use' && event.name === 'fake__slow_task' && !steerScheduled) {
         steerScheduled = true;
+        if (mac && fs.existsSync(PID_CAPTURE)) {
+          const pid = Number(fs.readFileSync(PID_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean)[0]);
+          firstIdentity = snapshotProcessTable()?.find(row => row.pid === pid);
+        }
         setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: sid, text: 'stop waiting and continue now', mode: 'interrupt' }, headers).then(value => { steerResponse = value; }); }, 750);
       }
     });
@@ -103,43 +110,58 @@ function pidAlive(pid) {
     ok(elapsedMs < 10000, `turn continues promptly after steer (${elapsedMs}ms, not 30s)`);
     const interrupted = events.find(event => event.type === 'tool_result' && event.content && event.content.steerInterrupted === true);
     ok(Boolean(interrupted), 'tool_result records the steer interruption');
+    if (mac) ok(interrupted?.content?.cleanupScope === 'owned-group-and-observed' && interrupted.content.cleanupIncomplete === false,
+      'MCP interruption confirms owned-group/observed cleanup; arbitrary escaped processes are outside this scope');
     ok(events.some(event => event.type === 'steered' && event.text === 'stop waiting and continue now'), 'queued steer reaches the next model iteration');
     ok(events.some(event => event.type === 'result'), 'turn completes with normal result event');
 
     const notifications = fs.existsSync(NOTIFY_CAPTURE) ? fs.readFileSync(NOTIFY_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean) : [];
-    ok(notifications.some(row => row.method === 'notifications/cancelled' && row.params && row.params.reason === 'user_steer'), 'MCP receives notifications/cancelled reason=user_steer');
+    const observed = notifications.some(row => row.method === 'notifications/cancelled' && row.params && row.params.reason === 'user_steer');
+    if (!mac) ok(observed, 'MCP receives notifications/cancelled reason=user_steer');
+    else console.log('INFO Mac remote cancellation capture ' + (observed ? 'observed' : 'not observed') + '; fire-and-forget has no receiver ACK; unit gate verifies the send attempt before immediate kill');
     const firstPid = fs.existsSync(PID_CAPTURE) ? Number(fs.readFileSync(PID_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean)[0]) : 0;
-    for (let i = 0; i < 20 && pidAlive(firstPid); i++) await sleep(150);
-    ok(firstPid > 0 && !pidAlive(firstPid), 'interrupted MCP process tree is reaped');
+    if (mac) {
+      const stillPresent = () => { const rows = snapshotProcessTable(); return rows && firstIdentity ? rows.some(row => row.pid === firstIdentity.pid && row.created === firstIdentity.created) : null; };
+      for (let i = 0; i < 20 && stillPresent() === true; i++) await sleep(150);
+      ok(firstPid > 0 && firstIdentity?.pid === firstPid && stillPresent() === false, 'interrupted MCP fixture process is reaped with its observed birth identity');
+    } else {
+      for (let i = 0; i < 20 && pidAlive(firstPid); i++) await sleep(150);
+      ok(firstPid > 0 && !pidAlive(firstPid), 'interrupted MCP process tree is reaped');
+    }
 
-    // Repeat the same contract through the native PowerShell runner: its AbortSignal must kill the command
+    // Repeat through native PowerShell on Windows and controlled bash on Mac: AbortSignal must kill the command
     // tree and settle promptly, not merely make the provider stop awaiting a still-running process.
     kill(fakeProvider); await sleep(250);
     fakeProvider = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], {
       windowsHide: true,
-      env: { ...process.env, FAKE_OPENAI_PORT: String(providerPort), FAKE_TOOL_NAME: 'powershell_run', FAKE_TOOL_ARGS: JSON.stringify({ command: 'Start-Sleep -Seconds 30; Write-Output late', timeoutMs: 60000 }) },
+      env: { ...process.env, FAKE_OPENAI_PORT: String(providerPort), FAKE_TOOL_NAME: nativeTool, FAKE_TOOL_ARGS: JSON.stringify({ command: nativeCommand, timeoutMs: 60000 }) },
     });
     for (let i = 0; i < 30 && !(await get(providerPort, '/v1/models')); i++) await sleep(100);
     const nativeSession = await post(workbenchPort, '/api/sessions', { title: 'native long tool steer', cwd: HOME }, headers);
     const nativeSid = nativeSession && nativeSession.body && nativeSession.body.session && nativeSession.body.session.id;
     let nativeSteer = null; let nativeSteerScheduled = false;
     const nativeStartedAt = Date.now();
-    const nativeEvents = await stream(workbenchPort, { sessionId: nativeSid, message: 'run the long PowerShell command', cwd: HOME }, event => {
-      if (event.type === 'tool_use' && event.name === 'powershell_run' && !nativeSteerScheduled) {
+    const nativeEvents = await stream(workbenchPort, { sessionId: nativeSid, message: 'run the long ' + nativeTool + ' command', cwd: HOME }, event => {
+      if (event.type === 'tool_use' && event.name === nativeTool && !nativeSteerScheduled) {
         nativeSteerScheduled = true;
         setTimeout(() => { post(workbenchPort, '/api/steer', { sessionId: nativeSid, text: 'interrupt the command and continue', mode: 'interrupt' }, headers).then(value => { nativeSteer = value; }); }, 750);
       }
     });
     for (let i = 0; i < 30 && !nativeSteer; i++) await sleep(50);
     const nativeElapsedMs = Date.now() - nativeStartedAt;
-    ok(nativeSteer && nativeSteer.body && nativeSteer.body.ok === true, 'steer accepted during native PowerShell tool');
+    ok(nativeSteer && nativeSteer.body && nativeSteer.body.ok === true, 'steer accepted during native ' + nativeTool + ' tool');
     // 墙钟上界豁免：防挂死宽界；插话在命令开始后 750 ms 发出，双负载实得 1064 ms，界 10000 ms（9 倍）；失败形态是等满 Start-Sleep 30 s。
     ok(nativeElapsedMs < 10000, `native command is interrupted promptly (${nativeElapsedMs}ms, not 30s)`);
     ok(nativeEvents.some(event => event.type === 'tool_result' && event.content && event.content.steerInterrupted === true && event.content.interrupted === true), 'native tool_result confirms process interruption');
+    if (mac) {
+      const nativeReply = nativeEvents.find(event => event.type === 'tool_result')?.content;
+      ok(nativeReply?.cleanupScope === 'owned-group-and-observed' && nativeReply.cleanupIncomplete === false,
+        'native shell interruption confirms owned-group/observed cleanup without an incomplete result');
+    }
     ok(nativeEvents.some(event => event.type === 'steered' && event.text === 'interrupt the command and continue'), 'native-tool steer reaches the next model iteration');
     // Ordinary additions must preserve both native commands and MCP calls until they complete.
     for (const toolSpec of [
-      { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output PRESERVED_WORK', timeoutMs: 15000 } },
+      { name: nativeTool, args: { command: preservedCommand, timeoutMs: 15000 } },
       { name: 'fake__slow_task', args: { ms: 2200 } },
     ]) {
       kill(fakeProvider); await sleep(250);
@@ -159,7 +181,7 @@ function pidAlive(pid) {
       ok(response?.body?.mode === 'queue', toolSpec.name + ': default addition is queued');
       const reply = queuedEvents.find(event => event.type === 'tool_result');
       ok(reply && !reply.isError && !reply.content?.steerInterrupted, toolSpec.name + ': ordinary addition preserves successful tool completion');
-      if (toolSpec.name === 'powershell_run') ok(reply?.content?.stdout?.includes('PRESERVED_WORK'), 'native work is actually completed, not merely left orphaned');
+      if (toolSpec.name === nativeTool) ok(reply?.content?.stdout?.includes('PRESERVED_WORK'), 'native work is actually completed, not merely left orphaned');
       ok(queuedEvents.some(event => event.type === 'steered' && event.text === '完成后请附上简短摘要'), 'addition reaches the model after tool completion');
     }
   } catch (error) { failures++; console.error(error && error.stack || error); }

@@ -98,7 +98,13 @@ ok(/if \(-not \$SkipExeBuild -and \(Test-Path \$exe\)\)/.test(packager), 'SkipEx
 ok(/requires-python = ">=3\.12"/.test(pyproject), 'ACC metadata supports the bundled Python 3.12 runtime');
 ok(/mcp\[cli\]>=1\.0\.0,<2\.0\.0/.test(pyproject) && /^mcp\[cli\]>=1\.0\.0,<2\.0\.0$/m.test(requirements),
   'ACC pins the compatible MCP 1.x API instead of accepting the breaking MCP 2.x surface');
-ok(/^winsdk==1\.0\.0b10$/m.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
+const winsdkPin = /^winsdk==1\.0\.0b10(?:; sys_platform == 'win32')?\r?$/m;
+ok(winsdkPin.test(requirements), 'Full offline requirements pin the verified winsdk cp312 release exactly');
+ok(winsdkPin.test('winsdk==1.0.0b10') && winsdkPin.test("winsdk==1.0.0b10; sys_platform == 'win32'") &&
+   !winsdkPin.test("winsdk==1.0.0b10; sys_platform == 'darwin'") && !winsdkPin.test('winsdk>=1.0.0b10'),
+  'WinSDK release pin accepts the Windows-only marker and rejects other platforms or floating versions');
+ok(packager.includes("^winsdk==1\\.0\\.0b10(?:; sys_platform == 'win32')?`r?$") ,
+  'Windows Full packager recognizes the same exact pin with its optional Windows-only marker');
 ok(/"openpyxl"/.test(builder) && /"xlsxwriter"/.test(builder) && /"docx"/.test(builder) &&
    /"pptx"/.test(builder) && /"pdfplumber"/.test(builder) && /"openpyxl"/.test(installer) &&
    /"xlsxwriter"/.test(installer) && /"pptx"/.test(installer) && /"pandas"/.test(builder) &&

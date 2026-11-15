@@ -1,0 +1,21 @@
+✔ direct/proxy leaves retain reported input and tool failures separately (0.822125ms)
+✔ returned macro children identify duplicate steps without outer double-counting or requested suffixes (0.480333ms)
+✔ Python invocation flags distinguish typed rejection from attempted/legacy error without claiming dispatch (0.1725ms)
+✔ local non-invocation and not_dispatched results do not invent effects; action_sent:false cannot hide unknown (0.118333ms)
+✔ visual conditional actions follow returned boolean/object/null click contracts (0.171916ms)
+✔ wait/read-only macros stay empty even when a requested mutating suffix exists (0.080625ms)
+✔ missing, oversized or malformed results stay unknown with no fabricated children (1.9315ms)
+✔ row bounds, malformed attribution and truncated returned prefixes expose incompleteness (0.26225ms)
+✔ unreturned cancelled macro cannot reconstruct a completed prefix from requested steps (0.071458ms)
+✔ projection survives actual display shrinking and fold preserves uncertainty and attribution (2.492791ms)
+✔ legacy native command failures retain their prior ledger shape (0.127ms)
+✔ missing action receipts, contradictory attempt flags and long call IDs stay truthful (0.335916ms)
+✔ noncontiguous returned steps, enclosing unknown tails and global caps remain explicit (0.177917ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 104.485791

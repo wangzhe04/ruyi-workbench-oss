@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T09:24:28.520120+00:00",
+  "status": "passed_independent_readiness_freeze_v5",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/freeze-v5.json",
+    "bytes": 2888,
+    "sha256": "5e60e15d4c3e1c21c614e8fbd9eeb44cfc5e21983dcfafaf904b36a550778b28"
+  },
+  "sourceCount": 14,
+  "runtimeArtifactCount": 2,
+  "additionalReviewedDependencies": 30,
+  "engineeringRerun": false,
+  "nativeInvocationCount": 1,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "observedRootBirth": 1794388888467854,
+  "observedIdentityCount": 61,
+  "remainingObservedIdentities": [],
+  "cleanupSafe": true,
+  "GUIReleased": true,
+  "temporaryIsolationRoot": "/tmp/p5ri-458begi4",
+  "scope": "Independent one-shot current-host ordinary provider readiness/catalog/registry/master-switch and actual controlled recording replay. Actual helper1cc; Node service launch. Generated CLI policy configuration read only, no CLI runtime or Node registry-removal claim. No real TCC revoke/lock/App/Windows/environment closure.",
+  "phaseStatus": "in_progress",
+  "counts": {
+    "pass": 40,
+    "fail": 0,
+    "skip": 0
+  },
+  "manualRetries": 0,
+  "automaticRetries": 0,
+  "sourceArtifactCheckpoints": 4,
+  "semanticReview": {
+    "recording": {
+      "source": "controlled_native_requests",
+      "schema": 1,
+      "complete": true,
+      "actionCount": 1,
+      "eventTypesAndMicroseconds": [
+        [
+          "mouse_down",
+          0
+        ],
+        [
+          "mouse_up",
+          40000
+        ]
+      ],
+      "actualSavedRecordingSha256": "58c71d4edfacb7aaf1cb40fa324ca59cddb9d4713d265c0f7ea0c14143d1ab7d",
+      "retention": "Actual file existence, parsed content equality and hash were checked before cleanup; recording object and original file hash are retained in native/results.json. Original saved file was normally removed with the isolated fixture root.",
+      "baselineCounts": {
+        "left_down": 1,
+        "left_up": 1
+      },
+      "afterOrdinaryReplayCounts": {
+        "left_down": 2,
+        "left_up": 2
+      },
+      "allStatesNeutral": true
+    },
+    "baseline": {
+      "catalogNativeFamilyNames": [
+        "input_sequence",
+        "record_start",
+        "window_screenshot",
+        "ui_find",
+        "ocr_screen",
+        "observe",
+        "act_and_verify"
+      ],
+      "positiveOrdinarySessionResult": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "device_capabilities_normalized": false,
+              "event_count": 2,
+              "ok": true,
+              "pointer_profile": "exact",
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      },
+      "permissionDecisionCount": 6
+    },
+    "missingHelper": {
+      "workbenchCapture": {
+        "supported": true,
+        "installed": false,
+        "authorization": "unknown",
+        "ready": false,
+        "reasonCode": "dependency_missing"
+      },
+      "omittedNativeFamilies": [
+        "input_sequence",
+        "record_start",
+        "window_screenshot",
+        "ui_find",
+        "ocr_screen",
+        "observe",
+        "act_and_verify"
+      ],
+      "actualACCReadiness": {
+        "desktop.capture": {
+          "supported": true,
+          "installed": false,
+          "authorization": "unknown",
+          "ready": false,
+          "reasonCode": "dependency_missing"
+        },
+        "desktop.input_sequence": {
+          "supported": false,
+          "installed": false,
+          "ready": false,
+          "backend": "bounded CGEvent sequence"
+        },
+        "desktop.recording": {
+          "supported": false,
+          "installed": false,
+          "authorization": "unknown",
+          "ready": false,
+          "source": "controlled_native_requests",
+          "sources": [],
+          "manualSupported": false,
+          "manualReady": false,
+          "pointerProfiles": [],
+          "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+          "listenAuthorization": "unknown",
+          "inputSource": null,
+          "coordinate_space": "macos_global_points"
+        },
+        "desktop.accessibility": {
+          "supported": false,
+          "installed": false,
+          "authorization": "unknown",
+          "ready": false,
+          "backend": "AXUIElement",
+          "coordinate_space": "macos_global_points"
+        }
+      }
+    },
+    "actualRegistryHidden": {
+      "hiddenTools": [
+        "input_sequence"
+      ],
+      "freshTargetBoundToSameOwnedReceiver": true,
+      "nativeSessionRefChanged": true,
+      "savedMacroCode": "tool_unavailable",
+      "nestedBatchResult": {
+        "ok": false,
+        "success": false,
+        "completed": 0,
+        "failed": 1,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": false,
+            "error": "unknown or non-batchable tool: input_sequence"
+          }
+        ]
+      },
+      "newBatchAuditTools": [
+        "batch_actions"
+      ]
+    },
+    "ordinaryRefusals": [
+      {
+        "scenario": "missing-helper",
+        "label": "READINESS_MISSING",
+        "code": "dependency_missing",
+        "receiverCountsBefore": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "receiverCountsAfter": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "leftHeldAfter": false,
+        "modifierFlagsAfter": 0,
+        "newAuditTools": [
+          "macro_run"
+        ],
+        "pendingPermissionEmptyAssertionPassed": true
+      },
+      {
+        "scenario": "registry-hidden",
+        "label": "READINESS_HIDDEN_RECORDING",
+        "code": "tool_unavailable",
+        "receiverCountsBefore": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "receiverCountsAfter": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "leftHeldAfter": false,
+        "modifierFlagsAfter": 0,
+        "newAuditTools": [
+          "macro_run"
+        ],
+        "pendingPermissionEmptyAssertionPassed": true
+      },
+      {
+        "scenario": "desktop-off",
+        "label": "READINESS_DESKTOP_OFF",
+        "code": "tool-disabled",
+        "receiverCountsBefore": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "receiverCountsAfter": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "leftHeldAfter": false,
+        "modifierFlagsAfter": 0,
+        "newAuditTools": [],
+        "pendingPermissionEmptyAssertionPassed": true
+      },
+      {
+        "scenario": "command-off",
+        "label": "READINESS_COMMAND_OFF",
+        "code": "tool-disabled",
+        "receiverCountsBefore": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "receiverCountsAfter": {
+          "left_down": 2,
+          "left_up": 2
+        },
+        "leftHeldAfter": false,
+        "modifierFlagsAfter": 0,
+        "newAuditTools": [],
+        "pendingPermissionEmptyAssertionPassed": true
+      }
+    ],
+    "masterSwitchPolicy": [
+      {
+        "gate": "desktop",
+        "expectedNodeCatalogExclusions": [
+          "macro_run",
+          "batch_actions",
+          "input_sequence",
+          "focus_window"
+        ],
+        "actualStandaloneACCHiddenTools": [],
+        "actualProductGeneratedCliPolicy": {
+          "path": "/tmp/p5ready-Ee7rtt/desktop-off/data/generated/workbench.mcp.json",
+          "hidden": [
+            "act_and_verify",
+            "batch_actions",
+            "close_window",
+            "find_all_templates",
+            "find_on_screen",
+            "find_template",
+            "focus_window",
+            "get_active_window",
+            "get_clipboard",
+            "get_clipboard_image",
+            "get_dpi_info",
+            "get_mouse_position",
+            "get_pixel_color",
+            "get_screen_info",
+            "hotkey",
+            "input_sequence",
+            "key_down",
+            "key_up",
+            "list_monitors",
+            "list_windows",
+            "macro_list",
+            "macro_run",
+            "maximize_window",
+            "minimize_window",
+            "mouse_click",
+            "mouse_drag",
+            "mouse_move",
+            "mouse_scroll",
+            "move_window",
+            "observe",
+            "ocr_click",
+            "ocr_find_text",
+            "ocr_screen",
+            "press_key",
+            "record_start",
+            "record_stop",
+            "resize_window",
+            "screenshot",
+            "screenshot_region",
+            "scroll_at",
+            "set_clipboard",
+            "set_clipboard_image",
+            "set_window_topmost",
+            "type_text",
+            "ui_find",
+            "ui_inspect",
+            "ui_invoke",
+            "vision_click",
+            "wait_for_image",
+            "wait_for_pixel",
+            "wait_for_window",
+            "wait_for_window_idle",
+            "window_screenshot"
+          ]
+        },
+        "evidenceRetention": "Parsed generated path and ACC_HIDE_TOOLS names retained in original results. Full generated file was removed by normal fixture-root cleanup.",
+        "actualCliRuntimeTested": false
+      },
+      {
+        "gate": "command",
+        "expectedNodeCatalogExclusions": [
+          "macro_run",
+          "batch_actions",
+          "launch_application",
+          "run_command",
+          "kill_process"
+        ],
+        "actualStandaloneACCHiddenTools": [],
+        "actualProductGeneratedCliPolicy": {
+          "path": "/tmp/p5ready-Ee7rtt/command-off/data/generated/workbench.mcp.json",
+          "hidden": [
+            "batch_actions",
+            "kill_process",
+            "launch_application",
+            "macro_run",
+            "run_command"
+          ]
+        },
+        "evidenceRetention": "Parsed generated path and ACC_HIDE_TOOLS names retained in original results. Full generated file was removed by normal fixture-root cleanup.",
+        "actualCliRuntimeTested": false
+      }
+    ],
+    "cleanup": {
+      "safe": true,
+      "fiveServiceReceiptsComplete": true,
+      "receiverExitAssertionPassed": true,
+      "inputSourceRestored": true,
+      "outerObservedBirthIdentities": 61,
+      "remainingObservedIdentities": [],
+      "clipboardRestorationTested": false,
+      "observationLimit": "Only sampled externally observed birth identities are proved absent; fixtures separately track/confirm each service tree and receiver. Transient/unobserved processes are outside outer-sampler guarantee."
+    }
+  },
+  "engineeringReuse": {
+    "primaryFourGatesExitZero": true,
+    "sourceArtifactCheckpoints": 8,
+    "sourceFilesPerCheckpoint": 14,
+    "artifactsPerCheckpoint": 2,
+    "syntaxFiles": 1154,
+    "unitPassed": 2499,
+    "unitExistingSkipped": 18,
+    "fastPassed": 80,
+    "fastFailed": 0,
+    "fastFlaky": 0,
+    "fastLiveSkipped": 7,
+    "independentReruns": 0,
+    "note": "Primary fast includes its own unit preflight after the separate primary unit gate; this is preserved history, not a claim of no repeated unit execution overall.",
+    "binding": {
+      "path": "engineering-reuse.json",
+      "bytes": 2460,
+      "sha256": "e5c45b4b5b8fb2eeab83c3a75eecb3b22d72844dfecc39c607e871ac93505db6"
+    }
+  },
+  "originalIndependentExecutionReport": {
+    "path": "execution-report.json",
+    "bytes": 1174,
+    "sha256": "158750428b27385b4f9ad4dd0e397ca531574d6586fd0222983cade73ae61a86"
+  },
+  "evidenceFiles": [
+    {
+      "path": "counts.json",
+      "bytes": 43,
+      "sha256": "5a02afa6741d0d0b101998cb47220a2b87a9ed4ee93f8b0594836feec0ec5760"
+    },
+    {
+      "path": "engineering-reuse.json",
+      "bytes": 2460,
+      "sha256": "e5c45b4b5b8fb2eeab83c3a75eecb3b22d72844dfecc39c607e871ac93505db6"
+    },
+    {
+      "path": "execution-report.json",
+      "bytes": 1174,
+      "sha256": "158750428b27385b4f9ad4dd0e397ca531574d6586fd0222983cade73ae61a86"
+    },
+    {
+      "path": "invocation.json",
+      "bytes": 1443,
+      "sha256": "3762320ba2ac5a19a3adbcc3006c2aff10f666231c49f08449d3e7d0ff012351"
+    },
+    {
+      "path": "native/results.json",
+      "bytes": 218463,
+      "sha256": "45444107bdb26016609bb0e691885fc5bd6379c02014bdbb2534351d27a2bccd"
+    },
+    {
+      "path": "observed-identities.json",
+      "bytes": 4761,
+      "sha256": "175dbf81382b1b5962261114b2da6cb2a7b3754673e7e98f75ea648a44b0eee4"
+    },
+    {
+      "path": "output.txt",
+      "bytes": 3392,
+      "sha256": "24f08f08b16b20f8dbf793b4a3879c869c713c0e411deaec0798e83119c2fe2c"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 7446,
+      "sha256": "8ec06c379fd45a64faebab8ef98fe7d02527cdf1d008256a217f5610451afc56"
+    },
+    {
+      "path": "runner.py",
+      "bytes": 8810,
+      "sha256": "433e0d76e9ac490c069a28263a9f04729afa5ac53e9f3d9832c0f5e293242bbd"
+    },
+    {
+      "path": "signatures.json",
+      "bytes": 1098,
+      "sha256": "a4600500d98336e04ee785fb09ad2008b4a0241653e4b2a45227a684367642dd"
+    },
+    {
+      "path": "source-artifact-checks.json",
+      "bytes": 20528,
+      "sha256": "56376393324bf73f5de5c25895dec88a4be53b026b9cbfa7e8e763ba8b3a4cfb"
+    }
+  ],
+  "history": "Original primary live-v1 had20PASS/2FAIL because a cross-session stale native target prevented the hidden macro test; nested batch and master-off were unreached. v4 refreshed target and was not executed. v5 added counted balanced click; primary live-v2 passed40. This is a separate final-v5 one-shot independent run, not erasure or reinterpretation of earlier failure.",
+  "claimLimits": [
+    "Current Mac host ordinary provider/Node readiness and registry/master-switch slice only. No product code change in this slice.",
+    "Actual default1cc helper executed; no rebuild or re-sign of that helper/App. Fixture receiver was privately compiled.",
+    "CLI generated policy file was read and its hidden-name list retained; no actual CLI child runtime/registry conformance test and no automatic deletion from Node standalone ACC registry claimed.",
+    "This fixture does not snapshot/restore clipboard content; no clipboard restoration guarantee is inferred. Input-source restoration and balanced owned click state are explicitly verified.",
+    "No real TCC revoke/regrant, OS lock, App LaunchServices, Windows/minimum-OS/display/formal identity or whole-P5 closure."
+  ]
+}

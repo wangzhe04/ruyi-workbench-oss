@@ -1,0 +1,16 @@
+✔ CDP target deadline cancels a server that never sends headers (283.263291ms)
+✔ CDP deadline survives trickling response bytes without an end event (407.661ms)
+✔ shared request abort after headers settles without an unhandled response error (152.664542ms)
+✔ an exited launcher may still publish its real browser target (57.184958ms)
+✔ launcher grace permits the CDP port to begin listening after launcher exit (160.022292ms)
+✔ late successful HTTP data cannot bypass a delayed abort timer (76.476166ms)
+✔ complete responses retain HTTP status and target-list failure diagnostics (202.350333ms)
+✔ signal-terminated launcher is reported as exited at the discovery deadline (152.083791ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1541.185875

@@ -1,0 +1,5 @@
+FAIL Error: spawn failed: Mac process supervisor is unavailable
+    at McpStdioClient.start (/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/app/server.js:19328:13)
+    at /private/tmp/ruyi-p5-manual-worktree/dev-harness/macos-manual-record.e2e.js:99:20
+
+MACOS MANUAL RECORD E2E: FAIL (1)

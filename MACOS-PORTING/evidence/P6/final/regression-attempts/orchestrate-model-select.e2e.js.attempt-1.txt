@@ -1,0 +1,87 @@
+
+── [S] 静态锁 ──
+PASS S config agentAutoModelTiering 默认 false(===true 归一,opt-in)
+PASS S 能力档位启发式 modelCapabilityTier
+PASS S CLAUDE_ALIAS_IDS(44e:别名仅引擎归属判定,不进显示列表)
+PASS S 模型档位提示 buildModelHint(引擎分组,2 参带 provider)
+PASS S buildModelHint 按引擎分组(防选错)
+PASS S tier 兜底 tierModelForNode(引擎感知)
+PASS S 统一解析 resolveNodeModel(带 engine)
+PASS S 白名单丢弃已移除(isKnownModelId 不再存在 —— 消除误杀真实模型的回归)
+PASS S resolveNodeModel: inherit 归一为空(修 OpenAI 把字面量当模型发失败)
+PASS S resolveNodeModel: 显式 model 原样尊重(不白名单丢弃)
+PASS S tier 兜底:claude 引擎继承 CLI 默认(不猜)
+PASS S tier 池拓宽 knownModels/config.model 且排除 Claude 别名+代理缓存(修 provider.models=[] 静默失效;第44波缓存同属 Claude 端)
+PASS S 主 DAG 写入点使用预检后的默认路由解析模型(带 engine)
+PASS S 池物化用 resolveNodeModel
+PASS S 代理模式 v2:单代理简写透传 model,由主 DAG 写入点 resolveNodeModel 解析(旧 spawn 站点已删)
+PASS S propose_task model 通道(schema + item)
+PASS S provider 引擎在 volatile user 前缀注入 buildModelHint(带 provider)
+PASS S Claude 引擎:编排提示与模型提示各自独立进 stdin 索引段(第35波 P2:indexSecs 注入,不再连坐丢弃、不走命令行故无需 % ! 中和)
+PASS S orchestrate model 描述要求默认走预检偏好→当前对话回退
+PASS S 版本化型号不再硬编码(列表=API 返回+自定义)
+PASS S 44e:别名也出显示列表(MODEL_PRESETS 只剩 默认)
+PASS S 代理缓存 sidecar(dataRoot 独立文件,不入 config 防竞态)
+PASS S 缓存读写函数存在
+PASS S offlineModelList 合并代理缓存
+PASS S discoverModels 发现成功即写缓存
+PASS S 缓存经 atomicWriteJson 落盘(25.1 纪律)
+PASS S buildModelHint Claude 组=别名(用户持有的)∪代理缓存
+
+── [P] 纯逻辑 ──
+PASS P 源抽取 offlineModelList
+PASS P 源抽取 MODEL_PRESETS
+PASS P 源抽取 CLAUDE_ALIAS_IDS
+PASS P 源抽取 modelCapabilityTier
+PASS P 源抽取 MODEL_TIER_LABEL
+PASS P 源抽取 MODEL_TIER_USE
+PASS P 源抽取 buildModelHint
+PASS P 源抽取 tierModelForNode
+PASS P 源抽取 resolveNodeModel
+PASS P flash→快
+PASS P max→强
+PASS P 无档位词→均衡
+PASS P 对抗轮 P3:plus→均衡(不再误判强)
+PASS P reasoner→强
+PASS P claude haiku/opus 档位
+PASS P 用户标签(快)参与分类
+PASS P 显式合法→尊重
+PASS P 对抗轮:显式【未列出】也尊重(不误杀真实模型 —— 消除回归)
+PASS P 对抗轮:显式 inherit→归空→落角色(两引擎"用默认"都用空;OpenAI 不发字面量 inherit)
+PASS P inherit + 无角色 + tier关 → 空(继承)
+PASS P 空→角色默认
+PASS P 全空+tier关→继承
+PASS P tier开:read→快模型
+PASS P tier开:exec→强模型
+PASS P tier开但角色有默认→角色优先
+PASS P claude 节点 tier开也继承(不给每个 exec 挑贵模型)
+PASS P tierModelForNode openai/read→快
+PASS P tierModelForNode openai/exec→强
+PASS P tierModelForNode claude→空(继承)
+PASS P 对抗轮 P3:provider.models=[] 时从 knownModels 挑(不再静默失效)
+PASS P 真无可选自定义模型→空(不从 Claude 预设别名乱挑)
+PASS P live修:provider 声明 models 时 exec 从【当前 provider】挑强(ds-pro-max),不选跨 provider 的 qwen/glm
+PASS P live修:OpenAI 组只列当前 provider 声明的模型(不混 knownModels/config.model 的跨 provider 模型)
+PASS P buildModelHint 按引擎分组
+PASS P openai 组含 provider 模型带档位
+PASS P 对抗轮:Claude 预设别名不进 OpenAI 组(防 openai 节点选 claude 别名必失败)
+PASS P buildModelHint 含引擎匹配 + 填错失败声明
+PASS P 离线列表保留 默认(CLI 配置)
+PASS P 44e:离线列表不再含别名 opus/sonnet/haiku
+PASS P 离线列表无版本化硬编码型号
+PASS P 离线列表合并代理缓存(带 label)
+PASS P 离线列表保留 extraModels/knownModels
+PASS P Claude 组含代理缓存模型
+PASS P openai 兜底池排除缓存模型(防跨引擎)
+PASS P tier 兜底池排除缓存模型(只剩缓存→空,不给 openai 乱挑)
+
+── [H] Live ──
+PASS H workbench up on :61746
+PASS H1 DAG 启动
+PASS H1 显式合法(fast-mini)落盘
+PASS H1 显式合法(strong-max-pro)落盘
+PASS H1 对抗轮:显式【未列出】模型原样尊重(不误杀 → 消除回归)
+PASS H1 对抗轮:显式 inherit → 归空(OpenAI 不会把字面量 inherit 当模型发失败)
+PASS H1 省略 model → 继承(空)
+
+ORCHESTRATE-MODEL-SELECT E2E: ALL PASS

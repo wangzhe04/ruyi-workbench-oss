@@ -1,0 +1,78 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0f 五条线程都建出来了（{"A":"sess_b9c3fb60fa00c9fb","B":"sess_3b03319ccccbc4df","P":"sess_999ff6fac637ef17","R":"sess_bf171db2903f9322","S":"sess_1e43249f9f562e20"}）
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 左栏五条线程都画出来了
+PASS S-04a 新建会话之后在场信号（事件流 ?sessionId=）跟着换成新会话（新会话 sess_e67e683409663797；末次连接带的是 sess_e67e683409663797）
+PASS S-04b0 新会话在左栏有一行
+PASS S-01a 点「⋯」菜单开了
+PASS S-01b 菜单里点「删除」之后左栏这一行当场消失（修前菜单开着、重画被暂缓，行要等下一次重画才没）
+PASS S-04c 删除当前会话之后在场信号不再停在已删的线程上（末次连接带的是「」）
+PASS S-01c 置顶那条的「⋯」菜单开了
+PASS S-01d 点「置顶」之后菜单收起，且这一行当场换成「取消置顶」
+PASS S-01e 改名那条的「⋯」菜单开了
+PASS S-01f 服务端改名成功（HTTP 200）
+PASS S-01g Esc 关掉菜单之后，被暂缓的那一次重画补上了（行标题换成新名字）
+PASS S-05a 点行打开了线程甲
+PASS S-05b 线程头的管家条出来了
+PASS S-05c 交接开关写失败：出 err 样式的 toast，且是人话（实测 {"cls":"toast err","text":"没改成：后台说不行"}）
+PASS S-05d 开关弹回「没盯」
+PASS Q0 页面里建出一份安静卡实例（有宿主）
+PASS S-15a 没开本机通知（默认 enabled:false）、免打扰时段覆盖此刻 → 安静卡照出（修前夜里一张都不出）
+PASS S-15b 开了本机通知、时段覆盖此刻 → 不出卡（用户自己调的免打扰仍然生效）
+PASS S-09a 桌面壳里经 chrome.webview.postMessage({ ruyiNotification:{ title, body } }) 投递，不再只 new Notification（实测 {"posts":[{"ruyiNotification":{"id":"sess_s09a|needs_you","title":"那条线程","body":"桌面壳里这一句要送到托盘"}}],"notes":[]}）
+PASS S-09b 没有桌面壳时仍回落到 Notification（实测 {"posts":[],"notes":[{"title":"那条线程","body":"浏览器里这一句走 Notification"}]}）
+PASS S-10a thread.state 说它还在等你就留着，不再等你了就撤 needs_you 卡（[true,true]）
+PASS S-10b failed 卡不由「是否在等你」决定；线程收工／没了才撤
+PASS S-10c bind 里订了 thread.state／thread.done／thread.removed，收到帧就撤（订到 ["thread.state","thread.done","thread.removed","inbox.appended"]）
+PASS S-10d 用户打开那条会话时，它的安静卡撤掉（实测 {"before":true,"after":false}）
+PASS S-10e 候选答案点下去、问题已经过期 → 提示「这条已经不需要你回答了（可能在别处答过，或线程已经结束），卡片已收起。」并撤卡（实测 [true,["这条已经不需要你回答了（可能在别处答过，或线程已经结束），卡片已收起。"]]）
+PASS S-10f 断网：提示（人话，不是 Failed to fetch）、卡留着可重试（实测 [true,["没能提交回答：与后台服务的连接断了（服务可能刚退出或正在重启），请稍候再试；一直这样就重启如意。"]]）
+PASS S-10g 接口回 {ok:false} 同样按「已经过去了」撤卡
+PASS S-10h 线程一直在等你时同类两帧仍合并成一张卡、计数 2（实测 {"n":1,"badge":"2"}）
+PASS S-11a 七种终态各有文案键与颜色（partial=warn、stopped／cancelled=中性、失败类=err；实测 {"succeeded":{"key":"chat.background.succeeded","kind":"ok"},"failed":{"key":"chat.background.failed","kind":"err"},"timed_out":{"key":"chat.background.timed_out","kind":"err"},"cancelled":{"key":"chat.background.cancelled","kind":""},"partial":{"key":"chat.background.partial","kind":"warn"},"stopped":{"key":"chat.background.stopped","kind":""},"interrupted":{"key":"chat.background.interrupted","kind":"err"},"weird":{"key":"chat.background.finished","kind":""}}）
+PASS S-11b 表外状态不显示「[chat.background.xxx]」，回落一句通用的「已结束」
+PASS F1 线程「等你那条」真的停在待决上了（服务端事实）
+PASS P1a 1024 宽进管家视角，焦点线程的抽屉自己开了
+PASS P1b 1024 宽：#stewardShell.scrollLeft 是 0，中栏输入框在视口里（实测 {"scrollLeft":0,"inputLeft":339,"inputWidth":534}）
+PASS P1c 焦点换到「等你那条」
+PASS P1d 焦点落进问答区之后 scrollLeft 仍是 0（实测 {"scrollLeft":0,"inputLeft":339,"inputWidth":534}）
+PASS P1e 1180 宽同样 scrollLeft 是 0（实测 {"scrollLeft":0,"inputLeft":339,"inputWidth":690}）
+PASS S-08a 有线程在等你（到访摘要里有待决）→ 头像是「等你确认」
+PASS S-08b 待决在别处答掉了（HTTP 200）
+PASS S-08c 待决处理完，头像不再停在「等你确认」（修前 pendingCount 只在到访那一刻写一次）
+PASS S-08d 头像稳定下来不是「等你确认」（实测 idle）
+PASS S-06a 抽屉开在线程甲
+PASS S-06b 焦点换到线程乙
+PASS S-06c 换线程之后两个输入框是空的（甲的话不会被回车发给乙；实测 {"direct":"","ask":""}）
+PASS S-06d 回到线程甲，甲那两句原样放回来（实测 {"direct":"给甲的话","ask":"给甲的回答"}）
+PASS S-06e 回到线程乙，乙那句也在（实测「给乙的话」）
+PASS S-13a 递话请求发出并被拒（409）
+PASS S-13b 被拒之后输入框里那句话还在，不用重打（实测「给甲的话」；修前先清后发，丢了）
+PASS S-13c 递话成功之后才清空输入框
+PASS S-02a 抽屉开在线程甲
+PASS S-02b 点「整单回退」弹出确认框
+PASS S-02c 确认框开着的时候焦点被切去线程乙
+PASS S-02d 确认返回时焦点已经不在原来那条 → 不停止、不回退任何一条（修前会停掉并回退乙；实测写口 []）
+PASS S-02e 并且说了一句人话（实测「确认期间你切换了线程，这次操作已取消，没有动任何东西。」）
+PASS S-02f 回到线程甲
+PASS S-02g 再点「整单回退」
+PASS S-02h 焦点没动：回退请求照常发出
+PASS S-02i 仅一次guarded rewind、零stop，保留确认前线程甲的执行身份/idle观察和原锚点（实测 [{"url":"/api/session/rewind","body":{"sessionId":"sess_b9c3fb60fa00c9fb","targetTurnSeq":1,"rollbackFiles":true,"guardExecution":true,"expectedExecution":null,"expectedIdleState":{"turnSeq":1,"rewindGen":0,"executionObservation":{"serverInstanceId":"bc5a076b6a0c","lastDriverRunId":"drun_ca0d29f6c613641b","evictionGeneration":0}}}}]）
+PASS S-03a 线程乙行右侧有一句时间（「刚刚」）
+PASS S-03b 这一拍发了 /api/missions
+PASS S-03c 这一拍是 304（行没变；否则本组没有证明力；实测 [304]）
+PASS S-03d 304 时左栏也重画：行右侧时间按此刻重算（「刚刚」→「10分钟前」；修前 304 分支只刷状态行，一直停在旧值）
+PASS S-07a 口袋「memory」第一次打开，设置弹层出来了
+PASS S-07b 第一次打开拉了一次 /api/steward/memory（2）
+PASS S-07c 口袋「memory」第二次打开
+PASS S-07d 第二次打开又重载了被点名的那一段 /api/steward/memory（修前只首次加载，之后显示旧列表）
+PASS S-07a 口袋「decisions」第一次打开，设置弹层出来了
+PASS S-07b 第一次打开拉了一次 /api/steward/decisions（2）
+PASS S-07c 口袋「decisions」第二次打开
+PASS S-07d 第二次打开又重载了被点名的那一段 /api/steward/decisions（修前只首次加载，之后显示旧列表）
+PASS Z1 页面没有未捕获异常（无）
+
+STEWARD SHELL WAVE1 BROWSER E2E: ALL PASS

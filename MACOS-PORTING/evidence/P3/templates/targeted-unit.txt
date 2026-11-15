@@ -1,0 +1,58 @@
+(node:42794) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/skills-memory.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ [A] plugin.json 的路径字段合 Claude Code 清单规范,license 与仓库一致 (1.326833ms)
+✔ [B] marketplace.json 的 source 是 ./ 相对路径且指向插件目录,版本与 plugin.json 一致 (0.107041ms)
+✔ [C] 每个 agent 都有 frontmatter:name = 文件名、description 非空、tools 只用真实工具名 (0.56075ms)
+✔ [D] 技能与命令的 frontmatter 齐全 (1.157709ms)
+✔ [E] 插件目录里的每个文件都在覆盖包载荷里 (1.565541ms)
+✔ [F] 点选命令:内置命令两种引擎都插模板,用户命令在 Agent CLI 下插 /name (4.708958ms)
+﹣ [G] 安装脚本经 Invoke-NativeExact 把 JSON 原样交给原生程序(Windows PowerShell 5.1) (0.054792ms) # 需要 Windows PowerShell
+✔ [R1] 三件工具的元数据:schema / read 档 / skills 包 / 不是起手工具 (2.533958ms)
+✔ [R2] 普通会话 offer 三件,管家会话不 offer;skill_read 仍只在有启用技能时才 offer (0.189375ms)
+✔ [R3] classifyToolPacks:说到 Playbook / 预置流程 / 流程模板 / 技能 时带 skills 包,闲聊不带 (12.715667ms)
+✔ [L1] playbook_list:内置全部列出,字段齐、有界、可过滤 (177.253292ms)
+✔ [L2] playbook_list:用户层作者文本中和;不可用的带原因 (1.596625ms)
+✔ [P1] playbook_read:填参成功,正文进围栏、尖括号中和、带「照做须用户点名」note (1.76475ms)
+✔ [P2] playbook_read:正文里伪造的围栏 / 系统标签被中和,围栏只剩我们自己的一对 (1.510209ms)
+✔ [P3] playbook_read:缺参返回缺哪些(key/label/type),不编造、不给步骤 (4.559583ms)
+✔ [P4] playbook_read:未知 id 回 not_found 并给可选 id;pb: 前缀与空白容错 (2.832625ms)
+✔ [P5] playbook_read:不可用如实说原因、不给步骤;野参数列在 ignoredParams (4.797584ms)
+✔ [S1] skill_list:内置 + 用户层,enabled 与会话启用口径一致,已启用排前 (7.871833ms)
+✔ [S2] skill_list:来源锁不一致不算已启用;有界与 query 过滤;无会话也能列 (20.651083ms)
+✔ [S3] skill_read 语义不变:没启用的技能读不了(skill_list 只列、不放开) (5.715042ms)
+PASS ①0 在前端源码里找得到 assemblePlaybookPrompt（找不到 = 本条静默失效）
+PASS ①0b 取到的确实是那个函数体（自带尺子：里面有 template.replace —— 2026-10 起单遍替换）
+PASS ① 常规替换：两份实现同义（前端 "整理 D:/报表 里 9月 的表" / 服务端 "整理 D:/报表 里 9月 的表"）
+PASS ① 同一个占位出现多次：两份实现同义（前端 "X 和 X 还有 X" / 服务端 "X 和 X 还有 X"）
+PASS ① 野占位原样留着（它不是参数，是正文）：两份实现同义（前端 "X 但 {notdeclared} 留着" / 服务端 "X 但 {notdeclared} 留着"）
+PASS ① 给了值但是空串：两份实现同义（前端 "[]" / 服务端 "[]"）
+PASS ① 一个值都没给：两份实现同义（前端 "[][]" / 服务端 "[][]"）
+PASS ① 值里带正则元字符（split/join 才不会炸）：两份实现同义（前端 "$& \\1 (.*)" / 服务端 "$& \\1 (.*)"）
+PASS ① 没有 inputs：两份实现同义（前端 "原样 {x}" / 服务端 "原样 {x}"）
+PASS ① 值里写着别的占位（单遍替换，不被二次替换）：两份实现同义（前端 "结论写进 {output} 那份 → out.md" / 服务端 "结论写进 {output} 那份 → out.md"）
+PASS ①b 用户填的值原样进模板，里面的 {output} 不被替换
+PASS ②1 全给了 -> 零缺项
+PASS ②2 缺项带 key/label/type（管家要拿它去问用户，不是拿一句话;got [{"key":"month","label":"月份","type":"text"}]）
+PASS ②3 只填了空白也算没给（空串跑进模板 = 在错的地方动手）
+PASS ②4 一个没给 -> 两项都点出来
+PASS ②5 不要参数的 playbook -> 零缺项
+PASS ②6 多给的参数不报错（只看它声明过的那几项）
+PASS ③1 用户原话仍然逐字在最前（§3.5 铁律没被这一刀动过）
+PASS ③2 6000 字的 playbook 正文【一个字都没被裁】（正文长 6000，整段长 6152）
+PASS ③3 playbook 块排在管家补充【之后】（顺序即优先级）
+PASS ③4 围栏另起一对，带 id 与标题 —— 不拿 added-by="steward" 那个壳去套用户自己写的模板
+PASS ③5 返回值里也带着正文（落盘与事后对账要用）
+PASS ③6 对照：同样长的管家补充照旧被截断（1200 字 / 预算 1200）
+PASS ③7 没给 playbook 时既有行为逐字不变
+STEWARD PLAYBOOK RUN UNIT: ALL PASS
+✔ dev-harness/unit/steward-playbook-run.test.js (102.877ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 8265.901375

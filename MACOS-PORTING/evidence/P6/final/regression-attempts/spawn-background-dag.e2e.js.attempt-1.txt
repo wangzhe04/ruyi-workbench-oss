@@ -1,0 +1,14 @@
+PASS workbench starts
+PASS session created
+PASS background orchestrate_agents returns an immediate {runId, status:running} receipt
+PASS parent performs independent work while the child is still running
+PASS background run events are tagged background:true (own card / not the parent activity bar)
+PASS wait_agents collects the delivery envelope (settled, succeeded)
+PASS envelope node carries a bounded summary, no raw result/toolEvidence
+PASS envelope carries usage + the agent_result pointer
+PASS the ad-hoc background launch is persisted (kind orchestrate_agents, background:true) and visible to the Workbench DAG
+PASS parent turn completes after collection
+PASS exactly one hidden agent receipt row lands in the session data plane
+PASS envelope collected by wait_agents is marked delivered (no second injection later)
+
+SPAWN BACKGROUND DAG E2E: ALL PASS

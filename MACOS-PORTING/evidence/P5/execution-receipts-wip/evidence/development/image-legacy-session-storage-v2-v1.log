@@ -1,0 +1,49 @@
+PASS (A1a) legacy 会话读回(messages=3, providerHistory=2)
+PASS (A1b) 头已转 v2(标记+计数+不带正文)— {"v":2,"mc":3}
+PASS (A1c) 两个 NDJSON 正文已落盘(3 行 / 2 行)
+PASS (A1d) v1bak 是 legacy 原文备份
+PASS (A2a) v2 回读消息内容一致
+PASS (A2b) v2 成功读取后 v1bak 自动清除
+PASS (A3) 快路径 append:前 3 行字节不动,仅追加 1 行
+PASS (A4) 零增长 save 不触碰正文文件
+PASS (A5) 前缀改写触发全量重写(行数=4,第 2 行已更新)
+PASS (A6a) 撕裂尾行被截断修复(读回 4 条,文件回 4 行)
+PASS (A6b) 截断后继续 append 无焊行:m5 完整可读(防回归:撕裂字节+新行合并 → corrupt 丢数据)
+PASS (A7a) 迁移后 v1bak 在场
+PASS (A7b) 中间行损坏 → v1bak 回退,原始消息完整恢复
+PASS (A7c) 回退后重建的 v2 可正常再读
+PASS (A8a) 前置:v1bak 已清(无备份可退)
+PASS (A8b) 无备份损坏 → loadSession 返回 null
+PASS (A8c) 头与坏正文均已 .corrupt 隔离(留取证,不删)
+PASS (A9) deleteSession 连带删除头与两个正文
+PASS (A10) 头是提交点:未提交的第 3 行被物理截断(读回 2 条,文件回 2 行)
+PASS (A11) listSessions v2 布局下正常返回元信息
+PASS (A12a) 前置:v1bak 已清,只能走 prevbody 通道
+PASS (A12b) 收缩中断 → prevbody 回滚,5 条消息完整恢复(头未提交的半成品被撤销)
+PASS (A12c) 恢复成功后 prevbody 快照已清
+PASS (A13) 增长型慢路径中断(计数不符+快照在场)→ 回滚 prevbody,不被未提交新内容污染
+PASS (A14) 头计数==正文行数时 prevbody 判为陈旧快照:不恢复、顺带清除
+PASS (B1) cwd → 项目目录键映射(与 CLI 实测一致)
+PASS (B2) saveSession 钩子自动登记转录白名单账本
+PASS (B3a) 转录保留天数越界 -5 → clamp 0(关)
+PASS (B3b) 缺省转录保留 30 天
+PASS (B4a) engine-transcripts sweep ok
+PASS (B4b) 活会话引用的转录与侧录保留
+PASS (B4c) 无引用超期转录删除,子代理侧录目录连带
+PASS (B4d) 无引用但未超期的转录保留
+PASS (B4e) 红线:账本外转录(用户自己的 Claude Code 数据)绝不触碰
+PASS (B4f) sweep 报告释放字节与删除动作(freed=395)
+PASS (B4g) 账本已除名(已删/文件失踪),保留项仍在账
+PASS (B5) 保留天数 0 = 关,超期文件也不动
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 2072188f8559)
+[wb] UI: http://127.0.0.1:62970/
+[wb] Data: /tmp/ric-ip1tg737/TMPDIR/wcw-session-v2-e2e
+[wb] Server source: /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js
+PASS (C0) server booted :62970
+PASS (C1) UI token scraped
+PASS (C2) summary 携带默认转录保留策略 30 天
+PASS (C3) policy 更新:越界 9999 天 clamp 到 365 — {"logsKeepDays":30,"agentRunEventsCompressDays":14,"webcacheMaxEntries":0,"engineTranscriptDays":365}
+PASS (C4) 转录策略已持久(config 落盘后回读一致)
+PASS (C5) clean target=engine-transcripts → ok(白名单空/活引用 → 无动作)
+
+SESSION-STORAGE-V2 E2E: ALL PASS

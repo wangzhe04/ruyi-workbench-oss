@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "stage": "development-design-and-first-code-review",
+  "reviewer": "/root/p6_02_review",
+  "scope": "Local/internal trial, current-account isolated install. Developer ID, notarization, real clean standard-user and downloaded-origin Gatekeeper approval are unverified.",
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "P6-01 Resources-contained native code is not fully sealed by the outer Ruyi deep verification.",
+      "independentEvidence": {
+        "native": 209,
+        "unsigned": 18,
+        "missingResourceSeals": 10,
+        "report": "/tmp/ruyi-p602-review/signature-scan.json"
+      },
+      "resolution": "Current code signs only explicit unsigned native files and repairs specific Chromium missing-resource containers inside-out, then verifies every target. Final artifact proof pending."
+    },
+    {
+      "id": "R2",
+      "finding": "Output reservation before temporary allocation was outside cleanup try.",
+      "before": {
+        "name": "output reservation before try",
+        "error": "injected temporary-directory allocation failure",
+        "outputRemains": true
+      },
+      "after": {
+        "name": "output reservation before try",
+        "error": "injected temporary-directory allocation failure",
+        "outputRemains": false
+      },
+      "status": "independently-fixed"
+    },
+    {
+      "id": "R3",
+      "finding": "Post-attach metadata parse failure leaked an owned mounted image.",
+      "before": {
+        "name": "attach plist conversion failure",
+        "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+        "stillMounted": true
+      },
+      "after": {
+        "name": "attach plist conversion failure",
+        "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+        "stillMounted": false
+      },
+      "status": "independently-fixed",
+      "binding": "431cdd9632dcc8b3b7ad98cd305e3ad03f7872f244bd8c7cae3932631323a7a5"
+    },
+    {
+      "id": "R4",
+      "finding": "Repeated wrapper provenance fields could disagree while verification passed.",
+      "status": "fixed-in-current-code; provenance unit checks present"
+    },
+    {
+      "id": "R5",
+      "finding": "Gatekeeper assessor timeout or spawn error could satisfy status !== 0.",
+      "status": "reported-pending-final-source"
+    },
+    {
+      "id": "R6",
+      "finding": "DMG checksum failure printed FAIL but continued mounting and launching.",
+      "status": "reported-pending-final-source"
+    }
+  ],
+  "sourceFreeze": "not yet notified; this is not final acceptance"
+}

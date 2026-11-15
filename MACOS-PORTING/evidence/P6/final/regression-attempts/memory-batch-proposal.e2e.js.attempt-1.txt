@@ -1,0 +1,46 @@
+PASS A1 批量 3 条 → 一个待决提案(batch/count/pendingUserConfirmation)(got {"ok":true,"batch":true,"count":3})
+PASS A1b proposal 是 kind:memory_batch、3 条全 pending、钉着来源会话与回合
+PASS A1c 提议阶段一条记忆都没写(仍须用户确认)
+PASS A1d 状态文件里是同一个候选单槽(current 一个、source:tool)
+PASS A2 apply accept=[0,2] 成功(got {"ok":true,"proposalId":"proposal_671a90c758d4fa4b","kind":"memory_batch","status":"saved","saved":[{"index":0,"id":"mem_44b78e1e531c56e6","scope":"project","name":"kq1vale kq1mirt"},{"index":2,"id":")
+PASS A2b 回执如实:saved=[0,2](带 id/scope)、dismissed=[1](带名字)
+PASS A2c 落库正好 2 条(1、3),被拒的那条没写(实得 2 个 .md)
+PASS A2d 落库的记忆带来源会话;convention 默认进核心(与单条卡编辑弹窗的默认勾选一致)
+PASS A2e 状态文件:整张卡 settle(saved),每条各自的结论与落库 id
+PASS A2f 历史按条各记一行(saved/dismissed/saved)(got ["saved","dismissed","saved"])
+PASS A2g 同一张卡再 apply 一次 → proposal not found,不重存
+PASS A3 超过 3 条整体拒绝、点明上限/实得/没提交(got {"ok":false,"error":"items holds at most 3 candidates per call (got 4); nothing was submitted. Resend the 3 most durable ones now and propose the rest in a later turn.","maxItems":3})
+PASS A3b 被拒的那次不占槽
+PASS A3c 同回合随后的单条照样提交成功
+PASS A4 单条旧形式:同一份参数照旧成功,回执与卡片形状不变(无 kind/items/batch)
+PASS A4b items 只有一条 = 单条形式(单条卡)
+PASS A4c 单条缺字段的报错逐字不变
+PASS A5 批量先到 → 同回合 relation_propose 回 alreadyPending(同一个槽)
+PASS A5b relation_propose 先到 → 同回合批量回 alreadyPending、submitted:false、不覆盖
+PASS A5c 同回合并行派发:恰好一个先到者占槽,另一个回 alreadyPending、指向同一个提案(winners=1)
+PASS A6 跨回合新提案顶掉旧的批量 pending:旧卡两条各记一行 superseded
+PASS A6b 之后再提被顶掉的其中一条 → 认出是本会话评审过的
+PASS A7 只剩一条合格 → 退回单条形式,另两条点名退回(缺字段/敏感)(got [{"index":1,"error":"description/reason are required and body must be at most 4000 characters"},{"index":2,"error":"candidate looks sensitive and was not proposed"}])
+PASS A7b 与已有记忆重复(点名 existingId)、与同一次调用里的另一条重复(点名 items[0])都退回(got [{"index":1,"duplicate":true,"existingId":"mem_b3372638fabbddfa","existingScope":"project","existingName":"已经有的那条约定","error":"same or very similar memory already exists: id=mem_b3372638fabbddfa (project, \"已经有的那条约定\"). To change it call workbench_memory_revise {id:\"mem_b3372638fabbddfa\", scope:\"project\", ...}; do not propose a new one."},{"index":2,"duplicate":true,"error":"same or very similar to items[0] in this call; merge them into one candidate"}])
+PASS A7c 两条合格一条不合格 → 2 条成卡、1 条退回
+PASS A7d 一条都不合格 → 整体失败、不占槽
+PASS A7e items 与单条字段同时给 → 拒绝(不猜哪个才是本意)
+PASS A8 3 条 × 4000 字中文正文 + 满历史:批量照常提交(got {"ok":true})
+PASS A8b 状态文件 93897 字节:> 64KB(修前读侧判空的线)、< 256KB
+PASS A8c 这份 > 64KB 的状态仍读得回来(同回合再提回 alreadyPending、指向那张 3 条的卡)
+PASS A8d > 256KB 的状态文件照旧判空(不被一份坏/超大文件卡死)
+PASS A8e 写侧超限:先丢最旧历史(24 行留下)、当前提案不丢,落盘 225978 ≤ 256KB
+PASS A8f 写进去的那张卡下次读得回来
+PASS H0 工作台起来了
+PASS H1 回合跑完(主回合真的调了 workbench_memory_propose{items})
+PASS H1b 工具结果如实回给模型:batch/count:3/待用户确认(got {"ok":true,"proposalId":"proposal_086e4bab67be22e4","pendingUserConfirmation":true,"batch":true,"count":3,"proposal":{"kind":"memory_batch","items":[{"name":"kq51vale kq51mirt","description":"when edi)
+PASS H2 回合后 /api/memory/proposal 回放这张批量卡(UI 据此画一张卡)
+PASS H3 批量卡不走编辑弹窗那条路(404、一条不写、卡仍 pending)(got 404)
+PASS H4 apply accept=[0,2] → 200,回执 saved 2 / dismissed 1(got 200 {"ok":true,"proposalId":"proposal_086e4bab67be22e4","kind":"memory_batch","status":"saved","saved":[{"index":0,"id":"mem_76d542bfca513519","scope":"project","na)
+PASS H4b 落库 2 条(勾上的那两条),第 2 条没写
+PASS H4c 每条结论各记一行历史
+PASS H5 同一张卡再点一次 → 404,不重存
+PASS H7 decision:saved 不能替用户把整张批量卡记成已存(要存哪几条走 apply 的 accept)
+PASS H6 另一会话「全部忽略」→ 每条 dismissed、三行历史、一条不写
+
+MEMORY BATCH PROPOSAL E2E: ALL PASS

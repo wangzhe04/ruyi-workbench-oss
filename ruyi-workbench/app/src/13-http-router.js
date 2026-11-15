@@ -98,7 +98,9 @@ function startErrorNextText(kind) {
 async function writeStartError(kind, message) {
   const safeKind = START_ERROR_KINDS.includes(kind) ? kind : 'startup-failed';
   try {
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await fsp.mkdir(paths.data, { recursive: true });
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await atomicWriteJson(path.join(paths.data, LAST_START_ERROR_FILE), {
       at: nowIso(),
       kind: safeKind,
@@ -314,7 +316,7 @@ async function handleApi(req, res, pathname) {
       errorClasses: ERROR_CLASSES,
       // 116c: /api/status 的工具清单是【设置页面向用户的目录】,管家工具族一律不出现在这里(四个
       // offer 面之一)—— 它们只属于 kind==='steward' 的管家会话,不是用户可挑选的会话工具。
-      tools: MCP_TOOLS.filter(t => !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => runtimeToolRequirementsMet(t.name, runtime).met && !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s
@@ -372,7 +374,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const config = await readConfig();
     try {
-      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children }, config);
+      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children, selectedPath: body && body.selectedPath }, config);
       return send(res, json(r));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
@@ -1325,7 +1327,7 @@ async function handleApi(req, res, pathname) {
   // in the turn (bounded to 12). Unlike office_open this never hands source files to an arbitrary association:
   // resolvePreferredCodeEditor accepts only known editors/IDEs, preventing `.js` -> WScript execution.
   if (req.method === 'POST' && pathname === '/api/checkpoints/open-external') {
-    if (process.platform !== 'win32') return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows', 400));
+    if (!['win32', 'darwin'].includes(process.platform)) return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows 和 macOS', 400));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     const turnSeq = Number(body && body.turnSeq);
@@ -1374,7 +1376,7 @@ async function handleApi(req, res, pathname) {
         spawnSpec = buildCodeEditorSpawn(editor, 'diff', materialized.beforePath, materialized.afterPath);
         // Generic safe editors have no command-line diff contract. Keep the browser's internal diff as the
         // comparison view and open the meaningful side in the native editor (before for a deletion).
-        if (spawnSpec.diffUnsupported) spawnSpec.args = [entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
+        if (spawnSpec.diffUnsupported) spawnSpec.args = [...(spawnSpec.fileOpenPrefix || []), entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
       }
       if (!spawnSpec.ok || !await launchCodeEditor(spawnSpec)) {
         failed.push({ entrySeq: entry.entrySeq, reason: spawnSpec.error || '无法启动本机编辑器' });
@@ -1966,8 +1968,11 @@ async function startServer(opts) {
         const from = paths.data;
         const to = DATA_ROOT_MIGRATION.to;
         for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+        if (process.platform === 'darwin') await ownership.confirmRoot(to, DATA_ROOT_MIGRATION.from);
       }
     }
+    // Initialize execution recovery under the OS gate, before any engine/client or startup recovery.
+    await DesktopExecutionHooks.initialize(ownership);
     const result = await startServerInner(opts, bindHost);
     await ownership.releaseStartup();
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
@@ -2591,11 +2596,20 @@ async function startMcp() {
   // in the serve process and cannot survive across this transient child's turns.
   RUNTIME.isMcpChild = true;
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  let inputClosed = false;
+  let pendingRequests = 0;
+  const closeBridgesWhenDrained = () => {
+    if (inputClosed && pendingRequests === 0) killAllMcpClients();
+  };
+  // EOF accepts no new calls. Finish already accepted requests, then close their bridges so
+  // pipe handles and a live ACC child cannot keep a disconnected stdio server alive forever.
+  rl.once('close', () => { inputClosed = true; closeBridgesWhenDrained(); });
   rl.on('line', line => {
     void (async () => {
-      if (!line.trim()) return;
+      if (inputClosed || !line.trim()) return;
       const msg = safeJsonParse(line);
       if (!msg || !msg.method) return;
+      pendingRequests += 1;
       try {
         if (msg.method === 'initialize') {
           return sendMcp(msg.id, {
@@ -2671,7 +2685,7 @@ async function startMcp() {
           return sendMcp(msg.id, {
             resources: [
               {
-                uri: `file://${paths.config.replace(/\\/g, '/')}`,
+                uri: pathToFileURL(paths.config).href,
                 name: 'Workbench config',
                 description: 'Local workbench configuration file',
                 mimeType: 'application/json',
@@ -2683,12 +2697,13 @@ async function startMcp() {
           const resourceConfig = await readConfig();
           PrivacyGateway.assertSupported(resourceConfig, 'external-resource');
           const uri = String(msg.params?.uri || '');
-          if (!uri.startsWith('file://')) throw new Error('Only file:// resources are supported');
-          const p = decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/^\/+/, '');
+          const resource = new URL(uri);
+          if (resource.protocol !== 'file:' || resource.hostname || resource.search || resource.hash) throw new Error('Only local file:// resources are supported');
+          const p = fileURLToPath(resource);
           // resources/list only exposes the config file — confine reads to exactly it (no traversal,
           // no UNC/SMB egress from an "offline" tool).
           const resolved = path.resolve(p);
-          if (resolved.toLowerCase() !== path.resolve(paths.config).toLowerCase()) throw new Error('resource not found');
+          if (samePathKey(resolved) !== samePathKey(paths.config)) throw new Error('resource not found');
           // 128e(48 号文 §1,实测坐实):修前这里把 config.json【原样】读出来返回 —— 明文的 provider apiKey、Claude CLI 的
           // modelsApiKey、外部 MCP 连接器 env 里的令牌,连到工作台 MCP 的模型用读资源的工具就能拿走(GET /api/status 早在
           // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。
@@ -2704,6 +2719,9 @@ async function startMcp() {
         try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); }
         catch (policyError) { err = new Error(policyError.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'); }
         return sendMcp(msg.id, null, err);
+      } finally {
+        pendingRequests -= 1;
+        closeBridgesWhenDrained();
       }
     })();
   });

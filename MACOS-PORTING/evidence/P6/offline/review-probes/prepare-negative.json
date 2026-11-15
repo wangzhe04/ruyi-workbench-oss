@@ -1,0 +1,26 @@
+[
+  {
+    "name": "internal framework link extracts",
+    "passed": true
+  },
+  {
+    "name": "reject ../escape",
+    "passed": true
+  },
+  {
+    "name": "reject /absolute",
+    "passed": true
+  },
+  {
+    "name": "reject Framework/link",
+    "passed": true
+  },
+  {
+    "name": "missing cache stays offline",
+    "passed": true
+  },
+  {
+    "name": "wrong cache hash rejected",
+    "passed": true
+  }
+]

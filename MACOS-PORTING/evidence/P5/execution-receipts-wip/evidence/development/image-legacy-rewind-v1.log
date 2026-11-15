@@ -1,0 +1,35 @@
+PASS workbench up on :63007
+PASS UI token scraped
+PASS session created
+PASS fake up (t1)
+PASS fake up (t2)
+FAIL t2 created b.txt
+PASS fake up (t3)
+PASS pre-rewind turnSeq === 3 (got 3)
+PASS pre-rewind 6 messages (got 6)
+PASS t2 user message stamped turnSeq === 2
+PASS (a) rewind ok
+PASS (a) lastUserText === t2 original text
+PASS (a) removedTurns === 4 (t2 user+assistant + t3 user+assistant) (got 4)
+FAIL (a) filesReverted includes b.txt
+PASS (a) b.txt removed by rollback (create inverse = delete)
+FAIL (a) 116-3 P1-4: turnsWithoutCheckpoint 如实点名没有 checkpoint 记录的回合 (got [2,3])
+PASS (a) only t1 user+assistant remain (2 messages, got 2)
+PASS (a) surviving first message is t1 user
+PASS (a) providerHistory cleared to [] (got 0)
+PASS (a) turnSeq NOT rewound — still 3 (got 3)
+PASS fake up (post-rewind turn)
+FAIL (b) post-rewind turn produced a normal (ok) result
+PASS (b) new turnSeq === 4 (incremented, not reused) (got 4)
+FAIL (b) providerHistory rebuilt by lazy reseed (len 0)
+PASS (c) rewind without UI token → 403 (got 403)
+PASS (d) fake up (FAKE_STREAM_DELAY_MS=3000)
+PASS (d) 活回合 rewind ok=true — 自动停回合(旧:回合进行中拒绝;实 {"ok":true})
+PASS (d) 截断不被 dying turn 收尾盖回 — 消息仍 4 条(实 4;丢失写则回弹)
+PASS (d) 被停回合的 user 消息已随截断移除
+PASS (e) 乐观 user 行引用被捕获(optimisticUserRow)
+PASS (e) rebindOptimisticUserRow 用真身重建 msgActions
+PASS (e) 成功路径与失败路径都调重绑(>=2 处调用)
+PASS (e) app.js 把 msgActions 注入 stream runtime deps
+
+REWIND E2E: FAIL (5)

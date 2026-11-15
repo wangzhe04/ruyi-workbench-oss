@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "production",
+    "path": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "bytes": 291712,
+    "sha256": "49b6b38536827026107f5c58aceacf0fb86f6e6266bad745ceacca9c5cdb4e74"
+  },
+  {
+    "mode": "testing",
+    "path": "/tmp/ruyi-sm1-build-mnhnvxh2/testing-helper",
+    "bytes": 309184,
+    "sha256": "66ffb7f306fee738907e98fbb11f34fd296d17abd08642f8895e673f827f4525"
+  }
+]

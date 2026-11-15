@@ -1,0 +1,48 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS C0 设置弹窗打开了
+PASS C1a 出厂默认的简易档
+PASS C1b 简易档看得见「integrations」页签
+PASS C1b 简易档看得见「toolbox」页签
+PASS C1b 简易档看得见「skills」页签
+PASS C1b 简易档看得见「migration」页签
+PASS C1b 简易档看得见「claude」页签
+PASS C1b 简易档看得见「agents」页签
+PASS C1b 简易档看得见「advanced」页签
+PASS C1b 简易档看得见「storage」页签
+PASS C1b 简易档看得见「voice」页签
+PASS C1c 迁移中心住自己的页签，切过去就在
+PASS C2a 「允许执行命令」在权限与安全页
+PASS C2b 关掉 → allowCommandTools:false 落盘
+PASS C2c 打开 → allowCommandTools:true 落盘
+PASS C3a 上下文 70% → autoCompactThreshold 0.7
+PASS C3b 乱填 200 → 钳成 95% 落盘
+PASS C3b2 乱填 300 → 框里随即显示 95(got 95)
+PASS C3c 框里回显钳过的 95
+PASS C3d 记忆容量（折叠段里的数字框）照样即存
+PASS C4a 「等不到答复时先暂停」关着时「暂停最多保留」置灰
+PASS C4b 打开「等不到答复时先暂停」
+PASS C4c 依赖满足后可改
+PASS C4d 10 分钟 → 600000 毫秒落盘
+PASS C5 「失败时改用内置搜索」写进 searchBackend，同一对象里的 type 原样保留
+PASS C6a 预置的 file_read 在「总是允许」清单里
+PASS C6b 点「撤销」→ toolAllowRules 里没了
+PASS C6c 清单回到空态
+PASS C7a 加一条 foo_tool → read 落盘
+PASS C7b 改成 edit 落盘
+PASS C7c 移除后没了
+PASS C8 选深色 → theme:dark 落盘且当场换肤
+PASS C9 「存储与数据」页有 #advDataRoot
+PASS C9 「存储与数据」页有 #openDataDirBtn
+PASS C9 「存储与数据」页有 #storagePolicyLogsDays
+PASS C9 「存储与数据」页有 #settingsViewLogsBtn
+PASS C9 「存储与数据」页有 #settingsExportSessionBtn
+PASS C9 「存储与数据」页有 #settingsImportSessionBtn
+PASS C10a 设置面板没有横向滚动（无）
+PASS C10b 页面没有未捕获异常（无）
+PASS C10c 页面没有 console.error（无）
+
+SETTINGS CATALOG BROWSER E2E: ALL PASS

@@ -1,0 +1,22 @@
+{
+  "mode": "native",
+  "cwd": "/tmp/ruyi-p5-durable-history-worktree",
+  "outerRoot": "/tmp/p5hist-19pd2002",
+  "environment": {
+    "HOME": "/tmp/p5hist-19pd2002/h",
+    "TMPDIR": "/tmp/p5hist-19pd2002/t",
+    "USERPROFILE": "/tmp/p5hist-19pd2002/u",
+    "APPDATA": "/tmp/p5hist-19pd2002/a",
+    "LOCALAPPDATA": "/tmp/p5hist-19pd2002/l",
+    "WCW_DATA_DIR": "/tmp/p5hist-19pd2002/w",
+    "RUYI_HOME": "/tmp/p5hist-19pd2002/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5hist-19pd2002/c",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_P5_ABORT_REQUIRED": "1",
+    "RUYI_P5_ABORT_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_ABORT_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/native-v1/native",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  }
+}

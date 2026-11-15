@@ -1,0 +1,22 @@
+{
+  "nativePID": 9884,
+  "servicePID": 9896,
+  "launch": "LaunchServices",
+  "capture": {
+    "authorization": "granted",
+    "coordinate_space": "macos_global_points",
+    "installed": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true
+  },
+  "offered": true,
+  "shot": {
+    "coordinate_space": "macos_global_points",
+    "height": 2214,
+    "ok": true,
+    "scale": 2,
+    "scale_y": 2,
+    "width": 3420
+  }
+}

@@ -1,0 +1,52 @@
+PASS (A) workbench up(开关关)
+PASS (A) runtime token 可读
+PASS (A) 开关关:GET /api/steward/preroute -> 409 steward.disabled(稳定信封)
+PASS (A) 开关关:无 token -> 403(ROUTE_AUTH token 级)
+PASS (B) workbench up(开关开)
+PASS (B) runtime token 可读
+PASS (C) 开关开:无 token 依旧 403
+PASS (B) 空串 -> kind:steward
+PASS (B) 响应带 tookMs(数值,非负)
+PASS (B) 交付物原例「明天9点提醒我交周报」-> kind:schedule,不因「周报-W36」命中线程(实测 schedule)
+PASS (B) 交付物原例「现在哪条最烧钱」-> kind:question(实测 question)
+PASS (B) title 精确命中 -> kind:thread,命中的是「支付网关重构」那条(实测 {"ok":true,"kind":"thread","hits":[{"sessionId":"sess_67357da997d0f49a","missionId":"sess_67357da997d0f49a","title":"支付网关重构","displayTitle":"支付网关重构","updatedAt":"2026-11-12T11:40:39.917Z","score":15.5,"reason":"命中词：支付、付网、网关、关重、重构；近期更新"}],"tookMs":3})
+PASS (B) thread hit 带非空 reason
+PASS (B) 「」短语整段命中 -> kind:thread,命中的是「周报-W36」那条(实测 {"ok":true,"kind":"thread","hits":[{"sessionId":"sess_0c10c6037de18e7d","missionId":"sess_0c10c6037de18e7d","title":"周报-W36","displayTitle":"周报-W36","updatedAt":"2026-11-12T11:40:40.033Z","score":9.5,"reason":"命中词：w36、周报；短语命中；近期更新"}],"tookMs":2})
+PASS (B) 短语命中的 reason 标注「短语命中」
+PASS (B) 两条同前缀线程打平 -> kind:unsure,给两条候选(实测 {"ok":true,"kind":"unsure","hits":[{"sessionId":"sess_356f99be18b3df4a","missionId":"sess_356f99be18b3df4a","title":"预算评审乙组","displayTitle":"预算评审乙组","updatedAt":"2026-11-12T11:40:40.259Z","score":9.5,"reason":"命中词：预算、算评、评审；近期更新"},{"sessionId":"sess_a9bfc84a71588d9e","missionId":"sess_a9bfc84a71588d9e","title":"预算评审甲组","displayTitle":"预算评审甲组","updatedAt":"2026-11-12T11:40:40.146Z","score":9.5,"reason":"命中词：预算、算评、评审；近期更新"}],"tookMs":3})
+PASS (B) unsure 的两条候选恰好是「预算评审甲组/乙组」那两条
+PASS (B) 与任何线程都不相关的陈述句 -> kind:new(实测 new)
+PASS (D) 第 1 次请求 200
+PASS (D) 第 2 次请求 200
+PASS (D) 第 3 次请求 200
+PASS (D) 第 4 次请求 200
+PASS (D) 第 5 次请求 200
+PASS (D) 第 6 次请求 200
+PASS (D) 第 7 次请求 200
+PASS (D) 第 8 次请求 200
+PASS (D) 第 9 次请求 200
+PASS (D) 第 10 次请求 200
+PASS (D) 第 11 次请求 200
+PASS (D) 第 12 次请求 200
+PASS (D) 第 13 次请求 200
+PASS (D) 第 14 次请求 200
+PASS (D) 第 15 次请求 200
+PASS (D) 第 16 次请求 200
+PASS (D) 第 17 次请求 200
+PASS (D) 第 18 次请求 200
+PASS (D) 第 19 次请求 200
+PASS (D) 第 20 次请求 200
+PASS (D) 缓存命中后 p50 tookMs ≤ 50ms(实测 p50=1ms,全量=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2])
+PASS (E) 跑完全部 preroute 请求后,<data>/steward 目录的文件集合(路径+字节数)前后一致(零写入)
+PASS (F1) 空记忆库:两条打平 -> unsure(实测 {"kind":"unsure","hits":["sess_356f99be18b3df4a","sess_a9bfc84a71588d9e"]})
+PASS (F2) 正对照:未过期的 focus 记忆把甲组顶上去 -> thread/甲组(实测 {"kind":"thread","hits":["sess_a9bfc84a71588d9e"]})
+PASS (F2) 正对照的 reason 标注「记忆加权」—— 加的确实是记忆那 2 分(实测 "命中词：预算、算评、评审；记忆加权；近期更新")
+PASS (F3) 承重:同一条记忆【已过期】-> 不再加分,回到 unsure(实测 {"kind":"unsure","hits":["sess_356f99be18b3df4a","sess_a9bfc84a71588d9e"]})
+PASS (F3) 承重:过期条目不出现在任何一条候选的 reason 里
+PASS (F4) 没有到期日的老条目仍然永不过期(存量语义没被顺手改掉;实测 {"kind":"thread","hits":["sess_a9bfc84a71588d9e"]})
+PASS (F5) 项目级作用域的记忆【照常】给预判加分 —— 有意的,不是漏改(见 13o stewardPreroute 的注释;实测 {"kind":"thread","hits":["sess_a9bfc84a71588d9e"]})
+PASS (J1) 两条打平 + focus=乙组 -> thread/乙组、理由带「当前焦点」(实测 {"kind":"thread","hits":["sess_356f99be18b3df4a","sess_a9bfc84a71588d9e"]})
+PASS (J2) 「继续那个」+ focus=甲组 -> thread/甲组(实测 {"kind":"thread","hits":["sess_a9bfc84a71588d9e"]})
+PASS (J3) 「继续那个」没带 focus -> unsure、两条候选(只问必要区别;实测 {"kind":"unsure","hits":["sess_4ac3f904d86bd753","sess_d71f87b2150e73c0"]})
+PASS (J4) focus 不是合法的会话 id -> 当没给(实测 {"kind":"unsure","hits":["sess_4ac3f904d86bd753","sess_d71f87b2150e73c0"]})
+STEWARD PREROUTE E2E: ALL PASS

@@ -1,0 +1,106 @@
+{
+  "nativePID": 20920,
+  "servicePID": 20944,
+  "launch": "LaunchServices",
+  "bundle": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "bundled": true,
+  "workbenchRoot": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench",
+  "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "observedProcesses": [
+    {
+      "pid": 20920,
+      "ppid": 1,
+      "created": "1794538371215963",
+      "name": ""
+    },
+    {
+      "pid": 20944,
+      "ppid": 20920,
+      "created": "1794538371484253",
+      "name": ""
+    },
+    {
+      "pid": 21069,
+      "ppid": 20944,
+      "created": "1794538372325251",
+      "name": ""
+    },
+    {
+      "pid": 21098,
+      "ppid": 20944,
+      "created": "1794538372486147",
+      "name": ""
+    },
+    {
+      "pid": 21099,
+      "ppid": 21098,
+      "created": "1794538372487518",
+      "name": ""
+    },
+    {
+      "pid": 21100,
+      "ppid": 21099,
+      "created": "1794538372487955",
+      "name": ""
+    },
+    {
+      "pid": 21389,
+      "ppid": 20944,
+      "created": "1794538373957538",
+      "name": ""
+    },
+    {
+      "pid": 21386,
+      "ppid": 20944,
+      "created": "1794538373947051",
+      "name": ""
+    },
+    {
+      "pid": 21387,
+      "ppid": 21386,
+      "created": "1794538373949089",
+      "name": ""
+    },
+    {
+      "pid": 21388,
+      "ppid": 21387,
+      "created": "1794538373949655",
+      "name": ""
+    },
+    {
+      "pid": 21438,
+      "ppid": 20944,
+      "created": "1794538374237554",
+      "name": ""
+    },
+    {
+      "pid": 21461,
+      "ppid": 20944,
+      "created": "1794538374361681",
+      "name": ""
+    },
+    {
+      "pid": 21474,
+      "ppid": 20944,
+      "created": "1794538374481096",
+      "name": ""
+    }
+  ],
+  "capture": {
+    "authorization": "granted",
+    "coordinate_space": "macos_global_points",
+    "installed": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true
+  },
+  "offered": true,
+  "shot": {
+    "coordinate_space": "macos_global_points",
+    "height": 2214,
+    "ok": true,
+    "scale": 2,
+    "scale_y": 2,
+    "width": 3420
+  }
+}

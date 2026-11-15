@@ -1,0 +1,60 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.0.0 Safari/537.36",
+  "secure": true,
+  "nativeCode": "function getUserMedia() { [native code] }",
+  "captures": [
+    {
+      "audio": {
+        "echoCancellation": false,
+        "noiseSuppression": false,
+        "autoGainControl": false
+      },
+      "result": {
+        "tracks": [
+          {
+            "kind": "audio",
+            "readyState": "live",
+            "settings": {
+              "autoGainControl": false,
+              "channelCount": 2,
+              "deviceId": "default",
+              "echoCancellation": false,
+              "groupId": "80bf3c2316c0ea1192d6bc49baa180c2dbf3c388fe9153c08797bd66795dd147",
+              "latency": 0.01,
+              "noiseSuppression": false,
+              "sampleRate": 44100,
+              "sampleSize": 16,
+              "voiceIsolation": false
+            }
+          }
+        ]
+      },
+      "elapsed": 157.39999985694885
+    },
+    {
+      "audio": true,
+      "result": {
+        "tracks": [
+          {
+            "kind": "audio",
+            "readyState": "live",
+            "settings": {
+              "autoGainControl": true,
+              "channelCount": 1,
+              "deviceId": "default",
+              "echoCancellation": true,
+              "groupId": "80bf3c2316c0ea1192d6bc49baa180c2dbf3c388fe9153c08797bd66795dd147",
+              "latency": 0.01,
+              "noiseSuppression": true,
+              "sampleRate": 48000,
+              "sampleSize": 16,
+              "voiceIsolation": false
+            }
+          }
+        ]
+      },
+      "elapsed": 14.799999952316284
+    }
+  ],
+  "permission": "granted"
+}

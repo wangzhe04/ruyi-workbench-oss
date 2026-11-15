@@ -1,0 +1,10 @@
+✔ Windows fixture quotes remain PowerShell literals and select the Windows tool (0.961083ms)
+✔ POSIX fixture commands write exact literal paths without expanding shell syntax (5.258666ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.727792

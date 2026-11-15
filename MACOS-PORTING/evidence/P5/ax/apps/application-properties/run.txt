@@ -1,0 +1,22 @@
+PASS TextEdit document belongs to a newly created fixture process
+PASS real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document
+PASS TextEdit exposes exactly one writable native AX text area in the owned document
+PASS real TextEdit AXValue edit and normal save persist the exact owned UTF-8 document
+PASS saved TextEdit fixture window closes with verified AX absence
+PASS only the observed new TextEdit process is reaped
+PASS nonactivating fixture preserves the pre-browser clipboard
+PASS browser and descendant creation identities belong to the controlled profile
+PASS active-window query agrees with the actual Chromium window despite decorated AX titles
+PASS real Chromium consumes multiline Chinese Cmd+V and preserves prior clipboard formats
+PASS native logical-point click reaches the Chromium DOM as a trusted event
+Public application role probe {"focusError":-25212,"attributeNames":["AXFunctionRowTopLevelElements","AXFrame","AXChildren","AXFocusedUIElement","AXFrontmost","AXRole","AXExtrasMenuBar","AXMainWindow","AXFocusedWindow","AXTitle","AXChildrenInNavigationOrder","AXEnhancedUserInterface","AXPreferredLanguage","AXRoleDescription","AXHidden","AXMenuBar","AXWindows","AXSize","AXPosition"],"attributeNamesError":0,"manualReadError":-25205,"role":"AXApplication","manualSettable":0,"roleError":0,"manualSettableError":-25205}
+FAIL Error: Selected application condition timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:34:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:241:17
+PASS all recorded browser and descendant identities are absent before profile removal
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+PASS selected-app fixture restores the pre-test clipboard
+PASS controlled browser profile is removed after its processes exit
+
+MACOS INPUT APPS E2E: FAIL (1)

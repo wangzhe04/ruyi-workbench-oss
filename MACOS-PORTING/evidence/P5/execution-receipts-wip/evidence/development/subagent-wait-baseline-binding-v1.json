@@ -1,0 +1,7 @@
+{
+  "scope": "old generated candidate before pending-delivery wait fix",
+  "serverSha256": "d525a9b49df01f691f36de56fd2a19521c0140d54e7d0a034258631189a4e4f2",
+  "log": "actual-subagents-wait-baseline-v1.log",
+  "evidence": "actual-subagents-wait-baseline-v1.json",
+  "expectedFailure": "controlled sibling sees returned unacknowledged node image while first actual flush paused; no false support claim"
+}

@@ -1,0 +1,21 @@
+{
+  "reviewer": "/root/p5_acceptance",
+  "hostEvidence": "host.json",
+  "checkedAt": "2026-11-08T09:27:07.293Z",
+  "checks": [
+    {
+      "role": "nativePID",
+      "pid": 77718,
+      "present": false,
+      "result": "confirmed_absent",
+      "observed": null
+    },
+    {
+      "role": "servicePID",
+      "pid": 77726,
+      "present": false,
+      "result": "confirmed_absent",
+      "observed": null
+    }
+  ]
+}

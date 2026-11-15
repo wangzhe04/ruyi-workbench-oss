@@ -1,0 +1,34 @@
+PASS platform one-shot shell preserves Unicode/env while refusing startup injections
+PASS platform shell remains exec tier
+PASS disabled command policy blocks the new shell entry point
+PASS workspace execute=false is enforced before bash starts
+PASS Mac script_run defaults to bash
+PASS explicit PowerShell is never interpreted as bash
+PASS one-shot script file avoids argv length limits
+PASS bash name guidance points to the platform shell
+PASS missing supervisor blocks bash before executing a command
+PASS missing supervisor blocks shell session creation
+PASS persistent shell starts with explicit non-TTY semantics
+PASS multiline command preserves state and returns no-newline output with physical cwd
+PASS nonzero command status is distinct from live shell state
+PASS ordinary stdout cannot forge command completion or cwd
+PASS evaluated commands cannot write the completion descriptor
+PASS command stdin is closed instead of consuming protocol input
+PASS UTF-8 characters split across idle flush intervals remain intact
+PASS session-object context cannot list another session shell
+PASS cross-session send and kill are refused
+PASS oversized persistent command is rejected before transport
+PASS persistent command transport supports input beyond argv limits
+PASS silent long command remains explicitly pending after send timeout
+PASS a pending command refuses overlapping input
+PASS poll reports completion while persistent shell stays alive
+PASS persistent output obeys the existing head/tail budget
+PASS finite bash background job starts through normal tool dispatch
+PASS background timeout verifies descendant cleanup and stops side effects
+PASS async background script creation reserves per-session capacity
+PASS cancellation during script creation prevents spawning
+PASS explicit interruption cancels a persistent command and stops its descendants
+PASS shell_kill waits for confirmed cleanup before releasing the session
+PASS no shell path evaluated inherited profile or function injections
+
+MACOS SHELL RUNTIME E2E: ALL PASS

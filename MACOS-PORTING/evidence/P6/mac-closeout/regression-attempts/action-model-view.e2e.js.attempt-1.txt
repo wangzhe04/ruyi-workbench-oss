@@ -1,0 +1,10 @@
+PASS E3-on: at least two provider calls (tool + follow-up)
+PASS E3-on: raw 5000-char payload absent from ALL follow-up request bodies
+PASS E3-on: follow-up request carries the compact action envelope
+PASS E3-on: projected arguments stay compact (260/260B vs 5090 raw)
+PASS E3-on: persisted provider history KEEPS the full original arguments (audit view intact)
+PASS E3-off: two provider calls
+PASS E3-off: raw payload stays in follow-up requests (legacy behavior unchanged)
+PASS E3-off: no envelope anywhere (switch fully inert)
+
+ACTION-MODEL-VIEW E2E: ALL PASS

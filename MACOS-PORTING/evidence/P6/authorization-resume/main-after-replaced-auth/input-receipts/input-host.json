@@ -1,0 +1,294 @@
+{
+  "nativePID": 22538,
+  "servicePID": 22570,
+  "launch": "LaunchServices",
+  "serviceInvocation": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/node/bin/node --require /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/desktop-macos/service-lease.cjs /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/app/server.js serve --host 127.0.0.1",
+  "bundle": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "bundled": true,
+  "workbenchRoot": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench",
+  "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "nativeHelper": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+    "origin": "installed-app-bundle",
+    "sha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69"
+  },
+  "ax": null,
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "inputSequenceReady": true,
+    "inputSequenceSupported": true,
+    "installed": true,
+    "listenAuthorization": "granted",
+    "locked": false,
+    "manualPointerProfiles": [
+      "exact",
+      "standard_mouse"
+    ],
+    "manualRecordReady": true,
+    "manualRecordSupported": true,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "recordInputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "recordReady": true,
+    "recordSource": "controlled_native_requests",
+    "recordSources": [
+      "controlled_native_requests",
+      "native_window_events"
+    ],
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 10709,
+      "height": 528,
+      "pid": 22527,
+      "process_start": "1794538793:811872",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 10709,
+        "pid": 22527,
+        "process_start": "1794538793:811872",
+        "ref": "AD0D7026-F748-481E-8EEF-E49166AE35A6"
+      },
+      "title": "Ruyi P5 Input 22527",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "recording": null,
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 839,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "manualDemonstration": null,
+  "observedProcesses": [
+    {
+      "pid": 22538,
+      "ppid": 1,
+      "created": "1794538794873337"
+    },
+    {
+      "pid": 22570,
+      "ppid": 22538,
+      "created": "1794538795083341"
+    },
+    {
+      "pid": 22625,
+      "ppid": 22570,
+      "created": "1794538795344183"
+    },
+    {
+      "pid": 22624,
+      "ppid": 22570,
+      "created": "1794538795343005"
+    },
+    {
+      "pid": 22728,
+      "ppid": 22570,
+      "created": "1794538795836936"
+    },
+    {
+      "pid": 22765,
+      "ppid": 22570,
+      "created": "1794538796007642"
+    },
+    {
+      "pid": 22766,
+      "ppid": 22765,
+      "created": "1794538796009457"
+    },
+    {
+      "pid": 22767,
+      "ppid": 22766,
+      "created": "1794538796009946"
+    },
+    {
+      "pid": 23187,
+      "ppid": 22570,
+      "created": "1794538797514790"
+    },
+    {
+      "pid": 23201,
+      "ppid": 22570,
+      "created": "1794538797557739"
+    },
+    {
+      "pid": 23188,
+      "ppid": 22570,
+      "created": "1794538797516528"
+    },
+    {
+      "pid": 23190,
+      "ppid": 23188,
+      "created": "1794538797518191"
+    },
+    {
+      "pid": 23191,
+      "ppid": 23190,
+      "created": "1794538797518744"
+    },
+    {
+      "pid": 23243,
+      "ppid": 22570,
+      "created": "1794538797752556"
+    },
+    {
+      "pid": 23446,
+      "ppid": 23191,
+      "created": "1794538798487082"
+    },
+    {
+      "pid": 23484,
+      "ppid": 23191,
+      "created": "1794538798605295"
+    },
+    {
+      "pid": 23525,
+      "ppid": 23191,
+      "created": "1794538798729540"
+    },
+    {
+      "pid": 23557,
+      "ppid": 23191,
+      "created": "1794538798840373"
+    },
+    {
+      "pid": 23588,
+      "ppid": 23191,
+      "created": "1794538798950826"
+    },
+    {
+      "pid": 23625,
+      "ppid": 23191,
+      "created": "1794538799058229"
+    },
+    {
+      "pid": 23665,
+      "ppid": 23191,
+      "created": "1794538799174110"
+    },
+    {
+      "pid": 23720,
+      "ppid": 22570,
+      "created": "1794538799323141"
+    },
+    {
+      "pid": 23717,
+      "ppid": 22570,
+      "created": "1794538799295658"
+    },
+    {
+      "pid": 23721,
+      "ppid": 23720,
+      "created": "1794538799324726"
+    },
+    {
+      "pid": 23722,
+      "ppid": 23721,
+      "created": "1794538799325133"
+    },
+    {
+      "pid": 23754,
+      "ppid": 23191,
+      "created": "1794538799411011"
+    },
+    {
+      "pid": 23797,
+      "ppid": 22570,
+      "created": "1794538799564917"
+    },
+    {
+      "pid": 23852,
+      "ppid": 22570,
+      "created": "1794538799735664"
+    },
+    {
+      "pid": 23904,
+      "ppid": 22570,
+      "created": "1794538799915676"
+    },
+    {
+      "pid": 23957,
+      "ppid": 22570,
+      "created": "1794538800082713"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 14,
+      "key_up": 14,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

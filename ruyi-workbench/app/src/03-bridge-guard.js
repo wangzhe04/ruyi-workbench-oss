@@ -187,9 +187,9 @@ function readdirTimed(dir, opts, timeoutMs) {
 // PF3 fix: bounded existence probe for an EXPLICITLY-KNOWN candidate path (a recentWorkspace). Confirms the dir
 // is still there WITHOUT listing it, so a known workspace on a slow drive isn't dropped just because its own
 // readdir timed out. Resolves to a Stats, null (error/absent), or STAT_TIMEOUT. Never throws.
-function statTimed(p, timeoutMs) {
+function statTimed(p, timeoutMs, options) {
   return Promise.race([
-    fsp.stat(p).catch(() => null),
+    fsp.stat(p, options).catch(() => null),
     new Promise(resolve => setTimeout(() => resolve(STAT_TIMEOUT), timeoutMs)),
   ]);
 }
@@ -227,7 +227,27 @@ async function listChildDirs(root) {
 
 // Core resolver (pure-ish: reads the FS, takes config for candidate roots). Exposed for e2e unit testing.
 // Returns { ok:true, matches:[{path, score}], truncated }.
-async function resolveWorkspace({ name, children }, config) {
+async function resolveWorkspace({ name, children, selectedPath }, config) {
+  // Native macOS pickers resolve aliases such as /var -> /private/var. Preserve
+  // an existing favorite's spelling and permissions when it names the same directory.
+  if (process.platform === 'darwin' && typeof selectedPath === 'string') {
+    if (!path.isAbsolute(selectedPath)) throw new Error('selectedPath must be absolute');
+    let timer;
+    const canonical = await Promise.race([fsp.realpath(selectedPath).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), WORKSPACE_DIR_TIMEOUT_MS); }),
+    ]).finally(() => clearTimeout(timer));
+    if (!canonical) throw new Error('selectedPath could not be resolved');
+    const selected = await statTimed(canonical, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true });
+    if (!selected || selected === STAT_TIMEOUT || !selected.isDirectory()) throw new Error('selectedPath must identify a directory');
+    const known = Array.isArray(config.workspaces) ? config.workspaces : [];
+    const resolved = await Promise.all(known.map(async favorite => ({ favorite,
+      stat: typeof favorite.path === 'string' && path.isAbsolute(favorite.path) ? await statTimed(favorite.path, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true }) : null,
+    })));
+    const matching = resolved.filter(row => row.stat && row.stat !== STAT_TIMEOUT && row.stat.dev === selected.dev && row.stat.ino === selected.ino);
+    const favorite = matching[0]?.favorite;
+    return { ok: true, path: favorite?.path || canonical, ...(favorite ? { favorite } : {}),
+      aliases: Array.from(new Set([canonical, selectedPath, ...matching.map(row => row.favorite.path)])), matches: [] };
+  }
   const wantName = String(name || '').trim().toLowerCase();
   if (!wantName) return { ok: false, error: 'name is required', matches: [] };
   const wantChildren = new Set(
@@ -1317,7 +1337,7 @@ function executableFromAssociationCommand(command) {
 
 function classifyCodeEditorExecutable(executable) {
   const command = String(executable || '').trim();
-  const base = path.basename(command).toLowerCase();
+  const base = path.win32.basename(command).toLowerCase();
   if (!command || !base) return null;
   for (const [kind, names] of Object.entries(CODE_EDITOR_KINDS)) {
     if (names.has(base)) return { command, kind, label: codeEditorLabel(base) };
@@ -1368,6 +1388,20 @@ function resolvePreferredCodeEditor(filePath) {
   if (process.env.RUYI_TEST_HOOKS === '1' && process.env.RUYI_TEST_CODE_EDITOR) {
     return { command: String(process.env.RUYI_TEST_CODE_EDITOR), kind: 'vscode', label: 'Test Editor', source: 'test' };
   }
+  if (process.platform === 'darwin') {
+    const applications = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Cursor', 'Windsurf', 'VSCodium'];
+    for (const directory of [path.join(os.homedir(), 'Applications'), '/Applications']) {
+      for (const name of applications) {
+        const application = path.join(directory, name + '.app');
+        if (fs.existsSync(path.join(application, 'Contents', 'Info.plist'))) {
+          return { command: '/usr/bin/open', application, kind: 'mac-vscode', label: name, source: 'installed-fallback' };
+        }
+      }
+    }
+    const application = '/System/Applications/TextEdit.app';
+    if (fs.existsSync(application)) return { command: '/usr/bin/open', application, kind: 'mac-app', label: 'TextEdit', source: 'system-fallback' };
+    return null;
+  }
   const direct = classifyCodeEditorExecutable(windowsFileAssociationExecutable(filePath));
   if (direct && fs.existsSync(direct.command)) return { ...direct, source: 'file-association' };
   const targetExt = path.extname(String(filePath || '')).toLowerCase();
@@ -1386,6 +1420,18 @@ function resolvePreferredCodeEditor(filePath) {
 function buildCodeEditorSpawn(editor, action, beforePath, afterPath) {
   if (!editor || !editor.command) return { ok: false, error: '未检测到可安全打开代码的本机编辑器' };
   const current = String(afterPath || beforePath || '');
+  if (editor.kind === 'mac-vscode') {
+    const args = action === 'diff'
+      ? ['-n', '-a', editor.application, '--args', '--reuse-window', '--diff', String(beforePath || ''), String(afterPath || '')]
+      : ['-a', editor.application, '--', current];
+    if (action === 'diff' && (!beforePath || !afterPath)) return { ok: false, error: 'Diff 两侧文件路径不完整' };
+    return { ok: true, command: editor.command, args, mode: action === 'diff' ? 'diff' : 'open', editor: editor.label, source: editor.source };
+  }
+  if (editor.kind === 'mac-app') {
+    const fileOpenPrefix = ['-a', editor.application, '--'];
+    return { ok: true, command: editor.command, args: [...fileOpenPrefix, current], fileOpenPrefix,
+      mode: 'open', editor: editor.label, source: editor.source, diffUnsupported: action === 'diff' };
+  }
   if (action !== 'diff') return { ok: true, command: editor.command, args: [current], mode: 'open', editor: editor.label, source: editor.source };
   const before = String(beforePath || ''), after = String(afterPath || '');
   if (!before || !after) return { ok: false, error: 'Diff 两侧文件路径不完整' };

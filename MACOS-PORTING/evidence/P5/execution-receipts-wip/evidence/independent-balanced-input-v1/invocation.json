@@ -1,0 +1,31 @@
+{
+  "at": "2026-11-12T00:12:57.229214+00:00",
+  "argv": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-execution-input.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environment": {
+    "HOME": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/isolation/home",
+    "USERPROFILE": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/isolation/home",
+    "APPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/isolation/appdata",
+    "LOCALAPPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/isolation/localappdata",
+    "TMPDIR": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/isolation/tmp",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_EXECUTION_INPUT_REQUIRED": "1",
+    "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_EXECUTION_INPUT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/result.json"
+  },
+  "sourceEnvironment": "same primaryv2 captured env with fresh invocation isolation/evidence and no previous root or preloads",
+  "removedPreloadsPresent": {
+    "NODE_OPTIONS": false,
+    "PYTHONPATH": false
+  },
+  "automaticRetries": 0,
+  "authorizedScope": "one balanced ordinary owned input suite;no held/rescue/lock/revoke;production helpers/App unchanged",
+  "parentExclusiveReleaseReceived": true
+}

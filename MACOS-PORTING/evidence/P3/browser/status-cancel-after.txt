@@ -1,0 +1,2 @@
+{"driver_alive_after_status_cancel": false, "driver_alive_after_global_shutdown": false, "playwright_global_assigned": false}
+{"driver_alive_after_fixture_cleanup": false}

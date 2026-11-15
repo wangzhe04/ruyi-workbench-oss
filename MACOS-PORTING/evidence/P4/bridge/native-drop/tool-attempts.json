@@ -1,0 +1,16 @@
+{
+  "scope": "CUA cross-application drag attempts",
+  "finderWindow": "P4 原生交互工作区",
+  "targetApp": "development Ruyi with isolated fixture",
+  "observations": [
+    "Finder selection changed during several coordinate attempts",
+    "Ruyi read-only drop observer remained events:[],requests:[],sends:0",
+    "No actual page drop was proven by tool attempts"
+  ],
+  "userAssistedActionsRequested": [
+    "file drop",
+    "directory drop then cancel",
+    "directory drop and leave confirmation open"
+  ],
+  "status": "awaiting_user_assisted_drag"
+}

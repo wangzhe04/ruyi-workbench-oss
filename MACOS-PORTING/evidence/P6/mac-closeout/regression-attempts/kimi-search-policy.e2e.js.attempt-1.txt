@@ -1,0 +1,3 @@
+PASS vendor anchor: appRoot/app/vendor-bin trusted; legacy location and linked app/vendor-bin rejected
+PASS hostcase: real rg was found and classified
+PASS kimi-search-policy.e2e

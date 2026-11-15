@@ -1,0 +1,1 @@
+{"cleanup_refused":true,"cross_tool_blocked":true,"ok":true,"ownership_retained":true,"permission_ownership_retained":true,"protocolVersion":1}

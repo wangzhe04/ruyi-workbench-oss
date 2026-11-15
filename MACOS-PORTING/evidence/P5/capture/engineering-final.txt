@@ -1,0 +1,218 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2509 / ℹ pass 2491 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/80) [fast] acc-offline-installer.static.e2e.js ... PASS (34ms)
+(  2/80) [fast] action-feedback.static.e2e.js ... PASS (37ms)
+(  3/80) [fast] agent-mode-v2.static.e2e.js ... PASS (116ms)
+(  4/80) [fast] agent-team-budget.static.e2e.js ... PASS (182ms)
+(  5/80) [fast] agent-workflows-polling-visibility.static.e2e.js ... PASS (29ms)
+(  6/80) [fast] architecture-contract-snapshots.static.e2e.js ... PASS (124ms)
+(  7/80) [fast] asr-config-ui.static.e2e.js ... PASS (120ms)
+(  8/80) [fast] browser-mcp.static.e2e.js ... PASS (158ms)
+(  9/80) [fast] c2-evidence-spawn-budget.static.e2e.js ... PASS (33ms)
+( 10/80) [fast] copy-path-guard.static.e2e.js ... PASS (106ms)
+( 11/80) [fast] copy-terms.static.e2e.js ... PASS (63ms)
+( 12/80) [fast] cost-zero.static.e2e.js ... PASS (33ms)
+( 13/80) [fast] css-typography-debt.static.e2e.js ... PASS (29ms)
+( 14/80) [fast] desktop-dpi.static.e2e.js ... PASS (31ms)
+( 15/80) [fast] desktop-shell.static.e2e.js ... PASS (30ms)
+( 16/80) [fast] durable-state-inventory.static.e2e.js ... PASS (102ms)
+( 17/80) [fast] ec-d-closure.static.e2e.js ... PASS (42ms)
+( 18/80) [fast] engine-env-brief.static.e2e.js ... PASS (1263ms)
+( 19/80) [fast] eol-policy.static.e2e.js ... PASS (1757ms)
+( 20/80) [fast] facts.static.e2e.js ... FAIL exit=1 (重跑仍失败, 209ms)
+( 21/80) [fast] finalize-segments.static.e2e.js ... PASS (31ms)
+( 22/80) [fast] fixture-home.static.e2e.js ... PASS (818ms)
+( 23/80) [fast] frontend-domains.static.e2e.js ... PASS (40ms)
+( 24/80) [fast] health-i18n.static.e2e.js ... PASS (43ms)
+( 25/80) [fast] i18n-en-terms.static.e2e.js ... PASS (33ms)
+( 26/80) [fast] i18n.static.e2e.js ... PASS (215ms)
+( 27/80) [fast] inline-script-csp-hash.static.e2e.js ... PASS (51ms)
+( 28/80) [fast] kimi-plan-ui.static.e2e.js ... PASS (36ms)
+( 29/80) [fast] live-full-text.static.e2e.js ... PASS (38ms)
+( 30/80) [fast] manifest-ranges.static.e2e.js ... PASS (65ms)
+( 31/80) [fast] mcp-ops-gui.static.e2e.js ... PASS (55ms)
+( 32/80) [fast] memory-toolbox.static.e2e.js ... PASS (37ms)
+( 33/80) [fast] mermaid-render.static.e2e.js ... PASS (374ms)
+( 34/80) [fast] model-menu-classes.static.e2e.js ... PASS (50ms)
+( 35/80) [fast] module-dependency-graph.static.e2e.js ... FAIL exit=1 (重跑仍失败, 1221ms)
+( 36/80) [fast] ndjson-line-feeder.static.e2e.js ... PASS (65ms)
+( 37/80) [fast] net-token-replay.static.e2e.js ... PASS (34ms)
+( 38/80) [fast] new-thread-engine-default.static.e2e.js ... PASS (46ms)
+( 39/80) [fast] onboarding.static.e2e.js ... PASS (56ms)
+( 40/80) [fast] overlay-payload-lock.static.e2e.js ... PASS (75ms)
+( 41/80) [fast] overlay-update-gui.static.e2e.js ... PASS (45ms)
+( 42/80) [fast] process-safety.static.e2e.js ... FAIL exit=1 (重跑仍失败, 389ms)
+( 43/80) [fast] progress-events.static.e2e.js ... PASS (204ms)
+( 44/80) [fast] prompt-snapshot.static.e2e.js ... PASS (110ms)
+( 45/80) [fast] provider-reasoning-effort-ui.static.e2e.js ... PASS (28ms)
+( 46/80) [fast] rail-pocket.static.e2e.js ... PASS (34ms)
+( 47/80) [fast] resume-banner-dismiss.static.e2e.js ... PASS (32ms)
+( 48/80) [fast] route-inventory.static.e2e.js ... FAIL exit=1 (重跑仍失败, 1163ms)
+( 49/80) [fast] runtime-optimization.static.e2e.js ... PASS (265ms)
+( 50/80) [fast] scheduler-ui.static.e2e.js ... PASS (102ms)
+( 51/80) [fast] session-save-census.static.e2e.js ... PASS (76ms)
+( 52/80) [fast] software-engineering-prompt.static.e2e.js ... PASS (97ms)
+( 53/80) [fast] start-experience.static.e2e.js ... PASS (41ms)
+( 54/80) [fast] steward-avatar.static.e2e.js ... PASS (34ms)
+( 55/80) [fast] steward-board.static.e2e.js ... PASS (64ms)
+( 56/80) [fast] steward-config.static.e2e.js ... PASS (162ms)
+( 57/80) [fast] steward-conversation.static.e2e.js ... PASS (65ms)
+( 58/80) [fast] steward-drawer.static.e2e.js ... PASS (59ms)
+( 59/80) [fast] steward-events.static.e2e.js ... PASS (128ms)
+( 60/80) [fast] steward-runner.static.e2e.js ... PASS (229ms)
+( 61/80) [fast] steward-settings.static.e2e.js ... PASS (74ms)
+( 62/80) [fast] steward-shell.static.e2e.js ... PASS (54ms)
+( 63/80) [fast] steward-tools.static.e2e.js ... PASS (1526ms)
+( 64/80) [fast] steward-walkthrough.static.e2e.js ... PASS (72ms)
+( 65/80) [fast] streaming-responsiveness.static.e2e.js ... PASS (42ms)
+( 66/80) [fast] thinking-boundary.static.e2e.js ... PASS (29ms)
+( 67/80) [fast] thread-brief.static.e2e.js ... PASS (76ms)
+( 68/80) [fast] thread-commission.static.e2e.js ... PASS (59ms)
+( 69/80) [fast] tool-image-inline.static.e2e.js ... PASS (39ms)
+( 70/80) [fast] tool-verb-coverage.static.e2e.js ... PASS (97ms)
+( 71/80) [fast] turn-narrative.static.e2e.js ... PASS (99ms)
+( 72/80) [fast] ui-bugfix.static.e2e.js ... PASS (38ms)
+( 73/80) [fast] ui-v3-p1.static.e2e.js ... PASS (47ms)
+( 74/80) [fast] ui-v3-p2.static.e2e.js ... PASS (51ms)
+( 75/80) [fast] ui-v3-p3a.static.e2e.js ... PASS (67ms)
+( 76/80) [fast] ui-v3-p3b.static.e2e.js ... PASS (63ms)
+( 77/80) [fast] ui-v3-wave1.static.e2e.js ... PASS (53ms)
+( 78/80) [fast] ui-v4-glass.static.e2e.js ... PASS (37ms)
+( 79/80) [fast] v17-review-fixes.static.e2e.js ... PASS (131ms)
+( 80/80) [fast] workflow-editor-v2.static.e2e.js ... PASS (45ms)
+
+# 汇总: 76 pass / 4 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== facts.static.e2e.js (exit=1) ===
+--- FAIL 行 3 条 ---
+FAIL README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 577，实得 1 处)；对不上的：**574 e2e cases**
+FAIL README.md 里每一处「e2e 总数」都与 facts 一致(现行 577，实得 2 处)；对不上的：574 项 e2e、574 项 e2e
+FAIL README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 577，实得 1 处)；对不上的：**574 e2e cases**
+--- 末 25 行 ---
+PASS facts.unitSuites(278) == 目录重算(278)
+PASS facts.accSmokes(28) == 目录重算(28)
+PASS facts.accVersion(1.9.1) == pyproject(1.9.1)
+PASS facts.accTools(108) 是正整数(无 venv,活对账由 CI acc-smoke 承担)
+PASS facts.defaultPort(8765) == 00-boot.js DEFAULT_PORT(8765)
+PASS facts.tokenBootstrap(api-bootstrap) == 'api-bootstrap'
+PASS ROUTE_AUTH 含 POST /api/bootstrap(auth=open,浏览器拿 token 唯一通道)
+PASS serveStatic 浏览器分支置空 token(HTML 不再明文下发)
+PASS facts.liveProbes(7) == SKIP 集大小(7)
+PASS SKIP 集每条都是 live probe(非 live 混入: 无)
+PASS README 无过时 ACC 工具数口径(99/98 绝迹;现行 108)
+PASS README.md 里扫得到「原生工具数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 2 处)
+PASS README_EN.md 里扫得到「原生工具数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 1 处)
+PASS README.md 里扫得到「e2e 总数」的说法（实得 2 处；扫不到 = 本条静默失效）
+FAIL README.md 里每一处「e2e 总数」都与 facts 一致(现行 577，实得 2 处)；对不上的：574 项 e2e、574 项 e2e
+PASS README_EN.md 里扫得到「e2e 总数」的说法（实得 1 处；扫不到 = 本条静默失效）
+FAIL README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 577，实得 1 处)；对不上的：**574 e2e cases**
+PASS README.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+PASS README_EN.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+FACTS STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-gea9gM
+
+=== module-dependency-graph.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL 103b generated contract and human/machine graphs match source byte-for-byte
+FAIL 103b no forward/order-layer edge above the reviewed debt ceiling
+--- 末 25 行 ---
+PASS 103b 14-main.js consumes the isolated AgentLoopHooks namespace
+MODULE DEPENDENCY GRAPH STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-RDHw53
+[retry] 重跑 tail:
+FAIL 103b generated contract and human/machine graphs match source byte-for-byte
+module dependency graph --check: FAIL
+  - 新增前向/越层边: 01h-process-runtime.js->01n-desktop-automation.js
+PASS docs/architecture/module-dependency-graph.json 不含行号字段(实得 0 处)
+PASS ruyi-workbench/app/src/module-contracts.json 不含行号字段(实得 0 处)
+PASS 103b graph covers every manifest module in concatenation order
+PASS 103b no duplicate top-level provides
+PASS 103b no cycle edge above the reviewed debt ceiling
+FAIL 103b no forward/order-layer edge above the reviewed debt ceiling
+PASS SCC 规模不超过上限(1 个 / 每个 ≤ 32 个模块;实测 [31])
+PASS 103b scanner finds top-level multi/deconstructed declarations without comment/string ghosts
+PASS 103b scanner retains template-expression reads and discards quoted text
+PASS platform entry hashbang does not hide declarations or create spurious dependency symbols
+PASS 103b isolation pilot exposes one namespace instead of fourteen hook internals
+PASS 103b isolation pilot declares its three injected external dependencies
+PASS 103b 05-claude-engine.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 05b-kimi-bridge.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 09-workflow.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 14-main.js consumes the isolated AgentLoopHooks namespace
+MODULE DEPENDENCY GRAPH STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-peXd6l
+
+=== process-safety.static.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL ③ 用 killOwnTree 的文件数钉成 351(实得 353);加减件请回来改这个数
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS ② 每个 CDP 客户端的 send() 在 socket.send 之前都有 readyState 闸(未设闸 0)
+PASS ④ 产品 src/ 里零 taskkill /T 调用(扫了 90 个模块;命中 0)
+PASS ④ OWN_TREE_KILL_PS 认子孙核创建时间(撞号的陌生人比父亲还老 ⇒ 跳过)
+PASS ④ OWN_TREE_KILL_PS 不杀 conhost、动手前核启动时间
+PASS ④ killChildTree 走 ownTreeKillCommand
+PASS ④ freeStalePort 的 killPid 走 killOwnProcessTree
+PROCESS SAFETY STATIC E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-YbYcMZ
+[retry] 重跑 tail:
+PASS ① 测试框架里没有一处 taskkill /T 调用(实得 0)
+FAIL ③ 用 killOwnTree 的文件数钉成 351(实得 353);加减件请回来改这个数
+PASS ① run-all 的超时收尸走 killOwnTree(child)
+PASS lib/kill-own-tree 的子孙判据里有创建时间比较
+PASS lib/kill-own-tree 自己也不用 /T
+PASS ③ 自带 CDP 客户端的件数钉成 30(实得 30)
+PASS ② 每个 CDP 客户端的 send() 在 socket.send 之前都有 readyState 闸(未设闸 0)
+PASS ④ 产品 src/ 里零 taskkill /T 调用(扫了 90 个模块;命中 0)
+PASS ④ OWN_TREE_KILL_PS 认子孙核创建时间(撞号的陌生人比父亲还老 ⇒ 跳过)
+PASS ④ OWN_TREE_KILL_PS 不杀 conhost、动手前核启动时间
+PASS ④ killChildTree 走 ownTreeKillCommand
+PASS ④ freeStalePort 的 killPid 走 killOwnProcessTree
+PROCESS SAFETY STATIC E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-WgVxl5
+
+=== route-inventory.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+FAIL route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+--- 末 25 行 ---
+PASS POST /api/bootstrap 保持 open(47c 浏览器握手唯一通道)
+PASS contract 决策端点保持 token(75b)
+PASS GET /api/interventions 保持 token-browser(56 波)
+PASS sessions 读/删保持 token-browser
+PASS POST /api/tools/ 前缀保持 token
+PASS overlay 回滚保持 token(53b 破坏性档)
+ROUTE INVENTORY STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-Epi7iF
+[retry] 重跑 tail:
+PASS 重算非空: 175 判定点 / 161 鉴权行
+PASS 双向校验零漂移(problems=0)
+PASS docs/architecture/route-inventory.json 存在且 schema=1(不存在则跑 node dev-harness/route-inventory.js)
+FAIL route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS docs/architecture/route-inventory.md 存在(人读表随 JSON 一起生成)
+FAIL route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)
+PASS route-inventory.json 不含 app/src 行号字段(实得 0 处;行号入库会让加一行注释就漂移)
+PASS deny-by-default: 合成未知 /api 路由无首配(落空 = 运行期 403)
+PASS POST /api/bootstrap 保持 open(47c 浏览器握手唯一通道)
+PASS contract 决策端点保持 token(75b)
+PASS GET /api/interventions 保持 token-browser(56 波)
+PASS sessions 读/删保持 token-browser
+PASS POST /api/tools/ 前缀保持 token
+PASS overlay 回滚保持 token(53b 破坏性档)
+ROUTE INVENTORY STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-AtzZ2O

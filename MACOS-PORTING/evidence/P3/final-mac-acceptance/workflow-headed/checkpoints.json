@@ -1,0 +1,12 @@
+[
+  {
+    "turnSeq": 1,
+    "entrySeq": 0,
+    "tool": "ai_computer_control__write_document",
+    "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-rEmxhX/中文 工作区/验收报告.docx",
+    "op": "create",
+    "bytes": 0,
+    "ts": "2026-11-07T10:17:07.462Z",
+    "currentBytes": 36810
+  }
+]

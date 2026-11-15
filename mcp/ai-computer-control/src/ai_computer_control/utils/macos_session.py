@@ -1,0 +1,183 @@
+"""Owned native input session. Window references live only in this worker and are never replayed."""
+import atexit
+import json
+import os
+import selectors
+import subprocess
+import threading
+import time
+
+from ai_computer_control.utils.macos import DesktopError, helper_path, _identity, _request_bytes, _failure_details, _OUTPUT_LIMIT
+
+_LOCK = threading.Lock()
+_SESSION = None
+
+
+def close_input_session():
+    # Share the request lock so shutdown cannot close/reuse a descriptor while a
+    # request is reading it. A frame is bounded by its native and Python deadlines.
+    with _LOCK:
+        _close_input_session()
+
+
+def _close_input_session():
+    global _SESSION
+    session = _SESSION
+    if session is None:
+        return
+    session['closing'] = True
+    child = session['child']
+    try:
+        try:
+            child.stdin.close()
+        except OSError:
+            pass
+        try:
+            child.wait(timeout=0.3)
+        except subprocess.TimeoutExpired:
+            child.terminate()
+            try:
+                child.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait()
+        child.stdout.close()
+    except Exception as error:
+        # Retain the exact owned Popen object in quarantine. Clearing it here would
+        # let a new worker act while cleanup of its predecessor remained unknown.
+        raise DesktopError('input_cleanup_unconfirmed', 'Native input worker cleanup is unconfirmed',
+                           {'outcome': 'unknown', 'cleanup_unconfirmed': True}) from error
+    _SESSION = None
+
+
+def _session():
+    global _SESSION
+    if _SESSION is not None and _SESSION.get('closing'):
+        _close_input_session()
+    path = helper_path()
+    try:
+        identity = _identity(path)
+    except OSError:
+        _close_input_session()
+        raise DesktopError("dependency_missing", "Build or install the macOS automation helper") from None
+    if _SESSION is not None:
+        if _SESSION["identity"] != identity or _SESSION["path"] != path or _SESSION["child"].poll() is not None:
+            _close_input_session()
+    if _SESSION is None:
+        try:
+            child = subprocess.Popen([str(path), "--input-session"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"}, bufsize=0)
+        except OSError:
+            raise DesktopError("input_session_failed", "Cannot start the native input session") from None
+        # Register ownership before any fallible descriptor setup. Failed initialization
+        # follows the same quarantine path as failed ordinary cleanup.
+        _SESSION = {"child": child, "path": path, "identity": identity, "next_id": 0, "closing": True}
+        try:
+            os.set_blocking(child.stdin.fileno(), False)
+        except Exception as error:
+            _close_input_session()
+            raise DesktopError('input_session_failed', 'Cannot initialize the native input session') from error
+        _SESSION['closing'] = False
+    return _SESSION
+
+
+def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
+    """Send one frame, close an uncertain worker, and return a typed result without retrying a mutation."""
+    from ai_computer_control.utils.execution_context import require_execution_context
+    require_execution_context()
+    from ai_computer_control.utils.execution_journal import current_operation
+    if current_operation() is not None:
+        from ai_computer_control.utils.macos_receipt_session import request as receipt_request
+        return receipt_request(payload, timeout, cancel_event, cancel_lock)
+    if cancel_event is not None and cancel_lock is None:
+        raise DesktopError("invalid_args", "Cancellable requests require their cancellation write lock",
+                           {"action_sent": False, "outcome": "not_dispatched"})
+    if not _LOCK.acquire(blocking=False):
+        raise DesktopError("desktop_busy", "Another native input request is already running")
+    sent = False
+    cancel_requested = False
+    try:
+        if cancel_event is not None and cancel_event.is_set():
+            raise DesktopError("input_cancelled", "Native input was cancelled before dispatch", {"action_sent": False, "outcome": "not_dispatched"})
+        session = _session()
+        child = session["child"]
+        session["next_id"] += 1
+        identifier = session["next_id"]
+        data = _request_bytes({**payload, "id": identifier}) + b"\n"
+        written = 0
+        output = bytearray()
+        deadline = time.monotonic() + timeout
+        with selectors.DefaultSelector() as streams:
+            streams.register(child.stdin, selectors.EVENT_WRITE)
+            streams.register(child.stdout, selectors.EVENT_READ)
+            while b"\n" not in output:
+                if cancel_event is not None and cancel_event.is_set() and not cancel_requested:
+                    cancel_requested = True
+                    # This request owns both the lock and this exact Popen object. Stop it without
+                    # waiting for close_input_session's lock, then collect the native cleanup result.
+                    child.terminate()
+                    deadline = min(deadline, time.monotonic() + 1.5)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise DesktopError("input_session_timeout", "Native input request exceeded its deadline")
+                for key, _ in streams.select(min(remaining, 0.05 if cancel_event is not None else 0.25)):
+                    if key.fileobj is child.stdin:
+                        if cancel_event is None:
+                            written += os.write(child.stdin.fileno(), data[written:written + 4096])
+                        else:
+                            # Serialize the cancellation boundary with the actual write. Once the
+                            # event is set, a partial frame can never gain its terminating newline.
+                            with cancel_lock:
+                                if cancel_event.is_set():
+                                    streams.unregister(child.stdin)
+                                    continue
+                                written += os.write(child.stdin.fileno(), data[written:written + 4096])
+                        if written == len(data):
+                            streams.unregister(child.stdin)
+                            sent = True
+                    else:
+                        chunk = os.read(child.stdout.fileno(), 65536)
+                        if not chunk:
+                            raise DesktopError("input_session_failed", "Native input session exited before its response")
+                        output.extend(chunk)
+                        if len(output) > _OUTPUT_LIMIT:
+                            raise DesktopError("input_session_capacity", "Native input response exceeds its capacity")
+        line, remainder = bytes(output).split(b"\n", 1)
+        if remainder or session["closing"] or _SESSION is not session:
+            raise DesktopError("input_session_protocol", "Native input session response is no longer current")
+        try:
+            result = json.loads(line)
+            current_identity = _identity(session["path"])
+        except (ValueError, OSError):
+            raise DesktopError("input_session_protocol", "Invalid native input response") from None
+        if current_identity != session["identity"]:
+            raise DesktopError("dependency_changed", "Native input helper changed during the request")
+        if not isinstance(result, dict) or type(result.get("id")) is not int or result["id"] != identifier \
+            or type(result.get("ok")) is not bool:
+            raise DesktopError("input_session_protocol", "Native input response does not match the request")
+        if not result["ok"]:
+            raise DesktopError(str(result.get("code") or "input_failed"), str(result.get("error") or "Native input operation failed"), _failure_details(result))
+        if type(result.get("protocolVersion")) is not int or result["protocolVersion"] != 1:
+            raise DesktopError("input_session_protocol", "Unsupported native input session protocol")
+        result.pop("id")
+        return result
+    except (DesktopError, OSError) as error:
+        if isinstance(error, OSError):
+            error = DesktopError("input_session_failed", "Native input session communication failed")
+        if cancel_event is not None and cancel_event.is_set() and not sent:
+            error.details.update(action_sent=False, outcome="not_dispatched")
+        uncertain = error.code.startswith("input_session_") or error.code == "dependency_changed"
+        if uncertain:
+            _close_input_session()
+            if sent and payload.get("op") not in {"window.list", "window.active", "clipboard.get", "clipboard.image.get", "mouse.position", "ax.inspect", "ax.find"}:
+                error.details.update(action_sent=True, outcome="unknown")
+        raise error
+    finally:
+        try:
+            if cancel_requested:
+                _close_input_session()
+        finally:
+            _LOCK.release()
+
+
+atexit.register(close_input_session)

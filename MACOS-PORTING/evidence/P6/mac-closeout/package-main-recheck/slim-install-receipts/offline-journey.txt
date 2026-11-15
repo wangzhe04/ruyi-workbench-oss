@@ -1,0 +1,11 @@
+PASS candidate declares its development identity and unverified minimum-system boundary
+PASS child sandbox actually refuses source reads and outbound public-network connections
+PASS relocated bundled Node starts the actual workbench in a separate writable data root
+PASS Node and ripgrep come from the moved package under denied developer directories
+PASS Slim accurately omits Python/ACC/Office/browser dependencies
+PASS moved read-only App initializes real WKWebView using its internal root and Node despite hostile development overrides
+PASS App payload remains byte-for-byte unchanged after service, MCP, browser and native-host execution
+P6 acceptance evidence: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-offline-acceptance-LnicC5
+INFO successful moved App clone removed; reports, metadata and frozen input retained
+
+MACOS OFFLINE PACKAGE E2E: ALL PASS

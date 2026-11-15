@@ -1,0 +1,34 @@
+── [U] 105g 开关与事实表构建 ──
+PASS U1 默认配置开启(真实 history-24 A/B 门通过:实体保留 18.8%→75.0%,调用数零增加)
+PASS U2 显式 true 生效
+PASS U3 显式 false 回退
+PASS U4 字符串 "true" 洗回 false(严格布尔)
+PASS U4a 事实表条数默认上限 64(超长 history-24 甜点门通过)
+PASS U4b 事实表条数上限钳位 [4,64]
+PASS U5 实体历史构建出 chunk/reduce 两条注入消息(实体 4 条)
+PASS U6 实体条数有界(rules factTable.maxSamples=64)
+PASS U6a 显式甜点位实验上限生效(8)
+PASS U7 事实表逐字携带代号/版本/路径实体
+PASS U8 分段与汇总指令分流(分段防臆造/汇总声明推翻不并列)
+PASS U9 注入消息总量有界(156 字符)
+PASS U10 空历史 → 双 null 降级(零注入)
+PASS U11 纯填充历史零实体 → 双 null 降级
+── [A] 105g 事实表注入内核行为 ──
+PASS A1 开关关:map-reduce 正常分块(6 段)
+PASS A1a 开关关:全部 7 个摘要请求零注入(逐字节不变)
+PASS A1b 开关关:无 factTable 元数据
+PASS A2 开关开:map-reduce 正常分块
+PASS A2a 开关开:全部 7 个摘要请求均注入事实表
+PASS A2b 分段/汇总请求可分流(分段 6,汇总 1)
+PASS A2c 末段(不含块 0 文本)请求携带块 0 独有实体 —— 跨块可见性实证
+PASS A2d 分段/汇总各带对应指令(防臆造 / 推翻不并列)
+PASS A2e factTable 元数据落账(entities=4)
+── [H] 真实 history-24 事实表回放 ──
+SKIP H history-24 fixture 缺失
+PASS A3 小历史单发成功(未分块)
+PASS A3a 单发路径零注入(历史含可抽取实体也不注入)
+PASS A4 零实体历史仍正常分块(6 段)
+PASS A4a 零实体 → 全部请求零注入
+PASS A4b 零实体 → 无 factTable 元数据
+
+SUMMARY-FACT-TABLE E2E: ALL PASS

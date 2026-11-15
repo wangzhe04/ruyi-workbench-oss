@@ -1,0 +1,32 @@
+PASS DISPATCH_DIRECT normal actual provider turn completes wait and native read
+PASS DISPATCH_DIRECT two actual invocations have independently verified receipts and durable deliveries
+PASS DISPATCH_DIRECT durable delivery barrier completes before provider continuation
+PASS DISPATCH_DIRECT exact actual committed receipt prefix: wait
+PASS DISPATCH_DIRECT ledger binds actual SDK worker/tool/turn/argument receipt: wait
+PASS DISPATCH_DIRECT delivery digest matches actual saved provider-history prefix: wait
+PASS DISPATCH_DIRECT exact actual committed receipt prefix: get_mouse_position
+PASS DISPATCH_DIRECT ledger binds actual SDK worker/tool/turn/argument receipt: get_mouse_position
+PASS DISPATCH_DIRECT delivery digest matches actual saved provider-history prefix: get_mouse_position
+PASS DISPATCH_DIRECT actual native entry/terminal read occurs under same invocation
+PASS DISPATCH_PROXY normal actual provider turn completes wait and native read
+PASS DISPATCH_PROXY two actual invocations have independently verified receipts and durable deliveries
+PASS DISPATCH_PROXY durable delivery barrier completes before provider continuation
+PASS DISPATCH_PROXY exact actual committed receipt prefix: wait
+PASS DISPATCH_PROXY ledger binds actual SDK worker/tool/turn/argument receipt: wait
+PASS DISPATCH_PROXY delivery digest matches actual saved provider-history prefix: wait
+PASS DISPATCH_PROXY exact actual committed receipt prefix: get_mouse_position
+PASS DISPATCH_PROXY ledger binds actual SDK worker/tool/turn/argument receipt: get_mouse_position
+PASS DISPATCH_PROXY delivery digest matches actual saved provider-history prefix: get_mouse_position
+PASS DISPATCH_PROXY actual native entry/terminal read occurs under same invocation
+PASS ordinary direct and proxy paths share actual required-context owned ACC incarnation
+PASS real service restart retains acknowledged results without replay
+PASS restart never invents new desktop invocation identities
+PASS recognized ACC connector alias is forced through required-context and actual receipt/delivery path
+PASS actual ACC wait returns but isolated Node observation commit failure leaves durable unresolved intent
+PASS unknown first ACC result prevents later same-batch local file_write dispatch
+PASS unknown result stops provider continuation rather than feeding ordinary retry advice
+PASS unknown execution produces an explicit failed turn result
+PASS fault scope distinguishes actual completed ACC wait from missing Node result persistence
+PASS actual restart converts abandoned intent to hold and never replays either same-batch tool
+
+MACOS EXECUTION DISPATCH E2E: ALL PASS

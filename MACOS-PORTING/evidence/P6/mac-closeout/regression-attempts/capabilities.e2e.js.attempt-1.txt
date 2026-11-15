@@ -1,0 +1,80 @@
+PASS getCapabilities exported
+PASS buildProviderSystemPrompt exported
+PASS ERROR_CLASSES table exported with keys
+PASS unit: identity line pins provider label + model
+PASS unit: prompt contains neither "Claude" nor "Workbench"
+[fake] [fake-openai] listening on 64106
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 0e5065a53b3a)
+[wb] UI: http://127.0.0.1:64107/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :64107
+PASS GET /api/capabilities ok:true
+PASS network.checkedAt present
+PASS fake provider reachable → network.online===true ({"online":true,"checkedAt":"2026-11-12T14:01:25.964Z"})
+PASS binaries.rg is boolean (vendor/PATH probe) ({"git":true,"rg":true,"rgSource":"system","rgShell":"system"})
+PASS binaries.git is a boolean
+PASS engine==="openai"
+PASS provider {id:fake, vision:false} (default vision gate)
+PASS desktopMcp count is ACC-only, excluding unrelated MCP ({"present":true,"toolCount":29,"optional":{"ocr":true,"uia":true,"cv2":false,"playwright":false},"desktopAutomation":{"supported":false,"installed":false,"authorization":"unknown","ready":null},"ocr":{"supported":false,"installed":true,"authorization":"unknown","ready":null},"browser":{"mode":"system","supported":false,"installed":false,"runtimeInstalled":null,"ready":false}}, expected 29)
+PASS desktopMcp.optional probed via diagnostics (ocr:true, cv2:false)
+PASS /api/status still carries legacy binaries.rg
+PASS 118b (A) health[] carries desktop-control with the unchanged {id, ok, detail} shape ({"id":"desktop-control","ok":true,"detail":"ready: 29 desktop tools bridged"})
+PASS 118b (A) ACC bridged and probed → state ready with the ACC-only tool count (ready: 29 desktop tools bridged)
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e/generated/workbench.mcp.json
+PASS turn 1 result ok:true
+PASS at least one request body captured (1)
+PASS system pins 「由 Fake 的 fake-model 模型驱动」
+PASS system identity lead contains NO "Claude" (identity bleed guard)
+PASS system identity lead contains NO "Workbench" (identity bleed guard)
+PASS final system layer carries the response-language policy instead of inheriting internal prompt language
+PASS 117v-V3 a real non-code turn receives the conclusion-first rule in its request body
+PASS 117v-V3 …and it is NOT coming from the software-engineering pack (a plain request does not load it)
+PASS project layer: <project-memory> fence + marker present
+PASS project layer: truncation note for >16KB file
+PASS F3: literal </project-memory> fence closer appears EXACTLY once (got 1)
+PASS F3: the content-region close tag was rewritten to [/project-memory
+PASS F3: <project-memory> opener appears exactly once (got 1)
+PASS capability layer 摘要 line present
+PASS v1.1-W1a: D6 proactive-search instruction rendered (default builtin backend → web_search offered + online)
+PASS v1.1-W1a: web_search NOT 「当前不可用」 (builtin default satisfies searchBackend)
+[wbB] 如意 Ruyi 3.0.1  (launch: node, overlay c780233380ba)
+[wbB] UI: http://127.0.0.1:64114/
+[wbB] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-b
+[wbB] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench(B) listening on :64114
+[wbB] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-b/generated/workbench.mcp.json
+PASS (B) GET /api/capabilities ok:true
+PASS (B) dead probe url → network.online===false ({"online":false,"checkedAt":"2026-11-12T14:01:28.244Z"})
+PASS (B) no provider → engine==="claude"
+PASS (B) no provider → provider:null
+[wbE] 如意 Ruyi 3.0.1  (launch: node, overlay 576f75b09972)
+[wbE] UI: http://127.0.0.1:64127/
+[wbE] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-e
+[wbE] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (E) workbench listening
+[wbE] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-e/generated/workbench.mcp.json
+PASS (E) meta event present
+PASS (E) request captured
+PASS (E) tools were sent (17)
+PASS (E) http_request FILTERED out of the tool list (requires network, offline)
+PASS (E) system 「当前不可用」 line names http_request (当前不可用：http_request（需要联网）、web_search（需要联网并配置搜索后端）、web_fetch（需要联网）、http_download（需要联网）。)
+[fakeF] [fake-openai] listening on 64145
+[wbF] 如意 Ruyi 3.0.1  (launch: node, overlay 84744e21a634)
+[wbF] UI: http://127.0.0.1:64146/
+[wbF] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-f
+[wbF] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (F) workbench listening
+[wbF] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-capabilities-e2e-f/generated/workbench.mcp.json
+PASS (F) meta reports tools>0 (tools were offered before rejection)
+PASS (F) turn completes ok:true after tools-rejected retry
+PASS (F) streamed a reply on the retry ("Hello, world! This is a ")
+PASS (F) tools-rejected retry note observed in stream
+PASS (F) ≥2 requests captured (rejected + retry) (2)
+PASS (F) captured bodies go from tools→no-tools (retry dropped tools)
+PASS 118b (G/disabled) workbench listening
+PASS 118b (G/disabled) desktop-control → ok:false state:disabled ({"id":"desktop-control","ok":false,"detail":"disabled: desktopMcp is switched off in config"})
+PASS 118b (G/unreachable) workbench listening
+PASS 118b (G/unreachable) desktop-control → ok:false state:unreachable ({"id":"desktop-control","ok":false,"detail":"unreachable: bridge configured but no tool was bridged"})
+
+CAPABILITIES E2E: ALL PASS

@@ -1,0 +1,72 @@
+{
+  "before": {
+    "ok": true,
+    "configuredMode": "bundled",
+    "activeMode": "",
+    "targetMode": "bundled",
+    "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-mcp-ZKwyhn/cache 空格/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "cdpUrl": "",
+    "attached": false,
+    "supported": true,
+    "installed": true,
+    "runtimeInstalled": true,
+    "authorization": "not-required",
+    "ready": false,
+    "browserCachePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-mcp-ZKwyhn/cache 空格",
+    "headless": true,
+    "browserVersion": "",
+    "profileIsolation": "not-attached",
+    "lastStartError": "",
+    "probeError": "",
+    "systemControlHint": "System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet."
+  },
+  "active": {
+    "ok": true,
+    "configuredMode": "bundled",
+    "activeMode": "bundled",
+    "targetMode": "bundled",
+    "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-mcp-ZKwyhn/cache 空格/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "cdpUrl": "",
+    "attached": true,
+    "supported": true,
+    "installed": true,
+    "runtimeInstalled": true,
+    "authorization": "not-required",
+    "ready": true,
+    "browserCachePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-mcp-ZKwyhn/cache 空格",
+    "headless": true,
+    "browserVersion": "156.0.8078.4",
+    "profileIsolation": "ephemeral-owned",
+    "lastStartError": "",
+    "probeError": "",
+    "systemControlHint": "System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet."
+  },
+  "managed": {
+    "ok": true,
+    "configuredMode": "managed",
+    "activeMode": "",
+    "targetMode": "managed",
+    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "cdpUrl": "",
+    "attached": false,
+    "supported": true,
+    "installed": true,
+    "runtimeInstalled": true,
+    "authorization": "not-required",
+    "ready": false,
+    "browserCachePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-mcp-ZKwyhn/cache 空格",
+    "headless": true,
+    "browserVersion": "",
+    "profileIsolation": "not-attached",
+    "lastStartError": "",
+    "probeError": "",
+    "systemControlHint": "System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet."
+  },
+  "screenshot": {
+    "width": 1280,
+    "height": 720
+  },
+  "submissions": [
+    "如意浏览器测试"
+  ]
+}

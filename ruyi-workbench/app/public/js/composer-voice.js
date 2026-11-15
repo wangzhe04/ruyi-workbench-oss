@@ -11,8 +11,8 @@
 // 边界（逐条对应落点定案）：
 //   ① 零静态标记。节点只在四件事同时成立时才建（composerVoiceAvailable）：config.asrProviderId 与
 //      config.asrModel 皆非空（26 号文冻结边界：未配置＝不可见）／安全上下文／navigator.mediaDevices／
-//      MediaRecorder 支持 audio/webm;codecs=opus。45 号文 §1.5 实测这版 Edge 上 audio/wav 录不了，所以
-//      webm/opus 是唯一录制格式，不支持就不出按钮，不写一条跑不通的回退。配置变了由组合根调
+//      MediaRecorder 支持已知音频格式。优先沿用 Edge 的 webm/opus，WebKit 按实际能力选择 MP4/AAC。
+//      录制格式、Blob 类型和转码失败后的上传文件名必须一致。配置变了由组合根调
 //      syncComposerVoices() 重判；语音识别被关掉时按钮连同播报节点一起拆掉（结构上不存在，不是藏起来）。
 //   ② 交互：点一下开始、再点一下结束（原生 <button>，Space／Enter 天然可达）；录音中 Esc 取消（丢弃、
 //      不转写）；aria-pressed 跟录音态走；满 COMPOSER_VOICE_MAX_MS（3 分钟，主会话定的工程默认）自动结束。
@@ -30,8 +30,8 @@
 //   ⑧ 107-A1（45 号文 §9.6.3 真机实测）：上传前**无条件**把 webm/opus 解码成 16 kHz 单声道 16 bit PCM，
 //      自己拼 WAV 头再发。为什么无条件：前端不该知道这台配的是哪种转写协议（provider.asrProtocol 是
 //      服务端的事），而 Whisper 形端点一样收 wav —— 只有一条路就没有分叉可错。MiMo 实测直接 400 拒收
-//      webm（「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3」），而麦克风
-//      今天只录得出 webm/opus（§1.5：这版 Edge 上 audio/wav 录不了）。解码失败原样发 webm —— 录完了
+//      webm（「input_audio.data mime type must be one of: audio/wav, audio/mpeg, audio/mp3」）。Edge 首选
+//      webm/opus，Mac WebKit 也可选 MP4/AAC。解码失败原样发实际录制容器 —— 录完了
 //      发不出去，比「协议不对」更坏。
 //   ⑨ 边说边出字（用户 2026-09-20：「希望在语音输入的同时，文字自动浮现在打字框上」，拍板方案一「按停顿切段」）：
 //      录音中侦听响度，说过话之后停顿满 COMPOSER_VOICE_PAUSE_MS 就把这一段切下来先送去转写，字按顺序落进输入框，
@@ -55,12 +55,14 @@
 import { apiRaw, apiErrorInfo } from './net.js';
 import { icon } from './icons.js';
 import { toast } from './util.js';
+import { isMacHost } from './host-bridge.js';
 
-export const COMPOSER_VOICE_MIME = 'audio/webm;codecs=opus';   // 唯一录制格式（§1.5 实测）
-export const COMPOSER_VOICE_UPLOAD_TYPE = 'audio/webm';        // 转码失败时的回退 Content-Type
-export const COMPOSER_VOICE_FILENAME = 'voice.webm';           // 同上：回退时的文件名
+export const COMPOSER_VOICE_MIME = 'audio/webm;codecs=opus';   // 首选录制格式，保留既有 Edge 路径
+export const COMPOSER_VOICE_UPLOAD_TYPE = 'audio/webm';        // 既有 WebM 默认值，保留导出兼容
+export const COMPOSER_VOICE_FILENAME = 'voice.webm';           // 同上
 export const COMPOSER_VOICE_WAV_TYPE = 'audio/wav';            // ⑧ 正常路径的上传 Content-Type
 export const COMPOSER_VOICE_WAV_FILENAME = 'voice.wav';
+const COMPOSER_VOICE_RECORDING_TYPES = Object.freeze([COMPOSER_VOICE_MIME, 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']);
 export const COMPOSER_VOICE_SAMPLE_RATE = 16000;               // ⑧ 16 kHz 单声道：ASR 上游的通用口味
 export const COMPOSER_VOICE_MAX_MS = 3 * 60 * 1000;            // 录满 3 分钟自动结束
 const COMPOSER_VOICE_TICK_MS = 500;                            // 计时显示与「满时自动结束」共用这一拍
@@ -113,7 +115,7 @@ function transcribeErrorKey(info) {
 // getUserMedia 的拒绝原因 → 人话键。
 function micErrorKey(error) {
   const name = String((error && error.name) || '');
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'composer.voice.error.denied';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return isMacHost() ? 'composer.voice.error.deniedMac' : 'composer.voice.error.denied';
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'composer.voice.error.noDevice';
   return 'composer.voice.error.mic';
 }
@@ -121,7 +123,7 @@ function micErrorKey(error) {
 // 128f-⑭（用户 2026-09-19：「前端并没有语音输入和语音转文字的入口」；拍板 A「未配置也显示，点它去设置里开启」）：
 // 修前 ① 把两件事并成一个判据 ——「这台环境录不录得了」与「语音识别配没配」—— 没配就结构上不存在；而设置页那一栏
 // 又只在某个模型被标成「可语音识别」时才出现，界面上【没有任何地方】能标它（只能手改 config.json）。于是一台正常
-// 装好的机器上，语音入口一个都看不见。现在拆开：录不了（非安全上下文／没有 mediaDevices／录不了 webm/opus）照旧
+// 装好的机器上，语音入口一个都看不见。现在拆开：录不了（非安全上下文／没有 mediaDevices／没有支持的录制格式）照旧
 // 不出按钮 —— 点了也录不了；录得了但没配置，出一枚【待开启】的灰按钮（data-state="setup"），点它派
 // COMPOSER_VOICE_SETUP_EVENT，组合根打开设置页、定位到「语音识别」那一栏（那一栏现在无候选也渲染，并带「添加」口）。
 export const COMPOSER_VOICE_SETUP_EVENT = 'ruyi:open-voice-settings';
@@ -201,12 +203,16 @@ function concatFloat(chunks, total) {
   for (const c of chunks) { out.set(c, at); at += c.length; }
   return out;
 }
+export function composerVoiceRecordingType(env = globalThis) {
+  const Recorder = env && env.MediaRecorder;
+  if (!Recorder || typeof Recorder.isTypeSupported !== 'function') return '';
+  return COMPOSER_VOICE_RECORDING_TYPES.find(type => Recorder.isTypeSupported(type)) || '';
+}
 export function composerVoiceCapable(env = globalThis) {
   if (!env || env.isSecureContext !== true) return false;
   const nav = env.navigator;
   if (!nav || !nav.mediaDevices || typeof nav.mediaDevices.getUserMedia !== 'function') return false;
-  const Recorder = env.MediaRecorder;
-  return Boolean(Recorder && typeof Recorder.isTypeSupported === 'function' && Recorder.isTypeSupported(COMPOSER_VOICE_MIME));
+  return Boolean(composerVoiceRecordingType(env));
 }
 // 显示判据（①）：配好了、且录得了 —— 这时才是一枚能录的麦克风（idle 起步）。env 默认是页面全局；纯函数，便于静态件直接调用。
 export function composerVoiceAvailable(config, env = globalThis) {
@@ -284,6 +290,9 @@ function bindI18nOnce() {
   if (i18nBound || typeof globalThis.addEventListener !== 'function') return;
   i18nBound = true;
   globalThis.addEventListener('i18n:change', () => { for (const voice of voices) voice.relabel(); });
+  globalThis.addEventListener('ruyi:host-suspend', () => {
+    if (isMacHost()) for (const voice of voices) voice.cancel();
+  });
 }
 
 // 组合根在「全局配置变了」那一处调（provider-settings.js 的 onEngineConfigChanged 注入口）。
@@ -415,15 +424,21 @@ export function createComposerVoice({
   function startVad(media) {
     const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!Ctx) return null;
+    let context = null;
+    let source = null;
     try {
-      const context = new Ctx();
+      context = new Ctx();
       if (context.state === 'suspended' && typeof context.resume === 'function') { void context.resume().catch(() => {}); }
-      const source = context.createMediaStreamSource(media);
+      source = context.createMediaStreamSource(media);
       const analyser = context.createAnalyser();
       analyser.fftSize = 1024;
       source.connect(analyser);
       return { context, source, analyser, samples: new Float32Array(analyser.fftSize), floor: 0.004, quietSince: 0 };
-    } catch { return null; }
+    } catch {
+      try { source?.disconnect(); } catch { /* 节点可能只完成了部分初始化 */ }
+      try { void context?.close().catch(() => {}); } catch { /* 上下文可能尚未建立 */ }
+      return null;
+    }
   }
   function stopVad() {
     if (vadTimer) { clearInterval(vadTimer); vadTimer = 0; }
@@ -445,10 +460,10 @@ export function createComposerVoice({
       if (!loud) vad.floor = vad.floor * 0.95 + rms * 0.05;
     } catch { return; }
     const at = now();
-    if (loud) { segment.spoke = true; vad.quietSince = 0; return; }
-    if (!vad.quietSince) vad.quietSince = at;
+    if (loud) { segment.spoke = true; vad.quietSince = 0; }
+    else if (!vad.quietSince) vad.quietSince = at;
     const age = at - segment.startedAt;
-    const paused = segment.spoke && age >= COMPOSER_VOICE_SEGMENT_MIN_MS && at - vad.quietSince >= COMPOSER_VOICE_PAUSE_MS;
+    const paused = !loud && segment.spoke && age >= COMPOSER_VOICE_SEGMENT_MIN_MS && at - vad.quietSince >= COMPOSER_VOICE_PAUSE_MS;
     // 一口气说太久也切一刀（宁可切在词中间，也不让屏上半分钟没有字）。
     if (paused || age >= COMPOSER_VOICE_SEGMENT_MAX_MS) rotateSegment();
   }
@@ -456,11 +471,12 @@ export function createComposerVoice({
   // 一段 = 一个 MediaRecorder（webm 的中间块不能单独解码，想要「可独立转写的一段」只能让录音器停一次）。
   // 同一条麦克风流上先起新的、再停旧的：两只录音器短暂重叠，切口不丢声；切口又落在停顿里，重叠的那一点是静音。
   function startSegment(session) {
-    const seg = { session, chunks: [], spoke: false, startedAt: now(), final: false };
-    const next = new globalThis.MediaRecorder(stream, { mimeType: COMPOSER_VOICE_MIME });
+    const seg = { session, chunks: [], spoke: false, startedAt: now(), final: false, mimeType: session.mimeType };
+    const next = new globalThis.MediaRecorder(stream, { mimeType: session.mimeType });
     next.addEventListener('dataavailable', event => { if (event.data && event.data.size > 0) seg.chunks.push(event.data); });
     next.addEventListener('stop', () => { segmentDone(seg); });
     next.start();
+    seg.mimeType = next.mimeType || session.mimeType;
     recorder = next;
     segment = seg;
   }
@@ -580,21 +596,28 @@ export function createComposerVoice({
       return;
     }
     if (mine !== attempt || phase !== 'starting') { releaseTracks(media); return; }
+    stream = media;
     // 一次录音 = 一个 session：各段按先后排队转写（queue 是一条 Promise 链，保证字按说的顺序落进输入框）。
-    const session = { id: mine, discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
+    const session = { id: mine, mimeType: composerVoiceRecordingType(), discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
     const boxAtStart = input();
     if (!boxAtStart || !String(boxAtStart.value || '').trim()) ledger.length = 0;   // ⑪ 框是空的：上次没发出去的机器字早不在框里了
     // 130：配了实时识别就先试流式路；开会话失败（组件没起来／服务端 409）→ 说一句、原样走按停顿切段。
+    let streaming = null;
     if (composerVoiceStreamConfigured(state && state.config) && streamCapable()) {
-      try { await startStreaming(media, session); }
-      catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); } catch { /* 无托盘宿主 */ } }
-      if (mine !== attempt || phase !== 'starting') { if (sx) streamTeardown(sx, true); sx = null; releaseTracks(media); return; }
+      try { streaming = await startStreaming(media, session); }
+      catch {
+        if (mine === attempt) { try { notify(t('composer.voice.error.streamFallback'), ''); } catch { /* 无托盘宿主 */ } }
+      }
     }
-    if (sx) {
-      stream = media;
-    } else {
+    if (mine !== attempt || phase !== 'starting') {
+      if (streaming) streamTeardown(streaming, true);
+      releaseTracks(media);
+      if (stream === media) stream = null;
+      return;
+    }
+    sx = streaming;
+    if (!sx) {
       try {
-        stream = media;
         startSegment(session);
       } catch {
         releaseTracks(media);
@@ -624,30 +647,38 @@ export function createComposerVoice({
     if (!opened.ok) throw new Error('stream open failed');
     const body = await opened.json();
     if (!body || !body.id) throw new Error('stream open failed');
+    if (session.id !== attempt || phase !== 'starting') {
+      void request('/api/audio/stream/sessions/' + String(body.id), { method: 'DELETE' }).catch(() => {});
+      return null;
+    }
     const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
-    const context = new Ctx();
-    if (context.state === 'suspended' && typeof context.resume === 'function') { void context.resume().catch(() => {}); }
-    const source = context.createMediaStreamSource(media);
-    // ScriptProcessor 而不是 AudioWorklet：后者要单独一个模块文件走 addModule，桌面壳的静态路由与 CSP 都得再开口；
-    // 这里只读输入、不写输出（输出恒静音），接到 destination 只是为了让 onaudioprocess 在所有宿主上都跑。
-    const processor = context.createScriptProcessor(4096, 1, 1);
     const s = {
-      id: String(body.id), session, context, source, processor, rate: Number(context.sampleRate) || 48000,
+      id: String(body.id), session, context: null, source: null, processor: null, rate: 48000,
       acc: [], accLen: 0, all: [], allLen: 0, queue: Promise.resolve(), timer: 0, closed: false, dead: false,
       sentences: [], pend: null, corrections: 0, focused: false,
     };
-    processor.onaudioprocess = event => {
-      if (s.closed) return;
-      const down = resampleTo16k(event.inputBuffer.getChannelData(0), s.rate);
-      if (!down.length) return;
-      s.acc.push(down); s.accLen += down.length;
-      s.all.push(down); s.allLen += down.length;
-    };
-    source.connect(processor);
-    processor.connect(context.destination);
-    s.timer = setInterval(() => { void streamFlush(s); }, COMPOSER_VOICE_STREAM_CHUNK_MS);
-    sx = s;
-    return s;
+    try {
+      s.context = new Ctx();
+      if (s.context.state === 'suspended' && typeof s.context.resume === 'function') { void s.context.resume().catch(() => {}); }
+      s.source = s.context.createMediaStreamSource(media);
+      // ScriptProcessor 只读输入、不写输出，接到 destination 以驱动所有宿主的音频回调。
+      s.processor = s.context.createScriptProcessor(4096, 1, 1);
+      s.rate = Number(s.context.sampleRate) || 48000;
+      s.processor.onaudioprocess = event => {
+        if (s.closed) return;
+        const down = resampleTo16k(event.inputBuffer.getChannelData(0), s.rate);
+        if (!down.length) return;
+        s.acc.push(down); s.accLen += down.length;
+        s.all.push(down); s.allLen += down.length;
+      };
+      s.source.connect(s.processor);
+      s.processor.connect(s.context.destination);
+      s.timer = setInterval(() => { void streamFlush(s); }, COMPOSER_VOICE_STREAM_CHUNK_MS);
+      return s;
+    } catch (error) {
+      streamTeardown(s, true);
+      throw error;
+    }
   }
   // 把攒下的样本送出去（排队：一块一块按序，回包按序落字）。
   function streamFlush(s) {
@@ -876,21 +907,24 @@ export function createComposerVoice({
       // 133f：加载中取消＝不等了。掐掉在飞的预热请求、收计时（模型在服务端照装，下一次点击就是热的）。
       if (warmCtl) { try { warmCtl.abort(); } catch { /* 已经结束 */ } warmCtl = null; }
       clearTicker();
+      endCapture();
       phase = 'idle';
       paint();
       announce(t('composer.voice.cancelled'));
       return;
     }
-    if (phase !== 'recording') return;
+    if (phase !== 'recording' && phase !== 'transcribing') return;
     clearTicker();
     if (current) current.discard = true;
+    current = null;
     phase = 'idle';
     paint();
     announce(t('composer.voice.cancelled'));
     if (sx) { streamCancel(sx); current = null; return; }   // 130：流式路的取消
     if (segment) segment.final = true;
-    try { recorder.stop(); }
-    catch { endCapture(); }
+    try { recorder?.stop(); }
+    catch { /* 录音器可能已停止，仍须立即释放采集 */ }
+    endCapture();
   }
 
   // MediaRecorder 的 stop 事件之后：这一段的块已经全部冲出来了。
@@ -899,13 +933,13 @@ export function createComposerVoice({
     // 最后一段：用户点了结束／取消，或轨道自己断了（设备被拔 —— 没人标 final，但它就是正在录的那一段）。
     const last = seg.final || seg === segment;
     const silent = Boolean(vad) && !seg.spoke;   // 有停顿侦听、而这一段从头到尾没出过声
-    if (last) {
+    if (last && session === current) {
       endCapture();
       bindEscape(false);   // 轨道自己断掉也会走到这里，不能把 Esc 监听留在身后
       if (!session.discard && phase === 'recording') { phase = 'transcribing'; paint(); }
     }
     if (!session.discard && !session.failedKey) {
-      const blob = new Blob(seg.chunks, { type: COMPOSER_VOICE_MIME });
+      const blob = new Blob(seg.chunks, { type: seg.chunks[0]?.type || seg.mimeType });
       // 静音段不出网：中间被「说太久」硬切出来的静音段直接丢；收尾那一段静音（说完了、过一会儿才点结束）在前面
       // 已经送过字时也丢。整次录音唯一的一段永远照发 —— 有没有字由转写服务说了算，和从前一样。
       const skip = silent && (!last || session.sent > 0);
@@ -922,11 +956,12 @@ export function createComposerVoice({
   async function transcribeSegment(session, blob) {
     if (session.discard || session.failedKey) return;
     if (session === current && phase === 'transcribing') announce(t('composer.voice.transcribing'));
-    // ⑧ 上传前转 16 kHz 单声道 WAV；解不开就原样发 webm（回退，见 encodeVoiceWav 头注）。
+    // ⑧ 上传前转 16 kHz 单声道 WAV；解不开就按实际录制容器上传。
     const wav = await encodeVoiceWav(blob);
+    if (session.discard || session.failedKey) return;
     const upload = wav || blob;
-    const uploadType = wav ? COMPOSER_VOICE_WAV_TYPE : COMPOSER_VOICE_UPLOAD_TYPE;
-    const uploadName = wav ? COMPOSER_VOICE_WAV_FILENAME : COMPOSER_VOICE_FILENAME;
+    const uploadType = wav ? COMPOSER_VOICE_WAV_TYPE : blob.type.split(';')[0];
+    const uploadName = wav ? COMPOSER_VOICE_WAV_FILENAME : 'voice.' + ({ 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg' }[uploadType] || 'webm');
     let text = '';
     try {
       const res = await request('/api/audio/transcribe?filename=' + uploadName, {

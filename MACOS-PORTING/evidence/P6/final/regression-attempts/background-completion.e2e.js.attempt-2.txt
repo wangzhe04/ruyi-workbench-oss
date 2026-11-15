@@ -1,0 +1,16 @@
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'failed'
+- 'succeeded'
+
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/background-completion.e2e.js:81:12 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'succeeded',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0ANhXE

@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "review": "P5-04 second-round read-only implementation review",
+  "reviewer": "/root/p5_review_resumed",
+  "created_at_utc": "2026-11-10T13:19:55.862932+00:00",
+  "branch": "codex/p5-macos-automation",
+  "baseline_head": "a7b8578381aaf80e1ca8f4ec7420ffae4320b425",
+  "source_state": "Working-tree snapshot after main agent reported temporary implementation freeze. No P5-04 implementation commit or final delivery binary binding is asserted.",
+  "review_verdict": "No additional blocking implementation findings in the reviewed snapshot. Prior two findings are closed by source inspection. Final runtime and delivery acceptance remain owned by the main agent.",
+  "implementation_files_changed_by_reviewer": [],
+  "gui_or_tests_executed_by_reviewer": false,
+  "reviewed_files": [
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "sha256": "ef89b5de77ffd76f09e146b3bfc9ef5b710d55cd0aa0af1777d669049c7511fb"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "sha256": "e1de2ec6cfa41e021767a171a7688be08029444f41600ac90ecf90c522095c32"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "sha256": "8cfbf535f0c3a7774ca480ba4023cbab651d7e260262eb87ca54094a9c752c92"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "sha256": "1386c6c94bd71ef40b92545a0f97cbc850cebd12efce97b2f091831aed53cf75"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "sha256": "5850934394e0134bdb680a8fccdde36eb01115373334a16ef7dfcfc4503b1dc9"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "sha256": "c7e4989c2ec0090dabdca57e50cc6d72dec28449101a8b3abd275314fea6191b"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "sha256": "60872bf0e6a6633abc708e61fc4270b169b5339b304365ef5229f2689efcb55e"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "sha256": "94de9d65235d924d1f5c3ac4898dd5bc974c3f35fa3af80fe346e1a79619a328"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "sha256": "0e39e3183c7001b860cef7afd78c17ba1c9bc62407cca8ba357f622f71073b53"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+      "sha256": "1add557e8eeeaec5209630bdc86ff50a88e14ecad2fd6a3451a3b3b8d19d3fd3"
+    },
+    {
+      "path": "dev-harness/macos-ocr.e2e.js",
+      "sha256": "25f825eb117f8d53bdfaa0bd7a85e7d184608e31361acc88d56c8b24730a6542"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ocr-window.m",
+      "sha256": "68809d4928bcddaa2a6fcbfaf0e8ed4c160de9b00d3f63be998016b7f22d4710"
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "706678423e9a46d8a1333fd4990c07f52378396139f880e05f79827834e1c541"
+    },
+    {
+      "path": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+      "sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538"
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "P5-04-R1-async",
+      "status": "closed_by_source_review",
+      "original": "Synchronous OCR/visual tools could block FastMCP request processing for long observations, including cancellation.",
+      "resolution": "Five Mac OCR and four Mac visual public entrypoints are async. Observation workers perform read-only work. OCR and vision gates are acquired and released inside the real worker lifetime. VisualFrame.click_async only prepares/recaptures in a thread, awaits an event-loop cancellation checkpoint, then performs guarded dispatch on the event loop."
+    },
+    {
+      "id": "P5-04-R1-deadline",
+      "status": "closed_by_source_review",
+      "original": "wait_for_image could exceed its requested deadline and accept a late successful observation.",
+      "resolution": "Each _find await is wrapped in asyncio.wait_for using the remaining monotonic budget. The deadline is rechecked before accepting found and polling sleep is clamped to remaining time. Timeout/cancellation does not release the actual read-only worker gate prematurely."
+    }
+  ],
+  "new_blocking_findings": [],
+  "source_checks": [
+    "Registry replaces ocr/vision with macos_ocr/macos_vision and checks availability in the new Mac vision module. Local OCR readiness is independent of screen/input readiness. Screen OCR and template queries require capture readiness. Mutating variants still enforce target/native input requirements at invocation.",
+    "Diagnostics reports separate desktop.ocr and desktop.template_matching installed/ready/inputReady fields and checks the Mac vision module for cv2 availability.",
+    "Native OCR reads bounded regular-file bytes through one opened descriptor, checks size/mtime/ctime before and after, validates image metadata before decoding, and checks decoded dimensions. Python OCR validates response geometry and requires native dimensions to equal an actual captured frame.",
+    "Raw decoded first-frame orientation is explicit. File symlinks are intentionally followed. The implementation supplies a stable opened-file read contract and does not implement O_NOFOLLOW.",
+    "Vision OCR uses revision 3 accurate recognition, language correction off, default Simplified Chinese/English hints, and automatic detection for the default selection. No forced compute-device override remains.",
+    "Native OCR has a 60-second watchdog and Python recognition a 65-second bound. Guarded click observations retain a ten-second age bound from before capture, checked before recapture and immediately before native request. Cold recognition that exceeds ten seconds cannot produce a successful click from that observation.",
+    "Visual geometry maps both actual pixel axes into capture logical_bounds, keeps negative origins, rejects partial/outside matches and empty clipped regions, and confines matched geometry to the complete active-window target. Exact target identity, geometry and matched RGB patch are rechecked before guarded dispatch.",
+    "Template subprocess input/image sizes and raw-hit count are bounded. Matching uses a six-second internal budget and eight-second outer subprocess deadline, followed by kill/wait/pipe cleanup. A timed-out caller leaves only bounded observation work, with its gate held until cleanup.",
+    "Full OCR matching consumes the complete bounded recognized word set. The response cap is 500 words and miss/fuzzy diagnostics now consume only that capped response.",
+    "Private moved OCR helpers and Windows vision public bodies retain AST compatibility as recorded separately."
+  ],
+  "windows_compatibility": {
+    "method": "Read-only AST comparison against HEAD plus source inspection. No tool or test execution.",
+    "windows_vision_public_signatures_and_bodies_equal": {
+      "find_template": true,
+      "find_all_templates": true,
+      "vision_click": true,
+      "wait_for_image": true
+    },
+    "windows_vision_match_signature_equal": true,
+    "windows_vision_moved_helpers_equal": {
+      "_miss": true,
+      "_dedupe_after_name_normalization": true
+    },
+    "windows_multiscale_value_equal": true,
+    "windows_ocr_moved_helpers_equal": {
+      "_is_cjk": true,
+      "_line_groups": true,
+      "_stream_hits": true,
+      "_phrase_matches": true,
+      "_find_phrase": true,
+      "_span": true,
+      "_near_matches": true,
+      "_miss_details": true
+    },
+    "matcher_inspection": "Windows _match passes its existing cv2/np objects and early_exit to the shared algorithm. Optional Mac deadline and raw-hit branches are inactive for Windows defaults. Public functions remain synchronous with their previous signatures and bodies."
+  },
+  "runtime_evidence_read": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/ocr/development/first-ocr-timeout.json",
+      "sha256": "bdb8f7a829c4413f0f39f7c809937bab6c096fc705875988b0d21040bf9d448a"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/ocr/development/third-live/results.json",
+      "sha256": "fc85a51d8124b83e675940f17759c960804af7b04d6137015da2c4b9a8b5a227"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/ocr/development/app-first/visual-host.json",
+      "sha256": "d18b67991fded80272120897a40fb13e09c6b2cc5d8421146b2eecd3833b6a6b"
+    }
+  ],
+  "runtime_evidence_assessment": {
+    "execution_owner": "Main agent. Reviewer only read the recorded evidence.",
+    "native_mcp_record": "third-live/results.json contains 24 recorded calls, including the expected unsupported-language, invalid-image, nonregular-file, ambiguous OCR/template and changed-focus failures. Receiver records show the selected English, Chinese and template actions changing the owned counters with released input state.",
+    "app_record": "app-first/visual-host.json records LaunchServices App/service ownership, granted capture/input capabilities, mixed Chinese/English local OCR, Chinese location/click and two template candidates with explicit selection. Final receiver counters are [0,1,1] and leftHeld is false.",
+    "main_agent_report": "25 smoke contracts and App visual 13 assertions ALLPASS were reported by the main agent. This reviewer did not independently execute them.",
+    "cold_initialization_history": "Original twelve-second timeout evidence is retained. Main-agent experimentation found ANEF compilation on cold OCR paths. Default-device 60-second initialization later allowed fast separate-process OCR. Source review does not establish elimination of cold-start system compilation."
+  },
+  "pending_delivery_work": [
+    "Main agent reported the default runtime helper still has the prior P5-03 hash a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029. Build the default helper, bind its exact hash/codesign/source manifest, and verify the normal runtime entrypoint before claiming delivery.",
+    "Final source freeze, final regression evidence, implementation commit and commit/source/binary binding remain pending at this snapshot.",
+    "README.md line 529 and README_EN.md line 527 retain the old global assertion that Mac desktop/AX/OCR are unimplemented. Main agent was notified to reconcile the implemented supported scope during documentation closeout.",
+    "Minimum macOS 14, Windows runtime, actual TCC revocation/lock, physical multi-display/input-method coverage and formal signing remain separate pending gates. This review adds no runtime acceptance for them.",
+    "P5-04 and P5 remain in_progress at this snapshot. observe/act_and_verify remain deferred to P5-05."
+  ],
+  "addenda": [
+    {
+      "created_at_utc": "2026-11-10T13:23:29.365157+00:00",
+      "scope": "Supplemental read-only review of two explicit helper-path fixture changes, corrected Mac capability descriptions and new default-helper record.",
+      "verdict": "No new implementation finding. Exactly two one-line fixture changes since the initial 21-file review. All other 19 reviewed file hashes remain identical.",
+      "gui_or_tests_executed_by_reviewer": false,
+      "fixture_changes": [
+        {
+          "path": "dev-harness/macos-ocr.e2e.js",
+          "line": 45,
+          "assessment": "Explicit nonempty RUYI_P5_OCR_HELPER selects that existing helper for the same MCP/native acceptance path. Absent or empty override retains the prior isolated fixture build. The code never rebuilds or removes the selected external helper."
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "line": 64,
+          "assessment": "Explicit override is selected only in visual mode. Other App modes retain their previous isolated helper build. The selected path is passed through the existing RUYI_MACOS_AUTOMATION_HELPER field to the owned App-launched ACC configuration."
+        }
+      ],
+      "reviewed_source_comparison": [
+        {
+          "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+          "previous_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+          "current_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "ruyi-workbench/resources/macos-automation-helper.m",
+          "previous_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+          "current_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "ruyi-workbench/resources/macos-automation.h",
+          "previous_sha256": "ef89b5de77ffd76f09e146b3bfc9ef5b710d55cd0aa0af1777d669049c7511fb",
+          "current_sha256": "ef89b5de77ffd76f09e146b3bfc9ef5b710d55cd0aa0af1777d669049c7511fb",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+          "previous_sha256": "e1de2ec6cfa41e021767a171a7688be08029444f41600ac90ecf90c522095c32",
+          "current_sha256": "e1de2ec6cfa41e021767a171a7688be08029444f41600ac90ecf90c522095c32",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "previous_sha256": "8cfbf535f0c3a7774ca480ba4023cbab651d7e260262eb87ca54094a9c752c92",
+          "current_sha256": "8cfbf535f0c3a7774ca480ba4023cbab651d7e260262eb87ca54094a9c752c92",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+          "previous_sha256": "1386c6c94bd71ef40b92545a0f97cbc850cebd12efce97b2f091831aed53cf75",
+          "current_sha256": "1386c6c94bd71ef40b92545a0f97cbc850cebd12efce97b2f091831aed53cf75",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+          "previous_sha256": "5850934394e0134bdb680a8fccdde36eb01115373334a16ef7dfcfc4503b1dc9",
+          "current_sha256": "5850934394e0134bdb680a8fccdde36eb01115373334a16ef7dfcfc4503b1dc9",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+          "previous_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+          "current_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+          "previous_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+          "current_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+          "previous_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+          "current_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+          "previous_sha256": "c7e4989c2ec0090dabdca57e50cc6d72dec28449101a8b3abd275314fea6191b",
+          "current_sha256": "c7e4989c2ec0090dabdca57e50cc6d72dec28449101a8b3abd275314fea6191b",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+          "previous_sha256": "60872bf0e6a6633abc708e61fc4270b169b5339b304365ef5229f2689efcb55e",
+          "current_sha256": "60872bf0e6a6633abc708e61fc4270b169b5339b304365ef5229f2689efcb55e",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+          "previous_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+          "current_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+          "previous_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+          "current_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+          "previous_sha256": "94de9d65235d924d1f5c3ac4898dd5bc974c3f35fa3af80fe346e1a79619a328",
+          "current_sha256": "94de9d65235d924d1f5c3ac4898dd5bc974c3f35fa3af80fe346e1a79619a328",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+          "previous_sha256": "0e39e3183c7001b860cef7afd78c17ba1c9bc62407cca8ba357f622f71073b53",
+          "current_sha256": "0e39e3183c7001b860cef7afd78c17ba1c9bc62407cca8ba357f622f71073b53",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+          "previous_sha256": "1add557e8eeeaec5209630bdc86ff50a88e14ecad2fd6a3451a3b3b8d19d3fd3",
+          "current_sha256": "1add557e8eeeaec5209630bdc86ff50a88e14ecad2fd6a3451a3b3b8d19d3fd3",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "dev-harness/macos-ocr.e2e.js",
+          "previous_sha256": "25f825eb117f8d53bdfaa0bd7a85e7d184608e31361acc88d56c8b24730a6542",
+          "current_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "dev-harness/fixtures/macos-ocr-window.m",
+          "previous_sha256": "68809d4928bcddaa2a6fcbfaf0e8ed4c160de9b00d3f63be998016b7f22d4710",
+          "current_sha256": "68809d4928bcddaa2a6fcbfaf0e8ed4c160de9b00d3f63be998016b7f22d4710",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "dev-harness/macos-input-host.e2e.js",
+          "previous_sha256": "706678423e9a46d8a1333fd4990c07f52378396139f880e05f79827834e1c541",
+          "current_sha256": "4057211845f061f6827a05bede9797f7ee3291e4e709063b412fae9f3bd06351",
+          "equal_after_expected_single_line_normalization": true
+        },
+        {
+          "path": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+          "previous_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+          "current_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+          "equal_after_expected_single_line_normalization": true
+        }
+      ],
+      "documentation": {
+        "reviewed_files": [
+          {
+            "path": "README.md",
+            "sha256": "769dfe4ca2f4311e4c0d6ead877b1501bf2db68e55142ecdbeb747651731373e"
+          },
+          {
+            "path": "README_EN.md",
+            "sha256": "3096faf0fb432c82e8def4396db8fb55e730bbbbc4ee5ee05a7bd77a162b3eb5"
+          },
+          {
+            "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+            "sha256": "3329404819f6f5c5592424c37e43242be504dab7347ede8445c8e6c080f1903b"
+          },
+          {
+            "path": "MACOS-PORTING/evidence/P5/ocr/README.md",
+            "sha256": "9788eeb0fd801a48df2e69edba80a92140582733c7bd469536294c14f0972905"
+          }
+        ],
+        "assessment": "Both root README capability paragraphs now reflect native capture, guarded input/window operations, AX inspection/actions, current-host Vision/OpenCV guarded clicks and the actual App HTTP route. They retain pending P5-05 recording/composed verification and macOS14/Windows/formal-release gates. The P5 stage document and OCR evidence README still mark the package as in progress with runtime/engineering acceptance pending.",
+        "inventory_counts": "README test inventory count edits were visible in the diff. This supplemental review did not independently recount the inventory. The main agent owns the engineering gate."
+      },
+      "default_helper": {
+        "path": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+        "sha256_independently_read": true,
+        "codesign": "Main agent reported strict codesign passed. Reviewer did not rerun codesign or launch the helper.",
+        "evidence_read": [
+          {
+            "path": "MACOS-PORTING/evidence/P5/ocr/acceptance/default-helper.json",
+            "sha256": "d8c16cbf463df8b505cf71a1642951b3e8a697b50dc89b61ef2b88860e4236b8"
+          },
+          {
+            "path": "MACOS-PORTING/evidence/P5/ocr/acceptance/helper-build.txt",
+            "sha256": "c4c8f244576c0c7bb8c1c460c26427e93832958b71a1a6411db7e1f405c042b6"
+          }
+        ],
+        "cold_observation": "default-helper.json records exit 0 after 33.186 seconds from the default runtime location with the full correct INVOICE 42 / 中文测试 / Total $42.50 text and revision3 Chinese/English hints. This is main-agent execution evidence and fits the implemented 60-second native / 65-second Python recognition bound."
+      },
+      "supersedes_initial_pending_items": [
+        "The initial snapshot statement that the default helper still held a5d755... is historical. Current on-disk bytes independently hash to d4635238..., and the recorded first recognition succeeded.",
+        "The initial README stale capability assertion has been corrected in both languages. Its documentation reconciliation item is closed by source review."
+      ],
+      "remaining_gates": "Final engineering, independent runtime acceptance, complete source/binary/commit binding and documented environment gates remain owned by the main agent. This addendum claims only read-only source/hash/evidence review."
+    }
+  ]
+}

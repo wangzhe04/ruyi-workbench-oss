@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-11-12T10:04:11.972Z",
+  "sourceHash": "dfe60965b15bb925ea669a06cc0f3dbf0c91ff43f4ad445f0cdd701f6e483f38",
+  "checks": [
+    {
+      "name": "uppercase bundle maps to complete App",
+      "pass": true
+    },
+    {
+      "name": "non-workbench App subtrees refused",
+      "pass": true
+    },
+    {
+      "name": "data entry in expanded App protected even when external symlink",
+      "result": {
+        "ok": false,
+        "error": "contains-data",
+        "status": 409
+      },
+      "pass": true
+    },
+    {
+      "name": "home entry in expanded App protected even when external symlink",
+      "result": {
+        "ok": false,
+        "error": "contains-home",
+        "status": 409
+      },
+      "pass": true
+    },
+    {
+      "name": "current App protected via case alias",
+      "result": {
+        "ok": false,
+        "error": "current-package",
+        "status": 409
+      },
+      "pass": true
+    }
+  ],
+  "nativeHelperInvocations": 0,
+  "pass": true
+}

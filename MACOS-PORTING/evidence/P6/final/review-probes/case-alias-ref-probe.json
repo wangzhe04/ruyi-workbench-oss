@@ -1,0 +1,87 @@
+{
+  "work": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S",
+  "wb": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench",
+  "alias": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/REAL/Ruyi.app/Contents/Resources/workbench",
+  "canonicalSame": false,
+  "inodeSame": true,
+  "refs": [
+    {
+      "id": "d6c14a266c53",
+      "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/home/.claude.json",
+      "displayFile": "~/.claude.json",
+      "kind": "json",
+      "owner": "claude-code",
+      "container": [
+        "mcpServers"
+      ],
+      "serverId": "old",
+      "entryLabel": "old",
+      "packageRoots": [
+        "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench"
+      ],
+      "action": "rewrite",
+      "changes": [
+        {
+          "field": "args.0",
+          "from": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench/app/server.js",
+          "to": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js"
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench",
+      "version": "probe",
+      "lastLaunchedAt": "",
+      "firstSeenAt": "2026-11-12T10:04:11.798Z",
+      "launchMode": "",
+      "running": false,
+      "discoveredBy": [
+        "registry",
+        "reference"
+      ],
+      "key": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/real/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 1,
+      "refIds": [
+        "d6c14a266c53"
+      ],
+      "containsCurrent": false,
+      "sizeBytes": null,
+      "sizeCapped": null
+    },
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/REAL/Ruyi.app/Contents/Resources/workbench",
+      "version": "probe",
+      "lastLaunchedAt": "",
+      "firstSeenAt": "2026-11-12T10:04:11.799Z",
+      "launchMode": "",
+      "running": false,
+      "discoveredBy": [
+        "registry"
+      ],
+      "key": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p603-alias-rS7q0S/REAL/Ruyi.app/Contents/Resources/workbench",
+      "refCount": 0,
+      "refIds": [],
+      "containsCurrent": false,
+      "sizeBytes": null,
+      "sizeCapped": null
+    }
+  ],
+  "result": {
+    "ok": false,
+    "error": "referenced",
+    "status": 409,
+    "refs": [
+      {
+        "id": "d6c14a266c53",
+        "file": "~/.claude.json",
+        "entry": "old",
+        "action": "rewrite"
+      }
+    ]
+  },
+  "helperInvocations": [],
+  "expected": "referenced refusal, zero helper calls",
+  "sourceUnchanged": true
+}

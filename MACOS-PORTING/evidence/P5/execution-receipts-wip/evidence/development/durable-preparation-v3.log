@@ -1,0 +1,45 @@
+/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/durable-json-bounded.test.js:97
+  const script=\`
+               ^
+
+SyntaxError: Invalid or unexpected token
+    at wrapSafe (node:internal/modules/cjs/loader:1763:18)
+    at Module._compile (node:internal/modules/cjs/loader:1804:20)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.15.0
+✖ dev-harness/unit/durable-json-bounded.test.js (28.991375ms)
+✔ strict read permits a missing initial file without writing, but rejects malformed/schema-less/unknown/invalid state without quarantine or fallback (4.315042ms)
+✔ strict read rejects transient failures and retries the real file next time; default stores retain their recovery behavior (1.363708ms)
+✔ a failed strict uncached write cannot become a committed inbox or dedupe record on the next read (1.339792ms)
+✔ Node matches shared cross-language argument identity vectors (0.946333ms)
+✔ JSON key insertion order and JSON.stringify zero agree without conflating string/number values (0.114875ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.389833ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.374833ms)
+✔ integer identity follows exact JSON.stringify digits instead of rounded binary64 integers (0.075709ms)
+✔ real metadata probe fails closed on a shape flag, dropped nonce, altered values or bad worker identity (0.895458ms)
+✔ preparation owns a recursively frozen snapshot whose exact outgoing bytes and digests agree (1.053ms)
+✔ accessors and toJSON are rejected without being executed, including arrays (0.101666ms)
+✔ raw JSON, sparse arrays, nonfinite numbers, unsupported values and extra array fields fail before preparation (0.160041ms)
+✔ prototype-looking keys remain data without changing an outgoing object prototype (0.092583ms)
+✔ depth and byte limits refuse before returning a dispatchable preparation (29.069917ms)
+✔ copied arrays and objects cannot inherit toJSON hooks before or after an async boundary (0.260042ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 15
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 134.057042
+
+✖ failing tests:
+
+test at dev-harness/unit/durable-json-bounded.test.js:1:1
+✖ dev-harness/unit/durable-json-bounded.test.js (28.991375ms)
+  'test failed'

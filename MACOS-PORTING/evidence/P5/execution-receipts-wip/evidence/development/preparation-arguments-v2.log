@@ -1,0 +1,20 @@
+✔ Node matches shared cross-language argument identity vectors (0.95825ms)
+✔ JSON key insertion order and JSON.stringify zero agree without conflating string/number values (0.112167ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.368708ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.398833ms)
+✔ integer identity follows exact JSON.stringify digits instead of rounded binary64 integers (0.073208ms)
+✔ real metadata probe fails closed on a shape flag, dropped nonce, altered values or bad worker identity (0.731292ms)
+✔ preparation owns a recursively frozen snapshot whose exact outgoing bytes and digests agree (1.417209ms)
+✔ accessors and toJSON are rejected without being executed, including arrays (0.11225ms)
+✔ raw JSON, sparse arrays, nonfinite numbers, unsupported values and extra array fields fail before preparation (0.170042ms)
+✔ prototype-looking keys remain data without changing an outgoing object prototype (0.099167ms)
+✔ depth and byte limits refuse before returning a dispatchable preparation (28.482292ms)
+✔ copied arrays and objects cannot inherit toJSON hooks before or after an async boundary (0.270542ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127.754333

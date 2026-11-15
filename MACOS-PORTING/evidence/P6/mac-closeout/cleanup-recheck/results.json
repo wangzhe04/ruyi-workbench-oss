@@ -1,0 +1,58 @@
+[
+  {
+    "file": "harness-friction.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.705,
+    "log": "harness-friction.e2e.js.txt"
+  },
+  {
+    "file": "audit-desktop-records.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.39,
+    "log": "audit-desktop-records.e2e.js.txt"
+  },
+  {
+    "file": "memory-scope.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.319,
+    "log": "memory-scope.e2e.js.txt"
+  },
+  {
+    "file": "cli-probe-stall.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 12.334,
+    "log": "cli-probe-stall.e2e.js.txt"
+  },
+  {
+    "file": "playbook-skill-tools.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.89,
+    "log": "playbook-skill-tools.e2e.js.txt"
+  },
+  {
+    "file": "tool-result-bounds.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.379,
+    "log": "tool-result-bounds.e2e.js.txt"
+  },
+  {
+    "file": "tool-dispatch-hardening.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.7,
+    "log": "tool-dispatch-hardening.e2e.js.txt"
+  },
+  {
+    "file": "memory-batch-proposal.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.203,
+    "log": "memory-batch-proposal.e2e.js.txt"
+  }
+]

@@ -1,0 +1,71 @@
+[wb] [port] :53400 unavailable (端口 53400 已被占用，没有结束占用它的进程。) -- listening on :53401 instead.
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 58e5a96f1d13)
+[wb] UI: http://127.0.0.1:53401/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-start-error-e2e/fallback
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS ① 原端口 :53400 被占 -> 工作台改用 :53401 并可服务
+PASS ① runtime.json 记录的是【实际】端口 53401 (期望 53401,不是请求的 53400)
+PASS ① GET /api/status 带 startNotice 只读字段
+PASS ① startNotice.portFallback 如实上报 {requested:53400, actual:53401}
+PASS ① 干净数据目录下 startNotice.lastError 为 null(没有历史失败就不提示)
+PASS ① 端口成功改用【不算】启动失败,不写 last-start-error.json
+[wb] [start] previous launch failed (startup-failed): 如意上次启动时出错了,没能开起来。
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 6b51a73bac44)
+[wb] UI: http://127.0.0.1:53403/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-start-error-e2e/consume
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS ② 工作台在干净端口上起来
+PASS ② startNotice.lastError 带 at/kind(上一次失败的记录被读出来了)
+PASS ② message 与 next 都是人话且原样上报(前端顶部条直接可用)
+PASS ② next 里没有命令行、没有 URL、没有让用户自己去开的绝对路径
+PASS ② 读出后立刻删文件(一次性提示,不会每次启动都骚扰)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 4bb8afe59c96)
+[wb] UI: http://127.0.0.1:53406/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-start-error-e2e/consume
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS ② 同一数据目录第二次启动
+PASS ② 第二次启动 lastError 回到 null(提示只出现一次)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay e84a9b467eab)
+[wb] UI: http://127.0.0.1:53409/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-start-error-e2e/garbage
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS ② 未知 kind 的记录不影响启动
+PASS ② 未知 kind 被丢弃(不把机器码当人话印到界面上)
+PASS ② 坏记录同样被清掉,不会永远赖在数据目录里
+[wb!] Error: EEXIST: file already exists, mkdir '/private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-start-error-e2e/unwritable/sessions'
+[wb!] at async Object.mkdir (node:internal/fs/promises:859:10)
+[wb!] at async Promise.all (index 1)
+[wb!] at async ensureDirs (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:725:3)
+[wb!] at async startServerInner (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72386:5)
+[wb!] at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72302:20)
+[wb!] at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:93661:20)
+PASS ③ 数据目录不可用时启动失败并以非零码退出(不假装起来了)
+PASS ③ 落 kind=data-dir-unwritable
+PASS ③ 四个字段齐全:at(ISO) / kind / message / next
+PASS ③ next 是人话「怎么办」,不是错误码
+PASS ④ 夹具:连续占住 10 个端口(原端口 + 九个后备)
+[wb!] Error: 端口 53414 已被占用，没有结束占用它的进程。 随后自动改用的 53415-53423 端口也全部不可用。
+[wb!] at listenOnNextFreePort (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72251:17)
+[wb!] at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[wb!] at async listenWithFallback (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72266:12)
+[wb!] at async startServerInner (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72502:16)
+[wb!] at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72302:20)
+[wb!] at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:93661:20)
+PASS ④ 十个端口全占时启动失败并以非零码退出
+PASS ④ 落 kind=port-unavailable
+PASS ④ message 说清了试过哪些端口(53414-53423)
+PASS ④ next 是人话「怎么办」
+PASS ④ next 不给命令行(产品红线:不让用户去开终端)
+PASS ⑤ 三类 kind 是源码写死的 Object.freeze 常量
+PASS ⑤ 端口回退宽度是常量(port+1..port+9)
+PASS ⑤ 文件名是常量(103c 登记用的锚点)
+PASS ⑤ 先读后删,且删除在形状判定【之前】(坏记录也会被清掉)
+PASS ⑤ runtime.json 写的是 listenWithFallback 返回的【实际】端口,不是请求的端口
+PASS ⑤ 改用端口时如实登记 requested/actual 两端
+PASS ⑤ listen 与 RUNTIME 握手常量赋值之间零 await(服务可服务时 token 必须已就位)
+PASS ⑤ 临界区检查忽略注释中的 await
+PASS ⑤ 临界区检查仍拒绝真实 await 和缺失锚点
+PASS ⑤ 上次失败记录在 listen 【之前】读出(不占用上面那段临界区)
+PASS ⑤ 103c 已登记 last-start-error.json(regenerable-exemption)
+
+START ERROR SURFACE E2E: ALL PASS

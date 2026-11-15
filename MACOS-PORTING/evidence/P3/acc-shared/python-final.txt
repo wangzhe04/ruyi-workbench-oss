@@ -1,0 +1,13 @@
+test_case_sensitive_apfs_volume_keeps_distinct_future_roots (__main__.MacShared.test_case_sensitive_apfs_volume_keeps_distinct_future_roots) ... ok
+test_clean_install_contains_no_windows_desktop_packages (__main__.MacShared.test_clean_install_contains_no_windows_desktop_packages) ... ok
+test_custom_paths_use_identity_without_lowercasing (__main__.MacShared.test_custom_paths_use_identity_without_lowercasing) ... ok
+test_explicit_toolsets_cannot_enable_mac_desktop (__main__.MacShared.test_explicit_toolsets_cannot_enable_mac_desktop) ... ok
+test_future_protection_root_obeys_volume_case_semantics (__main__.MacShared.test_future_protection_root_obeys_volume_case_semantics) ... ok
+test_import_failure_is_local_and_diagnosed (__main__.MacShared.test_import_failure_is_local_and_diagnosed) ... ok
+test_registry_and_diagnostics_are_truthful (__main__.MacShared.test_registry_and_diagnostics_are_truthful) ... ok
+test_system_roots_aliases_and_temporary_workspaces (__main__.MacShared.test_system_roots_aliases_and_temporary_workspaces) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.935s
+
+OK

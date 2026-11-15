@@ -1,0 +1,384 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "execution": "serial independent direct runs with frozen App and CFT148, without production edits",
+  "node": "v24.15.0",
+  "environmentOverrides": {
+    "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app",
+    "RUYI_E2E_BROWSER": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+  },
+  "runs": [
+    {
+      "name": "bridge",
+      "source": "dev-harness/macos-desktop-bridge.e2e.js",
+      "sourceSHA256Before": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46",
+      "sourceSHA256After": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46",
+      "startedAtUTC": "2026-11-08T06:56:58.941938+00:00",
+      "endedAtUTC": "2026-11-08T06:57:04.572107+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 53,
+      "failed": 0,
+      "allPassLine": "MACOS DESKTOP BRIDGE E2E: ALL PASS",
+      "log": "bridge-independent.txt",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-bridge-wM6znK",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 48015,
+          "ppid": 48013,
+          "created": "Sun Nov 8 14:56:58 2026",
+          "executable": "node dev-harness/macos-desktop-bridge.e2e.js"
+        },
+        {
+          "pid": 48032,
+          "ppid": 48015,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "<defunct>"
+        },
+        {
+          "pid": 48038,
+          "ppid": 48032,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node"
+        },
+        {
+          "pid": 48043,
+          "ppid": 48038,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 48044,
+          "ppid": 48038,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 48045,
+          "ppid": 48043,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "<defunct>"
+        },
+        {
+          "pid": 48047,
+          "ppid": 48044,
+          "created": "Sun Nov 8 14:57:00 2026",
+          "executable": "<defunct>"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant creation identities during execution and compared after natural test exit. No additional cleanup signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "client",
+      "source": "dev-harness/event-stream-client.browser.e2e.js",
+      "sourceSHA256Before": "7f497aa8dcae34d32d38078571d0ccc3f42b0e3e3b13447465ad95a070bac290",
+      "sourceSHA256After": "7f497aa8dcae34d32d38078571d0ccc3f42b0e3e3b13447465ad95a070bac290",
+      "startedAtUTC": "2026-11-08T06:57:04.572801+00:00",
+      "endedAtUTC": "2026-11-08T06:58:52.263358+00:00",
+      "exitCode": 1,
+      "naturalExit": true,
+      "passed": 37,
+      "failed": 1,
+      "allPassLine": null,
+      "log": "client-independent.txt",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-client-1EavfC",
+          "existsAfter": false
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 48084,
+          "ppid": 48013,
+          "created": "Sun Nov 8 14:57:04 2026",
+          "executable": "node dev-harness/event-stream-client.browser.e2e.js"
+        },
+        {
+          "pid": 48087,
+          "ppid": 48084,
+          "created": "Sun Nov 8 14:57:04 2026",
+          "executable": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve"
+        },
+        {
+          "pid": 48099,
+          "ppid": 48084,
+          "created": "Sun Nov 8 14:57:05 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+        },
+        {
+          "pid": 48121,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:05 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48122,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:05 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48124,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:05 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48125,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:05 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)"
+        },
+        {
+          "pid": 48128,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:06 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48129,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:06 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48132,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:06 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48147,
+          "ppid": 48099,
+          "created": "Sun Nov 8 14:57:10 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48371,
+          "ppid": 48087,
+          "created": "Sun Nov 8 14:58:07 2026",
+          "executable": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant creation identities during execution and compared after natural test exit. No additional cleanup signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "replay",
+      "source": "dev-harness/event-stream-replay.browser.e2e.js",
+      "sourceSHA256Before": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40",
+      "sourceSHA256After": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40",
+      "startedAtUTC": "2026-11-08T06:58:52.263892+00:00",
+      "endedAtUTC": "2026-11-08T06:59:03.442437+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 24,
+      "failed": 0,
+      "allPassLine": "EVENT STREAM REPLAY BROWSER E2E: ALL PASS",
+      "log": "replay-independent.txt",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-sse-replay-YlCvyH",
+          "existsAfter": true
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 48529,
+          "ppid": 48013,
+          "created": "Sun Nov 8 14:58:52 2026",
+          "executable": "node dev-harness/event-stream-replay.browser.e2e.js"
+        },
+        {
+          "pid": 48532,
+          "ppid": 48529,
+          "created": "Sun Nov 8 14:58:52 2026",
+          "executable": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve"
+        },
+        {
+          "pid": 48546,
+          "ppid": 48529,
+          "created": "Sun Nov 8 14:58:52 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+        },
+        {
+          "pid": 48552,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:52 2026",
+          "executable": "/usr/bin/profiles status -type enrollment"
+        },
+        {
+          "pid": 48557,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48558,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48559,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48560,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)"
+        },
+        {
+          "pid": 48568,
+          "ppid": 48532,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 48569,
+          "ppid": 48568,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "(ruyi-process-hel)"
+        },
+        {
+          "pid": 48570,
+          "ppid": 48569,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "<defunct>"
+        },
+        {
+          "pid": 48573,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48574,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48577,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:53 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48588,
+          "ppid": 48546,
+          "created": "Sun Nov 8 14:58:56 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant creation identities during execution and compared after natural test exit. No additional cleanup signals were sent by reviewer."
+      }
+    },
+    {
+      "name": "pageshow",
+      "source": "dev-harness/event-stream-pageshow.browser.e2e.js",
+      "sourceSHA256Before": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a",
+      "sourceSHA256After": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a",
+      "startedAtUTC": "2026-11-08T06:59:03.442895+00:00",
+      "endedAtUTC": "2026-11-08T06:59:06.670443+00:00",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passed": 11,
+      "failed": 0,
+      "allPassLine": "EVENT STREAM PAGESHOW BROWSER E2E: ALL PASS",
+      "log": "pageshow-independent.txt",
+      "isolationRoots": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-event-stream-pageshow-izpgOJ",
+          "existsAfter": false
+        }
+      ],
+      "observedProcessIdentities": [
+        {
+          "pid": 48624,
+          "ppid": 48013,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "node dev-harness/event-stream-pageshow.browser.e2e.js"
+        },
+        {
+          "pid": 48628,
+          "ppid": 48624,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve"
+        },
+        {
+          "pid": 48639,
+          "ppid": 48624,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+        },
+        {
+          "pid": 48646,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48647,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48648,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+        },
+        {
+          "pid": 48649,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:03 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)"
+        },
+        {
+          "pid": 48654,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:04 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48655,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:04 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        },
+        {
+          "pid": 48667,
+          "ppid": 48639,
+          "created": "Sun Nov 8 14:59:04 2026",
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+        }
+      ],
+      "cleanup": {
+        "sameIdentitySurvivors": [],
+        "observedOwnedProcessesAbsent": true,
+        "method": "Captured descendant creation identities during execution and compared after natural test exit. No additional cleanup signals were sent by reviewer."
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "normal",
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/normal-helper",
+    "bytes": 290880,
+    "sha256": "7979de1d7597585b3991a6a3553d98dfab5d567d5cc3494bddf8816b0beb0f34"
+  },
+  {
+    "mode": "testing",
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/testing-helper",
+    "bytes": 291584,
+    "sha256": "36e7288500429cb9a50d84745c54494ad0c6d839121c312a8bda77b7557d09b8"
+  }
+]

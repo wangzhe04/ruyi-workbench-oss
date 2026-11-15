@@ -1,0 +1,65 @@
+[
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture-contract.e2e.js"
+    ],
+    "name": "contract-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 7831
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture.e2e.js"
+    ],
+    "name": "live-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 7630
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture-host.e2e.js"
+    ],
+    "name": "host-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 2109
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-mcp-capabilities.e2e.js"
+    ],
+    "name": "mcp-capabilities-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 1214
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capabilities.e2e.js"
+    ],
+    "name": "capabilities-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 8661
+  },
+  {
+    "command": "node",
+    "args": [
+      "--require",
+      "./dev-harness/lib/self-isolate-home.js",
+      "--test",
+      "dev-harness/unit/tool-dispatch-hardening.test.js"
+    ],
+    "name": "dispatch-unit-corrected",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 8308
+  }
+]

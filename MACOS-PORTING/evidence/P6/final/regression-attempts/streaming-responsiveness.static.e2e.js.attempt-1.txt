@@ -1,0 +1,17 @@
+PASS live answer rendering appends only the new delta
+PASS animation-frame hot path does not reparse full Markdown
+PASS thinking stream coalesces deltas into a per-frame buffer instead of per-event DOM writes
+PASS batched thinking deltas are appended (not replaced) when flushed
+PASS background turn replay coalesces deltas with batched join instead of quadratic concatenation
+PASS mounting an active background turn does not prematurely finalize/detach it
+PASS mounting the first live turn removes the empty state and restores its optimistic user row
+PASS workflow polling never replaces a live chat message tree
+PASS finalizeLive settles via sealLiveTextSegment
+PASS turn settlement clears live clocks and terminalizes any tool card whose result event was lost
+PASS live tool cards show elapsed time and stop their timer when the result arrives
+PASS large settled answers keep a bounded non-blocking plain-text fallback
+PASS post-cap stream replay eviction uses an O(1) logical head, never Array.shift
+PASS history window is bounded by content weight as well as row count
+PASS large code highlighting is skipped/batched through idle slices
+
+STREAMING RESPONSIVENESS STATIC E2E: ALL PASS

@@ -1,0 +1,49 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:
+  ✔ 包里带 mcp drop-in 清单 → 拒;普通包照常解压 (13.014208ms)
+✔ 安全审计 #4 · archive_unzip 逐条目过写闸,任一被拒整包不落盘 (22.394833ms)
+▶ 安全审计 #7 · 悬空符号链接 / junction 不再绕过写闸
+  ✔ ws\dangle.txt -> outside\new.txt(目标不存在):写闸拒、file_write 不在工作区外建文件 (6.927334ms)
+  ✔ 父目录是悬空目录链接(mkdir -p 要建的中间段)→ 拒 (7.437333ms)
+✔ 安全审计 #7 · 悬空符号链接 / junction 不再绕过写闸 (14.486791ms)
+▶ 安全审计 #8 · 检查点回滚重验 index.json 里的 path
+  ✔ 伪造条目(工作区外 / autoexec / 受保护数据 / 畸形序号)不落盘、记进 failed;真实条目照常回滚 (111.029208ms)
+✔ 安全审计 #8 · 检查点回滚重验 index.json 里的 path (111.111208ms)
+▶ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒
+  ✔ AUTOEXEC_DENYLIST 命中这些路径(正反斜杠都认) (0.295333ms)
+  ✔ guardFileToolPath / file_write:写拒(autoexec-denied),读照旧 (29.169959ms)
+  ✔ 相邻的日常写照旧放行(不误伤) (18.68ms)
+✔ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒 (48.278667ms)
+ℹ tests 2509
+ℹ suites 192
+ℹ pass 2490
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 18
+ℹ todo 0
+ℹ duration_ms 121268.218125
+
+✖ failing tests:
+
+test at dev-harness/unit/tool-dispatch-hardening.test.js:57:1
+✖ [N4] 命令 / 桌面工具开关在分发点也生效(且与 offer 面同一判据) (60.929583ms)
+  AssertionError [ERR_ASSERTION]: session override cannot supply a missing platform implementation
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/tool-dispatch-hardening.test.js:71:45)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /platform\.unsupported/,
+    operator: 'match',
+    diff: 'simple'
+  }
+

@@ -1,0 +1,1 @@
+{"exitCode":0,"state":"ready","page":true,"evidence":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-CycNC4"}

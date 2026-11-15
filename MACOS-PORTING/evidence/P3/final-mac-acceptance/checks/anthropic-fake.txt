@@ -1,0 +1,28 @@
+PASS M1 第一回合打了两发(2)
+PASS M1 端点 = /anthropic/v1/messages
+PASS M1 头:x-api-key + anthropic-version,非官方主机 auto 模式也带 Bearer
+PASS M1 顶层 system、max_tokens、stream
+PASS M1 claude-opus-5-5 发 adaptive thinking
+PASS M1 没有 OpenAI 的 stream_options / system 角色消息
+PASS M1 工具是 { name, description, input_schema },tool_choice auto
+PASS M2 两个 tool_use 都真跑了
+PASS M2 两个 tool_result 装在同一条 user 消息里、排在最前
+PASS M3 思考块 + 签名在下一发里原顺序逐字节回放([{"type":"thinking","thinking":"两个文件一起读","signature":"SIG-T1"},{"type":"text","text":"我并行读两个文件。"},{"type":"tool_use","id":"toolu_a","name":"file_read","input":{)
+PASS M4 最终回答用到了两个工具结果(我并行读两个文件。读到了 ALPHA-4410 与 BRAVO-9921)
+PASS M4 思考流进 thinking_delta
+PASS M4 用量按 Anthropic 口径归一(input+cache_read+cache_creation;{"input_tokens":685,"output_tokens":18,"cached_input_tokens":600})
+PASS M4 回合成功
+PASS M5 历史落了 providerBlocks(签名在)与 reasoning_content(1 条)
+PASS M6 第二回合三发:开循环、签名失配、去块重打(3)
+PASS M6 上一回合的思考块不回放,文本与 tool_use 照发
+PASS M7 签名失配 400 → 去掉思考块重打一次
+PASS M7 重打之后回合成功
+PASS M8 子代理跑完(succeeded)
+PASS M8 子代理请求也是 Messages 形
+PASS M9 非流式取字正确({"ok":true,"content":"draft ok: reminder-seen","usage":{"input_tokens":12,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"output_tokens":5,"prompt_tokens":12,"completion_tokens":5,"total_tokens":17,"prompt_tokens_details":{"cached_tokens":0}},"model":"claude-opus-5-5"})
+PASS M9 后插的 system 规则以 <system-reminder> 留在对话里
+PASS M9 不带 tools 的请求里没有 tool_use / tool_result 块(改写成文字,Messages 不收没有 tools 定义的工具块)
+PASS M10 模型清单读到 max_input_tokens([{"id":"claude-opus-5-5","label":"claude-opus-5-5","contextLength":1000000}])
+PASS M10 清单请求带 Anthropic 头
+
+ANTHROPIC FAKE E2E: ALL PASS

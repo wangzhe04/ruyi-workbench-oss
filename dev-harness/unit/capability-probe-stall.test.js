@@ -79,3 +79,42 @@ describe('能力探针:同步阻塞不再伪造离线', () => {
     assert.strictEqual(later.network.online, true, '未知过期后重新探测拿到 true(修前要等满 60 s,且那 60 s 里一直是离线)');
   });
 });
+
+it('[P3-04] browser target cache does not publish an older probe over the current snapshot', async () => {
+  const { loadServerInternals } = require('../lib/server-internals');
+  const h = loadServerInternals(['getCapabilities', 'peekCapabilities'], { withEval: true });
+  h.__eval(`globalThis.__ruyiP3Cache={gates:[],counts:new Map()};
+    activeOpenAiProvider=()=>null;networkAnchors=()=>[];
+    probeDesktopMcp=async config=>{const mode=config.browserAutomation.mode;
+      __ruyiP3Cache.counts.set(mode,(__ruyiP3Cache.counts.get(mode)||0)+1);
+      await new Promise(resolve=>__ruyiP3Cache.gates.push({mode,resolve}));
+      return {present:true,browser:{mode,ready:false}};};
+    probeRgAsync=async()=>null;existsExecutableAsync=async()=>false;
+    probeGitCliAsync=async()=>false;withRuntimeCapabilities=async x=>x;`);
+  const state = globalThis.__ruyiP3Cache, pending = [];
+  const start = (mode, force) => { const result = h.getCapabilities({ browserAutomation: { mode } }, force); pending.push(result); return result; };
+  const release = async (mode, result) => {
+    const gate = state.gates.find(g => g.mode === mode && !g.done);
+    assert.ok(gate, 'actual capability probe entered ' + mode);
+    gate.done = true; gate.resolve(); await result;
+  };
+  try {
+    const old = start('system'), current = start('bundled');
+    await release('bundled', current);
+    assert.equal(h.peekCapabilities().desktopMcp.browser.mode, 'bundled');
+    await release('system', old);
+    assert.equal(h.peekCapabilities().desktopMcp.browser.mode, 'bundled', 'older completion cannot publish to the hot snapshot');
+    const nextOld = start('system', true);
+    await start('bundled'); // cache hit must still establish the requested target
+    await release('system', nextOld);
+    assert.equal(h.peekCapabilities().desktopMcp.browser.mode, 'bundled', 'cache hit also prevents a pending older target from publishing');
+    const same1 = start('cdp'), same2 = start('cdp');
+    await release('cdp', same1); await same2;
+    assert.equal(state.counts.get('cdp'), 1, 'same-target callers still share one inflight probe');
+    assert.equal(h.peekCapabilities().desktopMcp.browser.mode, 'cdp');
+  } finally {
+    for (const gate of state.gates) gate.resolve();
+    await Promise.allSettled(pending);
+    delete globalThis.__ruyiP3Cache;
+  }
+});

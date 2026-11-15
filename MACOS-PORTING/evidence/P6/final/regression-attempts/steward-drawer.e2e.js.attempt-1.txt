@@ -1,0 +1,139 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 四条线程已建（sess_997f891a0b36e91a / sess_c28077eeeb465c6e / sess_7b7f94edf65aee32 / sess_780300f78fe62ec7）
+PASS A4 事项容器已建（mission_ad3a6c79f2aa83cc）
+PASS A5 两条线程都挂在同一个事项下（页签的兄弟线程来源）
+PASS A6 线程 A 有了一条以问句收尾的助手消息
+PASS A7 线程 C 挂着一条 question 待决
+PASS A8 Edge/Chrome found
+PASS A9 browser target available
+PASS A10 计时器探针已装上
+PASS B1 抽屉打开并把线程 A 的内容填满
+PASS B2 抽屉是 role="dialog" + aria-labelledby="stewardDrawerTitle"
+PASS B3 十四个区块的 DOM 顺序 === §2.6 焦点卡的契约顺序
+PASS B4 宽屏下管家壳被标为 drawer=open（对话区收窄，抽屉占右侧 390px 栏）
+PASS B4b 1440px 宽屏是栏式，不加 aria-modal
+PASS B5 线程页签是 tablist，两条兄弟线程各一个 tab（实测 2）
+PASS B5b 页签行末尾是「＋ 线程」（实测 ["整理素材","报表汇总","＋ 线程"]）
+PASS B6 卡头面包屑显示【任务容器】的名字（用户起的那个，实测「季度收尾」，hidden=false）
+PASS B6c 焦点卡里没有费用 pill（#stewardDrawerMissionCost 整个节点已删，实测 0 个）
+PASS B6d 元信息一行印相对时间（与对话流卡头同一句 stewardAgoLabel，实测「刚刚」）
+PASS B6b 同一帧里线程头仍是线程自己的名字（实测「报表汇总」）
+PASS B7 事项行显示验收 a/b（实测「验收 1/2」）
+PASS B8 线程头显示线程标题（实测「报表汇总」）
+PASS B8c F5a：底部每一枚动作都是【图标 ＋ 文字】（不是纯图标，也不是被 i18n 抹掉了图标的纯文字）；线程「停止」那一枚是实心方块（<rect>），与头部管家停机的电源符不同形（实测 ["stewardDrawerSendBtn:1/发给它","stewardDrawerClassicBtn:1/在工作台打开","stewardDrawerPauseBtn:1/暂停","stewardDrawerResumeBtn:1/继续","stewardDrawerStopBtn:1/停止","stewardDrawerRewindBtn:1/整单回退","stewardDrawerHandBackBtn:1/交回管家"]）
+PASS B8d F5a：状态药丸带一枚由五态派生的字形，文字仍逐字是那句五态人话（实测「已停工」＋1 条路径）
+PASS B9 线程头显示五态人话，且落在 mission-state.js 的枚举里（实测「已停工」）
+PASS B10 「它刚说」＝最后一条助手消息原话的前 3 句（实测「我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。」）
+PASS B10b 第四句被截掉（≤3 句，不是全文）
+PASS B11 A 无待决、末句是问句 → 「你可以说」给「好，就这样」「先不要」（实测 ["好，就这样","先不要"]）
+PASS B16 A 的最后一句是问句 → ④「它在问你」把【问题原文】摆出来（实测 ["要不要我把汇总也做了？"]）
+PASS B16b 软问句没有选项按钮 → ⑦「你可以说」照常在（只有 ④ 真给出选项时 ⑦ 才让位）
+PASS B16c ④ 里是【末句问话】、⑥ 里仍是原话开头三句，两处不重复（实测「我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。」）
+PASS B17 ⑧「更多」默认收起（走查③「线程页内容还是太多太杂」；实测 open=false）
+PASS B18 打开线程、数据到齐之后焦点落进问答框（走查①「打开线程回答」按下去该发生的事）
+PASS B19 A 没有在跑 → 标题是「它刚说」（实测「它最后说」）
+PASS B12 接力关系列出同事项的另一条线程（实测 ["整理素材 · 交办中"]）
+PASS B13 验收项来自任务快照（实测 ["拿到三个区的数字","汇总表可打开"]）
+PASS B14 快切 chip 三个：权限／模型／引擎（实测 ["permission","model","engine"]）
+PASS B14b 跟随全局时详情栏【不印默认值但留着控件】（实测 is-default=true 行画出来=true 值画出来=0 键画出来=3），值仍读得出「跟随全局」
+PASS B15 抽屉、avatar、看板各一张表（121-K2b 之前看板那张要等点开才起；A 填满那一刻 [5000,5000,5000]，等表起齐 [5000,5000,5000]）
+PASS C1 权限 chip 点开五档菜单
+PASS C1b 五档各带一句人话，末行是「跟随全局」（实测 ["每步都问改文件、跑命令前都先问过你（只读不问）；如意只提议，一律等你点。","改文件不问改文件不再问；跑命令与对外动作仍然问你。","只做计划只出计划不动手；如意也只提议。","智能自动不再问你，做完给回执；永久豁免的动作和看不出真实意图的拼接、编码命令仍会停下来，其中删文件、推送这类非底线项管家可按规则写明理由替你批（设置里可关）。","全自动什么都不问、管家也不把关，连付款、关机、发邮件这类底线动作都直接做；只有系统目录仍然写不进去。只在隔离环境或你完全信任这件事时用。","跟随全局"]）
+PASS C2 切「改文件不问」后 GET /api/sessions/A 的 permissionMode === "acceptEdits"
+PASS C3 chip 用响应回填成「改文件不问」
+PASS C3b 定过会话级权限档之后这一行的【值】印出来（实测 is-default=false 行画出来=true 值画出来=3）
+PASS D1 切「全自动」先出二次确认，不直接 PATCH
+PASS D1b 确认里逐条写明 §8.6 那五件事（实测 5 条）
+PASS D1c 其中一条写明「永久豁免仍不做」
+PASS D2 取消后权限档不变（还是「改文件不问」）
+PASS D3 确认后 permissionMode 变 "auto"（服务端要 confirm:true 才肯切）
+PASS D3b chip 回填成「全自动」
+PASS D5 权限菜单里有「全自动」（bypass）这一档
+PASS D5b 切全自动出的是它自己的四条确认（写明底线动作也不再停），不是智能自动那五条（实测 ["它会直接改文件、跑命令、对外发送，一步都不问你；它的提问由如意替你答复。","和智能自动不同：付款、关机格式化、改系统设置、发邮件这些底线动作也不再停下来等你按。","动作事前没人把关，只在事后记账；文件改动有检查点可撤销，其余动作撤销不了。","停机键一直在，随时能按；定时任务永远不会用这一档。"]）
+PASS D5c 确认后 permissionMode 变 "bypass"
+PASS D5d chip 回填成「全自动」（修前 bypass 线程显示成「跟随全局」）
+PASS D4 模型菜单里有【一句】「下一回合生效、不打断」（实测 1 句「切了下一回合生效；正在跑的回合不会被打断，它用的还是原来那个。」）
+PASS D4b 引擎菜单里也有【一句】同样的说明（实测 1 句）
+PASS D4c 菜单收起来之后那句说明跟着走（它住在菜单里，不是常驻一行占着版面）
+PASS M1 引擎菜单里有那个补进来的端点「批量端点」
+PASS M1b 切过去之后 GET /api/sessions/A 的 engineRoute.providerId 就是它
+PASS M1bb 抽屉已显示新端点,再打开它的模型菜单
+PASS M1c 指针进到模型 chip 上就去拉用量（开菜单之前那一发已经回来了）
+PASS M2 模型菜单在这个端点上画出来了（候选 30 项）
+PASS M3 候选 30 项（> 门槛 8）→ 搜索框出现且拿到真焦点（实测 出现=true activeElement 是它=true）
+PASS M4 折叠区在场，标题明写「猜」且计数 3（夹具里四个非文本 id，其中「bulk-audio-preview-2026-04-01」有账已进「常用」不重复算；实测 在场=true「看起来不是文本模型（按名字猜的，可能猜错）」× 3）
+PASS M4b 四个 id 都被实现认成「看起来不是文本」，而折进去的正好是那三个【没账的】（实测 打标 ["bulk-audio-preview-2026-04-01","bulk-image-gen-2026-04-02","bulk-realtime-chat-2026-04-03","bulk-livetranslate-flash-2026-04-04"] 折叠 ["bulk-image-gen-2026-04-02","bulk-realtime-chat-2026-04-03","bulk-livetranslate-flash-2026-04-04"]）
+PASS M4c 收起来时那三行仍在 DOM、但【真的没画出来】（实测 body.hidden=true body 画出来=false 行画出来=0）
+PASS M4d 「bulk-audio-preview-2026-04-01」最近用过 → 整张菜单里只印一行、就在「常用」段、当场看得见，折叠区不重复第二份（实测 印了 1 行／折叠区 ["bulk-image-gen-2026-04-02","bulk-realtime-chat-2026-04-03","bulk-livetranslate-flash-2026-04-04"]）
+PASS M5 「常用」段种了七条账只留最近五条，按最近一次使用倒序（实测 ["bulk-chat-01","bulk-chat-02","bulk-audio-preview-2026-04-01","bulk-chat-03","bulk-chat-04"]）
+PASS M5b 第一段只有「跟随全局」那一项（data-model-id 为空串），它永远排头（实测 [""]）
+PASS M5c 按 provider 分组、组标题就是它的 label，段里是 22 项文本候选（非文本的四项不在这里；已经在「常用」露过面的 4 项也不在这里 —— 124 走查②「同一屏只印一行」）（实测 22 项）
+PASS M6 只有真有账的 7 个 id 带副行，且每个 id 只带一条（124 走查②去重之后：常用里 5 行＋分组里剩下的 2 行＝7 条），没账的 23 行一条都没有，且没有「0 回合」（实测 7 条／唯一 id ["bulk-chat-01","bulk-chat-02","bulk-audio-preview-2026-04-01","bulk-chat-03","bulk-chat-04","bulk-chat-05","bulk-chat-06"]）
+PASS M6b 副行说的是我们真知道的那点事（「今天」「1 天前」都在，实测 ["上次用 · 今天 · 共 1 回合","上次用 · 1 天前 · 共 1 回合","上次用 · 2 天前 · 共 1 回合"]）
+PASS M7 点折叠区标题就展开，那三行【真的画出来了】（实测 aria-expanded=true 画出来 3 行）
+PASS M7b 折叠区里的行仍可选：点「bulk-image-gen-2026-04-02」→ PATCH 之后 engineRoute.model 就是它（折叠只是折叠，不是过滤）
+PASS M8 搜「image」当场命中折叠区里那一行：折叠区自动展开、行真的画出来、命中段高亮（实测 展开=true 画出来的 ["","bulk-image-gen-2026-04-02"] 高亮 ["image"]）
+PASS M8b 这一屏可见的只剩一行没有账的候选 → 「常用」整段不出现（不摆一个空标题；实测段标题 [""]）
+PASS M8d 搜「audio」命中的是有账的那一个：只印一行、就在「常用」段、当场看得见，折叠区整块不摆（实测 行 ["","bulk-audio-preview-2026-04-01"] 折叠区在场=false）
+PASS M8c 对照：搜一个不存在的串 → 出「没有匹配的模型。」，只剩「跟随全局」那一行、折叠区也不摆（实测 [""] 折叠区在场=false）
+PASS M9 点「跟随全局」把会话级模型清回空串（菜单随之收起，后面的断言从干净状态起跑）
+PASS M9b 选完之后菜单收起来了
+PASS E1 点兄弟页签切到线程 B（抽屉换线程，不重开）
+PASS E1b 同一时刻只有一个页签是 aria-selected="true"
+PASS E1c B 没说过话 → 「它刚说」如实留空（实测「它还没说过话。」）
+PASS E1d 看板刷一拍（窗口切回来）之后抽屉仍在 B，没被拽回焦点线程（看板刷新 true，实测标题「整理素材」）
+PASS E2 steward:focus-thread 也能打开抽屉（117h「现在这一件」接同一个口）
+PASS E3 候选答案在 ④「它在问你」卡里（实测 ["React","Vue"]）
+PASS E3b 这两条的 kind 是 question（走 /api/chat/answer）
+PASS E3c companion：④ 出选项时 ⑥「你可以说」整块隐藏（不是被删 —— B16b 里软问句那一档它照常在）
+PASS E3f ④ 里是【问题原文】而不是一句摘要（实测 ["接着用哪个框架？"]）
+PASS E3g 切到 C 之后焦点也落进问答框
+PASS E3c 有待决时五态是「需要你」（实测「需要你」）
+PASS E3d 三问的「在干什么」说出「等你」（实测「等你拍板 · 有问题等你回答」）
+PASS E3e C 自成事项，没有兄弟线程 → 接力关系整块隐藏
+PASS E4 点一条选项按钮 → 该待决消失（抽屉回执 "已替你回复。"）
+PASS E4b 抽屉给出「已替你回复」的回执
+PASS E4c 回答不 supersede 那个回合（该线程零新增 turn_kill）
+PASS E4d 答完那条线程的回合接着往下跑（不是被杀掉之后重开）
+PASS E4e 答完之后 ④「它在问你」自己消失（没人在问了就不该留在屏幕上）
+PASS E4f 线程 D 起了回合并挂在 request_user_input 上
+PASS E5 线程 D 也挂着一条 question 待决 → ④ 出现
+PASS E6 回合还活着 → 标题是「它正在说」（实测「它正在说」）
+PASS E6b 内容以活回合的【末尾】三句打头，不是开头（实测「一是 React。二是 Vue。三是原生。」）
+PASS E6c 第一句被截掉 —— 活回合要看的是最新那几句（落盘原话那一路仍取开头，见 B10）
+PASS E6d 当前动作行里正在用的工具说【人话】，界面上不出现工具名（实测「等你回答 · 第 1 次调用 · 0 秒前有输出」）
+PASS E6d2 companion：引文里不再掺那句状态（实测「一是 React。二是 Vue。三是原生。」）
+PASS E6e 回合【正在跑】的线程上，模型菜单里那句说明照样出现且只出现一次（实测 1 句）
+PASS E5b 自由回答（不是候选里的任何一条）也能把待决答掉
+PASS E5c 自由回答同样【不】 supersede 那个回合（零新增 turn_kill）
+PASS E5d 用户写的那句话逐字进了会话（otherText，不是被折成某个选项 id）
+PASS E8 D 的回合答完之后接着跑到收尾（那句收口话已落盘）
+PASS E8b 夹具成立：这【一条】助手消息的 content 里过程叙述与交付都在，段序是 …tool… → text（实测段序 ["text","tool","question","text"]）
+PASS E8c 回合收尾后标题换回「它刚说」并真的印出了一段原话（实测「它最后说」／「知道了，就按这个来。」）
+PASS E8d 「它刚说」＝最后一个工具调用【之后】那段正文，逐字只有收口那一句（实测「知道了，就按这个来。」）
+PASS E8e 夹在工具调用之前的过程叙述一句都没混进来（修前这里显示的正是它们；实测「知道了，就按这个来。」）
+PASS E7 底部「直接对这条线程说」把话真的送进了那条线程（relay 的 turn 通道）
+PASS E7b 回执按服务端回的 channel 说话（空闲线程 → 「已发给它」；实测「已发给它。」）
+PASS E7c 这条路上零 turn_kill
+PASS H1 焦点栏「其它在途」只叠非收工的线程，抽屉那一份仍然是搬进 #stewardFocus 的【同一个】节点（服务端在途且非焦点 0 条，实测 0 条小行，parent=stewardFocus）
+PASS H1b 小行里零抽屉区块、零输入框，整页也没有第二处 #stewardDrawer* 节点（实测 区块 0／输入框 0／游离 0）
+PASS N-1 抽屉重新钉回线程 A、且它的切片已落（标题「报表汇总」，实测「报表汇总」／「我先看了一眼报表。三个区的数字都对上了。差的是华南那张表。」）
+PASS N0 前置：A 此刻还带着它的用户消息（后两条才谈得上「动没动手」）
+PASS N0b 「整单回退」在文档里、接着处理器、未被禁用（实测 {"found":true,"disabled":false,"inClosedDetails":true,"wired":true,"note":"","backdrops":6}）
+PASS N1 点「整单回退」出的是应用内确认模态（原生 confirm 会卡死 CDP，本条不可能假过）
+PASS N1b 只有一层确认、且是 role=dialog + aria-modal=true（实测 1 层／role=dialog／aria-modal=true）
+PASS N2 标题复用按钮自己的说法、正文逐字来自 locale（实测「整单回退」／「整单回退会把这条线程退回到第一句话之前，并撤销这期间改过的文件。要退吗？」）
+PASS N2b 两枚按钮用的是既有公共键 common.confirm／common.cancel（实测「确认」／「取消」）
+PASS N2c 默认焦点落在「取消」上（危险动作不该按一次回车就执行）
+PASS N3 点「取消」：确认层收起且 A 一条消息没少（await 到 false 就不动手）
+PASS N4 点「确认」：真发 guarded /api/session/rewind，A 退回第一句话之前（await 到 true 才往下走）
+PASS N4b 动手之后确认层自己收起（不留悬空浮层、不挡住抽屉）
+PASS F1 窄屏（<1000px，§7.3 那一档）右栏让位：抽屉回覆盖式并收起
+PASS F1b 关闭后管家壳不再让出右栏
+PASS F2 关抽屉即停表，只剩 avatar 与看板那两张（实测 [5000,5000,1000,1000,10000,10000,1000]）
+PASS F1c 覆盖式那一档 Esc 之后它仍然是关着的
+PASS G1 切回经典壳后管家侧零残留定时器（实测 [1000,1000,10000,1000]）
+PASS G2 抽屉在经典壳里保持关闭
+
+STEWARD DRAWER E2E: ALL PASS

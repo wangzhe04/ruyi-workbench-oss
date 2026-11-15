@@ -12,6 +12,8 @@
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta, bindKeyboardClick } from './js/util.js';
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken, setNetworkErrorMessage } from './js/net.js';
+import { installHostPickers, bindHostActions } from './js/host-bridge.js';
+installHostPickers(api, t);
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
 import { activeTurnUserIsPersisted, captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId } from './js/turn-narrative.js';
@@ -823,9 +825,9 @@ async function handleDrop(e) {
 // 121-K2b（34 号文 §6.2）：事件流。组合根持【一条】连接，注入管家壳（左栏／焦点／对话流）与
 // 工作台（2.0 的「它正在跑」卡）—— 两视角共用同一条，绝不各开一条（在场信号按连接计，多开一条
 // 服务端就以为你同时坐在两个地方，§4.3 的打扰纪律会跟着错）。
-// 在场信号的两个读口：视角读 data-shell-mode（全仓唯一的视角状态源），会话读 state.currentSession。
+// 在场信号的两个读口：视角读控制器的在飞意图或落地值，会话读 state.currentSession。
 const eventStream = createEventStream({
-  lensProvider: () => (document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 'steward' : 'classic'),
+  lensProvider: () => (shellModeController.intendedShellMode() === 'steward' ? 'steward' : 'classic'),
   sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
 });
 setAgentRunsEventStream(eventStream);
@@ -1219,6 +1221,7 @@ async function boot() {
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   setStreaming(false);
   bindEvents();
+  bindHostActions({ newThread: () => newSession(), chooseWorkspace: () => pickWorkspaceNative(), settings: () => openModal('settingsModal') });
   applyTheme((() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })());
   applyUiMode((() => { try { return localStorage.getItem('wcw.uiMode') || 'simple'; } catch { return 'simple'; } })()); // v0.9-S1 (C1) / v1.0.2 (F5): 默认 simple 对齐 server
   restoreToolsCollapsed(); // 桌面外壳首启默认收起工具面板；用户偏好优先

@@ -1,0 +1,18 @@
+{
+  "nativePID": 17947,
+  "servicePID": 18029,
+  "launch": "LaunchServices",
+  "capture": {
+    "authorization": "denied",
+    "coordinate_space": "macos_global_points",
+    "installed": true,
+    "ready": false,
+    "reasonCode": "permission_denied",
+    "supported": true
+  },
+  "offered": false,
+  "shot": {
+    "code": "permission_denied",
+    "ok": false
+  }
+}

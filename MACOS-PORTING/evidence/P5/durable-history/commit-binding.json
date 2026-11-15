@@ -1,0 +1,695 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "at": "2026-11-11T11:51:16.374022+00:00",
+  "mainCommit": "7f95d6548bf98907fe2403d26b55b87fd0001642",
+  "worktreeCommit": "a3403e04c4149ca655284b10858ef53392a56431",
+  "sourceCount": 127,
+  "changedFiles": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/fixture-home.static.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "dev-harness/provider-tool-history.e2e.js",
+    "dev-harness/session-save-census.static.e2e.js",
+    "dev-harness/unit/session-required-persistence.test.js",
+    "docs/architecture/route-inventory.json",
+    "docs/architecture/route-inventory.md",
+    "facts.json",
+    "ruyi-workbench/app/server.js",
+    "ruyi-workbench/app/src/02-session-store.js",
+    "ruyi-workbench/app/src/09-workflow.js",
+    "ruyi-workbench/app/src/10-context-governance.js",
+    "ruyi-workbench/app/src/manifest.json"
+  ],
+  "sources": [
+    {
+      "path": "README.md",
+      "sha256": "e2d3d8e006d0e3f5dcaefa092f6d83dc63388c48195fdb46d9cd9b6d3d15189c",
+      "gitBlob": "a470f3174a17e2c70c77200e20e8ae6121d53746"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "9633ace42b286f6166e1976df629754c8c9204257b74ae2007436edf59e9be8e",
+      "gitBlob": "5b058a68e5e933d7d66e475306e1e7f2e5c0614d"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "83f9d3b0faef8924f2eb0ea0a513dfdf0de1c42b490f596b35bf80364998d414",
+      "gitBlob": "6b4ea9e0bc793814016305e830ae9f7128dfe1d3"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-abort-window.m",
+      "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814",
+      "gitBlob": "7615e5669a32ae9dce5146fdff7f87bf7f8d3ab2"
+    },
+    {
+      "path": "dev-harness/free-port.js",
+      "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258",
+      "gitBlob": "bf8a9e66240fc34de0a3e34450b92613a65c8039"
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+      "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11"
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5"
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+      "gitBlob": "5ce3c7076746a13ece00dd005a21fc2558bbddfd"
+    },
+    {
+      "path": "dev-harness/macos-neutral-abort.e2e.js",
+      "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc",
+      "gitBlob": "46811d72b727374fda75de13f7c24744ffe2e8d6"
+    },
+    {
+      "path": "dev-harness/parallel-read-island.e2e.js",
+      "sha256": "3d42bbcc204e23589b5d4f1cfffe8ae896fd38c22f9f81d7494690f2d3488d3a",
+      "gitBlob": "2c294ba7d3a300a1a78c11ffa4a3fa9542a3d848"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "b3fcbb93255adc63de299a28655a7ce228856a72dae93814a48f8febdce1eb75",
+      "gitBlob": "e324211dedd3f595b6ad03d01d358468272fdad2"
+    },
+    {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "sha256": "c5f851f035902a9cbafd275f7bad1b64ac10d4de829c009b5624a51277dfc309",
+      "gitBlob": "2a2779f21406e162529eeea17fda3a5b9b1a6b26"
+    },
+    {
+      "path": "dev-harness/provider-turnloop-hardening.e2e.js",
+      "sha256": "0ec2f2a1690f7121cf84149509bfa168cd5e0a4b2163bbce70f92ab400a7a0ba",
+      "gitBlob": "6b8b8395c293f3009b6ece430e64cdb2cf94dfa4"
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "sha256": "af5529b5dd8b6e19bd34bc521ca6cb768fc54153f357db955b55a6b0259e1be7",
+      "gitBlob": "702b51ab5b05f9f0e01a9b0e1a56f35ae79c5478"
+    },
+    {
+      "path": "dev-harness/turn-stop-supersede.e2e.js",
+      "sha256": "f56bdc8370c83f5aa0fd7aa8a61c665e6c873ef40bb8bbbdfb729be06932aa77",
+      "gitBlob": "78e7ef9518ce72c5305e1984a6122d2413fc0708"
+    },
+    {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "sha256": "939e1b4571185fa120e9460bf5d047f783e229cc3ef1773bb2f8a10c2216ca49",
+      "gitBlob": "4065c478c88ac39f7cd56f4d66d05b2aa9fc36df"
+    },
+    {
+      "path": "dev-harness/unit/tool-result-shrink.test.js",
+      "sha256": "b44a6249f622de3892faa5374e6f499f4747e01255cc3e40e010c6ff1b68ae67",
+      "gitBlob": "30de69c0bdc31011e70713cac49c5c843a1900f1"
+    },
+    {
+      "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f",
+      "gitBlob": "f1a5ce411b7877140c01a9095400213edf71bd1d"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "eb6c76c06eb67ee9694fc19fb52e8b8d85185bc70c19fe31081a8f80d78bdd84",
+      "gitBlob": "26cbdc918019a1881d0c2acb4a7e433379d644ca"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "7e3564a5d91cb04bdd06d37babe23ca97010412df21ac4e64f09274ff039fdea",
+      "gitBlob": "fb0358c8e7eec1f589ae2b2f03aace94afdfc94b"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "d93c755d6cb1740b0c2864812a6c6cf555682fa7d1f0c0e8fd86f7863ac1ad44",
+      "gitBlob": "fcbacd14f832f156263626a00922363406ebc6f4"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "208e7503913ae34e17a8cfc0ec657d8eedef4917b16762a0fc2c8b5548a201a2",
+      "gitBlob": "f3f7f91a2310874694ab6c9db6df0cad3d91cebf"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0",
+      "gitBlob": "68fe3f24e1864cdafdadae2cf654953c64284831"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-platform-runtime.js",
+      "sha256": "6fc836ad79bbb2f33c049be258f89ea5d4a89dfa853051e3445ed34d781443ef",
+      "gitBlob": "d62841a59f1985a7dda4a7cea56470bd39fdcc59"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+      "gitBlob": "5ee6536480124899a67891d3b07630fe831e529d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "6170dc98fa1f90bf2f14d7700f02d749603d135e8a154ad05f0753a62e8ef147",
+      "gitBlob": "02f95c82248b241e2ec4028edf155c1b49074436"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01b-route-auth.js",
+      "sha256": "85e8b92340e16d83c927c77c00f178fa775834eccd3f0ecf6542597205dc3c88",
+      "gitBlob": "cac0202e579beb4add8158400d3050d74926b4b0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+      "gitBlob": "96fe4fe12d7251ac84f2221fec90cd8262b9769e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "sha256": "ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456",
+      "gitBlob": "4a99b567b836ea4aeee50ab2106f3cecd989b06c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+      "gitBlob": "731ac5b8272ba398db7961cc1128a2e7a4f58ebb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7",
+      "gitBlob": "bf19986ddb0e83fd83168819356318e49e1fd149"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "sha256": "f99027cb8f24b5ea9fb0e88eb8e3cbe716cf116990ab5e683fad56a180acb50b",
+      "gitBlob": "bd18724c63388f68e1b34eee0a37c0d979c469af"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3",
+      "gitBlob": "04745d142976d9142f6613619feb50c22807a5aa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "gitBlob": "aec7bd5e7e1a86fc11d7e9fe3ca6af860ca2660d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+      "gitBlob": "d292e0bb23334a1ac06eb6e6d30d61a601ecdd16"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c",
+      "gitBlob": "d3271c9e9caa078a9e071211da482cb1db4b20cc"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd",
+      "gitBlob": "87460a7066e38856e338e6734274ad45f30ab4e1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72",
+      "gitBlob": "5a0b02bd800aeca37eb3f3fa62e2f554b698a56d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+      "gitBlob": "9df36076a2d6a976ab48d80f8a1f4037640c72ca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "gitBlob": "a51ba22103c27adc86758f8627f4e2f760abdccf"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41",
+      "gitBlob": "4ced84405e24eed04d6139acfa06a5d8db1836d0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d",
+      "gitBlob": "c7d254be9bd87c31ac0ca13c8ecf847945314380"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+      "gitBlob": "cb31bb44da4e2295a89b93a895d7cff080c9a3a6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+      "gitBlob": "b3035378eebf4b0b581d9ba7d996e45a68f9ce7e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "sha256": "3c70968cafa4bbf09ea7d71b993ee5cc01a9c95c29f31bc4f0e1372bf1536bec",
+      "gitBlob": "f3b1884533f1e2e92b1f08a4cde898a5d800d75b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "gitBlob": "fc742c77ccb701f1c5762257c185489b82dfbf69"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "8469f2b59f3dc6741e3734aac72fa341ac87f18d2d8115290703560d9d5904ce",
+      "gitBlob": "01f8e90c91b5ecd3db03453032800a77f7cb557d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "sha256": "198ee712a1fa49a23ff8a8365f13cb3c54020789d2260bcc3274a372d3d7a326",
+      "gitBlob": "f9e4a58090d5f950ffa9651666308147881ba677"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593",
+      "gitBlob": "e05a783d6f2673e17a665742f6ef0f2dd04ff0ad"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed",
+      "gitBlob": "7e0e17e3d6a167e60b22fcff157505a552b2cae7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "sha256": "9c1865eed69ee7b8fce84ac8a5c25e11ef266a6339b88f6c435a3ac011766b18",
+      "gitBlob": "2308388f15e7673bd7dc126c1d0d4f3355d6aaf4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "sha256": "d563272e7576737417602ff98521be5fb9bff84e58151d8157310636637f88ab",
+      "gitBlob": "d86abfefbbbd4723b4d597b186dedbe30674c10c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd",
+      "gitBlob": "fa7d1265247de0906b73a999fabeca60bc3df350"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "sha256": "c7d12d7866ab5a16451432955f1b10163292e7d5a51f108b04742842c7c3f12a",
+      "gitBlob": "c4b1c120d147651d91200a04335c6e31f52cb8fb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+      "gitBlob": "8f06e8051ab533fd33c56df09674f2b372b06e93"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+      "gitBlob": "1fb34835284ac14279b0a560c8f7618790e66602"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+      "gitBlob": "75dc846aa0b64eea2811dbe18203288027f2f872"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "bc742c8ddaf67af4334f01b8ab71d756e7e7160ca62bb2c01c99aa2e4d63c23f",
+      "gitBlob": "dd48010b370bcba7b01e72be175f1c26fd1c2c97"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b",
+      "gitBlob": "f313124ac44dc7d55b89fa10fa881073fe37b3d1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "sha256": "eb60a621d764822820784b39c36e182ffd8ffdf6596c25bfdd9dacfa176589ca",
+      "gitBlob": "a4eae382951f4accd3f364bbaffccd958e0167a1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+      "gitBlob": "c69ceff664f7566a56b52949953ae42c078a1086"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "gitBlob": "66ef3a8faec1da7df0bfb68e67f1d508c52d02a6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d",
+      "gitBlob": "9698c771d606fe366decddffd48748931eb4ea53"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+      "gitBlob": "fde8efc43a6f8be55e703449b649b575060dc20e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "3b09710d349826f062e4616ab8934ed61fce2ba2fa1cf1fd4494bbf4916a23d1",
+      "gitBlob": "47607b70923b3d5041c4ba2d3615a98a497c8e9a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+      "gitBlob": "08967643787cbf436e55d25069129cf16d4bb9c3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+      "gitBlob": "6e19679feb0ef2a0e5f3daf3745fa336a782ae58"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f",
+      "gitBlob": "8e92c6d329fd01c00bb4309f4d6efc244285ee8b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+      "gitBlob": "160b13833f85aaa32fa71eceabe9af13ff1e5922"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06i-steward-core.js",
+      "sha256": "b1c6feb7d233cf8eeae35c3e98993741abdce10c8ddb849f2ee30c1239759e88",
+      "gitBlob": "a84905551d71380e291321f042f7d31000ddc019"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b",
+      "gitBlob": "68feaa6514e284b55d8f78908aade51f9467ae4e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06k-config-patch.js",
+      "sha256": "3fa94c8584a9a65f23d858388f78c7e67472ebfe72ea9b165e120bc73ef42cbf",
+      "gitBlob": "345b4e756ac6ccadc8e749c0bb33058ea9dc2948"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1",
+      "gitBlob": "b030e59dbecf440c5024ad420bb02335ab675ee1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66",
+      "gitBlob": "0bbaad1d483464e8f4400ff58d7e97e64ab96459"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "3c3a7b7b209c4d48bbd75d96b0622e0958eae48ab279e8541cccf377ccaf2a4c",
+      "gitBlob": "945f07b6e22011cf8ef68986d9d3ffed256cfb34"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+      "gitBlob": "97de5df4d568ad772cdc1c7ec074f1a829a45275"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+      "gitBlob": "6e691e565257b614097cf4ed102b53a61b9656b6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "08f1e010fc652dd00de2e3aecf9e4a8365b48d13e53fd0c20e9c042aae19449c",
+      "gitBlob": "ca999b6e63970f12bd13ab2a06c26ac1331feb94"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a",
+      "gitBlob": "8222fdaab4a050505d0aced0b321400b620cb4de"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "sha256": "740cbf33bac9ffd5c967404940a47f78a2c760cc025b1a21227655651310f159",
+      "gitBlob": "b1e5ab875789a032638c6e8db1e1c2e007c9ad96"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "sha256": "3427ec055e00f90a0fd6addf3bec5b540e9c5fb472e720a1ec34604a97aeee37",
+      "gitBlob": "61644ff5d065c974c69573f1bc802ee0244b62a6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "sha256": "dd185f06ada6739bbfb8777de403d1df63778982c282155fbbc1206251934a85",
+      "gitBlob": "ae05dba0935440e05e7c7c0b9266c993872333b0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "gitBlob": "93f1d835362ef3e3f963106dc63f1097786f9220"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e",
+      "gitBlob": "c2c3409dc171e3288dd3153ff51ff0b7b134d44d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4",
+      "gitBlob": "dc559032fcc6991383889c91970a134135e88099"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "sha256": "b4b233812ab536d30c0e13a772e717dd9dfaa4f5fe4e5aef29196fdb174c1025",
+      "gitBlob": "c83ad7ec2eb782ece1d2cc53393fb1f388801c00"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "sha256": "1526ae2f03b56ca7b1a2d890718478ebacdcdeb5bb8e1b1f2d59a57e3e058c45",
+      "gitBlob": "09fa3ae57c7fbf9c7442f31044b6a9f37fe57ad2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "4aa6345e87ac919a3459f10231a6d59a21e82f0a464de7de39e5d1080d765562",
+      "gitBlob": "fa64ea48c47ae2ed87f1529c99c7c05a05a11904"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "ed3eae97a61b788cab3d19ed4423c3d2f519ba4f685663758079ba60910b3989",
+      "gitBlob": "e914732295b88898a13184090a53ed71fcc64428"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "gitBlob": "a14b9815877d09fcd7910e77e31dba68c2cfc6c6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13g-steward.js",
+      "sha256": "6092fb91bfc27c79bc7602befcb3fa96bcdfbd2ced0e40995d1459d43ab33e36",
+      "gitBlob": "aa34282f364a54f66d58ed610259ef97e5d7d969"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "sha256": "038af68eebf3e711c844d267a205af2b67ee6caaddefe0982181026b63eb1d92",
+      "gitBlob": "829b1c6bbfa5a996aac3e4a7fc126cfcf2c73b6b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "640580ad0b773efcaaf059f2bb5c740320b35e84f0228785e6a04f85e0ce4e92",
+      "gitBlob": "a98fab891f0fe5d19d627ae7dc3db17f1f63f8b6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "849e4cad376a6275cadf52b2f89e88e28a53c83acb2bea36111b78e5a871d0af",
+      "gitBlob": "6a02adfa6fc21a252fbce3649d1ccaa9ebc6baa1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "sha256": "73b3e4898cc9e7f4e14e4cf511862f3a99be9ca6de95ebfe261be5bb58dcc6ac",
+      "gitBlob": "0b620e5d5e1e09f42b61fc61ad068185cbdae55a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "9559c5cb1968ddf3273dbc708d67fd9803f75e182b9e71c9eea1c7045c2f87fe",
+      "gitBlob": "34e3d22f4527a570d0067f8910c40afc15387ab0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "sha256": "9ccad7589001d88b0cf4379b79037c69e51cddef7ff94328c4d9a8d6db0b5a5d",
+      "gitBlob": "121d4701c35f43af57b204ef5ca5eca8644b834a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+      "gitBlob": "6b362abbd987c44f25d88a311b9ed9ace8031eea"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "sha256": "f1c1d24425f08b66cccc77d63c3fa7385c52ea51177c2d5eb6853915cb989758",
+      "gitBlob": "8a9a017e12f40698559c9d6acc9c0dd1763438a4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "sha256": "dc98a4bf271e2fd4400cf90c2cbfc41e3a93ee4bb15ad45d2d1864c4004e7755",
+      "gitBlob": "ddffcef9e6c3e5bc70bfb0f4d79f0f4f00dda7c0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "sha256": "06099c999b674189b973bc75344132d25d23cd1a73f87777c92b89c17905f775",
+      "gitBlob": "725dff882d61edbc6c901d5a6925b7183716753f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13r-event-stream.js",
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+      "gitBlob": "ecbe13c60016907dcbfeab87850d4f2e599ad9c6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec",
+      "gitBlob": "87d1935169f0f54036b0caedcd80a3c6bbe98395"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "sha256": "14dbecff43342ff285faa8206ba0f164a4d2771df0291761a8b72fa0c8916b3a",
+      "gitBlob": "905b922904b929e62994376df9577234b2a6676c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13u-migration-center.js",
+      "sha256": "ebf1f82fe28bad36f1822b577fee0cbb3667db1f025d7a3acd1da585d2beaa0d",
+      "gitBlob": "4331ab9b821e15f481bef77ada80a8c88f3602fb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+      "gitBlob": "c8e7d58e06613f9112f3057a0e6328a3a3ff3b24"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67",
+      "gitBlob": "a2df168743bb2b7f3110974ad7baf9e2e3224616"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "86fca44373a8ed7f434c6bb61ad5b2054dcea716d21178601ab929b680e8f8db",
+      "gitBlob": "b92ef02cdc14fea6e888fc271ad779a984baf477"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16",
+      "gitBlob": "69954be414535d43494630911f117b4fa9a8f36a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+      "gitBlob": "6c95791ca236aa4051bf3f47e63130ed53a92fc3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/14-main.js",
+      "sha256": "6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de",
+      "gitBlob": "77669f64462e546f1d222fe7fdf215bbf86a3b05"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "55111d26951f02fefe813bad957f60fd1dbfe31987c01b2123e8cf86f841053a",
+      "gitBlob": "6f6c14fc24c962fd65f39ba8ecf7a1387cb78a1f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "gitBlob": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "gitBlob": "6d32ea70c71a62713cb4c10b27330540a09441a0"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+      "gitBlob": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "gitBlob": "d17d67f9ac2a3a10791a53c3c706a67efc626e60"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+      "gitBlob": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "gitBlob": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+      "gitBlob": "5d0c13e99777641a62cb58ad5ace0f0432e423ca"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+      "gitBlob": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b",
+      "gitBlob": "e2e80381d56c82e80a81778420876898cb92544b"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+      "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f"
+    }
+  ],
+  "additionalUnchangedEntryFixtures": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "gitBlobAt96db15f6": "aec4c8a054c05913be3b2fc61eee09ecc74717ec"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlobAt96db15f6": "fbf9031954580f6eddf3eef3546fc6c97fc83290"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "gitBlobAt96db15f6": "66157f31a6d4182bf74c94135294977b5f80786b"
+    }
+  ],
+  "actualArtifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "8c64ac003381b68fe6ad261b1bd9a9b4f0e367519ae4445ec96bbaedd788c356"
+    }
+  ],
+  "scope": "Provider-main-turn requested intent and received-result-prefix persistence. Node service tests only; actual worktree process helper raw hash is not claimed identical to main process helper. No App rebuild/signing/LaunchServices acceptance, ACC per-call dispatch/terminal or held-state acceptance."
+}

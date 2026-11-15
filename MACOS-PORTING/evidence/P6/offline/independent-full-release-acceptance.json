@@ -1,0 +1,18 @@
+{
+  "candidate": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+  "treeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+  "variant": "full",
+  "failures": 0,
+  "sandboxDenied": [
+    "/Users/jiming/Documents/ruyi-workbench-mac",
+    "/opt/homebrew",
+    "/usr/local",
+    "/Users/jiming/.local",
+    "/Users/jiming/.cache",
+    "/tmp/ruyi-p6-assets",
+    "/private/tmp/ruyi-p6-assets",
+    "/tmp/ruyi-p6-assets-replayed",
+    "/private/tmp/ruyi-p6-assets-replayed"
+  ],
+  "nativeHost": "ready"
+}

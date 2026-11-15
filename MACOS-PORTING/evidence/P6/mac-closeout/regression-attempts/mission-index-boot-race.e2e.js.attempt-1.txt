@@ -1,0 +1,15 @@
+PASS A0 workbench up
+PASS A0b runtime token
+PASS A1 起手 2 条 mission 读得到(索引此刻被建出来并缓存进进程内存;实 2)
+PASS A2 【病灶】索引建好之后目录又长出 8 条 —— 必须自愈发现它们(want 10,实 10;修前这里会永远停在 2:buildOrLoadPretenderIndex 的 `if (!value)` 短路了整段扫目录)
+PASS A3 外部删掉 2 条之后索引跟着缩(want 8,实 8)—— 自愈是双向的,不是只管加
+PASS A4 目录不再变之后读数稳定收敛(实 8/8/8)
+PASS B0 workbench up(管家开着,轮询 5s)
+PASS B0b runtime token
+PASS B1 seed 期间确实读了 8 次索引(每一次都可能建出一份【部分】索引)
+PASS B2 其中至少一次读到的是【部分】索引 —— 抢时序这件事本身真实存在,不是我编的(实测各次:1,6,11,16,21,26,31,36)
+PASS B3 seed 写完之后必须读满 40 条(want 40,实 40)—— 这就是 §13.3 那条真红的产品面
+PASS S1 自愈分支的 buildReason 字面量在编译产物里(可从 index.buildReason 事后对账)
+PASS S2 「目录刚变过就不信任这次扫描」的沉降窗口是具名常量,不是裸字面量
+
+MISSION INDEX BOOT RACE E2E: ALL PASS

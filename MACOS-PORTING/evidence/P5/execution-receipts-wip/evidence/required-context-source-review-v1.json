@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T15:59:10.700Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review and inspection of existing parent development logs/results. No reviewer tests, pure probes, MCP/native/helper execution, GUI, builds, source edits or settings changes in this round.",
+  "scope": "Explicit required-context guard, request/wrapper/native admission, exact contextless readiness/control-read exceptions, real probe acknowledgement of enforcement, and changed validation documentation/tests.",
+  "sourceInputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12053,
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13682,
+      "sha256": "1780b14886fb1feb71bc9b11dcae8a5f27907675c36a17af12a9262a386eab13"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11166,
+      "sha256": "d821887a8867abdd710b8a61ae3d03376dc5ce17940a1c0450449bcad420f15d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19877,
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197607,
+      "sha256": "50d3de20279e2cf47ec25a4a53d08b05e71b0517849841db3c0bda95a09030d8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "bytes": 5472,
+      "sha256": "c1b47239b8443b892578867e69be2fef392c4947cf62d216dcd3daf3a7870bc6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4739,
+      "sha256": "9f48f8e37717b2af02675c8f2e70ec6fad7f86fa30f0c08fb35ed994fe640c3f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js",
+      "bytes": 15107,
+      "sha256": "3908494da794c88118f42ad0d2c472f0e4ac40d654396007f55719d0010cb85d"
+    }
+  ],
+  "findings": [],
+  "outcome": "No new actionable source finding identified within the reviewed guard slice.",
+  "checked": [
+    "Enforcement is explicit RUYI_EXECUTION_CONTEXT_REQUIRED=1; default/off standalone paths remain compatible and the current Node provider/store does not yet activate it.",
+    "Missing, unrelated or SDK-dropped transport execution metadata hits request_scope admission before creating a journal or executing a normal tool body. Model argument _meta is not consulted.",
+    "Registered wrapper entry separately requires a current operation when enforcement is on. Direct fn dispatch and a lost raw-thread context cannot silently regain a contextless registered body path.",
+    "macos_session.request requires context before lock/session/helper resolution, then dispatches a real operation to the negotiated journal-backed adapter; a contextless call cannot fall back to the old session route in required mode.",
+    "One-shot macos.request checks admission before helper resolution for every payload except exact ordinary {op:status}. Extra status fields, capture and event-operation requests are not contextless readiness exceptions.",
+    "execution_receipt is the sole named contextless tool exception. It performs strict metadata-only reads/probes, not native dispatch or replay; other read-like names, diagnostics, audit_tail, wait, macro and unknown names receive no implicit exemption.",
+    "The real SDK probe now carries context_required from the actual ACC process; Node requires it to be exactly true along with ok, semantic version, nonce, numeric digest and worker identity. Metadata support alone cannot enable the receipt path.",
+    "Lazy native request imports reference execution_context only at call time, after macos DesktopError definitions. execution_context imports journal/arguments/macOS utilities but not the server; no reachable new circular import or import-time native dispatch was identified.",
+    "macos.capability uses only exact status and remains available to tools/list readiness under required mode. Existing cleanup functions remain callable independently so missing context cannot prevent owned cleanup.",
+    "Validator module documentation now accurately describes product reader/private-blob IO instead of the obsolete standalone/no-IO wording."
+  ],
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/required-python-v1.log",
+        "bytes": 107,
+        "sha256": "5f0635b83af38a6c5d516fcb60dc3fa63c9c6ca4854e51a6a29ca33c92ccef16"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/required-node-v1.log",
+        "bytes": 1361,
+        "sha256": "92a535bfeb729a5a8e8585237b7b346e3e5f2e9041769fffe594b7ce4924ffb2"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v9.log",
+        "bytes": 3183,
+        "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+      }
+    ],
+    "results": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v9/results.json",
+      "bytes": 106014,
+      "sha256": "c8e167fab0b17fdc078c1f651b4dbcd096ed29c97ef684e3954651b680f113ed"
+    },
+    "observedCounts": {
+      "purePythonGuard": 9,
+      "pureNodeArgumentPreparation": 12,
+      "actualMcpContextV9": 38
+    },
+    "reviewerExecuted": false,
+    "scope": "Guard tests patch native resolution/spawn boundaries; actual context run uses wait and mouse-position only plus private-fixture archive faults. No held-state, posted-input, clipboard or window mutation qualification."
+  },
+  "scopeSeparation": "Previous protocol/context/pure/reader frozen inputs retain their own historical acceptance scopes. This changed guard source does not inherit or close those broader gates.",
+  "implementationState": "Uncommitted full execution-receipts WIP. Node durable store and provider dispatch activation have not started product integration.",
+  "remaining": [
+    "Future Node must explicitly create/configure the owned required-mode ACC instance, require a successful real probe for that client incarnation, and repeat after replacement.",
+    "Use the same immutable post-approval/restoration snapshot for durable Node preparation and actual dispatch; persist receipt/result evidence and reconcile restart without automatic replay.",
+    "Current operation presence is admission/correlation, not authorization or proof of durable native/backend coverage. Context-bearing one-shot helpers are still not upgraded to the session receipt protocol by this change.",
+    "Required backend receipt scope, retention/global-space management and source-bound ordinary owned/fault-window end-to-end acceptance remain open.",
+    "Root/native lifecycle terminals do not prove application consumption or replay safety. Held-state faults require independent qualified rescue."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no lock settings inspected or changed."
+}

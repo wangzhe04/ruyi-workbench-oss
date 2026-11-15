@@ -1,0 +1,11 @@
+PASS P0 前置:真服务起得来、拿得到令牌、能建会话
+PASS A1 file_write 相对路径(工作区内)→ 弹了权限窗(修前预检把它判成「工作文件夹外面」,不弹;permission_request 2 个)
+PASS A2 批准后写在 <工作区>/rel-note.txt(工具回的 path;got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-preflight-rel-ws-fqAmzt/workspace/rel-note.txt","op":"create","bytes":11,"sourceLineEnd)
+PASS A3 服务进程 cwd 下没有 rel-note.txt
+PASS B1 file_move 的 to 是相对路径(工作区内)→ 弹了权限窗
+PASS B2 批准后落在 <工作区>/moved/rel-moved.txt,内容是 A 步写的那份(got {"ok":true,"from":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-preflight-rel-ws-fqAmzt/workspace/rel-note.txt","to":"/var/folders/r3/pmqdt9dn18d2mgcqx)
+PASS C1 跳出工作区的相对路径仍在弹窗之前被拒:file_write 的权限窗只有第一次那一个(got 1)
+PASS C2 报出的 path 是「工作区 + ../outside-rel.txt」解析后的路径(got {"ok":false,"error":"这个位置在工作文件夹外面,已拒绝写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」","code":"not-allowed","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-preflight-rel-ws-fqAmzt/outsid)
+PASS C3 越界文件没有写出来
+
+PREFLIGHT RELATIVE WRITE E2E: ALL PASS

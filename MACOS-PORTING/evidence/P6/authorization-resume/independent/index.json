@@ -1,0 +1,296 @@
+{
+  "reviewer": "/root/p6_02_review",
+  "startedAt": "2026-11-13T03:04:23.313Z",
+  "nodeVersion": "v24.15.0",
+  "testApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "tempRoot": "/private/tmp/ruyi-p6-authorization-independent-sJDj2J",
+  "serial": true,
+  "automaticRetries": 0,
+  "fixtureFreeze": "fixture-source-freeze.json",
+  "fixtureFreezeSha256": "0c93288f8e7b611556b558bfc0f55d8cd45a77d9f844bf679d534993665781b5",
+  "cases": [
+    {
+      "case": "capture",
+      "exitCode": 0,
+      "signal": null,
+      "ms": 2990,
+      "timedOut": false,
+      "log": "capture.txt",
+      "logSha256": "f013bc24d3faae986de5ccc539443b3112d4ecd630375eab71ebc9356a66bc1f",
+      "passCount": 7,
+      "rawVerdict": [
+        "MACOS CAPTURE HOST E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "receipt": "capture-receipts/host.json",
+      "receiptSha256": "91c83206ef674e7f6199e69d1b156273e121f334a17cbd3d3a470a361de43477",
+      "observedProcesses": [
+        {
+          "pid": 24636,
+          "ppid": 1,
+          "created": "1794539063447454",
+          "name": ""
+        },
+        {
+          "pid": 24662,
+          "ppid": 24636,
+          "created": "1794539063678457",
+          "name": ""
+        },
+        {
+          "pid": 24686,
+          "ppid": 24662,
+          "created": "1794539063812471",
+          "name": ""
+        },
+        {
+          "pid": 24685,
+          "ppid": 24662,
+          "created": "1794539063811586",
+          "name": ""
+        },
+        {
+          "pid": 24690,
+          "ppid": 24686,
+          "created": "1794539063814038",
+          "name": ""
+        },
+        {
+          "pid": 24688,
+          "ppid": 24685,
+          "created": "1794539063812746",
+          "name": ""
+        },
+        {
+          "pid": 24767,
+          "ppid": 24662,
+          "created": "1794539064201380",
+          "name": ""
+        },
+        {
+          "pid": 24792,
+          "ppid": 24662,
+          "created": "1794539064329986",
+          "name": ""
+        },
+        {
+          "pid": 24821,
+          "ppid": 24662,
+          "created": "1794539064379061",
+          "name": ""
+        },
+        {
+          "pid": 24823,
+          "ppid": 24821,
+          "created": "1794539064380283",
+          "name": ""
+        },
+        {
+          "pid": 24824,
+          "ppid": 24823,
+          "created": "1794539064380633",
+          "name": ""
+        },
+        {
+          "pid": 25107,
+          "ppid": 24662,
+          "created": "1794539065555548",
+          "name": ""
+        },
+        {
+          "pid": 25106,
+          "ppid": 24662,
+          "created": "1794539065551351",
+          "name": ""
+        },
+        {
+          "pid": 25108,
+          "ppid": 25107,
+          "created": "1794539065558124",
+          "name": ""
+        },
+        {
+          "pid": 25152,
+          "ppid": 24662,
+          "created": "1794539065677776",
+          "name": ""
+        },
+        {
+          "pid": 25165,
+          "ppid": 24662,
+          "created": "1794539065800014",
+          "name": ""
+        }
+      ],
+      "observedCommands": [
+        {
+          "birth": "24636/1794539063447454",
+          "command": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/MacOS/RuyiDesktop --workbench-root /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench --acceptance-report /private/tmp/ruyi-p6-authorization-independent-sJDj2J/ruyi-p5-host-XazcWl/report.json --acceptance-script /private/tmp/ruyi-p6-authorization-independent-sJDj2J/ruyi-p5-host-XazcWl/script.js --acceptance-auto-quit"
+        }
+      ],
+      "observationFailed": false,
+      "observedSurvivors": []
+    },
+    {
+      "case": "input",
+      "exitCode": 0,
+      "signal": null,
+      "ms": 5190,
+      "timedOut": false,
+      "log": "input.txt",
+      "logSha256": "53acca4daa8fdebc929ea96b6a18985f577f1cc0afa8b838850ee889e765efb0",
+      "passCount": 14,
+      "rawVerdict": [
+        "MACOS INPUT HOST E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "receipt": "input-receipts/input-host.json",
+      "receiptSha256": "4859deba346a7ca50bf2945a68b1c3863aea555b8e3f19af0c821e09ae926375",
+      "observedProcesses": [
+        {
+          "pid": 25315,
+          "ppid": 1,
+          "created": "1794539067644113"
+        },
+        {
+          "pid": 25359,
+          "ppid": 25315,
+          "created": "1794539067863192"
+        },
+        {
+          "pid": 25491,
+          "ppid": 25359,
+          "created": "1794539068354773"
+        },
+        {
+          "pid": 25516,
+          "ppid": 25359,
+          "created": "1794539068482466"
+        },
+        {
+          "pid": 25517,
+          "ppid": 25516,
+          "created": "1794539068485285"
+        },
+        {
+          "pid": 25540,
+          "ppid": 25359,
+          "created": "1794539068567967"
+        },
+        {
+          "pid": 25564,
+          "ppid": 25359,
+          "created": "1794539068616168"
+        },
+        {
+          "pid": 25566,
+          "ppid": 25564,
+          "created": "1794539068618362"
+        },
+        {
+          "pid": 25567,
+          "ppid": 25566,
+          "created": "1794539068618864"
+        },
+        {
+          "pid": 25608,
+          "ppid": 25359,
+          "created": "1794539068798536"
+        },
+        {
+          "pid": 25858,
+          "ppid": 25567,
+          "created": "1794539069517920"
+        },
+        {
+          "pid": 25913,
+          "ppid": 25567,
+          "created": "1794539069632085"
+        },
+        {
+          "pid": 25945,
+          "ppid": 25567,
+          "created": "1794539069748489"
+        },
+        {
+          "pid": 25999,
+          "ppid": 25567,
+          "created": "1794539069858028"
+        },
+        {
+          "pid": 26031,
+          "ppid": 25567,
+          "created": "1794539069967980"
+        },
+        {
+          "pid": 26061,
+          "ppid": 25567,
+          "created": "1794539070071502"
+        },
+        {
+          "pid": 26119,
+          "ppid": 25567,
+          "created": "1794539070183623"
+        },
+        {
+          "pid": 26152,
+          "ppid": 25359,
+          "created": "1794539070299556"
+        },
+        {
+          "pid": 26149,
+          "ppid": 25359,
+          "created": "1794539070297778"
+        },
+        {
+          "pid": 26151,
+          "ppid": 26149,
+          "created": "1794539070299319"
+        },
+        {
+          "pid": 26177,
+          "ppid": 25359,
+          "created": "1794539070348314"
+        },
+        {
+          "pid": 26211,
+          "ppid": 25567,
+          "created": "1794539070408700"
+        },
+        {
+          "pid": 26262,
+          "ppid": 25359,
+          "created": "1794539070576502"
+        },
+        {
+          "pid": 26324,
+          "ppid": 25359,
+          "created": "1794539070743675"
+        },
+        {
+          "pid": 26387,
+          "ppid": 25359,
+          "created": "1794539070906673"
+        },
+        {
+          "pid": 26445,
+          "ppid": 25359,
+          "created": "1794539071071757"
+        }
+      ],
+      "observedCommands": [
+        {
+          "birth": "25315/1794539067644113",
+          "command": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/MacOS/RuyiDesktop --workbench-root /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench --acceptance-report /private/tmp/ruyi-p6-authorization-independent-sJDj2J/ruyi-p5-input-host-jgDWAk/report.json --acceptance-script /private/tmp/ruyi-p6-authorization-independent-sJDj2J/ruyi-p5-input-host-jgDWAk/script.js --acceptance-auto-quit"
+        }
+      ],
+      "observationFailed": false,
+      "observedSurvivors": []
+    }
+  ],
+  "sourceAndAppUnchanged": true,
+  "source492Unchanged": true,
+  "finishedAt": "2026-11-13T03:04:33.230Z",
+  "executed": 2,
+  "failed": 0
+}

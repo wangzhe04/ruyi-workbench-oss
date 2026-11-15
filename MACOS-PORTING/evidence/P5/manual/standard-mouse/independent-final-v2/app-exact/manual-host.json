@@ -1,0 +1,679 @@
+{
+  "nativePID": 62073,
+  "servicePID": 62108,
+  "launch": "LaunchServices",
+  "serviceInvocation": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/desktop-macos/service-lease.cjs /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/app/server.js serve --host 127.0.0.1",
+  "workbenchRoot": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "inputSequenceReady": true,
+    "inputSequenceSupported": true,
+    "installed": true,
+    "listenAuthorization": "granted",
+    "locked": false,
+    "manualPointerProfiles": [
+      "exact",
+      "standard_mouse"
+    ],
+    "manualRecordReady": true,
+    "manualRecordSupported": true,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "recordInputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "recordReady": true,
+    "recordSource": "controlled_native_requests",
+    "recordSources": [
+      "controlled_native_requests",
+      "native_window_events"
+    ],
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 4703,
+      "height": 528,
+      "pid": 62053,
+      "process_start": "1794378756:934360",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "handle": 4703,
+        "pid": 62053,
+        "process_start": "1794378756:934360",
+        "ref": "84E2F9BB-1A49-4770-9C94-116D60D58888"
+      },
+      "title": "Ruyi P5 Input 62053",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 492
+    }
+  },
+  "manual": {
+    "audit": {
+      "count": 8,
+      "log_dir": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/acc-data/logs",
+      "ok": true,
+      "records": [
+        {
+          "args": {
+            "target": "<dict keys=5>"
+          },
+          "ms": 50,
+          "ok": true,
+          "tool": "focus_window",
+          "ts": "2026-11-11T14:32:40"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/manual-prepare.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T14:32:40"
+        },
+        {
+          "args": {
+            "max_seconds": 30,
+            "pointer_profile": "exact",
+            "source": "native_window_events",
+            "target": "<dict keys=5>"
+          },
+          "ms": 10,
+          "ok": true,
+          "tool": "record_start",
+          "ts": "2026-11-11T14:32:40"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/manual-ready.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T14:32:40"
+        },
+        {
+          "args": {
+            "save_as": "App手动示范宏"
+          },
+          "ms": 8,
+          "ok": true,
+          "tool": "record_stop",
+          "ts": "2026-11-11T14:32:41"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/manual-collected.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T14:32:41"
+        },
+        {
+          "action_sent": true,
+          "args": {
+            "events": "<list len=12>",
+            "input_source": "<dict keys=2>",
+            "target": "<dict keys=5>"
+          },
+          "ms": 471,
+          "ok": true,
+          "tool": "input_sequence",
+          "ts": "2026-11-11T14:32:42"
+        },
+        {
+          "args": {
+            "delay_ms": null,
+            "on_error": "stop",
+            "recording": "<dict keys=10>",
+            "steps": null,
+            "target": "<dict keys=5>"
+          },
+          "ms": 481,
+          "ok": true,
+          "tool": "macro_run",
+          "ts": "2026-11-11T14:32:42"
+        }
+      ]
+    },
+    "capabilities": {
+      "authorization": "granted",
+      "coordinate_space": "macos_global_points",
+      "inputSource": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "installed": true,
+      "listenAuthorization": "granted",
+      "manualReady": true,
+      "manualSupported": true,
+      "pointerProfiles": [
+        "exact",
+        "standard_mouse"
+      ],
+      "ready": true,
+      "source": "controlled_native_requests",
+      "sources": [
+        "controlled_native_requests",
+        "native_window_events"
+      ],
+      "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+      "supported": true
+    },
+    "collected": {
+      "complete": true,
+      "completion_scope": "exact_supported_events",
+      "count": 1,
+      "excluded_features": [
+        "tablet",
+        "pressure_associations"
+      ],
+      "ok": true,
+      "output_path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/acc-data/macros/App手动示范宏.json",
+      "path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/acc-data/macros/App手动示范宏.json",
+      "protocolVersion": 1,
+      "recording": {
+        "actions": [
+          {
+            "at": 0.511944207988563,
+            "ended": 0.9376784159976523,
+            "events": [
+              {
+                "at_us": 0,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 71370,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 72485,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 108728,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 148729,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 183826,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 224117,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 265956,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 305151,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 347791,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 385163,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 425734,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_up"
+              }
+            ],
+            "op": "input.sequence"
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      },
+      "saved_as": "App手动示范宏"
+    },
+    "listed": {
+      "count": 1,
+      "macros": [
+        {
+          "name": "App手动示范宏",
+          "path": "/tmp/ruyi-sm2-g-zdvt4let/t/ruyi-p5-input-host-60yAh6/acc-data/macros/App手动示范宏.json",
+          "source": "native_window_events",
+          "steps": 1,
+          "valid": true
+        }
+      ],
+      "ok": true,
+      "truncated": false
+    },
+    "replayed": {
+      "completed": 1,
+      "failed": 0,
+      "ok": true,
+      "results": [
+        {
+          "ok": true,
+          "result": {
+            "acted": true,
+            "action_sent": true,
+            "device_capabilities_normalized": false,
+            "event_count": 12,
+            "ok": true,
+            "pointer_profile": "exact",
+            "protocolVersion": 1,
+            "verification": "events_posted"
+          },
+          "step": 0,
+          "tool": "input_sequence"
+        }
+      ],
+      "success": true
+    },
+    "started": {
+      "max_seconds": 30,
+      "ok": true,
+      "pointer_profile": "exact",
+      "protocolVersion": 1,
+      "recording": true,
+      "source": "native_window_events"
+    }
+  },
+  "manualDemonstration": {
+    "kind": "independent synthetic input through a real event tap",
+    "before": {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 643,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 6,
+        "key_up": 6
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4703,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 62053,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 62053"
+    }
+  },
+  "observedProcesses": [
+    {
+      "pid": 62073,
+      "ppid": 1,
+      "created": "1794378758225066"
+    },
+    {
+      "pid": 62108,
+      "ppid": 62073,
+      "created": "1794378758432027"
+    },
+    {
+      "pid": 62138,
+      "ppid": 62108,
+      "created": "1794378758544707"
+    },
+    {
+      "pid": 62246,
+      "ppid": 62108,
+      "created": "1794378759010107"
+    },
+    {
+      "pid": 62269,
+      "ppid": 62108,
+      "created": "1794378759094507"
+    },
+    {
+      "pid": 62271,
+      "ppid": 62269,
+      "created": "1794378759095744"
+    },
+    {
+      "pid": 62272,
+      "ppid": 62271,
+      "created": "1794378759096163"
+    },
+    {
+      "pid": 62286,
+      "ppid": 62108,
+      "created": "1794378759163449"
+    },
+    {
+      "pid": 62307,
+      "ppid": 62108,
+      "created": "1794378759222145"
+    },
+    {
+      "pid": 62332,
+      "ppid": 62108,
+      "created": "1794378759322933"
+    },
+    {
+      "pid": 62333,
+      "ppid": 62332,
+      "created": "1794378759324443"
+    },
+    {
+      "pid": 62334,
+      "ppid": 62333,
+      "created": "1794378759324969"
+    },
+    {
+      "pid": 62362,
+      "ppid": 62108,
+      "created": "1794378759430379"
+    },
+    {
+      "pid": 62433,
+      "ppid": 62334,
+      "created": "1794378759666308"
+    },
+    {
+      "pid": 62450,
+      "ppid": 62334,
+      "created": "1794378759712887"
+    },
+    {
+      "pid": 62467,
+      "ppid": 62334,
+      "created": "1794378759754521"
+    },
+    {
+      "pid": 62485,
+      "ppid": 62334,
+      "created": "1794378759796567"
+    },
+    {
+      "pid": 62501,
+      "ppid": 62334,
+      "created": "1794378759834637"
+    },
+    {
+      "pid": 62513,
+      "ppid": 62334,
+      "created": "1794378759871889"
+    },
+    {
+      "pid": 62521,
+      "ppid": 62108,
+      "created": "1794378759909681"
+    },
+    {
+      "pid": 62537,
+      "ppid": 62334,
+      "created": "1794378759954602"
+    },
+    {
+      "pid": 62559,
+      "ppid": 62108,
+      "created": "1794378760012715"
+    },
+    {
+      "pid": 62557,
+      "ppid": 62108,
+      "created": "1794378760004829"
+    },
+    {
+      "pid": 62588,
+      "ppid": 62108,
+      "created": "1794378760103960"
+    },
+    {
+      "pid": 62602,
+      "ppid": 62108,
+      "created": "1794378760149139"
+    },
+    {
+      "pid": 62622,
+      "ppid": 62108,
+      "created": "1794378760220851"
+    },
+    {
+      "pid": 62652,
+      "ppid": 62108,
+      "created": "1794378760296558"
+    },
+    {
+      "pid": 62668,
+      "ppid": 62108,
+      "created": "1794378760344212"
+    },
+    {
+      "pid": 62684,
+      "ppid": 62108,
+      "created": "1794378760397262"
+    },
+    {
+      "pid": 62700,
+      "ppid": 62108,
+      "created": "1794378760443882"
+    },
+    {
+      "pid": 62722,
+      "ppid": 62108,
+      "created": "1794378760516388"
+    },
+    {
+      "pid": 62784,
+      "ppid": 62108,
+      "created": "1794378760686579"
+    },
+    {
+      "pid": 62837,
+      "ppid": 62108,
+      "created": "1794378760833242"
+    },
+    {
+      "pid": 62888,
+      "ppid": 62108,
+      "created": "1794378760985825"
+    },
+    {
+      "pid": 62939,
+      "ppid": 62108,
+      "created": "1794378761146405"
+    },
+    {
+      "pid": 62971,
+      "ppid": 62108,
+      "created": "1794378761225552"
+    },
+    {
+      "pid": 63019,
+      "ppid": 62108,
+      "created": "1794378761380661"
+    },
+    {
+      "pid": 63036,
+      "ppid": 62108,
+      "created": "1794378761421185"
+    },
+    {
+      "pid": 63053,
+      "ppid": 62108,
+      "created": "1794378761474072"
+    },
+    {
+      "pid": 63070,
+      "ppid": 62108,
+      "created": "1794378761519588"
+    },
+    {
+      "pid": 63102,
+      "ppid": 62108,
+      "created": "1794378761597058"
+    },
+    {
+      "pid": 63120,
+      "ppid": 62108,
+      "created": "1794378761650888"
+    },
+    {
+      "pid": 63139,
+      "ppid": 62108,
+      "created": "1794378761707404"
+    },
+    {
+      "pid": 63328,
+      "ppid": 62108,
+      "created": "1794378762241346"
+    },
+    {
+      "pid": 63349,
+      "ppid": 62108,
+      "created": "1794378762296444"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 12,
+      "key_up": 12
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 830
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

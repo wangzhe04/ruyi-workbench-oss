@@ -1,0 +1,20 @@
+✔ staging copy retains payload inventory and cannot mutate the frozen source (4.522917ms)
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (4.915042ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (3.914458ms)
+✔ an App root replaced with a symlink to an external copy is refused (1.733417ms)
+✔ asset lock rejects changed components and missing provenance before building (4.853958ms)
+✔ manifest paths cannot escape their payload root (1.138875ms)
+✔ native audit handles parenthesis paths and rejects a real missing loader-relative dylib (578.878375ms)
+✔ trial integrity binds guides, payload, policy, provenance and the one explicit Applications shortcut (7.378375ms)
+✔ new-location installation refuses existing directories and dangling links without changing them (7.730125ms)
+✔ resource-bearing code targets resolve to the correct nearest app/framework container (0.361125ms)
+✔ distribution verification refuses corrupt images, sidecars and provenance before mounting (4.350583ms)
+✔ trial build refuses source overlap and cleans its exclusively reserved output on early failure (5.955042ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 662.351375

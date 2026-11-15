@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-08",
+  "browser": "Google Chrome for Testing 148.0.7778.96",
+  "selection": "single-command RUYI_E2E_BROWSER override; existing installed official binary",
+  "reviewer": "/root/p4_host_review",
+  "assertionsChanged": false,
+  "mediaSource": "original fixture fake-device/fake-UI flags; native GUM; no replacement",
+  "results": [
+    {
+      "name": "composer-voice.browser",
+      "passed": 98,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "cft148-voice-independent.txt"
+    },
+    {
+      "name": "composer-voice-stream.browser",
+      "passed": 39,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "cft148-stream-independent.txt"
+    },
+    {
+      "name": "composer-voice-warmup.browser",
+      "passed": 58,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "cft148-warmup-independent.txt"
+    }
+  ],
+  "remainingLimitation": "ordinary Chrome156 pending native fake GUM and previous failures retained; exact version/build cause unconfirmed"
+}

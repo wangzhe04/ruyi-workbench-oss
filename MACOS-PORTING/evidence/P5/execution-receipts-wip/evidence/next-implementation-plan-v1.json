@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "at": "2026-11-11T15:32:02.925597+00:00",
+  "status": "design_pending_implementation_and_review",
+  "scope": "Next Node preparation/restart stage; none of these entries is an implementation or acceptance claim.",
+  "constraints": [
+    "Use a single root-owned durable preparation authority for provider direct/proxy/subagent and CLI MCP host routes. Inspect existing proxy-to-root authentication/ownership before selecting the concrete mechanism; per-process runKeyedChain does not serialize different processes.",
+    "Use DurableJsonStore strictRead:true/cache:false/quarantine:false for small Node JSON state. Never silently reset corrupt unresolved state; never capacity-prune unknown records. Preserve process-crash rather than power-loss scope unless stronger IO is implemented and qualified.",
+    "At final boundary after approval and privacy restoration, copy ordinary JSON descriptors once to a deeply frozen, null-prototype object/array snapshot; derive exact JSON bytes/hash and ruyi-sdk-json-v1 decoded fingerprint from that snapshot. Store no plaintext Node argument duplicates if hashes/length suffice; ACC private actual blobs need explicit deletion/retention lifecycle.",
+    "Bind safe real probe to actual client incarnation and owned ACC worker nonce/PID. Repeat on replacement. Do not treat SDK shape detection, call initiation or echoed caller raw hash as actual dispatch acknowledgement.",
+    "Activate an explicit owned-ACC required-context mode before dispatch integration: a dropped/malformed reserved metadata extension must refuse before every effect-capable tool body rather than silently use legacy execution. Permit only specifically qualified safe control reads without context. No automatic compatibility fallback into an untraced mutation.",
+    "Carry host metadata separately through both MCP transports and every direct/proxy/subagent bridge path. Model _meta cannot enable it. Validate final serialized packet before send so inherited serialization hooks or a failed metadata clone cannot strip correlation while retaining an action.",
+    "Reconcile only strict validated argument/frame/graph evidence bound to invocation/session/turn/call/tool/semantic fingerprint and saved worker identity. Read the trustworthy configured ACC journal root or qualified reader; accept no metadata-provided filesystem path.",
+    "Keep lifecycle completeness separate from explicit result flags and application confirmation. Neither ok:false nor missing action_sent means not_dispatched; complete handler termination does not prove application consumption. Never emit a generic replay_safe flag from lifecycle validation.",
+    "Crash/missing/mismatched/failed-persistence calls remain unknown until bounded evidence proves a narrower outcome. Prevent automatic mutation replay and unsafe model/steward continuation across restart, rewind, proxy and subagent routes. Do not infer authorization from elapsed time.",
+    "Implement acknowledged retention/capacity/session deletion/rewind ownership before enabling persistent private blobs in normal product flows. Unresolved evidence must never be silently discarded; a session deletion must have an explicit privacy and recovery policy.",
+    "Single-shot native capture/OCR needs separate receipt integration or an explicit open gate; input-session protocol cannot prove that route.",
+    "Only after code review, ordinary owned end-to-end dispatch/restart/fault tests, full required engineering/inventory checks and final independent qualification should the whole feature be committed/integrated.",
+    "Held-state root fault still requires a separately reviewed and independently qualified bounded out-of-tree rescue. No historical Shift/left recovery script or UserNotificationCenter interaction. No lock or TCC revocation unattended.",
+    "Whole-P5 original local10/external4 requirements remain intact. Restore screensaver idleTime to its recorded original300 and stop only owned keep-awake processes after whole-P5 acceptance, not after this slice."
+  ]
+}

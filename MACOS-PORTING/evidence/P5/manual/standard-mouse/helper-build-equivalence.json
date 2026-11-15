@@ -1,0 +1,76 @@
+{
+  "at": "2026-11-11T06:38:07.401Z",
+  "equivalent": true,
+  "artifacts": [
+    {
+      "file": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+      "bytes": 291712,
+      "sha256": "49b6b38536827026107f5c58aceacf0fb86f6e6266bad745ceacca9c5cdb4e74",
+      "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+      "excluded": [
+        {
+          "kind": "LC_UUID payload",
+          "offset": 2808,
+          "bytes": 16
+        },
+        {
+          "kind": "LC_CODE_SIGNATURE blob",
+          "offset": 290864,
+          "bytes": 848
+        }
+      ],
+      "codesign": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper: valid on disk\n/tmp/ruyi-sm1-build-mnhnvxh2/production-helper: satisfies its Designated Requirement\n"
+      }
+    },
+    {
+      "file": "/tmp/ruyi-p5-standard-mouse-helper",
+      "bytes": 291712,
+      "sha256": "a9cdfdb529827a01edf5e5d844f559d4c05f5f3064fe68d31ad96c0889cb0f61",
+      "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+      "excluded": [
+        {
+          "kind": "LC_UUID payload",
+          "offset": 2808,
+          "bytes": 16
+        },
+        {
+          "kind": "LC_CODE_SIGNATURE blob",
+          "offset": 290864,
+          "bytes": 848
+        }
+      ],
+      "codesign": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": "/tmp/ruyi-p5-standard-mouse-helper: valid on disk\n/tmp/ruyi-p5-standard-mouse-helper: satisfies its Designated Requirement\n"
+      }
+    },
+    {
+      "file": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bodySha256ExcludingUUIDAndSignature": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+      "excluded": [
+        {
+          "kind": "LC_UUID payload",
+          "offset": 2808,
+          "bytes": 16
+        },
+        {
+          "kind": "LC_CODE_SIGNATURE blob",
+          "offset": 290864,
+          "bytes": 848
+        }
+      ],
+      "codesign": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": "ruyi-workbench/runtime/macos/ruyi-automation-helper: valid on disk\nruyi-workbench/runtime/macos/ruyi-automation-helper: satisfies its Designated Requirement\n"
+      }
+    }
+  ],
+  "interpretation": "Only the UUID payload and trailing code-signature blob are excluded. All remaining file bytes and load-command fields must match."
+}

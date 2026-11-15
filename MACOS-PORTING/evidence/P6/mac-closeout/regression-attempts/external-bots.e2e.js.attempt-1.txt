@@ -1,0 +1,45 @@
+PASS B0 default disabled reads create no external-bot files
+PASS B1 unknown callback does not mkdir or write state
+PASS B2 management read requires local workbench token /api/external-bots/connections
+PASS B2 management read requires local workbench token /api/external-bots/inbox
+PASS B3 callback exception is exact /api/external-bots/callback/qq/
+PASS B3 callback exception is exact /api/external-bots/callback/qq/extra
+PASS B3 callback exception is exact /api/external-bots/callback/other
+PASS B4 callback exception is POST only
+PASS B5 newly configured connection defaults to disabled
+PASS B6 disabled connection cannot admit even a correctly signed message
+PASS B7 enable complete scoped synthetic connections
+PASS B8 credentials never appear in public configuration or durable state
+PASS B9 unrelated env lookups and plaintext credential fields are rejected
+PASS B10 query accepts one connectionId and nothing else &connectionId=qq_test
+PASS B10 query accepts one connectionId and nothing else &extra=1
+PASS B11 QQ bootstrap proof verifies independently and admits no message
+PASS B12 encrypted Feishu bootstrap returns only verified challenge
+PASS B13 workbench token never replaces required platform event signature
+PASS B14 invalid signature and stale timestamp cannot enter inbox
+PASS B15 both sender and conversation allowlists are required {"senderId":"foreign"}
+PASS B15 both sender and conversation allowlists are required {"conversationId":"foreign"}
+PASS B16 independent signed QQ and encrypted Feishu group events persist through production HTTP
+PASS B17 group messages without an exact mention are ignored
+PASS B18 message id dedupe survives different event delivery ids
+PASS B19 same message identity with different content is a conflict
+PASS B20 read acknowledgement preserves message and permanent dedupe record
+PASS B21 local inbox pagination uses stable item identity
+PASS B22 durable message dedupe survives actual process restart
+PASS B23 disk failure is not acknowledged or cached as a received message
+PASS B24 provider retry can commit after storage recovers
+PASS B25 callback ACK waits for the actual atomic rename
+PASS B26 disable shares the same transaction boundary with an admitted message
+PASS B27 a body arriving after disable cannot use an earlier configuration
+PASS B28 application identity is immutable within a connection id
+PASS B29 deleted connection id is permanently retired without erasing receipts
+PASS B30 schema-less ledger fails closed for reads and ingestion
+PASS B31 per-row integrity hash is recomputed, not trusted from parseable state
+PASS B32 malformed UTF8 and array roots are not protocol messages
+PASS B33 oversized Content-Length receives 413 before the body is buffered
+PASS B34 valid signatures cannot bypass bounded text schema
+PASS B35 slow callbacks cannot consume more than the bounded ingress slots
+PASS B36 body read deadlines close slow requests and release ingress slots
+PASS B37 messages containing command-like URLs never enter steward conversation or automatic inbox
+
+EXTERNAL BOTS E2E: ALL PASS

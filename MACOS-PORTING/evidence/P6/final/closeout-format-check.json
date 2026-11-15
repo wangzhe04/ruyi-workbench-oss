@@ -1,0 +1,9 @@
+{
+  "scope": "Final point-in-time format validation before evidence commit; report itself excluded from count",
+  "checkedJsonFiles": 771,
+  "invalidJson": [],
+  "checkedMarkdownLinks": 295,
+  "missingMarkdownTargets": [],
+  "all8ReviewedDocumentHashesUnchanged": true,
+  "pass": true
+}

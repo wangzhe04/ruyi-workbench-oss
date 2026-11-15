@@ -1,0 +1,8 @@
+PASS OpenAI role test server starts
+PASS role identity and model are visible in subagent event
+PASS execution-time allowlist rejects an unoffered tool
+PASS role tool restriction prevents filesystem mutation
+PASS role prompt is injected and offered tools are filtered
+PASS DAG node references role and completes
+
+AGENT ROLE OPENAI E2E: ALL PASS

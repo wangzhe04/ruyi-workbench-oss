@@ -1,0 +1,16 @@
+{
+  "kind": "deterministic_negative_control",
+  "productionAppCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+  "appSHA256": "7c5d475d7f9025d2c827e5c5e0c4e9a31cf555aa9bbd2d67548d83e441190d81",
+  "testSHA256": "6821f14f65a62244a4f7122e62cd4d0d936d80874e998c0b192e9d7cc15135be",
+  "instrumentation": "Defer the first real View Transition update callback by 800ms while retaining the native API and existing assertions.",
+  "log": "client-pending-transition-negative.txt",
+  "exitCode": 1,
+  "observed": "A8 fails with first lens=classic. A8c records actual pending native transition and DOM classic.",
+  "failedAssertions": [
+    "FAIL A8 页面用 fetch 读 SSE 且在连接参数里自报在场（§4.3；实得 /api/events/stream?lens=classic&sessionId=sess_898a6e85a934d4bb）",
+    "FAIL C1 连接正常的 59 s 里 /api/missions 只发了 3 拍（≤2；兜底节拍 30 s，config.stewardPollMs=8000 那一档没有生效）"
+  ],
+  "actualTestSource": "client-negative-source.txt",
+  "finalTestDifference": "The final test only rewords the A8c assertion label to describe the pending-transition coverage. The condition is unchanged. Original negative source bytes are archived and match testSHA256."
+}

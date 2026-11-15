@@ -1,0 +1,18 @@
+PASS App paste fixture preserves the pre-test clipboard before seeding owned formats
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS App and service process identities were observed before shutdown
+PASS App-launched ACC has its own actual Accessibility and event authorization
+PASS normal App HTTP tool route focuses the exact owned receiver
+PASS normal App HTTP tool route sends Chinese through Cmd+V
+PASS App Cmd+V restores the prior image and private clipboard formats
+PASS App launch chain sends guarded pointer and wheel events
+PASS real receiver confirms the App-originated Chinese text
+PASS real receiver confirms the App-originated balanced click and wheel events
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+PASS App paste fixture restores its pre-test clipboard snapshot
+
+MACOS INPUT HOST E2E: ALL PASS

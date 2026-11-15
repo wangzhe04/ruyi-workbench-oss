@@ -1,0 +1,554 @@
+[
+  {
+    "name": "gui",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/macos-manual-record.e2e.js"
+    ],
+    "cwd": "/tmp/ruyi-p5-manual-worktree",
+    "startedAt": "2026-11-11T05:25:13.842926+00:00",
+    "elapsedSeconds": 33.645,
+    "exitCode": 0,
+    "passLines": 78,
+    "failLines": 0,
+    "skipLines": 0,
+    "allPassMarker": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/e2e.txt",
+    "logDigest": {
+      "bytes": 6477,
+      "sha256": "06d165b46c41a67189cfab41cc8f609e314cd7c126fe39df90a1ee517da74e53"
+    },
+    "environment": {
+      "HOME": "/tmp/ruyi-g6-55wcseaa/h",
+      "USERPROFILE": "/tmp/ruyi-g6-55wcseaa/u",
+      "APPDATA": "/tmp/ruyi-g6-55wcseaa/a",
+      "LOCALAPPDATA": "/tmp/ruyi-g6-55wcseaa/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-g6-55wcseaa/w",
+      "RUYI_HOME": "/tmp/ruyi-g6-55wcseaa/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-g6-55wcseaa/c",
+      "TMPDIR": "/tmp/ruyi-g6-55wcseaa/t",
+      "RUYI_REAL_HOME": "/Users/jiming",
+      "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+      "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "RUYI_P5_MANUAL_REQUIRED": "1",
+      "RUYI_P5_MANUAL_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui"
+    },
+    "tmpdirPathBytes": 23,
+    "observedOwnedProcessIdentities": [
+      {
+        "pid": 42848,
+        "ppid": 42844,
+        "birth": "Wed Nov 11 13:25:13 2026",
+        "command": "/Users/jiming/.local/bin/node dev-harness/macos-manual-record.e2e.js"
+      },
+      {
+        "pid": 42850,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:13 2026",
+        "command": "/Library/Developer/CommandLineTools/usr/bin/clang -fobjc-arc -fblocks -Wall -Wextra -Werror -O2 -mmacosx-version-min=14.0 -arch arm64 -framework AppKit -framework ApplicationServices -framework ScreenCaptureKit -framework ImageIO -framework UniformTypeIdentifiers -framework Vision -framework Carbon -DRUYI_AUTOMATION_TESTING=1 /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-helper.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-input.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-events.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-ax.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-ocr.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-record.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-record-events.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-sequence.m /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-session.m -o /tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/blocked-sequence-helper.42848.tmp"
+      },
+      {
+        "pid": 42853,
+        "ppid": 42850,
+        "birth": "Wed Nov 11 13:25:14 2026",
+        "command": "/Library/Developer/CommandLineTools/usr/bin/clang -cc1 -triple arm64-apple-macosx14.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -dumpdir /tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/blocked-sequence-helper.42848.tmp- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name macos-automation-events.m -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -fcoverage-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -resource-dir /Library/Developer/CommandLineTools/usr/lib/clang/16 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -D RUYI_AUTOMATION_TESTING=1 -I/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/usr/lib/clang/16/include -internal-externc-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -internal-externc-isystem /Library/Developer/CommandLineTools/usr/include -O2 -Wall -Wextra -Werror -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fobjc-runtime=macosx-14.0.0 -fobjc-arc -fobjc-exceptions -fexceptions -fmax-type-align=16 -fcommon -vectorize-loops -vectorize-slp -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/ruyi-g6-55wcseaa/t/macos-automation-events-9eb4a0.o -x objective-c /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-events.m"
+      },
+      {
+        "pid": 42863,
+        "ppid": 42850,
+        "birth": "Wed Nov 11 13:25:15 2026",
+        "command": "/Library/Developer/CommandLineTools/usr/bin/clang -cc1 -triple arm64-apple-macosx14.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -dumpdir /tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/blocked-sequence-helper.42848.tmp- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name macos-automation-record.m -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -fcoverage-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -resource-dir /Library/Developer/CommandLineTools/usr/lib/clang/16 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -D RUYI_AUTOMATION_TESTING=1 -I/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/usr/lib/clang/16/include -internal-externc-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -internal-externc-isystem /Library/Developer/CommandLineTools/usr/include -O2 -Wall -Wextra -Werror -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fobjc-runtime=macosx-14.0.0 -fobjc-arc -fobjc-exceptions -fexceptions -fmax-type-align=16 -fcommon -vectorize-loops -vectorize-slp -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/ruyi-g6-55wcseaa/t/macos-automation-record-22fc08.o -x objective-c /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-record.m"
+      },
+      {
+        "pid": 42873,
+        "ppid": 42850,
+        "birth": "Wed Nov 11 13:25:16 2026",
+        "command": "/Library/Developer/CommandLineTools/usr/bin/clang -cc1 -triple arm64-apple-macosx14.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -dumpdir /tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/blocked-sequence-helper.42848.tmp- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name macos-automation-session.m -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -fcoverage-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -resource-dir /Library/Developer/CommandLineTools/usr/lib/clang/16 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -D RUYI_AUTOMATION_TESTING=1 -I/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/usr/lib/clang/16/include -internal-externc-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -internal-externc-isystem /Library/Developer/CommandLineTools/usr/include -O2 -Wall -Wextra -Werror -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/private/tmp/ruyi-p5-manual-worktree -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fobjc-runtime=macosx-14.0.0 -fobjc-arc -fobjc-exceptions -fexceptions -fmax-type-align=16 -fcommon -vectorize-loops -vectorize-slp -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/ruyi-g6-55wcseaa/t/macos-automation-session-f93983.o -x objective-c /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/resources/macos-automation-session.m"
+      },
+      {
+        "pid": 42895,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:17 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      },
+      {
+        "pid": 42908,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:18 2026",
+        "command": "/tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/receiver"
+      },
+      {
+        "pid": 42918,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42919,
+        "ppid": 42918,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42920,
+        "ppid": 42919,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42923,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42924,
+        "ppid": 42923,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42925,
+        "ppid": 42924,
+        "birth": "Wed Nov 11 13:25:19 2026",
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 42931,
+        "ppid": 42920,
+        "birth": "Wed Nov 11 13:25:20 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 42936,
+        "ppid": 42925,
+        "birth": "Wed Nov 11 13:25:20 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 43022,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:32 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43023,
+        "ppid": 43022,
+        "birth": "Wed Nov 11 13:25:32 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43024,
+        "ppid": 43023,
+        "birth": "Wed Nov 11 13:25:32 2026",
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43033,
+        "ppid": 43024,
+        "birth": "Wed Nov 11 13:25:32 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 43035,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:33 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43036,
+        "ppid": 43035,
+        "birth": "Wed Nov 11 13:25:33 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43037,
+        "ppid": 43036,
+        "birth": "Wed Nov 11 13:25:33 2026",
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43040,
+        "ppid": 43037,
+        "birth": "Wed Nov 11 13:25:33 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 43090,
+        "ppid": 42925,
+        "birth": "Wed Nov 11 13:25:40 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 43119,
+        "ppid": 42848,
+        "birth": "Wed Nov 11 13:25:44 2026",
+        "command": "/tmp/ruyi-g6-55wcseaa/t/ruyi-p5-manual-gqoJdB/blocked-sequence-helper --input-session"
+      },
+      {
+        "pid": 43132,
+        "ppid": 42925,
+        "birth": "Wed Nov 11 13:25:44 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      }
+    ],
+    "remainingObservedOwnedProcessIdentities": [],
+    "observationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be observed. Script cleanup assertions cover its own exact identities. LaunchServices App process identities are checked separately from its native report.",
+    "receiverEvidenceDigest": {
+      "bytes": 290474,
+      "sha256": "99a432c9824e8bdd778d6cfb602d538b8a79900167d249e61002e5ddeab3ef62"
+    },
+    "inputSourceRestored": true,
+    "clipboardRestored": true,
+    "recordedCalls": 84,
+    "passed": true
+  },
+  {
+    "name": "app",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/macos-input-host.e2e.js"
+    ],
+    "cwd": "/tmp/ruyi-p5-manual-worktree",
+    "startedAt": "2026-11-11T05:25:47.514750+00:00",
+    "elapsedSeconds": 6.292,
+    "exitCode": 0,
+    "passLines": 17,
+    "failLines": 0,
+    "skipLines": 0,
+    "allPassMarker": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/e2e.txt",
+    "logDigest": {
+      "bytes": 1267,
+      "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee"
+    },
+    "environment": {
+      "HOME": "/tmp/ruyi-g6-qhw8dlds/h",
+      "USERPROFILE": "/tmp/ruyi-g6-qhw8dlds/u",
+      "APPDATA": "/tmp/ruyi-g6-qhw8dlds/a",
+      "LOCALAPPDATA": "/tmp/ruyi-g6-qhw8dlds/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-g6-qhw8dlds/w",
+      "RUYI_HOME": "/tmp/ruyi-g6-qhw8dlds/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-g6-qhw8dlds/c",
+      "TMPDIR": "/tmp/ruyi-g6-qhw8dlds/t",
+      "RUYI_REAL_HOME": "/Users/jiming",
+      "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+      "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "RUYI_P5_APP_MANUAL": "1",
+      "RUYI_P5_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app",
+      "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app"
+    },
+    "tmpdirPathBytes": 23,
+    "observedOwnedProcessIdentities": [
+      {
+        "pid": 43176,
+        "ppid": 42844,
+        "birth": "Wed Nov 11 13:25:47 2026",
+        "command": "/Users/jiming/.local/bin/node dev-harness/macos-input-host.e2e.js"
+      },
+      {
+        "pid": 43188,
+        "ppid": 43176,
+        "birth": "Wed Nov 11 13:25:48 2026",
+        "command": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/receiver"
+      },
+      {
+        "pid": 43198,
+        "ppid": 43176,
+        "birth": "Wed Nov 11 13:25:49 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43199,
+        "ppid": 43198,
+        "birth": "Wed Nov 11 13:25:49 2026",
+        "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43200,
+        "ppid": 43199,
+        "birth": "Wed Nov 11 13:25:49 2026",
+        "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+      },
+      {
+        "pid": 43203,
+        "ppid": 43176,
+        "birth": "Wed Nov 11 13:25:49 2026",
+        "command": "/usr/bin/open -n -W -a /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app --env HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env USERPROFILE=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env LOCALAPPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Local --env APPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Roaming --env RUYI_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env WIN_CLAUDE_WORKBENCH_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env RUYI_NODE_PATH=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node  -args  -workbench-root  private/tmp/ruyi-p5-manual-worktree/ruyi-workbench  -acceptance-report"
+      },
+      {
+        "pid": 43524,
+        "ppid": 43176,
+        "birth": "Wed Nov 11 13:25:50 2026",
+        "command": "(ps)"
+      },
+      {
+        "pid": 43795,
+        "ppid": 43200,
+        "birth": "Wed Nov 11 13:25:51 2026",
+        "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+      },
+      {
+        "pid": 44236,
+        "ppid": 43176,
+        "birth": "Wed Nov 11 13:25:52 2026",
+        "command": "(ps)"
+      }
+    ],
+    "remainingObservedOwnedProcessIdentities": [],
+    "observationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be observed. Script cleanup assertions cover its own exact identities. LaunchServices App process identities are checked separately from its native report.",
+    "appEvidenceDigest": {
+      "bytes": 15400,
+      "sha256": "853104252cd677d80eaf41012b9676235713fc97dcd44e8aaffaaaa7cd9cdcc3"
+    },
+    "launchServicesCleanupCheck": {
+      "exitCode": 0,
+      "stdout": "[]",
+      "stderr": "",
+      "observedProcesses": [
+        {
+          "pid": 43207,
+          "ppid": 1,
+          "created": "1794374749441309"
+        },
+        {
+          "pid": 43242,
+          "ppid": 43207,
+          "created": "1794374749640963"
+        },
+        {
+          "pid": 43268,
+          "ppid": 43242,
+          "created": "1794374749746839"
+        },
+        {
+          "pid": 43267,
+          "ppid": 43242,
+          "created": "1794374749745997"
+        },
+        {
+          "pid": 43366,
+          "ppid": 43242,
+          "created": "1794374750146980"
+        },
+        {
+          "pid": 43379,
+          "ppid": 43242,
+          "created": "1794374750201366"
+        },
+        {
+          "pid": 43380,
+          "ppid": 43379,
+          "created": "1794374750202698"
+        },
+        {
+          "pid": 43382,
+          "ppid": 43380,
+          "created": "1794374750203068"
+        },
+        {
+          "pid": 43418,
+          "ppid": 43242,
+          "created": "1794374750307524"
+        },
+        {
+          "pid": 43430,
+          "ppid": 43242,
+          "created": "1794374750375335"
+        },
+        {
+          "pid": 43431,
+          "ppid": 43430,
+          "created": "1794374750376952"
+        },
+        {
+          "pid": 43432,
+          "ppid": 43431,
+          "created": "1794374750377281"
+        },
+        {
+          "pid": 43498,
+          "ppid": 43242,
+          "created": "1794374750573398"
+        },
+        {
+          "pid": 43527,
+          "ppid": 43432,
+          "created": "1794374750666970"
+        },
+        {
+          "pid": 43545,
+          "ppid": 43432,
+          "created": "1794374750709992"
+        },
+        {
+          "pid": 43562,
+          "ppid": 43432,
+          "created": "1794374750753696"
+        },
+        {
+          "pid": 43597,
+          "ppid": 43432,
+          "created": "1794374750865410"
+        },
+        {
+          "pid": 43613,
+          "ppid": 43432,
+          "created": "1794374750911793"
+        },
+        {
+          "pid": 43632,
+          "ppid": 43242,
+          "created": "1794374750954121"
+        },
+        {
+          "pid": 43629,
+          "ppid": 43242,
+          "created": "1794374750950259"
+        },
+        {
+          "pid": 43630,
+          "ppid": 43629,
+          "created": "1794374750951846"
+        },
+        {
+          "pid": 43654,
+          "ppid": 43242,
+          "created": "1794374751007758"
+        },
+        {
+          "pid": 43653,
+          "ppid": 43432,
+          "created": "1794374750996387"
+        },
+        {
+          "pid": 43717,
+          "ppid": 43242,
+          "created": "1794374751220460"
+        },
+        {
+          "pid": 43747,
+          "ppid": 43242,
+          "created": "1794374751295437"
+        },
+        {
+          "pid": 43763,
+          "ppid": 43242,
+          "created": "1794374751342533"
+        },
+        {
+          "pid": 43779,
+          "ppid": 43242,
+          "created": "1794374751395539"
+        },
+        {
+          "pid": 43796,
+          "ppid": 43242,
+          "created": "1794374751437673"
+        },
+        {
+          "pid": 43844,
+          "ppid": 43242,
+          "created": "1794374751590437"
+        },
+        {
+          "pid": 43895,
+          "ppid": 43242,
+          "created": "1794374751742338"
+        },
+        {
+          "pid": 43927,
+          "ppid": 43242,
+          "created": "1794374751825361"
+        },
+        {
+          "pid": 43950,
+          "ppid": 43242,
+          "created": "1794374751909532"
+        },
+        {
+          "pid": 43983,
+          "ppid": 43242,
+          "created": "1794374751989884"
+        },
+        {
+          "pid": 44035,
+          "ppid": 43242,
+          "created": "1794374752153520"
+        },
+        {
+          "pid": 44067,
+          "ppid": 43242,
+          "created": "1794374752235156"
+        },
+        {
+          "pid": 44115,
+          "ppid": 43242,
+          "created": "1794374752387613"
+        },
+        {
+          "pid": 44132,
+          "ppid": 43242,
+          "created": "1794374752432612"
+        },
+        {
+          "pid": 44149,
+          "ppid": 43242,
+          "created": "1794374752487906"
+        },
+        {
+          "pid": 44166,
+          "ppid": 43242,
+          "created": "1794374752534934"
+        },
+        {
+          "pid": 44198,
+          "ppid": 43242,
+          "created": "1794374752616898"
+        },
+        {
+          "pid": 44440,
+          "ppid": 43242,
+          "created": "1794374753297624"
+        },
+        {
+          "pid": 44459,
+          "ppid": 43242,
+          "created": "1794374753357360"
+        }
+      ],
+      "remaining": []
+    },
+    "candidateServiceInvocation": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/desktop-macos/service-lease.cjs /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/app/server.js serve --host 127.0.0.1",
+    "candidateWorkbenchRoot": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench",
+    "receiver": {
+      "textMatches": true,
+      "counts": {
+        "key_down": 12,
+        "key_up": 12
+      },
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "clipboardPreserved": false
+    },
+    "launch": "LaunchServices",
+    "permissionMode": "bypass fixture; normal approval allow/deny/cancel is outside scope",
+    "passed": true
+  }
+]

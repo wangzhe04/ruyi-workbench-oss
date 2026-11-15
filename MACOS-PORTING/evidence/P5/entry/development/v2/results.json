@@ -1,0 +1,520 @@
+{
+  "calls": [
+    {
+      "name": "service-stdout",
+      "text": "如意 Ruyi 3.0.1  (launch: node, overlay 4e2c70de796e)\n"
+    },
+    {
+      "name": "service-stdout",
+      "text": "UI: http://127.0.0.1:50536/\nData: /tmp/ruyi-p5-entry-GvW5dN/data\nServer source: /private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/app/server.js\n"
+    },
+    {
+      "name": "service-stdout",
+      "text": "MCP config: /tmp/ruyi-p5-entry-GvW5dN/data/generated/workbench.mcp.json\n"
+    },
+    {
+      "name": "list_windows",
+      "args": {},
+      "status": 200,
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 6,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4787,
+            "height": 528,
+            "pid": 66405,
+            "process_start": "1794381861:399623",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 4787,
+              "pid": 66405,
+              "process_start": "1794381861:399623",
+              "ref": "13ED6F16-F180-43C3-9107-59A609F7441D"
+            },
+            "title": "Ruyi P5 Input 66405",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          }
+        ],
+        "observedWindowCount": 6
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "args": {
+        "n": 100
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "count": 0,
+        "records": [],
+        "log_dir": "/tmp/ruyi-p5-entry-GvW5dN/acc-data/logs"
+      }
+    },
+    {
+      "name": "final-service-runtime",
+      "result": {
+        "port": 50536,
+        "host": "127.0.0.1",
+        "pid": 66419,
+        "token": "[omitted fixture token]",
+        "overlayId": "4e2c70de796e",
+        "version": "3.0.1",
+        "launchMode": "node",
+        "startedAt": "2026-11-11T07:24:22.687Z"
+      },
+      "exitCode": null,
+      "signalCode": null
+    }
+  ],
+  "turns": [
+    {
+      "label": "ENTRY_APPROVAL_allow",
+      "sessionId": "sess_132bb97a31f29009",
+      "action": "allow",
+      "events": []
+    },
+    {
+      "label": "ENTRY_APPROVAL_deny",
+      "sessionId": "sess_587756bcf9ff8a5f",
+      "action": "deny",
+      "events": []
+    },
+    {
+      "label": "ENTRY_APPROVAL_cancel",
+      "sessionId": "sess_bebb123485008507",
+      "action": "cancel",
+      "events": []
+    },
+    {
+      "label": "ENTRY_IMAGE_window_screenshot_false",
+      "sessionId": "sess_8a7ff120d54edce5",
+      "action": "allow",
+      "events": []
+    }
+  ],
+  "decisions": [],
+  "checkpoints": [],
+  "reports": [
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 645,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "ready",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 645,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "seed-clipboard",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 646,
+      "combinedFlags": 0,
+      "counts": {},
+      "cursorX": 1311.3515625,
+      "cursorY": 704.26953125,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 0,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4787,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "manualPointerTick": 0,
+      "manualPointerType": 0,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 66405,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 66405"
+    },
+    {
+      "event": "clipboard-restore",
+      "restored": true
+    },
+    {
+      "event": "input-source-restore",
+      "restored": true,
+      "skipped_external_change": false
+    }
+  ]
+}

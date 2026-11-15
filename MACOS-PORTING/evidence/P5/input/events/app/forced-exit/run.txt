@@ -1,0 +1,16 @@
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS App and service process identities were observed before shutdown
+PASS App-launched ACC has its own actual Accessibility and event authorization
+PASS normal App HTTP tool route focuses the exact owned receiver
+PASS normal App HTTP tool route sends Chinese Unicode events
+PASS App launch chain sends guarded pointer and wheel events
+PASS real receiver confirms the App-originated Chinese text
+PASS real receiver confirms the App-originated balanced click and wheel events
+PASS App input leaves actual button and modifier state released
+PASS controlled App crash leaves observed service descendants for failure cleanup
+FAIL Error: Injected App-exit cleanup fixture failure
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:178:13
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+
+MACOS INPUT HOST E2E: FAIL (1)

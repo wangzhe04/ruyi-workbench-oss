@@ -1,0 +1,50 @@
+PASS workbench up on :55890
+PASS UI token scraped
+PASS session created
+PASS tier: workbench_self_status = read
+PASS pack: workbench_self_status = core
+PASS 注册表含 workbench_self_status 条目
+PASS /api/status 可用作对照
+PASS /api/status 普通工具目录含新增跨线程只读工具
+PASS /api/status 返回 overlayId
+PASS workbench_self_status(all): ok:true
+PASS app 字段为产品名
+PASS version(3.0.1) === package.json(3.0.1)
+PASS launchMode(node) = node(源码模式,e2e 非 pkg 打包)
+PASS instanceId(dc6faf8aacef) === /api/status overlayId(dc6faf8aacef)
+PASS dataDir(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-self-status-e2e) === 临时 HOME(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-self-status-e2e)
+PASS address(http://127.0.0.1:55890) 以 http://127.0.0.1: 开头
+PASS address 端口与实际监听端口一致(55890)
+PASS health[] 非空(10 项)
+PASS health[] 每项含 id/ok
+PASS counts.nativeTools === 121(got 121)
+PASS counts.nativeTools 与 facts.json 同源(121 vs 121)
+PASS counts.accTools 为非负整数
+PASS counts.skills 为非负整数
+PASS counts.commands 为非负整数
+PASS counts.playbooks 为非负整数
+PASS counts.workflows > 0(内置模板,got 8)
+PASS config.engine(openai) = openai(fixture 激活 openai-compat provider)
+PASS config.providerId = fixture provider id
+PASS config.providerLabel = fixture provider label
+PASS config.model = fixture provider model
+PASS config.permissionMode 回显 fixture 值
+PASS config.outputStyle 回显 fixture 值
+PASS config.locale 回显 fixture 值
+PASS 序列化结果不含 fixture 假密钥原文
+PASS 序列化结果不含 SECRET 子串
+PASS 序列化结果不含 apiKey 字段名
+PASS 序列化结果不含 sk- 前缀
+PASS 序列化结果不含 token 字段/子串
+PASS section:'identity' 键集精确为身份字段(got address,app,dataDir,installDir,instanceId,launchMode,ok,version)
+PASS section:'identity' 不含 health/counts/config
+PASS section:'health' 含 health[]
+PASS section:'health' 不含 counts/config
+PASS section:'counts' 含 counts.nativeTools=121
+PASS section:'counts' 不含 health/config
+PASS section:'config' 含 config.engine
+PASS section:'config' 不含 health/counts
+PASS section:'config' 同样不回显密钥
+PASS 非法 section 回落 all(仍含 counts/config/health)
+
+WORKBENCH-SELF-STATUS E2E: ALL PASS

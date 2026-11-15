@@ -1,0 +1,30 @@
+── [U] #1 开关三态与 schema 冻结契约 ──
+PASS U1 G1 默认关闭、G2 真实 provider 门后默认开启
+PASS U2 显式 true 各自生效
+PASS U3 字符串 "true" 洗回 false(严格布尔)
+PASS U4 首回合冻结初值 = core 分类基线(list_tools,tool_search,tool_load)
+PASS U5 tool_load 新工具追加尾部(非 catalog 原位插入)
+PASS U6 换分类消息:冻结序保持,新激活包工具追加尾部(alpha_read 排在 gamma_thing 之后,无视 catalog 序)
+PASS U7 开关关:无冻结记忆,按当次分类 catalog 序过滤(现状)
+PASS U8 开关开但缺 freezeKey(子代理/一次性调用):不冻结,与现状逐字节一致
+PASS U9 catalog 缺失条目不发送且不引发重排(缓存断裂记日志,见集成 E8)
+── [E-G1] volatile 前插(现状) vs 尾部追加(开关开) ──
+PASS E0a workbench A listening on :52093
+PASS E1a 开关关:两回合均正常完成
+PASS E2a 开关关:volatile 前插首条 user(现状,前缀缓存从 messages[1] 断裂的布局)
+PASS E3a 开关关:最新 user 除记忆回执尾巴外无其它注入(无 recall/notes 对象的_plain 回合)
+PASS E3a2 开关关:第二回合首条 user 与第一回合逐字节同前缀、且不含记忆回执(回执只在末条 user 尾部)
+PASS E0b workbench B listening on :52113
+PASS E1b 开关开:两回合均正常完成
+PASS E2b 开关开:历史首条 user 逐字节不动(跨回合前缀不再从 messages[1] 断裂)
+PASS E3b 开关开:volatile 追加当前最新 user 尾部(与 recall/notes 同位)
+PASS E4b layout_shadow 采样事件齐全(sentLayout=tail + 双布局 stablePrefixChars,E4 §7.3)
+── [E-G2] tools schema 会话级冻结 + 只追加 ──
+PASS E0c workbench C listening on :52122
+PASS E5 开关开:第二回合分类激活 files_read,tools 变多(19 → 28)
+PASS E6 开关开:第二回合 tools 以第一回合为严格前缀(新增只追加尾部)
+PASS E7 tool_schema_freeze init+append 事件落账
+PASS E0d workbench D listening on :52128
+PASS E8 开关关:零冻结事件、零布局干预(回退逐字节现状)
+
+PREFIX-LAYOUT E2E: ALL PASS

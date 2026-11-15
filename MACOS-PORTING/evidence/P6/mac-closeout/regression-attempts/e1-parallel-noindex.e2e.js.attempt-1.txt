@@ -1,0 +1,17 @@
+[fake] [fake-openai] listening on 65127
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 04d01f54100b)
+[wb] UI: http://127.0.0.1:65128/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e1-noindex-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :65128
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e1-noindex-e2e/generated/workbench.mcp.json
+PASS exactly 2 tool_use events (merged=1 would be the串槽 bug) — got 2
+PASS both tool_use named file_read (not "file_readfile_read") — got ["file_read","file_read"]
+PASS the two calls carry the two DISTINCT paths (args not concatenated) — got ["/private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e1-noindex-e2e/alpha.txt","/private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e1-noindex-e2e/beta.txt"]
+PASS ids call_1 & call_2 preserved as separate slots
+PASS 2 tool_result, all ok (both parsed & executed) — got 2
+PASS tool results contain both files' distinct content
+PASS result ok=true
+PASS 116h: steward 关时并行回合路径零仲裁事件
+
+E1-PARALLEL-NOINDEX E2E: ALL PASS

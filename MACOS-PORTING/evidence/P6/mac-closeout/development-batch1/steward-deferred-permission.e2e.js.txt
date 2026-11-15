@@ -1,0 +1,18 @@
+PASS P0 服务起来了
+PASS P0b token 可读
+PASS P0c 两条线程已建,W 交给管家盯(sess_697593b621acf0c3 / sess_0c69f9990a2523cb)
+PASS P0d 两条线程都停在一条 exec 权限请求上
+PASS P2 管家看过、没替你批 → 事件流上来 steward.deferred(W 的那条请求;实测 {"sessionId":"sess_697593b621acf0c3","interventionId":"perm_525d606b9e65615e","ask":"请求执行工具 shell_run · exec","deadlineAt":"2026-11-12T13:30:58.469Z","at":"2026-11-12T13:30:16.338Z"})
+PASS P2b 截止时刻 ≈ 请求时刻 + 45 s(差 0 ms)
+PASS P2c 摘要里是工具名(「请求执行工具 shell_run · exec」),不带命令原文
+PASS P2d 早于缺省窗口就报了(请求后 3 s;「立刻」)
+PASS P2e 管家确实跑过收件箱回合(2 次)
+PASS P2f 报「留给你」之前先追问过一次、只追问一次(追问回合 1 次,管家回合共 2 次)
+PASS P1 W 过了缺省窗口(20 s + 2 s)仍挂着(实测 pending)
+PASS C1 U 没交给管家:缺省 20 s 就按超时拒(实测 denied/timeout,20 s)
+PASS C1b 管家看过 U 也不报「留给你」(它不经手;实测 0 帧)
+PASS P4 W 到 45 s 按超时拒(实测 denied/timeout,45 s)
+PASS P3 同一条请求只报一次(实测 1 帧)
+PASS P4b W 的回合没被 idle 看门狗中止(权限挂着豁免)
+PASS C2 U 的回合同样没被看门狗中止(豁免与管家无关)
+STEWARD DEFERRED PERMISSION E2E: ALL PASS

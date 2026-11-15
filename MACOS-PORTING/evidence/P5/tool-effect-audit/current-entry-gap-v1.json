@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T12:05:51.656125+00:00",
+  "author": "/root",
+  "status": "confirmed_existing_current_candidate_irreversible_summary_gap_from_archived_actual_entry_runs",
+  "candidate": "7f95d654",
+  "requirement": "remaining-audit.json approval_and_native_audit explicitly preserves irreversible classification",
+  "finding": "Both actual entry allow cases complete owned input_sequence inside macro_run with action_sent=true/event_count2 and receiver/audit checks, but emitted turn_summary.irreversible is empty. Approval and input regression passed their limited assertions; they did not verify this original classification requirement.",
+  "sourceMechanism": "buildTurnSummary notes only the unwrapped outer macro name; irreversibleToolKind has no macro_run/input_sequence classifications and does not inspect returned compound steps.",
+  "actualEvidence": [
+    {
+      "executor": "primary",
+      "source": "durable-history/development/entry-v1/native/results.json",
+      "bytes": 210689,
+      "sha256": "9791c9e01e11055cf0244505c4c518cf795485995131dc01814fdfc37e1f2106",
+      "sessionId": "sess_164e566856ebbebf",
+      "label": "ENTRY_APPROVAL_allow",
+      "actualMacroResultOk": true,
+      "innerInputSequence": {
+        "step": 1,
+        "tool": "input_sequence",
+        "ok": true,
+        "result": {
+          "acted": true,
+          "action_sent": true,
+          "device_capabilities_normalized": false,
+          "event_count": 2,
+          "ok": true,
+          "pointer_profile": "exact",
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        }
+      },
+      "turnSummary": {
+        "type": "turn_summary",
+        "turnSeq": 1,
+        "filesChanged": [],
+        "commands": 0,
+        "artifacts": [],
+        "irreversible": [],
+        "traceId": "trace_0a009e13f6d62bae",
+        "ts": "2026-11-11T11:43:40.709Z"
+      },
+      "entryTestReceiverAndAuditAssertionPassed": "31 PASS documented in corresponding unmodified entry output/report"
+    },
+    {
+      "executor": "independent",
+      "source": "durable-history/independent-v1/entry/native/results.json",
+      "bytes": 210588,
+      "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691",
+      "sessionId": "sess_0778849607757eda",
+      "label": "ENTRY_APPROVAL_allow",
+      "actualMacroResultOk": true,
+      "innerInputSequence": {
+        "step": 1,
+        "tool": "input_sequence",
+        "ok": true,
+        "result": {
+          "acted": true,
+          "action_sent": true,
+          "device_capabilities_normalized": false,
+          "event_count": 2,
+          "ok": true,
+          "pointer_profile": "exact",
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        }
+      },
+      "turnSummary": {
+        "type": "turn_summary",
+        "turnSeq": 1,
+        "filesChanged": [],
+        "commands": 0,
+        "artifacts": [],
+        "irreversible": [],
+        "traceId": "trace_521f4ad684a09e59",
+        "ts": "2026-11-11T11:48:56.006Z"
+      },
+      "entryTestReceiverAndAuditAssertionPassed": "31 PASS documented in corresponding unmodified entry output/report"
+    }
+  ],
+  "sources": [
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "bytes": 11929,
+      "sha256": "3c70968cafa4bbf09ea7d71b993ee5cc01a9c95c29f31bc4f0e1372bf1536bec",
+      "gitBlob": "f3b1884533f1e2e92b1f08a4cde898a5d800d75b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 412191,
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41",
+      "gitBlob": "4ced84405e24eed04d6139acfa06a5d8db1836d0"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6782007,
+      "sha256": "208e7503913ae34e17a8cfc0ec657d8eedef4917b16762a0fc2c8b5548a201a2",
+      "gitBlob": "f3f7f91a2310874694ab6c9db6df0cad3d91cebf"
+    }
+  ],
+  "nextAction": "Independently verify this no-new-run finding, then implement bounded truthful compound-effect classification preserving known denied/not_dispatched/read-only/unknown distinctions and test actual turn summaries. Do not blindly mark every wait-only macro as desktop input.",
+  "actionsThisAudit": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "newInputPosted": 0,
+    "processSignals": 0,
+    "originalEvidenceEdits": 0,
+    "productSourceEdits": 0
+  },
+  "scope": "Additional original P5 requirement gap; not a failed assertion of the31-case fixture and not regression caused by provider-history fix. It remains open.",
+  "phaseStatus": "in_progress"
+}

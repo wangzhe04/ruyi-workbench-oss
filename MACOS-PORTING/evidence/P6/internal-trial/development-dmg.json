@@ -1,0 +1,17 @@
+{
+  "directory": "/tmp/ruyi-p602-full-second",
+  "imageSha256": "aff9244e4e577cd50c5a04fe7ac44b6e0059d3bbd221d5336440e4efa21ebb05",
+  "inputSource": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "packagerCommit": "e3c7564bbdcfca45d848bb61c454a368a3fa7361",
+  "packagerFingerprint": {
+    "ruyi-workbench/tools/package-macos-trial.js": "265bc7dd3fd2368d734b295ab140f4ae817e7219dc0f85cbb62826cc29693d7e",
+    "ruyi-workbench/tools/macos-offline-lib.js": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976"
+  },
+  "signatureActions": {
+    "ad-hoc-sign-previously-unsigned": 18,
+    "ad-hoc-rebuild-missing-resource-seal": 10
+  },
+  "note": "Development wrapper source uncommitted at build; only final post-review commit DMGs qualify final delivery."
+}

@@ -1,0 +1,10 @@
+PASS N0 工作台起来了
+PASS N0b runtime token 可读
+PASS N1 zh-CN：说的是中文人话(实测 "无法发起「没模型的服务商」这一轮对话：还没有选定模型。请到「设置 → 服务商」补全后再试。")
+PASS N2 zh-CN：整句里没有英文原句
+PASS N3 errorClass 仍是 provider_misconfigured(前端人话化靠它;实测 provider_misconfigured)
+PASS N4 切到 en-US
+PASS N5 en-US：保持原来的英文(实测 "Cannot start a 没模型的服务商 turn: no model is selected for this provider. Open Settings → Models & Servic")
+PASS N6 en-US：errorClass 同样是 provider_misconfigured
+
+PROVIDER NO MODEL LOCALE E2E: ALL PASS

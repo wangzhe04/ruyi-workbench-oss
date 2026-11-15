@@ -1,0 +1,56 @@
+PASS workbench up on :54730
+PASS UI token scraped
+PASS session created
+PASS (a) file_move ok
+PASS (a) file physically moved (from gone, to has content)
+PASS (a) checkpoint: from op:delete
+PASS (a) checkpoint: to op:create
+PASS (a) rollback turn 10 ok
+PASS (a) rollback restored `from`
+PASS (a) rollback removed `to` (create inverse = delete)
+PASS (b) move into subfolder ok
+PASS (b) overwrite refused when to exists & overwrite=false
+PASS (b) refused move left both files untouched
+PASS (b) overwrite=true moves & overwrites
+PASS (b) overwrite: to snapshotted op:modify
+PASS (c) file_copy ok
+PASS (c) both files present with same content
+PASS (c) checkpoint: copy op:create
+PASS (c) rollback removed copy, left source
+PASS (d) archive_zip ok (2 files)
+PASS (d) zip file written
+PASS (d) checkpoint: zip op:create
+PASS (d) archive_unzip ok
+PASS (d) round-trip: Chinese filename + content identical
+PASS (d) round-trip: nested binary identical
+PASS (d) checkpoint: unzipped file op:create
+PASS (e) Zip Slip rejected (ok:false, 人话 error)
+PASS (e) NO file written outside destDir (escape blocked)
+PASS (e) whole archive rejected — even the safe entry not extracted
+PASS (e) no checkpoint entries for a rejected malicious archive
+PASS (f) 2001 个条目的合法包可解(条目数不再是炸弹判据, got {"ok":true,"files":2001})
+PASS (f) 声明体积超限的包被拒(压缩包声明的解压总大小（600MB）超过上限（500MB）)
+PASS (f) 被拒的包没有落任何文件
+PASS (g) http_download ok, bytes=12 ({"ok":true,"bytes":12})
+PASS (g) file content matches server
+PASS (g) checkpoint: download op:create
+PASS (g) rollback removed the downloaded file
+PASS (h) SSRF internal target refused (ok:false, blocked set)
+PASS (h) no file written on SSRF refusal
+PASS (h) SSRF localhost refused
+PASS (i) over-size download refused (文件超过大小上限（1MB）)
+PASS (i) no half-file left on over-size refusal
+PASS (j) 炸弹压缩体确实很小 (510728B) — 高压缩比成立
+PASS (j) central dir 读到 1 条
+PASS (j) 单条目 inflate 超限即抛人话拒绝 (单个条目解压后超过大小上限（500MB）或与声明大小不符，疑似 zip 炸弹，已拒绝)
+PASS (j) 对照组小条目读取不受影响
+PASS (k) 手写 Office 脚本被软闸拦截 + 配方引导
+PASS (k) hint 标注工具层强制
+PASS (k) force:true 放行执行 ("FORCE-OK\n")
+PASS (k) 普通脚本不受软闸影响
+PASS (k) 桥接 run_command 内联 Office → 拦截
+PASS (k) 桥接普通命令 → 放行
+PASS (k) 桥接 force:true → 泄压放行
+PASS (k) 非终端类工具不经此闸(write_excel 走正门)
+
+TOOLS-V3 E2E: ALL PASS

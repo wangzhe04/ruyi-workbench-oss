@@ -1,0 +1,546 @@
+{
+  "nativePID": 67692,
+  "servicePID": 67702,
+  "launch": "LaunchServices",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 3330,
+      "height": 448,
+      "pid": 67689,
+      "process_start": "1794316400:635604",
+      "target": {
+        "bounds": {
+          "height": 448,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "handle": 3330,
+        "pid": 67689,
+        "process_start": "1794316400:635604",
+        "ref": "42DD6386-2076-4E34-B69E-537B160909C6"
+      },
+      "title": "Ruyi P5 OCR 67689",
+      "visible": true,
+      "width": 820,
+      "x": 160,
+      "y": 492
+    }
+  },
+  "visual": {
+    "chinese": {
+      "acted": true,
+      "action_sent": true,
+      "actual_x": 350,
+      "actual_y": 871.5,
+      "clicked": {
+        "center": [
+          350,
+          871.5
+        ],
+        "height": 24,
+        "left": 305,
+        "match_type": "phrase",
+        "text": "中 文 保 存",
+        "top": 859.5,
+        "width": 90
+      },
+      "confirmed": null,
+      "count": 1,
+      "found": true,
+      "observation_age_ms": 453,
+      "ok": true,
+      "outcome": "unconfirmed",
+      "protocolVersion": 1,
+      "reached": true,
+      "success": true,
+      "verification": "native_events_posted"
+    },
+    "found": {
+      "center": {
+        "x": 350,
+        "y": 871.5
+      },
+      "coordinate_space": "macos_global_points",
+      "count": 1,
+      "found": true,
+      "match_type": "phrase",
+      "matched_text": "中 文 保 存",
+      "ok": true,
+      "rect": {
+        "height": 24,
+        "left": 305,
+        "top": 859.5,
+        "width": 90
+      }
+    },
+    "templateClick": {
+      "acted": true,
+      "action_sent": true,
+      "actual_x": 750,
+      "actual_y": 783,
+      "center": {
+        "x": 750,
+        "y": 783
+      },
+      "clicked": true,
+      "confidence": 1,
+      "confirmed": null,
+      "coordinate_space": "macos_global_points",
+      "count": 2,
+      "found": true,
+      "observation_age_ms": 383,
+      "ok": true,
+      "outcome": "unconfirmed",
+      "protocolVersion": 1,
+      "reached": true,
+      "rect": {
+        "height": 32,
+        "left": 670,
+        "top": 767,
+        "width": 160
+      },
+      "verification": "native_events_posted"
+    },
+    "templates": {
+      "coordinate_space": "macos_global_points",
+      "count": 2,
+      "matches": [
+        {
+          "center": [
+            350,
+            783
+          ],
+          "confidence": 1,
+          "height": 32,
+          "left": 270,
+          "top": 767,
+          "width": 160
+        },
+        {
+          "center": [
+            750,
+            783
+          ],
+          "confidence": 1,
+          "height": 32,
+          "left": 670,
+          "top": 767,
+          "width": 160
+        }
+      ],
+      "matches_total": 2,
+      "ok": true,
+      "truncated": false
+    },
+    "warm": {
+      "backend": "Vision",
+      "confidence_scope": "line_candidate",
+      "coordinate_space": "image_pixels",
+      "height": 300,
+      "image_orientation": "decoded_pixels_up",
+      "lines": [
+        "INVOICE 42",
+        "中文测试",
+        "Total $42.50"
+      ],
+      "ok": true,
+      "protocolVersion": 1,
+      "recognition_languages": [
+        "zh-Hans",
+        "en-US"
+      ],
+      "recognition_revision": 3,
+      "success": true,
+      "text": "INVOICE 42\n中文测试\nTotal $42.50",
+      "truncated": false,
+      "width": 1000,
+      "words": [
+        {
+          "center": [
+            136.5,
+            62
+          ],
+          "confidence": 1,
+          "height": 40,
+          "left": 36,
+          "line": 0,
+          "text": "INVOICE",
+          "top": 42,
+          "width": 201
+        },
+        {
+          "center": [
+            275,
+            62
+          ],
+          "confidence": 1,
+          "height": 40,
+          "left": 240,
+          "line": 0,
+          "text": "42",
+          "top": 42,
+          "width": 70
+        },
+        {
+          "center": [
+            68,
+            152.5
+          ],
+          "confidence": 1,
+          "height": 51,
+          "left": 41,
+          "line": 1,
+          "text": "中",
+          "top": 127,
+          "width": 54
+        },
+        {
+          "center": [
+            116.5,
+            152.5
+          ],
+          "confidence": 1,
+          "height": 51,
+          "left": 94,
+          "line": 1,
+          "text": "文",
+          "top": 127,
+          "width": 45
+        },
+        {
+          "center": [
+            163.5,
+            153
+          ],
+          "confidence": 1,
+          "height": 52,
+          "left": 138,
+          "line": 1,
+          "text": "测",
+          "top": 127,
+          "width": 51
+        },
+        {
+          "center": [
+            213.5,
+            153.5
+          ],
+          "confidence": 1,
+          "height": 51,
+          "left": 188,
+          "line": 1,
+          "text": "试",
+          "top": 128,
+          "width": 51
+        },
+        {
+          "center": [
+            94,
+            243.5
+          ],
+          "confidence": 0.5,
+          "height": 51,
+          "left": 37,
+          "line": 2,
+          "text": "Total",
+          "top": 218,
+          "width": 114
+        },
+        {
+          "center": [
+            238,
+            242
+          ],
+          "confidence": 0.5,
+          "height": 52,
+          "left": 151,
+          "line": 2,
+          "text": "$42.50",
+          "top": 216,
+          "width": 174
+        }
+      ],
+      "words_total": 8
+    }
+  },
+  "observedProcesses": [
+    {
+      "pid": 67692,
+      "ppid": 1,
+      "created": "1794316401144067"
+    },
+    {
+      "pid": 67702,
+      "ppid": 67692,
+      "created": "1794316401365634"
+    },
+    {
+      "pid": 67716,
+      "ppid": 67702,
+      "created": "1794316401490858"
+    },
+    {
+      "pid": 67715,
+      "ppid": 67702,
+      "created": "1794316401490051"
+    },
+    {
+      "pid": 67751,
+      "ppid": 67702,
+      "created": "1794316401964091"
+    },
+    {
+      "pid": 67754,
+      "ppid": 67702,
+      "created": "1794316402005166"
+    },
+    {
+      "pid": 67755,
+      "ppid": 67754,
+      "created": "1794316402006574"
+    },
+    {
+      "pid": 67762,
+      "ppid": 67702,
+      "created": "1794316402033781"
+    },
+    {
+      "pid": 67763,
+      "ppid": 67762,
+      "created": "1794316402035127"
+    },
+    {
+      "pid": 67764,
+      "ppid": 67763,
+      "created": "1794316402035469"
+    },
+    {
+      "pid": 67767,
+      "ppid": 67702,
+      "created": "1794316402084456"
+    },
+    {
+      "pid": 67774,
+      "ppid": 67702,
+      "created": "1794316402145974"
+    },
+    {
+      "pid": 67777,
+      "ppid": 67702,
+      "created": "1794316402212285"
+    },
+    {
+      "pid": 67778,
+      "ppid": 67777,
+      "created": "1794316402214293"
+    },
+    {
+      "pid": 67779,
+      "ppid": 67778,
+      "created": "1794316402214710"
+    },
+    {
+      "pid": 67790,
+      "ppid": 67702,
+      "created": "1794316402389236"
+    },
+    {
+      "pid": 67817,
+      "ppid": 67779,
+      "created": "1794316402827811"
+    },
+    {
+      "pid": 67842,
+      "ppid": 67779,
+      "created": "1794316403249059"
+    },
+    {
+      "pid": 67847,
+      "ppid": 67779,
+      "created": "1794316403297538"
+    },
+    {
+      "pid": 67850,
+      "ppid": 67779,
+      "created": "1794316403327451"
+    },
+    {
+      "pid": 67853,
+      "ppid": 67779,
+      "created": "1794316403359967"
+    },
+    {
+      "pid": 67856,
+      "ppid": 67779,
+      "created": "1794316403389009"
+    },
+    {
+      "pid": 67859,
+      "ppid": 67779,
+      "created": "1794316403420797"
+    },
+    {
+      "pid": 67864,
+      "ppid": 67702,
+      "created": "1794316403453098"
+    },
+    {
+      "pid": 67863,
+      "ppid": 67702,
+      "created": "1794316403451882"
+    },
+    {
+      "pid": 67865,
+      "ppid": 67863,
+      "created": "1794316403453173"
+    },
+    {
+      "pid": 67870,
+      "ppid": 67702,
+      "created": "1794316403501705"
+    },
+    {
+      "pid": 67871,
+      "ppid": 67870,
+      "created": "1794316403503748"
+    },
+    {
+      "pid": 67872,
+      "ppid": 67871,
+      "created": "1794316403504405"
+    },
+    {
+      "pid": 67869,
+      "ppid": 67779,
+      "created": "1794316403479837"
+    },
+    {
+      "pid": 67875,
+      "ppid": 67702,
+      "created": "1794316403531500"
+    },
+    {
+      "pid": 69587,
+      "ppid": 67702,
+      "created": "1794316434772888"
+    },
+    {
+      "pid": 69589,
+      "ppid": 67779,
+      "created": "1794316434802323"
+    },
+    {
+      "pid": 69602,
+      "ppid": 67779,
+      "created": "1794316434958143"
+    },
+    {
+      "pid": 69610,
+      "ppid": 67779,
+      "created": "1794316435072550"
+    },
+    {
+      "pid": 69622,
+      "ppid": 67702,
+      "created": "1794316435260669"
+    },
+    {
+      "pid": 69625,
+      "ppid": 67779,
+      "created": "1794316435302670"
+    },
+    {
+      "pid": 69632,
+      "ppid": 67779,
+      "created": "1794316435424658"
+    },
+    {
+      "pid": 69645,
+      "ppid": 67779,
+      "created": "1794316435634194"
+    },
+    {
+      "pid": 69657,
+      "ppid": 67702,
+      "created": "1794316435836888"
+    },
+    {
+      "pid": 69660,
+      "ppid": 67779,
+      "created": "1794316435867160"
+    },
+    {
+      "pid": 69665,
+      "ppid": 67702,
+      "created": "1794316435956424"
+    },
+    {
+      "pid": 69668,
+      "ppid": 67779,
+      "created": "1794316435987758"
+    },
+    {
+      "pid": 69675,
+      "ppid": 67779,
+      "created": "1794316436096384"
+    },
+    {
+      "pid": 69688,
+      "ppid": 67702,
+      "created": "1794316436306455"
+    },
+    {
+      "pid": 69691,
+      "ppid": 67779,
+      "created": "1794316436334888"
+    },
+    {
+      "pid": 69697,
+      "ppid": 67779,
+      "created": "1794316436441346"
+    },
+    {
+      "pid": 69707,
+      "ppid": 67779,
+      "created": "1794316436616158"
+    }
+  ],
+  "receiver": {
+    "textMatches": false,
+    "counts": [
+      0,
+      1,
+      1
+    ],
+    "leftHeld": false
+  }
+}

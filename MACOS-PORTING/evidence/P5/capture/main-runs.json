@@ -1,0 +1,137 @@
+[
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/syntax-gate.js"
+    ],
+    "name": "syntax",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 26590
+  },
+  {
+    "command": "node",
+    "args": [
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "name": "build",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 156
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture-contract.e2e.js"
+    ],
+    "name": "contract-final",
+    "exitCode": 1,
+    "signal": null,
+    "ms": 3968
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture.e2e.js"
+    ],
+    "name": "live-final",
+    "exitCode": 1,
+    "signal": null,
+    "ms": 9156
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capture-host.e2e.js"
+    ],
+    "name": "host-final",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 2283
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-capabilities.e2e.js"
+    ],
+    "name": "capabilities",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 233285
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-mcp-capabilities.e2e.js"
+    ],
+    "name": "mcp-capabilities",
+    "exitCode": 1,
+    "signal": null,
+    "ms": 3383
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/macos-acc-shared.e2e.js"
+    ],
+    "name": "acc-shared",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 819
+  },
+  {
+    "command": "mcp/ai-computer-control/.venv/bin/python",
+    "args": [
+      "mcp/ai-computer-control/tests/smoke_macos_capture.py"
+    ],
+    "name": "python-capture",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 863
+  },
+  {
+    "command": "mcp/ai-computer-control/.venv/bin/python",
+    "args": [
+      "mcp/ai-computer-control/tests/smoke_macos_shared.py"
+    ],
+    "name": "python-shared",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 13104
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/checkpoint-coverage.e2e.js"
+    ],
+    "name": "checkpoint",
+    "exitCode": 0,
+    "signal": null,
+    "ms": 2365
+  },
+  {
+    "command": "node",
+    "args": [
+      "--require",
+      "./dev-harness/lib/self-isolate-home.js",
+      "--test",
+      "dev-harness/unit/*.test.js"
+    ],
+    "name": "unit",
+    "exitCode": 1,
+    "signal": null,
+    "ms": 122514
+  },
+  {
+    "command": "node",
+    "args": [
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "name": "static",
+    "exitCode": 2,
+    "signal": null,
+    "ms": 121616
+  }
+]

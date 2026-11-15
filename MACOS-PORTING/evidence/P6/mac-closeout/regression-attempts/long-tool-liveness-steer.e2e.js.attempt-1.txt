@@ -1,0 +1,26 @@
+PASS workbench starts
+PASS session created
+PASS steer accepted while tool is running
+PASS quiet tool emits transport-only liveness heartbeats
+PASS heartbeats prevent the turn idle watchdog from firing
+PASS turn continues promptly after steer (1170ms, not 30s)
+PASS tool_result records the steer interruption
+PASS MCP interruption confirms owned-group/observed cleanup; arbitrary escaped processes are outside this scope
+PASS queued steer reaches the next model iteration
+PASS turn completes with normal result event
+INFO Mac remote cancellation capture observed; fire-and-forget has no receiver ACK; unit gate verifies the send attempt before immediate kill
+PASS interrupted MCP fixture process is reaped with its observed birth identity
+PASS steer accepted during native shell_run tool
+PASS native command is interrupted promptly (933ms, not 30s)
+PASS native tool_result confirms process interruption
+PASS native shell interruption confirms owned-group/observed cleanup without an incomplete result
+PASS native-tool steer reaches the next model iteration
+PASS shell_run: default addition is queued
+PASS shell_run: ordinary addition preserves successful tool completion
+PASS native work is actually completed, not merely left orphaned
+PASS addition reaches the model after tool completion
+PASS fake__slow_task: default addition is queued
+PASS fake__slow_task: ordinary addition preserves successful tool completion
+PASS addition reaches the model after tool completion
+
+LONG TOOL LIVENESS/STEER E2E: ALL PASS

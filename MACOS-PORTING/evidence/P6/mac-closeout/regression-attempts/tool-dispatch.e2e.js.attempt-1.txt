@@ -1,0 +1,45 @@
+PASS L1 注册表 121 个工具(steward_bot_setup:119→120;thread_title_update:118→119;跨线程只读 threads_search/thread_read:116→118;got 121; 61-C2 增 scratchpad_write:111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具:108→111;第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106;137 代理模式 v2 增 agent_result:106→107(spawn_agent 留作兼容口仍在册);61 号文 C4 增只读 checkpoint_list:107→108)
+PASS L1c 两个新增跨线程工具真实入册且只读,沿用无文件路径的声明
+PASS L1b 注册表工具数与 facts.json 同源(121 vs 121)
+PASS L1 每条目 handler/paths 声明齐整
+PASS L2 paths:null 条目全部带 guardNote(录在案豁免)
+PASS L3 paths 非 null 条目 handler 内全部含 guard 调用
+PASS L4 注册表键集 === NATIVE_TOOL_PACKS 键集(仅send_to_agent为已注册闭包工具)
+PASS L4b 定向协作消息归agents包
+PASS L4c 普通闲聊起手不自动装载消息schema
+PASS L4d 主回合tool_load agents取得send_to_agent
+PASS L4e 子节点仍可通信且不能嵌套编排
+PASS L4 每个注册工具都有 NATIVE_TOOL_TIER 声明
+PASS L5 tier 表无注册表外孤儿(propose_task/send_to_agent 走闭包特例,有意豁免)
+PASS L5 edit/exec 级工具全部在注册表(52 个)
+PASS B1 未知工具 throw「Unknown tool: __no_such_tool__」
+PASS B2 glob 经表驱动分发正常工作区内列举
+PASS B2 远端 provider 越界 file_read 被 guard 拒(guard 接在同一 ctx)
+PASS B3 第41波首擒:project_snapshot 越界列目录(远端)与 file_list 同闸拒
+PASS B3 project_snapshot 工作区内照常可用
+PASS B3b file_read 字符模式披露 CRLF 源/内容换行
+PASS B3b file_read 行模式披露 CRLF 源与 LF 展示内容
+PASS B3b LF anchor edits CRLF file and preserves full CRLF
+PASS B3b file_write preserves existing CRLF style
+PASS B3b new source file defaults to LF
+PASS B3b new Windows launcher defaults to CRLF
+PASS B3b mixed EOL file refuses implicit anchor conversion
+PASS B4 codebase_symbol_search 越界读(远端 provider)被 guard 拒
+PASS B4 dependency_inventory 越界读(远端 provider)被 guard 拒
+PASS B4 code_review_scan 越界读(远端 provider)被 guard 拒
+PASS B4 frontend_audit 越界读(远端 provider)被 guard 拒
+PASS B4 claude_md_audit 越界读(远端 provider)被 guard 拒
+PASS B4 docs_search 越界读(远端 provider)被 guard 拒
+PASS B4 data_profile 越界读(远端 provider)被 guard 拒
+PASS B5 未配置 → asr.not_configured(规整失败不抛)
+PASS B5 audio_transcribe 成功返回转写文本 — got "[b5-asr] bytes=387"
+PASS B5 返回值标 untrusted:true(26 号文 §4 判据原文)
+PASS B5 回执带 model 与 estimated:true 估算标记
+PASS B5 工具路径转写也记账 kind:aux note:asr
+PASS B5 非音频扩展名被白名单规整拒
+PASS B5 越界 audio_transcribe 被 guard 拒(与 file_read 同闸)
+PASS B5b chat-audio 协议改打 /chat/completions — got "[b5-asr-chat] mime=audio/webm bytes=175"
+PASS B5c 工具/附件通道送用户原文件(data URI mime=audio/webm,不转码)
+PASS B5d chat 回体 usage(prompt_tokens/completion_tokens)映射对 → 不落估算
+
+TOOL-DISPATCH E2E: ALL PASS

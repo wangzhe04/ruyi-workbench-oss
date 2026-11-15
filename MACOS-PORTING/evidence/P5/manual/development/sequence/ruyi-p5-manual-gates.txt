@@ -1,0 +1,14 @@
+✔ [G1] 名单里的每个名字都是 ACC 真实注册的工具;三族互不相交 (3.961458ms)
+✔ [G2] 判据矩阵:桌面族与原生 desktop_screenshot 逐格同判;命令族只看命令闸;转调器任一闸关就关 (51.443959ms)
+✔ [G3] 只认内置桌面 MCP:外部服务器同名工具与名单外的 ACC 工具恒放行 (0.090125ms)
+✔ [G4] accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools (0.325125ms)
+✔ [G5] createToolLoadingState:被关的 ACC 工具不进目录;会话覆盖 true 时回来 (3.212ms)
+✔ [G6] generateSessionMcpConfig:直挂 ACC 条目的 ACC_HIDE_TOOLS 跟配置与会话覆盖走;两个闸都开时不加键 (16.258333ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 174.389417

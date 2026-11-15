@@ -1,0 +1,60 @@
+
+── [S] 静态锁 ──
+PASS S opt-in 默认 false(===true 归一,boot 自动续跑烧 token 必须显式开)
+PASS S boot 挂点:自动恢复在诚实标死【之后】且 fire-and-forget
+PASS S 崩溃环上限 AUTO_RESUME_MAX=2
+PASS S 崩溃环护栏先落盘,写不进就不启动(fail-closed)
+PASS S boot 标死写盘防炸(磁盘故障不再放倒 startServer)
+PASS S 冷 resume/retry 计干预;boot 自动续跑不传(不计)
+PASS S resume 清分级戳 + 顺手清 28d pendingReview(此前只设不清)
+PASS S 中断标记时盖分级戳(展示用;决策时重算)
+PASS S run 创建存档首跑权限面
+PASS S 恢复决策入事件日志(取证)
+
+── [P] 分级纯函数 ──
+PASS P 源抽取两分级函数
+PASS P 源抽取 CLAUDE_EXEC_TOOLS/CLAUDE_WRITE_TOOLS
+PASS P wait 节点=safe(零副作用)
+PASS P 确定性门 vote/dedupe=safe
+PASS P read/缺省 tier=safe
+PASS P exec 一律 manual(不可审计不可回滚)
+PASS P exec×worktree 仍 manual(worktree 圈不住 shell)
+PASS P openai edit 无证据=safe(journal 回滚 + 幂等写兜底)
+PASS P openai edit+artifacts 证据=manual
+PASS P openai edit+续点写族 ok 步=manual
+PASS P openai edit+写步 ok:false(未落地)=safe
+PASS P openai edit+只读步=safe
+PASS P openai edit+continuation.pending 在途写=manual(#18)
+PASS P【#17】Claude edit 但 claudeTools 携 Bash → manual(claude_exec_tool)
+PASS P【#17】理由=claude_exec_tool
+PASS P【#17】Claude read 但 claudeTools 携 Write → manual(claude_write_no_journal,CLI 写无 journal)
+PASS P【#18】Claude edit + claudeTools 空 → 落 tier 默认含 Write/Edit → manual(claude_tier_writes)
+PASS P Claude read + 空 claudeTools(纯读 tier 默认)=safe
+PASS P Claude 纯读 claudeTools=safe(claude_read)
+PASS P 全安全 → auto_resumable
+PASS P 任一危险节点 → 整 run manual(reset 集会重排它)
+PASS P 已 succeeded 的 exec 不进 reset 集 → 不拖累
+PASS P 权限面变化(default→bypass)→ manual
+PASS P【#19】老 run 缺字段 + 纯读节点 → 仍 auto(无副作用面)
+PASS P【#19】老 run 缺字段 + edit 副作用面 → manual(permission_mode_unknown)
+
+── [H] Live ──
+PASS H boot#0 up
+PASS H boot#1 up(默认关)
+PASS H1 默认关:run 停在 interrupted(零行为变化,不自动续跑)
+PASS H1 默认关:仍盖分级戳(展示用)resumeTier=auto_resumable
+PASS H boot#2 up(开)
+PASS H2 【验收锁】安全 run 重启自动续跑到 succeeded(实 succeeded)
+PASS H2 autoResumeCount=1(崩溃环护栏落盘)
+PASS H2 上次 boot 遗留的 interrupted 安全 run 也被续跑
+PASS H2 事件链:run_auto_resume→run_resumed→…→run_end
+PASS H2 【验收锁】危险 run(exec)停在暂停态(实 paused)
+PASS H2 危险 run 带 manual_resume_required + exec_tier 理由
+PASS H2 危险 run 留 run_resume_deferred 取证事件
+PASS H2【#17】Claude+Bash 伪装 edit 节点停在暂停态(不自动重放 shell,实 paused)
+PASS H2【#17】理由=claude_exec_tool(按真实工具面判,非 toolTier)
+PASS H2 危险 run 人工 resume 入口不受分级限制(accepted)
+PASS H boot#3 up
+PASS H3 崩溃环截断:第 3 次不再自动续跑,降 manual(auto_resume_loop)
+
+AUTONOMY-RESUME E2E: ALL PASS

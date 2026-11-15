@@ -72,11 +72,13 @@ async function bootOnce(oldToken) {
   // 假 claude:把前三个 argv(`mcp add-json <id>`)追加进日志,再 exit 0。
   // 只取前三个是刻意的:第四个实参是整段 JSON,里面的引号在 .cmd 的 `set "X=…"` 里会把引号配对弄坏。
   // 判据只需要「有没有对某个 id 发过 add-json」,前三个就够。`|` 在 cmd 里是管道,必须 ^ 转义。
-  const fakeClaude = path.join(HOME, 'claude.cmd');
-  fs.writeFileSync(fakeClaude,
-    '@echo off\r\n'
-    + `>>"${LOG}" echo %1^|%2^|%3^|\r\n`
-    + 'exit /b 0\r\n', 'utf8');
+  const fakeClaude = path.join(HOME, process.platform === 'win32' ? 'claude.cmd' : 'claude');
+  if (process.platform === 'win32') {
+    fs.writeFileSync(fakeClaude, '@echo off\r\n' + `>>"${LOG}" echo %1^|%2^|%3^|\r\n` + 'exit /b 0\r\n', 'utf8');
+  } else {
+    fs.writeFileSync(fakeClaude, '#!' + process.execPath + '\n'
+      + 'require("fs").appendFileSync(' + JSON.stringify(LOG) + ', process.argv.slice(2, 5).join("|") + "|\\n");\n', { mode: 0o755 });
+  }
   // 夹具家的 .claude.json:X 是「Claude Code 那边注册的」,启动时会被 autoImportClaudeCodeMcp 拉进来。
   fs.writeFileSync(path.join(HOME, '.claude.json'), JSON.stringify({
     mcpServers: { 'origin-x': { command: 'node', args: ['-e', 'process.exit(0)'], env: {} } },

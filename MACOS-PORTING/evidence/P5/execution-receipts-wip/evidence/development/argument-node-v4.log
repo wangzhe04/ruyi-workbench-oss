@@ -1,0 +1,14 @@
+✔ Node matches shared cross-language argument identity vectors (0.931875ms)
+✔ JSON key insertion order and JSON.stringify zero agree without conflating string/number values (0.108708ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.552167ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.355833ms)
+✔ integer identity follows exact JSON.stringify digits instead of rounded binary64 integers (0.080583ms)
+✔ real metadata probe fails closed on a shape flag, dropped nonce, altered values or bad worker identity (0.730125ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 103.539625

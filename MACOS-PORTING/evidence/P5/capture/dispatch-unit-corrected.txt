@@ -1,0 +1,25 @@
+✔ [N1] tool_invoke_read 把 ctx 带进原生目标:工作目录生效 (490.351083ms)
+✔ [N1] 回合摘要与不可逆账按 tool_invoke_* 的真实目标记 (1.440708ms)
+✔ [N4] 命令 / 桌面工具开关在分发点也生效(且与 offer 面同一判据) (58.448542ms)
+✔ [N5] 未知工具:toolCall 仍抛 Unknown tool(消息逐字),建议走 toolFailureResult (66.259667ms)
+✔ [N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items (3.757ms)
+✔ [N5b] 宽进:枚举大小写 / 布尔 0-1 / 逗号串数组被规范成正统值,处理器看到的是规范值 (0.239583ms)
+✔ [N5b] 端到端:toolCall 收到的 script_run / file_list 入参已是规范值 (53.305875ms)
+✔ [N6] MCP 标准 content:全部 text 块、image 块映射、不劈 base64 (0.424375ms)
+✔ [N6] 多 text 块:首块是 JSON 就按结构化结果(保住 ok:false),其余块放 extraText;首块不是 JSON 才拼接 (0.124125ms)
+✔ [N7] 非视觉:图像字段换成一行占位 (0.299542ms)
+✔ [F3] extractToolImages 的 mime:魔数 > format > png (0.175625ms)
+✔ [A2] 桌面 audit_tail 的真实形状(records)出得了时间线行 (0.603208ms)
+✔ [A9] 桌面租约按 ACC 真实工具名分类 (0.437875ms)
+✔ [A10] 纯读 ACC 工具落 read 档,会动的仍 exec (0.052334ms)
+✔ [NE-12] desktop_screenshot 的图进 image_base64,路径保留;过大不内嵌 (2.987125ms)
+✔ [A14] 桥接子进程调用中途退出:错误可行动;启动失败原因不吞 (72.801292ms)
+✔ [N6b] 删会话时清掉该会话的 toolimg_* 附件目录(别的会话的不动) (182.249333ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8252.335417

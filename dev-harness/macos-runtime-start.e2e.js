@@ -106,12 +106,13 @@ cp.spawn = function(command, args, options) {
 };
 `);
     const port = await getFreePort();
-    const localBin = path.join(process.env.HOME, '.local', 'bin');
+    const launchHome = fixtureChildEnv();
+    const localBin = path.join(launchHome.HOME, '.local', 'bin');
     fs.mkdirSync(localBin, { recursive: true });
     fs.symlinkSync(process.execPath, path.join(localBin, 'node'));
     child = cp.spawn(path.join(wb, 'start-macos.command'), ['--port', String(port)], {
       cwd: root, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data,
+      env: { ...process.env, ...launchHome, RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data,
         RUYI_NODE_PATH: '', PATH: '/usr/bin:/bin', TMPDIR: root,
         NODE_OPTIONS: '--require=' + preload },
     });
@@ -198,7 +199,7 @@ cp.spawn = function(command, args, options) {
     fs.writeFileSync(bundlePreload, `require(${JSON.stringify(preload)}); require('fs').writeFileSync(${JSON.stringify(identityFile)}, JSON.stringify({execPath:process.execPath,cwd:process.cwd(),argv:process.argv}));`);
     bundledChild = cp.spawn(path.join(bundle, 'start-macos.command'), ['--port', String(bundlePort)], {
       cwd: '/', detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...isolated.env, RUYI_HOME: bundleData, WIN_CLAUDE_WORKBENCH_HOME: bundleData,
+      env: { ...process.env, ...isolated.env, RUYI_HOME: path.relative(bundle, bundleData), WIN_CLAUDE_WORKBENCH_HOME: bundleData,
         RUYI_NODE_PATH: '', PATH: '/usr/bin:/bin', TMPDIR: root, NODE_OPTIONS: '--require=' + bundlePreload },
     });
     bundledChild.on('error', error => { output += error.stack; });
@@ -217,6 +218,8 @@ cp.spawn = function(command, args, options) {
 
     const bundleStatus = async () => (await fetch(`http://127.0.0.1:${bundlePort}/api/status`, { signal: AbortSignal.timeout(10000) })).json();
     const readyStatus = await until(async () => { const status = await bundleStatus(); return status.runtime?.capabilities?.['process.supervisor']?.ready && status; });
+    ok(path.isAbsolute(readyStatus.dataRoot) && fs.realpathSync(readyStatus.dataRoot) === fs.realpathSync(bundleData),
+      'relative RUYI_HOME resolves to the actual absolute data root before execution-ledger initialization');
     ok(readyStatus.runtime.capabilities['shell.exec'].ready, 'relocated service discovers the copied native helper beside bundled Node');
     const bundleHelper = path.join(bundle, 'runtime', 'macos', 'ruyi-process-helper');
     fs.unlinkSync(bundleHelper);

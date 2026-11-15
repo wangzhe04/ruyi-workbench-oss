@@ -1,0 +1,21 @@
+── (A) 起服务 ──
+PASS A0 工作台起来了
+── (B) 契约不完整的那一轮 ──
+PASS B0 回了一条 steward_reply(status 200)
+PASS B1 帧上带 contractIncomplete(实得 true)——13h 那一帧是白名单,13q 加的字段不写进白名单就到不了前端
+PASS B2 parsed 仍然是 true(实得 true)——它是【合法 JSON 但缺必填键】,与 steward_contract_unparsed 那条老路径是两回事
+PASS B3 acts / actions 都是空的(实得 0 / 0)——用户看到的「按钮就在下面」指向的那枚按钮根本不存在
+PASS C1 落盘的章上 contractIncomplete === true(实得 true)——刷新页面之后回放那条路读的就是这一份
+PASS C2 章上 acts / actions 也都是空的(实得 0 / 0)
+PASS D1 审计里恰一条 steward_contract_incomplete(实得 1 条)
+PASS D2 带 trigger(实得 "user")
+PASS D3 带【模型到底给了哪些键】(实得 ["say"],应为 ["say"])
+PASS D4 带 sayChars(实得 45)——只记长度,正文一个字不进审计
+── (E) 契约完整的对照回合 ──
+PASS E1 四字段齐全的那一轮:帧上【没有】这个键(实得 undefined)——缺省不写,老前端读不到即为 false
+PASS E2 它落盘的章上也没有(实得 undefined),why 真的落下来了
+PASS E3 审计条数没涨,仍是 1(实得 1)
+PASS E4 why:'' 那一轮同样不打旗(帧 undefined / 章 undefined)——判据只看【键在不在】,不看值空不空
+PASS E5 审计条数仍是 1(实得 1)——三轮里只有第一轮该被记上
+
+STEWARD CONTRACT GUARD E2E: ALL PASS

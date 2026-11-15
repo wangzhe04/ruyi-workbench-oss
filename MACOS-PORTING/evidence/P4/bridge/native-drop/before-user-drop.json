@@ -1,0 +1,19 @@
+{
+  "sessionId": "sess_e3f3761801a17f66",
+  "sessionCwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+  "defaultWorkspace": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+  "workspaces": [
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 原生交互工作区",
+      "read": true,
+      "write": true,
+      "execute": true
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+      "read": true,
+      "write": true,
+      "execute": true
+    }
+  ]
+}

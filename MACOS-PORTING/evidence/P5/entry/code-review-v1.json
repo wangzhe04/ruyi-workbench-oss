@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T07:59:26.501757+00:00",
+  "verdict": "passed_final_source_review_all_findings_closed",
+  "scope": "Read-only review of entry freeze-v4: one provider-proxy journaling change; offline fake-writer E2E; opt-in native/default-approval/checkpoint E2E; generated inventory/build metadata. No GUI, test execution, rebuild, source modification or commit during this review. Only this report written.",
+  "baseCommit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+  "worktree": "/tmp/ruyi-p5-entry-worktree",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/freeze-v4.json",
+    "digest": {
+      "bytes": 3314,
+      "sha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73"
+    }
+  },
+  "frozenSources": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "expectedSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+      "expectedSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+      "bytes": 7531,
+      "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "expectedSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+      "bytes": 1335,
+      "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "expectedSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "bytes": 301569,
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "expectedSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+      "bytes": 23789,
+      "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "expectedSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "bytes": 6777831,
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "expectedSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "expectedSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "bytes": 124245,
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "expectedSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+      "bytes": 411515,
+      "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "expectedSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+      "bytes": 206712,
+      "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "expectedSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+      "bytes": 34115,
+      "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "expectedSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+      "bytes": 14066,
+      "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "expectedSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+      "bytes": 65808,
+      "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "expectedSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+      "bytes": 72914,
+      "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "expectedSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+      "bytes": 41727,
+      "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+      "matched": true
+    }
+  ],
+  "frozenArtifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "expectedSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "expectedSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "bytes": 505584,
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "expectedSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "bytes": 1038,
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "matched": true
+    }
+  ],
+  "sourceCount": 15,
+  "allFrozenHashesMatched": true,
+  "additionalDependenciesRead": [
+    {
+      "path": "dev-harness/fake-mcp.js",
+      "bytes": 33699,
+      "sha256": "4125f7c30f6ac86337df98b38bdb96f8e4deb384f3d1ff57be76948d04434950",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/checkpoint-mcpchild.e2e.js",
+      "bytes": 9835,
+      "sha256": "b5f04e03f91586f87bc46b8f024ef8b4fd3a9ed4ccd8b13c4953ba62c5709643",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/tool-loading.e2e.js",
+      "bytes": 12378,
+      "sha256": "6025e17f63706cd8de1c78d3e9b62f2bd1e0383a61da98dac90e077a95d1c2f9",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 356760,
+      "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246586,
+      "sha256": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "unchangedFromBaseCommit": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "unchangedFromBaseCommit": true
+    }
+  ],
+  "runtimeAssessment": {
+    "location": {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "line": 297
+    },
+    "conclusion": "No unresolved production blocker found for supported caller contexts. The normal provider/agent loop passes ctx.session plus authoritative ctx.sessionId/turnSeq; the selected live session now reaches the path guard and journal with that same ctx before callTool. CLI/MCP calls pass null ctx and retain the loaded WCW_SESSION_ID/turnSeq fallback. Unscoped calls still skip journaling gracefully.",
+    "callerChecks": [
+      "Provider/workflow supplies sessionId, turnSeq, session, config, workingDir and signal",
+      "Agent loop supplies the same session and turn fields",
+      "HTTP sessionId path loads its session before dispatch",
+      "MCP child null-context fallback retains the prior loaded-session construction"
+    ],
+    "preservedGuards": [
+      "Tool/catalog policy, tiers, required args, Office gate and absolute write-path refusal remain before dispatch",
+      "Bridged read path gate remains before journal and actual MCP call",
+      "Journal remains best-effort, per-target and before the actual bridge call",
+      "AbortSignal continues to reach client.callTool"
+    ],
+    "contextLimit": "Review does not establish a new public contract for arbitrary inconsistent/session-only ctx objects. Known production callers use coherent session and id/turn fields; journalSessionCtx prioritizes explicit ctx id/turn."
+  },
+  "testAssessment": {
+    "offline": "Real service/session/provider turn/proxy/fake-MCP file writer, four unique create/overwrite cases. The matching turn_summary, exact fake bytes, before-image bytes and rollback state make the original missing-context defect observable. Image encoding/native capture are deliberately outside this offline fixture.",
+    "native": "Only provider replies are fake. Uses real owned receiver, actual ACC/native helper, ordinary default-mode permission requests and decision/cancel endpoints. Allow is coupled to receiver counts and enclosing/native audit; deny/cancel require no receiver/audit mutations and no pending permission. Four image cases verify actual PNG, changed overwritten bytes, correct session/turn checkpoint and exact rollback.",
+    "isolation": "Both use self-isolate-home/fixtureChildEnv and own data/work directories. Native HOME/USERPROFILE/APPDATA/LOCALAPPDATA are explicitly isolated; process.env precedes the same isolated env overrides, so the inventory-friendly expression does not weaken isolation. Background imports/scheduler/steward/MCP autodetection are disabled.",
+    "desktopCleanup": "Native fixture snapshots the clipboard before seeding controlled image formats, restores conditionally by ownership version, and records source-abc/original-source restoration. No Cmd+V or original clipboard payload is used by the test actions. Native workers receive owned SIGTERM before tree cleanup; final clipboard/input-source success is required if those states were touched.",
+    "processCleanupScope": "Observed owned birth identities only, not a census of arbitrary unobserved escaped processes. Incomplete/skipped receipts fail the fixture and preserve its isolated root. No actual cleanup or failure injection was executed by this reviewer."
+  },
+  "windowsAssessment": {
+    "offlineStructurallyPortable": true,
+    "windowsRuntimeExecutedByReviewer": false,
+    "basis": [
+      "Node24 built-ins only; process.execPath and argument arrays, no shell syntax",
+      "path.join/path.resolve and actual os.tmpdir produce host-native absolute paths",
+      "Fake screenshot/clipboard writers are filesystem-only and require no ACC/Python/native desktop",
+      "Binary before-image buffer and exact byte comparison are platform-neutral",
+      "Owned cleanup uses the existing Windows CIM/birth-checked helper; unavailable cleanup evidence fails rather than being called complete"
+    ],
+    "limits": "No same-SHA Windows runtime result is claimed. Existing checkpoint-mcpchild covers native CLI file_write and tool-loading covers proxy/catalog paths; neither alone proves every CLI bridged-write journal branch. The null-ctx fallback compatibility conclusion here is source-based."
+  },
+  "inventoryAssessment": {
+    "processSafety": "364\u2192366 is the two new owned-cleanup fixtures; guard semantics retained",
+    "fixtureHome": "230\u2192231 reflects the new native service spawn site; isolated env still overrides inherited values",
+    "routeInventory": "Independent structural JSON comparison found only generatedAt and coveredBy additions for the two new fixtures; route/auth/handler definitions unchanged. These generated references are heuristic inventory links, not evidence of executing every listed route.",
+    "factsReadme": "590 total,583 default,7 configured live exclusions now consistent",
+    "buildManifest": "server.js and manifest changes are the generated one-line source expansion; no second runtime implementation introduced"
+  },
+  "findings": [
+    {
+      "id": "E1",
+      "priority": 2,
+      "title": "Bind native checkpoint to the actual turn",
+      "originalLocation": {
+        "file": "dev-harness/macos-native-entry.e2e.js",
+        "line": 231
+      },
+      "issue": "The original assertion accepted any finite turnSeq in the right session, so a wrong-turn entry could be rolled back and mislabelled as per-turn evidence.",
+      "status": "closed_by_source_review",
+      "resolutionLocation": {
+        "file": "dev-harness/macos-native-entry.e2e.js",
+        "line": 245
+      },
+      "resolution": "Requires a positive integer and equality to this turn's turn_summary.turnSeq."
+    },
+    {
+      "id": "E2",
+      "priority": 2,
+      "title": "Do not equate root exit with complete owned cleanup",
+      "originalLocations": [
+        {
+          "file": "dev-harness/checkpoint-proxy-session.e2e.js",
+          "line": 75
+        },
+        {
+          "file": "dev-harness/macos-native-entry.e2e.js",
+          "line": 249
+        }
+      ],
+      "issue": "Both fixtures ignored killOwnTree incomplete/skipped results and only awaited the root. The cleanup helper explicitly supports degraded direct-child cleanup; this was an evidence gap, not an observed leak.",
+      "status": "closed_by_source_review",
+      "resolutionLocations": [
+        {
+          "file": "dev-harness/checkpoint-proxy-session.e2e.js",
+          "line": 77
+        },
+        {
+          "file": "dev-harness/macos-native-entry.e2e.js",
+          "line": 263
+        }
+      ],
+      "resolution": "Snapshots root/descendant birth identities before cleanup, preserves receipts, rejects incomplete/skipped, confirms observed identities gone and retains isolated data on failure. Native worker graceful stop precedes force cleanup; receiver identity exit is separately verified. BigInt creation stamps serialize as strings."
+    },
+    {
+      "id": "E3",
+      "priority": 3,
+      "title": "Prove fake overwrite mutation actually occurred",
+      "originalLocation": {
+        "file": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "line": 63
+      },
+      "issue": "A pre-existing overwrite target plus any non-error result did not prove this fake writer changed the bytes.",
+      "status": "closed_by_source_review",
+      "resolutionLocation": {
+        "file": "dev-harness/checkpoint-proxy-session.e2e.js",
+        "line": 63
+      },
+      "resolution": "Correlates call_image and requires complete FAKE_WINDOW_PNG or FAKE_CLIP_PNG bytes; before-image and exact rollback checks remain."
+    },
+    {
+      "id": "E4",
+      "priority": 3,
+      "title": "Update default regression count alongside the total",
+      "issue": "README total advanced from588 to590 while the default count remained581. With seven configured runner exclusions, the current default candidate count is583.",
+      "status": "closed_by_source_review",
+      "resolutionLocations": [
+        {
+          "file": "README.md",
+          "line": 89
+        },
+        {
+          "file": "README_EN.md",
+          "line": 89
+        }
+      ],
+      "resolution": "Both README default counts are583, total590; no test assertions removed."
+    }
+  ],
+  "unresolvedFindings": [],
+  "reportedExecutionHistory": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/development/engineering-v1/fast.txt",
+      "digest": {
+        "bytes": 15615,
+        "sha256": "d8ea6649e8adae38217ef99b38e8344bb74d16f5e8af601d7d941a1d644e9f54"
+      },
+      "summaryLines": [
+        "# \u6c47\u603b: 76 pass / 4 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped"
+      ],
+      "containsBuiltInRetryDiagnostics": true,
+      "binding": "Parent execution evidence, not independently rerun in this review; engineering-v3 overlapped README/E2E review edits and is not a frozen-v4 full-source run."
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/development/engineering-v2/fast.txt",
+      "digest": {
+        "bytes": 11936,
+        "sha256": "f4c5ad8afc3074fd0a2f47f57e7be6c7e713113a5b4cd5a438a5f2dc1c0958f8"
+      },
+      "summaryLines": [
+        "# \u6c47\u603b: 78 pass / 2 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped"
+      ],
+      "containsBuiltInRetryDiagnostics": true,
+      "binding": "Parent execution evidence, not independently rerun in this review; engineering-v3 overlapped README/E2E review edits and is not a frozen-v4 full-source run."
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/development/engineering-v3/fast.txt",
+      "digest": {
+        "bytes": 5739,
+        "sha256": "ee8eda02c1c88cd4003b3ec8fcd59e566bfb091d3c43310c2f03b988de5f006b"
+      },
+      "summaryLines": [
+        "# \u6c47\u603b: 80 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped"
+      ],
+      "containsBuiltInRetryDiagnostics": false,
+      "binding": "Parent execution evidence, not independently rerun in this review; engineering-v3 overlapped README/E2E review edits and is not a frozen-v4 full-source run."
+    }
+  ],
+  "executionBindingLimit": "Parent reports old-code negative control with writes succeeding/checkpoints failing, repaired offline runs and native GUI development runs. Those are not this review's independent runtime results. Initial fast76/80 and next78/80 plus built-in retry history are retained. Final fast80/80 overlapped fixture/README edits; no final-frozen-candidate claim is made until the separately authorized independent acceptance.",
+  "nextAuthorizedAcceptance": {
+    "state": "not_started_at_report_write",
+    "serial": [
+      "checkpoint-proxy-session.e2e.js",
+      "macos-native-entry.e2e.js with RUYI_P5_ENTRY_REQUIRED=1",
+      "run-all.js --fast (includes unit preflight)"
+    ],
+    "legacyNativePythonRerunNeeded": false,
+    "lockOrTCCRevocationIncluded": false
+  },
+  "phaseStatus": "in_progress"
+}

@@ -1,0 +1,17 @@
+PASS old and new image checksums/provenance verify and bind different same-variant builds
+PASS previous installed App starts after its image is ejected and its service exits cleanly
+PASS offline complete data snapshot preserves representative legacy config and session bytes
+PASS corrupt distribution is refused before any old App or data changes
+PASS incomplete staged copy fails integrity checks while the previous App remains usable
+PASS complete new App is validated separately while the old installation remains intact
+PASS whole-App replacement keeps the previous signed App and leaves business data separate
+PASS new installed App initializes the real workbench and releases its service after upgrade
+PASS new build migrates representative schema12 config and retains the old session bytes
+PASS App-only rollback does not silently erase post-upgrade business data
+PASS rollback restores the selected complete snapshot to a fresh data root and retains newer data
+PASS retained previous App starts using the restored pre-upgrade data
+PASS backup remains immutable and original session bytes survive the full drill
+PASS both signed App payloads and source distributions remain unchanged after upgrade and rollback
+Upgrade rollback evidence: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-MQ22GX
+
+MACOS UPGRADE ROLLBACK E2E: ALL PASS

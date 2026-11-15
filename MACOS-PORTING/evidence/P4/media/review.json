@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-07",
+  "reviewer": "/root/p4_host_review",
+  "status": "code_review_passed_acceptance_partial",
+  "remainingCodeFindings": 0,
+  "independent": {
+    "media": {
+      "passed": 32,
+      "failed": 0,
+      "log": "media-independent-final.txt"
+    },
+    "bridge": {
+      "passed": 35,
+      "failed": 0,
+      "log": "../bridge/protocol-independent-final.txt"
+    },
+    "host": {
+      "passed": 30,
+      "failed": 1,
+      "log": "../bridge/host-independent-final.txt",
+      "failure": "LaunchServices service_start_timeout, pending actual Documents authorization",
+      "failedAppAndServiceExited": true
+    }
+  },
+  "findings": [
+    {
+      "issue": "VAD initialization leaked a partially built AudioContext",
+      "resolution": "disconnect any source and close context on initialization failure",
+      "status": "closed"
+    },
+    {
+      "issue": "stream initialization failure leaked the upstream session and partial audio resources",
+      "resolution": "initialize cleanup state before creating resources and call streamTeardown on failure",
+      "status": "closed"
+    },
+    {
+      "issue": "cancel during asynchronous segment decode could still upload after decode",
+      "resolution": "recheck discard/failedKey immediately after decode and before upload",
+      "status": "closed"
+    },
+    {
+      "issue": "continuous speech returned before maximum segment duration was checked",
+      "resolution": "retain loud-state bookkeeping and evaluate hard split for both loud and quiet input",
+      "status": "closed"
+    },
+    {
+      "issue": "acceptance script exceptions and unserializable results could trigger repeated side effects",
+      "resolution": "single in-flight execution, full readiness gate, caught script and serialization failure with normal shutdown",
+      "status": "closed"
+    },
+    {
+      "issue": "synthetic acceptance could pass silent audio with a permissive fake ASR",
+      "resolution": "assert non-silent normalized RMS on actual uploaded WAV and streaming PCM",
+      "status": "closed"
+    }
+  ],
+  "pending": [
+    "real microphone permission and <=3s recording",
+    "notification allow/recovery/delivery and remaining visible P4-02 interactions",
+    "LaunchServices folder authorization",
+    "existing browser voice regression under current macOS environment"
+  ]
+}

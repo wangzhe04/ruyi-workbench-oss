@@ -1,0 +1,16 @@
+PASS W2 前提:回合内起了一个活的前台 run
+PASS W2 前提:节点在跑
+PASS W2 按回合的停止 → 聊天流收尾
+PASS W2 父回合被停止导致的中止:run 记 stopped(修前 failed / partial;实得 stopped)
+PASS W2 不是看门狗中止(没有 idleAborted 标)
+PASS W1 持有者 run 被受理
+PASS W1 前提:持有者的节点拿到资源、在跑
+PASS W1 等待者 run 被受理
+PASS W1 前提:等待者的节点在 waiting_resource 里排队
+PASS W1 持有者自己跑完(实得 succeeded)
+PASS W1 前提:等待者排队时间(12372ms)越过了 run 级空闲上限(2500ms)加一整拍看门狗(5 s)
+PASS W1 等待者没有被当成空闲中止,拿到资源后跑完 succeeded(修前 idleAborted / failed;实得 succeeded)
+PASS W1 等待者 run 没有 idleAborted 标
+PASS W1 等待者的节点没有 idle_timeout 归类
+
+AGENT RESOURCE WAIT / PARENT STOP E2E: ALL PASS

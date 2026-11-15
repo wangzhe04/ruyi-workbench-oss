@@ -1,0 +1,54 @@
+PASS workbench starts
+PASS fake provider up
+PASS session created
+PASS A background orchestrate_agents returns {runId, status:running} immediately
+PASS A parent tool_use is orchestrate_agents (single entry)
+PASS A parent turn ends normally while the agent keeps running
+PASS A workflow start event is tagged background:true
+PASS A run is still live after the parent turn ended (not killed by turn end)
+PASS A background tray lists the run as kind:agent with a stoppable id
+PASS A persisted toolCalls result is the small receipt
+PASS A persisted workflow segment is background (finalizeAll did not mark it cancelled)
+FAIL B a new turn completes normally while the agent is still running
+PASS B no envelope injected before the run finished
+PASS C run finished with a ≥20k-char archived node result (sub produced 50k; archive cap 24k pre-exists) — got 24000
+PASS C exactly one agent envelope job in the background ledger (bounded)
+PASS C exactly one hidden receipt row in the session data plane
+PASS C follow-up turn ok
+PASS C the envelope notice appears exactly once in the next request and names the runId
+PASS C the injected envelope is bounded (node produced 50k chars)
+PASS C no message in the parent context carries the 50k node output (max 8228)
+PASS D agent_result returns a bounded slice with paging info — {"len":5000,"total":24000,"truncated":true,"next":5000}
+PASS D the earlier envelope notice is still exactly once (no re-injection)
+PASS E synchronous call returns the envelope (summary ≤1500 + fullChars, no raw result)
+PASS E persisted toolCalls result is the envelope, not the full node output
+PASS E synchronous workflow segment settles done
+PASS E a synchronous run does not also enter the background ledger (no double delivery)
+PASS F1 wait_agents started while the run was live → returns the full terminal envelope
+PASS F1 no completion notice for that run in the same turn (the wait took it first)
+PASS F2 notice-first turn completes
+FAIL F2 precondition: the parent powershell_run pause really ran — {"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"}
+  F2 timing: run createdAt=2026-11-12T10:50:22.414Z completedAt=2026-11-12T10:50:22.552Z status=succeeded | tool_use at index 18, wait tool_result at index 34
+FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {"kind":"agent_envelope"}
+FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1
+PASS F3 follow-up turn ok
+PASS F3 the wait-first run is never injected later
+FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)
+FAIL F3 parent context carries exactly two distinct notices in total (first run + notice-first run)
+PASS F3 the ledger holds exactly one envelope per run
+PASS G long background run launched
+PASS G long run is live before stop
+PASS G background tray stop accepted
+PASS G explicit stop ends the run as stopped — status=stopped live=undefined after 203ms
+PASS G stop interrupts the in-flight long command promptly (sub-agent tool calls carry the abort signal) — 203ms
+PASS G the stopped run still delivers exactly one (stopped) envelope
+PASS H sub-agent tool events (if streamed) are tagged background + subagentId
+PASS H every streamed sub-agent tool event carries background:true (parent activity bar ignores it)
+PASS I MCP tools/list: no spawn_agent; orchestrate/wait/result present
+PASS I MCP agent_result loops back and returns a bounded slice — { "ok": true, "runId": "run_f66a9d5cf30f8e41", "nodeId": "slow", "runStatus": "succeeded", "status": "succeeded", "live": false, "text": "结论:ZQZQZ
+PASS I MCP spawn_agent is translated into a single-node orchestrate run and returns an envelope with the merge note
+PASS I MCP wait_agents loops back; an already-delivered run comes back as a short receipt
+
+AGENT MODE V2 E2E: FAIL (6)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-MU5BwA

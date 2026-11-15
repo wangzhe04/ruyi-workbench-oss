@@ -1,0 +1,27 @@
+PASS prepared cache is resolved by the SDK; installed binary alone is not reported ready
+PASS bundled Chromium attaches with its own ephemeral profile
+PASS actual Chromium command line uses fixture-only user-data-dir paths
+PASS real browser fills and submits a Chinese form only to the local fixture
+PASS real page screenshot returns a valid bounded PNG
+PASS browser back navigation preserves the local history
+PASS tabs can be listed and switched without losing their page state
+PASS unavailable local site returns an actual navigation error
+OWNED_CLOSE={"closed":{"ok":true,"success":true,"mode":"bundled","closed":true,"hint":"Owned browser closed."},"processesGone":false,"profilesGone":true,"remaining":[{"pid":26631,"ppid":26630,"command":"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"},{"pid":26632,"ppid":26631,"command":"/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"}]}
+FAIL browser_close removes owned Chromium/driver processes and temporary profiles
+PASS closed backend no longer claims readiness
+PASS stdio EOF lifespan closes the owned browser, driver and profile without browser_close
+PASS missing offline browser cache reports the real dependency gap without downloading
+PASS browser runtime failure does not disable unrelated shared file tools
+PASS failed runtime lookup creates no browser cache
+PASS absent Playwright package returns a precise failure while MCP remains available
+PASS CDP read/type followed by close never closes an existing unowned page
+PASS connected Workbench page is preserved even when new_tab=false
+CDP_REMAINING=[{"id":"CB0E7BAFE57AB45EAE55956991693749","type":"page","url":"http://127.0.0.1:57610/workbench"},{"id":"D855D7F06825BBE7502149DF103F8CEC","type":"browser_ui","url":"chrome://webui-toolbar.top-chrome/"},{"id":"03CB9315FFEFA65FA4347EAA2BF0B1A7","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/"},{"id":"5D3FD83285EBE70BAADD029A4F2B7B8F","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html"},{"id":"2D45D7824FA9828255F9D92854604588","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"},{"id":"BEE5EC98B032E00729F2F5FA950436F5","type":"service_worker","url":"chrome-extension://glbjnfimcajjenihimblfaponejbkoph/background.js"},{"id":"889C256F340C5FC8A75B9F98B2B3AF29","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"}]
+FAIL CDP close removes every owned tab and preserves the original page and profile sentinel
+FAIL Error: browser_execute_js: {"ok":false,"error":"refused: refusing to execute JS on the Ruyi Workbench tab (would expose workbench credentials/data). Open a non-workbench page first."}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-browser-runtime.e2e.js:58:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-browser-runtime.e2e.js:187:19
+PASS all fixture Chromium processes are gone after final cleanup
+
+MACOS BROWSER RUNTIME E2E: FAIL (3)

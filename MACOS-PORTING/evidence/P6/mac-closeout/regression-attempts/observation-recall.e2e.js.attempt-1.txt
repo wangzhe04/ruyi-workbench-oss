@@ -1,0 +1,31 @@
+── [U] observation_recall 白盒契约 ──
+PASS U0 stable 快照前缀已生成(history:7:e367bf8876215124)
+PASS U1 happy path 逐字节还原原文
+PASS U2 maxChars=1000 连续前缀页并带 nextOffset
+PASS U3 伪造 rawRef → invalid_ref
+PASS U4 篡改内容 hash → hash_mismatch
+PASS U5 不存在快照 → not_found
+PASS U6 args.sessionId 伪造被忽略(仍按 ctx 会话解析)
+PASS U7 每回合配额 8 次,第 9 次 → quota_exceeded
+PASS U8 新回合配额独立恢复
+PASS U9 recall 单关 → disabled(fail-closed)
+PASS U10 双关 → disabled
+PASS U11 开关生效时缩减视图含回读决策提示
+PASS U12 默认关时缩减视图零提示(快照零漂移)
+PASS U13 JSON 缩减 meta 含回读决策提示
+PASS U14 默认配置 offer observation_recall
+PASS U14b 显式双关隐藏 observation_recall
+PASS U15 双开时 offer observation_recall:精确旧值先回读缩减原文,省略不等于不存在
+PASS U15b recovery index 双开时携带 rawRef、默认关闭时为空
+PASS U16 adaptive 目录按双开关隐藏/显示
+── [R] 跨进程 rehydrate ──
+PASS R1 子进程(模拟重启后)rehydrate 成功且长度一致
+── [E] fake-openai 集成(双开关开) ──
+PASS E0 workbench listening on :51754
+PASS E1 回合 result ok:true
+PASS E2 session id captured
+PASS E3 fake 在真实回合中主动调用 observation_recall(offer 生效)
+PASS E4 稳定信封经 HTTP 链路回传(invalid_ref)
+PASS E5 配对铁律:1 个 tool_call 全部有应答
+
+OBSERVATION-RECALL E2E: ALL PASS

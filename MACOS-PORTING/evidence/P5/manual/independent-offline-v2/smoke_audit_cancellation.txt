@@ -1,0 +1,17 @@
+test_audit_failure_never_replaces_cancellation (__main__.CancellationAudit.test_audit_failure_never_replaces_cancellation) ... ok
+test_cancellation_cannot_claim_success_in_its_typed_result (__main__.CancellationAudit.test_cancellation_cannot_claim_success_in_its_typed_result) ... ok
+test_generic_cancel_is_audited_once_with_unknown_effects (__main__.CancellationAudit.test_generic_cancel_is_audited_once_with_unknown_effects) ... ok
+test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible (__main__.CancellationAudit.test_legacy_positional_writer_call_and_normal_wrapper_remain_compatible) ... ok
+test_nested_audited_calls_each_record_their_own_cancellation_once (__main__.CancellationAudit.test_nested_audited_calls_each_record_their_own_cancellation_once) ... ok
+test_non_audited_cancellation_stays_unlogged (__main__.CancellationAudit.test_non_audited_cancellation_stays_unlogged) ... ok
+test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads (__main__.CancellationAudit.test_outcome_is_a_small_typed_allowlist_and_never_copies_result_payloads) ... ok
+test_outer_cancel_never_reuses_inner_not_dispatched_after_an_earlier_action (__main__.CancellationAudit.test_outer_cancel_never_reuses_inner_not_dispatched_after_an_earlier_action) ... ok
+test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes (__main__.MacCancellationAudit.test_cancel_after_dispatch_retains_sent_state_and_audits_before_observer_finishes) ... ok
+test_cancel_before_capture_audits_not_dispatched_and_posts_nothing (__main__.MacCancellationAudit.test_cancel_before_capture_audits_not_dispatched_and_posts_nothing) ... ok
+test_timeout_after_dispatch_audits_known_sent_state (__main__.MacCancellationAudit.test_timeout_after_dispatch_audits_known_sent_state) ... ok
+test_uncertain_native_failure_preserves_dispatch_state_in_result_and_audit (__main__.MacCancellationAudit.test_uncertain_native_failure_preserves_dispatch_state_in_result_and_audit) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.380s
+
+OK

@@ -1,0 +1,1854 @@
+{
+  "results": [
+    {
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 3862,
+            "height": 448,
+            "pid": 22799,
+            "process_start": "1794327069:643211",
+            "target": {
+              "bounds": {
+                "height": 448,
+                "width": 820,
+                "x": 160,
+                "y": 492
+              },
+              "handle": 3862,
+              "pid": 22799,
+              "process_start": "1794327069:643211",
+              "ref": "339C953F-0ADF-4560-876C-9F7FDA9DEC05"
+            },
+            "title": "Ruyi P5 OCR 22799",
+            "visible": true,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          {
+            "application": "QQ",
+            "handle": 3447,
+            "height": 460,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 460,
+                "width": 320,
+                "x": 695,
+                "y": 268
+              },
+              "handle": 3447,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "66942CF4-44B4-45E0-BA96-71326B19F7A4"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 320,
+            "x": 695,
+            "y": 268
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "0453F1A7-ACB3-420C-902D-1D8D0CD98677"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "09AFF5CC-A190-4322-A24B-2EA1844937F3"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "E2CCFA52-0580-40DB-9079-66C0CAD6F591"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "focus_window",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "receiver",
+          "handle": 3862,
+          "height": 448,
+          "pid": 22799,
+          "process_start": "1794327069:643211",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3862,
+            "pid": 22799,
+            "process_start": "1794327069:643211",
+            "ref": "339C953F-0ADF-4560-876C-9F7FDA9DEC05"
+          },
+          "title": "Ruyi P5 OCR 22799",
+          "visible": true,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        }
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 1,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 2,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Another action verification is running",
+        "code": "verification_busy"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 3,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "phase": "after",
+      "requestId": 6,
+      "received": {
+        "counts": [
+          1,
+          0,
+          0
+        ],
+        "content": {
+          "y": 520,
+          "x": 160,
+          "width": 820,
+          "height": 420
+        },
+        "buttons": [
+          {
+            "bounds": {
+              "y": 750,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 750,
+              "x": 590,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 845,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "中文保存"
+          }
+        ],
+        "id": 3862,
+        "event": "state",
+        "title": "Ruyi P5 OCR 22799",
+        "counterText": "COUNTS 1   0   0",
+        "modifiers": 0,
+        "leftHeld": false,
+        "counterBounds": {
+          "y": 845,
+          "x": 590,
+          "width": 320,
+          "height": 65
+        },
+        "pid": 22799
+      },
+      "cancellation": {
+        "ts": "2026-11-11T00:11:11",
+        "tool": "act_and_verify",
+        "ok": false,
+        "args": {
+          "action": "<dict keys=3>",
+          "target": "<dict keys=5>",
+          "region": null,
+          "settle_ms": 0,
+          "save_shots": false,
+          "return_image": ""
+        },
+        "error": "Action verification cancelled",
+        "ms": 610,
+        "cancelled": true,
+        "action_sent": true,
+        "confirmed": null,
+        "outcome": "unconfirmed"
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": true,
+        "action_result": {
+          "acted": true,
+          "action_sent": true,
+          "ok": true,
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        },
+        "confirmed": null,
+        "verification": "screen_change_observation",
+        "outcome": "unconfirmed",
+        "action_sent": true,
+        "effect_observed": false,
+        "changed_ratio": 0,
+        "changed_pixels": 0,
+        "changed_ratio_full": 0,
+        "full_scope": "captured_target_window",
+        "region": {
+          "x": 160,
+          "y": 492,
+          "width": 820,
+          "height": 448
+        },
+        "coordinate_space": "macos_global_points",
+        "waited_ms": 0,
+        "settled": true,
+        "before_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/shots/before-20261111-001112-250474000-1.jpg",
+        "after_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/shots/after-20261111-001112-250474000-1.jpg",
+        "shots_reason": "no_change"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 4,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 5,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 41,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Another action verification is running",
+        "code": "verification_busy"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 6,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 41,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "phase": "before",
+      "requestId": 12,
+      "received": {
+        "counts": [
+          1,
+          0,
+          0
+        ],
+        "content": {
+          "y": 520,
+          "x": 160,
+          "width": 820,
+          "height": 420
+        },
+        "buttons": [
+          {
+            "bounds": {
+              "y": 750,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 750,
+              "x": 590,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 845,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "中文保存"
+          }
+        ],
+        "id": 3862,
+        "event": "state",
+        "title": "Ruyi P5 OCR 22799",
+        "counterText": "COUNTS 1   0   0",
+        "modifiers": 0,
+        "leftHeld": false,
+        "counterBounds": {
+          "y": 845,
+          "x": 590,
+          "width": 320,
+          "height": 65
+        },
+        "pid": 22799
+      },
+      "cancellation": {
+        "ts": "2026-11-11T00:11:12",
+        "tool": "act_and_verify",
+        "ok": false,
+        "args": {
+          "action": "<dict keys=3>",
+          "target": "<dict keys=5>",
+          "region": null,
+          "settle_ms": 0,
+          "save_shots": false,
+          "return_image": ""
+        },
+        "error": "Action verification cancelled",
+        "ms": 41,
+        "cancelled": true,
+        "action_sent": false,
+        "confirmed": null,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 6,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 41,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 9,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 41,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "mouse_click",
+            "ok": true,
+            "args": {
+              "x": 350,
+              "y": 782.5,
+              "target": "<dict keys=5>"
+            },
+            "ms": 52,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "settle_ms": 0
+            },
+            "error": "Action verification cancelled",
+            "ms": 32,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "macro_run",
+            "ok": false,
+            "args": {
+              "steps": "<list len=2>",
+              "on_error": "stop",
+              "delay_ms": 0,
+              "recording": null,
+              "target": null
+            },
+            "error": "Tool execution cancelled",
+            "ms": 84,
+            "cancelled": true,
+            "outcome": "unknown"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Another action verification is running",
+        "code": "verification_busy"
+      }
+    },
+    {
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 10,
+        "records": [
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "focus_window",
+            "ok": true,
+            "args": {
+              "target": "<dict keys=5>"
+            },
+            "ms": 41
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 610,
+            "cancelled": true,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:11",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": true,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "ms": 387,
+            "action_sent": true,
+            "confirmed": null,
+            "outcome": "unconfirmed"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 0,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "Action verification cancelled",
+            "ms": 41,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "mouse_click",
+            "ok": true,
+            "args": {
+              "x": 350,
+              "y": 782.5,
+              "target": "<dict keys=5>"
+            },
+            "ms": 52,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=3>",
+              "target": "<dict keys=5>",
+              "settle_ms": 0
+            },
+            "error": "Action verification cancelled",
+            "ms": 32,
+            "cancelled": true,
+            "action_sent": false,
+            "confirmed": null,
+            "outcome": "not_dispatched"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "macro_run",
+            "ok": false,
+            "args": {
+              "steps": "<list len=2>",
+              "on_error": "stop",
+              "delay_ms": 0,
+              "recording": null,
+              "target": null
+            },
+            "error": "Tool execution cancelled",
+            "ms": 84,
+            "cancelled": true,
+            "outcome": "unknown"
+          },
+          {
+            "ts": "2026-11-11T00:11:12",
+            "tool": "act_and_verify",
+            "ok": false,
+            "args": {
+              "action": "<dict keys=2>",
+              "target": "<dict keys=5>",
+              "region": null,
+              "settle_ms": 500,
+              "save_shots": false,
+              "return_image": ""
+            },
+            "error": "DesktopError: Another action verification is running",
+            "ms": 0
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-audit-cancel-PwlC08/acc-data/logs"
+      }
+    },
+    {
+      "phase": "macro-before",
+      "requestId": 17,
+      "received": {
+        "counts": [
+          2,
+          0,
+          0
+        ],
+        "content": {
+          "y": 520,
+          "x": 160,
+          "width": 820,
+          "height": 420
+        },
+        "buttons": [
+          {
+            "bounds": {
+              "y": 750,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 750,
+              "x": 590,
+              "width": 320,
+              "height": 65
+            },
+            "text": "Save Draft"
+          },
+          {
+            "bounds": {
+              "y": 845,
+              "x": 190,
+              "width": 320,
+              "height": 65
+            },
+            "text": "中文保存"
+          }
+        ],
+        "id": 3862,
+        "event": "state",
+        "title": "Ruyi P5 OCR 22799",
+        "counterText": "COUNTS 2   0   0",
+        "modifiers": 0,
+        "leftHeld": false,
+        "counterBounds": {
+          "y": 845,
+          "x": 590,
+          "width": 320,
+          "height": 65
+        },
+        "pid": 22799
+      },
+      "cancellation": {
+        "ts": "2026-11-11T00:11:12",
+        "tool": "macro_run",
+        "ok": false,
+        "args": {
+          "steps": "<list len=2>",
+          "on_error": "stop",
+          "delay_ms": 0,
+          "recording": null,
+          "target": null
+        },
+        "error": "Tool execution cancelled",
+        "ms": 84,
+        "cancelled": true,
+        "outcome": "unknown"
+      }
+    }
+  ],
+  "reports": [
+    {
+      "counts": [
+        0,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "ready",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 0   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 1   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        2,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 2   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        2,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 2   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        2,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 2   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    },
+    {
+      "counts": [
+        2,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3862,
+      "event": "state",
+      "title": "Ruyi P5 OCR 22799",
+      "counterText": "COUNTS 2   0   0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 22799
+    }
+  ]
+}

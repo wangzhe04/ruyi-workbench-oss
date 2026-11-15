@@ -1,0 +1,35 @@
+PASS 生产服务就绪
+PASS STATUS 生产管家回合完成并返回 steward_reply
+PASS J01 已知状态:实际查询回执进入下一次模型请求
+PASS 中文分流契约进入真实生产请求的系统提示
+PASS MATERIAL 生产管家回合完成并返回 steward_reply
+PASS J02 材料解释:本回合真实读到正文与污染标记
+PASS J02 外部资料有不可信围栏
+PASS FOLLOWUP 生产管家回合完成并返回 steward_reply
+PASS J05 既有任务续问:读取目标线程交付原件后解释
+PASS J01/J02/J05 直接读取不额外创建任务或速查线程
+PASS REPORT 生产管家回合完成并返回 steward_reply
+PASS J03 实际交办且线程落盘
+PASS REPORT 委托保留用户原话与目标工作区
+PASS EDIT 生产管家回合完成并返回 steward_reply
+PASS J04 实际交办且线程落盘
+PASS EDIT 委托保留用户原话与目标工作区
+PASS CONTINUE 生产管家回合完成并返回 steward_reply
+PASS 已有任务修改实际回到原线程,不开替代线程
+PASS MISSING 生产管家回合完成并返回 steward_reply
+PASS RESOLVED 生产管家回合完成并返回 steward_reply
+PASS 缺材料只问缺项,答复进入原管家会话并完成读取
+PASS OUTSIDE 生产管家回合完成并返回 steward_reply
+PASS 反向:工作区外文件被拒,未放开读取边界
+PASS WEB 生产管家回合完成并返回 steward_reply
+PASS 反向:网页只读仍执行SSRF护栏并如实回失败
+PASS TAINT 生产管家回合完成并返回 steward_reply
+PASS 反向:读取后的设置写动作被污染闸拒绝且设置未变
+PASS 切换英文契约
+PASS EN 生产管家回合完成并返回 steward_reply
+PASS 英文生产系统提示与只读回执同样到位
+PASS 缺材料/失败/外部诱导均未额外开线程
+PASS 最终管家原请求与基于原件的回答实际落盘
+PASS 假 provider 无未处理错误
+
+STEWARD READ ROUTING E2E: ALL PASS

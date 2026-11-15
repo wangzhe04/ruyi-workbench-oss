@@ -1,0 +1,1759 @@
+{
+  "reviewer": "/root/p6_02_review",
+  "startedAt": "2026-11-12T15:18:56.994Z",
+  "node": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+  "nodeVersion": "v24.15.0",
+  "sourceFreeze": "MACOS-PORTING/evidence/P6/mac-closeout/source-freeze-closeout.json",
+  "freezeSha256": "2f8e24c41e4676eae4bfbc289aae4f6f32678c98ba0e5ae7d36546a0d116361a",
+  "tempRoot": "/private/tmp/ruyi-p6-independent-closeout-IjLKkI",
+  "serial": true,
+  "automaticRetries": 0,
+  "requiredNativeInput": true,
+  "cases": [
+    {
+      "name": "quote-unit",
+      "args": [
+        "--test",
+        "dev-harness/unit/platform-shell-fixture.test.js"
+      ],
+      "startedAt": "2026-11-12T15:18:56.995Z",
+      "ms": 187,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "quote-unit.txt",
+      "logSha256": "406e242719a50e5c4c4bfa88b2247ee26146a67204f10258396e7b08b99e454a",
+      "rawPassLines": [],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5306,
+          "created": "1794496736996816",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": [],
+      "unitSummary": {
+        "pass": 2,
+        "fail": 0,
+        "skip": 0
+      }
+    },
+    {
+      "name": "bridge-cancel-timeout",
+      "args": [
+        "dev-harness/bridge-cancel-timeout.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:18:57.183Z",
+      "ms": 3273,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "bridge-cancel-timeout.txt",
+      "logSha256": "f998d3baeadba4305662c8c52e87b742f30cc232d9a38d69d455c928c06483f4",
+      "rawPassLines": [
+        "BRIDGE CANCEL/TIMEOUT E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5311,
+          "created": "1794496737183395",
+          "name": ""
+        },
+        {
+          "pid": 5316,
+          "created": "1794496737236995",
+          "name": ""
+        },
+        {
+          "pid": 5315,
+          "created": "1794496737236050",
+          "name": ""
+        },
+        {
+          "pid": 5331,
+          "created": "1794496737705882",
+          "name": ""
+        },
+        {
+          "pid": 5332,
+          "created": "1794496737707367",
+          "name": ""
+        },
+        {
+          "pid": 5333,
+          "created": "1794496737707783",
+          "name": ""
+        },
+        {
+          "pid": 5377,
+          "created": "1794496739200018",
+          "name": ""
+        },
+        {
+          "pid": 5385,
+          "created": "1794496739512453",
+          "name": ""
+        },
+        {
+          "pid": 5386,
+          "created": "1794496739514307",
+          "name": ""
+        },
+        {
+          "pid": 5387,
+          "created": "1794496739515083",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "privacy-gateway",
+      "args": [
+        "dev-harness/privacy-gateway.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:00.457Z",
+      "ms": 19111,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "privacy-gateway.txt",
+      "logSha256": "9db7514517412f99c236eff8e9b3988cc472782cf26e621bceb0fd97a2c9d73b",
+      "rawPassLines": [
+        "PRIVACY GATEWAY E2E: ALL PASS"
+      ],
+      "skipLines": [
+        "SKIP production privacy fixture requires Windows DPAPI; portable gateway behavior is covered by unit tests"
+      ],
+      "observedProcesses": [
+        {
+          "pid": 5406,
+          "created": "1794496740457494",
+          "name": ""
+        },
+        {
+          "pid": 5408,
+          "created": "1794496740499276",
+          "name": ""
+        },
+        {
+          "pid": 5420,
+          "created": "1794496740929837",
+          "name": ""
+        },
+        {
+          "pid": 5431,
+          "created": "1794496742381014",
+          "name": ""
+        },
+        {
+          "pid": 5435,
+          "created": "1794496742894952",
+          "name": ""
+        },
+        {
+          "pid": 5452,
+          "created": "1794496743901152",
+          "name": ""
+        },
+        {
+          "pid": 5457,
+          "created": "1794496744439682",
+          "name": ""
+        },
+        {
+          "pid": 5473,
+          "created": "1794496744889933",
+          "name": ""
+        },
+        {
+          "pid": 5490,
+          "created": "1794496746836682",
+          "name": ""
+        },
+        {
+          "pid": 5506,
+          "created": "1794496747925433",
+          "name": ""
+        },
+        {
+          "pid": 5523,
+          "created": "1794496750435212",
+          "name": ""
+        },
+        {
+          "pid": 5527,
+          "created": "1794496750771376",
+          "name": ""
+        },
+        {
+          "pid": 5530,
+          "created": "1794496751002722",
+          "name": ""
+        },
+        {
+          "pid": 5531,
+          "created": "1794496751004268",
+          "name": ""
+        },
+        {
+          "pid": 5532,
+          "created": "1794496751004764",
+          "name": ""
+        },
+        {
+          "pid": 5549,
+          "created": "1794496751924461",
+          "name": ""
+        },
+        {
+          "pid": 5558,
+          "created": "1794496752985734",
+          "name": ""
+        },
+        {
+          "pid": 5560,
+          "created": "1794496753211498",
+          "name": ""
+        },
+        {
+          "pid": 5574,
+          "created": "1794496753959746",
+          "name": ""
+        },
+        {
+          "pid": 5577,
+          "created": "1794496754443685",
+          "name": ""
+        },
+        {
+          "pid": 5595,
+          "created": "1794496756936765",
+          "name": ""
+        },
+        {
+          "pid": 5597,
+          "created": "1794496757072247",
+          "name": ""
+        },
+        {
+          "pid": 5609,
+          "created": "1794496757511918",
+          "name": ""
+        },
+        {
+          "pid": 5610,
+          "created": "1794496757513967",
+          "name": ""
+        },
+        {
+          "pid": 5617,
+          "created": "1794496757925122",
+          "name": ""
+        },
+        {
+          "pid": 5628,
+          "created": "1794496758942777",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "steward-exempt-no-swap",
+      "args": [
+        "dev-harness/steward-exempt-no-swap.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:19.568Z",
+      "ms": 6098,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "steward-exempt-no-swap.txt",
+      "logSha256": "bebb55018bd651c0ea1691bdbb0d904b90f52455515137d7e61d1701a9fb4624",
+      "rawPassLines": [
+        "STEWARD EXEMPT NO-SWAP E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5632,
+          "created": "1794496759569278",
+          "name": ""
+        },
+        {
+          "pid": 5634,
+          "created": "1794496759612042",
+          "name": ""
+        },
+        {
+          "pid": 5648,
+          "created": "1794496759971040",
+          "name": ""
+        },
+        {
+          "pid": 5649,
+          "created": "1794496759972510",
+          "name": ""
+        },
+        {
+          "pid": 5650,
+          "created": "1794496759972989",
+          "name": ""
+        },
+        {
+          "pid": 5660,
+          "created": "1794496760535999",
+          "name": ""
+        },
+        {
+          "pid": 5661,
+          "created": "1794496760537601",
+          "name": ""
+        },
+        {
+          "pid": 5662,
+          "created": "1794496760537926",
+          "name": ""
+        },
+        {
+          "pid": 5665,
+          "created": "1794496760992899",
+          "name": ""
+        },
+        {
+          "pid": 5688,
+          "created": "1794496761482999",
+          "name": ""
+        },
+        {
+          "pid": 5701,
+          "created": "1794496762960513",
+          "name": ""
+        },
+        {
+          "pid": 5722,
+          "created": "1794496764452065",
+          "name": ""
+        },
+        {
+          "pid": 5723,
+          "created": "1794496764454089",
+          "name": ""
+        },
+        {
+          "pid": 5724,
+          "created": "1794496764454646",
+          "name": ""
+        },
+        {
+          "pid": 5730,
+          "created": "1794496765046487",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "steward-exempt-delegation",
+      "args": [
+        "dev-harness/steward-exempt-delegation.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:25.666Z",
+      "ms": 14757,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "steward-exempt-delegation.txt",
+      "logSha256": "cb96feafd35fa65b330b6eb0bb4245bbef2460e64d457f5148fafc01fe22bf2a",
+      "rawPassLines": [
+        "STEWARD EXEMPT DELEGATION E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5745,
+          "created": "1794496765666943",
+          "name": ""
+        },
+        {
+          "pid": 5749,
+          "created": "1794496765705703",
+          "name": ""
+        },
+        {
+          "pid": 5763,
+          "created": "1794496766079344",
+          "name": ""
+        },
+        {
+          "pid": 5764,
+          "created": "1794496766080871",
+          "name": ""
+        },
+        {
+          "pid": 5765,
+          "created": "1794496766081359",
+          "name": ""
+        },
+        {
+          "pid": 5771,
+          "created": "1794496766672201",
+          "name": ""
+        },
+        {
+          "pid": 5809,
+          "created": "1794496772175968",
+          "name": ""
+        },
+        {
+          "pid": 5810,
+          "created": "1794496772177968",
+          "name": ""
+        },
+        {
+          "pid": 5816,
+          "created": "1794496772761224",
+          "name": ""
+        },
+        {
+          "pid": 5831,
+          "created": "1794496773226255",
+          "name": ""
+        },
+        {
+          "pid": 5832,
+          "created": "1794496773228192",
+          "name": ""
+        },
+        {
+          "pid": 5833,
+          "created": "1794496773228803",
+          "name": ""
+        },
+        {
+          "pid": 5834,
+          "created": "1794496773599047",
+          "name": ""
+        },
+        {
+          "pid": 5850,
+          "created": "1794496774179253",
+          "name": ""
+        },
+        {
+          "pid": 5860,
+          "created": "1794496775199578",
+          "name": ""
+        },
+        {
+          "pid": 5885,
+          "created": "1794496777659589",
+          "name": ""
+        },
+        {
+          "pid": 5889,
+          "created": "1794496778176083",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "audit-w23",
+      "args": [
+        "dev-harness/audit-w23.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:40.425Z",
+      "ms": 1239,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "audit-w23.txt",
+      "logSha256": "9848b35492ea7e650ba4af5c5ef82c701b8a9c70abc555f918e60e731758cbce",
+      "rawPassLines": [
+        "AUDIT W23 E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5914,
+          "created": "1794496780425634",
+          "name": ""
+        },
+        {
+          "pid": 5923,
+          "created": "1794496780654670",
+          "name": ""
+        },
+        {
+          "pid": 5938,
+          "created": "1794496780928900",
+          "name": ""
+        },
+        {
+          "pid": 5939,
+          "created": "1794496780930611",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "steward-tools",
+      "args": [
+        "dev-harness/steward-tools.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:41.666Z",
+      "ms": 11995,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "steward-tools.txt",
+      "logSha256": "594f19c6079b850a22a49f29afe63128f237b777cbf14a9320d7a0c9cc63daf1",
+      "rawPassLines": [
+        "STEWARD TOOLS E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 5954,
+          "created": "1794496781667074",
+          "name": ""
+        },
+        {
+          "pid": 5967,
+          "created": "1794496782092884",
+          "name": ""
+        },
+        {
+          "pid": 5968,
+          "created": "1794496782094803",
+          "name": ""
+        },
+        {
+          "pid": 5969,
+          "created": "1794496782095222",
+          "name": ""
+        },
+        {
+          "pid": 5988,
+          "created": "1794496783122877",
+          "name": ""
+        },
+        {
+          "pid": 5996,
+          "created": "1794496784074926",
+          "name": ""
+        },
+        {
+          "pid": 6008,
+          "created": "1794496785132191",
+          "name": ""
+        },
+        {
+          "pid": 6029,
+          "created": "1794496785586000",
+          "name": ""
+        },
+        {
+          "pid": 6031,
+          "created": "1794496785715948",
+          "name": ""
+        },
+        {
+          "pid": 6032,
+          "created": "1794496785717901",
+          "name": ""
+        },
+        {
+          "pid": 6033,
+          "created": "1794496785718320",
+          "name": ""
+        },
+        {
+          "pid": 6044,
+          "created": "1794496787131205",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "tool-audit-r2-netexec",
+      "args": [
+        "dev-harness/tool-audit-r2-netexec.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:53.663Z",
+      "ms": 5422,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "tool-audit-r2-netexec.txt",
+      "logSha256": "76a98ebd116d746cc8d80c16e5853bae3d7d6482c52641d5aad2b8b37132ea04",
+      "rawPassLines": [
+        "TOOL AUDIT R2 NETEXEC E2E: ALL PASS"
+      ],
+      "skipLines": [
+        "SKIP Windows SendKeys/literal/DPI fake-PS execution on Mac; static DPI source checks still run"
+      ],
+      "observedProcesses": [
+        {
+          "pid": 6063,
+          "created": "1794496793663805",
+          "name": ""
+        },
+        {
+          "pid": 6073,
+          "created": "1794496794282311",
+          "name": ""
+        },
+        {
+          "pid": 6107,
+          "created": "1794496798156316",
+          "name": ""
+        },
+        {
+          "pid": 6103,
+          "created": "1794496798149243",
+          "name": ""
+        },
+        {
+          "pid": 6099,
+          "created": "1794496798142764",
+          "name": ""
+        },
+        {
+          "pid": 6095,
+          "created": "1794496798136980",
+          "name": ""
+        },
+        {
+          "pid": 6091,
+          "created": "1794496798125069",
+          "name": ""
+        },
+        {
+          "pid": 6104,
+          "created": "1794496798151261",
+          "name": ""
+        },
+        {
+          "pid": 6100,
+          "created": "1794496798144460",
+          "name": ""
+        },
+        {
+          "pid": 6096,
+          "created": "1794496798138681",
+          "name": ""
+        },
+        {
+          "pid": 6092,
+          "created": "1794496798128608",
+          "name": ""
+        },
+        {
+          "pid": 6105,
+          "created": "1794496798152105",
+          "name": ""
+        },
+        {
+          "pid": 6101,
+          "created": "1794496798144909",
+          "name": ""
+        },
+        {
+          "pid": 6097,
+          "created": "1794496798139122",
+          "name": ""
+        },
+        {
+          "pid": 6093,
+          "created": "1794496798129559",
+          "name": ""
+        },
+        {
+          "pid": 6139,
+          "created": "1794496798518656",
+          "name": ""
+        },
+        {
+          "pid": 6135,
+          "created": "1794496798512167",
+          "name": ""
+        },
+        {
+          "pid": 6131,
+          "created": "1794496798505884",
+          "name": ""
+        },
+        {
+          "pid": 6127,
+          "created": "1794496798499390",
+          "name": ""
+        },
+        {
+          "pid": 6123,
+          "created": "1794496798492387",
+          "name": ""
+        },
+        {
+          "pid": 6119,
+          "created": "1794496798486903",
+          "name": ""
+        },
+        {
+          "pid": 6115,
+          "created": "1794496798478842",
+          "name": ""
+        },
+        {
+          "pid": 6111,
+          "created": "1794496798464539",
+          "name": ""
+        },
+        {
+          "pid": 6140,
+          "created": "1794496798520343",
+          "name": ""
+        },
+        {
+          "pid": 6136,
+          "created": "1794496798513786",
+          "name": ""
+        },
+        {
+          "pid": 6132,
+          "created": "1794496798507495",
+          "name": ""
+        },
+        {
+          "pid": 6128,
+          "created": "1794496798501423",
+          "name": ""
+        },
+        {
+          "pid": 6124,
+          "created": "1794496798494230",
+          "name": ""
+        },
+        {
+          "pid": 6120,
+          "created": "1794496798488510",
+          "name": ""
+        },
+        {
+          "pid": 6116,
+          "created": "1794496798480733",
+          "name": ""
+        },
+        {
+          "pid": 6112,
+          "created": "1794496798471339",
+          "name": ""
+        },
+        {
+          "pid": 6141,
+          "created": "1794496798520735",
+          "name": ""
+        },
+        {
+          "pid": 6137,
+          "created": "1794496798514253",
+          "name": ""
+        },
+        {
+          "pid": 6133,
+          "created": "1794496798507852",
+          "name": ""
+        },
+        {
+          "pid": 6129,
+          "created": "1794496798501882",
+          "name": ""
+        },
+        {
+          "pid": 6125,
+          "created": "1794496798495246",
+          "name": ""
+        },
+        {
+          "pid": 6121,
+          "created": "1794496798488891",
+          "name": ""
+        },
+        {
+          "pid": 6117,
+          "created": "1794496798481271",
+          "name": ""
+        },
+        {
+          "pid": 6113,
+          "created": "1794496798472150",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "desktop-mcp-smoke",
+      "args": [
+        "dev-harness/desktop-mcp-smoke.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:19:59.085Z",
+      "ms": 42874,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "desktop-mcp-smoke.txt",
+      "logSha256": "af6782398cc007c09b1bcad30e64afb49f47016e6cac180031efc8b591ee81fa",
+      "rawPassLines": [
+        "DESKTOP-MCP-SMOKE E2E: ALL PASS  [#5 real-tool-count NEEDS TARGET-MACHINE VERIFICATION]"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6147,
+          "created": "1794496799085913",
+          "name": ""
+        },
+        {
+          "pid": 6152,
+          "created": "1794496799188131",
+          "name": ""
+        },
+        {
+          "pid": 6153,
+          "created": "1794496799189717",
+          "name": ""
+        },
+        {
+          "pid": 6154,
+          "created": "1794496799190343",
+          "name": ""
+        },
+        {
+          "pid": 6155,
+          "created": "1794496799532330",
+          "name": ""
+        },
+        {
+          "pid": 6162,
+          "created": "1794496800205879",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "engine-env-runtime",
+      "args": [
+        "dev-harness/engine-env-runtime.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:20:41.960Z",
+      "ms": 5551,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "engine-env-runtime.txt",
+      "logSha256": "0f1c931d76690f18f762ec71d87a54c53b8528038d0b4f2426eeccbbf21465e1",
+      "rawPassLines": [
+        "ENGINE-ENV-RUNTIME E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6257,
+          "created": "1794496841961607",
+          "name": ""
+        },
+        {
+          "pid": 6269,
+          "created": "1794496842889298",
+          "name": ""
+        },
+        {
+          "pid": 6268,
+          "created": "1794496842887158",
+          "name": ""
+        },
+        {
+          "pid": 6287,
+          "created": "1794496843524352",
+          "name": ""
+        },
+        {
+          "pid": 6303,
+          "created": "1794496844455609",
+          "name": ""
+        },
+        {
+          "pid": 6304,
+          "created": "1794496844457733",
+          "name": ""
+        },
+        {
+          "pid": 6305,
+          "created": "1794496844458447",
+          "name": ""
+        },
+        {
+          "pid": 6312,
+          "created": "1794496844822381",
+          "name": ""
+        },
+        {
+          "pid": 6330,
+          "created": "1794496845135520",
+          "name": ""
+        },
+        {
+          "pid": 6331,
+          "created": "1794496845137320",
+          "name": ""
+        },
+        {
+          "pid": 6332,
+          "created": "1794496845137697",
+          "name": ""
+        },
+        {
+          "pid": 6343,
+          "created": "1794496846138867",
+          "name": ""
+        },
+        {
+          "pid": 6344,
+          "created": "1794496846140715",
+          "name": ""
+        },
+        {
+          "pid": 6345,
+          "created": "1794496846141156",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "overlay-update-core",
+      "args": [
+        "dev-harness/overlay-update-core.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:20:47.512Z",
+      "ms": 491,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "overlay-update-core.txt",
+      "logSha256": "e42c1c420a7ad61794510accb1dbe03b78fe87e6b3fd21b558d32a501d9d9962",
+      "rawPassLines": [
+        "MACOS OVERLAY BOUNDARY E2E: ALL PASS",
+        "OVERLAY UPDATE CORE E2E: ALL PASS"
+      ],
+      "skipLines": [
+        "SKIP Windows PowerShell overlay apply/backup/rollback execution on Mac; shared static/JSON and actual Mac refusal checks completed"
+      ],
+      "observedProcesses": [
+        {
+          "pid": 6350,
+          "created": "1794496847512680",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "facts.static",
+      "args": [
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:20:48.003Z",
+      "ms": 218,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "facts.static.txt",
+      "logSha256": "a3364890ad7566566660461386e241f11734878302b173d6e8a354177a9981d8",
+      "rawPassLines": [
+        "FACTS STATIC E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6370,
+          "created": "1794496848004090",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "repo-hygiene",
+      "args": [
+        "dev-harness/repo-hygiene.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:20:48.221Z",
+      "ms": 9917,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "repo-hygiene.txt",
+      "logSha256": "82d99e690f63051cb2f2eb18ee3042d99ae3c5bd81844b136fef5d74bc062aaf",
+      "rawPassLines": [
+        "REPO-HYGIENE E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6373,
+          "created": "1794496848221642",
+          "name": ""
+        },
+        {
+          "pid": 6432,
+          "created": "1794496852537120",
+          "name": ""
+        },
+        {
+          "pid": 6446,
+          "created": "1794496852701280",
+          "name": ""
+        },
+        {
+          "pid": 6452,
+          "created": "1794496853202546",
+          "name": ""
+        },
+        {
+          "pid": 6474,
+          "created": "1794496853984685",
+          "name": ""
+        },
+        {
+          "pid": 6492,
+          "created": "1794496854741659",
+          "name": ""
+        },
+        {
+          "pid": 6489,
+          "created": "1794496854642894",
+          "name": ""
+        },
+        {
+          "pid": 6493,
+          "created": "1794496854744038",
+          "name": ""
+        },
+        {
+          "pid": 6490,
+          "created": "1794496854647449",
+          "name": ""
+        },
+        {
+          "pid": 6494,
+          "created": "1794496854744724",
+          "name": ""
+        },
+        {
+          "pid": 6491,
+          "created": "1794496854648276",
+          "name": ""
+        },
+        {
+          "pid": 6514,
+          "created": "1794496856224319",
+          "name": ""
+        },
+        {
+          "pid": 6524,
+          "created": "1794496856732115",
+          "name": ""
+        },
+        {
+          "pid": 6536,
+          "created": "1794496857152431",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "harness-friction",
+      "args": [
+        "dev-harness/harness-friction.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:20:58.139Z",
+      "ms": 2740,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "harness-friction.txt",
+      "logSha256": "54372184153526d8059b0e4c4e8507ebf631502f0a1077d4be31cda01a4c5026",
+      "rawPassLines": [
+        "HARNESS FRICTION E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6559,
+          "created": "1794496858140141",
+          "name": ""
+        },
+        {
+          "pid": 6561,
+          "created": "1794496858187556",
+          "name": ""
+        },
+        {
+          "pid": 6575,
+          "created": "1794496858649953",
+          "name": ""
+        },
+        {
+          "pid": 6592,
+          "created": "1794496859141606",
+          "name": ""
+        },
+        {
+          "pid": 6576,
+          "created": "1794496858652446",
+          "name": ""
+        },
+        {
+          "pid": 6577,
+          "created": "1794496858654203",
+          "name": ""
+        },
+        {
+          "pid": 6578,
+          "created": "1794496858654550",
+          "name": ""
+        },
+        {
+          "pid": 6595,
+          "created": "1794496859633190",
+          "name": ""
+        },
+        {
+          "pid": 6599,
+          "created": "1794496860125687",
+          "name": ""
+        },
+        {
+          "pid": 6603,
+          "created": "1794496860604693",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "cli-probe-stall",
+      "args": [
+        "dev-harness/cli-probe-stall.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:21:00.880Z",
+      "ms": 12402,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "cli-probe-stall.txt",
+      "logSha256": "8bc752144c1a5c9299ab22c35797947cd332219b9e4cd488c6e57436563c5fe8",
+      "rawPassLines": [
+        "CLI PROBE STALL E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6607,
+          "created": "1794496860880506",
+          "name": ""
+        },
+        {
+          "pid": 6611,
+          "created": "1794496860922133",
+          "name": ""
+        },
+        {
+          "pid": 6619,
+          "created": "1794496861042066",
+          "name": ""
+        },
+        {
+          "pid": 6618,
+          "created": "1794496861040810",
+          "name": ""
+        },
+        {
+          "pid": 6622,
+          "created": "1794496861043811",
+          "name": ""
+        },
+        {
+          "pid": 6620,
+          "created": "1794496861042266",
+          "name": ""
+        },
+        {
+          "pid": 6623,
+          "created": "1794496861044495",
+          "name": ""
+        },
+        {
+          "pid": 6621,
+          "created": "1794496861043158",
+          "name": ""
+        },
+        {
+          "pid": 6633,
+          "created": "1794496863135839",
+          "name": ""
+        },
+        {
+          "pid": 6634,
+          "created": "1794496863137856",
+          "name": ""
+        },
+        {
+          "pid": 6635,
+          "created": "1794496863138335",
+          "name": ""
+        },
+        {
+          "pid": 6637,
+          "created": "1794496863482745",
+          "name": ""
+        },
+        {
+          "pid": 6638,
+          "created": "1794496863491252",
+          "name": ""
+        },
+        {
+          "pid": 6639,
+          "created": "1794496863492157",
+          "name": ""
+        },
+        {
+          "pid": 6656,
+          "created": "1794496864719837",
+          "name": ""
+        },
+        {
+          "pid": 6651,
+          "created": "1794496864714679",
+          "name": ""
+        },
+        {
+          "pid": 6650,
+          "created": "1794496864713039",
+          "name": ""
+        },
+        {
+          "pid": 6657,
+          "created": "1794496864722043",
+          "name": ""
+        },
+        {
+          "pid": 6653,
+          "created": "1794496864717619",
+          "name": ""
+        },
+        {
+          "pid": 6652,
+          "created": "1794496864716865",
+          "name": ""
+        },
+        {
+          "pid": 6658,
+          "created": "1794496864722629",
+          "name": ""
+        },
+        {
+          "pid": 6655,
+          "created": "1794496864718462",
+          "name": ""
+        },
+        {
+          "pid": 6654,
+          "created": "1794496864717665",
+          "name": ""
+        },
+        {
+          "pid": 6674,
+          "created": "1794496867149706",
+          "name": ""
+        },
+        {
+          "pid": 6675,
+          "created": "1794496867151970",
+          "name": ""
+        },
+        {
+          "pid": 6676,
+          "created": "1794496867152593",
+          "name": ""
+        },
+        {
+          "pid": 6688,
+          "created": "1794496871375863",
+          "name": ""
+        },
+        {
+          "pid": 6687,
+          "created": "1794496871374818",
+          "name": ""
+        },
+        {
+          "pid": 6686,
+          "created": "1794496871373625",
+          "name": ""
+        },
+        {
+          "pid": 6691,
+          "created": "1794496871378446",
+          "name": ""
+        },
+        {
+          "pid": 6689,
+          "created": "1794496871377261",
+          "name": ""
+        },
+        {
+          "pid": 6692,
+          "created": "1794496871379541",
+          "name": ""
+        },
+        {
+          "pid": 6690,
+          "created": "1794496871378093",
+          "name": ""
+        },
+        {
+          "pid": 6697,
+          "created": "1794496871928656",
+          "name": ""
+        },
+        {
+          "pid": 6694,
+          "created": "1794496871522778",
+          "name": ""
+        },
+        {
+          "pid": 6695,
+          "created": "1794496871524718",
+          "name": ""
+        },
+        {
+          "pid": 6696,
+          "created": "1794496871525403",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "memory-scope",
+      "args": [
+        "dev-harness/memory-scope.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:21:13.283Z",
+      "ms": 3551,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "memory-scope.txt",
+      "logSha256": "2bd7c175994444ff1d435548c1224ee64146be1b4e2ddee9754377c679b9e90d",
+      "rawPassLines": [
+        "MEMORY SCOPE E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6710,
+          "created": "1794496873283574",
+          "name": ""
+        },
+        {
+          "pid": 6721,
+          "created": "1794496873510418",
+          "name": ""
+        },
+        {
+          "pid": 6750,
+          "created": "1794496874686516",
+          "name": ""
+        },
+        {
+          "pid": 6757,
+          "created": "1794496875695114",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "macos-input-events",
+      "args": [
+        "dev-harness/macos-input-events.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:21:16.834Z",
+      "ms": 30552,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "macos-input-events.txt",
+      "logSha256": "9659fc2bf8e87595d553ea81b045dc91f8d33df96b8aa2ac1d44d09454f423a4",
+      "rawPassLines": [
+        "MACOS INPUT EVENTS E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 6768,
+          "created": "1794496876834844",
+          "name": ""
+        },
+        {
+          "pid": 6770,
+          "created": "1794496876866946",
+          "name": ""
+        },
+        {
+          "pid": 6772,
+          "created": "1794496877336991",
+          "name": ""
+        },
+        {
+          "pid": 6774,
+          "created": "1794496877724950",
+          "name": ""
+        },
+        {
+          "pid": 6778,
+          "created": "1794496878105049",
+          "name": ""
+        },
+        {
+          "pid": 6780,
+          "created": "1794496878446947",
+          "name": ""
+        },
+        {
+          "pid": 6783,
+          "created": "1794496879229847",
+          "name": ""
+        },
+        {
+          "pid": 6786,
+          "created": "1794496879825617",
+          "name": ""
+        },
+        {
+          "pid": 6790,
+          "created": "1794496880202107",
+          "name": ""
+        },
+        {
+          "pid": 6791,
+          "created": "1794496880216589",
+          "name": ""
+        },
+        {
+          "pid": 6793,
+          "created": "1794496880563135",
+          "name": ""
+        },
+        {
+          "pid": 6796,
+          "created": "1794496881331024",
+          "name": ""
+        },
+        {
+          "pid": 6798,
+          "created": "1794496881683924",
+          "name": ""
+        },
+        {
+          "pid": 6800,
+          "created": "1794496882142425",
+          "name": ""
+        },
+        {
+          "pid": 6803,
+          "created": "1794496882733575",
+          "name": ""
+        },
+        {
+          "pid": 6806,
+          "created": "1794496883355043",
+          "name": ""
+        },
+        {
+          "pid": 6810,
+          "created": "1794496883808061",
+          "name": ""
+        },
+        {
+          "pid": 6817,
+          "created": "1794496884724142",
+          "name": ""
+        },
+        {
+          "pid": 6822,
+          "created": "1794496885588458",
+          "name": ""
+        },
+        {
+          "pid": 6823,
+          "created": "1794496885590539",
+          "name": ""
+        },
+        {
+          "pid": 6824,
+          "created": "1794496885591246",
+          "name": ""
+        },
+        {
+          "pid": 6825,
+          "created": "1794496885848925",
+          "name": ""
+        },
+        {
+          "pid": 6827,
+          "created": "1794496885980287",
+          "name": ""
+        },
+        {
+          "pid": 6841,
+          "created": "1794496888832783",
+          "name": ""
+        },
+        {
+          "pid": 6840,
+          "created": "1794496888555791",
+          "name": ""
+        },
+        {
+          "pid": 6880,
+          "created": "1794496903173731",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "name": "macos-input-apps",
+      "args": [
+        "dev-harness/macos-input-apps.e2e.js"
+      ],
+      "startedAt": "2026-11-12T15:21:47.386Z",
+      "ms": 10916,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "macos-input-apps.txt",
+      "logSha256": "85a02c2bd086396348a14bf566ad4d010a6416bb90504330e3b8d006e5485ea8",
+      "rawPassLines": [
+        "MACOS INPUT APPS E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "observedProcesses": [
+        {
+          "pid": 7005,
+          "created": "1794496907386867",
+          "name": ""
+        },
+        {
+          "pid": 7007,
+          "created": "1794496907422386",
+          "name": ""
+        },
+        {
+          "pid": 7009,
+          "created": "1794496907817713",
+          "name": ""
+        },
+        {
+          "pid": 7011,
+          "created": "1794496908216491",
+          "name": ""
+        },
+        {
+          "pid": 7021,
+          "created": "1794496908597595",
+          "name": ""
+        },
+        {
+          "pid": 7023,
+          "created": "1794496908941600",
+          "name": ""
+        },
+        {
+          "pid": 7026,
+          "created": "1794496909717032",
+          "name": ""
+        },
+        {
+          "pid": 7029,
+          "created": "1794496910309261",
+          "name": ""
+        },
+        {
+          "pid": 7033,
+          "created": "1794496910679234",
+          "name": ""
+        },
+        {
+          "pid": 7038,
+          "created": "1794496911305085",
+          "name": ""
+        },
+        {
+          "pid": 7039,
+          "created": "1794496911306754",
+          "name": ""
+        },
+        {
+          "pid": 7040,
+          "created": "1794496911307212",
+          "name": ""
+        },
+        {
+          "pid": 7045,
+          "created": "1794496911670899",
+          "name": ""
+        },
+        {
+          "pid": 7058,
+          "created": "1794496911720900",
+          "name": ""
+        },
+        {
+          "pid": 7083,
+          "created": "1794496913827025",
+          "name": ""
+        },
+        {
+          "pid": 7084,
+          "created": "1794496913857290",
+          "name": ""
+        },
+        {
+          "pid": 7087,
+          "created": "1794496914227907",
+          "name": ""
+        },
+        {
+          "pid": 7090,
+          "created": "1794496915042183",
+          "name": ""
+        },
+        {
+          "pid": 7104,
+          "created": "1794496915833494",
+          "name": ""
+        },
+        {
+          "pid": 7103,
+          "created": "1794496915832592",
+          "name": ""
+        },
+        {
+          "pid": 7101,
+          "created": "1794496915779119",
+          "name": ""
+        },
+        {
+          "pid": 7099,
+          "created": "1794496915550117",
+          "name": ""
+        },
+        {
+          "pid": 7098,
+          "created": "1794496915549274",
+          "name": ""
+        },
+        {
+          "pid": 7097,
+          "created": "1794496915470761",
+          "name": ""
+        },
+        {
+          "pid": 7096,
+          "created": "1794496915463379",
+          "name": ""
+        },
+        {
+          "pid": 7109,
+          "created": "1794496916162734",
+          "name": ""
+        },
+        {
+          "pid": 7108,
+          "created": "1794496916160174",
+          "name": ""
+        },
+        {
+          "pid": 7107,
+          "created": "1794496916137776",
+          "name": ""
+        },
+        {
+          "pid": 7117,
+          "created": "1794496917347924",
+          "name": ""
+        },
+        {
+          "pid": 7118,
+          "created": "1794496917349408",
+          "name": ""
+        },
+        {
+          "pid": 7115,
+          "created": "1794496917218356",
+          "name": ""
+        },
+        {
+          "pid": 7119,
+          "created": "1794496917350044",
+          "name": ""
+        },
+        {
+          "pid": 7122,
+          "created": "1794496917720340",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    }
+  ],
+  "finishedAt": "2026-11-12T15:21:58.313Z",
+  "bindingsUnchanged": true,
+  "executed": 18,
+  "failed": 0,
+  "codeCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "commitBlobsMatch53FrozenHashes": true
+}

@@ -1,0 +1,23 @@
+── [U] 105i 上限解析与 mapSummaryWithLimit ──
+PASS U1 未知模型全局默认并发上限 8
+PASS U1b DeepSeek V4 全局默认并发上限 8
+PASS U2 显式 6 生效
+PASS U3a 下限钳位 1
+PASS U3b 上限钳位 8
+PASS U4 非数字落回默认 8
+PASS U5 峰值=上限且全部派发、结果按输入下标保序(peak=4)
+PASS U6a 任一失败即触发共享取消信号
+PASS U6b 停止派发新任务(dispatched=4/9),失败结果保序落位,未派发为空位
+── [A] 默认 8 路有界并发 ──
+PASS A1 多段 map-reduce 成功(chunks=9)
+PASS A2 mapReduce 元数据落生效并发上限 8
+PASS A3 fake 侧在飞峰值 ∈ [2,8](确实并行且不越上限, peak=8)
+PASS A4 请求总数 = chunks + 1 次总汇(10),无多发漏发
+── [A] 失败注入 → fail-fast 取消 ──
+PASS B1 首个失败(注入 500)原样上浮: HTTP 500: {"error":{"message":"injected summary failure","ty
+PASS B2 失败后未派发的块不再发出(到达 fake 的请求=4/9,仅第一波)
+PASS B3 快速止损(取消在飞请求,不等待 800ms×N,10ms)
+── [A] summaryMaxConcurrentV1:1 退化串行 ──
+PASS C1 上限 1 退化为串行(峰值=1)且仍成功(concurrency=1, peak=1)
+
+SUMMARY-PARALLEL-CAP E2E: ALL PASS

@@ -1,0 +1,58 @@
+{
+  "completedAt": "2026-11-13T03:33:33.583757+00:00",
+  "userInstruction": "把Ruyi开发过程中所有的过程包和过期垃圾清理掉，先清理空间",
+  "status": "completed",
+  "removedEntries": 2007,
+  "removedKinds": {
+    "directory": 1999,
+    "file": 8
+  },
+  "errors": 0,
+  "freeBytesBefore": 3965194240,
+  "freeBytesAfterCleanup": 18406731776,
+  "freeBytesGained": 14441537536,
+  "freeGiBGained": 13.45,
+  "freeBytesAtFinalVerification": 18313035776,
+  "freeGiBAtFinalVerification": 17.06,
+  "measurementNote": "APFS free space varies with concurrent system activity. Gain uses the before-first / after-last deletion snapshots, not summed nominal file sizes.",
+  "removedCategories": [
+    "superseded Full/Slim DMGs and ZIP archives with sidecars",
+    "extracted and raw source build packages",
+    "expired offline acceptance App copies and build caches",
+    "1968 expired test temporary directories"
+  ],
+  "retained": [
+    "latest Full and Slim distribution directories, verified SHA-256",
+    "fixed authorized /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app, verified tree and signature",
+    "source code and Git history",
+    "business data, Keychain and system permissions",
+    "development dependencies",
+    "P6 evidence and 22 MiB forensic development source archive",
+    "uncommitted P5 worktree and protected review/evidence/active IPC directories"
+  ],
+  "retainedVerification": "retained-verification.json",
+  "phases": [
+    {
+      "report": "phase1.json",
+      "removedEntries": 20,
+      "errors": 0
+    },
+    {
+      "report": "phase2-dist.json",
+      "removedEntries": 17,
+      "errors": 0
+    },
+    {
+      "report": "phase3-source-packages.json",
+      "removedEntries": 2,
+      "errors": 0
+    },
+    {
+      "report": "phase4-test-temporaries.json",
+      "removedEntries": 1968,
+      "errors": 0
+    }
+  ],
+  "scopeNote": "Phase4 concerns expired direct test directories in the two audited temporary roots; its inherited scope wording also mentions the prior dist phases. Exclusions in earlier phases can have been removed safely in a later phase.",
+  "noBuildOrTestRerun": true
+}

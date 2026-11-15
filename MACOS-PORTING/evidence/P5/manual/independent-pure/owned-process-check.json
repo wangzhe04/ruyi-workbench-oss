@@ -1,0 +1,6 @@
+{
+  "at": "2026-11-11T03:25:32.774854+00:00",
+  "matchingIsolationProcesses": [],
+  "observedAbsent": true,
+  "scope": "Processes with this acceptance isolation path in argv; fake-worker tests also assert worker cleanup. No global desktop processes inspected or modified."
+}

@@ -1,0 +1,27 @@
+PASS ① CLAUDE_SUBAGENT_TIER_TOOLS 定义可抽取
+PASS ① read 级含 WebSearch/WebFetch(研究/审查类节点可联网检索)
+PASS ① edit 级含 WebSearch/WebFetch
+PASS ① read 级仍无落盘/执行工具(Write/Bash 未混入)
+PASS ① exec 级保持空数组(=CLI 不限制,行为不变)
+PASS ② explorer 角色 claudeTools 含联网(显式白名单覆盖 tier 缺省,必须单独补)
+PASS ② reviewer 角色 claudeTools 含联网
+PASS ② verifier 角色 claudeTools 含联网
+PASS ③ runSubAgentCore 经桌面执行上下文委托本体 runSubAgentCoreBody
+PASS ③ runSubAgentCore 存在
+PASS ③ 桥接收集不再被 tier===exec 一刀切门控
+PASS ③ 所有层级都收集桥接工具
+PASS ③ read/edit 按 bridgedToolTier 分级过滤(含 config.bridgedToolTiers 用户覆盖)
+PASS ④ Claude 子代理 mcp-config 仍仅 exec 级挂载(bypass 下 allowlist 非硬限,不得提前开放)
+PASS ⑤ NATIVE_TOOL_TIER 可读(123 项)
+PASS ⑤ web_search/web_fetch 保持 read 级(联网只读)
+PASS ⑤ http_request 保持 exec 级(任意方法/头的原始请求)
+PASS ⑤ git_commit 保持 exec 级(触发 hooks)
+PASS ⑤ orchestrate_agents 保持 exec 级;spawn_agent 兼容口若在表里也必须 exec(代理模式 v2)
+PASS ⑤ 子回合仍禁嵌套(noAgentTools:三个代理工具都不 offer)
+PASS ⑥ bridgedToolTier 可调用(产物导出)
+PASS ⑥ ACC 只读族(screenshot)→ read(read 级子代理可用)
+PASS ⑥ get_/list_ 前缀族 → read
+PASS ⑥ 未知/操控类工具缺省 exec(不会漏进 read 级)
+PASS ⑥ config.bridgedToolTiers 用户覆盖生效
+
+SUBAGENT NET TOOLS E2E: ALL PASS

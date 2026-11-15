@@ -1,0 +1,26 @@
+[
+  {
+    "command": [
+      "node",
+      "dev-harness/mission-result.e2e.js"
+    ],
+    "start": "2026-11-11T12:50:26.109132+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "node",
+      "dev-harness/provider-turnloop-hardening.e2e.js"
+    ],
+    "start": "2026-11-11T12:50:27.949631+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "node",
+      "dev-harness/turn-stop-supersede.e2e.js"
+    ],
+    "start": "2026-11-11T12:50:51.486720+00:00",
+    "exitCode": 0
+  }
+]

@@ -1,0 +1,10 @@
+PASS A agent-workflows.js 恰好一处 setInterval 与一处 clearInterval(实测 1／1)
+PASS B0 定位到 agentRunsPollWanted() 函数体
+PASS B agentRunsPollWanted() 返回表达式里出现 document.hidden 判定(此前是唯一没有的那一处)
+PASS D 原判据「监控页签激活 ∪ 工作台画布视图激活」原样保留(本次只加可见性门控，没有改判据本身)
+PASS D2 tabActive 仍取自同一个 DOM 锚点(未被顺手改写)
+PASS C1 全文件恰好一处 visibilitychange 监听(实测 1)
+PASS C2 visibilitychange 监听回调正是 syncAgentRunsPolling(切后台停表、切回前台立即重新同步 + 恢复 2s 心跳)
+PASS E agent-workflows.js 现在也出现 document.hidden(补齐五个轮询里此前唯一的缺口，实测 1 处)
+
+AGENT-WORKFLOWS POLLING VISIBILITY STATIC E2E: ALL PASS

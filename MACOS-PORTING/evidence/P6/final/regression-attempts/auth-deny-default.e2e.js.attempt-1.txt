@@ -1,0 +1,44 @@
+PASS workbench up on :58108
+PASS UI token scraped from GET / (loopback)
+── A 段: 顶层 host 门(rebinding 覆盖 GET 面 + 静态 /) ──
+PASS A1 GET / Host=evil -> 403 (index.html 不服务给 rebinding,治 token 泄露主链) got 403
+PASS A2 GET / Host=evil body 不含 token (rebinding 拿不到 token)
+PASS A3 GET / Host=loopback -> 200 + 含 token (合法 UI 不受影响)
+PASS A4 GET /api/status Host=evil -> 403 (GET 面也 host 校验) got 403
+PASS A5 GET /api/status Host=loopback 无 token -> 200 (open 级别) got 200
+── B 段: deny-by-default ──
+PASS B1 GET /api/typo(未声明) -> 403 deny-by-default (非 404) got 403
+── C 段: 3 个 GET 收紧(token-browser,原无 host 门+无 token 门) ──
+PASS C /api/agent-roles 浏览器(Origin)无 token -> 403 got 403
+PASS C /api/agent-roles 浏览器(Origin)+token -> 200 got 200
+PASS C /api/agent-roles loopback 非浏览器无 token -> 200 (豁免,与 sessions 同纪律) got 200
+PASS C /api/agent-roles rebinding(Host=evil)+token -> 403 (host 门挡,即便偷到 token) got 403
+PASS C /api/agent-workflows 浏览器(Origin)无 token -> 403 got 403
+PASS C /api/agent-workflows 浏览器(Origin)+token -> 200 got 200
+PASS C /api/agent-workflows loopback 非浏览器无 token -> 200 (豁免,与 sessions 同纪律) got 200
+PASS C /api/agent-workflows rebinding(Host=evil)+token -> 403 (host 门挡,即便偷到 token) got 403
+PASS C /api/playbooks 浏览器(Origin)无 token -> 403 got 403
+PASS C /api/playbooks 浏览器(Origin)+token -> 200 got 200
+PASS C /api/playbooks loopback 非浏览器无 token -> 200 (豁免,与 sessions 同纪律) got 200
+PASS C /api/playbooks rebinding(Host=evil)+token -> 403 (host 门挡,即便偷到 token) got 403
+── D 段: 鉴权级别回归 ──
+PASS D1 GET /api/sessions 浏览器+token -> 200 got 200
+PASS D2 GET /api/sessions 浏览器无 token -> 403 got 403
+PASS D3 POST /api/sessions loopback 无 Origin 无 token -> 200 (loopback 豁免保持) got 200
+PASS D4 GET /api/agent-runs 无 token -> 403 (token 级别始终须) got 403
+PASS D5 GET /api/agent-runs +token -> 非 403 (auth 过,handler 自查放行) got 400
+PASS D6 GET /api/audit 无 token -> 403 (handler 自查纵深) got 403
+PASS D7 GET /api/audit +token -> 非 403 (auth 过) got 200
+PASS D8 POST /api/mission body-token -> 非 403 (body-token 豁免 origin,handler 自查) got 404
+PASS D9 PATCH /api/sessions/auth_method_probe browser without token -> 403 got 403
+PASS D9 PATCH /api/sessions/auth_method_probe browser + token reaches handler (got 404)
+PASS D9 DELETE /api/sessions/auth_method_probe browser without token -> 403 got 403
+PASS D9 DELETE /api/sessions/auth_method_probe browser + token reaches handler (got 200)
+PASS D9 DELETE /api/memory/auth_method_probe browser without token -> 403 got 403
+PASS D9 DELETE /api/memory/auth_method_probe browser + token reaches handler (got 404)
+PASS D9 DELETE /api/playbooks/auth_method_probe browser without token -> 403 got 403
+PASS D9 DELETE /api/playbooks/auth_method_probe browser + token reaches handler (got 404)
+PASS D9 DELETE /api/agent-workflows/auth_method_probe browser without token -> 403 got 403
+PASS D9 DELETE /api/agent-workflows/auth_method_probe browser + token reaches handler (got 200)
+
+AUTH-DENY-DEFAULT E2E: ALL PASS

@@ -1,0 +1,11 @@
+PASS first Claude workbench process starts
+PASS workbench session created
+PASS first CLI session id persisted
+PASS restarted Claude workbench process starts
+PASS restart turn reports bounded history recovery
+PASS prior chat is included in the restart recovery prompt
+PASS current user message remains separately delimited
+PASS silent CLI session-id change replaces the stale binding
+PASS Claude context occupancy remains persisted for the frontend meter
+
+CLAUDE CONTEXT CONTINUITY E2E: ALL PASS

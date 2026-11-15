@@ -1,0 +1,848 @@
+{
+  "initial": {
+    "ok": true,
+    "bundleID": "com.apple.finder",
+    "cgWindows": [
+      {
+        "title": "Ruyi P5 Finder 中文 37390",
+        "onScreen": true,
+        "bounds": {
+          "X": 395,
+          "Height": 436,
+          "Y": 172,
+          "Width": 920
+        },
+        "handle": 3234
+      },
+      {
+        "title": "",
+        "onScreen": false,
+        "bounds": {
+          "X": 0,
+          "Height": 64,
+          "Y": 607,
+          "Width": 64
+        },
+        "handle": 32
+      },
+      {
+        "title": "",
+        "onScreen": false,
+        "bounds": {
+          "X": 0,
+          "Height": 34,
+          "Y": 0,
+          "Width": 1710
+        },
+        "handle": 30
+      },
+      {
+        "title": "",
+        "onScreen": false,
+        "bounds": {
+          "X": 0,
+          "Height": 34,
+          "Y": 0,
+          "Width": 1710
+        },
+        "handle": 27
+      },
+      {
+        "title": "",
+        "onScreen": false,
+        "bounds": {
+          "X": 0,
+          "Height": 34,
+          "Y": 0,
+          "Width": 1710
+        },
+        "handle": 29
+      },
+      {
+        "title": "",
+        "onScreen": false,
+        "bounds": {
+          "X": 0,
+          "Height": 34,
+          "Y": 0,
+          "Width": 1710
+        },
+        "handle": 28
+      }
+    ],
+    "applicationBuild": "1865",
+    "windows": [
+      {
+        "document": null,
+        "proxy": {
+          "AXRole": "AXImage",
+          "AXTitle": "Macintosh HD"
+        },
+        "tree": {
+          "AXRole": "AXWindow",
+          "AXTitle": "Ruyi P5 Finder 中文 37390",
+          "children": [
+            {
+              "AXRole": "AXSplitGroup",
+              "children": [
+                {
+                  "AXRole": "AXScrollArea",
+                  "children": [
+                    {
+                      "AXRole": "AXOutline",
+                      "children": [
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "最近使用",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "共享",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "个人收藏",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "应用程序",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "桌面",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "文稿",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "下载",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "位置",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "iCloud云盘",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "jiming",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "隔空投送",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "网络",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "废纸篓",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "标签",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "蓝色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "紫色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "黄色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "个人",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "橙色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "工作",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "红色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "灰色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "绿色",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXRow",
+                          "children": [
+                            {
+                              "AXRole": "AXCell",
+                              "children": [
+                                {
+                                  "AXRole": "AXStaticText",
+                                  "text": "所有标签…",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXRole": "AXColumn"
+                        }
+                      ],
+                      "AXDescription": "边栏"
+                    },
+                    {
+                      "AXRole": "AXScrollBar",
+                      "children": [
+                        {
+                          "AXRole": "AXValueIndicator"
+                        },
+                        {
+                          "AXRole": "AXButton"
+                        },
+                        {
+                          "AXRole": "AXButton"
+                        },
+                        {
+                          "AXRole": "AXButton"
+                        },
+                        {
+                          "AXRole": "AXButton"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXRole": "AXSplitter"
+                },
+                {
+                  "AXRole": "AXSplitGroup",
+                  "children": [
+                    {
+                      "AXRole": "AXScrollArea",
+                      "children": [
+                        {
+                          "AXRole": "AXOutline",
+                          "children": [
+                            {
+                              "AXRole": "AXRow",
+                              "children": [
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXImage",
+                                      "children": []
+                                    },
+                                    {
+                                      "text": "P5 child 中文",
+                                      "url": "file:///var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-finder-uzIPvo/Ruyi%20P5%20Finder%20%E4%B8%AD%E6%96%87%2037390/P5%20child%20%E4%B8%AD%E6%96%87/",
+                                      "children": [],
+                                      "AXRole": "AXTextField"
+                                    },
+                                    {
+                                      "AXRole": "AXDisclosureTriangle"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "今天 19:32",
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "--",
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "文件夹",
+                                      "children": []
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "AXRole": "AXRow",
+                              "children": [
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXImage",
+                                      "children": []
+                                    },
+                                    {
+                                      "text": "P5 proof.txt",
+                                      "url": "file:///var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-finder-uzIPvo/Ruyi%20P5%20Finder%20%E4%B8%AD%E6%96%87%2037390/P5%20proof.txt",
+                                      "children": [],
+                                      "AXRole": "AXTextField"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "今天 19:32",
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "21 字节",
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "AXRole": "AXCell",
+                                  "children": [
+                                    {
+                                      "AXRole": "AXStaticText",
+                                      "text": "纯文本文稿",
+                                      "children": []
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "AXRole": "AXColumn"
+                            },
+                            {
+                              "AXRole": "AXColumn"
+                            },
+                            {
+                              "AXRole": "AXColumn"
+                            },
+                            {
+                              "AXRole": "AXColumn"
+                            },
+                            {
+                              "AXRole": "AXGroup",
+                              "children": [
+                                {
+                                  "AXRole": "AXButton",
+                                  "AXDescription": "名称"
+                                },
+                                {
+                                  "AXRole": "AXButton",
+                                  "AXDescription": "修改日期"
+                                },
+                                {
+                                  "AXRole": "AXButton",
+                                  "AXDescription": "大小"
+                                },
+                                {
+                                  "AXRole": "AXButton",
+                                  "AXDescription": "种类"
+                                }
+                              ]
+                            }
+                          ],
+                          "AXDescription": "列表视图"
+                        }
+                      ]
+                    },
+                    {
+                      "AXRole": "AXUnknown",
+                      "children": [
+                        {
+                          "AXRole": "AXStaticText",
+                          "text": "2个项目，24.11 GB可用",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "AXRole": "AXToolbar",
+              "children": [
+                {
+                  "AXRole": "AXGroup",
+                  "children": [
+                    {
+                      "AXRole": "AXGroup",
+                      "children": [
+                        {
+                          "AXRole": "AXButton",
+                          "AXDescription": "返回"
+                        },
+                        {
+                          "AXRole": "AXButton",
+                          "AXDescription": "前进"
+                        }
+                      ],
+                      "AXDescription": "返回/前进"
+                    }
+                  ]
+                },
+                {
+                  "AXRole": "AXGroup",
+                  "children": [
+                    {
+                      "AXRole": "AXRadioGroup",
+                      "children": [
+                        {
+                          "AXRole": "AXRadioButton",
+                          "selectedValue": 0,
+                          "AXDescription": "图标视图"
+                        },
+                        {
+                          "AXRole": "AXRadioButton",
+                          "selectedValue": 1,
+                          "AXDescription": "列表视图"
+                        },
+                        {
+                          "AXRole": "AXRadioButton",
+                          "selectedValue": 0,
+                          "AXDescription": "分栏视图"
+                        },
+                        {
+                          "AXRole": "AXRadioButton",
+                          "selectedValue": 0,
+                          "AXDescription": "画廊视图"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXRole": "AXMenuButton",
+                  "AXDescription": "群组"
+                },
+                {
+                  "AXRole": "AXButton",
+                  "AXDescription": "共享"
+                },
+                {
+                  "AXRole": "AXButton",
+                  "AXDescription": "编辑标签"
+                },
+                {
+                  "AXRole": "AXMenuButton",
+                  "AXDescription": "操作"
+                },
+                {
+                  "AXRole": "AXGroup",
+                  "children": [
+                    {
+                      "AXRole": "AXButton",
+                      "AXTitle": "",
+                      "AXDescription": "搜索"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "AXRole": "AXButton"
+            },
+            {
+              "AXRole": "AXButton",
+              "children": [
+                {
+                  "AXRole": "AXGroup",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "AXRole": "AXButton"
+            },
+            {
+              "AXRole": "AXStaticText",
+              "text": "Ruyi P5 Finder 中文 37390",
+              "children": []
+            }
+          ]
+        },
+        "role": "AXWindow",
+        "attributes": [
+          "AXFocused",
+          "AXFullScreen",
+          "AXTitle",
+          "AXChildrenInNavigationOrder",
+          "AXFrame",
+          "AXPosition",
+          "AXGrowArea",
+          "AXMinimizeButton",
+          "AXDocument",
+          "AXSections",
+          "AXCloseButton",
+          "AXMain",
+          "AXActivationPoint",
+          "AXFullScreenButton",
+          "AXProxy",
+          "AXDefaultButton",
+          "AXMinimized",
+          "AXChildren",
+          "AXRole",
+          "AXParent",
+          "AXTitleUIElement",
+          "AXCancelButton",
+          "AXModal",
+          "AXSubrole",
+          "AXValue",
+          "AXZoomButton",
+          "AXRoleDescription",
+          "AXSize",
+          "AXToolbarButton",
+          "AXIdentifier"
+        ]
+      },
+      {
+        "document": null,
+        "proxy": {},
+        "tree": {
+          "AXRole": "AXScrollArea"
+        },
+        "role": "AXScrollArea",
+        "attributes": [
+          "AXEnabled",
+          "AXFrame",
+          "AXDescription",
+          "AXParent",
+          "AXChildren",
+          "AXSize",
+          "AXFocused",
+          "AXRole",
+          "AXTopLevelUIElement",
+          "AXMain",
+          "AXPosition",
+          "AXHelp",
+          "AXContents",
+          "AXWindow",
+          "AXRoleDescription",
+          "AXSubrole",
+          "AXValue"
+        ]
+      }
+    ],
+    "applicationVersion": "27.0",
+    "pid": 692
+  },
+  "identity": {
+    "document": null,
+    "actualContentPaths": [
+      "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-finder-uzIPvo/Ruyi P5 Finder 中文 37390/P5 child 中文",
+      "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-finder-uzIPvo/Ruyi P5 Finder 中文 37390/P5 proof.txt"
+    ],
+    "tabGroupObserved": false
+  },
+  "window": {
+    "application": "访达",
+    "handle": 3234,
+    "height": 436,
+    "pid": 692,
+    "process_start": "1794279862:311950",
+    "target": {
+      "bounds": {
+        "height": 436,
+        "width": 920,
+        "x": 395,
+        "y": 172
+      },
+      "handle": 3234,
+      "pid": 692,
+      "process_start": "1794279862:311950",
+      "ref": "556A4D5D-6F7F-4D4B-AC0E-FF16E069D7A9"
+    },
+    "title": "Ruyi P5 Finder 中文 37390",
+    "visible": true,
+    "width": 920,
+    "x": 395,
+    "y": 172
+  }
+}

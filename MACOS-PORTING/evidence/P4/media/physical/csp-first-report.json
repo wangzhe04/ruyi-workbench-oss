@@ -1,0 +1,43 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 3,
+  "nativePID" : 83585,
+  "page" : {
+    "additional" : {
+      "buttonState" : "error",
+      "input" : "",
+      "passed" : false,
+      "requests" : [
+        {
+          "constraints" : {
+            "audio" : true
+          },
+          "error" : "TypeError",
+          "state" : "rejected"
+        }
+      ],
+      "sends" : 0,
+      "uploads" : [
+
+      ]
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "1971CC0A-FDDD-F775-DE45-8F5E2044B021",
+  "servicePID" : 83591,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

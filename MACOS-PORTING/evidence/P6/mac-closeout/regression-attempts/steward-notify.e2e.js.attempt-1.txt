@@ -1,0 +1,21 @@
+── (A) 三类事 ──
+PASS A1-needs_you 这一类叫得出去
+PASS A1-failed 这一类叫得出去
+PASS A2 三类之外一律拒(例行汇报不值得打扰人;got invalid_request)
+PASS A3 空正文拒
+── (B) 熔断 ──
+PASS B1(前提)第三次还在上限内(上限压到 3)
+PASS B2 超过一小时上限就拒,并把上限数告诉模型(got hourly_cap/3)
+PASS B3 被熔断的那一次【不发帧】(拒得干净,不是先发了再说)
+── (C) 在场与目标 ──
+PASS C1 线程不存在就拒 —— 通知点进去要能落到那条线程上,指向空的等于叫了个空(got not_found)
+PASS C2 用户正坐在那条线程上就不叫他 —— 直接在对话里说(got seated_by_user)
+── (D) 帧与账 ──
+PASS D1 帧载荷带 kind 与正文(前端据此起卡或发系统通知)
+PASS D2 载荷只有那三个字段(got kind,sessionId,text)
+PASS D3 决策日志记下了「我叫过你」(用户在行动流水里看得见管家打扰过他几次)
+── (E) 诚实 ──
+PASS E1 回包说的是「送出去了」(queued),不是「他看到了」(got queued)
+PASS E2 并明说静默时段或人在前台时可能不弹 —— 服务端不知道结果,不许把不知道说成知道
+PASS E3 措辞里没有任何「他已经知道了」的意思
+STEWARD NOTIFY E2E: ALL PASS

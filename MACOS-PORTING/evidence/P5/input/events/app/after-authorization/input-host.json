@@ -1,0 +1,74 @@
+{
+  "nativePID": 50361,
+  "servicePID": 50371,
+  "launch": "LaunchServices",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "code": "pointer_unconfirmed",
+    "error": "DesktopError: Cursor did not reach the requested end point",
+    "ok": false,
+    "outcome": "unconfirmed"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 596,
+      "height": 528,
+      "pid": 50357,
+      "process_start": "1794290391:816711",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 596,
+        "pid": 50357,
+        "process_start": "1794290391:816711",
+        "ref": "B2C565BD-1821-4019-BC1F-F845F5C6A5B0"
+      },
+      "title": "Ruyi P5 Input 50357",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": null,
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 129,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  }
+}

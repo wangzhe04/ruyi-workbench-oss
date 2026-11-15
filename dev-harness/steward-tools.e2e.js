@@ -1094,7 +1094,8 @@ try {
     // P8 —— 第二条来路(同一债表下一行):占位之后的【落盘失败】不再被吞掉。
     // 修前:stewardRegisterDerivedWorkspace 的 `catch { return false }` 把写失败吞了,调用方照样返回
     // 目录 —— 目录在、行不在。修后:行没落盘 = 派生没成 = 删掉【本次新建】的目录并回落。
-    // 造法:把 config.json 设成只读(Windows 的 +R 属性),写链的 tmp -> rename 覆盖会失败。
+    // 只对本夹具config.json的原子发布注入EACCES；POSIX允许rename覆盖只读文件，
+    // chmod444不能造出这个前提。其它文件写入和真实回滚代码继续执行。
     // P8(前提) 先证明这一写【真的】失败了 —— 否则整条锁是假绿。
     capWrite(capRows(3));
     {
@@ -1102,14 +1103,22 @@ try {
       const beforeText = fs.readFileSync(cfgPath, 'utf8');
       const WRITE_FAIL_TITLE = '写不下去';
       let wfail = null;
-      fs.chmodSync(cfgPath, 0o444);
+      const originalRename = fs.promises.rename;
+      let refusedConfigPublishes = 0;
+      fs.promises.rename = async function (source, destination) {
+        if (path.resolve(String(destination)) === path.resolve(cfgPath)) {
+          refusedConfigPublishes++;
+          throw Object.assign(new Error('fixture config publish denied'), { code: 'EACCES' });
+        }
+        return originalRename.apply(this, arguments);
+      };
       try {
         wfail = await call('steward_thread_new', { title: WRITE_FAIL_TITLE, brief: { userText: WRITE_FAIL_TITLE } }, stewardCtx('cap-wfail'));
       } finally {
-        fs.chmodSync(cfgPath, 0o666);
+        fs.promises.rename = originalRename;
       }
-      ok(fs.readFileSync(cfgPath, 'utf8') === beforeText,
-        'P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了');
+      ok(refusedConfigPublishes > 0 && fs.readFileSync(cfgPath, 'utf8') === beforeText,
+        'P8(前提)原子发布实际收到EACCES且config.json一个字节没被改写');
       ok(wfail && wfail.ok === true, `P8a 落盘失败不挡开线程(got ${JSON.stringify(wfail && wfail.error)})`);
       const wfailCwd = wfail && wfail.ok ? capHead(wfail.sessionId).cwd : '';
       ok(!capInRoot(wfailCwd) && wfailCwd === capDefaultWs(),

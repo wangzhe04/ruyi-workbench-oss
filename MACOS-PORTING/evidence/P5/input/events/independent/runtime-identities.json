@@ -1,0 +1,260 @@
+{
+  "recordedAt": "2026-11-10T07:31:03.402Z",
+  "executables": [
+    {
+      "path": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "realpath": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node\nIdentifier=node\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=930000 flags=0x10000(runtime) hashes=29052+7 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=f3300fb03195d22a6f53f50cc026ef8ab51506c7\nCandidateCDHashFull sha256=f3300fb03195d22a6f53f50cc026ef8ab51506c741240dc3660d986812f79b6b\nHash choices=sha256\nCMSDigest=f3300fb03195d22a6f53f50cc026ef8ab51506c741240dc3660d986812f79b6b\nCMSDigestType=2\nCDHash=f3300fb03195d22a6f53f50cc026ef8ab51506c7\nSignature size=8986\nAuthority=Developer ID Application: Node.js Foundation (HX7739G8FX)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Apr 15, 2026 at 09:45:42\nInfo.plist=not bound\nTeamIdentifier=HX7739G8FX\nRuntime Version=15.0.0\nSealed Resources=none\nInternal requirements count=1 size=164\nTotal signatures=1\nChosen signature=1\n"
+      },
+      "verify": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "realpath": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/bin/python3.12",
+      "sha256": "d4f152f2a753c94e0e7935c8ebbe6b2609979e1df7898422b577d0076383d08b",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/bin/python3.12\nIdentifier=python3\nFormat=Mach-O universal (x86_64 arm64)\nCodeDirectory v=20500 size=755 flags=0x10000(runtime) hashes=13+7 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=60332d8d6c7492b00fa87dac699443fb953ae8f3\nCandidateCDHashFull sha256=60332d8d6c7492b00fa87dac699443fb953ae8f3bb1dbdfa4c6ba690d0fc94f8\nHash choices=sha256\nCMSDigest=60332d8d6c7492b00fa87dac699443fb953ae8f3bb1dbdfa4c6ba690d0fc94f8\nCMSDigestType=2\nCDHash=60332d8d6c7492b00fa87dac699443fb953ae8f3\nSignature size=9002\nAuthority=Developer ID Application: Python Software Foundation (BMM5U3QVKW)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Apr 8, 2025 at 21:06:00\nInfo.plist=not bound\nTeamIdentifier=BMM5U3QVKW\nRuntime Version=12.1.0\nSealed Resources=none\nInternal requirements count=1 size=168\nTotal signatures=1\nChosen signature=1\n"
+      },
+      "verify": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "path": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "realpath": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "sha256": "2447c7bdea8e8ad38b52594f1ba53e18821c05445e8a07ad1cf3b0f23931d89d",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing\nIdentifier=Google Chrome for Testing\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=664 flags=0x20002(adhoc,linker-signed) hashes=17+0 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=098da728d3f92d84363f3421a59b0151a6037c84\nCandidateCDHashFull sha256=098da728d3f92d84363f3421a59b0151a6037c845929ee1dd1e5a3aa083e028a\nHash choices=sha256\nCMSDigest=098da728d3f92d84363f3421a59b0151a6037c845929ee1dd1e5a3aa083e028a\nCMSDigestType=2\nCDHash=098da728d3f92d84363f3421a59b0151a6037c84\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements=none\n"
+      },
+      "verify": {
+        "exitCode": 1,
+        "stderr": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing: code has no resources but signature indicates they must be present\n"
+      }
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "realpath": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop\nIdentifier=org.ruyi.workbench.development\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=1207 flags=0x2(adhoc) hashes=31+3 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=b515c72acc87acb4e9f97b45b85ee7a9406e4f9f\nCandidateCDHashFull sha256=b515c72acc87acb4e9f97b45b85ee7a9406e4f9f9135c088702767db3c9ea4ea\nHash choices=sha256\nCMSDigest=b515c72acc87acb4e9f97b45b85ee7a9406e4f9f9135c088702767db3c9ea4ea\nCMSDigestType=2\nCDHash=b515c72acc87acb4e9f97b45b85ee7a9406e4f9f\nSignature=adhoc\nInfo.plist entries=13\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=1\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      },
+      "verify": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "realpath": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "4a72e9dfc38f0666c0a39be184296e10182b7e9de6b8c5ca73aa910ecf756d0e",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=d38d9a3d027f645fc51e85f04ca2c131443a0e44\nCandidateCDHashFull sha256=d38d9a3d027f645fc51e85f04ca2c131443a0e44af4696386bb04b23e0e5e02e\nHash choices=sha256\nCMSDigest=d38d9a3d027f645fc51e85f04ca2c131443a0e44af4696386bb04b23e0e5e02e\nCMSDigestType=2\nCDHash=d38d9a3d027f645fc51e85f04ca2c131443a0e44\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      },
+      "verify": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    }
+  ],
+  "dynamicHelpers": [
+    {
+      "run": "events",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/helper",
+      "sha256": "d097428a1cb8998420b78a3f2d0c1af6474f2565956560eac6c9e5441d68af95",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=2ae06192f475bc6fefa8e51242f47ef8945e2a49\nCandidateCDHashFull sha256=2ae06192f475bc6fefa8e51242f47ef8945e2a4995a088bdbe0d136e61d3c6ce\nHash choices=sha256\nCMSDigest=2ae06192f475bc6fefa8e51242f47ef8945e2a4995a088bdbe0d136e61d3c6ce\nCMSDigestType=2\nCDHash=2ae06192f475bc6fefa8e51242f47ef8945e2a49\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "events",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/testing-helper",
+      "sha256": "6f1b4401caa4620f1c114d3f6c37129ef9c926a06b15c05b13ac29ec763881ae",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/testing-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=6dc227b43ca616ce0f2e907abe7f0000c8eef4df\nCandidateCDHashFull sha256=6dc227b43ca616ce0f2e907abe7f0000c8eef4dfe24724332765687b0e769748\nHash choices=sha256\nCMSDigest=6dc227b43ca616ce0f2e907abe7f0000c8eef4dfe24724332765687b0e769748\nCMSDigestType=2\nCDHash=6dc227b43ca616ce0f2e907abe7f0000c8eef4df\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "events",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/event-fixture",
+      "sha256": "e5f7e170386acebef949fb8398bd47ada6f12968b9dcce476a06da5957a38fc0",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/event-fixture\nIdentifier=event-fixture\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=742 flags=0x20002(adhoc,linker-signed) hashes=20+0 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=59bd141a727549f266f44fc2c71baae83b9e3917\nCandidateCDHashFull sha256=59bd141a727549f266f44fc2c71baae83b9e3917675a46309d0d47a18268e75f\nHash choices=sha256\nCMSDigest=59bd141a727549f266f44fc2c71baae83b9e3917675a46309d0d47a18268e75f\nCMSDigestType=2\nCDHash=59bd141a727549f266f44fc2c71baae83b9e3917\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements=none\n"
+      }
+    },
+    {
+      "run": "apps",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-OqwiJg/helper",
+      "sha256": "0126b3f9a8a52917e1e8df9cebc97b81b3c06bd265dd64ce00407a6a1a8350d6",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-OqwiJg/helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=c5cff6161f06977e7d0375f383f193dadbed939f\nCandidateCDHashFull sha256=c5cff6161f06977e7d0375f383f193dadbed939f8aa952480759f00eba06eaae\nHash choices=sha256\nCMSDigest=c5cff6161f06977e7d0375f383f193dadbed939f8aa952480759f00eba06eaae\nCMSDigestType=2\nCDHash=c5cff6161f06977e7d0375f383f193dadbed939f\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "app-unicode",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/input-helper",
+      "sha256": "3d55866852a9968025d934f13935116906fa6395591f9f0bf29d8a13fbd71e07",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/input-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=e31dfdab57323ed66b3d3fa2b8767ad46cb3ff77\nCandidateCDHashFull sha256=e31dfdab57323ed66b3d3fa2b8767ad46cb3ff77753a04063da0758b5ed70d8e\nHash choices=sha256\nCMSDigest=e31dfdab57323ed66b3d3fa2b8767ad46cb3ff77753a04063da0758b5ed70d8e\nCMSDigestType=2\nCDHash=e31dfdab57323ed66b3d3fa2b8767ad46cb3ff77\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "app-unicode",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/receiver",
+      "sha256": "62134d4a6091c43b130d8a95c4d47e8f2c3dcd3c6f9595da4d61f2ac5769bca6",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/receiver\nIdentifier=receiver\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=737 flags=0x20002(adhoc,linker-signed) hashes=20+0 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=3c326302068d2071696defd6cca218557ccb5e18\nCandidateCDHashFull sha256=3c326302068d2071696defd6cca218557ccb5e187f6762d70aa0bbcf7c3b485c\nHash choices=sha256\nCMSDigest=3c326302068d2071696defd6cca218557ccb5e187f6762d70aa0bbcf7c3b485c\nCMSDigestType=2\nCDHash=3c326302068d2071696defd6cca218557ccb5e18\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements=none\n"
+      }
+    },
+    {
+      "run": "app-paste",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-feYK8A/input-helper",
+      "sha256": "d0f8509e1a266953e48a1a3aa1cc5ecd861329ad400bfa72b7ded1eb87a3709b",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-feYK8A/input-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=c5bec2b43b4fa18227be945bcc16cdc73f463d8f\nCandidateCDHashFull sha256=c5bec2b43b4fa18227be945bcc16cdc73f463d8fd1ee821a398cc52ef9c956fc\nHash choices=sha256\nCMSDigest=c5bec2b43b4fa18227be945bcc16cdc73f463d8fd1ee821a398cc52ef9c956fc\nCMSDigestType=2\nCDHash=c5bec2b43b4fa18227be945bcc16cdc73f463d8f\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "app-paste",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-feYK8A/receiver",
+      "sha256": "62134d4a6091c43b130d8a95c4d47e8f2c3dcd3c6f9595da4d61f2ac5769bca6",
+      "codesign": {
+        "sameBinaryAs": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/receiver"
+      }
+    },
+    {
+      "run": "window-clipboard",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-sKojHF/automation-helper",
+      "sha256": "74314de2a865fe8488ba4c8a9ec95667144eda9a6a594e272184b45ebe2f37bb",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-sKojHF/automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=193e7c1072b82fa6e7fcafb4a332a2a62bc30390\nCandidateCDHashFull sha256=193e7c1072b82fa6e7fcafb4a332a2a62bc3039003a0b00c9f66a3b0422e390f\nHash choices=sha256\nCMSDigest=193e7c1072b82fa6e7fcafb4a332a2a62bc3039003a0b00c9f66a3b0422e390f\nCMSDigestType=2\nCDHash=193e7c1072b82fa6e7fcafb4a332a2a62bc30390\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "capture-real",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-capture-YipA0W/automation-helper",
+      "sha256": "1fe193a8e9029e42b17bc5af788c26ebbaa95940ec483f740b418429de21de8d",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-capture-YipA0W/automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=ff6964435e584e86e1a73fdb3eb6345476265560\nCandidateCDHashFull sha256=ff6964435e584e86e1a73fdb3eb6345476265560094d55315ac0b63ac1f605ff\nHash choices=sha256\nCMSDigest=ff6964435e584e86e1a73fdb3eb6345476265560094d55315ac0b63ac1f605ff\nCMSDigestType=2\nCDHash=ff6964435e584e86e1a73fdb3eb6345476265560\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "capture-real",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-capture-YipA0W/capture-fixture",
+      "sha256": "eb9592aef6b97dbe7e87c98ce0ee586c12aa7da36fea6784c9ea2ecafb476b2f",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-capture-YipA0W/capture-fixture\nIdentifier=capture-fixture\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=712 flags=0x20002(adhoc,linker-signed) hashes=19+0 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=b40ce9f038a6c25b45b35e6b772934a74977aca6\nCandidateCDHashFull sha256=b40ce9f038a6c25b45b35e6b772934a74977aca69133be70f097467263245b21\nHash choices=sha256\nCMSDigest=b40ce9f038a6c25b45b35e6b772934a74977aca69133be70f097467263245b21\nCMSDigestType=2\nCDHash=b40ce9f038a6c25b45b35e6b772934a74977aca6\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements=none\n"
+      }
+    },
+    {
+      "run": "capture-contract",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-contract-08orS4/test-helper",
+      "sha256": "17ef3bb9765f7b5c36c58e562744d2ffb755d5fdeb274ec40a947fb539633d8e",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-contract-08orS4/test-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=73296a0be7485bc2ebe39520820a0b9f7865f588\nCandidateCDHashFull sha256=73296a0be7485bc2ebe39520820a0b9f7865f588d198af8c32690ee73e2ab20f\nHash choices=sha256\nCMSDigest=73296a0be7485bc2ebe39520820a0b9f7865f588d198af8c32690ee73e2ab20f\nCMSDigestType=2\nCDHash=73296a0be7485bc2ebe39520820a0b9f7865f588\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "capture-contract",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-contract-08orS4/production-helper",
+      "sha256": "0fbee1dd0310e45732574adb469c719ebb91453ac9067dfcc2517cc0adc8817f",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-contract-08orS4/production-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=fda6bc96ef472262654c652a66d708363d9cc557\nCandidateCDHashFull sha256=fda6bc96ef472262654c652a66d708363d9cc557ad8019dced8fb8b4521057c4\nHash choices=sha256\nCMSDigest=fda6bc96ef472262654c652a66d708363d9cc557ad8019dced8fb8b4521057c4\nCMSDigestType=2\nCDHash=fda6bc96ef472262654c652a66d708363d9cc557\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "negative-watchdog",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-mjVJmT/helper",
+      "sha256": "720ac116598ae3032ba3fb549e63323e0324832b9e4d3d6cd8c026713295d757",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-mjVJmT/helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=ad1d3433ce5977bc0a1a6950af9da4c6af9964c1\nCandidateCDHashFull sha256=ad1d3433ce5977bc0a1a6950af9da4c6af9964c10ed67a7a94e9e33c56610c96\nHash choices=sha256\nCMSDigest=ad1d3433ce5977bc0a1a6950af9da4c6af9964c10ed67a7a94e9e33c56610c96\nCMSDigestType=2\nCDHash=ad1d3433ce5977bc0a1a6950af9da4c6af9964c1\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "negative-watchdog",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-mjVJmT/testing-helper",
+      "sha256": "639efafd400ac66df895458e18eb30c34050aa13366595ce11c67ff37a51e1eb",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-mjVJmT/testing-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=1ed3b8a55e3db35bd141356c3632eafda38df70f\nCandidateCDHashFull sha256=1ed3b8a55e3db35bd141356c3632eafda38df70fa52ed51d344dea92b34b905a\nHash choices=sha256\nCMSDigest=1ed3b8a55e3db35bd141356c3632eafda38df70fa52ed51d344dea92b34b905a\nCMSDigestType=2\nCDHash=1ed3b8a55e3db35bd141356c3632eafda38df70f\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "negative-watchdog",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-mjVJmT/event-fixture",
+      "sha256": "e5f7e170386acebef949fb8398bd47ada6f12968b9dcce476a06da5957a38fc0",
+      "codesign": {
+        "sameBinaryAs": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-events-obv9rW/event-fixture"
+      }
+    },
+    {
+      "run": "negative-textedit",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-JTeBge/helper",
+      "sha256": "7fae7c1a62f3d368fa232b51f9be94baa7a859814c34d202baa9b33c95b97e98",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-JTeBge/helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=79abb4dea017e75660f3f904d2096e57522efb5f\nCandidateCDHashFull sha256=79abb4dea017e75660f3f904d2096e57522efb5fdb59635e02d1ea030ed739d4\nHash choices=sha256\nCMSDigest=79abb4dea017e75660f3f904d2096e57522efb5fdb59635e02d1ea030ed739d4\nCMSDigestType=2\nCDHash=79abb4dea017e75660f3f904d2096e57522efb5f\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "negative-app-exit",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-W6IIKX/input-helper",
+      "sha256": "6f55bd9c19317cc6e2482bf30a665a1f2336da5b1f885b09e966812cf92e423c",
+      "codesign": {
+        "exitCode": 0,
+        "stderr": "Executable=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-W6IIKX/input-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=f896cca4607c1f67cdd3c99e14d36fb2bb292b4e\nCandidateCDHashFull sha256=f896cca4607c1f67cdd3c99e14d36fb2bb292b4ed8bfba8fe6616af9d4251b21\nHash choices=sha256\nCMSDigest=f896cca4607c1f67cdd3c99e14d36fb2bb292b4ed8bfba8fe6616af9d4251b21\nCMSDigestType=2\nCDHash=f896cca4607c1f67cdd3c99e14d36fb2bb292b4e\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+      }
+    },
+    {
+      "run": "negative-app-exit",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-W6IIKX/receiver",
+      "sha256": "62134d4a6091c43b130d8a95c4d47e8f2c3dcd3c6f9595da4d61f2ac5769bca6",
+      "codesign": {
+        "sameBinaryAs": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-HPVhcq/receiver"
+      }
+    }
+  ],
+  "appBuild": {
+    "schemaVersion": 1,
+    "architecture": "arm64",
+    "sdk": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+    "compiler": "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+    "duplicateSwiftModuleMapOverlay": true,
+    "deploymentTarget": "14.0",
+    "identity": "ad-hoc-development",
+    "workbenchRoot": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench",
+    "sourceFingerprint": {
+      "desktop-macos/DesktopService.swift": "93d865770d762fde93fe91a40b630fa87c4f5c2a965e1fb7d9a8cc291985d6d9",
+      "desktop-macos/MacHostBridge.swift": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5",
+      "desktop-macos/RuyiDesktop.swift": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "desktop-macos/main.swift": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+      "desktop-macos/service-lease.cjs": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+      "tools/build-macos-desktop.js": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216"
+    }
+  },
+  "appPlist": "{\n  \"CFBundleDisplayName\" => \"如意工作台\"\n  \"CFBundleExecutable\" => \"RuyiDesktop\"\n  \"CFBundleIdentifier\" => \"org.ruyi.workbench.development\"\n  \"CFBundleName\" => \"如意工作台\"\n  \"CFBundlePackageType\" => \"APPL\"\n  \"CFBundleShortVersionString\" => \"3.0.1\"\n  \"CFBundleVersion\" => \"3.0.1\"\n  \"LSMinimumSystemVersion\" => \"14.0\"\n  \"NSAppTransportSecurity\" => {\n    \"NSAllowsLocalNetworking\" => true\n  }\n  \"NSDocumentsFolderUsageDescription\" => \"读取文稿目录中的本地工作台程序文件和你选择的工作区。\"\n  \"NSHighResolutionCapable\" => true\n  \"NSMicrophoneUsageDescription\" => \"将语音转换为工作台输入文字。\"\n  \"RuyiWorkbenchRoot\" => \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench\"\n}\n",
+  "observationMethod": "Read and hashed compiled helper/receiver files in their per-run temporary fixture roots while tests were active. Functional entry paths are bound by the frozen test sources; this collection did not trace every process launch."
+}

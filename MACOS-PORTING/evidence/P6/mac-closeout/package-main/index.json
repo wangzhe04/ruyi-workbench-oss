@@ -1,0 +1,37 @@
+{
+  "scratch": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7",
+  "serial": true,
+  "automaticRetries": 0,
+  "cases": [
+    {
+      "variant": "full",
+      "kind": "install",
+      "file": "macos-trial-install.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "seconds": 75.096,
+      "log": "full-install.txt",
+      "evidenceSource": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-trial-install-PkolJp",
+      "archived": [
+        "acceptance.json",
+        "gatekeeper-assessment.json",
+        "launch-services.json",
+        "native.json",
+        "offline-journey.txt",
+        "packaged-trash.json",
+        "packaged-trash.txt"
+      ]
+    },
+    {
+      "variant": "full",
+      "kind": "upgrade",
+      "file": "macos-upgrade-rollback.e2e.js",
+      "exitCode": 1,
+      "timedOut": false,
+      "seconds": 28.731,
+      "log": "full-upgrade.txt",
+      "evidenceSource": null,
+      "archived": []
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS K00 两条线程已建
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS K00b 在管家视角
+PASS K0 线程 A 在焦点卡里(「保留上一帧那一条」)
+PASS K1a 切到工作台
+PASS K1b 离开期间把 A 改名(HTTP 200)
+PASS K1c 切回管家
+PASS K1 切回来没有闪「读取中…」,第一帧就是上一帧的旧名(标题变化序列 ["保留上一帧那一条","改过名字的那一条","改过名字的那一条"])
+PASS K2 后台刷新到了:标题最终变成新名字「改过名字的那一条」
+PASS K3a 焦点换到 C(「从来没打开过的那一条」)
+PASS K3 对照:头一次打开的 C 照旧先落「读取中…」闸(序列 ["读取中…","从来没打开过的那一条","从来没打开过的那一条","从来没打开过的那一条"])
+STEWARD DRAWER KEEP FRAME BROWSER E2E: ALL PASS

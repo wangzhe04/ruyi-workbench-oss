@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "normal",
+    "path": "/tmp/ruyi-v3-build-jrt3_pv8/normal-helper",
+    "bytes": 291168,
+    "sha256": "77598204706b2d8e348d801eb16963eb907fde5c7e711da56bf51d3a67bdea92"
+  },
+  {
+    "mode": "testing",
+    "path": "/tmp/ruyi-v3-build-jrt3_pv8/testing-helper",
+    "bytes": 292016,
+    "sha256": "f84fcdbd075784f496f1a616360e0f70d9671194b8da6d110f38719b433de5f3"
+  }
+]

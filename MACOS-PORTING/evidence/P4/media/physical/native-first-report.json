@@ -1,0 +1,73 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 3,
+  "microphoneCaptureEvents" : [
+    {
+      "state" : 0
+    },
+    {
+      "state" : 1
+    },
+    {
+      "observedDurationMs" : 3000.2713333815336,
+      "state" : 0
+    }
+  ],
+  "microphoneCaptureLimitFired" : true,
+  "microphoneCaptureState" : 0,
+  "microphoneCaptureStopping" : false,
+  "nativePID" : 86049,
+  "page" : {
+    "additional" : {
+      "buttonState" : "idle",
+      "input" : "P4 本机短录音验收完成",
+      "passed" : true,
+      "requests" : [
+        {
+          "constraints" : {
+            "audio" : true
+          },
+          "error" : "NotAllowedError",
+          "message" : "The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.",
+          "nativeRequested" : true,
+          "state" : "rejected"
+        },
+        {
+          "constraints" : {
+            "audio" : true
+          },
+          "nativeRequested" : true,
+          "state" : "released",
+          "stops" : [
+            1009
+          ]
+        }
+      ],
+      "sends" : 0,
+      "uploads" : [
+        {
+          "ok" : true,
+          "status" : 200
+        }
+      ]
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "80625978-7C38-49DF-393C-138408BD3AB0",
+  "servicePID" : 86055,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

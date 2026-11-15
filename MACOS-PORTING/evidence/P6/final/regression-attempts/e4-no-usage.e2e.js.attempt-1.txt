@@ -1,0 +1,16 @@
+[fake] [fake-openai] listening on 59850
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 9c95d7e12c73)
+[wb] UI: http://127.0.0.1:59851/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-e4-no-usage-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :59851
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-e4-no-usage-e2e/generated/workbench.mcp.json
+PASS plain chat streamed a reply (turn ran) — "Hello, world! This is a fake streamed re"
+PASS a usage event was STILL emitted despite zero provider usage frames (estimated fallback)
+PASS usage.estimated === true (marks it as an approximation)
+PASS estimated usage.input_tokens > 0 (got 2700)
+PASS estimated contextTokens > 0 feeds the context meter (got 2712)
+PASS usage.calls === 0 records that no real usage frame arrived (got 0)
+PASS result ok=true
+
+E4-NO-USAGE E2E: ALL PASS

@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-11-13T02:57:44.741989+00:00",
+  "mode": "Read-only, target Ruyi rows only; no TCC writes or security policy changes.",
+  "databases": [
+    {
+      "path": "/Users/jiming/Library/Application Support/com.apple.TCC/TCC.db",
+      "error": "unable to open database file"
+    },
+    {
+      "path": "/Library/Application Support/com.apple.TCC/TCC.db",
+      "error": "unable to open database file"
+    }
+  ]
+}

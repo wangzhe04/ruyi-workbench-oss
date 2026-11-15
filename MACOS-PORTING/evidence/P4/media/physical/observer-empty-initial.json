@@ -1,0 +1,22 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 3,
+  "microphoneCaptureEvents" : [
+
+  ],
+  "microphoneCaptureLimitFired" : false,
+  "microphoneCaptureState" : 0,
+  "microphoneCaptureStopping" : false,
+  "nativePID" : 85630,
+  "previewNavigations" : 0,
+  "profileIdentifier" : "DC8D2059-BAD5-F88E-ADE7-D50D3796149F",
+  "servicePID" : 0,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "starting",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T10:56:38.144825+00:00",
+  "status": "code_review_passed_effective_independent_functional_acceptance_recorded",
+  "sourceFingerprint": "source-fingerprint-final.json",
+  "sourceFiles": 58,
+  "exactDeltaFromOriginal58": {
+    "dev-harness/macos-input-apps.e2e.js": "89c37aae8d4214d1f0319fc563b4c437b6c0717fd3910c1f84f89b77511783ef"
+  },
+  "allOther57FilesUnchanged": true,
+  "finding": {
+    "id": "APPAX3",
+    "severity": "P2",
+    "finding": "The AX fixture resolved a requested CFT binary symlink for plist inspection but still spawned the unresolved symlink. CFT resolves its Frameworks relative to that launch path and failed before CDP/AX discovery.",
+    "resolution": "AX mode resolves launchExecutable before spawn and launches that actual binary path. Default mode keeps the requested executable, preserving exec wrapper support. Evidence records both requested executable and actual launchExecutable.",
+    "sourceVerification": "Read the actual launchExecutable conditional, cp.spawn argument and requested/actual evidence serialization. The final manifest changes only this fixture source.",
+    "runtimeVerification": "apps/independent-final/runs.json pending"
+  },
+  "mainAgentDiagnosticEvidenceRead": [
+    {
+      "file": "browser-path-diagnostic/binary.json",
+      "sha256": "2c3b19839ae11714d87b9faa78ab5b2281ef5bbff37b558012429114e27636f4",
+      "elapsedMs": 533,
+      "cdpObserved": true,
+      "signal": null,
+      "recordedProcessResidue": [],
+      "executor": "main agent; read by independent reviewer",
+      "diagnosis": "Real bundle binary discovers CDP."
+    },
+    {
+      "file": "browser-path-diagnostic/symlink.json",
+      "sha256": "26c9ab66aee71f6f5f5ad0d74ad56b91204fde6e7511079acd578ab7b07f745c",
+      "elapsedMs": 106,
+      "cdpObserved": false,
+      "signal": "SIGABRT",
+      "recordedProcessResidue": [],
+      "executor": "main agent; read by independent reviewer",
+      "diagnosis": "CFT stderr reports missing relative ../Frameworks at the temporary symlink launch location; SIGABRT."
+    }
+  ],
+  "originalIndependentFailure": "independent/apps-ax-renderer/run.txt",
+  "originalFailurePreserved": true,
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsRunDuringReview": false,
+  "independentAcceptanceEvidence": "independent-completion/review.json",
+  "finalSourceFingerprint": "source-fingerprint-worker-ready.json",
+  "sourceReuseEvidence": "source-reuse-review.json"
+}

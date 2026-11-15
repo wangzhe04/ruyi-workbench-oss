@@ -1,0 +1,16 @@
+PASS workbench and fake provider started
+PASS created session
+PASS durable-preference turn completed successfully
+PASS strict judge returned one review-only candidate
+PASS candidate is project-scoped and source-pinned
+PASS proposal state is stored outside the chat session file
+PASS candidate cannot be saved into a different project after workspace drift
+PASS user dismissal is persisted
+PASS same turn does not re-open a dismissed card
+PASS adjacent qualifying turn is suppressed before another model call
+PASS only one auxiliary judge call was billed across adjacent qualifying turns
+PASS reviewed candidate saves through the normal memory API
+PASS the successful memory save request also records the candidate as user-confirmed
+PASS deleting a session removes its proposal state
+
+MEMORY AUTO PROPOSAL API E2E: ALL PASS

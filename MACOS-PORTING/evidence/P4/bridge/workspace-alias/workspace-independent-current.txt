@@ -1,0 +1,41 @@
+PASS workspace normalization strips Explorer wrapping quotes from default
+PASS workspace normalization strips quotes before recent-list de-duplication
+PASS workspace normalization strips quotes before favorite-list de-duplication
+PASS ① (unit) exact fingerprint → unique hit, correct path, score 1
+PASS ② (unit) two same-named dirs → 2 candidates
+PASS ② (unit) candidates sorted by score DESC (top = exact 1)
+PASS ③ (unit) children mismatch (<0.8) → zero matches
+PASS ③ (unit) empty name → ok:false
+PASS ⑦ (PF3) resolver returns despite a hung candidate dir
+PASS ⑦ (PF3) the hung dir was actually read (stub hit 1x)
+PASS ⑦ (PF3) hung dir abandoned at the per-dir timeout — elapsed 1000ms << 5000ms stub delay
+PASS ⑦ (PF3) event loop kept ticking during the resolve (not synchronously blocked; ticks=47)
+PASS ⑦ (PF3 FIX) known recentWorkspace on a slow drive is STILL selected via bounded stat — not missed
+PASS ⑦ (PF3 FIX) a timed-out candidate marks the result truncated:true (incomplete, not authoritative)
+PASS ⑧ (PF3 FIX) a non-known slow dir is NOT force-selected (stat fallback scoped to recentWorkspaces only)
+PASS ⑧ (PF3 FIX) the timed-out non-known candidate still flags truncated
+[fake] [fake-openai] listening on 50302
+PASS workbench listening
+PASS version === package.json
+PASS UI token scraped
+PASS ① POST /api/workspace/resolve ok
+PASS ① exact fingerprint → unique hit with correct absolute path
+PASS ② two same-named dirs → 2 candidates
+PASS ② candidates sorted by score DESC
+PASS ② top candidate is the exact-fingerprint dir
+PASS ③ children mismatch → matches:[]
+PASS ③ resolve without token → 403
+PASS ④ POST /api/config recentWorkspaces ok
+PASS ④ front-inserted path leads, prior kept (4 total)
+PASS ④ POST duplicate-laden list ok
+PASS ④ POSIX recent paths preserve case distinctions and insertion order
+PASS ④ atomic picker save persists recent + favorite paths for the next boot
+PASS ④ list truncated to 10 (front kept)
+PASS ⑤ pick-folder without token → 403
+PASS ⑤ (non-Windows) pick-folder → graceful degrade with hint
+PASS ⑥ session created
+PASS ⑥ PATCH session cwd persists (resolved absolute)
+PASS ⑥ reloaded session keeps the new cwd
+PASS ⑥ blank cwd patch does not clear the existing cwd
+
+WORKSPACE-RESOLVE E2E: ALL PASS

@@ -1,0 +1,22 @@
+PASS ① #cfgNewThreadEngine 这枚 select 存在
+PASS ① 恰好两个 option:last / global(got ["last","global"])
+PASS ① 标签挂着 data-i18n="settings.newThreadEngine"
+PASS ① 两个 option 各自挂着自己的 i18n 键
+PASS ① 它紧跟主模型那一行、同住「模型分配」页(#stab-models);Agent CLI 驱动那枚选择器已并进主模型下拉
+PASS ① 说明行的落点 #newThreadEngineHint 存在
+PASS ② 回填:fillSettings 把 config.newThreadEngine 写回这枚 select
+PASS ② 保存:设置表单的 patch 里带 newThreadEngine 这个键
+PASS ② 即存:INSTANT_SETTINGS 里有 cfgNewThreadEngine 那一条(选中即存,不再等页脚「保存」)
+PASS ② 主模型下拉把两个命令行引擎各列成一项,选中即一次写 activeProvider＋agentCliType＋model
+PASS ③ 说明行走 textContent(零 innerHTML)
+PASS ③ 说明行读的是 config.lastUsedEngineRoute
+PASS ④ public zh-CN 带齐五个键(缺:[])
+PASS ④ public zh-CN 的 lastIs 带 {{p1}} 占位符(说明行要把「上次用的是谁」填进去)
+PASS ④ public en-US 带齐五个键(缺:[])
+PASS ④ public en-US 的 lastIs 带 {{p1}} 占位符(说明行要把「上次用的是谁」填进去)
+PASS ④ docs zh-CN 带齐五个键(缺:[])
+PASS ④ docs zh-CN 的 lastIs 带 {{p1}} 占位符(说明行要把「上次用的是谁」填进去)
+PASS ④ docs en-US 带齐五个键(缺:[])
+PASS ④ docs en-US 的 lastIs 带 {{p1}} 占位符(说明行要把「上次用的是谁」填进去)
+
+NEW THREAD ENGINE DEFAULT STATIC E2E: ALL PASS

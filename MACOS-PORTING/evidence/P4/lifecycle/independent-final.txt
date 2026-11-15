@@ -1,0 +1,26 @@
+PASS native lifecycle reports default background behavior and actual login service status
+PASS actual WKWebView has one active synthetic capture and one pending synthetic permission result
+PASS normal scheduler API creates late-run and skip policy fixtures
+PASS backend suspension uses the exact currently owned native child identity
+PASS wake validates the same owned backend without starting a second service
+PASS native suspend stops active tracks and discards late permission acquisition
+PASS suspend preserves unsent drafts and sends no recording
+PASS native wake reconnects SSE once with the existing replay cursor
+PASS suspended backend resumes a missed reminder exactly once under run-once-late policy
+PASS suspended backend preserves skip policy for a missed reminder
+PASS repeated wake does not duplicate a settled reminder
+PASS normal native quit reclaims the resumed backend
+PASS normal menu handler persists close-to-quit and closing the window reclaims the backend
+PASS close-to-quit preference survives a native App restart
+PASS close-window native action stops capture and discards a later permission result while preserving the draft
+PASS hide native action stops capture and discards a later permission result while preserving the draft
+PASS minimize native action stops capture and discards a later permission result while preserving the draft
+PASS normal real backend connects the fixture MCP server
+PASS normal MCP and active CLI each own a live descendant in the native App tree
+PASS normal App termination reclaims its service and complete MCP/CLI fixture trees
+PASS host-crash real backend connects the fixture MCP server
+PASS host-crash MCP and active CLI each own a live descendant in the native App tree
+PASS host-crash App termination reclaims its service and complete MCP/CLI fixture trees
+Native lifecycle reports /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-lifecycle-wpsm3T
+
+MACOS DESKTOP LIFECYCLE E2E: ALL PASS

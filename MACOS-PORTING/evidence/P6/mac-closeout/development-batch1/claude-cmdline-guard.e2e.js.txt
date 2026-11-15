@@ -1,0 +1,47 @@
+PASS (A1) Windows公式与batchSafeSpawn命令行长度严格同构 (539)
+PASS (A1 Mac) executable and argv pass through without cmd wrapping
+PASS (A2ab) 非 Windows 不设防(0)
+PASS (A2c) 测试缝强制预算 2600
+PASS (A3a) 栏内切点 → 整段回退(无悬空 <skill-index>)
+PASS (A3b) 房间足够 → 原文不动
+PASS (A3c) 栏外切点 → 普通截断
+PASS (A4a) 段内收缩保闭合围栏 + 截断标记
+PASS (A4b) 外壳放不下 → 整体丢弃
+PASS (A5) clampAppendWithSkills 钳 1200:用户段优先 + 围栏配对 (1116)
+PASS (A6a) 政策段收尾 + 围栏配对 (len 1197)
+PASS (A6b) 总长 ≤ 1200 (1197)
+PASS (A7a) 中文签名 → definitive 不重试
+PASS (A7b) 英文签名 → definitive 不重试
+PASS (A8a) 非法 thinking effort → 默认继承 CLI
+PASS (A8b) max thinking effort 保留
+PASS (A9a) schema 8 legacy 一次性迁移到 interactive
+PASS (A9b) schema 9 用户显式 legacy 选择保持不变
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay c17d8271e448)
+[wb] UI: http://127.0.0.1:60418/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-cmdline-guard-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (B0) 带缝工作台 listening :60418
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-cmdline-guard-e2e/generated/workbench.mcp.json
+PASS (B1) 对抗配置下回合正常完成(不硬失败)
+PASS (B2) 重建 cmd 整行长度 4001 ≤ 预算 4200
+PASS (B2b) 前端配置的 thinking effort 经 --effort xhigh 到达 Claude CLI
+PASS (B3) --append-system-prompt 仍在
+PASS (B4) 用户 append 是最前段(最高优先级存活)
+PASS (B5) 语言政策段恒完整在末尾
+PASS (B6) append 内所有围栏开闭配对 []
+PASS (B7) 降级经 stderr 事件告知用户 — [启动守卫] Claude Code CLI 命令行超预算(预算 4200 字符,cmd.exe 上限 8191),已自动降级:append-trimmed-t
+PASS (B8) meta.cmdlineGuard 携带降级明细 — ["append-trimmed-to-3558"]
+PASS (B9) --agents 要么被降级裁剪,要么 JSON 完好可解析
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay af6d048db27b)
+[wb] UI: http://127.0.0.1:60419/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-cmdline-guard-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (C0) 无缝工作台 listening :60419
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-cmdline-guard-e2e/generated/workbench.mcp.json
+PASS (C1) 预算内:append 首尾契约不变,技能段不在 append(改道 stdin)
+PASS (C1b) 预算内:技能索引经 stdin 完整注入(闭合围栏 + guard-skill-0)
+PASS (C2) 预算内:--agents 角色定义照常注入
+PASS (C3) 预算内:无守卫降级事件(行为逐字节不变)
+PASS (C4) 预算内:meta 不带 cmdlineGuard
+
+CLAUDE-CMDLINE-GUARD E2E: ALL PASS

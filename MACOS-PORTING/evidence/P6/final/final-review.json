@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T12:00:30.476Z",
+  "stage": "Independent final frozen DMG installation, native Trash and bounded upgrade/snapshot rollback acceptance",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+  "environment": {
+    "macOS": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0",
+    "uid": 501,
+    "adminGroupMember": true,
+    "scope": "Current-account isolated temporary HOME/Applications, no elevation, account changes or system security-policy changes"
+  },
+  "userScope": "Local/internal ad-hoc trial, current-account isolated install. No Apple Developer account or clean standard user/Mac available. Same3.0.1 different-build App replacement and selected full data snapshot recovery only.",
+  "codeReview": {
+    "passed": true,
+    "report": "code-review-frozen.json",
+    "reviewedImplementationCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+    "implementationBindings": 47,
+    "deltaBindings": 2,
+    "deltaReport": "packager-cleanup-delta-review.json",
+    "deltaCommitReport": "delta-commit-binding.json",
+    "current49SourceBindingsUnchanged": true,
+    "postAcceptanceSourceReport": "source-binding-after.json",
+    "remainingBlockingCodeFindings": []
+  },
+  "provenance": {
+    "before": "candidate-provenance-before.json",
+    "after": "candidate-provenance-after.json",
+    "rawSource": "raw-source-provenance.json",
+    "applicationSourceFingerprintsEach": 492,
+    "wrapperMaterialFingerprintsEach": 4,
+    "allBeforeAfterChecksPassed": true,
+    "oldP6_01AndP6_02FrozenInputsRetainedUnchanged": true
+  },
+  "artifacts": [
+    {
+      "variant": "full",
+      "image": "Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "appTreeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+      "inputManifestSha256": "7d920ae2637089143fd56607eccd0b1af08ee1017ed5c3580e69f1be676e4031",
+      "inputAppTreeSha256": "bae172acde168ed0d9f647b65b4815508024d66690b148c1b8bade22d3003816",
+      "applicationFingerprintCount": 492,
+      "wrapperMaterialCount": 4,
+      "nativeObjectCount": 210,
+      "helperSha256": "552a834d0f31a1297ebff7941a97d8d8f68312a65a9e081962c807c1fa2ddec9",
+      "signatureVerification": "Real final mounted DMG: each registry code target verified individually or through its correct resource-bearing App/framework container with codesign --verify --deep --strict.",
+      "installation": {
+        "log": "final-full-install.txt",
+        "exitCode": 0,
+        "pass": 13,
+        "fail": 0,
+        "skip": 0,
+        "evidence": "runs/independent-full-install/acceptance.json",
+        "nativeReady": true,
+        "launchServicesReady": true,
+        "actualReadonlyImage": true,
+        "ejectedBeforeInstalledLaunches": true,
+        "newUnicodeUserApplicationsLocation": true,
+        "existingInstallRefused": true,
+        "installedBytesReverifiedAfterOfflineAndTrash": true,
+        "uninstallRetainsSeparateData": true,
+        "cleanup": {
+          "checkedAt": "2026-11-12T11:50:13.072Z",
+          "kind": "install",
+          "variant": "full",
+          "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-K7WOHb",
+          "files": [
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-K7WOHb/acceptance.json",
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az/host.json"
+          ],
+          "observedPids": [
+            34822,
+            34829,
+            34862,
+            34865,
+            35067,
+            35070
+          ],
+          "stillPresent": [],
+          "ownedProcessLines": [],
+          "ownedMountedRoots": [],
+          "offlineRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az",
+          "successfulMovedAppCloneRemoved": true,
+          "reportRetained": true,
+          "pass": true
+        }
+      },
+      "offlineJourney": {
+        "log": "runs/independent-full-install/offline-journey.txt",
+        "pass": 19,
+        "fail": 0,
+        "skip": 0,
+        "networkAndDeveloperPathsActuallyDenied": true,
+        "successAppCloneRemoved": true,
+        "reportsAndMetadataPreserved": true
+      },
+      "packagedTrash": {
+        "log": "runs/independent-full-install/packaged-trash.txt",
+        "evidence": "runs/independent-full-install/packaged-trash.json",
+        "pass": 12,
+        "fail": 0,
+        "restored": true,
+        "backend": "Installed app/server.js, not repository backend",
+        "nativeHelper": "Installed native helper hash matches frozen raw-source inventory",
+        "helperHashMatches": true,
+        "scope": "production migration handler, native FileManager Trash, test-owned App only; restored before cleanup"
+      },
+      "upgradeRollback": {
+        "log": "final-full-upgrade.txt",
+        "exitCode": 0,
+        "pass": 14,
+        "fail": 0,
+        "skip": 0,
+        "evidence": "runs/independent-full-upgrade/acceptance.json",
+        "oldImageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+        "newImageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+        "oldApplicationSource": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+        "newApplicationSource": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+        "oldNewPayloadsDifferent": true,
+        "nativeReportsReady": true,
+        "scope": "schema12 forward normalization to14; same product version3.0.1 build-to-build rollback with full snapshot",
+        "fullSnapshotRestoredToFreshRoot": true,
+        "newerDataRetained": true,
+        "previousAppRetainedAndRelaunched": true,
+        "bothAppAndDistributionIntegrityVerified": true,
+        "cleanup": {
+          "checkedAt": "2026-11-12T11:53:00.603Z",
+          "kind": "upgrade",
+          "variant": "full",
+          "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-L6ROr2",
+          "files": [
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-L6ROr2/acceptance.json"
+          ],
+          "observedPids": [
+            35371,
+            35379,
+            35434,
+            35437,
+            35470,
+            35473
+          ],
+          "stillPresent": [],
+          "ownedProcessLines": [],
+          "ownedMountedRoots": [],
+          "reportRetained": true,
+          "pass": true
+        }
+      },
+      "gatekeeper": {
+        "classification": "INFO only; not an accepted approval gate",
+        "status": 3,
+        "stderr": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0wOKpb/Applications/试用 安装😀/Ruyi.app: rejected\n"
+      },
+      "unchangedBeforeAfterAcceptance": true,
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "image": "Ruyi-macos-arm64-slim-internal-trial.dmg",
+      "imageSha256": "85470381ebeace5fb01c65bbf0452fdca73f80b8b752247c902e658a8ad9b9a0",
+      "imageBytes": 51628631,
+      "appTreeSha256": "4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0",
+      "inputManifestSha256": "7c13294acd56edcba81f121db5e3e006bdc780e8549e896e3cb03f235d485cb4",
+      "inputAppTreeSha256": "4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0",
+      "applicationFingerprintCount": 492,
+      "wrapperMaterialCount": 4,
+      "nativeObjectCount": 7,
+      "helperSha256": "4f4bffbef3a19ac559b2eb9fd15309bc75164fc616d8e50b12da784b90de673c",
+      "signatureVerification": "Real final mounted DMG: each registry code target verified individually or through its correct resource-bearing App/framework container with codesign --verify --deep --strict.",
+      "installation": {
+        "log": "final-slim-install.txt",
+        "exitCode": 0,
+        "pass": 13,
+        "fail": 0,
+        "skip": 0,
+        "evidence": "runs/independent-slim-install/acceptance.json",
+        "nativeReady": true,
+        "launchServicesReady": true,
+        "actualReadonlyImage": true,
+        "ejectedBeforeInstalledLaunches": true,
+        "newUnicodeUserApplicationsLocation": true,
+        "existingInstallRefused": true,
+        "installedBytesReverifiedAfterOfflineAndTrash": true,
+        "uninstallRetainsSeparateData": true,
+        "cleanup": {
+          "checkedAt": "2026-11-12T11:51:26.224Z",
+          "kind": "install",
+          "variant": "slim",
+          "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-gc8qVq",
+          "files": [
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-gc8qVq/acceptance.json",
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-e1UKHl/host.json"
+          ],
+          "observedPids": [
+            35192,
+            35195,
+            35227,
+            35230,
+            35283,
+            35286
+          ],
+          "stillPresent": [],
+          "ownedProcessLines": [],
+          "ownedMountedRoots": [],
+          "offlineRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-e1UKHl",
+          "successfulMovedAppCloneRemoved": true,
+          "reportRetained": true,
+          "pass": true
+        }
+      },
+      "offlineJourney": {
+        "log": "runs/independent-slim-install/offline-journey.txt",
+        "pass": 7,
+        "fail": 0,
+        "skip": 0,
+        "networkAndDeveloperPathsActuallyDenied": true,
+        "successAppCloneRemoved": true,
+        "reportsAndMetadataPreserved": true
+      },
+      "packagedTrash": {
+        "log": "runs/independent-slim-install/packaged-trash.txt",
+        "evidence": "runs/independent-slim-install/packaged-trash.json",
+        "pass": 12,
+        "fail": 0,
+        "restored": true,
+        "backend": "Installed app/server.js, not repository backend",
+        "nativeHelper": "Installed native helper hash matches frozen raw-source inventory",
+        "helperHashMatches": true,
+        "scope": "production migration handler, native FileManager Trash, test-owned App only; restored before cleanup"
+      },
+      "upgradeRollback": {
+        "log": "final-slim-upgrade.txt",
+        "exitCode": 0,
+        "pass": 14,
+        "fail": 0,
+        "skip": 0,
+        "evidence": "runs/independent-slim-upgrade/acceptance.json",
+        "oldImageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+        "newImageSha256": "85470381ebeace5fb01c65bbf0452fdca73f80b8b752247c902e658a8ad9b9a0",
+        "oldApplicationSource": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+        "newApplicationSource": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+        "oldNewPayloadsDifferent": true,
+        "nativeReportsReady": true,
+        "scope": "schema12 forward normalization to14; same product version3.0.1 build-to-build rollback with full snapshot",
+        "fullSnapshotRestoredToFreshRoot": true,
+        "newerDataRetained": true,
+        "previousAppRetainedAndRelaunched": true,
+        "bothAppAndDistributionIntegrityVerified": true,
+        "cleanup": {
+          "checkedAt": "2026-11-12T11:54:40.236Z",
+          "kind": "upgrade",
+          "variant": "slim",
+          "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-LNjSbq",
+          "files": [
+            "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-LNjSbq/acceptance.json"
+          ],
+          "observedPids": [
+            35540,
+            35543,
+            35589,
+            35592,
+            35625,
+            35628
+          ],
+          "stillPresent": [],
+          "ownedProcessLines": [],
+          "ownedMountedRoots": [],
+          "reportRetained": true,
+          "pass": true
+        }
+      },
+      "gatekeeper": {
+        "classification": "INFO only; not an accepted approval gate",
+        "status": 3,
+        "stderr": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-WwROyq/Applications/试用 安装😀/Ruyi.app: rejected\n"
+      },
+      "unchangedBeforeAfterAcceptance": true,
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "observedPIDCount": 24,
+    "observedPIDs": [
+      34822,
+      34829,
+      34862,
+      34865,
+      35067,
+      35070,
+      35371,
+      35379,
+      35434,
+      35437,
+      35470,
+      35473,
+      35192,
+      35195,
+      35227,
+      35230,
+      35283,
+      35286,
+      35540,
+      35543,
+      35589,
+      35592,
+      35625,
+      35628
+    ],
+    "allRunCleanupChecksPassed": true,
+    "ownedMountsRemaining": 0,
+    "ownedProcessReportsRemaining": 0,
+    "note": "Each run was checked and fully cleaned before the next. Direct E2E window was returned to main after fourth run; main now owns any subsequent mounts/processes."
+  },
+  "regression": {
+    "report": "MACOS-PORTING/evidence/P6/final/regression-coverage.json",
+    "independentCrosscheck": "regression-coverage-review.json",
+    "crosscheckPassed": true,
+    "selected": 594,
+    "actualCovered": 594,
+    "processPassed": 558,
+    "processFailed": 36,
+    "passedAfterRetry": 3,
+    "filesWithInternalSkips": 27,
+    "excludedLive": 14,
+    "initialENOSPCRecoveryCases": 50,
+    "failedFiles": [
+      "agent-mode-v2.e2e.js",
+      "artifacts.e2e.js",
+      "audit-w23.e2e.js",
+      "autonomy-benchmark.e2e.js",
+      "background-completion.e2e.js",
+      "bridge-cancel-timeout.e2e.js",
+      "budget-guard.e2e.js",
+      "claude-cmdline-guard.e2e.js",
+      "claude-exe-resolve.e2e.js",
+      "cli-probe-stall.e2e.js",
+      "desktop-mcp-smoke.e2e.js",
+      "engine-env-runtime.e2e.js",
+      "harness-friction.e2e.js",
+      "macos-capture-host.e2e.js",
+      "macos-input-host.e2e.js",
+      "mcp-import-origin.e2e.js",
+      "mission-driver.e2e.js",
+      "overlay-update-core.e2e.js",
+      "permission-plain.browser.e2e.js",
+      "privacy-gateway.e2e.js",
+      "repo-hygiene.e2e.js",
+      "settings-wave1.browser.e2e.js",
+      "shell-mcp-guard.e2e.js",
+      "shell-session.e2e.js",
+      "steward-decisions.browser.e2e.js",
+      "steward-deferred-permission.e2e.js",
+      "steward-exempt-delegation.e2e.js",
+      "steward-exempt-no-swap.e2e.js",
+      "steward-exempt-shell-send.e2e.js",
+      "steward-guardrails.e2e.js",
+      "steward-tools.e2e.js",
+      "tool-audit-fixes.e2e.js",
+      "tool-audit-r2-meta.e2e.js",
+      "tool-audit-r2-netexec.e2e.js",
+      "tool-invoke-promote.e2e.js",
+      "vision-loop.e2e.js"
+    ],
+    "allRegressionPassed": false,
+    "failuresAccepted": false,
+    "fileLevelNewFailures": 0,
+    "assertionLevelSameCauseClaim": false,
+    "limits": "36 failed files belong to prior55 failed files; this is file-level containment only. No claim every failing assertion has the same cause, no conversion to pass, no all-green project acceptance. The original ENOSPC-aborted round was incomplete and50 missing cases were separately actually run.",
+    "unpassedAppFeatureQualifications": [
+      {
+        "file": "macos-capture-host.e2e.js",
+        "log": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-capture-host.e2e.js.attempt-2.txt",
+        "attempt": 2,
+        "failures": [
+          "FAIL Error: App acceptance timed out"
+        ],
+        "diagnosis": "LaunchServices acceptance report wait timed out using legacy dist/Ruyi.app; no usable report establishes permission denial or another root cause. Frozen final DMG startup/install success does not replace these P5 feature qualifications."
+      },
+      {
+        "file": "macos-input-host.e2e.js",
+        "log": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-input-host.e2e.js.attempt-2.txt",
+        "attempt": 2,
+        "failures": [
+          "FAIL Error: Controlled App input acceptance timed out"
+        ],
+        "diagnosis": "LaunchServices acceptance report wait timed out using legacy dist/Ruyi.app; no usable report establishes permission denial or another root cause. Frozen final DMG startup/install success does not replace these P5 feature qualifications."
+      }
+    ]
+  },
+  "notAccepted": [
+    "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+    "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+    "real clean standard-user installation or clean second Mac without developer tools",
+    "macOS14 actual runtime",
+    "formal-identity Keychain/TCC upgrade/recovery stability",
+    "arbitrary future-schema direct backward compatibility",
+    "Windows same-candidate full regression",
+    "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
+  ],
+  "evidencePathBase": "Evidence paths without repository prefix are relative to /tmp/ruyi-p603-review. Preserve/map these references when copying into the persistent archive. Source/candidate paths in provenance reports are absolute or repository-relative as labeled.",
+  "runEvidenceIndex": "run-evidence-index.json",
+  "reviewerDirectE2ERuns": {
+    "count": 4,
+    "order": [
+      "full install",
+      "slim install",
+      "full upgrade",
+      "slim upgrade"
+    ],
+    "eachOnce": true,
+    "allExitZero": true,
+    "noSkipSubstitution": true
+  },
+  "securityPolicyChanges": [],
+  "passForIndependentFinalArtifactScope": true,
+  "fullOriginalReleaseScopeAccepted": false,
+  "conclusion": "PASS for independent final Full/Slim local/internal trial artifact installation, packaged native Trash and same3.0.1 build-to-build upgrade/complete-snapshot recovery. Source and image hashes stable and owned observed processes/mounts cleaned. Full project regression remains558 process-pass/36fail with27 internal-SKIP files and14 excluded live probes; those failures and formal/clean-user/macOS14/P5 feature gates remain unaccepted."
+}

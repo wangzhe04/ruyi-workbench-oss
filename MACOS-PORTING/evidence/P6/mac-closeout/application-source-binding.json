@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-11-12T13:55:47.834334+00:00",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+  "scope": "Current source equals original raw-source snapshot except the previously reviewed final DMG packager delta; no new production source change since b6405af1. Raw492 binding to b662 remains recorded in prior independent provenance.",
+  "variants": [
+    {
+      "variant": "full",
+      "rawSourceFingerprintCount": 492,
+      "currentMatchesRawSourceSnapshot": 491,
+      "existingPackagerDelta": [
+        "ruyi-workbench/tools/package-macos-trial.js"
+      ],
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "rawSourceFingerprintCount": 492,
+      "currentMatchesRawSourceSnapshot": 491,
+      "existingPackagerDelta": [
+        "ruyi-workbench/tools/package-macos-trial.js"
+      ],
+      "pass": true
+    }
+  ],
+  "newProductionSourceChanges": [],
+  "productionRuntimeChanged": false,
+  "pass": true
+}

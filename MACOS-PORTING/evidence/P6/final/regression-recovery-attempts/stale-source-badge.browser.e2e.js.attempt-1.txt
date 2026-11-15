@@ -1,0 +1,18 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 找得到 Edge/Chrome
+PASS A4 browser target available
+PASS A5 应用就绪
+PASS B0 新线程已建(经典窗口)
+PASS B1 web_fetch 真的回落了缓存(结果里 fromCache:true;实得 ["web_fetch","file_read","web_fetch"])
+PASS B2a 那张卡的摘要行上出现缓存徽标(实得 "cache")
+PASS B2b 徽标逐字说得出「多久以前」(实得 "缓存 · 30 天前抓的")
+PASS B2c 鼠标停上去说清为什么(实得 "这一段不是刚抓的：这次没连上，用的是本地缓存")
+PASS B4a 同一回合里的 file_read 卡零徽标(实得 "")
+PASS B4b 整页带 data-stale 的元素恰一枚(实得 1)
+PASS B5 同样是 web_fetch,但这一发连缓存都没回落(被 SSRF 拒掉)-> 零徽标(实得 "")
+PASS C0 刷新后应用再次就绪
+PASS C1 回放路径同样印出徽标(实得 "缓存 · 30 天前抓的")
+PASS C2 回放路径也不误伤 file_read(实得 "")
+
+STALE SOURCE BADGE BROWSER E2E: ALL PASS

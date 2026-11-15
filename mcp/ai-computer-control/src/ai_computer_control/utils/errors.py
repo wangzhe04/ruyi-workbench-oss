@@ -3,6 +3,16 @@
 ``str(e)`` is ``""`` for ``TimeoutError()``, ``KeyError()``, some ``OSError`` variants and more, which used
 to produce ``{"error": ""}`` (falsy -> reported as success). Always render with :func:`exc_text`.
 """
+import asyncio
+
+
+class ToolCancelled(asyncio.CancelledError):
+    """Cancellation with a bounded tool result for the enclosing audit wrapper."""
+
+    def __init__(self, tool_name: str, result: dict):
+        super().__init__('Tool execution cancelled')
+        self.tool_name = tool_name
+        self.result = {**result, 'ok': False, 'cancelled': True}
 
 
 def exc_text(e: BaseException) -> str:

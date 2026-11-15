@@ -1,0 +1,45 @@
+{
+  "label": "module-graph",
+  "argv": [
+    "node",
+    "dev-harness/module-dependency-graph.static.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-cpuzsars/home",
+    "USERPROFILE": "/tmp/rd-cpuzsars/userprofile",
+    "APPDATA": "/tmp/rd-cpuzsars/appdata",
+    "LOCALAPPDATA": "/tmp/rd-cpuzsars/localappdata",
+    "RUYI_HOME": "/tmp/rd-cpuzsars/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-cpuzsars/data",
+    "WCW_DATA_DIR": "/tmp/rd-cpuzsars/acc-data",
+    "TMPDIR": "/tmp/rd-cpuzsars/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-cpuzsars/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-cpuzsars/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T18:36:39.531737+00:00",
+  "freezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T18:36:40.171224+00:00",
+  "elapsedSeconds": 0.6393847920116968,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v2/module-graph.log",
+    "bytes": 1327,
+    "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+  }
+}

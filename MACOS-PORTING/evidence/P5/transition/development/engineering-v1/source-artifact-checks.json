@@ -1,0 +1,618 @@
+[
+  {
+    "label": "syntax-before",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "syntax-after",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "build-before",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "build-after",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "unit-before",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "unit-after",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "fast-before",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  },
+  {
+    "label": "fast-after",
+    "files": [
+      {
+        "path": "dev-harness/macos-capture-transition.e2e.js",
+        "sha256": "e14e7c17d67cae8d11f02df427f9162c2886893368be50d384c32cb772e09f38",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-motion.m",
+        "sha256": "e517a78fcfc03cbe8e7f95c7dab59eba9d93bf72f06e138a9aeddb15b0014e63",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "sha256": "8bbe9ec2c35d55a3aa5e16d5a869f6560c7788aa85d8ac0ecb82e53877d1e309",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "sha256": "221a4aa0715a46710828ce7616b185a667440190d631988aa965f14b32faf740",
+        "matched": true
+      },
+      {
+        "path": "README_EN.md",
+        "sha256": "de879bb249fd7fe2562b00c9e26a3437a3c992d9663fedb9787b8b06b53eabd7",
+        "matched": true
+      },
+      {
+        "path": "facts.json",
+        "sha256": "2f2f7c68922ce8c9e9b23cd4edaa1939fa0eb84980961e50d212886eb6b46e97",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+        "matched": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/png-grid.js",
+        "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+        "matched": true
+      },
+      {
+        "path": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+        "matched": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+        "matched": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+        "matched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a",
+        "matched": true
+      }
+    ]
+  }
+]

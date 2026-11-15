@@ -1,0 +1,216 @@
+{
+  "nativePID": 50966,
+  "servicePID": 50976,
+  "launch": "LaunchServices",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": 1,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 682,
+      "height": 528,
+      "pid": 50962,
+      "process_start": "1794290947:830648",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 682,
+        "pid": 50962,
+        "process_start": "1794290947:830648",
+        "ref": "AB948930-25A3-47D2-8180-E3DD0D2F2B59"
+      },
+      "title": "Ruyi P5 Input 50962",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": 1,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 132,
+    "length": 14,
+    "method": "clipboard",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "done",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 50966,
+      "ppid": 1,
+      "created": "1794290948753376"
+    },
+    {
+      "pid": 50976,
+      "ppid": 50966,
+      "created": "1794290948971113"
+    },
+    {
+      "pid": 51023,
+      "ppid": 50976,
+      "created": "1794290949507853"
+    },
+    {
+      "pid": 51028,
+      "ppid": 50976,
+      "created": "1794290949567837"
+    },
+    {
+      "pid": 51035,
+      "ppid": 50976,
+      "created": "1794290949693872"
+    },
+    {
+      "pid": 51036,
+      "ppid": 51035,
+      "created": "1794290949696035"
+    },
+    {
+      "pid": 51037,
+      "ppid": 51036,
+      "created": "1794290949696421"
+    },
+    {
+      "pid": 51051,
+      "ppid": 50976,
+      "created": "1794290949943323"
+    },
+    {
+      "pid": 51053,
+      "ppid": 51037,
+      "created": "1794290949950954"
+    },
+    {
+      "pid": 51082,
+      "ppid": 51037,
+      "created": "1794290950499920"
+    },
+    {
+      "pid": 51087,
+      "ppid": 51037,
+      "created": "1794290950540124"
+    },
+    {
+      "pid": 51090,
+      "ppid": 51037,
+      "created": "1794290950571232"
+    },
+    {
+      "pid": 51093,
+      "ppid": 51037,
+      "created": "1794290950602802"
+    },
+    {
+      "pid": 51096,
+      "ppid": 51037,
+      "created": "1794290950631289"
+    },
+    {
+      "pid": 51099,
+      "ppid": 51037,
+      "created": "1794290950666863"
+    },
+    {
+      "pid": 51104,
+      "ppid": 50976,
+      "created": "1794290950703228"
+    },
+    {
+      "pid": 51103,
+      "ppid": 50976,
+      "created": "1794290950701915"
+    },
+    {
+      "pid": 51105,
+      "ppid": 51103,
+      "created": "1794290950703302"
+    },
+    {
+      "pid": 51114,
+      "ppid": 50976,
+      "created": "1794290950760088"
+    },
+    {
+      "pid": 51110,
+      "ppid": 51037,
+      "created": "1794290950732398"
+    },
+    {
+      "pid": 51148,
+      "ppid": 50976,
+      "created": "1794290951291169"
+    },
+    {
+      "pid": 51156,
+      "ppid": 50976,
+      "created": "1794290951397866"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 1,
+      "key_up": 1,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": true
+  }
+}

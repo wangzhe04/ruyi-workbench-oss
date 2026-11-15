@@ -3,6 +3,8 @@ name: 本地语言智能
 description: 无需下载扩展，配置或排查本地语言智能(LSP)
 ---
 
+Platform paths: Windows uses node_modules\.bin and .venv\Scripts; macOS uses node_modules/.bin and .venv/bin with POSIX absolute paths. Run server checks via shell_run/script_run on Mac; never source the user profile to find tools.
+
 # LSP Local Setup
 
 Use this skill to configure or troubleshoot local language intelligence without downloading extensions.

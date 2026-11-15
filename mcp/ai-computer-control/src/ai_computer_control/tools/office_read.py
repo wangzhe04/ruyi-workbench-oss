@@ -427,7 +427,7 @@ _PDF_TIME_BUDGET_S = 15.0
 
 
 @mcp.tool()
-def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000,
+def pdf_read_pages(path: str, pages: str | None = None, max_chars_per_page: int = 4000,
                    max_chars: int = 30000) -> dict:
     """分页读取 PDF:只读你点名的页,避免「50 页 PDF 整读爆上下文」。
 
@@ -435,7 +435,7 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
 
     Args:
         path: .pdf 文件路径。
-        pages: 1-based 页码规格:'3' / '1-5' / '1,3,7-9'。默认 '1-5'。
+        pages: 1-based 页码规格:'3' / '1-5' / '1,3,7-9'。省略时读取实际存在的前 5 页（不足 5 页则读到末页）。
         max_chars_per_page: 每页文本上限,默认 4000;超出截断并 truncated=True。
         max_chars: 本次调用总字符预算,默认 30000(另有约 15 秒时间预算);用尽即停,返回 next_pages / nextPage。
 
@@ -471,7 +471,7 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
         with pdfplumber.open(path) as pdf:
             total = len(pdf.pages)
             try:
-                want = _parse_pages(pages, total)
+                want = _parse_pages(pages if pages is not None else f"1-{min(5, total)}", total)
             except ValueError as ve:
                 return {"error": str(ve)}
 

@@ -1,0 +1,41 @@
+[
+  {
+    "label": "syntax",
+    "command": [
+      "node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "start": "2026-11-11T12:37:12.504564+00:00",
+    "exitCode": 0
+  },
+  {
+    "label": "build",
+    "command": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "start": "2026-11-11T12:37:38.071795+00:00",
+    "exitCode": 0
+  },
+  {
+    "label": "unit",
+    "command": [
+      "node",
+      "--test",
+      "dev-harness/unit/*.test.js"
+    ],
+    "start": "2026-11-11T12:37:38.211337+00:00",
+    "exitCode": 0
+  },
+  {
+    "label": "fast",
+    "command": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "start": "2026-11-11T12:39:35.500696+00:00",
+    "exitCode": 1
+  }
+]

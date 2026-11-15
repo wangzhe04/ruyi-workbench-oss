@@ -1,0 +1,41 @@
+PASS A1 computeHealth 的 id 清单从源码枚举成功(11 项,含 desktop-control): process-supervisor, agent-cli, claude-cli, data-writable, server-source, mcp-target, vendor-libs, search-ripgrep, diagram-renderer, desktop-control, overlay-integrity
+PASS A2 模块导出面齐(describeHealthItem / summarizeHealth / healthSummaryText / healthSeverity / 三张表)
+PASS A3 computeHealth 的每个 id 都在映射表里
+PASS E1 health.* 文案键齐(64 条)
+PASS E2 四个 locale 文件逐字一致
+PASS E3 中英占位符契约一致
+PASS B1 每个 id 的每个变体都解析出 label + hint
+PASS B2 人话文案里不出现原始 id
+PASS B3 desktop-control 已就绪态带上桥接工具数且不给多余的下一步 (已就绪，AI 可以用 42 个桌面工具替你操作电脑。)
+PASS B4 desktop-control 六态严重度:就绪=ok,未装/关闭/缺环境/准备中=warn(不挡主功能),连不上=error (ok,warn,warn,warn,warn,error)
+PASS B5 打包运行不是故障:server-source 的 ok:false 仍判为正常,不给用户报红
+PASS C1 未登记 id 回落成通用人话(不显示 id/detail),严重度不谎报为 ok
+PASS C2 agent-cli 的旧别名 claude-cli 不重复计数
+PASS C3 摘要文案按最重的一档取语气 (有 1 项需要处理)
+PASS C4 无待办时摘要返回 null(不渲染恒亮徽标)
+PASS C5 可选组件缺席（没装／没开／缺运行环境）不计入摘要，不挂常亮的「1」
+PASS C6 桌面控制装了却连不上仍计为 error
+PASS D1 12 条「怎么办」文案里没有文件路径、没有终端命令
+PASS D2 英文「怎么办」文案同样零路径零命令(12 条)
+PASS D3 每个「怎么办」都指向一个应用内落点(切设置页签 / 开应用内手册),没有第三种「自己去别处」
+PASS D4 手册锚点文案与两份手册的小节标题逐字相符(zh: 7. 常见问题 / en: 7. FAQ)
+PASS F1 renderDoctor 经 describeHealthItem 取人话
+PASS F2 旧的「id + 英文 detail 原样上屏」写法已消失
+PASS F3 标题取映射 label,原始 id/detail 只进折叠的「技术详情」
+PASS F4 「怎么办」是真动作:切设置页签(force,不被简易模式收敛)或开应用内手册阅读器
+PASS F5 映射模块零 innerHTML
+PASS F6 映射模块零 import(纯函数,t 由调用方注入)
+PASS F7 阅读器仍只有一个实例:经典壳建好后登记,设置域复用同一个(组合根零改动)
+PASS F8 首跑卡的体检摘要红点存在且点击直达体检页
+PASS F9 侧栏「设置」入口带摘要计数(没进设置也看得见)
+PASS G1 desktop-control 状态词典前后端一致(ready, disabled, not-installed, python-missing, preparing, unreachable)
+PASS G1b search-ripgrep 来源词典前端/CLI doctor/服务端 detail 前缀一致(bundled, system, env, absent)
+PASS G1c search-ripgrep:有 rg(随包/系统/环境变量)=ok,缺席=warn(不挡主功能),认不出的前缀按缺席处理(不谎报就绪)
+PASS G2 服务端 desktop-control 只用工作台已有的数据(config + 只读能力缓存 + 桥接解析),不去读安装器日志
+PASS G3 CLI doctor --human 已接线且默认仍走 JSON
+PASS G4 默认 JSON 输出在 --human 判定之前打印,脚本调用逐字节不变
+PASS G5 overlay 离线载荷含映射模块
+PASS G6 样式落在已注册的所有权层(tool-pane / chat-primitives / layout),未新开样式层
+PASS G7 体检行含窄屏(390px 档)收敛规则
+
+HEALTH I18N STATIC E2E: ALL PASS

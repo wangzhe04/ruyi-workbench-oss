@@ -1,0 +1,11 @@
+PASS workbench started
+PASS created four chats
+PASS bulk cleanup succeeds
+PASS only old unpinned chats are deleted
+PASS current and pinned chats are protected
+PASS sidebar list retains only current and pinned chats
+PASS primary chat records removed
+PASS associated recovery and workflow records purged
+PASS repeat cleanup is a safe no-op
+
+SESSION-BULK-CLEANUP E2E: ALL PASS

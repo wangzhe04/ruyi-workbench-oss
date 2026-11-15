@@ -1,0 +1,17 @@
+[
+  {
+    "test": "parallel-read-island.e2e.js",
+    "exitCode": 0,
+    "seconds": 6.847818125010235
+  },
+  {
+    "test": "provider-turnloop-hardening.e2e.js",
+    "exitCode": 0,
+    "seconds": 23.704249124988564
+  },
+  {
+    "test": "turn-stop-supersede.e2e.js",
+    "exitCode": 0,
+    "seconds": 8.651494290999835
+  }
+]

@@ -1,0 +1,1085 @@
+{
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-marker-diagnostic-tewWs1",
+  "fixture": {
+    "miniaturized": false,
+    "content": {
+      "y": 447,
+      "x": 160,
+      "width": 640,
+      "height": 420
+    },
+    "id": 3040,
+    "event": "ready",
+    "title": "Ruyi P5 Capture 33938",
+    "clipboardSnapshot": false,
+    "pid": 33938
+  },
+  "results": [
+    {
+      "kind": "region",
+      "width": 1280,
+      "height": 840,
+      "logicalBounds": {
+        "height": 420,
+        "width": 640,
+        "x": 160,
+        "y": 447
+      },
+      "points": [
+        {
+          "x": 190,
+          "y": 477,
+          "pixel": [
+            60,
+            60
+          ],
+          "rgba": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 126,
+                "Height": 625,
+                "Y": 115,
+                "Width": 754
+              },
+              "layer": 0,
+              "owner": "系统设置",
+              "pid": 44893,
+              "handle": 535
+            },
+            {
+              "bounds": {
+                "X": 8,
+                "Height": 180,
+                "Y": 402,
+                "Width": 360
+              },
+              "layer": -2147483601,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 38
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 770,
+          "y": 477,
+          "pixel": [
+            1220,
+            60
+          ],
+          "rgba": [
+            13,
+            174,
+            10,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 725,
+                "Height": 319,
+                "Y": 199,
+                "Width": 260
+              },
+              "layer": 8,
+              "owner": "UserNotificationCenter",
+              "pid": 24955,
+              "handle": 2584
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 215,
+                "Height": 839,
+                "Y": 136,
+                "Width": 986
+              },
+              "layer": 0,
+              "owner": "微信",
+              "pid": 68646,
+              "handle": 1356
+            },
+            {
+              "bounds": {
+                "X": 126,
+                "Height": 625,
+                "Y": 115,
+                "Width": 754
+              },
+              "layer": 0,
+              "owner": "系统设置",
+              "pid": 44893,
+              "handle": 535
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 190,
+          "y": 837,
+          "pixel": [
+            60,
+            780
+          ],
+          "rgba": [
+            0,
+            0,
+            254,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 770,
+          "y": 837,
+          "pixel": [
+            1220,
+            780
+          ],
+          "rgba": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 215,
+                "Height": 839,
+                "Y": 136,
+                "Width": 986
+              },
+              "layer": 0,
+              "owner": "微信",
+              "pid": 68646,
+              "handle": 1356
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "window",
+      "width": 1280,
+      "height": 896,
+      "logicalBounds": {
+        "height": 448,
+        "width": 640,
+        "x": 160,
+        "y": 419
+      },
+      "points": [
+        {
+          "x": 190,
+          "y": 477,
+          "pixel": [
+            60,
+            116
+          ],
+          "rgba": [
+            255,
+            3,
+            0,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 126,
+                "Height": 625,
+                "Y": 115,
+                "Width": 754
+              },
+              "layer": 0,
+              "owner": "系统设置",
+              "pid": 44893,
+              "handle": 535
+            },
+            {
+              "bounds": {
+                "X": 8,
+                "Height": 180,
+                "Y": 402,
+                "Width": 360
+              },
+              "layer": -2147483601,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 38
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 770,
+          "y": 477,
+          "pixel": [
+            1220,
+            116
+          ],
+          "rgba": [
+            3,
+            255,
+            0,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 725,
+                "Height": 319,
+                "Y": 199,
+                "Width": 260
+              },
+              "layer": 8,
+              "owner": "UserNotificationCenter",
+              "pid": 24955,
+              "handle": 2584
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 215,
+                "Height": 839,
+                "Y": 136,
+                "Width": 986
+              },
+              "layer": 0,
+              "owner": "微信",
+              "pid": 68646,
+              "handle": 1356
+            },
+            {
+              "bounds": {
+                "X": 126,
+                "Height": 625,
+                "Y": 115,
+                "Width": 754
+              },
+              "layer": 0,
+              "owner": "系统设置",
+              "pid": 44893,
+              "handle": 535
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 190,
+          "y": 837,
+          "pixel": [
+            60,
+            836
+          ],
+          "rgba": [
+            0,
+            1,
+            255,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        },
+        {
+          "x": 770,
+          "y": 837,
+          "pixel": [
+            1220,
+            836
+          ],
+          "rgba": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "covering": [
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 21,
+              "owner": "通知中心",
+              "pid": 817,
+              "handle": 26
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": 20,
+              "owner": "程序坞",
+              "pid": 686,
+              "handle": 16
+            },
+            {
+              "bounds": {
+                "X": 160,
+                "Height": 448,
+                "Y": 419,
+                "Width": 640
+              },
+              "layer": 0,
+              "owner": "fixture",
+              "pid": 33938,
+              "handle": 3040
+            },
+            {
+              "bounds": {
+                "X": 102,
+                "Height": 774,
+                "Y": 90,
+                "Width": 1023
+              },
+              "layer": 0,
+              "owner": "QQ",
+              "pid": 927,
+              "handle": 45
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 986,
+                "Y": 34,
+                "Width": 1710
+              },
+              "layer": 0,
+              "owner": "ChatGPT",
+              "pid": 1626,
+              "handle": 122
+            },
+            {
+              "bounds": {
+                "X": 215,
+                "Height": 839,
+                "Y": 136,
+                "Width": 986
+              },
+              "layer": 0,
+              "owner": "微信",
+              "pid": 68646,
+              "handle": 1356
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483603,
+              "owner": "访达",
+              "pid": 692,
+              "handle": 31
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483624,
+              "owner": "WindowManager",
+              "pid": 667,
+              "handle": 12
+            },
+            {
+              "bounds": {
+                "X": 0,
+                "Height": 1107,
+                "Y": 0,
+                "Width": 1710
+              },
+              "layer": -2147483626,
+              "owner": "Window Server",
+              "pid": 445,
+              "handle": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

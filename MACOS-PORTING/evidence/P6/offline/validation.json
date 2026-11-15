@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P6-01",
+  "status": "passed_current_Mac_offline_candidate_scope",
+  "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "environment": {
+    "os": "macOS27.0.1",
+    "arch": "arm64",
+    "developmentNode": "24.15.0",
+    "bundledPython": "3.12.13",
+    "playwright": "1.64.1",
+    "chromium": "156.0.8078.4"
+  },
+  "checks": [
+    {
+      "file": "acceptance-full-release.txt",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "verdict": "MACOS OFFLINE PACKAGE E2E: ALL PASS"
+    },
+    {
+      "file": "acceptance-slim-release.txt",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "verdict": "MACOS OFFLINE PACKAGE E2E: ALL PASS"
+    },
+    {
+      "file": "independent-full-release.txt",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "verdict": "MACOS OFFLINE PACKAGE E2E: ALL PASS"
+    },
+    {
+      "file": "independent-slim-release.txt",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "verdict": "MACOS OFFLINE PACKAGE E2E: ALL PASS"
+    }
+  ],
+  "candidates": [
+    {
+      "variant": "full",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+      "archive": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip",
+      "archiveBytes": 551162472,
+      "archiveSha256": "94d16a931137548ff19064c72acb2b082431711f8e0a115bb25ef38c2493d605",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "treeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "sourceFiles": 484,
+      "nativeFiles": 209,
+      "payloadBytes": 1165679370,
+      "unpackedIntegrityVerified": true,
+      "entryCount": 9790,
+      "regularFileCount": 8566,
+      "directoryCount": 1210,
+      "symlinkCount": 14
+    },
+    {
+      "variant": "slim",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+      "archive": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01.zip",
+      "archiveBytes": 45914837,
+      "archiveSha256": "e6eea12e2c70c61c244e332a498028609684af02d9b1ca6d02cfe54b85e599eb",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "treeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "sourceFiles": 484,
+      "nativeFiles": 6,
+      "payloadBytes": 140860335,
+      "unpackedIntegrityVerified": true,
+      "entryCount": 278,
+      "regularFileCount": 223,
+      "directoryCount": 55,
+      "symlinkCount": 0
+    }
+  ],
+  "engineering": {
+    "fullUnit": {
+      "passed": 2640,
+      "skipped": 18,
+      "failed": 0,
+      "total": 2658,
+      "log": "unit-release.txt",
+      "runnerLog": "engineering-release.txt",
+      "scope": "Final production source f059b7eb, including all later native-alias tests"
+    },
+    "nativeAuditTests": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "log": "independent-native-alias-delta.txt"
+    },
+    "static": {
+      "passed": 80,
+      "failed": 0,
+      "knownFailure": 0,
+      "flaky": 0,
+      "total": 80,
+      "liveSkipped": 14,
+      "log": "engineering-release.txt",
+      "note": "Final complete managed run. Earlier failures and fixes remain in historical logs."
+    },
+    "syntax": {
+      "files": 1186,
+      "failed": 0,
+      "log": "syntax-native-paths.txt"
+    },
+    "developmentHost": {
+      "passed": 32,
+      "failed": 0,
+      "log": "development-host-third.txt",
+      "scope": "LaunchServices uses a byte-bound temporary program snapshot; no formal Documents/TCC identity acceptance"
+    },
+    "eofLifecycle": {
+      "passed": 14,
+      "failed": 0,
+      "log": "mcp-eof-current.txt"
+    },
+    "relocatedRuntime": {
+      "log": "runtime-start-final.txt",
+      "scope": "Actual relative RUYI_HOME startup plus native helper discovery"
+    }
+  },
+  "notAccepted": [
+    "Developer ID / notarization / Gatekeeper distribution-source first launch",
+    "Clean standard-user installation with no development tools",
+    "Actual macOS14 runtime",
+    "Same-candidate Windows CI or real machine",
+    "Upgrade / rollback / schema recovery acceptance",
+    "Original P5 unverified environment and held-input recovery gates"
+  ],
+  "independentReview": "review-final.json"
+}

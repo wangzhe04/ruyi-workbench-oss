@@ -84,9 +84,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 77 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 70 framework-free ES modules with no build step. |
-| **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **566 e2e cases** (559 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 278 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 93 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 70 framework-free ES modules with no build step. |
+| **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). This is the Windows catalog count; macOS tools depend on implemented backends and current permissions. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **608 e2e cases** (594 selected for default regression; 14 live probes need real APIs, a desktop or a specified Mac runtime and are opt-in; inventory counts do not imply every case passed on this host), plus 294 unit suites and 44 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -522,7 +522,11 @@ Extract to a short path such as `C:\Ruyi` and try again — do not choose "Skip"
 
 <details><summary><b>Does it run on Linux or macOS?</b></summary>
 
-Windows 10/11 is the first-class target; release packages and desktop control are Windows-only. The source starts on Linux for development and testing (CI's static checks run there), but PowerShell, Explorer and `C:\`-path features do not apply.
+Windows 10/11 remains a first-class target; existing release packages and full desktop control target Windows. The Mac arm64 source development environment has verified controlled bash/scripts, files, shared ACC document/chart tools and prepared Playwright browser runtimes. Use `ruyi-workbench/start-macos.command`, or run `node app/server.js serve --open` from that directory. The app requires Node.js ≥20; development checks use Node.js 24 and ACC uses Python 3.12 with matching dependencies prepared in advance.
+
+On Mac, system browser mode only requests URL handoff: it does not verify navigation or attach DOM control. Form automation needs an explicitly configured managed/custom/CDP/bundled target and matching Playwright/Chromium. `installed` or a binary on disk does not mean `ready`. Mac now has native capture, guarded input and window operations, and AX inspection/actions. Vision bilingual OCR, OpenCV template location and guarded clicks have passed current-host checks through the normal Ruyi App HTTP tool route. Tool discovery follows actual authorization and dependency readiness. Shared-frame observation, pixel-change verification and macro replay are implemented in the current-host P5-05 slice. Controlled native recording and fresh-target replay have passed independent current-host acceptance. Shared Office tools operate independently. [P5 evidence](MACOS-PORTING/evidence/P5/ocr/README.md) Inventory and scheduled digest templates have Python paths; Mac download cleanup produces suggestions only and does not delete or promise Trash recovery.
+
+Self-contained Full/Slim DMGs are available for local/internal Mac trials; see the [Mac deployment guide](ruyi-workbench/docs/MACOS-RELEASE_EN.md) for installation, whole-App upgrades, rollback and credential migration. A formally signed Mac release remains pending. macOS 14, signing and clean-machine offline release remain unverified; current development validation uses macOS 27.0.1 arm64. Outstanding Windows same-candidate regression gates remain open. See the [Mac port plan](MACOS-PORTING/README.md) and [P3 package evidence](MACOS-PORTING/evidence/P3/README.md). Linux source use supports development/testing; PowerShell, Explorer and Windows-path features do not apply directly.
 </details>
 
 ---
@@ -532,7 +536,7 @@ Windows 10/11 is the first-class target; release packages and desktop control ar
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 77 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 93 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
 │   ├── app/public/         Frontend: index.html + 70 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell

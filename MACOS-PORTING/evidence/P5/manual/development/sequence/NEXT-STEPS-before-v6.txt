@@ -1,0 +1,52 @@
+P5 manual recording remains in development in /tmp/ruyi-p5-manual-worktree on codex/p5-manual-events.
+Main repository HEAD remains cf32a23176bc9bebad5b55a9143e6a4df9c9f62c. No implementation commit has been made.
+
+Authoritative latest source manifest is development/sequence/current-source-v2.json (34 files).
+The earlier pure-freeze.json has 33 files. Its independent-pure/report.json proves 166 tests once each,
+zero failures/skips/retries; engineering/report.json proves syntax1151, fresh build, unit2499/18 existing skips,
+static80/80. After that freeze, events.m/input.m gained the common pending-cleanup gate, the manual E2E
+was extended, and macos-input-host.e2e.js gained manual App coverage. All Python files still match.
+Do not present those earlier 33-file checks as full latest-candidate acceptance.
+
+Latest native CLI memory contracts passed 15 assertions, including nullable/permission ownership retention,
+cross-tool pending refusal, all 18 stopped mutations, bounded raw flags and production exclusion of test ops.
+Production temporary helper /tmp/ruyi-p5-manual-native-helper SHA256
+66f7344b677ee1dd3c01e01fb4c2df3fcbfa93ffc02c0e76e6a14bd199bb1bd9.
+Testing-only helper /tmp/ruyi-p5-manual-testing-helper SHA256
+a8dd759fc1b3f6bd7d629c152d8253c53d3ef3d11d344902387a8651cc103f59.
+Rebuild after any source edit. Main default helper and authorized App remain their prior accepted artifacts.
+
+Latest independent source reviewer /root/p5_review_resumed closed all concrete reported findings.
+Review covers sequence schema/preflight, whole-record point rebinding, desktop gates/leases, threaded
+cooperative cancellation, cancellation/write serialization, owned cleanup/permission/PID retention,
+background signal release, independent HUP observation and App synchronization/rejection evidence.
+Review and CLI tests do not prove the new real GUI paths.
+
+The ninth development macos-manual-record E2E passed 51 assertions. Later expansions have not run because
+the Mac locked. The tenth attempt refused before input. An unlock question is already pending. Do not repeat it.
+Recheck actual lock state before assuming it persists. Recheck caffeinate PID 49085 / exec74047 before relying on it.
+It started at approximately 2026-11-11 02:48 UTC for 43200 seconds. Per the user's no-lock instruction,
+current-host screensaver idleTime was changed from 300 to 0. An existing lock still needs user authentication.
+
+A failed development experiment treating HID state as physical-only retained the fixture's Shift/left state.
+It was recovered by exact-state-guarded same-position left-up, proving both returned to zero. Preserve recovery
+log and source. HID state includes injected input. Never infer physical-only ownership from those queries.
+
+After unlock, run the expanded dev-harness/macos-manual-record.e2e.js serially. It covers cold save/read/replay,
+real registry-hidden replay, recording-time source switch, stop while held, standalone modified pointer cleanup,
+and testing-only blocked-main signal and EOF receipt paths. These additions remain unproven until executed.
+Then run RUYI_P5_APP_MANUAL=1 dev-harness/macos-input-host.e2e.js with RUYI_DESKTOP_TEST_APP pointing to
+/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app and the main Python3.12 absolute path.
+The test passes --workbench-root for this candidate, so the already authorized App runs current server code
+without rebuilding or re-signing the host. Its manual source is a real listen-only tap with an independent
+synthetic demonstrator. A separate physical human demonstration is still required.
+
+Use DYLD_FRAMEWORK_PATH=/Users/jiming/.local/esp-runtimes and
+DYLD_LIBRARY_PATH=/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib.
+Keep HOME, USERPROFILE, LOCALAPPDATA, APPDATA and data roots isolated. GUI/real E2E execution must be serial.
+Do not access or close UserNotificationCenter to bypass the earlier CUA rejection.
+
+Finish final same-candidate independent acceptance, engineering and source/product binding before committing.
+Preserve all original P5 requirements in remaining-audit.json, including approval/deny/cancel, real session/turn
+file checkpoints and rollback, actual TCC revoke/action-time lock and recovery, selected apps/current candidate,
+physical displays, macOS14, Windows same candidate and release-identity handoff. Do not mark the goal complete.

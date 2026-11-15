@@ -1,0 +1,28 @@
+{
+  "activationCount" : 5,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 0,
+  "nativePID" : 8477,
+  "page" : {
+    "additional" : {
+      "sessionId" : "sess_e3f3761801a17f66"
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "0411385B-8460-DEBC-88B0-F39A414D5E06",
+  "servicePID" : 8480,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 1,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 1,
+  "wakeValidated" : true,
+  "windowFrame" : "{{430, 157}, {1280, 868}}",
+  "windowVisible" : true
+}

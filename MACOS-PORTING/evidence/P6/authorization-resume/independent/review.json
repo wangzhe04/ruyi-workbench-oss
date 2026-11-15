@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-13T03:06:31.891479+00:00",
+  "result": "pass_fixed_full_current_mac_capture_and_basic_input_qualification",
+  "findings": [],
+  "fixedApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "sourceImageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+  "appTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+  "sourceFingerprints": 492,
+  "sourceFingerprintSemantics": "492 actual current byte hashes match74d57 commit checkout filters and installed manifest; mandated CRLF files are not compared to raw LF blobs.",
+  "bindingEvidence": {
+    "before": "bindings-before.json",
+    "after": "bindings-after.json",
+    "all54SourceFilesMatchExpectedBeforeAfter": true,
+    "unchangedOldSourceFiles": 52,
+    "changedFixtureFilesBoundByCurrentFreeze": 2,
+    "source492Unchanged": true,
+    "wholeInstalledAppUnchanged": true,
+    "helperUnchanged": true,
+    "deepStrictCodesignBefore": 0,
+    "deepStrictCodesignAfter": 0,
+    "fixtureFreeze": "../fixture-source-freeze.json",
+    "fixtureFreezeSha256": "0c93288f8e7b611556b558bfc0f55d8cd45a77d9f844bf679d534993665781b5"
+  },
+  "execution": {
+    "serial": true,
+    "attemptsEach": 1,
+    "automaticRetries": 0,
+    "cases": [
+      {
+        "case": "capture",
+        "exitCode": 0,
+        "passCount": 7,
+        "seconds": 2.99,
+        "log": "capture.txt",
+        "receipt": "capture-receipts/host.json",
+        "nativePID": 24636,
+        "servicePID": 24662,
+        "observedProcesses": 16,
+        "survivors": 0,
+        "authorization": {
+          "authorization": "granted",
+          "coordinate_space": "macos_global_points",
+          "installed": true,
+          "ready": true,
+          "reasonCode": "",
+          "supported": true
+        }
+      },
+      {
+        "case": "input",
+        "exitCode": 0,
+        "passCount": 14,
+        "seconds": 5.19,
+        "log": "input.txt",
+        "receipt": "input-receipts/input-host.json",
+        "nativePID": 25315,
+        "servicePID": 25359,
+        "observedProcesses": 26,
+        "survivors": 0,
+        "nativeHelper": {
+          "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+          "origin": "installed-app-bundle",
+          "sha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69"
+        },
+        "serviceInvocation": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/node/bin/node --require /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/desktop-macos/service-lease.cjs /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/app/server.js serve --host 127.0.0.1",
+        "authorization": {
+          "capture": "granted",
+          "accessibility": "granted",
+          "eventPosting": "granted"
+        },
+        "listenAuthorizationObserved": "granted",
+        "inputMonitoringQualified": false
+      }
+    ],
+    "failed": 0,
+    "skipped": 0,
+    "timedOut": 0,
+    "processObservationFailures": 0,
+    "observedSurvivors": 0,
+    "nodeVersion": "v24.15.0"
+  },
+  "qualifiedScope": [
+    "This exact immutable installed arm64 Full74d57 App on the current host, launched by LaunchServices with isolated test data.",
+    "App-owned workbench service and actual bundled native capture path produce a real PNG with granted ScreenCapture; reported App/Node birth identities and shutdown observed.",
+    "App->bundled Node->bundled server->bundled Python/ACC->exact bundled helper3131822a... performs guarded focus, Chinese Unicode input, click and scroll on a self-owned receiver; balanced button/modifier cleanup and observed process exit confirmed."
+  ],
+  "notQualified": [
+    "Input Monitoring/listen-only event tap/manual recording: diagnostic listenAuthorization is granted, but no actual listening/recording acceptance executed.",
+    "Slim positive App-origin qualification; only fixed Full tested in this resumed window.",
+    "Developer ID/formal identity, notarization/stapling and formal hardened-runtime acceptance.",
+    "Clean standard user or second Mac, macOS14 actual runtime, downloaded-origin Gatekeeper first approval, formal Keychain/TCC stability.",
+    "Windows same-candidate regression, original P5 unaccepted scenarios, permission revocation/locked-session/fault matrix beyond these two cases.",
+    "A new594-case complete final-candidate run: these2 results are serial targeted qualification and do not rewrite historical raw or skip/live counts."
+  ],
+  "phaseInterpretation": "These two current-host fixed-Full qualifications can complete the previously explicit current Mac internal trial acceptance slice. Global/original P6 remains in_progress unless the user explicitly changes that scope; no broader gate waiver inferred.",
+  "priorFailureEvidenceRetained": [
+    "capture-first.*",
+    "input-first.*",
+    "main-after-authorization",
+    "main-after-screen-auth/input.txt",
+    "permission-category-observation.json"
+  ],
+  "noMutation": {
+    "fixedAppRebuilt": false,
+    "fixedAppResigned": false,
+    "sourceEdited": false,
+    "systemPermissionChangedByReviewer": false,
+    "settingsChangedByReviewer": false
+  },
+  "testWindowEndedAtUTC": "2026-11-13T03:06:31.891734+00:00"
+}

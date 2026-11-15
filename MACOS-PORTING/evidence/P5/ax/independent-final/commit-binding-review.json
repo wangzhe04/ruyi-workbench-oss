@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T09:51:56.454200+00:00",
+  "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+  "sourceFingerprint": "../source-fingerprint-final.json",
+  "sourceFiles": 56,
+  "method": "Independently read the complete raw bytes of each git show COMMIT:path blob and SHA256 each blob, without output truncation. Compared committed and current working bytes with the final tested source manifest.",
+  "sourceChecks": {
+    "dev-harness/fixture-home.static.e2e.js": {
+      "expected": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "committedSha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "committedMatches": true,
+      "workingSha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "workingMatches": true,
+      "committedBytes": 41655
+    },
+    "dev-harness/fixtures/macos-ax-window.m": {
+      "expected": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "committedSha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "committedMatches": true,
+      "workingSha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "workingMatches": true,
+      "committedBytes": 11136
+    },
+    "dev-harness/fixtures/macos-capture-window.m": {
+      "expected": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "committedSha256": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "committedMatches": true,
+      "workingSha256": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "workingMatches": true,
+      "committedBytes": 5912
+    },
+    "dev-harness/fixtures/macos-clipboard-fixture.h": {
+      "expected": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "committedSha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "committedMatches": true,
+      "workingSha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "workingMatches": true,
+      "committedBytes": 1455
+    },
+    "dev-harness/fixtures/macos-input-window.m": {
+      "expected": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "committedSha256": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "committedMatches": true,
+      "workingSha256": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "workingMatches": true,
+      "committedBytes": 13762
+    },
+    "dev-harness/macos-acc-shared.e2e.js": {
+      "expected": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "committedSha256": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "committedMatches": true,
+      "workingSha256": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "workingMatches": true,
+      "committedBytes": 6949
+    },
+    "dev-harness/macos-ax.e2e.js": {
+      "expected": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "committedSha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "committedMatches": true,
+      "workingSha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "workingMatches": true,
+      "committedBytes": 18492
+    },
+    "dev-harness/macos-capabilities.e2e.js": {
+      "expected": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "committedSha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "committedMatches": true,
+      "workingSha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "workingMatches": true,
+      "committedBytes": 8091
+    },
+    "dev-harness/macos-capture-contract.e2e.js": {
+      "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "committedSha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "committedMatches": true,
+      "workingSha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "workingMatches": true,
+      "committedBytes": 12752
+    },
+    "dev-harness/macos-capture-host.e2e.js": {
+      "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "committedSha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "committedMatches": true,
+      "workingSha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "workingMatches": true,
+      "committedBytes": 5558
+    },
+    "dev-harness/macos-capture.e2e.js": {
+      "expected": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "committedSha256": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "committedMatches": true,
+      "workingSha256": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "workingMatches": true,
+      "committedBytes": 12497
+    },
+    "dev-harness/macos-input-apps.e2e.js": {
+      "expected": "bd6928080c7fb8a3e9f0f9380a336f6dfceecbe56457c95788228a16a687c975",
+      "committedSha256": "bd6928080c7fb8a3e9f0f9380a336f6dfceecbe56457c95788228a16a687c975",
+      "committedMatches": true,
+      "workingSha256": "bd6928080c7fb8a3e9f0f9380a336f6dfceecbe56457c95788228a16a687c975",
+      "workingMatches": true,
+      "committedBytes": 20364
+    },
+    "dev-harness/macos-input-events.e2e.js": {
+      "expected": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "committedSha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "committedMatches": true,
+      "workingSha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "workingMatches": true,
+      "committedBytes": 23780
+    },
+    "dev-harness/macos-input-host.e2e.js": {
+      "expected": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "committedSha256": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "committedMatches": true,
+      "workingSha256": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "workingMatches": true,
+      "committedBytes": 15366
+    },
+    "dev-harness/macos-mcp-capabilities.e2e.js": {
+      "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "committedSha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "committedMatches": true,
+      "workingSha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "workingMatches": true,
+      "committedBytes": 5447
+    },
+    "dev-harness/macos-window-clipboard.e2e.js": {
+      "expected": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "committedSha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "committedMatches": true,
+      "workingSha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "workingMatches": true,
+      "committedBytes": 16038
+    },
+    "dev-harness/process-safety.static.e2e.js": {
+      "expected": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "committedSha256": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "committedMatches": true,
+      "workingSha256": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "workingMatches": true,
+      "committedBytes": 13746
+    },
+    "dev-harness/unit/tool-dispatch-hardening.test.js": {
+      "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "committedSha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "committedMatches": true,
+      "workingSha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "workingMatches": true,
+      "committedBytes": 26441
+    },
+    "docs/architecture/module-dependency-graph.json": {
+      "expected": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "committedSha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "committedMatches": true,
+      "workingSha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "workingMatches": true,
+      "committedBytes": 923751
+    },
+    "docs/architecture/route-inventory.json": {
+      "expected": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "committedSha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "committedMatches": true,
+      "workingSha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "workingMatches": true,
+      "committedBytes": 205532
+    },
+    "facts.json": {
+      "expected": "627ac1ea7fb1e13a4eb0ef6efcc649440ace70e2f75554356f342978cab3d25b",
+      "committedSha256": "627ac1ea7fb1e13a4eb0ef6efcc649440ace70e2f75554356f342978cab3d25b",
+      "committedMatches": true,
+      "workingSha256": "627ac1ea7fb1e13a4eb0ef6efcc649440ace70e2f75554356f342978cab3d25b",
+      "workingMatches": true,
+      "committedBytes": 1335
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+      "expected": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "committedSha256": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "committedMatches": true,
+      "workingSha256": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "workingMatches": true,
+      "committedBytes": 21497
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+      "expected": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "committedSha256": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "committedMatches": true,
+      "workingSha256": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "workingMatches": true,
+      "committedBytes": 7675
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py": {
+      "expected": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "committedSha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "committedMatches": true,
+      "workingSha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "workingMatches": true,
+      "committedBytes": 9275
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py": {
+      "expected": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "committedSha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "committedMatches": true,
+      "workingSha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "workingMatches": true,
+      "committedBytes": 1685
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py": {
+      "expected": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "committedSha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "committedMatches": true,
+      "workingSha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "workingMatches": true,
+      "committedBytes": 3163
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+      "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "committedSha256": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "committedMatches": true,
+      "workingSha256": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "workingMatches": true,
+      "committedBytes": 5962
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py": {
+      "expected": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "committedSha256": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "committedMatches": true,
+      "workingSha256": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "workingMatches": true,
+      "committedBytes": 6384
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py": {
+      "expected": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "committedSha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "committedMatches": true,
+      "workingSha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "workingMatches": true,
+      "committedBytes": 5512
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+      "expected": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "committedSha256": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "committedMatches": true,
+      "workingSha256": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "workingMatches": true,
+      "committedBytes": 11390
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": {
+      "expected": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "committedSha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "committedMatches": true,
+      "workingSha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "workingMatches": true,
+      "committedBytes": 6057
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py": {
+      "expected": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "committedSha256": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "committedMatches": true,
+      "workingSha256": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "workingMatches": true,
+      "committedBytes": 2210
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_ax.py": {
+      "expected": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "committedSha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "committedMatches": true,
+      "workingSha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "workingMatches": true,
+      "committedBytes": 6311
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+      "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "committedSha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "committedMatches": true,
+      "workingSha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "workingMatches": true,
+      "committedBytes": 9976
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_events.py": {
+      "expected": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "committedSha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "committedMatches": true,
+      "workingSha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "workingMatches": true,
+      "committedBytes": 8420
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_input.py": {
+      "expected": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "committedSha256": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "committedMatches": true,
+      "workingSha256": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "workingMatches": true,
+      "committedBytes": 12248
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+      "expected": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "committedSha256": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "committedMatches": true,
+      "workingSha256": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "workingMatches": true,
+      "committedBytes": 10204
+    },
+    "ruyi-workbench/app/server.js": {
+      "expected": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "committedSha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "committedMatches": true,
+      "workingSha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "workingMatches": true,
+      "committedBytes": 6777632
+    },
+    "ruyi-workbench/app/src/01h-process-runtime.js": {
+      "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "committedSha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "committedMatches": true,
+      "workingSha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "workingMatches": true,
+      "committedBytes": 24619
+    },
+    "ruyi-workbench/app/src/01n-desktop-automation.js": {
+      "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "committedSha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "committedMatches": true,
+      "workingSha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "workingMatches": true,
+      "committedBytes": 5148
+    },
+    "ruyi-workbench/app/src/06-provider-engine.js": {
+      "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "committedSha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "committedMatches": true,
+      "workingSha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "workingMatches": true,
+      "committedBytes": 166256
+    },
+    "ruyi-workbench/app/src/07-autonomy.js": {
+      "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "committedSha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "committedMatches": true,
+      "workingSha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "workingMatches": true,
+      "committedBytes": 234075
+    },
+    "ruyi-workbench/app/src/12-tool-dispatch.js": {
+      "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "committedSha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "committedMatches": true,
+      "workingSha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "workingMatches": true,
+      "committedBytes": 301464
+    },
+    "ruyi-workbench/app/src/13-http-router.js": {
+      "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "committedSha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "committedMatches": true,
+      "workingSha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "workingMatches": true,
+      "committedBytes": 221621
+    },
+    "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+      "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "committedSha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "committedMatches": true,
+      "workingSha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "workingMatches": true,
+      "committedBytes": 150843
+    },
+    "ruyi-workbench/app/src/manifest.json": {
+      "expected": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "committedSha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "committedMatches": true,
+      "workingSha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "workingMatches": true,
+      "committedBytes": 23789
+    },
+    "ruyi-workbench/app/src/module-contracts.json": {
+      "expected": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "committedSha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "committedMatches": true,
+      "workingSha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "workingMatches": true,
+      "committedBytes": 697478
+    },
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": {
+      "expected": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "committedSha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "committedMatches": true,
+      "workingSha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "workingMatches": true,
+      "committedBytes": 35428
+    },
+    "ruyi-workbench/resources/macos-automation-ax.m": {
+      "expected": "c77242757e994199ede14dccb48ff42c2451bcfec254b95e23d2571a37fc649d",
+      "committedSha256": "c77242757e994199ede14dccb48ff42c2451bcfec254b95e23d2571a37fc649d",
+      "committedMatches": true,
+      "workingSha256": "c77242757e994199ede14dccb48ff42c2451bcfec254b95e23d2571a37fc649d",
+      "workingMatches": true,
+      "committedBytes": 35771
+    },
+    "ruyi-workbench/resources/macos-automation-events.m": {
+      "expected": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "committedSha256": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "committedMatches": true,
+      "workingSha256": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "workingMatches": true,
+      "committedBytes": 31170
+    },
+    "ruyi-workbench/resources/macos-automation-helper.m": {
+      "expected": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "committedSha256": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "committedMatches": true,
+      "workingSha256": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "workingMatches": true,
+      "committedBytes": 22003
+    },
+    "ruyi-workbench/resources/macos-automation-input.m": {
+      "expected": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "committedSha256": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "committedMatches": true,
+      "workingSha256": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "workingMatches": true,
+      "committedBytes": 46701
+    },
+    "ruyi-workbench/resources/macos-automation-session.m": {
+      "expected": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "committedSha256": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "committedMatches": true,
+      "workingSha256": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "workingMatches": true,
+      "committedBytes": 5222
+    },
+    "ruyi-workbench/resources/macos-automation.h": {
+      "expected": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "committedSha256": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "committedMatches": true,
+      "workingSha256": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "workingMatches": true,
+      "committedBytes": 2286
+    },
+    "ruyi-workbench/tools/build-macos-automation-helper.js": {
+      "expected": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "committedSha256": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "committedMatches": true,
+      "workingSha256": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "workingMatches": true,
+      "committedBytes": 2408
+    },
+    "ruyi-workbench/tools/build-macos-desktop.js": {
+      "expected": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "committedSha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "committedMatches": true,
+      "workingSha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "workingMatches": true,
+      "committedBytes": 6489
+    }
+  },
+  "all56CommittedBlobsMatchFinalFrozenCandidate": true,
+  "all56WorkingFilesMatch": true,
+  "gitShowCheck": {
+    "command": [
+      "git",
+      "show",
+      "--check",
+      "--format=fuller",
+      "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee"
+    ],
+    "exitCode": 0,
+    "stdout": "commit 66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee\nAuthor:     Roy <roy.jizhongxu@gmail.com>\nAuthorDate: Tue Nov 10 17:49:54 2026 +0800\nCommit:     Roy <roy.jizhongxu@gmail.com>\nCommitDate: Tue Nov 10 17:49:54 2026 +0800\n\n    feat(macos): add bounded AX inspection and element actions\n\n",
+    "stderr": ""
+  },
+  "defaultRuntime": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "sha256": "04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf",
+    "matchesFinalIndependentAcceptanceAndFinalEngineering": true,
+    "strictSignatureVerification": {
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "mainAgentCommitBindingSha256": "4788370f2951e0076eb5335ed5ad1f99bd26d5fb28b3e2124005e412e939bdd0",
+  "conclusion": "Implementation commit exactly matches the final independently tested and engineering-verified 56-source candidate. Current-host core slice is committed. P5 and P5-03 remain in_progress with selected real AX and environment gates open.",
+  "guiOrTestsExecuted": false
+}

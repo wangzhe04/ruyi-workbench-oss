@@ -1,0 +1,1277 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T21:55:57.874697+00:00",
+  "verdict": "passed_frozen_actual_foreground_positive_turn_provider_node_scope",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "implementationState": "Default-off uncommitted candidate; only foreground provider nodes under an actual live current positive-turn parent owner are qualified. No main implementation commit or wholeP5 inferred.",
+  "governingInstructions": {
+    "CLAUDE": {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/CLAUDE.md",
+      "bytes": 8563,
+      "sha256": "b59e642f62fad72644cc37367500b410a9f75df181367e1a4dabc9b00c2aa560"
+    },
+    "CONTRIBUTING": {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/CONTRIBUTING.md",
+      "bytes": 7676,
+      "sha256": "18ba514aedbeff15d08e14d45d84e84af532c72aa94b822dedd0437efe49471d"
+    },
+    "execution": "Node24, direct fixtures strictly serial, full home/AppData/data/TMP isolation, no source or assertion edits, no default retry."
+  },
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-freeze-v3.json",
+    "bytes": 32851,
+    "sha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863"
+  },
+  "sourceReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-source-review-v3.json",
+    "bytes": 69748,
+    "sha256": "370b19a90d90071dc07f23776bd4cf1b0834152b8c54511408d0a93ae252048c",
+    "status": "no_remaining_confirmed_blocking_source_findings_in_reviewed_foreground_slice",
+    "blockingFindings": []
+  },
+  "productionCoverageReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-review-coverage-v1.json",
+    "bytes": 24238,
+    "sha256": "0136f55aba352547a32d468bd35549e278ffadffea70f0ba3c56cfaf84c11ab4",
+    "summary": "Read/hash final coverage addendum; parent reports all36 production delta files covered:28 previous image byte-identical,5 reviewed in this slice,3 derived. This independent report is runtime qualification, not a replacement code review."
+  },
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "commands": [
+    {
+      "label": "subagents",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-subagents.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:47:14.885826+00:00",
+      "finishedAt": "2026-11-11T21:47:30.479918+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 15.594014625006821,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-invocation.json",
+        "bytes": 2490,
+        "sha256": "dbcbc1c5287ab66f8cde1ea73ba6bf60860bbba2aac18177efa59c0d578eb5ac"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents.log",
+        "bytes": 11851,
+        "sha256": "77e9bb630ad09d3f05bceb3cabeb4cd2fdeb0a7f77df32a77d11874a861fca94"
+      }
+    },
+    {
+      "label": "images",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-images.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:48:00.542308+00:00",
+      "finishedAt": "2026-11-11T21:48:06.130723+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 5.5883229579776525,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-invocation.json",
+        "bytes": 2473,
+        "sha256": "245143f07adb9b8df1103c63a48dab1eb325565b99cfa11450b5d0dfa2f03562"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images.log",
+        "bytes": 2137,
+        "sha256": "efc758abd6539c4ff65710ea5cbc082db2cdbbe90e09936174de93f34ac3c1ea"
+      }
+    },
+    {
+      "label": "dispatch",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-dispatch.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:48:13.074658+00:00",
+      "finishedAt": "2026-11-11T21:48:16.704174+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 3.6294408749963623,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-invocation.json",
+        "bytes": 2485,
+        "sha256": "018898d3359a78e6598f32394e64f09782ff648f60b4d8e9c9b9bb39a5e00e85"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch.log",
+        "bytes": 2853,
+        "sha256": "1b1c427488d350c2760b45519bc3e83c132e93a969723c70018fd01eee4ade07"
+      }
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:48:26.404162+00:00",
+      "finishedAt": "2026-11-11T21:48:27.061592+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.6573397920001298,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context-invocation.json",
+        "bytes": 2466,
+        "sha256": "13d35dc3bea46fa20e852c642ab9f33b600c9050b1c59e3fe7a879c84090eac3"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context.log",
+        "bytes": 3183,
+        "sha256": "893bf9748aba353bdcb0981e2896a181ff81aaaab888a7205e6d011046bfa09f"
+      }
+    },
+    {
+      "label": "python-control",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_control.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:48:46.775688+00:00",
+      "finishedAt": "2026-11-11T21:48:47.825034+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 1.0492567500041332,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control-invocation.json",
+        "bytes": 2233,
+        "sha256": "de6484edc6aef2a0dcb1df17d8fa75bce5c971eda6cf48320131ac309a6a48e9"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control.log",
+        "bytes": 812,
+        "sha256": "e3c50897e38ee7b75a168020ac017d0ed60c98690b361a1e1efe4b171eff6e3f"
+      }
+    },
+    {
+      "label": "targeted",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-ledger.test.js",
+        "dev-harness/unit/desktop-node-admission.test.js",
+        "dev-harness/unit/desktop-execution-dispatch.test.js",
+        "dev-harness/unit/desktop-execution-runtime.test.js",
+        "dev-harness/unit/desktop-image-history.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:48:59.404629+00:00",
+      "finishedAt": "2026-11-11T21:49:02.039536+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 2.634797749982681,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted-invocation.json",
+        "bytes": 2375,
+        "sha256": "3f6c1545dc89a4527d69b8c90aef8990df73dd857b124acce50481b39b77830b"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted.log",
+        "bytes": 8445,
+        "sha256": "289ad1e7707faeee4a7bfa41a689a61b29cec54c17e1cf0a594db8a545b6eca4"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:13.702721+00:00",
+      "finishedAt": "2026-11-11T21:49:14.327767+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.6249475410149898,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph-invocation.json",
+        "bytes": 2144,
+        "sha256": "2af64423e6f0a78f135198f314926bdcc81e760b6ed4ccaacbcde5332022378d"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph.log",
+        "bytes": 1327,
+        "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+      }
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:20.334726+00:00",
+      "finishedAt": "2026-11-11T21:49:20.912755+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.577938374975929,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes-invocation.json",
+        "bytes": 2123,
+        "sha256": "99319da9a9cd1c4a17d11182389f49b940fe1fe43aaa88b75b85c157227b77de"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes.log",
+        "bytes": 1024,
+        "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+      }
+    },
+    {
+      "label": "durable",
+      "argv": [
+        "node",
+        "dev-harness/durable-state-inventory.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:26.791346+00:00",
+      "finishedAt": "2026-11-11T21:49:26.899011+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.1075635000015609,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable-invocation.json",
+        "bytes": 2136,
+        "sha256": "1cec798a87fdb38dc9549f8c189252ea9ee1cb90a12ca220877f25af72e10142"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable.log",
+        "bytes": 91,
+        "sha256": "9164aa39883cb9d68aa1879626eb0097d305becfa0fa4f20bd25704070a895e9"
+      }
+    },
+    {
+      "label": "facts",
+      "argv": [
+        "node",
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:32.727195+00:00",
+      "finishedAt": "2026-11-11T21:49:32.832286+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.10498033399926499,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts-invocation.json",
+        "bytes": 2113,
+        "sha256": "cf51dd196212a9c087c761e9d653107d90f13bcce94e331ef0781ce5691f92d9"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts.log",
+        "bytes": 2337,
+        "sha256": "d0bff03c11293fcb10bc5809436cb47766202f04e81bead15b0b1660c35a2b9f"
+      }
+    },
+    {
+      "label": "process-safety",
+      "argv": [
+        "node",
+        "dev-harness/process-safety.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:38.812030+00:00",
+      "finishedAt": "2026-11-11T21:49:39.029749+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.21762654097983614,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety-invocation.json",
+        "bytes": 2139,
+        "sha256": "8eb6288235eb31f54e55827d631842d8e027f80b0e60005de75a9d9faaf85140"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety.log",
+        "bytes": 855,
+        "sha256": "72ee7b76378f15a83f2425f36f49fe96dcf66a9562591c50602ba7d81efd0093"
+      }
+    },
+    {
+      "label": "session-save-census",
+      "argv": [
+        "node",
+        "dev-harness/session-save-census.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:45.816055+00:00",
+      "finishedAt": "2026-11-11T21:49:45.930300+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.11415066701010801,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census-invocation.json",
+        "bytes": 2155,
+        "sha256": "264581541ed51fe1ca8e3024b08a00117a7e9413637491c30b0fea5f137b3128"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census.log",
+        "bytes": 1906,
+        "sha256": "3b78743dcb63f5d2ea9b8e69fe9e74e6c05acf8427249a06d0c22bc4a8fa2b86"
+      }
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "startedAt": "2026-11-11T21:49:51.990146+00:00",
+      "finishedAt": "2026-11-11T21:49:52.153512+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 0.16326879200641997,
+      "attempt": 1,
+      "fullInvocationEnvironment": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build-invocation.json",
+        "bytes": 2122,
+        "sha256": "3fcf4715f79f775da77830f32e82922d544aa5e5bf4b13a1b66b2dc0811892ff"
+      },
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      }
+    }
+  ],
+  "results": {
+    "actualForegroundSubagents": {
+      "passed": 117,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "actualImagesRegression": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "actualDispatchRegression": {
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "actualRequiredContext": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "pythonControl": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "native": "Mock status only; no native process in the pure Python suite."
+    },
+    "targetedUnit": {
+      "passed": 78,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "breakdown": {
+        "ledger": 33,
+        "nodeAdmission": 7,
+        "dispatch": 6,
+        "runtime": 12,
+        "images": 20
+      }
+    },
+    "static": {
+      "module-graph": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "routes": {
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "facts": {
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "process-safety": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      },
+      "session-save-census": {
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0,
+        "executions": 1
+      }
+    },
+    "durableInventory": {
+      "surfaces": 72,
+      "shared": 32,
+      "dedicated": 23,
+      "external": 10,
+      "regenerable": 7,
+      "checkPassed": true,
+      "executions": 1
+    },
+    "build": {
+      "fresh": true,
+      "manifestRangesConsistent": true,
+      "executions": 1
+    },
+    "allThirteenCommandsExited0": true,
+    "automaticRetries": 0,
+    "nativeRetries": 0,
+    "countBoundary": "Each requested suite is reported separately. Unit/regression overlaps are not distinct new behaviors;72 durable surfaces are inventory entries, not72 runtime tests."
+  },
+  "actualForegroundEvidence": {
+    "raw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-results.json",
+      "bytes": 1639914,
+      "sha256": "825eb0b44dff370f01a3ad96fcc3a0f924b39c0286fd9f807c58bf4ed4d69ac6"
+    },
+    "cases": [
+      {
+        "label": "NODE_FOREGROUND_1",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 2,
+        "phases": [
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 2,
+        "uniqueAdmissionIds": 1,
+        "uniqueCallHashes": 2,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FOREGROUND_2",
+        "nodeIds": [
+          "worker0",
+          "worker1"
+        ],
+        "ledgerRows": 4,
+        "phases": [
+          "returned",
+          "returned",
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 4,
+        "uniqueAdmissionIds": 2,
+        "uniqueCallHashes": 4,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FOREGROUND_3",
+        "nodeIds": [
+          "worker0",
+          "worker1",
+          "worker2"
+        ],
+        "ledgerRows": 6,
+        "phases": [
+          "returned",
+          "returned",
+          "returned",
+          "returned",
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 6,
+        "uniqueAdmissionIds": 3,
+        "uniqueCallHashes": 6,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FOREGROUND_DELAYED",
+        "nodeIds": [
+          "worker0",
+          "worker1"
+        ],
+        "ledgerRows": 4,
+        "phases": [
+          "returned",
+          "returned",
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 4,
+        "uniqueAdmissionIds": 2,
+        "uniqueCallHashes": 4,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FOREGROUND_DISPATCH_GAP",
+        "nodeIds": [
+          "worker0",
+          "worker1"
+        ],
+        "ledgerRows": 4,
+        "phases": [
+          "returned",
+          "returned",
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 4,
+        "uniqueAdmissionIds": 2,
+        "uniqueCallHashes": 4,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FOREGROUND_RESOURCE_WAIT",
+        "nodeIds": [
+          "worker0",
+          "worker1"
+        ],
+        "ledgerRows": 4,
+        "phases": [
+          "returned",
+          "returned",
+          "returned",
+          "returned"
+        ],
+        "acknowledgedRows": 4,
+        "uniqueAdmissionIds": 2,
+        "uniqueCallHashes": 4,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_BACKGROUND_REFUSAL",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 0,
+        "phases": [],
+        "acknowledgedRows": 0,
+        "uniqueAdmissionIds": 0,
+        "uniqueCallHashes": 0,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_API_ZERO_REFUSAL",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 0,
+        "phases": [],
+        "acknowledgedRows": 0,
+        "uniqueAdmissionIds": 0,
+        "uniqueCallHashes": 0,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_STOP_AFTER_DELIVERY",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 1,
+        "phases": [
+          "returned"
+        ],
+        "acknowledgedRows": 1,
+        "uniqueAdmissionIds": 1,
+        "uniqueCallHashes": 1,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FAULT_intent_eio",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 0,
+        "phases": [],
+        "acknowledgedRows": 0,
+        "uniqueAdmissionIds": 0,
+        "uniqueCallHashes": 0,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FAULT_history_eio",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 1,
+        "phases": [
+          "returned"
+        ],
+        "acknowledgedRows": 0,
+        "uniqueAdmissionIds": 1,
+        "uniqueCallHashes": 1,
+        "nodeAfterImageToolUseCount": 0
+      },
+      {
+        "label": "NODE_FAULT_reservation_loss",
+        "nodeIds": [
+          "worker0"
+        ],
+        "ledgerRows": 1,
+        "phases": [
+          "unknown"
+        ],
+        "acknowledgedRows": 0,
+        "uniqueAdmissionIds": 1,
+        "uniqueCallHashes": 1,
+        "nodeAfterImageToolUseCount": 0
+      }
+    ],
+    "positiveCases": "Actual1/2/3-node foreground workflows plus delayed image flush, prepare-through-delivery serial gap and resource waiting exercise genuine root/orchestrator/provider/SDK flow. The remote model endpoint is an offline fake; registered synthetic PNG tool bodies and storage are real.",
+    "identityAndSnapshots": "Per-call immutable typed snapshots read back with actual historySha256,admissionId/run/node/attempt/controller identity; repeated textual call IDs remain distinct across nodes. Each child continuation receives paired tool replies followed by its own image; child histories stay out of parent transcript.",
+    "serialTicket": "Actual sibling cannot prepare/dispatch while prior ACC call and delivery own the session ticket; delayed image publication waits at actual guard rather than failing or borrowing another admission.",
+    "resourceWait": "Live run API remains waiting_resource despite actual tool heartbeat/gen activity, until genuine resource acquisition/call completion. This scenario intentionally writes its isolated fixture file; it is not a claim that all local writes were zero. No user-file or desktop input mutation occurred.",
+    "negativeAdmission": "Actual background and authenticated API-origin turn0 business ACC calls refuse without ledger rows or invented parent turn. Contextless read-only receipt control can return incomplete/lifecycle_unknown without creating a business action; malformed ID returns typed unknown.",
+    "stopAndFaults": "Stop after acknowledged node image preserves snapshot and dispatches no later node local mutation or model continuation. Intent EIO dispatches no business call; history EIO has actual SDK terminal but no delivery; lost reservation refuses before SDK send. Unknowns block child+parent continuation and remain held on restart.",
+    "restartBoundary": "Actual restart reopens valid per-call snapshot deliveries; deletion of one acknowledged snapshot is detected and held without new model request/replay. This does not resume or reconstruct complete child transcript/final assistant state.",
+    "rawCounts": {
+      "proofObjects": 19,
+      "childContinuations": 14,
+      "mainContinuations": 9,
+      "observedTurns": 15
+    }
+  },
+  "regressionRaw": {
+    "images": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-results.json",
+      "bytes": 212633,
+      "sha256": "30b2c9e9fd83da0afe81fe78403cb1c45db1494e8a21900a005ef21721006a1d"
+    },
+    "dispatch": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-results.json",
+      "bytes": 164880,
+      "sha256": "0ceee6fedc40d42cd3d41f0f0684dba5dc7f72d05bac97832601cd98f6b02c6d"
+    },
+    "context": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context/results.json",
+      "bytes": 106014,
+      "sha256": "1a9ed84c7fd4ef554dc0ad69ca23b6c097e23110b070799632e3a649ede11ced"
+    }
+  },
+  "bindings": {
+    "sources": 122,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "checkpointCount": 26,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build-after-binding.json",
+        "bytes": 33515,
+        "sha256": "bfd1eac6bc74816ecd3abde362e859d7255b99b531037685dcaeaa244e2ce35c",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build-before-binding.json",
+        "bytes": 33515,
+        "sha256": "fde437e67e7baccf5957b585993c5c7156455ad74aafb1933673d95db8a84508",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context-after-binding.json",
+        "bytes": 33515,
+        "sha256": "50c729746e762b0eb2067808fe573790356030a6456da255e231e148dc899eb7",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context-before-binding.json",
+        "bytes": 33515,
+        "sha256": "3eff3069d1368e75d26b45ccd2c2041b96387a54ed577f10b2ad7ae5e2e46b41",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-after-binding.json",
+        "bytes": 33515,
+        "sha256": "ac0bd9578c18efbd5b0ffda234840aa80c093bfb8b83312552342c620d5a5b66",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-before-binding.json",
+        "bytes": 33515,
+        "sha256": "ef448c38a75f6505775e719abc1d9bf58f3efe9618b8e3c00bd74b093b01defb",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable-after-binding.json",
+        "bytes": 33515,
+        "sha256": "6182c549440def9711ab3b75c2f83d62e0728e24c6e20d5d44cc7fd02c21da0b",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable-before-binding.json",
+        "bytes": 33515,
+        "sha256": "6dc9863ec885300c05f04e87731ffdc895950fd623b9b2f7474886bdbdf30be9",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts-after-binding.json",
+        "bytes": 33515,
+        "sha256": "931ce0fa194133d15d5579be028aa7ab96ea223235546960d39516664dc7dd36",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts-before-binding.json",
+        "bytes": 33515,
+        "sha256": "0ec6e8cd83fdfb033bb9d76b74be3acf738dabc7eaa3524120e0e99c8447ca27",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-after-binding.json",
+        "bytes": 33515,
+        "sha256": "43ab09b9a2afcbc0f834107cb5291c74bb347731365b353112c2478ae8157c9b",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-before-binding.json",
+        "bytes": 33515,
+        "sha256": "dbe816fee03f1628539b33788c22b63fdeb0b7ef091dd8297f3003804f861692",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph-after-binding.json",
+        "bytes": 33515,
+        "sha256": "6ce0c63152f4a616dd71293544b6cb98568a74ab37957df47de9b487fb94b8e6",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph-before-binding.json",
+        "bytes": 33515,
+        "sha256": "224ac3e0a7d2b82f05e75bc961a397a72bee6fdabffbf7579e16fdc1a96e066c",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety-after-binding.json",
+        "bytes": 33515,
+        "sha256": "00a21b538fb2a9dac7ad9c3410ab60ff510f7548c02c648e52110870834b8e5f",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety-before-binding.json",
+        "bytes": 33515,
+        "sha256": "d60bf55fa16b83f895211dc746f3a8f6ad27ff697c970383f81457f75fb8493e",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control-after-binding.json",
+        "bytes": 33515,
+        "sha256": "da7f701ed9fabe8b0c68f82c84ac5dab0e729a2584c75a0f647b3e56d3448b24",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control-before-binding.json",
+        "bytes": 33515,
+        "sha256": "9d15c3f9df19e4b1a955e3c8bebd183e4bf5032c8f5e5a3feedf3d84cf4e196d",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes-after-binding.json",
+        "bytes": 33515,
+        "sha256": "9faa07d0f00c944f4d2f287e4906cdd45ba9db75ab1179c6e04cfa54074eb40d",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes-before-binding.json",
+        "bytes": 33515,
+        "sha256": "dc5dbb4fd1b45cbec751ea14ee2c2e0c4d6b272ae9d1b3b89d5c124ca48ddd1e",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census-after-binding.json",
+        "bytes": 33515,
+        "sha256": "5ed3161f7ddbd6a90648af58c4ec4033e4dd4239149d842ff233e4d75f35bbac",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census-before-binding.json",
+        "bytes": 33515,
+        "sha256": "2681079db0900402dbde3ba6e0f39f3682df602e24d7e080fb2f76038acf90db",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-after-binding.json",
+        "bytes": 33515,
+        "sha256": "fc9ca8403cd596645826883853f1925ac003df25990ba79d330c8d259784222d",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-before-binding.json",
+        "bytes": 33515,
+        "sha256": "3804bc891824d6ec37b022287117268a2844240585e583e34ad5bfb101b36c5b",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted-after-binding.json",
+        "bytes": 33515,
+        "sha256": "1cdfc1ca0fc9ca9811a3ce8c3ce7a214b1352c983ffa8520e3a0e6640afa6b2c",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted-before-binding.json",
+        "bytes": 33515,
+        "sha256": "65d09db910ba79d1704fd39fca02393833032f64d52f9f7d4d3373c46c1111c2",
+        "sourceCount": 122,
+        "allSourcesMatched": true,
+        "allArtifactsMatched": true
+      }
+    ],
+    "mainHelperRole": "Original authorized1cc only hash-bound as compatibility artifact; no App signing/rebuild or native capture use."
+  },
+  "isolationCleanup": {
+    "allCommandsUseDistinctShortRoots": true,
+    "perCommand": [
+      {
+        "label": "subagents",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-cleanup.json",
+          "bytes": 7097,
+          "sha256": "965f89c1066f4d81dce3c87872e5cac329882956e10a28c75336b6a914993b20"
+        },
+        "observedIdentities": 75,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "images",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-cleanup.json",
+          "bytes": 6197,
+          "sha256": "156964719ce1bb6a73d332722c8ffb474da7ea31c435032af6271bdd76ea2d0a"
+        },
+        "observedIdentities": 65,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "dispatch",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-cleanup.json",
+          "bytes": 4307,
+          "sha256": "3957b75ebd9c63e6d69613469fc3917a1738ff090eb66f63b5e429294882839f"
+        },
+        "observedIdentities": 44,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "context",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context-cleanup.json",
+          "bytes": 887,
+          "sha256": "42f6f4538de9e6caf372ed65693872bfb014e1c1ce15acb0b1795cd4ce706d6a"
+        },
+        "observedIdentities": 6,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "python-control",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control-cleanup.json",
+          "bytes": 437,
+          "sha256": "d07c5c2fe325fd7b33510662b3db0d1e10a3d989fd1426cee907b50b094ebdcf"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "targeted",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted-cleanup.json",
+          "bytes": 1157,
+          "sha256": "16aed8cbc37d46d2fe6c2cb443993e99eea70f72021568920af275f2aae53a28"
+        },
+        "observedIdentities": 9,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "module-graph",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph-cleanup.json",
+          "bytes": 527,
+          "sha256": "48288f333a635ea80f63ec95349bbf5975100e69cd96593c2143739c979f5969"
+        },
+        "observedIdentities": 2,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "routes",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes-cleanup.json",
+          "bytes": 437,
+          "sha256": "70d989cecd62b4a1e1a311fa0cef84fd23ff585cecfdc99c147094fccb9312a6"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "durable",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable-cleanup.json",
+          "bytes": 437,
+          "sha256": "7d499d52820dd36d1f7cf7d74cdace3509d0a1f5df07f007105e454fa11e07fe"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "facts",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts-cleanup.json",
+          "bytes": 437,
+          "sha256": "bbcbd60109db72a4d701ed8b0060c835c1164ea60beb0947a815b61bb929821b"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "process-safety",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety-cleanup.json",
+          "bytes": 437,
+          "sha256": "ca3efe55a2ddeb6b8f53c9cc5cd4642d2a22e3cddb8daaffa4cf1e146dfe7438"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "session-save-census",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census-cleanup.json",
+          "bytes": 437,
+          "sha256": "526d67cb95404f8111708872ec1f28e012137b48939ba5ac8730d7df17a34fd2"
+        },
+        "observedIdentities": 1,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      },
+      {
+        "label": "build",
+        "receipt": {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build-cleanup.json",
+          "bytes": 527,
+          "sha256": "5e9dcdd1a3baa697e0658f6bb5c0cf60ba68f71169e3fadf10a973dff3ca8606"
+        },
+        "observedIdentities": 2,
+        "allObservedIdentitiesExited": true,
+        "remaining": []
+      }
+    ],
+    "allObservedOwnIdentitiesExited": true,
+    "outerIsolationRecords": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/subagents-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "e03eb113c83c085add1ddb965b3204c548faaf7b8f31afee2afff4129cb9dbab"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/images-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "84644bd0f3bd995ab314ec33b45942c6ae89134ce13e69d9a13e69ce35c5d3d2"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/dispatch-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "99188cbf9d6e1963b02aad2a514b7af53bd13a7c1b8f6e140d96517887ecb927"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/context-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "ca1bb80381afb3667e918aebafa94a6af1b4ca0fee957c3e261b8b4709826583"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/python-control-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "74e39edc9fc9eaf31bdf61c929414e4671db61baab05adb7a721f2c0d207d924"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/targeted-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "d3066015a2cc9917288ff313a988a54ab0575a396920fd0f3e41f5bd93fd0d7b"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/module-graph-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "b7cf8ac3a620744a8528d03a97973821a78f93ef58579de5e17f338b0934c105"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/routes-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "f6686d4ab047352b0c3617681b4a8cbc74a9615baf4e9473246a5f40275f656f"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/durable-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "56428b60dbda3e052608faf575f892b1e9a9681dc43d7f46cb011316788cbc3f"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/facts-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "d4d0eb6675afc01a3e3a21efb0396447de21915a0f943963a308bc342ff0751d"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/process-safety-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "72b97cd0ad03733bc85e781a521022d8c3de6eb9f9f156f0a2903d1976635420"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/session-save-census-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "258f0f82b882f8edf6e434e00c3ac572bd2f23f2779bc39fb09ea1bb0a6cfca9"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/build-isolation-cleanup.json",
+        "bytes": 152,
+        "sha256": "d1c85db2c2c3d8b173bbd1b6c7f223f9639148312b411b16374375817e6ee06c"
+      }
+    ],
+    "subagentFixtureRemoved": true,
+    "scope": "Only test root and birth-checked observed descendants are monitored; no global/unobserved escape guarantee. No unrelated process is signalled. Short outer roots retained for evidence, fixture inner roots may be cleaned by their tests."
+  },
+  "primaryEngineeringReadOnlyReuse": {
+    "sourceEquivalenceAndArchive": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/engineering-source-reuse.json",
+      "bytes": 32312,
+      "sha256": "bbd45c357c3a9c8d5193c85a6a8cc2ac2316ce661d42fe91fc8fb7a0e31de7dd"
+    },
+    "freezeDeltas": [
+      {
+        "from": 1,
+        "to": 2,
+        "changed": [
+          "dev-harness/macos-execution-subagents.e2e.js"
+        ],
+        "added": [],
+        "removed": []
+      },
+      {
+        "from": 2,
+        "to": 3,
+        "changed": [
+          "dev-harness/macos-execution-dispatch.e2e.js"
+        ],
+        "added": [],
+        "removed": []
+      }
+    ],
+    "productionAndUnitSameAcrossV1V2V3": true,
+    "allArtifactsIdentical": true,
+    "fullUnit": {
+      "tests": 2644,
+      "passed": 2626,
+      "existingSkipped": 18,
+      "failed": 0,
+      "exactExistingSkipRows": [
+        "﹣ configured batch launcher waits for actual async executable verification and keeps original disk spelling (0.059792ms) # SKIP",
+        "﹣ failed shim verification preserves the configured fallback and missing discoveries remain empty (0.075ms) # SKIP",
+        "﹣ [E5] 源头编码:powershell_run / script_run / shell_start 的中文输出与中文文件名不再变成 ? (0.04975ms) # 仅 Windows 且有 powershell.exe",
+        "﹣ compiled desktop isolates explicit data roots and retains default desktop compatibility (0.276708ms) # SKIP",
+        "﹣ [W1] Windows:真 powershell.exe 解析整段脚本、Add-Type 编译其中的 C#(不弹窗) (0.033333ms) # 需要 Windows PowerShell 5.1(.NET Framework 的 C# 编译器)",
+        "﹣ [P1] dry:撞号的陌生人不算子孙,conhost 不杀,根最先、深的先杀 (0.34ms) # SKIP",
+        "﹣ [P2] dry:根不在表里 ⇒ 什么都不杀 (0.043208ms) # SKIP",
+        "﹣ [R1] 真进程 killOwnProcessTree:根与 detached 孙子都收掉 (0.049958ms) # SKIP",
+        "﹣ [R2] 真进程 killChildTree(发出去就算):几秒内根与 detached 孙子都没了 (0.060042ms) # SKIP",
+        "﹣ [R3] Linux 真进程 killChildTree:根与 detached 孙子都没了 (0.050125ms) # SKIP",
+        "﹣ real FFmpeg WAV inspection measures tone/silence locally; never claims listening (50.063167ms) # FFmpeg unavailable; parser covered separately",
+        "﹣ PDF text + rendered scan/chart pages and page continuation (0.083292ms) # SKIP",
+        "﹣ BMP/TIFF/ICO convert to provider-compatible PNG without desktop tools (0.096917ms) # SKIP",
+        "﹣ [G] 安装脚本经 Invoke-NativeExact 把 JSON 原样交给原生程序(Windows PowerShell 5.1) (0.047833ms) # 需要 Windows PowerShell",
+        "﹣ 离线包只携带独立回调网关并能用随包 Node 运行帮助 (0.378084ms) # SKIP",
+        "﹣ 离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物 (0.044667ms) # SKIP",
+        "﹣ 端到端:file_read / file_write 对 UNC 路径返回 not-allowed,不抛、不落盘 (0.112333ms) # UNC absolute paths exist only on Windows hosts",
+        "﹣ [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 (0.061167ms) # SKIP"
+      ],
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-all-unit-v1.log",
+        "bytes": 407415,
+        "sha256": "8d27e272742d57b519fd7a9e082623f5f8cfe9a0d8c217383ab2d75baa6393b6"
+      }
+    },
+    "fast": {
+      "passed": 80,
+      "failed": 0,
+      "centralLiveSkipped": 12,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-fast-v1.log",
+        "bytes": 5851,
+        "sha256": "17e17419d4bacd4f3ec3b62a40d638299b2934e2f35ff5cdfd4a337649525a17"
+      }
+    },
+    "syntax": {
+      "files": 1178,
+      "failed": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-syntax-v1.log",
+        "bytes": 60,
+        "sha256": "26e457585839924b076eb65727ba2caa163e4ceb2434dc574e84367d4d2e2085"
+      }
+    },
+    "build": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-build-check-v1.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    "mode": "Reused by explicit instruction: production/src/server/unit bytes identical across frozen versions. Only subagents e2e and dispatch e2e harness changed later; current three real probes are freshly independently executed, not transferred. Fullunit/fast/syntax were not independently rerun;18 existing unit skips and unexecuted live probes stay unverified.",
+    "primaryNativeOldBatchBinding": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-frozen-native-development-v2.json",
+      "bytes": 1740,
+      "sha256": "c6acfaec298b8eb45bc58a0aaf25776bd68ad60957e7f0b6ea3fa1417a7c13af"
+    },
+    "primaryLatestDispatchBinding": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/subagent-main-dispatch-v3-binding.json",
+      "bytes": 16540,
+      "sha256": "4284b15034c798bb0ebc9a719230d108ad1e6f7366163ae26ad8830e44a4d4e7"
+    },
+    "harnessHistory": "Valid missing receipt is incomplete plus lifecycle_unknown, not a nonexistent top-level outcome. Rejected result commit is sampled at actual boundary as dispatching/unobserved/undelivered; same-root persisted unknown/no-output is an added separate assertion. Prior failures remain preserved; no phase OR weakening or all-history-first-run claim."
+  },
+  "exactArchiveReadOnlyVerification": {
+    "archiveManifest": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-source-freeze-v3.archive.json",
+      "bytes": 42650,
+      "sha256": "b121cf347b253d6125d84f045538c57811658b30a34159940f98e8d4ab70f7f3"
+    },
+    "archiveSha256": "a9f235284180f26f0b03e76b492a158afc700e411edea4f0044ca2941c63ddd5",
+    "expectedSha256": "a9f235284180f26f0b03e76b492a158afc700e411edea4f0044ca2941c63ddd5",
+    "memberFiles": 126,
+    "all125FrozenSourceArtifactMembersRereadMatched": true,
+    "details": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1/engineering-source-reuse.json",
+      "bytes": 32312,
+      "sha256": "bbd45c357c3a9c8d5193c85a6a8cc2ac2316ce661d42fe91fc8fb7a0e31de7dd"
+    },
+    "note": "Archive was read in memory without extracting/mutating source or artifacts; byte preservation is not additional runtime qualification."
+  },
+  "primaryLegacyCompatibilityReference": {
+    "report": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/foreground-legacy-summary-v1.json",
+      "bytes": 183661,
+      "sha256": "5af0b0ffbe98083afaf9b395c607e6227cec00d2fff9bfacb381fd1f5be97b3c"
+    },
+    "mode": "Read/hash primary default-off legacy summary only. Parent reports resourcewait/stop14,thinking28,compaction19,wrapup13,heartbeat11 all terminal0 and125 bindings before/after. These are primary checks, not new independent executions."
+  },
+  "previousImageReportPreserved": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/report.json",
+    "bytes": 56072,
+    "sha256": "8f1dc729859bc1ccec4c801a72a9ab17c03e3416fbd98aabd6907bfa05c77c8b"
+  },
+  "limits": [
+    "Supported only for real positive-turn foreground provider nodes while the genuine current parent owner remains live; opaque identities cannot be replaced by model text or fabricated context",
+    "Background/API0 business ACC actually refuse; CLI/resume remain unsupported/refused boundaries, not successful CLI/independent workflow qualification",
+    "Synthetic PNGs are not native screenshots or visual application/model consumption; only original wait/position native read regressions are included",
+    "Each immutable per-call snapshot proves historical saved history at its delivery time, not permanent current prefix or full current child transcript/final conclusion",
+    "No complete child transcript restart/replay, mutation replay_safe guarantee or full native-input hard-abort/release/rescue",
+    "1024 directory-entry and16MiB per-snapshot bounds are not global byte/file quota, acknowledged-retirement/ACK retention or performance qualification",
+    "No throughput/latency/large-history/image/high-concurrency benchmark; actual1-3-node controlled scenarios do not establish scale or memory/IO SLA",
+    "No GUI/input/held/TCC/lock/Finder/user-history restore/App/signature/minimumOS/physical-display/Windows runtime or wholeP5 acceptance"
+  ],
+  "actions": {
+    "productOrTestSourceEdits": 0,
+    "nativeScreenshotInputOrGuiActions": 0,
+    "heldTccLockAppActions": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; reserved until wholeP5 acceptance.",
+  "rawEvidenceDirectory": "/tmp/ruyi-p5-receipts-evidence/independent-foreground-subagent-v1"
+}

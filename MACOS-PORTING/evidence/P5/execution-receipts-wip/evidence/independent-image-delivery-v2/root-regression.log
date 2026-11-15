@@ -1,0 +1,25 @@
+✔ actual metadata preparation and final RPC serialization never run inherited object/array toJSON (1.189416ms)
+✔ final serialized packet rejection makes zero actual stdin writes and clears pending request (0.289833ms)
+✔ own executable serialization hooks refuse before final callback and before stdin (0.122625ms)
+✔ stripped tool text alone cannot acknowledge delivery after image flush was interrupted (0.141167ms)
+✔ required image must follow the matching actual tool row, and every image must be present (0.093792ms)
+✔ actual admitted object prepares against live turn and stores no argument plaintext (95.108791ms)
+✔ copying session or owner identities cannot authorize preparation (28.718917ms)
+✔ cancel, supersede, sequence or generation mutation makes prior preparation hold the same-process successor (160.030042ms)
+✔ release revokes live preparation and an old finalizer cannot delete a newer admission (36.409667ms)
+✔ released actual OS owner blocks guard, admit and preparation without writing a new row (27.600834ms)
+✔ replacing owned data directory cannot create a fresh execution authority under the old root lock (28.478917ms)
+✔ string, null and nonfinite rewind generations cannot alias a real host generation (29.060542ms)
+✔ replacement between acquiring OS ownership and initializing runtime cannot reset execution evidence (72.433208ms)
+✔ cold missing data root binds its first identity under the original startup gate (30.512375ms)
+✔ legacy migration binds the acquired source inode even when its old name becomes a symlink (34.849166ms)
+✔ confirmed legacy rename releases startup gate when creating the old junction failed (32.268125ms)
+✔ candidate owned ACC environment covers recognized aliases and overrides context-off entry env (30.167541ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 658.444209

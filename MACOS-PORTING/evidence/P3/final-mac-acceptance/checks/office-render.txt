@@ -1,0 +1,4 @@
+convert /tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/report.docx as a Writer document -> /private/tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/renders-4x5Not/report.pdf using filter : writer_pdf_Export
+convert /tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/data.xlsx as a Calc document -> /private/tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/renders-4x5Not/data.pdf using filter : calc_pdf_Export
+convert /tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/slides.pptx as a Impress document -> /private/tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/renders-4x5Not/slides.pdf using filter : impress_pdf_Export
+RENDER_DIR=/tmp/ruyi-mac-overall-oUIcWu/office/sample-b7zBdf/renders-4x5Not

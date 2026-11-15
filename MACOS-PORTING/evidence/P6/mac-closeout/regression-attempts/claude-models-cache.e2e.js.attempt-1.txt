@@ -1,0 +1,32 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 5a9a2e9f791e)
+[wb] UI: http://127.0.0.1:64375/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-claude-models-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench up(第 1 轮,代理在线)
+PASS a) /api/models engine=claude
+PASS a) proxyCount=2(got 2)
+PASS a) 含代理 live 模型
+PASS a) 无版本化硬编码型号(第44波去硬编码)
+PASS a) 保留 默认(CLI 配置);44e 别名也出列表
+PASS a) 含自定义(extraModels ∪ knownModels)
+PASS a) extraModels 的 "id|label" 标注生效
+PASS b) sidecar proxy-models-cache.json 落盘
+PASS b) 缓存含代理模型(带 display_name label)
+PASS b) 缓存【不】写进 config.json(防陈旧全量快照竞态)
+[wb] exited code=null sig=SIGKILL
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 6b469c6422f3)
+[wb] UI: http://127.0.0.1:64376/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-claude-models-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench up(第 2 轮,代理离线)
+PASS c) 代理不可达 proxyCount=0(got 0)
+PASS c) 代理离线后缓存模型仍在 /api/models
+PASS c) /api/status 即时列表(offlineModelList)也含缓存模型
+PASS c) 即时列表同样无版本化硬编码型号
+PASS d) POST /api/config 清空自定义条目 ok
+PASS d) 自定义条目已删除
+PASS d) 缓存的 API 条目不受删除影响(端点真实清单非用户数据)
+PASS d) 默认仍在,别名已移除
+[wb] exited code=null sig=SIGKILL
+
+CLAUDE-MODELS-CACHE E2E: ALL PASS

@@ -1,0 +1,57 @@
+[fake] [fake-openai] listening on 52894
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 375d52bae747)
+[wb] UI: http://127.0.0.1:52895/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-skills-registry-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :52895
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-skills-registry-e2e/generated/workbench.mcp.json
+PASS (a) registry has builtin skills (20)
+PASS (a) user skill present with source=user
+PASS (a) demo-skill resolved to source=project (override)
+PASS (a) demo-skill carries the PROJECT description, not the USER one (override)
+PASS (a) demo-skill appears exactly once (user version shadowed)
+PASS (a) registry includes commands
+PASS (a2) BOM 开头的 SKILL.md 照常读出 frontmatter(got {"name":"BOM Skill","description":"BOM_DESC_MARKER"})
+PASS (a2) description: > 折叠块标量取到正文而不是「>」(got "FOLDED_LINE_ONE FOLDED_LINE_TWO")
+PASS (a2) description: |- 字面块标量保留换行(got "LITERAL_LINE_ONE\nLITERAL_LINE_TWO")
+PASS (a2) 符号链接/联接挂进来的技能目录被识别
+PASS (a) commands expose a provider-compatible full prompt template
+PASS (a) skill cards expose the full authored guide
+PASS (a) registry includes playbooks
+PASS (a) playbook ids carry the pb: prefix
+PASS (b) enable valid skill → ["demo-skill"] (got [{"id":"demo-skill","source":"project"}])
+PASS (b) P2-2: enabled skill is stored as {id, source} with the registry source (project) (got [{"id":"demo-skill","source":"project"}])
+PASS (b) enabling 10 skills caps at 8 (got 8)
+PASS (b) P3-8: the cap keeps exactly the first 8 ids (got ["api-debugger","bom-skill","demo-skill","folded-skill","linked-skill","literal-skill","office-automation","user-only-skill"])
+PASS (b) invalid/non-skill/duplicate ids rejected → only ["demo-skill"] (got [{"id":"demo-skill","source":"project"}])
+PASS (b) unknown sessionId → 404 (got 404)
+PASS (c) provider system prompt carries the skill index header
+PASS (c) skill index line has the demo-skill id + description marker
+PASS (c) tools array includes skill_read when a skill is enabled
+PASS (f) no-skills session: system prompt has NO skill index section
+PASS (f) no-skills session: tools array has NO skill_read
+PASS (f2) resident skill is injected into a chat with no session skills
+PASS (f2) resident skill enables skill_read
+PASS (g) skill enabled from original cwd locks source=builtin (got [{"id":"api-debugger","source":"builtin"}])
+PASS (g) source mismatch (builtin locked, project now shadows it) → skill index NOT injected
+PASS (g) the shadowing project skill is not injected
+PASS (g) source mismatch → no skill_read tool offered
+[fake] [fake-openai] listening on 52894
+PASS (d) skill_read{demo-skill} → ok:true
+PASS (d) skill_read result carries the SKILL.md full text
+PASS (d) skill_read result lists directory files (got ["SKILL.md","helper.md"])
+PASS (d) skill_read{windows-control} (NOT enabled in this session) → ok:false (whitelist/path guard)
+PASS (d) P3-1: skill_read{demo-skill,file:helper.md} → returns that file content (got {"ok":true,"len":16})
+PASS (d) P3-1: skill_read with an out-of-dir file (../../../secret.txt) → ok:false (path guard)
+PASS (e) Claude spawn carries --append-system-prompt (argv len 19)
+PASS (e) append value keeps the user config.appendSystemPrompt marker
+PASS (e) 技能索引不再走 --append-system-prompt(P2 改道 stdin,命令行只留政策/用户段)
+PASS (e) 技能索引经 stdin <workbench-context> 注入(含 demo-skill)
+PASS (e) stdin 同时保留 <current_user_message> 用户消息定界
+PASS (e) combined append length ≤ 8000 (got 4444)
+PASS (e2) long append keeps the user marker
+PASS (e2) long append total still ≤ 8000 (got 8000)
+PASS (e2) 技能索引本就不在 append(P2 前: 此时会被挤出丢失;P2 后: 信道分离不再牺牲)
+PASS (e2) stdin 要么去重跳过、要么完整重注(绝不半截)
+
+SKILLS-REGISTRY E2E: ALL PASS

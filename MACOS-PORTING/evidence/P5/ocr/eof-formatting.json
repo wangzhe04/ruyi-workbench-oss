@@ -1,0 +1,21 @@
+{
+  "created_utc": "2026-11-10T13:38:29.534077+00:00",
+  "checks": [
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "before_sha256": "94de9d65235d924d1f5c3ac4898dd5bc974c3f35fa3af80fe346e1a79619a328",
+      "after_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "removed_trailing_newlines": 2,
+      "python_ast_equal": true,
+      "method": "Removed only surplus trailing newline bytes. All remaining bytes equal."
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "before_sha256": "0e39e3183c7001b860cef7afd78c17ba1c9bc62407cca8ba357f622f71073b53",
+      "after_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "removed_trailing_newlines": 1,
+      "python_ast_equal": true,
+      "method": "Removed only surplus trailing newline bytes. All remaining bytes equal."
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+return await (async function installPhysicalCaptureMonitor() {
+  const devices = navigator.mediaDevices;
+  const original = devices.getUserMedia;
+  const originalFetch = window.fetch;
+  const trace = { requests: [], uploads: [], sends: 0 };
+  let closed = false;
+  let pending = 0;
+  // Retain MediaDevices while its native method is instrumented, as in media e2e.
+  window.__physicalCaptureMonitor = { devices, original, trace };
+  const output = document.createElement('output');
+  output.style.cssText = 'display:block;max-width:80vw;white-space:pre-wrap';
+  const finish = document.createElement('button');
+  finish.textContent = '完成短录音验收';
+  const render = () => {
+    output.textContent = JSON.stringify(trace);
+    const phase = document.getElementById('composerVoiceBtn')?.dataset.state;
+    finish.disabled = pending > 0 || !trace.requests.length
+      || !['idle', 'error'].includes(phase)
+      || trace.requests.some(record => record.state === 'requesting' || record.state === 'capturing');
+  };
+  devices.getUserMedia = async function (constraints) {
+    if (closed) throw new DOMException('Acceptance finished', 'AbortError');
+    const record = { constraints, state: 'requesting' };
+    trace.requests.push(record);
+    pending++;
+    render();
+    let stream;
+    let normalStop;
+    let releaseStop;
+    let trackWatch;
+    const release = () => {
+      clearTimeout(normalStop);
+      clearTimeout(releaseStop);
+      clearInterval(trackWatch);
+    };
+    try {
+      // Native capture-state observation enforces the independent deadline.
+      record.nativeRequested = true;
+      stream = await original.call(devices, constraints);
+      const started = performance.now();
+      record.state = 'capturing';
+      record.stops = [];
+      // Arrange release before any instrumentation that could throw.
+      normalStop = setTimeout(() => {
+        const button = document.getElementById('composerVoiceBtn');
+        if (button?.getAttribute('aria-pressed') === 'true') button.click();
+      }, 1000);
+      releaseStop = setTimeout(() => stream.getTracks().forEach(track => track.stop()), 1200);
+      trackWatch = setInterval(() => {
+        if (!stream.getTracks().every(track => track.readyState === 'ended')) return;
+        record.stops.push(performance.now() - started);
+        record.state = 'released';
+        release();
+        render();
+      }, 20);
+      render();
+      return stream;
+    } catch (error) {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      release();
+      record.state = 'rejected';
+      record.error = error.name;
+      record.message = error.message;
+      render();
+      throw error;
+    } finally {
+      pending--;
+      render();
+    }
+  };
+  window.fetch = function (input, init) {
+    const url = String(typeof input === 'string' ? input : input?.url || '');
+    if (/\/api\/(chat\/stream|steer|steward\/(message|act))/.test(url)) trace.sends++;
+    if (url.startsWith('/api/audio/transcribe')) {
+      pending++;
+      render();
+      return originalFetch.call(this, input, init).then(response => {
+        trace.uploads.push({ ok: response.ok, status: response.status });
+        return response;
+      }).finally(() => { pending--; render(); });
+    }
+    return originalFetch.call(this, input, init);
+  };
+  const bar = document.createElement('section');
+  bar.style.cssText = 'position:fixed;top:72px;left:12px;z-index:99999;background:#202b42;color:white;padding:12px';
+  bar.append(finish, output);
+  document.body.append(bar);
+  const phaseWatch = setInterval(render, 100);
+  render();
+  await new Promise(resolve => { finish.onclick = resolve; });
+  closed = true;
+  clearInterval(phaseWatch);
+  window.dispatchEvent(new Event('ruyi:host-suspend'));
+  const button = document.getElementById('composerVoiceBtn');
+  for (const id of ['composerVoiceBtn', 'stewardComposerVoice']) {
+    const microphone = document.getElementById(id);
+    if (microphone) microphone.disabled = true;
+  }
+  devices.getUserMedia = original;
+  window.fetch = originalFetch;
+  trace.input = document.getElementById('promptInput')?.value;
+  trace.buttonState = button?.dataset.state;
+  const completed = trace.requests.filter(record => record.state === 'released');
+  trace.passed = pending === 0 && trace.buttonState === 'idle' && completed.length > 0 && trace.sends === 0
+    && completed.every(record => record.stops.length > 0 && record.stops.every(ms => ms > 0 && ms <= 3000))
+    && trace.uploads.length === completed.length && trace.uploads.every(upload => upload.ok)
+    && String(trace.input).includes('P4 本机短录音验收完成');
+  return trace;
+})();

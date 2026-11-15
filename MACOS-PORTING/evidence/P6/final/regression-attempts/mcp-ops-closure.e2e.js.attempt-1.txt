@@ -1,0 +1,126 @@
+── P 段: classifyMcpError 归类 ──
+PASS P1 ENOENT/child error -> startup
+PASS P2 rpc 超时 -> timeout
+PASS P3 HTTP 401 -> auth
+PASS P4 JSON-RPC error -> protocol
+PASS P5 ECONNREFUSED -> network
+PASS P6 HTTP 403 -> auth
+PASS P7 tools/list 超时 -> timeout
+PASS P8 SSRF -> security
+PASS P8b 端口号 401 不误归 auth -> network
+PASS P9 未匹配 -> unknown
+PASS P10 URL userinfo 剥离
+PASS P10b 无凭据 URL 原样
+PASS P10c URL 查询串里的凭据遮成 ••••<末4>,非凭据参数原样(实得 http://127.0.0.1:9999/mcp?api_key=••••ALUE&model=m1)
+PASS P10d token/secret/access_token 同表,page 这类不动
+PASS P10e 没有凭据参数的查询串逐字节不变(往返比对的前提)
+── U 段: inventory 无探针形状 ──
+PASS U1 三源条目都在(config 含 disabled)
+PASS U2 远程条目缺 url 被滤(与 resolveExternalMcpServers 一致)
+PASS U3 desktopMcp enabled=false -> 不入清单
+PASS U4 config 条目 source/builtIn/transport/enabled
+PASS U5 stdio commandOrUrl = command
+PASS U6 env 值掩码(防 token 泄漏)
+PASS U7 argsCount 计数
+PASS U8 capabilities 从兼容矩阵注入
+PASS U9 disabled 条目 enabled=false(保留供 UI 启用)
+PASS U10 http 条目 transport/commandOrUrl/listChanged
+PASS U11 兼容矩阵三 transport 齐
+── G 段: inventory 探针 ──
+PASS G1 enabled 条目探针 ok + toolCount (got 29)
+PASS G2 disabled 条目不探针 -> status:disabled
+PASS workbench up
+── I 段: GET /api/mcp/connectors ──
+PASS I1 GET 200 ok
+PASS I2 七条目齐(含 disabled/坏/挂)
+PASS I3 desktop 未探到(环境无 ai-computer-control)-> 不入清单
+PASS I4 source/builtIn/transport
+PASS I5 env 掩码
+PASS I6 无探针时 health=null(不假造状态)
+PASS I7 compat 矩阵随附
+PASS I8 sse 条目兼容矩阵
+PASS I9 disabled 条目 /health -> 404(不在启用清单)
+── A 段: 成功探针 ──
+PASS A1 health 200 ok
+PASS A2 status=ok + toolCount (got 29)
+PASS A3 serverInfo 回传
+PASS A4 latencyMs/probedAt
+── B 段: 启动失败 ──
+PASS B1 status=failed
+PASS B2 category=startup (got startup)
+── C 段: 协议不兼容 ──
+PASS C1 status=failed
+PASS C2 category=protocol (got protocol)
+── D 段: 超时 ──
+PASS D1 status=failed
+PASS D2 category=timeout (got timeout)
+── E 段: 鉴权失败 ──
+PASS E1 status=failed
+PASS E2 category=auth (got auth)
+── F 段: 工具列表变化 ──
+PASS F1 第一次探针 toolCount=2 (got 2)
+PASS F2 推 list_changed 后第二次探针 toolCount=3 (got 3)
+PASS F3 未知 id -> 404
+PASS F4 无 token -> 401/403
+── G2 段: 并发探针互斥 ──
+PASS G2a 并发探针 1 -> timeout
+PASS G2b 并发探针 2 -> timeout
+PASS G2c 并发探针只 spawn 1 个子进程(互斥,无孤儿) (got 1)
+── H 段: toggle 启停持久化 ──
+PASS H0 前置:A 段探针后 stdio-good 活客户端在 (pid 74380)
+PASS H1 停用 -> 200 ok enabled:false
+PASS H2 停用已原子落盘 config.json
+PASS H3 GET 清单反映 enabled:false
+PASS H4 停用后 /health -> 404(不在启用清单)
+PASS H5 停用后活客户端被杀( invalidateMcpRuntime )
+PASS H6a 无关连接器(sse-chg)探针仍 ok(客户端未被误杀)
+PASS H6b 无关条目配置不变(条数 9 不变)
+PASS H7a 启用 -> 200 ok enabled:true
+PASS H7b 启用后可立即重测(失败冷却已清) -> ok
+PASS H8 desktop 内置连接器 -> 409 + 人话原因
+PASS H9 drop-in 连接器 -> 409 + 人话原因(目录管理)
+PASS H10 未知 id -> 404
+PASS H11 enabled 非布尔 -> 400
+PASS H12 无 token -> 401/403
+PASS H13 再停用 stdio-good(为 K 段重启一致性留终态)
+PASS H14 停用遮蔽 drop-in 的条目 -> warning 告知接管
+PASS H15 启用路径不带 warning(无接管问题)
+── J 段: DELETE 删除持久化 ──
+PASS J1 删除未知 id -> 404
+PASS J2 删除 desktop -> 409 + 人话原因
+PASS J3 删除 drop-in -> 409(请移除目录)
+PASS J4 删除 stdio-bad -> 200 removed:true
+PASS J5 删除已落盘(9->8,无关条目不动)
+PASS J6 GET 清单不再含 stdio-bad
+PASS J7 删除后 /health -> 404
+PASS J9 删除遮蔽 drop-in 的条目 -> warning 告知接管(55b 对抗审查修复)
+PASS J10 删除已落盘(8->7)
+PASS J8 无 token -> 401/403
+── L 段: /api/config 保存作废改动连接器的运行时 ──
+PASS L0 前置:重新启用并探针 stdio-good -> ok
+PASS L1 前置:stdio-good 活客户端在 (pid 74499)
+PASS L2 POST /api/config 停用 stdio-good -> 200
+PASS L3 /api/config 停用后活客户端被杀(不再留孤儿进程)
+── K 段: 重启一致性 ──
+PASS K1 重启后 workbench up
+PASS K2 重启后 stdio-good 仍停用(状态与配置一致)
+PASS K3 重启后 stdio-bad 不复活
+PASS K4 无关连接器(sse-chg)重启后仍在且启用
+PASS K5 重启后操作已删除条目 -> 404
+PASS K6 重启后停用条目仍不可探针(不自动重连)
+── S 段: 静态锁 ──
+PASS S1 三函数在 server.js
+PASS S2 兼容矩阵在
+PASS S3 GET /api/mcp/connectors 路由
+PASS S4 POST /api/mcp/connectors/health 路由
+PASS S5 审计事件 kinds
+PASS S6 7 类归类字面量
+PASS S7 getMcpClient 并发互斥在(防孤儿子进程)
+PASS S8 URL userinfo 脱敏在
+PASS S9 toggle 路由 + 审计事件在
+PASS S10 DELETE 路由 + 审计事件在
+PASS S11 源守卫(desktop/drop-in 拒绝)在
+PASS S12 ROUTE_AUTH 两条 token 级
+PASS S13 启停/删除后 invalidateMcpRuntime(杀活客户端/清冷却)
+
+MCP OPS CLOSURE E2E: ALL PASS

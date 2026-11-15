@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-08",
+  "userRequest": "自己点允许，自己不休眠，后续开发无人值守",
+  "awake": {
+    "command": "/usr/bin/caffeinate -d -i -w 79367",
+    "pid": 6773,
+    "scope": "current Codex desktop process lifetime",
+    "verified": [
+      "PreventUserIdleSystemSleep=1",
+      "PreventUserIdleDisplaySleep=1"
+    ]
+  },
+  "uiRecovery": {
+    "normalCode": "restored user profile empty Editor Group 1, no fixture tabs",
+    "microphoneSetting": "Ruyi on -> off -> on through System Settings",
+    "documentsSetting": "Ruyi Documents on -> off -> on through System Settings",
+    "launchServices": "new physical probe loaded full workbench after permission refresh",
+    "microphoneResult": "current App still prompted, TCC logs show existing code requirement mismatch",
+    "toolRestriction": "UserNotificationCenter app access rejected by CUA, manual prompt action requested",
+    "captureStarted": false
+  },
+  "livePhysicalRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-JLGGzP",
+  "liveExecSession": 93492
+}

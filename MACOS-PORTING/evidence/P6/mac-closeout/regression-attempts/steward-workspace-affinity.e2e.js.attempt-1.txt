@@ -1,0 +1,47 @@
+── (A) 事项继承 ──
+PASS A0 前提:建好事项「A 项目」,容器里还没有工作区
+PASS A1 同事项里已有线程在 /ws/A,管家不带 cwd 开新线程 → 新线程 cwd 为 /ws/A(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A" / undefined)
+PASS A2 回执说清目录从哪来、叫什么(got ["mission_thread","A"])
+PASS A3 事项容器记下了这个工作区(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A")
+PASS A4 事项容器记着的工作区优先于同事项线程(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A" / "mission")
+PASS A5 沿用时没有新开任何文件夹(如意那张表里没有这两条线程的派生目录)
+PASS A5b Ruyi 根下也没长出「A 新活」
+── (B) 明确 cwd 优先 ──
+PASS B1 明确给了 cwd(工作区的名字 B)→ 用它,事项记着的 A 让位(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/B" / "explicit")
+PASS B2 速查同一口径:给完整路径也认
+PASS B3 清单外的路径照旧拒、不建目录(got "invalid_request")
+PASS B3b 拒绝文案列的是名字,不是全路径(got "cwd 不在已知工作区里(不要自己编路径)。现有:default、A、B、老版本开的。cwd 填其中一个的名字;要用别处请先请用户在设置里把那个文件夹加成工作区;跟哪个都不沾边就【省掉 cwd】,不要重试同一个值。")
+── (C) 相关线程 ──
+PASS C1 接着某条线程的活 → 开在那条线程的目录里(got ["related","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/B"])
+PASS C2 relatedSessionId 不是线程 → not_found,不静默回落(got "not_found")
+PASS C3 数据目录不沿用(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/Ruyi/别跟管家抢目录" / "new")
+── (D) 新开的文件夹不进常用工作区 ──
+PASS D1 都不沾边 → 在 Ruyi 根下按标题新开(got "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/Ruyi/陕西菜调研")
+PASS D2 新开的文件夹登记在如意那张表里,不在常用工作区(常用 ["/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/default","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/B"])
+PASS D3 老版本塞进常用工作区的那一行(带「Ruyi 自动开的」)被挪回如意那张表
+PASS D4 用户自己的三个工作区照常在(got ["/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/default","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/B"])
+PASS D5 近期工作区里也没有如意的目录(工作台从不往里写)
+PASS D6 前端显示函数:数据目录与如意的目录不显示,用户的三个照常(got ["/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/default","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/A","/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-ws-aIADGK/ws/B"])
+PASS D7 如意开的文件夹用名字就能派回去
+── (E) 已知工作区清单 ──
+PASS E1 管家真正收到的请求里有「已知工作区」清单,且在易变层(不在 system)
+PASS E2 默认工作区标「默认」(got "· default(默认)")
+PASS E3 每行带最近在那儿做过的线程名与所属事项(got "· A:「A 里现在有几个文件?」 近期诉求:A 里现在有几个文件? 末回复:好的,照办。;「A 再一件」(事项「A 项目」) 近期诉求:A 项目再加个功能 末回复:好的,照办。;「A 新活」(事项「A 项目」) 近期诉求:把 A 项目的测试再跑一遍 末回复:好的,照办。")
+PASS E4 如意自己开的文件夹标「我开的」(got "· 陕西菜调研(我开的):「陕西菜第二篇」 近期诉求:接着写第二篇 末回复:好的,照办。;「陕西菜调研」 近期诉求:帮我查一下陕西菜有什么特色 末回复:好的,照办。")
+PASS E5 清单里零全路径(围栏信息不进上下文)
+PASS E6 清单尾巴给出选目录的顺序
+PASS E7 行数受上限约束(got 20)
+PASS E7b 每行至多 3 条线程
+PASS E7c 每行 ≤ 260 字、整块行合计 ≤ 2400 字(got 1744)
+PASS E7d 超出的折叠成一句,不截断(got "…另有 13 个工作区未列出(到访层有字数预算)。")
+PASS E7e 行尾不出现半截话(砍的是整条线程,不是半个名字)
+── (F) 读模型 ──
+PASS F1 thread_status 带 workspace,如意开的标 ruyiOwned(got {"name":"陕西菜调研","ruyiOwned":true})
+PASS F2 用户工作区里的线程 ruyiOwned:false,事项的工作区也带出来(got [{"name":"A","ruyiOwned":false},{"name":"A","ruyiOwned":false}])
+PASS F3 steward_missions 带事项与线程的工作区名字,零全路径(got ["A",["B","B","A","A"]])
+
+STEWARD WORKSPACE AFFINITY E2E: ALL PASS
+(node:84993) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/util.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

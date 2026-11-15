@@ -10,6 +10,8 @@ These are display/decision helpers only; callers decide how to surface the refus
 
 import json
 import os
+import sys
+import unicodedata
 
 # ---------------------------------------------------------------------------------------------
 # Optional user overrides (data-dir safety.json). Guardrails may only be TIGHTENED, never loosened:
@@ -57,11 +59,88 @@ def _load_custom() -> None:
 _load_custom()
 
 
+def _canonical_path(path: str) -> str:
+    target = os.path.normcase(os.path.realpath(os.path.abspath(path)))
+    if sys.platform == "darwin":
+        # The writable volume can expose a second spelling of a user workspace.
+        # Strip it only when an existing ancestor proves the two spellings alias.
+        parts = target.split(os.sep)
+        if len(parts) > 4 and _same_location(os.sep.join(parts[:4]), "/System/Volumes/Data"):
+            alias = os.sep + os.sep.join(parts[4:])
+            left, right = target, alias
+            while not os.path.exists(left) and left != os.sep:
+                left, right = os.path.dirname(left), os.path.dirname(right)
+            if _same_location(left, right):
+                target = alias
+    return target.rstrip(os.sep) or os.sep
+
+
+def _same_location(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if sys.platform == "darwin":
+        try:
+            return os.path.samefile(left, right)
+        except OSError:
+            # A configured protection root may not exist yet. Compare the nearest
+            # existing ancestors by identity and the missing components according
+            # to that filesystem's case semantics, not the host's default volume.
+            def anchor(path):
+                suffix = []
+                while not os.path.exists(path):
+                    parent, name = os.path.split(path)
+                    if parent == path:
+                        break
+                    suffix.append(name)
+                    path = parent
+                return path, suffix
+
+            a, tail_a = anchor(left)
+            b, tail_b = anchor(right)
+            try:
+                if not os.path.samefile(a, b):
+                    return False
+            except OSError:
+                return False
+            try:
+                # Darwin _PC_CASE_SENSITIVE is 11 (sys/unistd.h). CPython accepts
+                # the numeric selector but does not expose its name in pathconf_names.
+                sensitive = os.pathconf(a, 11)
+            except OSError:
+                sensitive = -1
+            # APFS is Unicode-normalization insensitive even on a case-sensitive
+            # volume. Do not let a missing NFC/NFD root bypass a configured guard.
+            tail_a = [unicodedata.normalize("NFD", x) for x in tail_a]
+            tail_b = [unicodedata.normalize("NFD", x) for x in tail_b]
+            if sensitive != 1:  # -1/unknown is conservatively protected too.
+                tail_a = [x.casefold() for x in tail_a]
+                tail_b = [x.casefold() for x in tail_b]
+            return tail_a == tail_b
+    return False
+
+
+def _within(target: str, root: str) -> bool:
+    if target == root or target.startswith(root.rstrip(os.sep) + os.sep):
+        return True
+    if sys.platform == "darwin":
+        # APFS can be case sensitive or insensitive. Compare existing filesystem
+        # identities; lowercasing every user path would conflate distinct files.
+        cursor = target
+        while True:
+            if _same_location(cursor, root):
+                return True
+            parent = os.path.dirname(cursor)
+            if parent == cursor:
+                break
+            cursor = parent
+    return False
+
+
 def _custom_protected_norm() -> list[str]:
     out = []
     for p in _CUSTOM.get("protected_paths", []):
         try:
-            out.append(os.path.normcase(os.path.abspath(p)).rstrip(os.sep))
+            out.append(_canonical_path(p))
         except Exception:
             continue
     return sorted(set(out))
@@ -79,6 +158,13 @@ CRITICAL_PROCESSES = {
 # would break the OS). ROOT-ONLY: only the exact location is protected (don't wipe the whole drive or
 # the whole user profile), but files *inside* them are the user's to manage.
 def _system_trees() -> list[str]:
+    if sys.platform == "darwin":
+        # realpath also covers Apple's /etc -> /private/etc and /var -> /private/var
+        # aliases. Protect configuration, not /private/var as a whole: Mac temp
+        # directories and normal workspaces live below it.
+        paths = ("/System", "/bin", "/sbin", "/dev", "/usr", "/Library", "/etc",
+                 os.path.expanduser("~/Library/Keychains"))
+        return sorted({_canonical_path(p) for p in paths})
     out = []
     for env in ("SystemRoot", "windir", "ProgramFiles", "ProgramFiles(x86)", "ProgramData"):
         v = os.environ.get(env)
@@ -88,6 +174,10 @@ def _system_trees() -> list[str]:
 
 
 def _root_only() -> list[str]:
+    if sys.platform == "darwin":
+        return sorted({_canonical_path(p) for p in (os.sep, os.path.expanduser("~"),
+                       "/Users", "/Volumes", "/Applications", "/private", "/tmp",
+                       "/private/var/folders", "/private/var/tmp")})
     out = []
     sysdrive = os.environ.get("SystemDrive", "C:")
     out.append(os.path.normcase(os.path.abspath(sysdrive + os.sep)))  # drive root C:\ (keep trailing sep)
@@ -144,24 +234,28 @@ def protected_path_reason(path: str) -> str | None:
     """Return a reason if `path` is a protected system tree (or inside one), a protected root itself,
     or an ancestor of any protected location; else None."""
     try:
-        target = os.path.normcase(os.path.abspath(os.path.realpath(path)))
+        target = _canonical_path(path)
     except Exception:
         target = os.path.normcase(os.path.abspath(path))
-    target = target.rstrip(os.sep)
+    target = target.rstrip(os.sep) or os.sep
+    if sys.platform == "darwin" and _within(target, "/private/var"):
+        if not any(_within(target, root) and not _same_location(target, root)
+                   for root in ("/private/var/folders", "/private/var/tmp")):
+            return f"'{path}' is inside a protected location"
     trees = _system_trees() + _custom_protected_norm()
     roots = _root_only()
     # 1) System trees: the tree itself or anything inside it (built-in + custom protected paths).
     for r in trees:
-        if target == r or target.startswith(r + os.sep):
+        if _within(target, r):
             return f"'{path}' is inside a protected location"
     # 2) Root-only: only the exact drive root / profile root (not their contents).
     for r in roots:
         rr = r.rstrip(os.sep)
-        if target == rr or target == r:
+        if _same_location(target, rr or os.sep) or target == r:
             return f"'{path}' is a protected root"
     # 3) Ancestor of any protected location -> deleting it would take the protected location with it.
     for r in trees + [x.rstrip(os.sep) for x in roots]:
-        if r.startswith(target + os.sep):
+        if _within(r, target):
             return f"'{path}' contains a protected system location"
     return None
 

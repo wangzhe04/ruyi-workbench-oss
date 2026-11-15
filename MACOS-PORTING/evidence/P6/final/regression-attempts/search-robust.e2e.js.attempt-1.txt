@@ -1,0 +1,13 @@
+PASS workbench listening on :60348
+PASS UI token scraped
+PASS (?i)pass → ok:true (no Invalid group crash), err=undefined
+PASS (?i)pass hits the mixed-case line
+PASS (?i)pass carries NO patternNote (valid after stripping)
+PASS invalid pattern → ok:true (literal fallback), err=undefined
+PASS patternNote present (got: invalid regex; searched as literal text)
+PASS literal ([x found in seed
+PASS plain pattern unchanged shape
+PASS docs_search (?i) query → ok:true (no Invalid group crash), err=undefined
+PASS docs_search (?i) query finds the seeded line
+
+SEARCH-ROBUST E2E: ALL PASS

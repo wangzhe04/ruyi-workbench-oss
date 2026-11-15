@@ -1,0 +1,40 @@
+[fake] [fake-openai] listening on 51590
+PASS workbench listening on :51591
+PASS ① 14-main 导出 runSessionTurn
+PASS ① HTTP 路径首事件带 session
+PASS ① HTTP 路径以 ok 的 result 收尾
+PASS ① HTTP 路径无 error 事件
+PASS ② 核心路径无 error 事件
+PASS ② 事件类型游程序列相同: session,meta,process,context_estimate,raw_line,thinking_delta,raw_line,thinking_delta,raw_line,thinking_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,assistant_delta,raw_line,usage,turn_summary,process,result
+PASS ② 序列首尾仍是 session…result
+PASS ③ 返回 ok:true 且无 error
+PASS ③ turnSeq 推进到 1(实测 1)
+PASS ③ result 回传最后一个 result 事件
+PASS ③ usage 取样非空
+PASS ③ source/stopped/disconnected 自洽
+PASS ④ 两条路径会话 meta 的 turnSeq 相同
+PASS ④ 会话 schemaVersion 相同
+PASS ④ messages.ndjson 角色/引擎序列相同: user||| → assistant|openai|fake|fake-model
+PASS ④ 会话旁车文件集合相同: .json .messages.ndjson .provider.ndjson
+PASS ⑤ 两个 HOME 各恰好 1 行台账(1/1)
+PASS ⑤ 台账键集合相同: cachedInTok,cost,costTrusted,currency,engine,estimated,inTok,kind,model,outTok,provider,sessionId,ts,turnSeq
+PASS ⑤ 台账 engine/provider/model/kind 相同: openai|fake|fake-model|turn
+PASS ⑥ source 原样回传(steward)
+PASS ⑥ 管家回合照常记一行台账(共 2 行)
+PASS ⑥ 台账形状不因 source 改变(source 不进台账、不改判定)
+PASS ⑥ 管家回合事件序列与 HTTP 回合相同
+PASS ⑦ 并发同会话:两路径「是否各自收尾」判定相同(HTTP [true,true])
+PASS ⑦ 两路径运行中的两回合都恰好一个 result
+PASS ⑦ 两路径 A 都被 B supersede 并以 aborted 收尾
+PASS ⑦ 两路径 B 都正常完成
+PASS ⑦ 并发同会话:两路径都无 error 事件(supersede,没有忙错误信封)
+PASS ⑦ 两路径并发两回合都落在各自同一会话
+PASS ⑦ 并发之后两路径同一会话仍能正常跑一回合(没有留下脏锁)
+PASS ⑦ 会合 provider 无夹具错误
+PASS ⑧ abort 后 disconnected:true
+PASS ⑧ abort 的回合仍按原语义收尾(promise 正常 resolve)
+PASS ⑧ abort 之后同一会话仍能正常跑一回合(授权/settle 登记已清)
+PASS ⑧ 入口即 aborted 的 signal 也走断线分支,不抛
+PASS ⑨ 显式 engineRoute 的回合跑通
+PASS ⑨ 显式路由与推断路由的事件序列相同
+SESSION-TURN-CORE E2E: ALL PASS

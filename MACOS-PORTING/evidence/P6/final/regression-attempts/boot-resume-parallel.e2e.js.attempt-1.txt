@@ -1,0 +1,21 @@
+PASS U1 mapPool 结果保序且全执行
+PASS U2 mapPool 并发度 1 < max(4) ≤ 4
+PASS U2 mapPool wall 82ms < 280ms(顺序需 ≥320ms,证明非串行)
+PASS U3 小文件全读快进 eventSeq 1→3(got 3)
+PASS U4 夹具确超尾窗阈值(1270893B)
+PASS U4 大文件尾窗快进 == 全扫真值(8000 == 8000)
+PASS U5 窗内无 seq → 回落全读,eventSeq 0→1(got 1)
+PASS U6 撕裂尾行同旧语义:扫到片段内完整 "seq" 前缀(got 9999)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay d767bc3df976)
+[wb] UI: http://127.0.0.1:57850/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-boot-resume-e2e-live
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS L1 workbench up on :57850(boot 507ms)
+PASS L1 boot 防卡死上界(507ms < 30s;markInterrupted 是 listen 前 await)
+PASS L1 6 个 running run 全标 interrupted
+PASS L1 run_interrupted 落 seq 1001(大文件尾窗快进精确,未错号)
+PASS L2a exec-tier interrupted → paused + run_resume_deferred(got status=paused, evt=run_resume_deferred)
+PASS L2b wait-node interrupted → autoResumeCount=1 护栏先落盘(got 1, tier=auto_resumable)
+PASS L2b run_auto_resume 事件已 append(got run_auto_resume)
+
+BOOT-RESUME-PARALLEL E2E: ALL PASS

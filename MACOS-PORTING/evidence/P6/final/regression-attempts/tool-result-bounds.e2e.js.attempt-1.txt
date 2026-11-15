@@ -1,0 +1,19 @@
+PASS workbench starts
+PASS A1 模型视图 ≤ 60000 字符(实得 35319)
+PASS A2 模型视图仍是合法 JSON(修前是切在 stdout 中间的坏 JSON)
+PASS A3 模型视图保留 code / stderr / timedOut(修前全被切掉)
+PASS A4 模型视图保留 stdout 末尾的 ERROR 行(尾部窗口)
+PASS A5 恢复提示按工具给(重定向到文件 + file_read),不再点名 offset/limit
+PASS A6 SSE tool_result 保留 code / stderr
+PASS A7 SSE tool_result ≤ 130KB(实得 35558;修前 ≈ 160KB+,输出 2MB 时 2MB+)
+PASS A8 SSE 展示副本也保留 stdout 末尾
+PASS A9 messages.ndjson ≤ 135KB(实得 37643;修前 ≈ 160KB+)
+PASS A10 GET /api/sessions/:id ≤ 190KB(展示副本 ≤120K + 模型视图 ≤60K;实得 80786,修前 ≥ 228KB)
+PASS A11 落盘的 toolCalls[].result 保留 ok/code/timedOut 标量键
+PASS B1 file_read 成功
+PASS B2 展示副本内容有界且头部在(实得 40000)
+PASS B3 file_read 自带的 truncated/totalChars 键保留
+PASS B4 模型视图:file_read 头部在,提示指向 offset
+PASS B5 file_read 模型视图 ≈ 头 40K + 尾 8K(实得 40364)
+
+TOOL RESULT BOUNDS E2E: ALL PASS

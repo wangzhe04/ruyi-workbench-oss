@@ -1,0 +1,71 @@
+{
+  "windows": [
+    {
+      "document": null,
+      "role": "AXScrollArea",
+      "tree": {
+        "AXRole": "AXScrollArea"
+      }
+    }
+  ],
+  "cgWindows": [
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 64,
+        "Y": 607,
+        "Width": 64
+      },
+      "handle": 32
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 30
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 27
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 29
+    },
+    {
+      "title": "",
+      "onScreen": false,
+      "bounds": {
+        "X": 0,
+        "Height": 34,
+        "Y": 0,
+        "Width": 1710
+      },
+      "handle": 28
+    }
+  ],
+  "ok": true,
+  "pid": 692,
+  "bundleID": "com.apple.finder"
+}

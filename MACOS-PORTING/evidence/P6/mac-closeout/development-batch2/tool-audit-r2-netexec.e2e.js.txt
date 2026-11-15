@@ -1,0 +1,57 @@
+PASS N7a Mac controlled permission denial never claims a screenshot path
+PASS N7 Mac unsupported keyboard_send_keys is refused without execution
+PASS N7 Mac unsupported powershell_run is refused without execution
+PASS N7c Mac Node scripts execute without PowerShell
+PASS N5d Mac bash starts without PowerShell
+PASS N5e owned Mac shell is removed after cleanup
+PASS N1a web_fetch 解开 gzip(got {"ok":true,"url":"http://127.0.0.1:61767/gz","title":"","text":"hello gzip body gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg)
+PASS N1b web_fetch 解开 br(got {"ok":true,"url":"http://127.0.0.1:61767/br","title":"","text":"hello brotli body bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb)
+PASS N1b web_fetch 解开 deflate(zlib 封装)(got {"ok":true,"url":"http://127.0.0.1:61767/deflate","title":"","text":"hello zlib deflate body","offset":0,"totalChars":23)
+PASS N1b web_fetch 解开 deflate(裸)(got {"ok":true,"url":"http://127.0.0.1:61767/rawdeflate","title":"","text":"hello raw deflate body","offset":0,"totalChars":)
+PASS N1c http_request 解开 gzip 并标 decodedFrom(got {"ok":true,"redirected":false,"statusCode":200,"headers":{"content-type":"text/plain","content-encoding":"gzip","date":"Thu, 12 Nov 2026 13:45:13 GMT","connection":"keep-alive","keep-alive":"timeout=5)
+PASS N1d 损坏的压缩体 → 如实报解压失败,不崩(got {"ok":false,"error":"响应体解压失败(Content-Encoding: gzip):incorrect header check","failClass":"other","hint":"稍后重试或换个来源"})
+PASS N1e http_download 存的是解压后的内容(修前存的是 1f 8b 开头的压缩字节;got {"ok":true,"path":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV/gz.txt","bytes":316,"co)
+PASS N1f 压缩炸弹(200MB 解压)在上限处被掐断、交回截断页(got ok=true len=20000 7ms)
+PASS N1g http_request 对压缩炸弹同样有解压后字节上限(got len=1000 truncated=true)
+PASS N1h http_download 的 maxBytes 也按解压后算,不落半截文件(got {"ok":false,"error":"文件超过大小上限（1MB）","maxBytesCap":104857600,"hint":"可把 maxBytes 调大重试(最多 100MB)"})
+PASS N1i http_request 按 Content-Type 的 charset 解 GBK(got "{\"m\":\"你好\"}")
+PASS N1j 二进制响应 → binary:true、不内联正文、指路 http_download(got {"ok":true,"redirected":false,"statusCode":200,"headers":{"content-type":"application/octet-stream","date":"Thu, 12 Nov 2026 13:45:13 GMT","connection":"keep-alive","keep-alive":"timeout=5","transfer-)
+PASS N1k 声明成 octet-stream 但内容是合法文本的,照常当文本(got {"ok":true,"redirected":false,"statusCode":200,"headers":{"content-type":"application/octet-stream","date":"Thu, 12 Nov 2026 13:45:13 GMT","connection":"keep-al)
+PASS N4a 3xx 带 location(绝对地址;got http://127.0.0.1:61767/target)
+PASS N4b timeoutMs 为负数回落默认,不再报 Node 的 out of range(got {"ok":true,"redirected":false,"statusCode":200,"headers":{"content-type":"text/plain","content-encoding":"gzip","date":"Thu, 12 Nov 2026 13:45:13 GMT","connecti)
+PASS N2a 先抓一次成功并写入缓存
+PASS N2b 之后页面 404 → ok:false(修前 ok:true + fromCache:true;got {"ok":false,"error":"页面不存在(HTTP 404)","failClass":"http","statusCode":404,"hint":"检查网址是否正确"})
+PASS N2c 410 同样不回落缓存(got {"ok":false,"error":"页面不存在(HTTP 410)","failClass":"http","statusCode":410,"hint":"检查网址是否正确"})
+PASS N2d 真断网(连不上)时仍回落缓存(got {"ok":true,"url":"http://127.0.0.1:61778/o","title":"","text":"offline copy offline copy offline copy offline copy offline copy offline copy offline copy offlin)
+PASS N3a dest 是已存在的文件夹 → 存进去,名字取 Content-Disposition(修前抛裸 EISDIR;got {"ok":true,"path":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV/dl/report 2024.bin","bytes":7,"contentType":"application/octet-stream","op":"create"})
+PASS N3b dest 以分隔符结尾 = 文件夹,名字取 URL 末段(修前悄悄写成叫 newdir 的文件;got {"ok":true,"path":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV/newdir/named.dat","bytes":5,"contentType":"application/octet-stream","op":"create"})
+PASS N3c 服务器给的文件名里的 ..\ 不能让文件跳出 dest 文件夹(got {"ok":true,"path":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV/dl/escape.txt","bytes":4,"contentType":"application/octet-stream","op":"create"})
+FAIL N3d 名字过长 → {ok:false, code, error} 信封,不抛(修前裸异常 ENAMETOOLONG;got {"ok":false,"error":"该路径经过无法解析的符号链接/联接,已拒绝","code":"not-allowed"})
+PASS N3e dest 以分隔符结尾却是已存在的文件 → ok:false(got {"ok":false,"code":"ENOTDIR","error":"dest 以 / 结尾表示文件夹,但 /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV/gz.tx)
+PASS N3f timeoutMs 是总期限:滴灌的下载在 ~1.2s 被判超时(修前跑满 9s 还 ok:true;1204ms,got {"ok":false,"error":"抓取超时","failClass":"timeout","hint":"网站响应过慢,稍后重试或换个来源"})
+PASS N3g 超时不落半截文件
+PASS N3h ctx.signal 能取消 http_download(修前不接信号,跑满 9s;503ms,got {"ok":false,"error":"请求已被用户中断","failClass":"aborted"})
+PASS N3i ctx.signal 能取消 http_request(got {"ok":false,"error":"请求已被用户中断","failClass":"aborted"})
+PASS N3j ctx.signal 能取消 web_fetch(got {"ok":false,"error":"请求已被用户中断","failClass":"aborted"})
+PASS N5a 会话 A 起 a1(got {"ok":true,"shellId":"a1","name":"a1","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AA)
+PASS N5a 会话 A 起 a2(got {"ok":true,"shellId":"a2","name":"a2","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AA)
+PASS N5a 会话 A 起 a3(got {"ok":true,"shellId":"a3","name":"a3","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AA)
+PASS N5b A 起第 4 个 → 本会话上限(got {"ok":false,"error":"本会话的 shell 已达上限 3(运行中 3 个)","hint":"先 shell_kill 释放(shell_list 可见本会话全部,含已退出)"})
+PASS N5c A 满了不挤占会话 B 的名额(修前全进程共用上限,B 被拒还看不见 A 的 shell;got {"ok":true,"shellId":"b1","name":"b1","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-k4AARV","mode":"interactive","shell":"bash",)
+PASS N5f B 的 shell_list 只看得见自己的(got ["b1"])
+PASS N5g Mac native execution has no cmd.exe 8191-character limit
+PASS N5h 全局安全上限 12:再开一个被拒且错误说清是全局的(open=12,got {"ok":false,"error":"工作台全局 shell 数已达安全上限 12(含其它会话开的 12 个,本会话看不到也杀不了它们)","hint":"稍后再试,或等其它会话 / 线程的 shell 结束、被空闲回收"})
+PASS N6a 空 keys → {ok:false}(修前抛 Error('keys is required');got {"ok":false,"code":"tool-disabled","error":"tool 'keyboard_send_keys' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac )
+PASS N6 Mac omits Windows SendKeys and invokes no PowerShell fixture
+PASS N7e Mac protocol fixture writes only the controlled 2x2 PNG; no desktop capture
+PASS N7f failed Mac capture never claims a file
+SKIP Windows SendKeys/literal/DPI fake-PS execution on Mac; static DPI source checks still run
+PASS N8b 切到了 buildDesktopScreenshotScript
+PASS N8c DPI 感知调用在 try/catch 里(失败无害),且先于 System.Windows.Forms(Windows 真机未验证)
+PASS N9 powershell_run({"command":"   "})→ {ok:false, error} 信封(got {"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+PASS N9 script_run({"code":"  "})→ {ok:false, error} 信封(got {"ok":false,"code":"invalid_args","error":"code 不能为空","hint":"传入要执行的脚本源码(Mac 缺省 bash，Windows 缺省 powershell，也可显式选 python / node)"})
+PASS N9 office_open({"path":"  "})→ {ok:false, error} 信封(got {"ok":false,"code":"invalid_args","error":"path 不能为空","hint":"传入要打开的文档 / 图片 / 文件夹的完整路径"})
+PASS N9 keyboard_send_keys({"keys":""})→ {ok:false, error} 信封(got {"ok":false,"code":"tool-disabled","error":"tool 'keyboard_send_keys' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac )
+PASS N9 desktop_screenshot({"outputPath":123})→ {ok:false, error} 信封(got {"ok":false,"code":"invalid_args","error":"outputPath 必须是字符串路径","hint":"省略 outputPath 则存到应用的 generated 目录"})
+
+TOOL AUDIT R2 NETEXEC E2E: FAIL (1)

@@ -1,0 +1,11 @@
+PASS A index.html 零白名单外命中
+PASS A js/quiet-card.js 零白名单外命中
+PASS A js/thread-head.js 零白名单外命中
+PASS A js/notify-policy.js 零白名单外命中
+PASS A js/model-menu.js 零白名单外命中
+PASS A js/steward-drawer.js 零白名单外命中
+PASS A js/rail-pocket.js 零白名单外命中
+PASS B 7 个文件合计零白名单外命中（钱只在「用量」页签，管家视角/工作台线程头/口袋一律不印金额）
+PASS C 判据本身可拉红（毒丸句命中正则且不落在白名单里，用于反向验证：临时把它塞进 thread-head.js 应转红，见交付报告）
+PASS D 「用量」页签仍在（唯一允许印钱的地方没有被这把锁误伤到）
+ALL PASS (9 checks)

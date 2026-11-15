@@ -1,0 +1,32 @@
+[
+  {
+    "label": "static-syntax",
+    "command": [
+      "node",
+      "--check",
+      "dev-harness/process-safety.static.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.02871990203857422
+  },
+  {
+    "label": "build",
+    "command": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "seconds": 0.1528182029724121
+  },
+  {
+    "label": "fast",
+    "command": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 1,
+    "seconds": 128.92167377471924
+  }
+]

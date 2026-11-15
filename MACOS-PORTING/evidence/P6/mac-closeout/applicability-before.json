@@ -1,0 +1,547 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewKind": "Read-only audit of current 36 failed attempts; no exemption and no new acceptance",
+  "createdAtUTC": "2026-11-12T13:13:54.090425+00:00",
+  "sourceRoot": "/Users/jiming/Documents/ruyi-workbench-mac",
+  "truth": {
+    "actualCovered": 594,
+    "processPassed": 558,
+    "failed": 36,
+    "internalSkipFiles": 27,
+    "liveExcluded": 14,
+    "baselineComparisonCaveat": "Old baseline omitted ignored ACC venv; shared failing filenames do not prove same failing assertions. No attribution of 537 to 558 delta."
+  },
+  "noExecution": {
+    "testsRun": 0,
+    "sourceEdits": 0,
+    "desktopActions": 0,
+    "imagesMounted": 0,
+    "oldArtifactHashesRecomputed": 0,
+    "securityOrSleepChanges": 0
+  },
+  "cases": [
+    {
+      "file": "agent-mode-v2.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/agent-mode-v2.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL B a new turn completes normally while the agent is still running",
+        "FAIL F2 precondition: the parent powershell_run pause really ran — {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。\"}",
+        "FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {\"kind\":\"agent_envelope\"}",
+        "FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1",
+        "FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)"
+      ],
+      "failedPrecondition": "Unavailable powershell_run pause invalidates overlap and notice-first timing prerequisite.",
+      "requiredMacCoverageAndFix": "Use platform shell_run sleep on Mac; retain one envelope/notice exactly once, wait receipt and active-parent completion.",
+      "exactPlatformOnlyScope": "PowerShell syntax only.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "artifacts.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/artifacts.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (unit) pathWithinRoot: nested → true",
+        "FAIL (unit) pathWithinAnyRoot: any root matches",
+        "FAIL (T3 unit) write_docx {path} → {write, abs}",
+        "FAIL (T3 unit) write_document 识别"
+      ],
+      "failedPrecondition": "Windows C:\\ws paths fed to POSIX path handling cause null write target.",
+      "requiredMacCoverageAndFix": "Use native path.join fixtures for root/write-target/artifact flow; keep explicit win32 reveal-spawn pure contracts.",
+      "exactPlatformOnlyScope": "Windows reveal arguments and drive syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "audit-w23.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/audit-w23.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程",
+        "FAIL P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)",
+        "FAIL P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)",
+        "AUDIT W23 E2E: 3 FAILURE(S)"
+      ],
+      "failedPrecondition": "Three obsolete structural locks: PID kill signature, truncated saveSession slice, unconditional degraded propagation.",
+      "requiredMacCoverageAndFix": "Use owned child handle expectation; balanced functionBlock saveSession; assert cleanupIncomplete overrides degraded and clean true/false propagation.",
+      "exactPlatformOnlyScope": "taskkill wording is not Mac semantic coverage.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "autonomy-benchmark.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/autonomy-benchmark.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL 任务1 四个重构文件都已写出",
+        "FAIL 任务2 三份汇编片段都已写出",
+        "  任务明细: REFACTOR[完成,干预0,turns3] | DIGEST[完成,干预0,turns2] | BUILDFAIL[暂停,干预0,turns3]",
+        "AUTONOMY-BENCHMARK E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Fake provider builds output paths using backslash on POSIX.",
+      "requiredMacCoverageAndFix": "Use path.join; preserve all refactor/digest artifacts, build-failure pause, budgets and completion checks.",
+      "exactPlatformOnlyScope": "None for shared autonomous execution.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "background-completion.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/background-completion.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+      ],
+      "failedPrecondition": "PowerShell success/failure fixture executes in bash.",
+      "requiredMacCoverageAndFix": "Use sleep/printf/exit; retain real background success/error status, push deduplication, no cross-session output.",
+      "exactPlatformOnlyScope": "PowerShell command spelling.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "bridge-cancel-timeout.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/bridge-cancel-timeout.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "BRIDGE CANCEL/TIMEOUT E2E: FAIL (2)",
+        "FAIL A2 错误文本如实告知\"桥接进程树已终止\"(无僵尸执行)",
+        "FAIL C2 重连的新 fake-mcp 活着(pid 65396,回合并发期间应在线)"
+      ],
+      "failedPrecondition": "tasklist returns false on Mac; old cleanup prose lock no longer matches.",
+      "requiredMacCoverageAndFix": "Observe owned PID birth identity; check structured cleanup scope/incomplete; retain old process gone, new process alive, reconnect echo, timeout and abort.",
+      "exactPlatformOnlyScope": "Windows tasklist implementation.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/budget-guard.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "BUDGET-GUARD E2E: 8 FAILURES",
+        "FAIL E19 软警告 tool_progress(budget_soft)已发",
+        "FAIL E20 硬终态 tool_progress(budget_hard)已发",
+        "FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)",
+        "FAIL E22 tool_result 带预算中断标记(不冒称正常结束)"
+      ],
+      "failedPrecondition": "PowerShell command unavailable; no actual long running tool exercises soft/hard/shadow budgets.",
+      "requiredMacCoverageAndFix": "Use shell_run with real sleep/printf; retain deadline events, interrupted tool result, sanitized audit, natural completion under shadow and byte counts.",
+      "exactPlatformOnlyScope": "PowerShell syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "claude-cmdline-guard.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/claude-cmdline-guard.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (A1) spawnCmdLineLength === batchSafeSpawn 真实命令行长度 (456)",
+        "CLAUDE-CMDLINE-GUARD E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "A1 applies Windows cmd.exe length formula to Mac native spawn.",
+      "requiredMacCoverageAndFix": "Keep explicit Windows formula test via pure platform seam; assert Mac executable/argv and zero cmd budget; retain live B/C append/fence/effort guards.",
+      "exactPlatformOnlyScope": "cmd.exe 8191 length contract.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "claude-exe-resolve.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/claude-exe-resolve.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/claude.cmd",
+        "FAIL (A6) normalizeConfig 替换 claudePath → exe",
+        "FAIL (A7) memoize 一致",
+        "CLAUDE-EXE-RESOLVE E2E: FAIL (3)"
+      ],
+      "failedPrecondition": "A1/A6/A7 expect Windows npm .cmd to .exe resolution on Mac.",
+      "requiredMacCoverageAndFix": "Keep Windows resolver seam; add executable POSIX launcher/symlink/fallback/cache, normalizeConfig integration, no cmd limit.",
+      "exactPlatformOnlyScope": "npm .cmd/.exe layout and Windows integration.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "cli-probe-stall.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/cli-probe-stall.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )",
+        "FAIL C3 过期期间答旧值,不是空串(claude  / kimi )",
+        "FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)",
+        "CLI PROBE STALL E2E: FAILURES 3"
+      ],
+      "failedPrecondition": "Synthetic slow .cmd files and System32 PATH cannot launch on Mac.",
+      "requiredMacCoverageAndFix": "Create executable Node shebang launcher; isolated POSIX PATH; retain first discovery, stale-while-refresh, health latency, failure refresh, cleanup by owned handle.",
+      "exactPlatformOnlyScope": "Windows launcher spelling/search roots.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "desktop-mcp-smoke.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/desktop-mcp-smoke.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL repo detection includes the verified offline python_embed runtime",
+        "FAIL portable Full package Python is ordered before machine-local installed runtimes",
+        "FAIL hotkey accepts the MCP `keys` keyword and validates its value",
+        "DESKTOP-MCP-SMOKE E2E: FAIL (3)  [#5 real-tool-count NEEDS TARGET-MACHINE VERIFICATION]"
+      ],
+      "failedPrecondition": "Windows python_embed ordering locks plus hotkey call missing required Mac target.",
+      "requiredMacCoverageAndFix": "Use actual Mac runtime ordering; real stdio hotkey {keys:[],target:{}} must return invalid_args before native request; preserve target-required refusal, handshake/tools/list/run_command/diagnostics/OCR.",
+      "exactPlatformOnlyScope": "Windows embedded python and WinSDK tool count.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "engine-env-runtime.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/engine-env-runtime.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL A0 随包 app/vendor-bin/rg 在仓里",
+        "FAIL A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({\"rg\":false,\"rgSource\":null})",
+        "FAIL A3 体检 search-ripgrep 报随包来源且终端可用 ({\"id\":\"search-ripgrep\",\"ok\":false,\"detail\":\"absent: file_search falls back to the built-in scanner; no rg in shell\"})",
+        "FAIL B1 powershell_run `rg --version` 成功 ({\"ok\":false,\"stdout\":\"\",\"stderr\":\"\"})",
+        "FAIL B2 shell_start 起的交互 shell 里 `rg --version` 成功 (\"/bin/bash: line 8: rg: command not found\\n\")"
+      ],
+      "failedPrecondition": "Mac dev app/vendor-bin/rg absent and B1 still uses powershell_run.",
+      "requiredMacCoverageAndFix": "Prepare test-owned source layout with locked hash-verified Mach-O rg; clean rg-free PATH; shell_run rg --version, persistent shell, bundled source, nonblocking status, Claude PATH-first and prompt stable hash.",
+      "exactPlatformOnlyScope": "PowerShell command only; no A/B/C blanket skip.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "harness-friction.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/harness-friction.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL K1 list_tools 按档列出非 read 的名字(got {\"exec\":[\"orchestrate_agents\",\"git_commit\",\"tool_invoke_exec\",\"desktop_screenshot\",\"fake__add\",\"fake__echo\",\"fake__image_resize\",\"fake__slow_task\",\"audio_transcribe\",\"fake__copy_file\",\"fake__delete_file\",\"fake__edit_file\",\"fake__move_file\",\"fake__write_file\",\"mcp_configure\",\"fake__memory_delete\",\"fa)",
+        "HARNESS FRICTION E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "K1 requires powershell_run in offered exec tier.",
+      "requiredMacCoverageAndFix": "Require platform shell tool; preserve proxy promotion, tier contents and stable append order.",
+      "exactPlatformOnlyScope": "Unavailable PowerShell name.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "macos-capture-host.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-capture-host.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL Error: App acceptance timed out",
+        "MACOS CAPTURE HOST E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Old dist App produced no acceptance report within deadline; root cause unconfirmed.",
+      "requiredMacCoverageAndFix": "Use explicit fresh candidate App, unique report, current source service path; distinguish launch/report/permission failures and owned cleanup; retain controlled native capture feature qualification.",
+      "exactPlatformOnlyScope": "None; remains actual Mac qualification.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "unresolved_actual_mac_qualification"
+    },
+    {
+      "file": "macos-input-host.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-input-host.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL Error: Controlled App input acceptance timed out",
+        "MACOS INPUT HOST E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Old dist App produced no acceptance report within deadline; root cause unconfirmed.",
+      "requiredMacCoverageAndFix": "Use explicit fresh candidate App and bounded unique report; retain self-owned input target and actual native acceptance, diagnose missing report separately from TCC denial.",
+      "exactPlatformOnlyScope": "None; remains actual Mac qualification.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "unresolved_actual_mac_qualification"
+    },
+    {
+      "file": "mcp-import-origin.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/mcp-import-origin.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）",
+        "FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：\"\"）",
+        "MCP IMPORT ORIGIN E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Windows fake Claude launcher records no add-json calls on Mac.",
+      "requiredMacCoverageAndFix": "Executable POSIX Node launcher records literal argv/env; retain per-origin skipped imports, Y unchanged, X restoration and literal args.",
+      "exactPlatformOnlyScope": "Windows .cmd wrapper.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "mission-driver.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/mission-driver.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL A 三个里程碑文件都已写出",
+        "MISSION-DRIVER E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Fake provider WS + backslash writes wrong POSIX output names.",
+      "requiredMacCoverageAndFix": "Use path.join; retain all milestone artifacts, completion progression and intervention/security budgets.",
+      "exactPlatformOnlyScope": "None for shared mission flow.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "overlay-update-core.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/overlay-update-core.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FATAL <ref *1> Error: spawnSync powershell ENOENT"
+      ],
+      "failedPrecondition": "Compress-Archive directly spawns missing powershell before API cases.",
+      "requiredMacCoverageAndFix": "Keep portable parsePs1Json and S static auth/manifest/path/audit contracts. Scope only actual PS A/B/D to Windows; Mac HTTP auth/status/apply/rollback/force must refuse unsupported and perform zero writes.",
+      "exactPlatformOnlyScope": "Manage-Overlay.ps1 execution/Compress-Archive and Windows apply/rollback effects.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "permission-plain.browser.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/permission-plain.browser.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）",
+        "FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')",
+        "PERMISSION PLAIN BROWSER E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "PowerShell provider fixture creates no actual pending exec modal on Mac.",
+      "requiredMacCoverageAndFix": "Emit supported shell_run and retain real pending request, labels/buttons, no automatic allow/permanent allow and context-specific actions.",
+      "exactPlatformOnlyScope": "PowerShell syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "privacy-gateway.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/privacy-gateway.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals",
+        "FAIL fixture failure: typed_recovery_regression_failed_chat",
+        "PRIVACY GATEWAY E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "H1 nested privacy-31/typed-turn-recovery-repro.js:60-61 emits Add-Content/Write-Output with powershell_run.",
+      "requiredMacCoverageAndFix": "Use shell_run printf to append exactly one counter and emit identical synthetic JSON; retain three protocols, no re-execution, canonical arguments, child exact writes and no originals on model wire. Preserve later real DPAPI-only skip.",
+      "exactPlatformOnlyScope": "DPAPI-only browser encryption branch; shared H0/H1 must run.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/repo-hygiene.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (b) no real secret-pattern hits — HITS: [synthetic fixture locations omitted; retain raw source log]",
+        "FAIL (f③) claude mcp add-json from this save got the real env/args (0 call(s))",
+        "REPO-HYGIENE E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Scan reports deterministic unit synthetic token output in archived evidence; Windows fake Claude also records zero calls.",
+      "requiredMacCoverageAndFix": "Keep evidence scanning and original logs. Narrow exact fixture/context allowlist plus realistic nonfixture token negative control; POSIX launcher retains real upstream argv/env and header masking.",
+      "exactPlatformOnlyScope": "Windows .cmd wrapper only.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "settings-wave1.browser.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/settings-wave1.browser.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL W3a 回滚失败的提示是 message 原句(实测 \" \")",
+        "FAIL W3b 选 zip 失败的 toast 是 message 原句(实测 null)",
+        "SETTINGS WAVE1 BROWSER E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Mac correctly omits Windows overlay controls; old toast actions target absent UI.",
+      "requiredMacCoverageAndFix": "Preserve shared settings UX and errors; Mac assert overlay controls absent/unavailable and API unsupported even force, no writes.",
+      "exactPlatformOnlyScope": "Overlay ZIP picker/rollback toast branch.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "shell-mcp-guard.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/shell-mcp-guard.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL powershell_run still works in MCP child (guard is shell-specific)",
+        "SHELL-MCP-GUARD E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Comparison powershell_run cannot succeed on Mac; persistent shell child guards already pass.",
+      "requiredMacCoverageAndFix": "Use supported shell_run printf success; retain shell_start/shell_send refusal in MCP child.",
+      "exactPlatformOnlyScope": "Windows stateless tool name.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "shell-session.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/shell-session.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (a) shell_send ok",
+        "FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK\")",
+        "FAIL (f1) (Get-Location).Path prints the session cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\", home \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK\")",
+        "FAIL (f2) shell_start with explicit cwd prints that cwd (got: \"/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\\n/bin/bash: eval: line 8: `(Get-Location).Path'\")",
+        "FAIL (f3) powershell_run without cwd runs in the session cwd (got: \"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\")"
+      ],
+      "failedPrecondition": "Bash receives PowerShell cwd syntax; raw /var vs /private/var mismatch; unavailable stateless PS.",
+      "requiredMacCoverageAndFix": "Use pwd/cd/printf and shell_run; retain session cwd/explicit cwd/execute:false denial, persistence/timeouts; compare canonical file identity.",
+      "exactPlatformOnlyScope": "PowerShell spelling.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-decisions.browser.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-decisions.browser.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL Error: pending fixtures not ready [{\"id\":\"plan_c1eaa49b4647bc69\",\"type\":\"plan\",\"sessionId\":\"sess_5396f9d10600ca62\",\"missionId\":\"mission_3a46787cf31eed5a\",\"requestedAt\":\"2026-11-12T10:56:11.547Z\",\"interventionVersion\":0,\"toolName\":\"\",\"tier\":\"\",\"revertible\":false,\"runId\":\"\",\"proposedBy\":\"\",\"task\":\"\",\"questionSummary\":\"\",\"questions\":[],\"context\":\"\",\"planSummary\":\"PLAN:\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\n计划说明。\\",
+        "STEWARD DECISIONS BROWSER E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Only plan/questions exist; PowerShell fixture never makes pending exec.",
+      "requiredMacCoverageAndFix": "Emit supported Mac shell tool; retain all request types, dedup identity, full details, modal decisions and buttons.",
+      "exactPlatformOnlyScope": "PowerShell spelling.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-deferred-permission.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-deferred-permission.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL P0d 两条线程都停在一条 exec 权限请求上",
+        "FAIL 未捕获异常: Error: no pending permission",
+        "STEWARD DEFERRED PERMISSION E2E: 2 FAILED"
+      ],
+      "failedPrecondition": "Provider branches only when offered names include powershell_run; no pending requests.",
+      "requiredMacCoverageAndFix": "Select platform shell and create actual default-mode pending exec; preserve two threads, deferred ownership and decision order.",
+      "exactPlatformOnlyScope": "PowerShell syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-exempt-delegation.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/steward-exempt-delegation.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\\tmp -Recurse 停下来问了(实得 null)",
+        "FAIL R11 ① 没有任何人按:轮询 → 管家收件箱回合 → steward_decide 代批落定,tmp 真被删了(实得 status=null tmpExists=true decidedBy=null)",
+        "FAIL R12 ① 工具结果告诉模型:代批了、是「删数据」类(实得 null)",
+        "FAIL R20 前提:web_fetch 之后的 git push 停下来问了(实得 null)",
+        "FAIL R21 ② 同一回合读过网页再 git push → 不代批 blockedBy:tainted, taintBy:turn:web_fetch(实得 null)"
+      ],
+      "failedPrecondition": "Unavailable PS causes pending/taint/default-vs-auto cases never to execute.",
+      "requiredMacCoverageAndFix": "Translate executable syntax and update risk-equivalent indirect/absolute/scan_limit probes; preserve all taint causes, reasons, envelope ordering, real owned marker deletion and default/auto differences.",
+      "exactPlatformOnlyScope": "Only shell-specific syntax; do not downgrade security semantics.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-exempt-no-swap.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-exempt-no-swap.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)",
+        "FAIL H-ctl 用户放行被受理(实得 null)",
+        "FAIL H-ctl 对照组:用户自己的放行保留 updatedInput —— 替换命令真的执行了(swapped=false, orig=false);没有这一条,下面三条「swapped 不在」可能只是消费者不认 updatedInput",
+        "FAIL H-ctl 对照组:带 updatedInput 的决定落盘指纹 ≠ 纯 {action:allow} 的指纹(指纹这把尺子认得出载荷里多了东西)",
+        "FAIL act 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)"
+      ],
+      "failedPrecondition": "Unavailable PS creates no original pending command or decision fingerprint.",
+      "requiredMacCoverageAndFix": "Use owned Mac shell original/swapped markers; retain actual original-only execution, updatedInput/scope stripping, decision fingerprints for action/tool/user paths.",
+      "exactPlatformOnlyScope": "PowerShell syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-exempt-shell-send.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-exempt-shell-send.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)",
+        "FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)",
+        "STEWARD EXEMPT SHELL_SEND E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Persistent Mac bash receives PowerShell marker/flush commands.",
+      "requiredMacCoverageAndFix": "Use bash-safe owned marker and printf; retain harmless executes, dangerous stays pending, flush no extra permission and no dangerous execution.",
+      "exactPlatformOnlyScope": "PowerShell syntax.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-guardrails.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-guardrails.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got [])",
+        "FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)",
+        "STEWARD GUARDRAILS E2E: 2 FAILURE(S)"
+      ],
+      "failedPrecondition": "Toggle-only expectations require unsupported keyboard_send_keys and ungated screenshot readiness.",
+      "requiredMacCoverageAndFix": "Use deterministic native-ready seam for toggle composition; retain session/global isolation, desktop gating and unsupported tool refusal; actual P5 readiness remains separate.",
+      "exactPlatformOnlyScope": "Windows native keyboard tool availability.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "steward-tools.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-tools.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了",
+        "FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1,没拿那个没登记成的目录(got \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/写不下去\")",
+        "FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸",
+        "FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)",
+        "STEWARD TOOLS E2E: 4 FAILURE(S)"
+      ],
+      "failedPrecondition": "chmod 0444 does not stop atomic rename in writable POSIX parent, so rollback precondition false.",
+      "requiredMacCoverageAndFix": "Inject EACCES only config publication/rename through retry span, restore finally; retain unchanged config bytes, default fallback, derived dir cleanup, no added rows in both tables.",
+      "exactPlatformOnlyScope": "Windows readonly replacement behavior.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "tool-audit-fixes.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/tool-audit-fixes.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL M6 browser_open 不把 .bat 交给系统关联(got {\"ok\":false,\"code\":\"ENOENT\",\"error\":\"无法解析要打开的本地浏览器路径\",\"target\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-to)",
+        "TOOL AUDIT FIXES E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "M6 nonexistent .bat returns ENOENT before Mac selection path.",
+      "requiredMacCoverageAndFix": "Create owned .bat fixture; assert fixed open -R/selection without execution; keep nonexistent target ENOENT case.",
+      "exactPlatformOnlyScope": "Windows dangerous association refusal wording.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "tool-audit-r2-meta.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/tool-audit-r2-meta.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))",
+        "FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')",
+        "TOOL AUDIT R2 META E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Dereferences unavailable Windows/native-not-ready tool schemas.",
+      "requiredMacCoverageAndFix": "Audit every offered schema and static registry descriptions; separately assert unavailable Windows schemas omitted/refused; preserve metadata validation, no broad skip.",
+      "exactPlatformOnlyScope": "Unavailable offered schema cannot be dereferenced.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "tool-audit-r2-netexec.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/tool-audit-r2-netexec.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got {\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-43ZZvA/generated/screenshot-1794483427330.png\",\"width\":3420,\"height\":2214,\"origin\":{\"x\":0,\"y\":0},\"scale\":2,\"scale_y\":2,\"coordinate_space\":\"ma)",
+        "FAIL N7b keyboard_send_keys 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'keyboard_send_keys' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具)",
+        "FAIL N7c script_run 缺省 powershell 无 PowerShell → windows_only 且指路 python/node(got {\"ok\":true,\"code\":0,\"timedOut\":false,\"interrupted\":false,\"cleanupScope\":\"owned-group-and-observed\",\"cleanupIncomplete\":false,\"cleanupEscapeCoverage\":\"observed-only\",\"cleanupUnconfirmed\":0,\"stderr\":\"\",)",
+        "FAIL N7d powershell_run 无 PowerShell → windows_only(got {\"ok\":false,\"code\":\"tool-disabled\",\"error\":\"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)\",\"hint\":\"请使用当前工具目录中可)",
+        "FAIL N5d shell_start 无 PowerShell → ok:false(修前 ok:true 的死会话;got {\"ok\":true,\"shellId\":\"dead1\",\"name\":\"dead1\",\"cwd\":\"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2net-ws-Xm1IbX\",\"mode\":\"interactive\",\"shell\":\")"
+      ],
+      "failedPrecondition": "Linux no-PowerShell assumptions collide with actual Mac bash/capture; fake powershell cannot intercept Mac native tools.",
+      "requiredMacCoverageAndFix": "Preserve portable N1-N4/N9 network/security and shell quotas. Mac stateless/persistent bash success, unsupported keyboard refusal; only controlled native seam/owned-window screenshot positive. Keep Windows fake-PS script text tests explicit platform.",
+      "exactPlatformOnlyScope": "Windows SendKeys/DPI script and missing-PowerShell tool behavior.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "tool-invoke-promote.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/tool-invoke-promote.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL P6 第一发就带起手工具(got workbench_memory_list,workbench_memory_read,workbench_memory_propose,observation_recall,shell_run,web_search,web_fetch,request_user_input,todo_write,mission_update,workbench_self_status,thread_title_update,scratchpad_write,list_tools,tool_search,tool_load,tool_invoke_read,tool_invoke_edit,tool_invoke_exec)",
+        "TOOL INVOKE PROMOTE E2E: FAIL (1)"
+      ],
+      "failedPrecondition": "Starter set expects powershell_run although Mac offers shell_run.",
+      "requiredMacCoverageAndFix": "Require correct platform starter; retain first-send presence, promotion tier/proxy behavior, stable append order.",
+      "exactPlatformOnlyScope": "PowerShell name.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    },
+    {
+      "file": "vision-loop.e2e.js",
+      "currentAttemptLog": "MACOS-PORTING/evidence/P6/final/regression-attempts/vision-loop.e2e.js.attempt-2.txt",
+      "observedFailureSamples": [
+        "FAIL (a) system prompt has 桌面操控(视觉路径) regimen",
+        "FAIL (d) system prompt has 桌面操控(文本路径) regimen",
+        "VISION-LOOP E2E: FAIL (2)"
+      ],
+      "failedPrecondition": "Locks Windows visual/text regimens while Mac intentionally emits sharedMac.",
+      "requiredMacCoverageAndFix": "Assert Mac shared regimen and preserve image attachment/OCR/taint/compression/error transport; Windows retains two regimens.",
+      "exactPlatformOnlyScope": "Windows visual/text regimen wording.",
+      "validation": "Run adapted case serially in parent-controlled window; keep raw output and internal-skip accounting. No pass inferred by this audit.",
+      "disposition": "adapt_and_validate_shared_mac_contract"
+    }
+  ],
+  "crossCuttingRequirements": [
+    "Keep raw historical logs and frozen input artifacts unchanged.",
+    "Do not early-skip a whole case if portable shared contracts remain.",
+    "Security syntax translation must preserve taint, risk categories, default/auto distinctions and actual owned marker effects. Dangerous system/root phrases remain non-executable probes/comments.",
+    "Native screenshot/input positive checks require fresh source-bound App and controlled self-owned target. Generic DMG startup does not qualify P5.",
+    "Use owned child handles/birth identities for cleanup; no tasklist catch-false vacuous liveness on Mac.",
+    "Do not alter production to match obsolete raw PID or unconditional degraded regex.",
+    "Full rerun and candidate artifacts are a later separate acceptance step."
+  ]
+}

@@ -1,0 +1,29 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS H0 real server reads seeded fault facts; historical run has no live key
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS H1 toolbox and crew show persistence and idle faults together from the same HTTP snapshot
+PASS H2 crew fault action has stable keyboard identity
+PASS H3 read failure coexists with both run faults; previous facts remain
+PASS H4 failure redraw preserves focus and pending facts
+PASS H5 changing views cannot erase stale quality
+GEOMETRY [{"name":"workflow-read-health","left":288,"right":1028,"parentRight":1048,"hit":true},{"name":"workflow-run-health","left":288,"right":1028,"parentRight":1048,"hit":true},{"name":"mini","left":939.875,"right":1015,"parentRight":1048,"hit":true},{"name":"wb-btn wb-attention","left":942.03125,"right":1023.015625,"parentRight":1048,"hit":true},{"name":"wb-btn wb-attention","left":714.03125,"right":795.015625,"parentRight":1048,"hit":true}]
+PASS H5b stable desktop health banners and actions fit the crew and their centers are reachable
+PASS H6 language change updates fault and read warnings without changing run data
+PASS H7 tablet dark English overview has no horizontal overflow
+PASS H8 narrow English warning wraps inside overview
+PASS H9 successful HTTP refresh clears only read failure, keeps actual faults
+PASS H10 first detail failure retains the known run identity in both views
+PASS H11 unread details never become empty-workflow guidance or fabricated controls
+PASS H12 authoritative detail recovery restores the actual run
+PASS H13 late older success cannot clear newer failure or steal selection
+PASS H13b toolbox health action is keyboard reachable
+PASS H14 removal of real fault facts clears both presentations symmetrically
+PASS H14b vanished toolbox health action falls back to the safe run summary
+PASS H14c Enter after fault recovery stays on a read-only summary, not pause/resume
+PASS H15 only a valid successful empty list shows the empty workflow state
+PASS H16 no uncaught browser exceptions
+
+RUN HEALTH BROWSER E2E: ALL PASS

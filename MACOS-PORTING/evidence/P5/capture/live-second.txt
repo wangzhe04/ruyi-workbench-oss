@@ -1,0 +1,30 @@
+PASS native capture component installs independently of authorization
+PASS real ACC tools/list advertises the ready Mac capture backend
+PASS later P5 backends stay absent
+PASS live capture writers retain checkpoint coverage
+PASS live display query reports permission and logical-point coordinate space
+PASS real region capture preserves native backing scale while returning a thumbnail
+PASS region maps all four logical-point markers to the correct image pixels
+PASS window capture binds the actual fixture window and owner
+FAIL window maps all four logical-point markers to the correct image pixels
+PASS region-full-resolution maps all four logical-point markers to the correct image pixels
+PASS real monitor capture works for 0
+PASS monitor-0 maps all four logical-point markers to the correct image pixels
+PASS real monitor capture works for all
+PASS monitor-all maps all four logical-point markers to the correct image pixels
+PASS partial overflow is clipped in logical points
+PASS invalid or off-display capture fails without an image: {"region":"-99999,-99999,8,8"}
+PASS invalid or off-display capture fails without an image: {"monitor":"9999"}
+PASS invalid or off-display capture fails without an image: {"region":"0,0,0,10"}
+PASS missing window returns a typed failure
+FAIL covered-window maps all four logical-point markers to the correct image pixels
+PASS full-resolution window PNG is saved with logical-to-image scale
+PASS Provider catalog offers ready native screenshot
+PASS normal native screenshot entry point saves a real PNG
+PASS global desktop switch blocks native dispatch
+PASS session desktop override blocks native dispatch
+PASS equal window titles are refused with candidates
+PASS owned ACC process exits after cleanup
+PASS controlled AppKit window exits after acceptance
+
+MACOS CAPTURE E2E: FAIL (2)

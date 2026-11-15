@@ -1,0 +1,33 @@
+PASS blocked lease rejects with RESOURCE_TIMEOUT instead of hanging forever
+PASS timeout fires near the configured window (got 302ms)
+PASS a non-conflicting lease still acquires immediately (timeout does not affect the happy path)
+PASS after the holder releases, the resource is acquirable again (no waiter leak)
+PASS the first cross-waiter parks (no cycle yet: the holder B is not itself waiting)
+PASS a real wait-for cycle is rejected with RESOURCE_DEADLOCK (not RESOURCE_TIMEOUT)
+PASS the cycle is rejected IMMEDIATELY, not after the backstop timeout (got 0ms)
+PASS after the cycle victim releases, the parked waiter finally acquires (deadlock broken)
+PASS a legitimate long hold does NOT false-timeout / false-deadlock; the waiter stays parked
+PASS once the long holder releases, the waiter acquires and completes (no false deadlock)
+PASS workbench starts
+  capability warm-up before Section 2: GET /api/status -> 200 in 193ms
+PASS deadlock workflow launches async with a run id
+PASS deadlock run terminated instead of hanging forever
+PASS both deadlock nodes reached a terminal state
+PASS a node recorded a resource wait (the cross-access actually contended)（会合点到齐:alpha+0ms／beta+3ms）
+PASS a node recorded a failed tool result (the deadlock victim was rejected by cycle detection)（会合点到齐:alpha+0ms／beta+3ms）
+  deadlock run status: succeeded | node statuses: alpha=succeeded,beta=succeeded
+PASS watchdog workflow launches async with a run id
+PASS run.idleAborted NOT set (node-level watchdog fired, not whole-run)
+PASS wedged node itself failed with errorClass idle_timeout (only that node aborted)
+  watchdog run status: failed | idleAborted: undefined
+PASS pause workflow launches async with a run id
+PASS first node is running when we issue pause
+PASS run reached status=paused with the second node still pending
+PASS the watchdog did NOT abort the run while it was paused (idleAborted stays false)
+PASS the run is STILL paused after idling longer than the idle limit (not idle-killed)
+PASS the resumed run completed successfully (not cancelled by the watchdog)
+PASS the second node ran to success after the long pause (not idle-cancelled)
+PASS the run was never idle-aborted across the whole pause/resume cycle
+  pause run status: succeeded | node statuses: pa=succeeded,pb=succeeded
+
+AGENT DEADLOCK/WATCHDOG E2E: ALL PASS

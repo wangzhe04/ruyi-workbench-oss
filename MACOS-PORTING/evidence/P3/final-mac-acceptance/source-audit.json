@@ -1,0 +1,475 @@
+{
+  "candidate": "6717378f4b136414839da0ab0ef754eef5804ff1",
+  "bundles": {
+    "MACOS-PORTING/evidence/P1/frozen-mac-regression/source-hashes.json": {
+      "total": 207,
+      "matched": 183,
+      "differences": [
+        {
+          "path": "ruyi-workbench/app/public/js/external-bot-setup.js",
+          "recorded": "f9ca6da9084907ac2a29cbd1bd99d2b93562bbc2b7a13b8b1a770a5a0afea2f4",
+          "current": "89fcd988495f0bce190a0bbffd4a065cadb54ef118cd161463025073c11649f7",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/public/js/navigation-controls.js",
+          "recorded": "6944ca1a4e6515ea1e996f57d609e1369a66fef191eb051dc744545e3b6b71c2",
+          "current": "2ad4f43c9e954cfe35607be6f1fe94df691f3ad5d3af5c4b92ee52d7159e09f7",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/public/js/privacy-settings.js",
+          "recorded": "b1bff82037058b6b31d8892665adee7de201502b1e252058740f43626f3d93c6",
+          "current": "93236d4df224da5b627658c4ff4874f468a9b693cdf3f3c0fdde65ed8ce34f44",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/public/js/skills-memory.js",
+          "recorded": "896b8a19d3877db3fbf214418dde8733aac7a499c5d817dc46c1ed2cbc15f5b4",
+          "current": "9f939e1be9117db740f78745bebcb884c4c6257400ba3383f973326e28240b2a",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/public/locales/en-US.json",
+          "recorded": "8c0e8766c6059e47c48ab951f19b315c8145acfa2115c3d08a3781c6a7cf27b4",
+          "current": "fc0c78fd9dfa686c95cc22de10555105b3298f485aaeaf317a7c32ca446b34bb",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+          "recorded": "85f0a666f429a44145208c37c33fc374152b77e7196fc71d08dd2fc79796dfab",
+          "current": "85faa650ee4b310b73f28870432e9625c78454ee8145717c6e3e461a1c704ad6",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "recorded": "ade2e10afe585ba29ad8ddfc1aba8fd2656579f37af0dda135c0be0a062ad2cc",
+          "current": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/01-config.js",
+          "recorded": "b6343d6a94d6a24c8c284e9b525e236309e8c5f2220a8c39d22d8c6e93ec2495",
+          "current": "15dafdb70a600ad5fa64a5be941637a05653527d41f6e651fed23e7ab6281001",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+          "recorded": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0",
+          "current": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+          "recorded": "09b2030a5523de6ba1074069ce220f25c25e9b107928e0fefb1ce5d78a56f20c",
+          "current": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+          "recorded": "f75774ae9363f1fce529558eae9730cdb911599c8e940005b956d6c27e600d33",
+          "current": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+          "recorded": "14f160e6cc2f60f924a86969eb6bca8252155bcc789042f1fe1c81ed7b4cf301",
+          "current": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+          "recorded": "f1a4ff379d3f8812d448f08d416cf5b76e669c17c99ad85c2eea52b1516906a1",
+          "current": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "recorded": "90b54499db4eef33c241751c2e0ba1b1e3496de9dc2c30ea5615fe79daacf3ac",
+          "current": "03525d5f19e3ef35e4dc1ad54c0348adfadb93f735d9696269870b04e8f1d020",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+          "recorded": "b40c035a94fe843ece996c3bf2ab2be14de7576d5ddee36852c4dce01d4419fc",
+          "current": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/07-autonomy.js",
+          "recorded": "ce75295fb181c5db9ad96d3052d522fd7a8ed417f7dace298302b18bd9efd006",
+          "current": "dd6b22cd2516144effcc3e93ae4479da38c00eb6e5ac210d20e5648b0479144e",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/11-native-tools.js",
+          "recorded": "f686c35d8c850fef4e1cad05e2c7cff888b947b3a1b29be9a707dc488a50ad6f",
+          "current": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+          "recorded": "02620c6fd7746d9df016912b2cd5b6e2f61d1daf4fb150724ee179997b451c33",
+          "current": "6fe448db09030f077aa3e73df8117b43d68ad2249a14d79d0932d34453cd2219",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13-http-router.js",
+          "recorded": "c09c3db20a29ae29c0931f3db613c202b951f47131f10378554be139f7a26be3",
+          "current": "ab7e593ec804ce6b7c15be1518b25f3251cfb24e6c4823d31f83e1909c810dc6",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+          "recorded": "6cb1d6d81f9d9ca7cafce722a5a7c7bcdd35eb096ee0ae848e3e440a86ed2219",
+          "current": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+          "recorded": "45e8a241628b2713185493a53c053e60e79b1b15a3f2a5475f7ebd71e5fb44d8",
+          "current": "a734d5f3cd570f9d3d9f3e2d1034726a7674e2a7da014bf728f91e33bceeb6fb",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13s-scheduler.js",
+          "recorded": "4e497f2c278257ac0528ed7a0b9743d55536699bbd2cadd1c702b74f561f8cf7",
+          "current": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13w-external-bots.js",
+          "recorded": "d0f7cff0c802f56a3aec0d410e798b6c84f30837e77d8eb713256b06249ee3aa",
+          "current": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+          "recorded": "d4fc0bbc5afc29d5cea7ccd5bcba7e7b4a5d99dabdaab591c98d0045d52834b3",
+          "current": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16",
+          "matched": false
+        }
+      ]
+    },
+    "MACOS-PORTING/evidence/P2/final-acceptance/source-fingerprint.json": {
+      "total": 70,
+      "matched": 53,
+      "differences": [
+        {
+          "path": "README.md",
+          "recorded": "9934be78a78aec5c28149913b5129f70833e1f527a398acb7935c8b6d88748c1",
+          "current": "cc66417a49b2b8c020ba921acc334d95f2f17ed2eab62c682d31d949e7938db6",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "README_EN.md",
+          "recorded": "de93b431972938b38f9b48508840c27f40c34f56031c7b1b60625b452ca82bcf",
+          "current": "b6ac8a5e10b4e4affe9ca49a553abd03ae906d747bb40cd246f5f3084ea7d7c1",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/architecture/module-dependency-graph.json",
+          "recorded": "6f2850572b0c56f9936f99aab1d5679a3184e0edfdd07b84c8fe90f2a320dd30",
+          "current": "2838b6b5991adef1e02fe5f0a7ffbb4da7b3db0f53f7bb91dd7b494555dace2d",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/architecture/module-dependency-graph.md",
+          "recorded": "920d4588801203cbf793cde2a8a4ec2df7c578df88b9d6f59bbf4d2391f46d45",
+          "current": "84dcbc7a69edd60364aea72badb9c3eaccaa748646d43925e885cf2b431fe06b",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "facts.json",
+          "recorded": "660ef9bbc4a3857a92a715a7d42239f5d1c1852381c1f1810dddebf9bc7f6051",
+          "current": "12c119c4a22e410c65080b30979cf59727ce329cfb0b5b9b642bb3c003d7f62a",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "recorded": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6",
+          "current": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/06-provider-engine.js",
+          "recorded": "6dcd7aa1f0f7937c2b68df7bc8da2c7cd28d5b8bb4e9ceb27dbaadb7223a1833",
+          "current": "03525d5f19e3ef35e4dc1ad54c0348adfadb93f735d9696269870b04e8f1d020",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+          "recorded": "725d1c743ec2c39f6b5c6870fb864f79a2f8cafd482c8a4cb6be38c4321fe249",
+          "current": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "recorded": "afb14ba4d90dd20d094b987a134513d3d6125f16cc5391f402f1e24cc2e3896f",
+          "current": "f09ab0abc7e8bc5a2b3c995b4036b3f2bc4c7c3542aa3b332856893a2eb09eb7",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/module-contracts.json",
+          "recorded": "56ca6a0b40a5c65a6f1ebe0b4786d3ca47f818022b37e2d0a499ce873f5688a7",
+          "current": "6924db59085c5d49d6f6b4405f3c8b0d3a53691641117f2997a42d753f2c1dbb",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/i18n/locales/en-US.json",
+          "recorded": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7",
+          "current": "fc0c78fd9dfa686c95cc22de10555105b3298f485aaeaf317a7c32ca446b34bb",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/i18n/locales/zh-CN.json",
+          "recorded": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34",
+          "current": "85faa650ee4b310b73f28870432e9625c78454ee8145717c6e3e461a1c704ad6",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/public/locales/en-US.json",
+          "recorded": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7",
+          "current": "fc0c78fd9dfa686c95cc22de10555105b3298f485aaeaf317a7c32ca446b34bb",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+          "recorded": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34",
+          "current": "85faa650ee4b310b73f28870432e9625c78454ee8145717c6e3e461a1c704ad6",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "dev-harness/fixture-home.static.e2e.js",
+          "recorded": "d7f3a73290d9b3ebeed78e38a4a8c116d343f2165fcaddb5547277dd9cc69e00",
+          "current": "ea62cbaf38d63f5ca663b6782ba68a9efa7815d496710acf803b5c486345e301",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/browser/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/architecture/route-inventory.json",
+          "recorded": "8117adf58ad344054e4241368caa02d6fe7799c57d7d2a7d844fc5a07d9ad953",
+          "current": "4bfe8a366f02fa854277bd09f029a4491196fc6994e85cd0ff61915b33508b90",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        },
+        {
+          "path": "docs/architecture/route-inventory.md",
+          "recorded": "df0b2078befe9fd39563ea7eebd4fa691c6596b5434690157bfc10cf3a97b716",
+          "current": "268f53d50682e53e76e41d18f4ec86cd79ecc494b2dd9e397bddbf59b84291b1",
+          "matched": false,
+          "laterP3Evidence": "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json",
+          "matchesLaterP3Evidence": true
+        }
+      ]
+    },
+    "MACOS-PORTING/evidence/P3/acc-shared/source-fingerprint.json": {
+      "total": 14,
+      "matched": 8,
+      "differences": [
+        {
+          "path": "README.md",
+          "recorded": "9b2b8a3892cfc6817c6de08cdc93285969d8948f3c1e314a870fa33e54dbc7d3",
+          "current": "cc66417a49b2b8c020ba921acc334d95f2f17ed2eab62c682d31d949e7938db6",
+          "matched": false
+        },
+        {
+          "path": "README_EN.md",
+          "recorded": "507698fec59c2e182f551e3d7432a58c3b0c63f57bab058182655e5e454696f6",
+          "current": "b6ac8a5e10b4e4affe9ca49a553abd03ae906d747bb40cd246f5f3084ea7d7c1",
+          "matched": false
+        },
+        {
+          "path": "facts.json",
+          "recorded": "396f352327d965f23e38516655244fc9ee90fc46bdd0fc517d96b7e61d7f7b45",
+          "current": "12c119c4a22e410c65080b30979cf59727ce329cfb0b5b9b642bb3c003d7f62a",
+          "matched": false
+        },
+        {
+          "path": "mcp/ai-computer-control/README.md",
+          "recorded": "6282be5f792fc63b82235c082a4b6624a947a55fd7c4be0d78ada379a93ac08f",
+          "current": "bf99853cb69e43ee9136fa71669d8643f5f9556a42f305bd1147136a93d44b53",
+          "matched": false
+        },
+        {
+          "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+          "recorded": "df6c79d3f400b089f4ea9d8fcbab0acc473917ca6d2f29fec25de2902225ee18",
+          "current": "32e2db5769cb61910cb5ee91864b4ed166e09a36e0d0e5822488a3fa7291d57e",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "recorded": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6",
+          "current": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+          "matched": false
+        }
+      ]
+    },
+    "MACOS-PORTING/evidence/P3/office/source-fingerprint.json": {
+      "total": 19,
+      "matched": 11,
+      "differences": [
+        {
+          "path": "README.md",
+          "recorded": "fe264dabc0e426d8ad0c2914de4189144de322b65669567fdcdf4cd78a768f64",
+          "current": "cc66417a49b2b8c020ba921acc334d95f2f17ed2eab62c682d31d949e7938db6",
+          "matched": false
+        },
+        {
+          "path": "README_EN.md",
+          "recorded": "25ba8e7b5e72eb08e0abb9aec2779152eddca3717660f6aad122e69917b51577",
+          "current": "b6ac8a5e10b4e4affe9ca49a553abd03ae906d747bb40cd246f5f3084ea7d7c1",
+          "matched": false
+        },
+        {
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "recorded": "72eb872347df106d127d15aa608e53e8477c84e06a1969cd2128dc6365f964d9",
+          "current": "44cb1e06a8cc19b2a3565391c4faf1cfcea3803851ff08625287bb52e95df72c",
+          "matched": false
+        },
+        {
+          "path": "docs/architecture/route-inventory.json",
+          "recorded": "ceda80bdfff98d0b6667c9285125db03c0f836d50d4a5b217237cc37bded888f",
+          "current": "4bfe8a366f02fa854277bd09f029a4491196fc6994e85cd0ff61915b33508b90",
+          "matched": false
+        },
+        {
+          "path": "docs/architecture/route-inventory.md",
+          "recorded": "9568956bef20b4fa63aa902cfc1b03dc1896dbaaf8789c7bb21841bdcdc2416e",
+          "current": "268f53d50682e53e76e41d18f4ec86cd79ecc494b2dd9e397bddbf59b84291b1",
+          "matched": false
+        },
+        {
+          "path": "facts.json",
+          "recorded": "8b3dc4e8bdde37e99f055500e249b8421ee86133ee7da3ffe3796f1d31c82880",
+          "current": "12c119c4a22e410c65080b30979cf59727ce329cfb0b5b9b642bb3c003d7f62a",
+          "matched": false
+        },
+        {
+          "path": "mcp/ai-computer-control/README.md",
+          "recorded": "04822e1bede2ea077ffc31a38d264fecf7f7396f681781bac1697f2a468b116b",
+          "current": "bf99853cb69e43ee9136fa71669d8643f5f9556a42f305bd1147136a93d44b53",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "recorded": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6",
+          "current": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+          "matched": false
+        }
+      ]
+    },
+    "MACOS-PORTING/evidence/P3/browser/source-fingerprint.json": {
+      "total": 13,
+      "matched": 6,
+      "differences": [
+        {
+          "path": "README.md",
+          "recorded": "798a75d59403b9132ca378f162a6616528a5bf69ec532bd9e9775e2364f2fcb2",
+          "current": "cc66417a49b2b8c020ba921acc334d95f2f17ed2eab62c682d31d949e7938db6",
+          "matched": false
+        },
+        {
+          "path": "README_EN.md",
+          "recorded": "8d959f04766985bf1cfe0e17adbafa4b431b36a93fd43f5d486daf3c2e2f97fb",
+          "current": "b6ac8a5e10b4e4affe9ca49a553abd03ae906d747bb40cd246f5f3084ea7d7c1",
+          "matched": false
+        },
+        {
+          "path": "dev-harness/macos-browser-runtime.e2e.js",
+          "recorded": "217eb39a5d7d35a9b45c5c131c805660a31c1b0a9deea4f39e5faad91e87ad4d",
+          "current": "206313b20a4537dc03d7cb6302eb7be8c870417847741a547b1182d5acb6ccd0",
+          "matched": false
+        },
+        {
+          "path": "dev-harness/process-safety.static.e2e.js",
+          "recorded": "0b2c7f26ccf93a4f607d433f237b1d781f6303c471ddcb9fbe8c177ce198dd2c",
+          "current": "44cb1e06a8cc19b2a3565391c4faf1cfcea3803851ff08625287bb52e95df72c",
+          "matched": false
+        },
+        {
+          "path": "facts.json",
+          "recorded": "6caec097236fa2322002ee632ec75224314657b67332e57d8c7aa59ecb6d2081",
+          "current": "12c119c4a22e410c65080b30979cf59727ce329cfb0b5b9b642bb3c003d7f62a",
+          "matched": false
+        },
+        {
+          "path": "mcp/ai-computer-control/tests/smoke_browser_runtime.py",
+          "recorded": "3d480327bac60c67d3285e2e7e2b9600420c979b9f9daa72ab20ad916f2b1c51",
+          "current": "81e00ef07c43926cf12c1e3426e114d9b076399d290bcdd5ab60e9b82de41fb6",
+          "matched": false
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "recorded": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6",
+          "current": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+          "matched": false
+        }
+      ]
+    },
+    "MACOS-PORTING/evidence/P3/templates/source-fingerprint.json": {
+      "total": 59,
+      "matched": 59,
+      "differences": []
+    },
+    "MACOS-PORTING/evidence/P3/acceptance/minimum/source-fingerprint.json": {
+      "total": 3,
+      "matched": 3,
+      "differences": []
+    }
+  },
+  "latestP3": {
+    "total": 87,
+    "matched": 87,
+    "differences": []
+  },
+  "latestP1P3RecordedFiles": {
+    "total": 323,
+    "matched": 323,
+    "differences": []
+  }
+}

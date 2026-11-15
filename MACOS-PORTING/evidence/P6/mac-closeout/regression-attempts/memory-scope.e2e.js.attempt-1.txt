@@ -1,0 +1,68 @@
+PASS A1 模型要 global、用户没说跨项目 → 落 project,但 proposal 记 requestedScope=global / scopeAdjusted=true,回执仍带 scopeAdjusted(got {"s":"project","r":"global","a":true})
+PASS A1b 候选状态文件里也记着(刷新后回放的卡据此标出「AI 建议全局」)
+PASS A1c 模型本来就要 project → requestedScope=project、scopeAdjusted=false、回执不带降级标记
+PASS A2 上一轮说「以后所有项目…」,这一轮只回「好,记下来吧」→ 保持 global(修前只看最后一条 → 降级)
+PASS A2b「全局偏好,所有会话」放行
+PASS A2c「Remember globally」放行
+PASS A2d「每个项目」放行
+PASS A2e 个人偏好(preference + 我喜欢…)放行(用户第一条复现)
+PASS A2f 个人口味但限定「这个项目」→ 仍按保守原则落 project
+PASS A2g 「所有项目」在 3 条之外(第 4 条)→ 不算(窗口是最近 3 条)
+PASS A3 批量每一条都带 requestedScope/scopeAdjusted(被降级的与没被降级的各自如实)(got [["global","project",true],["project","project",false],["global","project",true]])
+PASS A3b 用户说了「每个项目」→ 批量两条都保持 global
+PASS A4 project 里已有同一条、想提 global → 可提升(promotable),错误点名 revise 的 newScope(got {"ok":false,"duplicate":true,"promotable":true,"existingId":"prom-1","existingScope":"project","existingName":"kqpromo vale kqpromo mirt","error":"a similar memory already exists in project scope: id=prom-1 (\"kqpromo va)
+PASS A4b 同 scope 仍是普通重复(不带 promotable)
+PASS A5 revise 带 newScope → proposal.newScope=global,baseUpdatedAt 记下提议时记忆的 updatedAt(got {"kind":"memory_revise","targetId":"prom-1","targetScope":"project","newScope":"global","name":"kqpromo vale kqpromo mirt","description":"when editing kqpromo sorn kqpromo pelt","type":"convention","body":"已有的项目约定\n","reason":"用户说对所有项目都适用","baseUpdatedAt":"2026-11-12T14:07:59.073Z","sourceSessionId":"mem-scope-14","sourceTurnSeq":1})
+PASS A5b newScope 与现作用域相同 = 没给,没有别的改动就拒绝
+PASS A5c apply → 写进全局、删旧,回执 moved(并如实说丢了 1 条关系边)(got {"ok":true,"proposalId":"proposal_2f3f013ab713263b","kind":"memory_revise","applied":{"ok":true,"memory":{"id":"prom-1","scope":"global","name":"kqpromo vale kqpromo mirt","description":"when editing kqpromo sorn kqpromo pelt","type":"conve)
+PASS A5d 全局目录有、项目目录没有
+PASS A5e core 标记与 createdAt 随迁
+PASS A6 提议之后记忆被改过 → apply 拒绝(conflict + memory.proposal_stale)(got {"ok":false,"conflict":true,"errorCode":"memory.proposal_stale","errorParams":{"name":"kqstale vale kqstale mirt"},"error":"「kqstale vale kqstale mirt」在这条修改建议提出之后又被改过了；为免覆盖你的改动，这张卡没有应用。请忽略它，需要的话让 AI 对着最新内容重新提议"})
+PASS A6b 用户后来的手改还在,旧建议没盖掉
+PASS A6c 这张卡仍 pending(用户可以忽略它)
+PASS A7 revise 改 description → coreSummary 跟随(got NEWCORE 用简洁中文回复)
+PASS A7b 核心胶囊注入的是新摘要(修前每轮仍注入旧摘要)
+PASS A7c revise 落盘不抹来源会话
+PASS A8 批量 apply 的 overrides:第 0 条改成全局且不加入核心、第 1 条(lesson)改成加入核心(got {"saved":[{"index":0,"id":"mem_37ee99b83d2d8e37","scope":"global","name":"kqs40vale kqs40mirt"},{"index":1,"id":"mem_675628e41c3d9cc1","scope":"project","name":"kqs41vale kqs41mirt"}],"f40":true,"f41":true})
+PASS A8b 没勾上的第 2 条即使带了 override 也不写
+PASS A8c 回执里的 scope 是用户最终选的
+PASS A8d 不带 overrides 时与修前一致:偏好/惯例默认进核心
+PASS H0 工作台起来了
+PASS H0b 读到 token
+PASS H1 回合跑完(主回合真的调了 workbench_memory_propose{scope:global})
+PASS H1b 工具结果如实回给模型(降级 + proposal 带 requestedScope)(got {"ok":true,"proposalId":"proposal_c14493cf00cfde6a","pendingUserConfirmation":true,"proposal":{"name":"提交信息用中文 kqhdown","description":"写提交信息时适用 kqhdown","type":"convention","body":"提交信息一律用中文写。","scope)
+PASS H1c replay:true 回放同一张待决卡,卡上有 AI 建议的作用域(got {"ok":true,"proposal":{"name":"提交信息用中文 kqhdown","description":"写提交信息时适用 kqhdown","type":"convention","body":"提交信息一律用中文写。","scope":"project","requestedScope":"global","scopeAdjusted":true,"reason":"用户要求","sourceSessionId")
+PASS H1d 回放不调 provider(零辅助调用)
+PASS H1e 没有待决候选的会话回放为空
+PASS H1f 不存在的会话回放为空(不报错)
+PASS H2 用户在卡上改回 global 后保存 → 落全局目录(got 200)
+PASS H2b 保存后候选 settle,回放变空(不会重复画卡)
+PASS H3 「全局偏好,所有会话」→ 卡上就是 global,没被降级(got {"ok":true,"proposalId":"proposal_eb3ed7c85f38e099","pendingUserConfirmation":true,"proposal":{"name":"回复语言偏好 kqhkeep","description":"所有对话回复语言 kqhkeep","type":")
+PASS H4 批量卡回放:每条带 requestedScope(got [["global","project"],["project","project"],["project","project"]])
+PASS H4b apply 带 overrides:两条落到用户选的全局,core 开关各自生效(got 200 {"ok":true,"proposalId":"proposal_cc87648b8b4f1b7c","kind":"memory_batch","status":"saved","saved":[{"index":0,"id":"mem_4048726d326720a9","scope":"global","nam)
+PASS H4c 项目目录里没有这两条
+PASS H5 主回合真的调了 revise{newScope:global}(got {"kind":"memory_revise","targetId":"h-up","targetScope":"project","newScope":"global","name":"kq h-up","description":"DESC of h-up","type":"convention","body":"body of h-up\n","reason":"用户说所有项目都适用","b)
+PASS H5b apply → 200,回执 moved(got 200 {"ok":true,"proposalId":"proposal_c1946276e997689a","kind":"memory_revise","applied":{"ok":true,"memory":{"id":"h-up","scope":"global","name":"kq h-up","description":"DESC of h-up","type":"convention")
+PASS H5c 全局有、项目没有
+PASS H5d 来源会话沿用
+PASS H6 revise 提议记下 baseUpdatedAt
+PASS H6b 提议之后记忆被改过 → 409 + 稳定码 memory.proposal_stale(got 409 {"ok":false,"error":{"code":"memory.proposal_stale","params":{"name":"kq h-stale"},"message":"「kq h-stale」在这条修改建议提出之后又被改过了；为免覆盖你的改动，这张卡没有应用。请忽略它，需要的话让 AI 对着最新内容重新提议"}})
+PASS H6c 用户后来的手改还在
+PASS H13 revise apply 改 description → 核心摘要随之更新(got {"d":"HNEWDESC 新的说明","c":"HNEWDESC 新的说明"})
+PASS H7 缺省 scope + 围栏外 cwd → 400(修前只拦 scope==='project',缺省的绕过去)(got 400)
+PASS H7b scope 拼错 + 围栏外 cwd → 400(got 400)
+PASS H7c global 不受 cwd 约束(got 200)
+PASS H7d 围栏外 cwd 没有建出项目目录/meta.json
+PASS H8 编辑弹窗换作用域(moveFromScope)→ 另存 + 删旧(got 200 {"ok":true,"memory":{"id":"h-move","scope":"global","name":"kq h-move","description":"MOVE desc 改","type":"lesson","file":"/private/tmp/ruyi-p6-closeout-final-7)
+PASS H8b 同 id 在目标已存在 → 409 + memory.move_conflict,两边都不动(got 409)
+PASS H9 切核心/重要后 sourceSessionId / sourceRunId 还在(修前被抹掉)(got 200 orig-meta)
+PASS H10 GET /api/memory 回 limits(读配置:5/40,核心默认 200/16000)(got {"relevanceMax":5,"fixedSelectionMax":40,"coreItemMax":200,"coreCharBudget":16000})
+PASS H11 起草提示里有最近一条助手回复(TURN4),最旧的被舍弃(修前反过来)(prompt 长 4185,got 200)
+PASS H14 自动审稿:用户说了「所有项目」→ 保持 global、没被降级(got {"ok":true,"proposalId":"proposal_3276a015ea7c2162","proposal":{"name":"回答语言使用简洁中文","description":"所有项目的回答语言偏好 AUTOKEEP","body":"以后所有项目的回答语言都使用简洁中文。","type":"preference","scope":"global","reason":"用户给出的长期偏好","confidence")
+PASS H14b 自动审稿:只说「以后…」→ 降成 project,但 proposal 记 requestedScope=global / scopeAdjusted=true(got {"ok":true,"proposalId":"proposal_4b326fa9c2aa97db","proposal":{"name":"回答语言使用简洁中文","description":"所有项目的回答语言偏好 AUTODOWN","body":"以后所有项目的回答语言都使用简洁中文。","type":"preference","scope":"project","reason":"用户给出的长期偏好","confidence)
+PASS H14c 自动候选同样能经 replay:true 回放(卡上带 AI 建议的作用域)
+PASS H12 迁移中心扫描行如实标出被跳过的敏感段(got {"key":"claude-md","tool":"claude-code","label":"Claude Code","nativeCli":"claude","file":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-mem-scope-h-9HPF25/cli-home/.claude/CLAUDE.md","displayPath":"~/.claude/CLAUDE.md","status":"imported","entries":1,"coreEntries":1,"importedAt":"2026-11-12T14:07:59.244Z","userModified":false,"sourceChanged":false,"sourceMissing":false,"sensitiveSkipped":1})
+PASS H12b 干净的段导入了,含 password 的那段没进核心记忆
+PASS H12c 整个记忆库里没有那个口令
+
+MEMORY SCOPE E2E: ALL PASS

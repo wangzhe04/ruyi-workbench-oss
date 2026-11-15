@@ -1,0 +1,80 @@
+PASS native session monitor create failure exits instead of retaining a stopped worker
+PASS native session monitor register failure exits instead of retaining a stopped worker
+PASS native monitor wait error exits while its input pipe remains open
+PASS native pointer capture preserves default and mouse-touch fields and refuses tablet or unknown subtypes
+PASS native release failures retain ownership and block subsequent writes across tool families
+PASS a stopped native session refuses every input, clipboard, window, launch, AX and recording mutation
+PASS native portable rows preserve bounded raw flag bits from current macOS
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS production helper excludes testing-only release injection
+PASS production helper excludes testing-only pointer generation
+PASS ordinary stdio discovery exposes source-bound event sequences and manual recording
+PASS manual fixture snapshots the original clipboard before seeding owned formats
+PASS raw Pinyin composition captured a complete portable event stream
+PASS raw Pinyin composition reached its expected committed text before replay
+PASS raw Pinyin composition replays through macro_run with released input and identical committed text
+PASS ASCII override on another keycode captured a complete portable event stream
+PASS ASCII override on another keycode reached its expected committed text before replay
+PASS ASCII override on another keycode retains its Unicode override
+PASS ASCII override on another keycode replays through macro_run with released input and identical committed text
+PASS emoji override captured a complete portable event stream
+PASS emoji override reached its expected committed text before replay
+PASS emoji override retains its Unicode override
+PASS emoji override replays through macro_run with released input and identical committed text
+PASS Shift Unicode override captured a complete portable event stream
+PASS Shift Unicode override reached its expected committed text before replay
+PASS Shift Unicode override retains its Unicode override
+PASS Shift Unicode override replays through macro_run with released input and identical committed text
+PASS raw Shift shortcut captured a complete portable event stream
+PASS raw Shift shortcut reached its expected committed text before replay
+PASS raw Shift shortcut replays through macro_run with released input and identical committed text
+PASS Option dead-key composition captured a complete portable event stream
+PASS Option dead-key composition reached its expected committed text before replay
+PASS Option dead-key composition replays through macro_run with released input and identical committed text
+PASS overlapping keys and autorepeat captured a complete portable event stream
+PASS overlapping keys and autorepeat reached its expected committed text before replay
+PASS autorepeat remains an explicit event inside the held-key sequence
+PASS overlapping keys and autorepeat replays through macro_run with released input and identical committed text
+PASS copy then paste from the replay clipboard captured a complete portable event stream
+PASS copy then paste from the replay clipboard reached its expected committed text before replay
+PASS copy then paste from the replay clipboard replays through macro_run with released input and identical committed text
+PASS a cold MCP reads the saved schema2 manual recording through macro_list
+PASS the saved manual recording replays from a cold MCP with a fresh native target
+PASS a registry-hidden input_sequence is unavailable through discovery, saved macro replay and nested batch actions
+PASS a standalone modified drag restores HID and combined modifiers without moving the cursor
+PASS manual modified drag preserves button ownership, path and held Shift
+PASS continuous dual-axis scrolling, momentum termination and double-click state survive capture
+PASS mouse-touch click, drag, release and movement retain subtype through the real target event tap
+PASS recorded pointer gestures replay and release their owned inputs
+PASS a malformed final event rejects the entire recording before any prefix is replayed
+PASS an occluded pointer in the final chunk rejects the whole macro before its first keyboard chunk
+PASS all native sequence points follow the fresh moved window without mutating the recording
+PASS direct sequence cooperative cancellation audits dispatch and releases its held key and button
+PASS direct sequence cancellation posts no delayed suffix after cleanup
+PASS each cancelled sequence persists exactly one native-tool audit record
+PASS nested macro cooperative cancellation audits dispatch and releases its held key and button
+PASS nested macro cancellation posts no delayed suffix after cleanup
+PASS each cancelled sequence persists exactly one native-tool audit record
+PASS signal releases owned keys, pointer and HID modifiers while the native main thread remains blocked
+PASS signal blocked-main cleanup preserves the current cursor position
+PASS EOF releases owned keys, pointer and HID modifiers while the native main thread remains blocked
+PASS EOF blocked-main cleanup preserves the current cursor position
+PASS a real keyboard-source switch rejects replay before any input
+PASS an actual input-source switch during recording invalidates its buffer and refuses saving
+PASS collecting a demonstration while its button remains held marks it incomplete and refuses saving
+PASS stopping capture leaves the independent demonstrator to release its own button
+PASS same-worker automation invalidates a manual demonstration
+PASS leaving the exact foreground window invalidates manual recording
+PASS real Secure Event Input invalidates a manual recording
+PASS diagnostics report independent manual-listening and sequence replay readiness
+PASS cooperative MCP cleanup confirms balanced receiver and HID state before force cleanup
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned fixture conditionally restores its original keyboard source
+PASS owned manual fixture restores the original clipboard on exit
+
+MACOS MANUAL RECORD E2E: ALL PASS

@@ -1,0 +1,31 @@
+PASS ① workbench started on :64251
+── (A) steward_thread_new ──
+PASS A1 线程建起来了(实 sess_b54932e4df54db9c);act 回执 200
+PASS A2 会话头 titleSource === 'steward'(实 "steward")—— 修前是 'user',摘要于是永远不跑
+PASS A3 摘要真的落盘了(实 "A股走势研判";起名字那一发命中 1 次)
+PASS A4 红线:session.title 仍是管家送来的那句原话,摘要绝不改写它(实 "大A接下来的走势会怎么样")
+PASS A5 既有落盘形状零回归(launchedBy:steward / kind:mission)
+── (B) displayTitle 三个消费面 ──
+PASS B1 GET /api/sessions/:id 的信封 displayTitle 是摘要的名字(实 "A股走势研判")
+PASS B1b 同一个信封里 session.title 仍是原话(显示名是【多】给的一个键,不是替换)
+PASS B2 GET /api/missions 那一行的 displayTitle 是摘要的名字(实 "A股走势研判")
+PASS B2b 行上的 title 仍是原话
+PASS B3 索引条目(经典壳侧栏与会话搜索共用的那一份)带出 brief(实 {"title":"A股走势研判","gist":"看一下 A 股接下来的方向,给一句结论和依据"})
+PASS B3b 索引条目如实说出标题的来源是 'steward'(实 "steward")
+── (C) steward_thread_rename ──
+PASS C1 steward_thread_rename 成功(实 200 "")
+PASS C2 改名写的是 'user'(那才是人起的名字;实 "user")—— 这条与 D2 对称,一字未动
+PASS C3 摘要本身不被删(只是不再显示)
+PASS C4 显示优先级:人起的名字压过生成的名字(实 "大A复盘")
+PASS C5 看板那一行同口径(实 "大A复盘")
+── (D) 117s-A D3 速查线程 ──
+PASS D0 速查线程的壳建起来了(实 sess_03d2a000099b42b2)
+PASS D0b workbench restarted (fresh projection index)
+PASS D1 摘要落盘【之前】,行上的 displayTitle 回落到那一长串原话(80 字)
+PASS D2 摘要经 updateSessionMeta 落盘(实 200)
+PASS D2b 会话头上确实有摘要了
+PASS D3 【下一次】GET /api/missions 的那一行 displayTitle 就是摘要,不是 80 字原话(实 "Ruyi 工作台推进状态盘点")
+PASS D3b 速查线程的 title 仍维持问题原话,逐字未被摘要改写(管家和搜索要认它)
+PASS D4 同一拍 ETag 也失效了(旧 W/"missions-c49598792979e8bc9b387f50-aff3ff31ea3da555f47be470-bd2c76a2a8aa896a668756f5-ef01f50dc2e3047b8423b5ca-0-200" / 新 W/"missions-cee44a808693e5f13b7e4076-aff3ff31ea3da555f47be470-bd2c76a2a8aa896a668756f5-cf85c92bbc006007a9c1d816-0-200")—— 条件读不会拿到 304 + 陈旧的标题
+PASS D4b 拿摘要落盘前的 ETag 来条件读【不】返回 304(实 200)
+STEWARD THREAD TITLE E2E: ALL PASS

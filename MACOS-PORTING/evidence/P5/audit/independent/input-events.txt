@@ -1,0 +1,46 @@
+PASS native clipboard transaction rejects admission after stop and retains an active owned snapshot
+PASS production helper excludes the input-state test protocol
+PASS actual MCP discovers ready native input and application tools
+PASS new input registrations preserve live file-write checkpoint coverage
+PASS input starts with the exact owned window in foreground
+PASS empty chord components are refused before input
+PASS unknown Mac key is refused before input
+PASS short text reaches the real AppKit editor through keyboard events
+PASS Cmd+A and direct Unicode events preserve Chinese and surrogate pairs
+PASS fixture saves the current clipboard immediately before seeding its own image and private format
+PASS automatic Chinese multiline route uses real Cmd+V and preserves text verbatim
+PASS Cmd+V restores the prior image and private clipboard bytes
+PASS auto-pasted single-line trailing newline becomes a real Enter
+PASS clipboard changed by another writer during paste is preserved
+Stopped paste diagnostic {"ok":false,"error":"DesktopError: Native input session is stopping","code":"input_cancelled","acted":true,"action_sent":true,"outcome":"unconfirmed","restore":"done"}
+PASS SIGTERM during real Cmd+V unwinds and restores the owned all-format clipboard snapshot
+PASS stopped paste leaves no synthetic modifier held
+PASS blocked native fixture owns a tracked temporary clipboard version
+PASS production reader watchdog terminates a blocked native main thread within its fixed deadline
+PASS watchdog restores the owned all-format clipboard snapshot from its cleanup thread
+PASS logical-point pointer movement is confirmed by an independent cursor observation
+PASS double click reaches the owned view with balanced button events
+PASS right and middle clicks reach the receiver and release their buttons
+PASS vertical and horizontal wheel events reach the correct owned view
+PASS drag stays in the exact target and releases the owned button
+PASS off-target coordinates are refused before any click
+PASS an AX-hidden same-process floating panel cannot intercept a click intended for the bound window
+PASS changed same-process focus refuses keyboard input without editing the prior target
+PASS covered target refuses the mouse action before clicking
+PASS focus change during a real drag reports its partial side effect
+PASS interrupted drag releases its owned button
+PASS input works again after focus recovery and partial-action cleanup
+Stopped drag diagnostic {"ok":false,"error":"DesktopError: Native input session is stopping","code":"input_cancelled","acted":true,"action_sent":true,"reached":false,"actual_x":483.20001220703125,"actual_y":742,"outcome":"unconfirmed"}
+PASS SIGTERM during a real drag reports the already-posted partial action
+PASS native worker stop releases the owned drag button in the actual desktop session
+PASS unresolvable application produces a typed failure
+PASS LaunchServices starts the controlled app and confirms actual bundle and process identity
+PASS application readiness includes an actually observed window target
+PASS launched fixture terminates on its own bounded timer
+PASS owned watchdog writer is reaped before final clipboard ownership observation
+PASS owned input MCP and native worker cleanup is confirmed
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+PASS LaunchServices fixture has no remaining process
+
+MACOS INPUT EVENTS E2E: ALL PASS

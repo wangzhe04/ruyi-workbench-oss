@@ -1,0 +1,97 @@
+[fake] [fake-openai] listening on 64175
+PASS workbench listening
+PASS UI token scraped
+PASS ① GET /api/playbooks returns a list（首请求 status=200 103ms）
+PASS ① every built-in under resources/playbooks is listed (16 on disk, 16 total)
+PASS ① every built-in template uses exactly its declared inputs (drift: )
+PASS ① destructive cards stop and wait for an explicit go-ahead before touching files
+PASS ① clean-downloads deletes via the recycle bin, never file_delete
+PASS ① required:true survives normalization (and is only emitted where set)
+PASS ① built-in has complete schema (all §7.8 fields + available/unavailableReason)
+PASS ① inputs are typed (folder input present)
+PASS ① built-in flagged builtin:true
+PASS ② ocr-scan requires an implemented OCR backend as well as the shared ACC connection
+PASS ② ocr-scan unavailable reason mentions 桌面控制
+PASS ② legacy desktopMcp requirement still accepts a connected shared ACC component
+PASS ② evalPlaybookAvailability(desktopMcp, present:false) → unavailable + reason (unit)
+PASS ② merge-excel (requires desktopMcp) availability agrees with caps (false)
+PASS ② pdf-summarize (requires desktopMcp) availability agrees with caps
+PASS ② batch-rename (no requires) available
+PASS ② POST network-requiring user playbook ok
+PASS ② requires:[network] + dead probe → available:false + reason
+PASS ② (⑧) 每条 playbook 都带 status 四态之一
+PASS ② (⑧) requires:[network] + 离线 → status:unavailable(实得 "unavailable")
+PASS ② a user playbook saved with a UTF-8 BOM still loads
+PASS ② a user playbook saved as UTF-16 (Notepad "Unicode") still loads
+PASS ③ POST /api/playbooks without token → 403
+PASS ③ POST override of built-in id ok
+PASS ③ user override wins over built-in (title changed, builtin:false)
+PASS ③ override does not duplicate the id
+PASS ③ DELETE user override ok
+PASS ③ after delete, id reverts to the built-in
+PASS ③ DELETE built-in → 403 (builtin:true)
+PASS ③ DELETE user playbook ok
+PASS ③ deleted user playbook is gone
+PASS ③ POST invalid playbook (no promptTemplate) → 400
+PASS ④ session created
+PASS ④ draft without token → 403
+PASS ④ draft returns ok + draft
+PASS ④ draft has all fields (title/promptTemplate/inputs typed/requires/uiMode)
+PASS ⑤ placeholder substitution replaces every {key}
+PASS ⑤ undeclared {key} left as-is
+PASS ⑤ assembled prompt reaches the provider via /api/chat/stream
+PASS ⑥ every playbook carries a service field (string)
+PASS ⑥ 六类映射与 §1.4 实盘表 + 新增模板逐条相同
+PASS ⑥ 六类计数 research=2 organize=7 writing=4 scheduled=1 coding=0 watch=0 未分类=2
+PASS ⑥ 未分类两条 service 为空且 available 不受影响
+PASS ⑥ POST fabricated-service user playbook ok
+PASS ⑥ service:"编造的一类" 被枚举钳制丢成 ""(实得 "")
+PASS ⑥ POST valid-service user playbook ok
+PASS ⑥ 合法 service:"research" 用户模板保留(实得 "research")
+PASS ⑦ service-match browser-context without token → 403(token-browser 档:浏览器须 token)
+PASS ⑦ 「整理下载」→ organize/available
+PASS ⑦ 可用服务配置引导 0 条(≤1 判据)
+PASS ⑦ organize 类 7 条模板可用在前
+PASS ⑦ POST coding user playbook ok
+PASS ⑦ 「写代码修 bug」→ coding/needs_config
+PASS ⑦ 双缺失夹具引导硬顶 1 条(dropped=1;实得 1+1 ["network"])
+PASS ⑦ 引导带结构化能力键(前端 i18n 出人话)
+PASS ⑦ 「守望变化」→ watch/no_template,引导 0 条(配不出不存在的模板)
+PASS ⑦ 无关查询 → match:null(零行为)
+PASS ⑦ 单字查询 → null(防误吸)
+PASS ⑦ 不可用/暂无模板服务零成功承诺词
+PASS ⑧ network online:undefined → status unknown 且 available 仍 true(实得 unknown/true)
+PASS ⑧ network online:null → unknown/true(实得 unknown/true)
+PASS ⑧ network online:false → unavailable/false(实得 unavailable/false)
+PASS ⑧ network online:true → available/true(实得 available/true)
+PASS ⑧ caps 为 null / 缺 network 子对象 → unknown(实得 unknown/true unknown/true)
+PASS ⑧ desktopMcp present:false → needs_config(实得 needs_config/false)
+PASS ⑧ desktopMcp 子对象缺席 / caps null → unknown(available 照旧 false,不改放行)(实得 unknown/false unknown/false)
+PASS ⑧ desktopMcp present:true → available
+PASS ⑧ vision:provider null(CLI 引擎,配置层事实)/ vision:false → needs_config(实得 needs_config/false needs_config/false)
+PASS ⑧ vision:true → available;caps null / provider 缺席 → unknown(实得 unknown/false unknown/false)
+PASS ⑧ 无 requires → available(caps null 或离线都一样)
+PASS ⑧ 未知+需配置 → needs_config(实得 needs_config/false)
+PASS ⑧ 需配置+离线 → unavailable(实得 unavailable/false)
+PASS ⑧ 可用+未知 → unknown,绝不是 available(实得 unknown/true)
+PASS ⑧ available/unavailableReason/missingCaps 与 HEAD 旧实现在 1464 个形状上逐字节相同
+PASS ⑧ 矩阵里 status=available 只出现在所需能力全是布尔 true 时(越界 0 处;见到的状态 ["available","needs_config","unavailable","unknown"])
+PASS ⑧ 类下只有未知模板 → state unknown、引导 0 条(实得 ["unknown",[],0])
+PASS ⑧ 可用+未知 → available,条目带 status、可用数 1(实得 ["unknown","available"])
+PASS ⑧ 需配置+未知 → needs_config,引导只取需配置那条的缺项(实得 ["needs_config",["desktopMcp"]])
+PASS ⑧ 离线双缺失(status unavailable)→ 服务入口仍 needs_config、引导 network、dropped 1(⑦ 形状不变;实得 ["needs_config",["network"],1])
+PASS ⑧ 新增状态文案 5 条齐全且零承诺词
+PASS ⑧ 未知文案说「未知」、不含「可用」
+PASS ⑧ 离线降级文案:说要联网、现在离线,并给下一步(本地文件/恢复网络)
+PASS ⑧ 第二实例(未知网络)listening
+PASS ⑧ 夹具前提:network.online === null(实得 null;首请求 status=200 89ms)
+PASS ⑧ POST 要联网的 coding 用户模板 ok
+PASS ⑧ 第二实例 GET 每条带 status(17 条)
+PASS ⑧ 网络未知的模板:status unknown,available/unavailableReason/missingCaps 照旧 true/""/[](实得 ["unknown",true,"",[]])
+PASS ⑧ 「写代码修 bug」→ coding/unknown(实得 ["coding","unknown"])
+PASS ⑧ 未知服务引导 0 条(不知道缺什么就不教人去配)
+PASS ⑧ 未知服务返回零承诺词
+PASS ⑧ /api/skills 注册表 playbook 行同样带 status unknown(实得 ["unknown",true])
+PASS ⑧ 技能/命令条目形状不变(不带 status)
+
+PLAYBOOKS E2E: ALL PASS

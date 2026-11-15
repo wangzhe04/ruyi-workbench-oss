@@ -1,0 +1,44 @@
+PASS existing WebM/Opus remains preferred when available
+PASS MP4-only WebKit can expose the normal microphone entry
+PASS unsupported formats and insecure origins remain unavailable
+(node:55665) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/net.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS native media acceptance exits normally "ready"
+PASS real WKWebView supports a known recording container
+PASS real WKWebView supports MP4/AAC fallback
+PASS normal composer starts actual MP4 MediaRecorder
+PASS actual MP4 recording decodes to WAV and fills at the caret
+PASS normal MP4 path uploads nonempty WAV through the existing ASR endpoint
+PASS normal stop releases all synthetic capture tracks
+PASS normal composer starts actual MP4 MediaRecorder
+PASS decode failure retains actual MP4 bytes, content type and m4a filename
+PASS Mac refusal gives recovery guidance without upload or draft mutation
+PASS normal composer starts actual MP4 MediaRecorder
+PASS same composer retries successfully after microphone refusal
+PASS cancel discards the current segment and releases capture tracks
+PASS actual WebKit PCM streaming uses the stream transport without segment uploads
+PASS real WebKit ScriptProcessor PCM reaches the loopback stream and finish fills the final text
+PASS stream finish closes AudioContext and stops capture tracks
+PASS stream cancellation removes pending text and closes its audio context
+PASS stream initialization failure falls back to segment recording
+PASS failed stream and VAD initialization close all partially built AudioContexts
+PASS continuous speech crosses the maximum segment duration without stopping capture
+PASS cancel during segment decode prevents a later ASR upload
+PASS host suspension during final decode discards pending transcription without upload or draft mutation
+PASS a retired recorder stop event cannot close the next recording
+PASS cancelling a suspended stream-open request immediately releases acquired microphone tracks
+PASS late stream initialization deletes only its own upstream session and preserves the new recording
+PASS native media acceptance returned all required assertions
+ASR fixture uploads [{"filename":"voice.wav","bytes":34459,"mp4":false},{"filename":"voice.m4a","bytes":7084,"mp4":true},{"filename":"voice.wav","bytes":35825,"mp4":false}]
+PASS only three completed recordings reach the loopback ASR provider (received 3)
+PASS loopback provider receives real 16kHz mono 16-bit WAV
+PASS decoded WAV contains the non-silent synthetic signal
+PASS fallback multipart contains actual MP4 container bytes and matching filename
+PASS actual WebKit PCM blocks and finalization reach the loopback streaming provider
+PASS stream PCM contains the non-silent synthetic signal
+PASS stream cancel and initialization failure delete their upstream sessions
+Native media reports /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-media-2MpfkO
+
+MACOS DESKTOP MEDIA E2E: ALL PASS

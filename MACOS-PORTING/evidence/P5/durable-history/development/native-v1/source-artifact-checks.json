@@ -1,0 +1,40 @@
+[
+  {
+    "label": "native-before",
+    "at": "2026-11-11T11:42:35.874197+00:00",
+    "sourceFiles": 127,
+    "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+    "unchanged": true,
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "8c64ac003381b68fe6ad261b1bd9a9b4f0e367519ae4445ec96bbaedd788c356"
+      }
+    ]
+  },
+  {
+    "label": "native-after",
+    "at": "2026-11-11T11:42:39.739943+00:00",
+    "sourceFiles": 127,
+    "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+    "unchanged": true,
+    "artifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "8c64ac003381b68fe6ad261b1bd9a9b4f0e367519ae4445ec96bbaedd788c356"
+      }
+    ]
+  }
+]

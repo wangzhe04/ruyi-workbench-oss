@@ -1,0 +1,358 @@
+{
+  "nativePID": 19751,
+  "servicePID": 19779,
+  "launch": "LaunchServices",
+  "serviceInvocation": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/node/bin/node --require /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/desktop-macos/service-lease.cjs /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/app/server.js serve --host 127.0.0.1",
+  "bundle": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "bundled": true,
+  "workbenchRoot": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench",
+  "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "nativeHelper": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+    "origin": "installed-app-bundle",
+    "sha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69"
+  },
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "denied",
+    "axReady": false,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "denied",
+    "inputReady": false,
+    "inputSequenceReady": false,
+    "inputSequenceSupported": true,
+    "installed": true,
+    "listenAuthorization": "denied",
+    "locked": false,
+    "manualPointerProfiles": [
+      "exact",
+      "standard_mouse"
+    ],
+    "manualRecordReady": false,
+    "manualRecordSupported": true,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": false,
+    "reasonCode": "permission_denied",
+    "recordInputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "recordReady": false,
+    "recordSource": "controlled_native_requests",
+    "recordSources": [
+      "controlled_native_requests",
+      "native_window_events"
+    ],
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "denied",
+    "windowQueryReady": true,
+    "windowReady": false
+  },
+  "diag": {
+    "capabilities": {
+      "desktop.accessibility": {
+        "authorization": "denied",
+        "backend": "AXUIElement",
+        "coordinate_space": "macos_global_points",
+        "installed": true,
+        "ready": false,
+        "supported": true
+      },
+      "desktop.action_verification": {
+        "authorization": "denied",
+        "coordinate_space": "macos_global_points",
+        "installed": false,
+        "ready": false,
+        "supported": true,
+        "verification": "screen_change_observation"
+      },
+      "desktop.capture": {
+        "applicationReady": true,
+        "authorization": "denied",
+        "axReady": false,
+        "axSupported": true,
+        "clipboardReady": true,
+        "eventAuthorization": "denied",
+        "inputReady": false,
+        "inputSequenceReady": false,
+        "inputSequenceSupported": true,
+        "installed": true,
+        "listenAuthorization": "denied",
+        "locked": false,
+        "manualPointerProfiles": [
+          "exact",
+          "standard_mouse"
+        ],
+        "manualRecordReady": false,
+        "manualRecordSupported": true,
+        "ocrReady": true,
+        "ocrRevision": 3,
+        "ocrSupported": true,
+        "pointerQueryReady": true,
+        "queryReady": true,
+        "ready": false,
+        "reasonCode": "permission_denied",
+        "recordInputSource": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "recordReady": false,
+        "recordSource": "controlled_native_requests",
+        "recordSources": [
+          "controlled_native_requests",
+          "native_window_events"
+        ],
+        "recordSupported": true,
+        "supported": true,
+        "windowAuthorization": "denied",
+        "windowQueryReady": true,
+        "windowReady": false
+      },
+      "desktop.input_sequence": {
+        "backend": "bounded CGEvent sequence",
+        "installed": true,
+        "ready": false,
+        "supported": true
+      },
+      "desktop.macro_replay": {
+        "backend": "ACC tool registry",
+        "inputReady": false,
+        "installed": false,
+        "ready": false,
+        "supported": true
+      },
+      "desktop.observe": {
+        "authorization": "denied",
+        "axReady": false,
+        "coordinate_space": "macos_global_points",
+        "installed": false,
+        "ocrReady": true,
+        "ready": false,
+        "supported": true
+      },
+      "desktop.ocr": {
+        "authorization": "not_required_for_local_images",
+        "backend": "Vision",
+        "image_coordinate_space": "image_pixels",
+        "inputReady": false,
+        "installed": true,
+        "ready": true,
+        "recognition_revision": 3,
+        "screen_coordinate_space": "macos_global_points",
+        "screenReady": false,
+        "supported": true
+      },
+      "desktop.recording": {
+        "authorization": "denied",
+        "coordinate_space": "macos_global_points",
+        "inputSource": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "installed": false,
+        "listenAuthorization": "denied",
+        "manualReady": false,
+        "manualSupported": true,
+        "pointerProfiles": [
+          "exact",
+          "standard_mouse"
+        ],
+        "ready": false,
+        "source": "controlled_native_requests",
+        "sources": [
+          "controlled_native_requests",
+          "native_window_events"
+        ],
+        "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+        "supported": true
+      },
+      "desktop.template_matching": {
+        "authorization": "denied",
+        "backend": "OpenCV",
+        "coordinate_space": "macos_global_points",
+        "inputReady": false,
+        "installed": false,
+        "ready": false,
+        "supported": true
+      }
+    },
+    "dpi": {
+      "awareness": "logical_points",
+      "coordinate_space": "macos_global_points",
+      "monitors": [
+        {
+          "height": 1107,
+          "id": 1,
+          "index": 0,
+          "is_primary": 1,
+          "scale": 2,
+          "width": 1710,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "ok": true,
+      "primary_scale": 2
+    },
+    "hidden_tools": [],
+    "is_admin": null,
+    "load_errors": {},
+    "monitors": {
+      "count": 1,
+      "monitors": [
+        {
+          "height": 1107,
+          "id": 1,
+          "index": 0,
+          "is_primary": 1,
+          "scale": 2,
+          "width": 1710,
+          "x": 0,
+          "y": 0
+        }
+      ]
+    },
+    "ok": true,
+    "optional": {
+      "cv2": false,
+      "matplotlib": false,
+      "ocr": true,
+      "playwright": false,
+      "pptx": false,
+      "pynput": false,
+      "uia": true
+    },
+    "optional_modules": {
+      "cv2": true,
+      "matplotlib": true,
+      "numpy": true,
+      "playwright": true,
+      "pptx": true,
+      "pynput": false,
+      "uiautomation": false,
+      "win10toast": false,
+      "winsdk_ocr": false
+    },
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "python_full": "3.12.13 (main, Aug  7 2026, 02:15:23) [Clang 22.1.3 ]",
+    "tool_count": 34,
+    "unsupported_modules": {
+      "audio": "platform.unsupported: macOS desktop backend is not implemented",
+      "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+      "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+      "sync": "platform.unsupported: macOS desktop backend is not implemented",
+      "system": "platform.unsupported: macOS desktop backend is not implemented"
+    },
+    "version": "1.9.1"
+  },
+  "diagOK": true,
+  "unavailable": true,
+  "manualDemonstration": null,
+  "observedProcesses": [
+    {
+      "pid": 19751,
+      "ppid": 1,
+      "created": "1794537757170630"
+    },
+    {
+      "pid": 19779,
+      "ppid": 19751,
+      "created": "1794537757364734"
+    },
+    {
+      "pid": 19810,
+      "ppid": 19779,
+      "created": "1794537757482677"
+    },
+    {
+      "pid": 19809,
+      "ppid": 19779,
+      "created": "1794537757481680"
+    },
+    {
+      "pid": 19892,
+      "ppid": 19779,
+      "created": "1794537757831823"
+    },
+    {
+      "pid": 19939,
+      "ppid": 19779,
+      "created": "1794537758003904"
+    },
+    {
+      "pid": 19951,
+      "ppid": 19779,
+      "created": "1794537758074588"
+    },
+    {
+      "pid": 19953,
+      "ppid": 19951,
+      "created": "1794537758077337"
+    },
+    {
+      "pid": 19954,
+      "ppid": 19953,
+      "created": "1794537758077819"
+    },
+    {
+      "pid": 20013,
+      "ppid": 19779,
+      "created": "1794537758264668"
+    },
+    {
+      "pid": 20204,
+      "ppid": 19954,
+      "created": "1794537758897739"
+    },
+    {
+      "pid": 20235,
+      "ppid": 19954,
+      "created": "1794537758994966"
+    },
+    {
+      "pid": 20277,
+      "ppid": 19954,
+      "created": "1794537759102972"
+    },
+    {
+      "pid": 20306,
+      "ppid": 19954,
+      "created": "1794537759208775"
+    },
+    {
+      "pid": 20339,
+      "ppid": 19954,
+      "created": "1794537759310785"
+    },
+    {
+      "pid": 20378,
+      "ppid": 19954,
+      "created": "1794537759415766"
+    },
+    {
+      "pid": 20407,
+      "ppid": 19954,
+      "created": "1794537759515315"
+    }
+  ],
+  "receiver": {
+    "textMatches": false,
+    "counts": {},
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

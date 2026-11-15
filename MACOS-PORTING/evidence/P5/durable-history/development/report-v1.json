@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "at": "2026-11-11T11:47:51.805146+00:00",
+  "status": "passed_primary_provider_intent_and_received_prefix_persistence",
+  "implementationBase": "96db15f6",
+  "freeze": "freeze-v3.json",
+  "frozenSources": 127,
+  "artifacts": 2,
+  "runtimeScope": "Ordinary provider main turn in Node service. Source record is requested model intent and received result, not independent ACC/native dispatch or terminal acknowledgement.",
+  "changes": [
+    "Strict requirePersisted save barrier rejects every dropped snapshot while preserving default legacy save semantics",
+    "Persist local requested tool batch before preexecution/permission/dispatch; persist each received prefix before later calls",
+    "Retain known parallel results at stop/steer; uncertain in-flight result is unknown and genuinely unprocessed call not_dispatched",
+    "Propagate toolCallId only to existing source-owner context; no per-ACC-call process ownership assertion",
+    "Bound resumed parallel display results; native images[] bytes saved in owned attachments and removed from model/stored display bodies",
+    "Repair and UI system note acknowledge uncertain execution/impact"
+  ],
+  "developmentNegativeControl": {
+    "source": "development/offline-before/output.txt",
+    "observation": "Same E2E against unchanged old main server writes the owned file, then fails missing durable pending batch assertion; catch also records the fail-fast exception. No injected root fault reached in this old-server run."
+  },
+  "finalPrimaryCounts": {
+    "offline": {
+      "pass": 11,
+      "fail": 0
+    },
+    "readIsland": {
+      "pass": 14,
+      "fail": 0
+    },
+    "turnloop": {
+      "pass": 31,
+      "fail": 0
+    },
+    "stopSupersede": {
+      "pass": 32,
+      "fail": 0
+    },
+    "native": {
+      "pass": 12,
+      "fail": 0
+    },
+    "entry": {
+      "pass": 31,
+      "fail": 0
+    }
+  },
+  "targetedUnit": {
+    "files": [
+      "session-required-persistence.test.js",
+      "tool-result-shrink.test.js"
+    ],
+    "pass": 24,
+    "fail": 0,
+    "newPersistenceCases": 9,
+    "source": "development/targeted-v5/persistence-and-bounds.txt"
+  },
+  "engineering": {
+    "syntax": 1158,
+    "buildFreshness": "passed engineering-v1",
+    "unitPassed": 2508,
+    "unitExistingSkipped": 18,
+    "unitFailed": 0,
+    "firstFast": {
+      "pass": 79,
+      "fail": 1,
+      "builtInRetryFailed": true,
+      "reason": "session-save census old09=11, actual12"
+    },
+    "metadataFix": "Existing census12 classifies persistToolHistory as live-turn self save with owner and strict commit",
+    "finalFast": {
+      "pass": 80,
+      "fail": 0,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "source": "development/engineering-v2"
+    },
+    "reuse": "Only a static census file was added after frozen126 sources/2 artifacts. Build and independent full unit reused by unchanged runtime/test hashes; final syntax and full fast rerun on127 sources, fast runs unit preflight again."
+  },
+  "nativeCrash": {
+    "scope": "zero input root-only SIGKILL calibration",
+    "pass": 12,
+    "id": "call_neutral_abort",
+    "proxy": "tool_invoke_exec",
+    "requestedTarget": "ai_computer_control__macro_run",
+    "requestedArguments": {
+      "delay_ms": 0,
+      "steps": [
+        {
+          "tool": "wait",
+          "args": {
+            "seconds": 30
+          }
+        }
+      ]
+    },
+    "rawProviderFileSnapshots": [
+      {
+        "label": "pre-kill",
+        "path": "development/native-v1/native/pre-kill/sessions/sess_1c6379c2539ff695.provider.ndjson",
+        "bytes": 420,
+        "sha256": "6e84beef96c3a0f1b2aa04c17af25ddb87e09cb75296601ec6ce06dd354be4b2"
+      },
+      {
+        "label": "post-kill",
+        "path": "development/native-v1/native/post-kill/sessions/sess_1c6379c2539ff695.provider.ndjson",
+        "bytes": 420,
+        "sha256": "6e84beef96c3a0f1b2aa04c17af25ddb87e09cb75296601ec6ce06dd354be4b2"
+      },
+      {
+        "label": "post-restart",
+        "path": "development/native-v1/native/post-restart/sessions/sess_1c6379c2539ff695.provider.ndjson",
+        "bytes": 420,
+        "sha256": "6e84beef96c3a0f1b2aa04c17af25ddb87e09cb75296601ec6ce06dd354be4b2"
+      }
+    ],
+    "resumable": {
+      "dangling": true,
+      "kind": "tool_calls",
+      "turnSeq": 1,
+      "historyLength": 2
+    },
+    "roleToolResultExists": false,
+    "ACCEntryOrTerminalAcknowledged": false,
+    "replayObservedOnGET": false,
+    "intentOnlyNotDispatchProof": true
+  },
+  "entryRegression": {
+    "pass": 31,
+    "source": "development/entry-v1",
+    "additionalUnchangedFixtureSources": 3,
+    "cleanupSafe": true,
+    "inputSourceAndClipboardRestore": true,
+    "AppLaunchServicesAcceptance": false
+  },
+  "history": {
+    "offlineV1": "Fixture waited for question_request instead of actual ask_user; stopped and cleaned without deliberate root fault.",
+    "targetedV1": "Test confused runSessionTurn wrapper.ok with the actual result event; storage injection restricted to head JSON in next revision.",
+    "targetedV3": "New image test used wrong _attachments field and failed its attachment assertion.",
+    "targetedV4": "Correct imageAttachments assertion still failed; existing helper lacked native images[] support.",
+    "targetedV5": "Native array support added;24/24 passed.",
+    "sourceReview": "DHC1/DHC2 found and closed independently; initial and closure hashes preserved.",
+    "engineeringV1": "Raw79/80 and built-in retry failures preserved unchanged."
+  },
+  "openGates": [
+    "ACC actual dispatch/modified execution arguments/wait entry/terminal audit correlation",
+    "Automatic model/steward continuation and unknown-call replay guard beyond GET-only restart",
+    "Held-input root kill, qualified rescue and product release evidence",
+    "Action-time lock/conditional clipboard recovery, actual TCC denied/revoke paths",
+    "Physical display environments, macOS14, Windows current candidate, App/release identity resources"
+  ],
+  "phaseStatus": "in_progress"
+}

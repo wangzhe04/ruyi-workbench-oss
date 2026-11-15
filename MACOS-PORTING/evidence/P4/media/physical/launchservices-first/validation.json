@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-08",
+  "exitCode": 1,
+  "passed": false,
+  "normalEntry": true,
+  "userAllowedPrompt": true,
+  "pageTrackEndedMs": 591,
+  "nativeNormalStopCompletedMs": 656.5946,
+  "reportedStateDurationMs": 3000.6717,
+  "deadlineFired": true,
+  "audioFile": "5-byte WebM fragment, no decodable audio proven",
+  "audioCopiedIntoRepo": false,
+  "cleanupComplete": true,
+  "historicalCriteria": "KVO-reported state <=3 sec and no deadline; failed",
+  "followup": "Use documented native stop completion and parse actual PCM before passing, retain reported-state evidence"
+}

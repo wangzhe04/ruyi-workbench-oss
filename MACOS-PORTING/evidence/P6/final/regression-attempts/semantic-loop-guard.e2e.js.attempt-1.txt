@@ -1,0 +1,12 @@
+[fake] [fake-openai] listening on 61748
+PASS workbench up on :61749
+PASS session created
+PASS turn1: 12 tool_use 全执行(语义 warn 不 abort, got 12)
+PASS A 段: 第 1-8 次(same-0..7)均无 loopWarning(noProgressRun 0-7 < 探索阈值 8)
+PASS A 段: 第 9 次(same-8)语义 loopWarning(无新信息, got 检测到连续 8 次工具结果无新信息;若在反复检查同一状态,请改变策略或换用其它工具,不要原样重试。)
+PASS A 段: 第 9 次 loopWarning 是语义判定(无新信息)非同签名连击(第 3 次)
+PASS B 段: 第 10-12 次(diff-0/1/2)均无 loopWarning(不同内容 reset, 正常探索不误伤)
+PASS turn1: turn_summary emitted(语义 warn 不阻断回合)
+PASS turn1: result emitted
+
+SEMANTIC LOOP-GUARD E2E: ALL PASS

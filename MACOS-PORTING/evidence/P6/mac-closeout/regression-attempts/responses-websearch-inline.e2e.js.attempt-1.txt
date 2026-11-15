@@ -1,0 +1,25 @@
+=== inline shape (百炼 / OpenAI hosted web_search) ===
+PASS [inline] workbench listening
+PASS [inline] 服务商开了 serverWebSearch → 请求带 hosted {type:'web_search'}
+PASS A1 搜索与作答在同一发里 → 只请求 1 次,不为空搜索项再多请求一轮(实际 1 次)
+PASS A2 那一发的正文就是最终回答(密标已显示给用户)
+PASS A3 回合 result ok:true
+PASS A4 没有回传任何 web_search_call 项(这类端点回传了也恢复不出结果)
+PASS A5 答案写进了 providerHistory(修前纯服务端搜索的回复不进历史,下一发/下一回合模型看不到)
+PASS B1 工具卡用真实检索词(action.query),不是占位词「服务端搜索」(实际 "qwen3.8 发布时间")
+PASS B2 结果卡带来源 URL(action.sources)
+PASS B3 结果卡不是错误
+=== inline shape, second turn in the same session ===
+PASS [inline/C] workbench listening
+PASS C1 下一回合的请求历史里带着上一回合的答案(密标)
+PASS C2 下一回合请求里没有 web_search_call 残留
+PASS C3 第二回合 result ok:true
+=== deepseek shape (search item, then the reply ends; answer comes after the echo) ===
+PASS [deepseek] workbench listening
+PASS [deepseek] 服务商开了 serverWebSearch → 请求带 hosted {type:'web_search'}
+PASS D1 DeepSeek 形仍是两发(回传搜索项后才作答;实际 2 次)
+PASS D2 DeepSeek 形仍回传搜索项原件
+PASS D3 回传后的作答显示给用户
+PASS D4 DeepSeek 的 action.queries 解析不变
+
+RESPONSES-WEBSEARCH-INLINE E2E: ALL PASS

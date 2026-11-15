@@ -1,0 +1,8 @@
+FAIL proxy raw compound effects survive display shrinking
+FAIL Error: Stopped at proxy raw compound effects survive display shrinking
+    at check (/private/tmp/ruyi-p5-effect-worktree/dev-harness/compound-effect-audit.e2e.js:17:73)
+    at /private/tmp/ruyi-p5-effect-worktree/dev-harness/compound-effect-audit.e2e.js:78:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+FAIL Missing owned service identity
+
+COMPOUND EFFECT AUDIT E2E: FAIL (3)

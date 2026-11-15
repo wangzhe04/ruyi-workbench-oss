@@ -1,0 +1,33 @@
+
+── [S] 静态锁 ──
+PASS S config 默认 autonomyPauseOnTimeout=false(opt-in,安全默认零行为变化)
+PASS S config 默认 TTL 45min
+PASS S normalizeConfig 布尔规整
+PASS S TTL clamp [5min,6h]
+PASS S provider gate 仅【opt-in + driverAuto 无人值守】启用
+PASS S CLI 桥仅【opt-in + driverAutoSessions】启用
+PASS S runTurn 维护 driverAutoSessions(进出平衡)
+PASS S 两引擎路径 TTL 到点均经 command core fail-closed deny(pausedTimeout)
+PASS S 两引擎 idle 看门狗暂停期间豁免(reg.exited||reg.pausePending)
+PASS S 两引擎 reg 都带 pausePending 字段
+PASS S provider onPause 置 pausePending
+PASS S provider await 返回后解除豁免
+PASS S CLI 桥置/解除 pausePending + 重置看门狗时钟
+
+── [P] requestNativePermission 两段定时 ──
+PASS P 源抽取 requestNativePermission(含 pause 形参)
+PASS P 源抽取 promptWaitMs(04:0/缺省 = 不限时)
+PASS P(1) 无 pause:基础超时→deny(非 pausedTimeout)
+PASS P(1) 只发 permission_request,不发 permission_paused
+PASS P(2) 基础超时→发 permission_paused + onPause 检查点(1 次)
+PASS P(2) pause 窗口内 promise 仍挂起(未 resolve)
+PASS P(2) TTL 无人决定→回落 deny(pausedTimeout)
+PASS P(3) pending 有该 requestId 条目
+PASS P(3) pause 窗口内 UI 决定 allow→按决定返回(不被 TTL 覆盖)
+PASS P(4) 基础超时前决定→不进 pause 窗口(无 permission_paused)
+PASS P(5a) 没登记过的会话:基础窗口仍是 timeoutMs(实测 120000)
+PASS P(5a) 到点仍是 deny
+PASS P(5b) 定时任务的会话:基础窗口换成 30 分钟(实测 1800000,不是 120000)
+PASS P(5b) 【子集律】窗口再长,到点仍然是 deny —— 无人值守遇 ask 绝不自动放行
+
+AUTONOMY-PAUSE E2E: ALL PASS

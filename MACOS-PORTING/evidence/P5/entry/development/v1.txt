@@ -1,0 +1,8 @@
+FAIL Error: Timed out: owned workbench service
+    at until (/private/tmp/ruyi-p5-entry-worktree/dev-harness/macos-native-entry.e2e.js:21:9)
+    at async /private/tmp/ruyi-p5-entry-worktree/dev-harness/macos-native-entry.e2e.js:172:5
+FAIL native cleanup Owned service identity unconfirmed
+PASS native entry fixture restores the original input source
+PASS native entry fixture restores the original clipboard
+
+MACOS NATIVE ENTRY E2E: FAIL (2)

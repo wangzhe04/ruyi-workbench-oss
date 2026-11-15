@@ -1,0 +1,22 @@
+PASS real tools/list discovers all ready native AX tools
+PASS native AX registration preserves file checkpoint coverage
+PASS diagnostics identifies the ready AXUIElement backend separately from Windows UIA packages
+PASS real AX traversal reports native roles, exact identifiers and private element references
+PASS element geometry uses finite global logical-point bounds and centers
+PASS depth-limited tree explicitly reports unvisited children
+PASS node limit is enforced before visiting further elements
+PASS out-of-range traversal depth is refused
+PASS native AX focus is confirmed by the element attribute
+PASS AXValue write preserves Chinese and surrogate pairs with exact receiver readback
+PASS standard NSTextView writable AXValue supports confirmed text edits without an AXEnabled attribute
+PASS read-only NSTextView refuses AXValue mutation before sending an action
+PASS AXPress reports acceptance while the receiver independently confirms its actual effect
+PASS same-label controls remain separate explicit references
+FAIL Error: ui_invoke {"ok":false,"error":"DesktopError: Focus the exact observed window before invoking its elements","code":"focus_changed"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax.e2e.js:33:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax.e2e.js:119:5
+PASS owned AX MCP and native worker cleanup is confirmed
+PASS owned accessibility provider exits after acceptance
+
+MACOS AX E2E: FAIL (1)

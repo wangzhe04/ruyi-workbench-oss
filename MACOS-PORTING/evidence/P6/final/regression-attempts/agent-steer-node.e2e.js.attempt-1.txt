@@ -1,0 +1,22 @@
+PASS workbench starts
+PASS async workflow launch returns immediately with a run id
+PASS phase 1 reached: work running, later/claudenext/gate queued, run live
+PASS (c) steer on queued Claude-engine node enters the live input queue (got 200 / {"ok":true,"queued":1,"live":false})
+PASS (f) steer on vote-gate node → 409 with wording (got 409 / 确定性质量门节点不经过模型，无法插话)
+PASS (g) steer with forged sessionId + real runId → 404 (got 404 / [object Object])
+PASS (h) steer with empty text → 400「插话内容不能为空」(got 400 / 插话内容不能为空)
+PASS (i) steer on nonexistent nodeId → 404「节点不存在」(got 404 / 节点不存在)
+PASS (e) 1st steer on queued node accepted (queued=1)
+PASS (e) 2nd steer accepted (queued=2)
+PASS (e) 3rd steer accepted (queued=3)
+PASS (e) 4th steer over cap → 409「插话队列已满」(got 409 / 该节点插话队列已满)
+PASS (a) steer on running node accepted (queued=1)
+PASS (a) [编排者插话] STEER_MARK appears in a subsequent fake request body (drained at next iteration boundary)
+PASS (bonus) queued pre-steers CAP1→CAP2→CAP3 delivered together, in order, in one request body
+PASS phase 2 reached: work succeeded while run still live
+PASS (b) work progressLog has a 「插话 · STEER_MARK」 milestone (got ["子代理初始化中","子 Agent 启动 · fake-model · read","插话 · STEER_MARK","模型流式响应中","调用工具 file_read","工具返回 错误 · call_0","调用工具 file_read","工具返回 错误 · call_1","调用工具 file_read","工具返回 错误 · call_2","调用工具 file_read","工具返回 错误 · call_3","调用工具 file_read","工具返回 错误 · call_4","调用工具 file_read","工具返回 错误 · call_5","调用工具 file_read","工具返回 错误 · call_6","调用工具 file_read","工具返回 错误 · call_7","调用工具 file_read","工具返回 错误 · call_8","调用工具 file_read","工具返回 错误 · call_9","子 Agent 完成 · 13 字"])
+PASS (d) steer on finished node (run still live) → 409「节点已结束」(got 409 / 节点已结束，无法插话)
+PASS run reaches a terminal (non-live) state
+PASS (j) steer after the run is terminal → 409「工作流当前未运行」(got 409 / 工作流当前未运行，无法插话)
+
+AGENT STEER NODE E2E: ALL PASS

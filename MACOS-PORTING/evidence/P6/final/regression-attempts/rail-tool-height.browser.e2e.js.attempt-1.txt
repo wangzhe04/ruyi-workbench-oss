@@ -1,0 +1,18 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 线程已建(sess_0036f95086091c3b)
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 页面载入,侧栏里有这条线程
+── B/C 在跑期间连续采样左栏这一行 ──
+PASS B1 线程一进「在跑」，左栏这一行第二行就出现（实测「运行中…」）
+PASS B2 采到了足够多的样本(43 帧)，窗口没有落空
+PASS B3 这一行全程没有从左栏消失(实测 0 帧缺席)
+PASS B3b 「在跑」那段窗口本身够长，够采到有意义的样本(实测 21/43 帧；否则下面 B4/B5/C1 是空断言)
+PASS B4 在跑期间第二行全程非空——工具之间的空档不会把它清空(实测 0/21 帧是空串)
+PASS B5 采样窗口里真的经历过内容变化(不是从头到尾一句话没变的空窗口；实测 2 种取值：运行中… | 用一个工具 · 刚刚有输出)
+PASS C1 行高全程恒定，不随每次工具调用增删(实测 min=57px max=57px)
+── D 回合结束后 ──
+PASS D1 回合结束后第二行自己收掉(唯一允许的一次高度变化)
+
+RAIL TOOL HEIGHT BROWSER E2E: ALL PASS

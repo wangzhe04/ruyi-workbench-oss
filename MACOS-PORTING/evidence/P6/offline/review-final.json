@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_review",
+  "reviewedAt": "2026-11-12T07:53:27.058021+00:00",
+  "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "conclusion": "P6-01 final Full/Slim candidates accepted in the current Mac work-package scope; no remaining blocking code finding",
+  "p6WholePhaseAccepted": false,
+  "remainingBlockingFindings": [],
+  "environment": {
+    "os": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0"
+  },
+  "sourceBindings": {
+    "criticalFileSha256": {
+      "ruyi-workbench/tools/macos-offline-lib.js": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+      "ruyi-workbench/tools/package-macos-offline.js": "c44d7bd015c76424e290524278bff6dd269d19f7a351df7ecc6c4909ce065de7",
+      "ruyi-workbench/tools/macos-offline-python.py": "6255d7153f6e1f70a62b2807ed35b613367036e70e1de069375e024c0a593670",
+      "ruyi-workbench/tools/prepare-macos-offline-assets.py": "79c6c5538b28eca6996800f92288fbb3fa68361c10d2ab00bc5b5d8be3eb7817",
+      "ruyi-workbench/tools/build-macos-desktop.js": "014781e85a7523279f5d26259743dc7c48cdac52871e960cc593a020bde9a79b",
+      "ruyi-workbench/tools/build-macos-process-helper.js": "edd189489054a0054ab682f7049bb9eb580f07f967b1c6451056b23fb1ed5e6f",
+      "ruyi-workbench/desktop-macos/DesktopService.swift": "76e241f2702bcb00a43d9d92bbeae489a5c8b15c0a7adcec6e1f364846d559a8",
+      "ruyi-workbench/desktop-macos/RuyiDesktop.swift": "36771afb69e39b7aaf6b2dbf1c51e76cbbeb30192cc89190373a705973857548",
+      "ruyi-workbench/app/src/00-boot.js": "b290b539503dbedfccebd24376f5f742a29c0f28ecb52ce29d258ec54f2b76c3",
+      "ruyi-workbench/app/src/01-config.js": "808aaa15c38f4f281f8aa115cecaff324799d2019f58b27fc5d5969d585c1328",
+      "ruyi-workbench/app/src/13-http-router.js": "7826d819aa6e8390d4b46ddcc7bf9efb91a612ceef5b4445fd20b4fe01f0e311",
+      "ruyi-workbench/app/server.js": "cba901c6a6b86a35001af0f527c3065158817ad7ebca0112bd946db1dbead902",
+      "ruyi-workbench/package.json": "183667ea195f2dd9415fae7bcb7ad25063fe5f5b42738e43357a879106fdbf40",
+      "mcp/ai-computer-control/pyproject.toml": "507b34e11241f5424301f89f687288e0f19363f048a5d5c244f904d8cf0244cd",
+      "mcp/ai-computer-control/LICENSE": "f5fbb6f3a6ca411459987d36be8f683107c55b01a251451f4c889e488a8390e9",
+      "MACOS-PORTING/dependencies/macos-offline-arm64.assets.json": "577b8c08ea33d0e8f295ecbdb3b2a6161e594574ae107241f2fb3b0fbaef236a",
+      "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-full.lock.txt": "02d01b26456efbb7025ffac0a1af301acb1e008a00cb4cd222cdab93d7daef64",
+      "dev-harness/mcp-stdio-eof.e2e.js": "3dc31c738f9525e8780515c08dc01f7dfba14d3a14b3c258c9001b973d09404f",
+      "dev-harness/unit/macos-offline-native.test.js": "cb8f12cf6d2631ba964a35da1e2b8db60098592dbca0f9b4a1112308a394cf21"
+    },
+    "packageInputCountPerVariant": 484,
+    "rawOrExplicitGitCheckoutFilterMatches": true,
+    "elevenFilteredWindowsPaths": [
+      "mcp/ai-computer-control/installer/install.bat",
+      "mcp/ai-computer-control/installer/update.bat",
+      "ruyi-workbench/Start-Workbench.cmd",
+      "ruyi-workbench/desktop/build-desktop.ps1",
+      "ruyi-workbench/desktop/build-icon.ps1",
+      "ruyi-workbench/resources/scripts/install-workbench.ps1",
+      "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+      "ruyi-workbench/tools/Manage-Overlay.cmd",
+      "ruyi-workbench/tools/Manage-Overlay.ps1",
+      "ruyi-workbench/tools/dev-serve.cmd",
+      "ruyi-workbench/tools/package-offline.ps1"
+    ],
+    "bindingBefore": "independent-bindings-release-before.json",
+    "bindingAfter": "independent-bindings-release-after.json",
+    "sourceAndPackageBindingsStableBeforeAfter": true
+  },
+  "packages": {
+    "full": {
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "treeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "entryCount": 9790,
+      "fileCount": 8566,
+      "symlinkCount": 14,
+      "totalBytes": 1165679370,
+      "nativeCount": 209,
+      "sourceBindingCount": 484,
+      "gitCheckoutFilteredPaths": [
+        "mcp/ai-computer-control/installer/install.bat",
+        "mcp/ai-computer-control/installer/update.bat",
+        "ruyi-workbench/Start-Workbench.cmd",
+        "ruyi-workbench/desktop/build-desktop.ps1",
+        "ruyi-workbench/desktop/build-icon.ps1",
+        "ruyi-workbench/resources/scripts/install-workbench.ps1",
+        "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+        "ruyi-workbench/tools/Manage-Overlay.cmd",
+        "ruyi-workbench/tools/Manage-Overlay.ps1",
+        "ruyi-workbench/tools/dev-serve.cmd",
+        "ruyi-workbench/tools/package-offline.ps1"
+      ],
+      "sourceMatchesCommitAndWorktree": true,
+      "signatureVerified": true,
+      "nativeInventoryIndependentlyMatched": true,
+      "nativeAuditDirectory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app",
+      "cloneTreeStable": null,
+      "beforeManifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "afterManifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "beforeTreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "afterTreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "originalPayloadStable": true,
+      "functionalPass": 19,
+      "functionalFail": 0,
+      "functionalSkip": 0,
+      "functionalLog": "independent-full-release.txt",
+      "actualFixture": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Debgyk",
+      "actualFixtureAcceptance": "independent-full-release-acceptance.json",
+      "originalPathNativeAuditBeforeAndAfter": true
+    },
+    "slim": {
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "treeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "entryCount": 278,
+      "fileCount": 223,
+      "symlinkCount": 0,
+      "totalBytes": 140860335,
+      "nativeCount": 6,
+      "sourceBindingCount": 484,
+      "gitCheckoutFilteredPaths": [
+        "mcp/ai-computer-control/installer/install.bat",
+        "mcp/ai-computer-control/installer/update.bat",
+        "ruyi-workbench/Start-Workbench.cmd",
+        "ruyi-workbench/desktop/build-desktop.ps1",
+        "ruyi-workbench/desktop/build-icon.ps1",
+        "ruyi-workbench/resources/scripts/install-workbench.ps1",
+        "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+        "ruyi-workbench/tools/Manage-Overlay.cmd",
+        "ruyi-workbench/tools/Manage-Overlay.ps1",
+        "ruyi-workbench/tools/dev-serve.cmd",
+        "ruyi-workbench/tools/package-offline.ps1"
+      ],
+      "sourceMatchesCommitAndWorktree": true,
+      "signatureVerified": true,
+      "nativeInventoryIndependentlyMatched": true,
+      "nativeAuditDirectory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01/Ruyi.app",
+      "cloneTreeStable": null,
+      "beforeManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "afterManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "beforeTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "afterTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "originalPayloadStable": true,
+      "functionalPass": 7,
+      "functionalFail": 0,
+      "functionalSkip": 0,
+      "functionalLog": "independent-slim-release.txt",
+      "actualFixture": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-EuKo3w",
+      "actualFixtureAcceptance": "independent-slim-release-acceptance.json",
+      "originalPathNativeAuditBeforeAndAfter": true
+    }
+  },
+  "newIndependentRunsOnFinalCandidates": {
+    "full": {
+      "pass": 19,
+      "fail": 0,
+      "skip": 0
+    },
+    "slim": {
+      "pass": 7,
+      "fail": 0,
+      "skip": 0
+    },
+    "nativeBeforeAndAfterOnOriginalDocumentsPaths": {
+      "full": 209,
+      "slim": 6,
+      "bothExactlyMatchSealedInventories": true
+    },
+    "all484SourcesPerVariantCheckedAgainstFinalCommitBeforeAndAfter": true
+  },
+  "explicitlyReusedEvidence": [
+    {
+      "evidence": "independent-native-alias-delta.txt",
+      "pass": 13,
+      "fail": 0,
+      "skip": 0,
+      "binding": "All three reviewed source hashes in review-native-alias-delta.json equal the current f059 commit and worktree; tests ran immediately before that commit, not represented as a new command after commit.",
+      "crossVolumeScope": "EXDEV was injected to exercise the fallback, not a physical second filesystem."
+    },
+    {
+      "evidence": "independent-eof-current.txt",
+      "pass": 14,
+      "fail": 0,
+      "skip": 0,
+      "binding": "Production server.js and the EOF fixture are byte-identical to their independently tested d46 prerequisite bindings. This is explicit byte-equivalent reuse, not an additional f059 command."
+    },
+    {
+      "evidence": "review-probes/prepare-negative.json",
+      "pass": 6,
+      "binding": "Preparation helper source is unchanged from the reviewed negative-control scope."
+    },
+    {
+      "evidence": "development-host-third.txt",
+      "pass": 32,
+      "executor": "main",
+      "binding": "Qualified temporary exact-byte root for LaunchServices; original ad-hoc Documents permission flow is not counted as recovered."
+    }
+  ],
+  "findingsAndResolutions": [
+    {
+      "id": "R1",
+      "problem": "Native closure audit accepted a missing @loader_path dylib",
+      "resolution": "Resolve qualified Mach-O load edges recursively from each executable; refuse missing edges",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt",
+        "independent-bindings-release-before.txt",
+        "independent-bindings-release-after.txt"
+      ]
+    },
+    {
+      "id": "R2",
+      "problem": "Unrelated executable rpaths could qualify a broken dylib graph",
+      "resolution": "Per-entry recursive inherited rpath graph; bind dlopen extensions to enclosing runtime/application",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt",
+        "review-probes/wrong-context-before.json"
+      ]
+    },
+    {
+      "id": "R3",
+      "problem": "/usr/lib/../.. could disguise a build-machine absolute dylib dependency",
+      "resolution": "Normalize absolute paths before system-prefix exemptions",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt",
+        "review-probes/system-prefix-regression-before.txt"
+      ]
+    },
+    {
+      "id": "R4",
+      "problem": "Package verification followed an external symlink at the App root",
+      "resolution": "App root must be a real directory; internal payload links remain relative and contained",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt",
+        "review-native-alias-delta.json"
+      ]
+    },
+    {
+      "id": "R5",
+      "problem": "Inherited PIP_FIND_LINKS/PIP_CACHE_DIR could bypass the intended offline build-tool selection",
+      "resolution": "Explicit isolated build environment whitelist, PIP_NO_INDEX, fixed local wheelhouse and hashed runtime requirements",
+      "status": "closed",
+      "independentProof": [
+        "source review: explicit environment whitelist in the final committed package-macos-offline.js",
+        "prepare-offline-replay.txt",
+        "build-full-release.txt"
+      ]
+    },
+    {
+      "id": "R6",
+      "problem": "Failed build probe left same-group children able to write after timeout or nonzero exit",
+      "resolution": "Dedicated detached process group, killed on spawnSync error or nonzero exit",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt"
+      ]
+    },
+    {
+      "id": "R7",
+      "problem": "pip-generated console scripts contained staging-directory absolute interpreter paths",
+      "resolution": "Relative Python alias and shell wrappers use the interpreter beside each console script",
+      "status": "closed",
+      "independentProof": [
+        "independent-full-release.txt: relative pip, relative playwright, portable python alias all actually execute"
+      ]
+    },
+    {
+      "id": "R8",
+      "problem": "Workbench MCP stdio EOF retained a live bridge and root process indefinitely",
+      "resolution": "Stop new admissions on EOF, drain accepted requests, then kill bridge clients; no forced process.exit",
+      "status": "closed",
+      "independentProof": [
+        "independent-eof-current.txt: 14 assertions with explicit production/test byte-equivalent reuse",
+        "independent-full-release.txt: final packaged MCP EOF naturally exits"
+      ]
+    },
+    {
+      "id": "R9",
+      "problem": "Relative RUYI_HOME failed the execution-ledger absolute trusted-directory requirement",
+      "resolution": "Resolve both supported explicit data-root environment variables at the shared dataRoot boundary",
+      "status": "closed",
+      "independentProof": [
+        "runtime-start-final.txt: main real relative data-root regression",
+        "development-host-third.txt: main real host relative-root acceptance",
+        "final committed 00-boot.js source review and unchanged Node source binding"
+      ]
+    },
+    {
+      "id": "R10",
+      "problem": "lipo inherited /dev/fd/3 input timed out on the exact final Documents-path Mach-O, while ordinary path input succeeded; selecting the real tool alone was insufficient",
+      "resolution": "No inherited-FD input. Inspect ordinary paths directly; parentheses use a private /tmp hardlink or hash-verified EXDEV copy alias. Keep original dependency contexts and remove private directories in finally.",
+      "status": "closed",
+      "independentProof": [
+        "independent-native-alias-delta.txt",
+        "independent-bindings-release-before.txt",
+        "independent-bindings-release-after.txt"
+      ],
+      "nativeOriginalPathCounts": {
+        "full": 209,
+        "slim": 6
+      }
+    }
+  ],
+  "historyOwnership": [
+    {
+      "logs": [
+        "prepare-browser.txt"
+      ],
+      "classification": "online preparation download failure",
+      "reason": "Two FFmpeg mirror attempts reported TLS EPROTO; the documented preparation phase completed through the alternate upstream route and all final inputs are hash locked. No runtime download was required."
+    },
+    {
+      "logs": [
+        "build-full-first.txt"
+      ],
+      "classification": "new native-auditor filename parsing defect",
+      "reason": "otool archive-member syntax misread a Chrome Helper name containing parentheses. The initial FD workaround was later replaced by the final private-path alias correction."
+    },
+    {
+      "logs": [
+        "build-full-second.txt"
+      ],
+      "classification": "new native-auditor dependency classification defect",
+      "reason": "LC_ID_DYLIB was mistaken for a load edge. Only actual load commands are now qualified; closure checks remain intact."
+    },
+    {
+      "logs": [
+        "acceptance-full-first.txt"
+      ],
+      "classification": "acceptance fixture defects",
+      "reason": "/var vs /private/var string mismatch and an explicitly empty PLAYWRIGHT_NODEJS_PATH. Paths are compared by canonical file identity; the absent optional variable is deleted."
+    },
+    {
+      "logs": [
+        "acceptance-full-second.txt",
+        "review-probes/mcp-eof-before.json"
+      ],
+      "classification": "real workbench lifecycle defect",
+      "reason": "The stdio proxy retained bridge pipes after EOF. Drain accepted requests, reject new admissions, and close bridges without forcing root exit."
+    },
+    {
+      "logs": [
+        "development-host.txt",
+        "development-host-second.txt",
+        "relative-service-diagnostic.txt"
+      ],
+      "classification": "real relative-data-root defect plus qualified developer-permission fixture scope",
+      "reason": "Relative RUYI_HOME violated the execution ledger trusted absolute-directory requirement, fixed centrally with path.resolve. Separate new-ad-hoc Documents LaunchServices access failures remain historical; third-round LS success uses an exact-byte /tmp program snapshot and does not qualify Documents TCC or formal identity."
+    },
+    {
+      "logs": [
+        "fast-first.txt"
+      ],
+      "classification": "generated inventory/documentation registration drift",
+      "reason": "Facts/README suite counts and route inventory were stale after adding tests. Regenerated and checked by the main executor; failed/retry logs remain preserved."
+    },
+    {
+      "logs": [
+        "fast-final.txt",
+        "fixture-final.txt"
+      ],
+      "classification": "fixture scan registration/style drift",
+      "reason": "New EOF spawn needed the explicit process.env/fixture.env spread form and the actual fixture count. Actual isolated values were preserved; targeted gate passed."
+    },
+    {
+      "logs": [
+        "review-probes/missing-library-before.json",
+        "review-probes/wrong-context-before.json",
+        "review-probes/system-prefix-regression-before.txt"
+      ],
+      "classification": "independent negative controls exposed native closure gaps",
+      "reason": "Missing dylib, borrowed rpath context, and disguised system-prefix edge were independently reproduced. All corresponding current negative controls now pass."
+    },
+    {
+      "logs": [
+        "build-full-final.txt",
+        "lipo-sandbox-controls.txt",
+        "review-native-tool-selection.json"
+      ],
+      "classification": "failed fixed-SHA build and incomplete first diagnosis",
+      "reason": "First /dev/fd lipo timeout failed the build. Four minimal controls initially passed. Resolving selector shims alone was reviewed narrowly and never counted as a proved root-cause fix."
+    },
+    {
+      "logs": [
+        "independent-bindings-before.txt",
+        "independent-original-path-audit.json",
+        "independent-original-path-lipo-fd.txt",
+        "independent-original-path-lipo-sample.txt",
+        "lipo-final-path-controls.txt"
+      ],
+      "classification": "confirmed inherited-FD native-auditor defect on b33",
+      "reason": "Actual tool path still timed out at open(__open); its owned group was reclaimed and absence checked. The exact-file ordinary-path/FD control isolated the compatibility defect. The final implementation and final original-path 209/6 audits passed."
+    },
+    {
+      "logs": [
+        "independent-b33-functional.json",
+        "superseded-candidates.json",
+        "archives-b33.json"
+      ],
+      "classification": "superseded intermediate acceptance, not a final failure",
+      "reason": "b33 Full19/Slim7 passed functionally, but the FD auditor correction required a new commit and newly built candidates. These results are retained as historical and not substituted for f059 acceptance."
+    },
+    {
+      "logs": [
+        "independent-bindings-before-metadata.txt"
+      ],
+      "classification": "review-only Git-byte comparison adjustment",
+      "reason": "Raw Git blobs normalize eleven Windows scripts to LF; committed .gitattributes explicitly produces CRLF checkouts. The final checker compares committed raw bytes or explicit git cat-file --filters output to both candidate source fingerprints and the working tree. An unsupported batch --filters trial in the temporary review script was discarded; product sources and artifacts were unchanged."
+    }
+  ],
+  "archiveEvidence": {
+    "file": "archives.json",
+    "executor": "main",
+    "note": "ZIP creation/extraction integrity was performed by the main executor. This independent review accepts the directory payload and sidecar bindings and does not claim an additional ZIP extraction run."
+  },
+  "engineeringGates": {
+    "executor": "main",
+    "scope": "Final engineering receipt is maintained separately. This review does not relabel early unit-all/fast logs as final-SHA reruns."
+  },
+  "boundaries": [
+    "Ad-hoc development candidates only; Developer ID, notarization, stapling, Gatekeeper/distribution-origin first launch remain P6-02.",
+    "Clean standard-user installation without developer tools, actual macOS14, and final signed-identity Keychain/TCC/upgrade access are unverified here.",
+    "Same-candidate Windows runtime/CI qualification and full final-release regression remain later gates.",
+    "Upgrade/rollback, schema migration recovery and Windows-path/credential migration remain P6-03.",
+    "Full desktop automation inherits only the user-approved P5 qualified scope; original permission, held-input recovery, physical display and application restrictions are not upgraded to passed.",
+    "Browser bundled mode is explicitly selected; existing user browser preferences are preserved.",
+    "No system network, security, login, TCC or real user configuration changes were made for these tests.",
+    "No arbitrary child process that deliberately escapes its dedicated build process group is claimed covered."
+  ]
+}

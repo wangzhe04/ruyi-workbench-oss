@@ -1,0 +1,31 @@
+PASS capability matrix carries the real versioned native supervisor and default shell snapshot
+PASS ready supervisor permits shell and git discovery
+PASS shell_run schema advertises only implemented Mac languages
+PASS shell_start schema advertises only implemented Mac languages
+PASS script_run schema advertises only implemented Mac languages
+PASS powershell_run is not offered on Mac even with command and desktop settings enabled
+PASS powershell_run stale direct invocation is rejected before reaching its Windows handler
+PASS keyboard_send_keys is not offered on Mac even with command and desktop settings enabled
+PASS keyboard_send_keys stale direct invocation is rejected before reaching its Windows handler
+PASS capture is not offered without the Mac capture helper
+PASS stale capture invocation reports the missing Mac backend
+PASS unknown Mac supervisor state cannot advertise execution readiness
+PASS removing helper invalidates runtime readiness despite a warm 60-second capability matrix
+PASS normal tool discovery filters managed startup tools while helper is unavailable
+PASS existing-session cleanup and inspection remain discoverable
+PASS system prompt explains the same runtime requirement
+PASS self-status tool exposes unavailable shell capability and disables its background claim
+PASS normal health assembly includes failed supervisor check
+PASS CLI doctor and health UI agree on unavailable supervisor severity
+PASS health UI uses localized supervisor state in zh-CN
+PASS health UI uses localized supervisor state in en-US
+PASS cold asynchronous capability probes keep the event loop responsive
+PASS concurrent capability consumers share one helper probe
+PASS helper replacement during asynchronous probe cannot publish stale readiness
+PASS restoring helper re-enables discovery without restarting or expiring network cache
+
+MACOS CAPABILITIES E2E: ALL PASS
+(node:66376) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/health-i18n.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

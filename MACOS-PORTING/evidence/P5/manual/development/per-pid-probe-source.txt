@@ -1,0 +1,49 @@
+#import <AppKit/AppKit.h>
+#import <ApplicationServices/ApplicationServices.h>
+#import <Carbon/Carbon.h>
+static CGEventRef Observe(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *info) {
+    (void)proxy; (void)info;
+    UniChar chars[64]; UniCharCount length = 0;
+    CGEventKeyboardGetUnicodeString(event, 64, &length, chars);
+    NSString *text = [[NSString alloc] initWithCharacters:chars length:MIN(length,64)];
+    NSDictionary *out = @{@"event":@"tap", @"type":@(type), @"keycode":@(CGEventGetIntegerValueField(event,kCGKeyboardEventKeycode)),
+        @"source_pid":@(CGEventGetIntegerValueField(event,kCGEventSourceUnixProcessID)),
+        @"target_pid":@(CGEventGetIntegerValueField(event,kCGEventTargetUnixProcessID)), @"text":text ?: @"", @"flags":@(CGEventGetFlags(event))};
+    NSData *data = [NSJSONSerialization dataWithJSONObject:out options:0 error:nil];
+    puts([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding].UTF8String); fflush(stdout);
+    return event;
+}
+int main(int argc, const char *argv[]) { @autoreleasepool {
+    [NSApplication sharedApplication]; [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+    TISInputSourceRef current = TISCopyCurrentKeyboardInputSource();
+    NSArray *sources = CFBridgingRelease(TISCreateInputSourceList(NULL,false));
+    NSMutableArray *rows=[NSMutableArray array];
+    for (id value in sources) {
+        TISInputSourceRef source=(__bridge TISInputSourceRef)value;
+        id identifier=(__bridge id)TISGetInputSourceProperty(source,kTISPropertyInputSourceID);
+        id type=(__bridge id)TISGetInputSourceProperty(source,kTISPropertyInputSourceType);
+        id selectable=(__bridge id)TISGetInputSourceProperty(source,kTISPropertyInputSourceIsSelectCapable);
+        [rows addObject:@{@"id":identifier ?: @"",@"type":type ?: @"",@"selectable":selectable ?: @NO}];
+    }
+    NSDictionary *status=@{@"event":@"status", @"current_id":(__bridge id)TISGetInputSourceProperty(current,kTISPropertyInputSourceID),
+        @"current_type":(__bridge id)TISGetInputSourceProperty(current,kTISPropertyInputSourceType),
+        @"listen":CGPreflightListenEventAccess() ? @YES : @NO, @"sources":rows};
+    CFRelease(current);
+    NSData *encoded=[NSJSONSerialization dataWithJSONObject:status options:0 error:nil];
+    puts([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding].UTF8String); fflush(stdout);
+    if (argc != 3 || strcmp(argv[1],"--tap") != 0) return 0;
+    pid_t pid=atoi(argv[2]); if(pid<=1)return 65;
+    CGEventMask mask=CGEventMaskBit(kCGEventKeyDown)|CGEventMaskBit(kCGEventKeyUp)|CGEventMaskBit(kCGEventFlagsChanged)|CGEventMaskBit(kCGEventLeftMouseDown)|CGEventMaskBit(kCGEventLeftMouseUp);
+    CFMachPortRef tap=CGEventTapCreateForPid(pid,kCGTailAppendEventTap,kCGEventTapOptionListenOnly,mask,Observe,NULL);
+    if(!tap){ puts("{\"event\":\"failed\"}"); return 1; }
+    CFRunLoopSourceRef source=CFMachPortCreateRunLoopSource(NULL,tap,0);
+    CFRunLoopAddSource(CFRunLoopGetMain(),source,kCFRunLoopCommonModes);
+    puts("{\"event\":\"ready\"}"); fflush(stdout);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0), ^{
+        char line[8]; (void)fgets(line,sizeof(line),stdin);
+        dispatch_async(dispatch_get_main_queue(), ^{[NSApp stop:nil]; CFRunLoopStop(CFRunLoopGetMain());});
+    });
+    [NSApp run];
+    CFRunLoopRemoveSource(CFRunLoopGetMain(),source,kCFRunLoopCommonModes); CFRelease(source); CFMachPortInvalidate(tap); CFRelease(tap);
+    return 0;
+} }

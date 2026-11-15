@@ -1,0 +1,40 @@
+PASS ① steward-settings.js 零 innerHTML/insertAdjacentHTML/document.write（实得 []）
+PASS ① quiet-card.js 零 innerHTML/insertAdjacentHTML/document.write（实得 []）
+PASS ① rail-pocket.js 零 innerHTML/insertAdjacentHTML/document.write（实得 []）
+PASS ①b 新建表单的 26 个控件全部是 index.html 里的静态 DOM（缺 []）
+PASS ①c 星期复选框 data-dow 恰好 0..6 各一个（实得 ["0","1","2","3","4","5","6"]）
+PASS ② 定时任务界面真正用到 74 个本波前缀的键（少于 55 说明抓漏了）
+PASS ② public zh-CN 四文件齐全（缺 []）
+PASS ② public en-US 四文件齐全（缺 []）
+PASS ② docs zh-CN 四文件齐全（缺 []）
+PASS ② docs en-US 四文件齐全（缺 []）
+PASS ②b 中英占位符逐字相同（不同 []）
+PASS ②c 取到 index.html 的定时任务块
+PASS ②d 块里 92 个 data-i18n 键全部在中英目录里（缺 []）
+PASS ②e 块里零「写死的中文」（实得 []）
+PASS ③ 取到 steward-settings.js 的定时任务块（去注释后的代码）
+PASS ③ 定时任务块里零「clipboard」（UX 红线：不让用户离开如意自己操作）
+PASS ③ 定时任务块里零「execCommand」（UX 红线：不让用户离开如意自己操作）
+PASS ③ 定时任务块里零「复制」（UX 红线：不让用户离开如意自己操作）
+PASS ③ 定时任务块里零「cwd」（UX 红线：不让用户离开如意自己操作）
+PASS ③ 定时任务块里零「download」（UX 红线：不让用户离开如意自己操作）
+PASS ③b 产出线程的唯一落点是「打开这条线程」（在如意里打开，不给路径）
+PASS ③c index.html 的定时任务块里也没有复制/下载入口
+PASS ④ public zh-CN 覆盖 06j 的 9 个 describe 键 + 7 个星期键（缺 []）
+PASS ④ public en-US 覆盖 06j 的 9 个 describe 键 + 7 个星期键（缺 []）
+PASS ④ docs zh-CN 覆盖 06j 的 9 个 describe 键 + 7 个星期键（缺 []）
+PASS ④ docs en-US 覆盖 06j 的 9 个 describe 键 + 7 个星期键（缺 []）
+PASS ④b 星期之间的连接符也走目录（中文顿号／英文逗号不是同一个字）
+PASS ④c weekly 通用支回 dayKeys 数组（实得 {"days":[1,3],"dayKeys":["scheduler.dow.1","scheduler.dow.3"],"time":"18:00"}）
+PASS ④d 文案用 {{days}} 接那一串拼好的星期（前端逐个翻完再拼，纯函数不认识语言）
+PASS ⑤ 触发模式三值全部有人话（J10 的静态半边；缺 []）
+PASS ⑤b 结果五值全部有人话（J11 的静态半边；缺 []）
+PASS ⑤c unknown 的中文明说要核对（实得「结果未知，先核对」）
+PASS ⑤d unknown 与 succeeded 不是同一句话（J11：不判成功）
+PASS ⑥ rail-pocket.js 零计时器（实得 []）
+PASS ⑥b 口袋订阅 schedule.changed 恰好一处（实得 1）
+PASS ⑥c 焦点栏「接下来」订阅 schedule.changed 恰好一处（实得 1）
+PASS ⑥d 焦点栏那一处走的是既有那一条事件流（不新开第二条连接）
+PASS ⑥e steward-settings.js 仍然零计时器（实得 []）
+
+SCHEDULER UI STATIC E2E: ALL PASS

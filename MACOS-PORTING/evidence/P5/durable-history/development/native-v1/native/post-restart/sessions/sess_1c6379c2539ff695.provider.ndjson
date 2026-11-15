@@ -1,0 +1,2 @@
+{"role":"user","content":"P5_NEUTRAL_ABORT_66e8ae17aae2092e\n\n[本条消息发送于 2026-11-11 19:42 周三(本地时间 UTC+08:00)]"}
+{"role":"assistant","content":"","tool_calls":[{"id":"call_neutral_abort","type":"function","function":{"name":"tool_invoke_exec","arguments":"{\"name\":\"ai_computer_control__macro_run\",\"arguments\":{\"delay_ms\":0,\"steps\":[{\"tool\":\"wait\",\"args\":{\"seconds\":30}}]}}"}}]}

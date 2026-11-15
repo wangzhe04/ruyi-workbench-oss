@@ -1,0 +1,83 @@
+PASS S0 工作台起来了
+PASS S0 runtime token 可读
+PASS G2 不带 token 的 scan 被 403(token 级路由)
+PASS A1 ~/.claude/CLAUDE.md 启动即导成全局核心记忆(core:true / convention)
+PASS A2 前言记 importSource / importSourcePath / importSourceHash / importedAt
+PASS A3 ~/.codex/AGENTS.md 同样导入
+PASS A4 Claude Code 的 MCP 自动导入,origin=claude-code
+PASS A5 Codex config.toml 的 MCP 自动导入,origin=codex
+PASS A6 Kimi mcp.json 的 MCP 自动导入,origin=kimi
+PASS A7 Kimi 里如意自己同步过去的条目(kimi-mcp-sync.json 记着)不导回来
+PASS A8 指向如意包 app/server.js 的入口与保留 id 不导(不让如意连自己)
+PASS A9 技能库出现 ~/.codex/skills 的技能,来源 codex
+PASS B0 scan ok
+PASS B1 指令文件逐项状态(claude-md/codex-agents 已导入,kimi 无此文件)
+PASS B1b Gemini(非点名三家)只列为可导入,启动期不自动导
+PASS B2 MCP 逐项状态与跳过原因
+PASS B3 技能来源 codex 列出
+PASS B4 指向老包 app/server.js 的引用 → 提议改到当前包同相对路径
+PASS B5 旧名条目 ai-computer-control 在新包里没有对应文件 → 提议移除
+PASS B6 老包 OLD1(由引用认出)列出:版本/引用数/大小
+PASS B7 登记表里的老包 OLD0 列出且判为正在运行
+PASS B8 当前包不在老包清单里
+PASS B9 首启提示 show=true
+PASS B10 本包启动时登记进 install-registry.json
+PASS C1 provider 引擎的核心记忆里有 claude-md 与 codex 两条
+PASS C2 Claude 引擎回合注入里有核心记忆(codex 那条在)
+PASS C3 Claude 引擎回合注入里没有 claude-md 那条(CLI 原生会读 ~/.claude/CLAUDE.md)
+PASS D1 来源变了、导入条目没被改过 → 自动重导
+PASS D2 用户改过导入条目 → 来源再变也不覆盖,只标「来源已更新」
+PASS D3 显式「导入」用来源覆盖
+PASS D4 移除 → 导入条目删掉
+PASS D5 记 dismissed,再扫描(自动同步)也不导回来
+PASS D6 Gemini 经迁移中心显式导入才进核心记忆
+PASS E1 apply 两项都落了
+PASS E2 ~/.claude.json:old-bridge 改到当前包,ai-computer-control 移除
+PASS E3 其它键原样保留
+PASS E4 改之前留了备份 <file>.bak-ruyi-migrate-<ts>,内容是原文件
+PASS E5 迁移日志写进 <data>/migrations/<ts>.json
+PASS E6 改完再扫:引用清零,可撤销的迁移记录在
+PASS E7 undo ok
+PASS E8 undo 后 ~/.claude.json 还原成原样
+PASS E9 没有可撤销的了 → 404
+PASS F1 确认不符 → 400
+PASS F2 拒绝当前包
+PASS F3 拒绝正在运行的包
+PASS F4 拒绝仍被引用的包
+PASS F5 再次改到新版
+PASS F6 无引用后移进回收站(测试钩子下挪进 stub 目录)
+PASS G1 markSeen ok
+PASS G1b 看过之后不再提示
+PASS G3 出现新来源(Kimi 全局 AGENTS.md)→ 自动导入且再提示一次
+PASS H1 按来源逐个目录列出(被同名遮住的 codex:w8-a 也列,且标明被 claude-code 那份遮住)
+PASS H1b 超 20 MB / 超 500 个文件的技能判 too-large
+PASS H1c dataRoot/skills 里已有用户自己的同名技能 → conflict
+PASS H1d 行上报出会被跳过的符号链接/联接个数
+PASS H2 复制两项:都 created,写了迁移日志 id
+PASS H2b 整目录连子目录资源一起复制
+PASS H2c 来源记录 .ruyi-import.json(schema/source/sourcePath/plugin/importedAt/两枚树哈希)
+PASS H3 符号链接/联接没被复制,也没被跟随进去
+PASS H4 注册表里 w8-a 来源变为 user,带 copiedFrom=claude-code
+PASS H5 复制后外部行仍在列表里,状态 copied
+PASS H5b 同名另一来源(codex:w8-a)→ conflict(如意里那份是从 claude-code 复制的)
+PASS H6 已复制的跳过;另一来源的同名被拒,不覆盖、不写日志
+PASS H7 来源变了、副本没动 → source-updated
+PASS H7b 一键更新成功,之后又是 copied
+PASS H8 副本被改过 → copy-edited
+PASS H8b 不带 overwrite 拒绝,改动保留
+PASS H9 用户自己的同名技能 → conflict 拒绝,原样不动
+PASS H10 超限拒绝,不落任何文件
+PASS H11 路径穿越 id 一律 invalid-key,什么都不写
+PASS H11b 空 keys → 400
+PASS H11c 不带 token 的 copy 被 403
+PASS H12 kimi 两项复制
+PASS H12b 撤销只删没改过的副本(w8-c),改过的(w8-d)保留并说明 edited
+PASS H12c 撤销后 w8-c 回到活读(来源 kimi)
+PASS H13 撤销一次更新 → 换回更新前的副本,状态回到 source-updated
+PASS H14 overwrite:true 才覆盖改过的副本,旧副本挪进 migrations/skill-backups/<id>/ 留底
+PASS H15 技能目录里不留暂存目录
+PASS H16 插件技能复制:来源记录与注册表都记下插件名
+PASS H17 随包插件(ruyi-offline / 旧名 win-workbench-offline)的已装副本不顶替内置技能,也不作为外来插件技能列出(实得 api-debugger 来源 builtin)
+PASS H17b 迁移中心也不把随包插件的技能当成可复制的外来技能
+
+MIGRATION CENTER E2E: ALL PASS

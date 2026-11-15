@@ -1,0 +1,23 @@
+PASS G1 blur 三档 token 在(8/16/24 封顶)
+PASS G2 backdrop-filter 使用点全在白名单(经典框架4+浮层4+Preview 互斥壳+管家互斥壳+降级块)
+PASS G3 无 backdrop-filter: blur() 散写字面量(全走 var(--glass-blur-*))
+PASS G4 body = --scene-bg + fixed 附着(底层有景)
+PASS G5a @supports 实色回退在
+PASS G5b prefers-reduced-transparency 关模糊在
+PASS G6a chat-pane 透明(scene 透出,不叠 blur)
+PASS G6b chat-pane 无 blur(阅读区克制)
+PASS G6c 代码块保持实色 token(--code-bg)
+PASS G7a effectiveTheme system 解析在
+PASS G7b toggleTheme dark→light→system 循环
+PASS G7c matchMedia 变更监听(system 档随 OS)
+PASS G7d index.html 预绘解析 system(防闪)
+PASS G7e themeToggle emoji 已换 SVG(emoji 清零首例)
+PASS G7f i18n navigation.theme.system 在(zh)
+PASS G7f i18n navigation.theme.system 在(en)
+PASS G7f i18n navigation.theme.system 在(docs-zh)
+PASS G7f i18n navigation.theme.system 在(docs-en)
+PASS G8a 主按钮青花-黛紫渐变
+PASS G8b 2.0 会话项那一族规则已随会话列表退役（扫的是剥掉注释的载荷：退役说明本身要写清那个类名）
+PASS G8c 左栏选中是一层点色底；左边那道 3px 色条仍然只说「这是哪个任务」
+
+UI V4 GLASS STATIC E2E: ALL PASS

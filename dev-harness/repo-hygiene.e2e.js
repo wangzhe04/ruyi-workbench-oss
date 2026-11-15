@@ -121,9 +121,20 @@ function walk(dir, acc, skip) {
   // Only scan textual sources; skip this very file (it carries the regexes) and binary-ish vendor libs.
   const SELF = path.resolve(__filename);
   const textExt = /\.(js|py|md|json|ps1|cmd|html|css|txt|yml|yaml|toml|cfg)$/i;
-  const SECRET_RE = /sk-[a-zA-Z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,}|AUTH_TOKEN\s*=\s*[A-Za-z0-9._-]{16,}/;
+  const SECRET_RE = /sk-[a-zA-Z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,}|AUTH_TOKEN\s*=\s*[A-Za-z0-9._-]{16,}/g;
   // Placeholders that are legitimate examples (NOT real secrets).
   const PLACEHOLDER_RE = /<API_KEY>|<TOKEN>|your[_-]?api[_-]?key|xxxx|\.\.\./i;
+  function unexpectedSecretHits(line) {
+    if (PLACEHOLDER_RE.test(line)) return [];
+    return [...line.matchAll(SECRET_RE)].filter(hit => !(hit[0] === 'sk-' + 'a'.repeat(40)
+      && /^(?:# )?PASS ⑥ 清单给整份 patch（含 free \/ forbidden 的键）/.test(line)));
+  }
+  const syntheticLog = 'PASS ⑥ 清单给整份 patch（含 free / forbidden 的键） ' + 'sk-' + 'a'.repeat(40);
+  ok(unexpectedSecretHits(syntheticLog).length === 0 && unexpectedSecretHits('# ' + syntheticLog).length === 0,
+    '(b) exact synthetic unit sample recognized in raw and TAP logs');
+  ok(unexpectedSecretHits(syntheticLog + ' Bearer ' + 'realistic'.repeat(4)).length === 1
+    && unexpectedSecretHits('sk-' + 'a'.repeat(40)).length === 1,
+    '(b) synthetic sample never exempts another credential or an unrelated line');
   const secretHits = [];
   for (const f of files) {
     if (f === SELF) continue;
@@ -133,7 +144,9 @@ function walk(dir, acc, skip) {
     const lines = txt.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i];
-      if (SECRET_RE.test(ln) && !PLACEHOLDER_RE.test(ln)) {
+      // Old verbatim unit logs contain this one deliberately synthetic forbidden-tier
+      // sample. Check each hit: another credential on the same line must still fail.
+      if (unexpectedSecretHits(ln).length) {
         secretHits.push(path.relative(ROOT, f) + ':' + (i + 1));
       }
     }
@@ -304,8 +317,13 @@ function walk(dir, acc, skip) {
     const safeParse = t => { try { return JSON.parse(t); } catch { return null; } };
 
     // 假 claude:把整行实参追加进日志(quoteWinArg 用 "" 转义,JSON 整段在 cmd 眼里始终在引号内,echo %* 原样落盘)。
-    const fakeClaude = path.join(MCP_HOME, 'claude.cmd');
-    fs.writeFileSync(fakeClaude, '@echo off\r\n>>"' + CLAUDE_LOG + '" echo %*\r\nexit /b 0\r\n', 'utf8');
+    const fakeClaude = path.join(MCP_HOME, process.platform === 'win32' ? 'claude.cmd' : 'claude');
+    if (process.platform === 'win32') {
+      fs.writeFileSync(fakeClaude, '@echo off\r\n>>"' + CLAUDE_LOG + '" echo %*\r\nexit /b 0\r\n', 'utf8');
+    } else {
+      fs.writeFileSync(fakeClaude, '#!' + process.execPath + '\n'
+        + 'require("fs").appendFileSync(' + JSON.stringify(CLAUDE_LOG) + ', process.argv.slice(2).join(" ") + "\\n");\n', { mode: 0o755 });
+    }
     // 假远程 MCP(streamable HTTP,只回 JSON):记下每个请求带来的 Authorization。
     const remoteAuth = [];
     const remotePaths = [];   // 107-S2:真正发出去的请求路径 —— 掩码只能活在显示面,上游必须收到真 ?api_key=

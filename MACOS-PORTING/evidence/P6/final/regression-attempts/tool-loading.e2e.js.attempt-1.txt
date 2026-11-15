@@ -1,0 +1,22 @@
+PASS provider workbench starts
+PASS six provider calls captured (list -> search -> load -> success -> failure -> answer)
+PASS simple request exposes compact discovery controls
+PASS unrelated file schema absent before tool_load
+PASS loaded file schema appears next iteration and remains stable
+PASS meta reports reduced initial tool surface
+PASS tool_catalog loaded telemetry emitted
+PASS 20-T1 provider path emits a redacted shadow comparison
+PASS 20-T1 shadow leaves the provider-visible legacy search result unchanged
+PASS Provider compact directory lists names without loading schemas
+PASS concrete tool executes after loading
+PASS 20-F1 master shadow emits a redacted deterministic failure record
+PASS 20-F1 persisted shadow log contains classification metadata but no raw error/path
+PASS Claude core route stays compact but keeps discovery proxies
+PASS Claude compact directory enumerates hidden names without schemas or descriptions
+PASS Claude discovery returns hidden tool and exact risk tier
+PASS 20-T1 Claude/MCP shadow leaves the client-visible legacy result unchanged
+PASS 20-T1 Claude/MCP path persists only redacted shadow comparison metadata
+PASS Claude proxy rejects tier downgrade
+PASS Claude pre-router exposes likely concrete tools for the turn
+
+TOOL-LOADING E2E: ALL PASS

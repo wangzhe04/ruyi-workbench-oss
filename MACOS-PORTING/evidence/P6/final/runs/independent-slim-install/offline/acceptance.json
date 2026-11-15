@@ -1,0 +1,18 @@
+{
+  "candidate": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-WwROyq/Applications/试用 安装😀",
+  "treeSha256": "4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0",
+  "variant": "slim",
+  "failures": 0,
+  "sandboxDenied": [
+    "/Users/jiming/Documents/ruyi-workbench-mac",
+    "/opt/homebrew",
+    "/usr/local",
+    "/Users/jiming/.local",
+    "/Users/jiming/.cache",
+    "/tmp/ruyi-p6-assets",
+    "/private/tmp/ruyi-p6-assets",
+    "/tmp/ruyi-p6-assets-replayed",
+    "/private/tmp/ruyi-p6-assets-replayed"
+  ],
+  "nativeHost": "ready"
+}

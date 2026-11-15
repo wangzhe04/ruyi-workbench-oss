@@ -1,0 +1,15 @@
+PASS contract snapshot generator is current
+PASS 04-visual-pipeline.js is a physical build module
+PASS 04-desktop-shell.js is a physical build module
+PASS 06d-memory-domain.js is a physical build module
+PASS 06e-mission-domain.js is a physical build module
+PASS 06f-autonomy-grants.js is a physical build module
+PASS 06g-resource-leases.js is a physical build module
+PASS permission runtime no longer owns visual pipeline
+PASS context owner no longer contains desktop shell or mission driver
+PASS autonomy core no longer owns memory, grants, or leases
+PASS context cluster owns shared CompactionPlan
+PASS shared forced-400 kernel uses CompactionPlan
+PASS subagent forced-400 uses the shared kernel and its own privacy history owner
+PASS main forced-400 uses the shared kernel and the session privacy history owner
+PASS versioned context rules are runtime-authoritative

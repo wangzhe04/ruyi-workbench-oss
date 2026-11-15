@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-11-12T15:57:46.218079+00:00",
+  "checks": [
+    {
+      "name": "syntax-final",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 29.59,
+      "log": "syntax-final.txt"
+    },
+    {
+      "name": "build-freshness-final",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.154,
+      "log": "build-freshness-final.txt"
+    },
+    {
+      "name": "facts-final",
+      "command": [
+        "node",
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.107,
+      "log": "facts-final.txt"
+    },
+    {
+      "name": "repo-hygiene-final",
+      "command": [
+        "node",
+        "dev-harness/repo-hygiene.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 10.555,
+      "log": "repo-hygiene-final.txt"
+    }
+  ]
+}

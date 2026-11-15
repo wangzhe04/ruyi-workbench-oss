@@ -1,0 +1,23 @@
+PASS candidate declares its development identity and unverified minimum-system boundary
+PASS child sandbox actually refuses source reads and outbound public-network connections
+PASS relocated bundled Node starts the actual workbench in a separate writable data root
+PASS Node and ripgrep come from the moved package under denied developer directories
+PASS autodetection selects the bundled non-editable Python/ACC without a source override
+PASS relative pip console entrypoint runs after relocation without a staging shebang
+PASS relative playwright console entrypoint runs after relocation without a staging shebang
+PASS portable python alias selects the bundled CPython3.12
+PASS 报告.docx round-trips Chinese through the actual packaged workbench MCP
+PASS 演示.pptx round-trips Chinese through the actual packaged workbench MCP
+PASS XLSX retains numeric sample data
+PASS PDF retains readable Chinese text
+PASS chart tool produces an actual PNG offline
+PASS all five packaged writers retain real session checkpoints
+PASS bundled Chromium navigates and reads the local Chinese page with public network denied
+PASS actual running browser version matches the locked payload
+PASS packaged MCP exits normally after browser cleanup and stdio EOF
+PASS moved read-only App initializes real WKWebView using its internal root and Node despite hostile development overrides
+PASS App payload remains byte-for-byte unchanged after service, MCP, browser and native-host execution
+P6 acceptance evidence: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az
+INFO successful moved App clone removed; reports, metadata and frozen input retained
+
+MACOS OFFLINE PACKAGE E2E: ALL PASS

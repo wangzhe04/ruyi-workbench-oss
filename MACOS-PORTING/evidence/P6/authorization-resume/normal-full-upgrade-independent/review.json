@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-13T03:43:55.430169+00:00",
+  "kind": "Completion of archived independent ordinary Full upgrade acceptance; no new execution after cleanup",
+  "result": "pass_ordinary_full_upgrade_in_recorded_resource_scope",
+  "findings": [],
+  "rawIndex": "index.json",
+  "rawLog": "run.txt",
+  "acceptanceReceipt": "receipts/acceptance.json",
+  "execution": {
+    "exitCode": 0,
+    "assertionsPassed": 14,
+    "seconds": 48.039,
+    "attempts": 1,
+    "automaticRetries": 0,
+    "skipped": 0,
+    "timedOut": false,
+    "stagingMode": "normal-ditto-copy",
+    "RUYI_UPGRADE_CLONE_STAGING": "0",
+    "observedProcessBirths": 29,
+    "processObservationFailed": false,
+    "observedSurvivors": 0,
+    "nodeVersion": "v24.15.0"
+  },
+  "artifacts": [
+    {
+      "label": "old",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "treeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+      "payloadBytes": 1164650984
+    },
+    {
+      "label": "new",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "treeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+      "payloadBytes": 1164652738
+    }
+  ],
+  "imageHashesAndBytesBeforeAfterUnchanged": true,
+  "sourceTestBytesUnchanged": true,
+  "allArchivedReceiptSizesAndHashesMatchIndex": true,
+  "resourceConditions": {
+    "freeBytesBefore": 2899013632,
+    "twoMountedAppRegularFilePayloadBytes": 2329303722,
+    "marginRequiredBytes": 268435456,
+    "preflightSufficient": true,
+    "freeBytesAfter": 2866184192,
+    "interpretation": "Passed with about2.70GiB available and a256MiB preflight margin above measured two-App payload bytes. Does not promise Full upgrade under2.17GiB available, or that payload sum alone is sufficient; temporary filesystem/runtime overhead also matters."
+  },
+  "qualifiedScope": [
+    "Actual ordinary installTrial/ditto staging for both old Full b662 and new Full74d57 images, with no APFS clone staging branch selected.",
+    "All14 existing snapshot/corruption/partial-copy/old-retention/replacement/schema12->14/session-preservation/App-only rollback/full-snapshot recovery/startup/final signed payload integrity assertions passed.",
+    "Old-before, new-after and restored-old actual native App reports are ready with configured service; all29 recorded process birth identities were absent at test completion.",
+    "Same product3.0.1 different builds and a complete selected snapshot only; no arbitrary future-schema downgrade guarantee."
+  ],
+  "priorFailureRetained": {
+    "evidence": "../../mac-closeout/package-main/full-upgrade.txt",
+    "scope": "Earlier normal Full ENOSPC is a historical actual failure under lower free space. Later main and this independent ordinary14 passes qualify the changed resource conditions; neither overwrites that failure nor relies solely on the earlier clone15 resource path."
+  },
+  "fixtureCommitBinding": {
+    "commit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+    "files": [
+      {
+        "file": "dev-harness/macos-capture-host.e2e.js",
+        "sha256": "49acfc2f0ce0d325d37b3b321e146542b15ad39313193010956daa11b8355d5b"
+      },
+      {
+        "file": "dev-harness/macos-input-host.e2e.js",
+        "sha256": "e8878d9dbc80c974c1cc521abee2d7c5db6cf6002586dbb9d281fc1b07bc8632"
+      }
+    ],
+    "twoExecutedAuthorizationFixturesMatchFreezeAndCommit": true,
+    "ordinaryUpgradeTestFile": "dev-harness/macos-upgrade-rollback.e2e.js",
+    "ordinaryUpgradeTestSha256": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8",
+    "ordinaryUpgradeTestMatchesCommitBlob": true
+  },
+  "authorizationEvidenceConfirmation": {
+    "cases": [
+      {
+        "case": "capture",
+        "mainPass": 7,
+        "independentPass": 7,
+        "mainReceipt": "../main-after-screen-auth/capture-receipts/host.json",
+        "independentReceipt": "../independent/capture-receipts/host.json",
+        "mainPID": 20920,
+        "independentPID": 24636,
+        "distinctRealInvocationsConfirmed": true
+      },
+      {
+        "case": "input",
+        "mainPass": 14,
+        "independentPass": 14,
+        "mainReceipt": "../main-after-replaced-auth/input-receipts/input-host.json",
+        "independentReceipt": "../independent/input-receipts/input-host.json",
+        "mainPID": 22538,
+        "independentPID": 25315,
+        "distinctRealInvocationsConfirmed": true
+      }
+    ],
+    "independentReview": "../independent/review.json",
+    "scope": "Fixed immutable Full App on current host only; actual bundled helper3131822a... and Node chain already bound in independent review. InputMonitoring/listen/manual recording and formal/other environment gates remain unqualified."
+  },
+  "scratchCleanup": {
+    "recordedTestRoot": "/private/tmp/ruyi-p6-full-normal-independent-AFLYah",
+    "currentlyAbsent": true,
+    "interpretation": "Expected: successful test removed large App copies; remaining owned scratch was subsequently removed during user-requested space cleanup after raw/index/four small receipts were archived. Scratch absence does not invalidate durable acceptance evidence."
+  },
+  "phaseLimits": [
+    "Global/original P6 remains in_progress; current Mac internal trial scope may be recorded completed separately.",
+    "No Developer ID/notarization/stapling/formal identity, standard-user/second-Mac/macOS14/Windows or original P5 waiver inferred.",
+    "No fresh final-candidate594-file full regression is claimed."
+  ],
+  "reviewActions": {
+    "readExistingEvidenceOnly": true,
+    "testsRerun": 0,
+    "appsLaunched": 0,
+    "packagesCreated": 0,
+    "largeTemporaryDirectoriesCreated": 0,
+    "otherDocumentsModified": 0
+  }
+}

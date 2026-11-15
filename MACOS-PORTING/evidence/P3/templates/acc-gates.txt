@@ -1,0 +1,39 @@
+PASS server up ({"allowCommandTools":false,"allowDesktopTools":true,"toolLoadingMode":"full"})
+PASS A1 工具面里没有 ACC 的 run_command / batch_actions(got ai_computer_control__echo,ai_computer_control__add,ai_computer_control__screenshot_full,ai_computer_control__diagnostics,ai_computer_control__ocr_image,ai_computer_control__write_docx,ai_computer_control__move_file,ai_computer_control__copy_file,ai_computer_control__read_file,ai_computer_control__write_file,ai_computer_control__write_document,ai_computer_control__write_excel,ai_computer_control__write_pdf,ai_computer_control__write_pptx,ai_computer_control__excel_beautify,ai_computer_control__excel_chart,ai_computer_control__chart_image,ai_computer_control__image_resize,ai_computer_control__window_screenshot,ai_computer_control__get_clipboard_image,ai_computer_control__delete_file,ai_computer_control__slow_task,ai_computer_control__edit_file,ai_computer_control__fetch,ai_computer_control__memory_save,ai_computer_control__memory_read,ai_computer_control__memory_list,ai_computer_control__memory_delete,ai_computer_control__sequential_thinking,ai_computer_control__screenshot,ai_computer_control__mouse_click,ai_computer_control__read_document)
+PASS A1b 工具面里照常有 ACC 的 screenshot / read_document 与外部 MCP 的同名 run_command
+PASS A2 list_tools 目录同上(got {"ok":true,"pack":null,"total":126,"cursor":0,"count":126,"nextCursor":null,"groups":{"agents":["agent_result","orchestrate_agents","send_to_agent","wait_agents)
+PASS A3 直调 ACC run_command → tool-disabled(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__run_command' is disabled by settings (allowCommandTools=false)","hint":"该工具已被设置关闭;请改用其它已提)
+PASS A4 经 tool_invoke_exec 调同样被拒(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__run_command' is disabled by settings (allowCommandTools=false)","hint":"该工具已被设置关闭;请改用其它已提)
+PASS A3/A4 ACC 的 run_command 一次都没被执行
+PASS A5 转调器 batch_actions 随命令闸关(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__batch_actions' is disabled by settings (allowCommandTools=false)","hint":"该工具已被设置关闭;请改用其它)
+PASS A6 桌面闸开:screenshot 照常执行(got {"ok":true,"fake":"screenshot","tag":"acc"})
+PASS A7 名单外的 ACC read_document 不受影响(got {"ok":true,"fake":"read_document","tag":"acc"})
+PASS A8 外部 MCP 的同名 run_command 不受影响(got {"ok":true,"fake":"run_command","tag":"ext"})
+PASS A9 前置:会话级 desktopTools:false 写入(got 200)
+PASS A9 全局开 + 会话 desktopTools:false → screenshot 被拒且点名本会话(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__screenshot' is disabled by settings (desktopTools=false (this session))","hint":"该工具已被设置关)
+PASS A10 全局 MCP 配置的 ACC 条目按全局闸带 ACC_HIDE_TOOLS,外部条目不带(got "batch_actions,kill_process,launch_application,macro_run,run_command")
+PASS server up ({"allowCommandTools":true,"allowDesktopTools":false,"toolLoadingMode":"auto"})
+PASS B1 screenshot → tool-disabled(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__screenshot' is disabled by settings (allowDesktopTools=false)","hint":"该工具已被设置关闭;请改用其它已提供)
+PASS B2 tool_invoke_exec{mouse_click} → tool-disabled(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__mouse_click' is disabled by settings (allowDesktopTools=false)","hint":"该工具已被设置关闭;请改用其它已提)
+PASS B3 转调器 batch_actions 随桌面闸关(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__batch_actions' is disabled by settings (allowDesktopTools=false)","hint":"该工具已被设置关闭;请改用其它)
+PASS B1-B3 三个工具一次都没被执行
+PASS B4 命令闸开:ACC run_command 照常执行(got {"ok":true,"fake":"run_command","tag":"acc"})
+PASS B5 tool_search 搜不到被关的 ACC 桌面工具(got {"ok":true,"query":"screenshot mouse_click click screen","matches":[{"name":"ai_computer_control__screenshot_full","pack":"desktop","tier":"read","description":"Capture a full-screen screenshot (fake))
+PASS B6 tool_load 按名拉不进被关的 ACC 工具(got {"ok":true,"loaded":[],"activePacks":["core","files_read","code"],"toolCount":40,"unknown":["ai_computer_control__mouse_click"],"hint":"这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名"})
+PASS B7 前置:会话级 desktopTools:true 写入(got 200)
+PASS B7 全局关 + 会话 desktopTools:true → screenshot 放行(got {"ok":true,"fake":"screenshot","tag":"acc"})
+PASS B8 MCP 子进程:无覆盖的会话代理调 screenshot → tool-disabled(got {"ok":false,"code":"tool-disabled","error":"tool 'ai_computer_control__screenshot' is disabled by settings (allowDesktopTools=false)","hint":"该工具已被设置关闭;请改用其它已提供)
+PASS B9 MCP 子进程目录里没有被关的 screenshot(got {"ok":true,"query":"screenshot screen capture","matches":[{"name":"ai_computer_control__screenshot_full","pack":"desktop","tier":"read","description":"Capture a full-screen screenshot (fake)","args":")
+PASS B9b MCP 子进程:命令闸开时 run_command 照常(got {"ok":true,"fake":"run_command","tag":"acc"})
+PASS B10 MCP 子进程:desktopTools:true 的会话代理调 screenshot 放行(got {"ok":true,"fake":"screenshot","tag":"acc"})
+PASS B11 desktopTools:true 的会话目录里有 screenshot(got {"ok":true,"query":"screenshot screen capture","matches":[{"name":"ai_computer_control__screenshot","pack":"desktop","tier":"read","description":"Capture the screen (fake ACC screenshot)","args":"none)
+PASS C 前置:workbench (Claude 引擎) up
+PASS C 前置:会话建好并写入 desktopTools:false(got 200)
+PASS C1 直挂 ACC 条目带 ACC_HIDE_TOOLS(命令族 + 转调器 + 会话关掉的桌面族;名单外不在其中)(got 55 件: act_and_verify,batch_actions,close_window,find_all_templates,find_on_screen,find_template,focus_window,get_active_window…)
+PASS C1b 外部 MCP 条目不带 ACC_HIDE_TOOLS
+PASS C2 权限桥:mcp__ai-computer-control__run_command 直接拒(got {"behavior":"deny","message":"tool 'mcp__ai-computer-control__run_command' is disabled by settings (allowCommandTools=false)","requestId":"perm_16a3aa4986a6e2d6"})
+PASS C2b 权限桥:这条线程 desktopTools:false → screenshot 直接拒(got {"behavior":"deny","message":"tool 'mcp__ai-computer-control__screenshot' is disabled by settings (desktopTools=false (this session))","requestId":"perm_9a22fe39496601a7"})
+PASS C2c 名单外的 read_document 与外部 MCP 的 run_command 照常弹窗由人定(got [{"behavior":"deny","message":"user said no"},{"behavior":"deny","message":"user said no"}])
+PASS C2d 被总闸拦下的两条不弹窗(got mcp__ai-computer-control__read_document,mcp__ext-mcp__run_command)
+
+ACC CAPABILITY GATES E2E: ALL PASS

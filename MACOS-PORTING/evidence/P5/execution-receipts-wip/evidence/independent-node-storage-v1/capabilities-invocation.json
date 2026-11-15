@@ -1,0 +1,24 @@
+{
+  "label": "capabilities",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/acc-capability-gates.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {},
+  "startedAt": "2026-11-11T17:01:15.011992+00:00",
+  "freezeSha256": "0a3c35fcce4e5e21331a95faf06512a2ae2c2b7c89fe7926e1ff3a9128828757",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64",
+    "runtimeScope": "Only Node suites execute; MCP/Python SDK and native helpers are not invoked."
+  },
+  "finishedAt": "2026-11-11T17:01:15.293812+00:00",
+  "elapsedSeconds": 0.281676000013249,
+  "exitCode": 0,
+  "logSha256": "af82a33ffdb7f513bea0b002284c8bd1019b96e8ca26b7633b8c0f65d342de3e"
+}

@@ -1,0 +1,524 @@
+{
+  "cases": [
+    {
+      "mode": "large",
+      "tool": "macro_run",
+      "direct": false,
+      "decision": "allow",
+      "label": "EFFECT_0_large",
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_0fe435a1d7d6243b",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "EFFECT_0_large",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-effect-e2e-wyIEN6/work",
+            "createdAt": "2026-11-11T12:32:21.856Z",
+            "updatedAt": "2026-11-11T12:32:21.857Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_0fe435a1d7d6243b",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "03c71b0660f2",
+            "driverRunId": "drun_98d5c855f13ef6d4",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T12:32:21.956Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:51503/v1",
+          "args": [],
+          "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-effect-e2e-wyIEN6/work",
+          "model": "fake-model",
+          "permissionMode": "default",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 60,
+          "availableTools": 60,
+          "bridgedTools": 0,
+          "toolLoadingMode": "full",
+          "toolPacks": [
+            "core",
+            "files_read",
+            "files_write",
+            "code",
+            "shell",
+            "web",
+            "desktop",
+            "office",
+            "archive",
+            "agents",
+            "skills",
+            "integrations",
+            "memory",
+            "thinking",
+            "steward"
+          ],
+          "toolSchemaTokens": 19459,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.060Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.062Z"
+        },
+        {
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "type": "context_estimate",
+          "contextTokens": 24166,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T12:32:22.065Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_EFFECT_0_large\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_exec\",\"arguments\":\"{\\\"name\\\":\\\"effect_fixture__macro_run\\\",\\\"arguments\\\":{\\\"fixture_case\\\":\\\"large\\\"}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.070Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 1,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.070Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_EFFECT_0_large",
+          "name": "tool_invoke_exec",
+          "input": {
+            "name": "effect_fixture__macro_run",
+            "arguments": {
+              "fixture_case": "large"
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.072Z"
+        },
+        {
+          "type": "permission_request",
+          "requestId": "perm_909da9f2a67470a8",
+          "toolName": "tool_invoke_exec",
+          "input": {
+            "name": "effect_fixture__macro_run",
+            "arguments": {
+              "fixture_case": "large"
+            }
+          },
+          "tier": "exec",
+          "revertible": false,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.072Z"
+        },
+        {
+          "type": "permission_decision",
+          "requestId": "perm_909da9f2a67470a8",
+          "behavior": "allow",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.075Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_EFFECT_0_large",
+          "content": {
+            "ok": false,
+            "code": "unknown-tool",
+            "error": "tool not found: effect_fixture__macro_run. Call tool_search first. Did you mean: office_open, request_user_input, acceptance_report?",
+            "didYouMean": [
+              "office_open",
+              "request_user_input",
+              "acceptance_report"
+            ],
+            "hint": "use tool_search {query} to find the exact tool name and its tier"
+          },
+          "isError": true,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.085Z"
+        },
+        {
+          "type": "failure_classified",
+          "source": "runtime-shadow",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "toolCallId": "call_EFFECT_0_large",
+          "toolName": "tool_invoke_exec",
+          "iteration": 0,
+          "classifierVersion": "deterministic-v3",
+          "failureClass": "tool_unavailable",
+          "recoverableHint": true,
+          "allowedRepair": "retrieve_alternative_tool",
+          "deterministic": true,
+          "tier": "exec",
+          "disposition": "executed",
+          "evidenceHash": "6bc3fd3ea80aeace",
+          "ts": "2026-11-11T12:32:22.085Z"
+        },
+        {
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "type": "context_estimate",
+          "contextTokens": 24391,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T12:32:22.091Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture complete\"},\"finish_reason\":null}]}",
+          "seq": 2,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.094Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "fixture complete",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.094Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 3,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.094Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 4933,
+            "output_tokens": 4
+          },
+          "contextTokens": 4937,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.094Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.097Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.097Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "ts": "2026-11-11T12:32:22.097Z"
+        }
+      ],
+      "id": "sess_0fe435a1d7d6243b",
+      "sent": true,
+      "summary": {
+        "type": "turn_summary",
+        "turnSeq": 1,
+        "filesChanged": [],
+        "commands": 0,
+        "artifacts": [],
+        "irreversible": [],
+        "traceId": "trace_666bdcd3d2e9de9c",
+        "ts": "2026-11-11T12:32:22.097Z"
+      },
+      "persisted": [
+        {
+          "role": "user",
+          "content": "EFFECT_0_large",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_666bdcd3d2e9de9c",
+          "createdAt": "2026-11-11T12:32:21.956Z"
+        },
+        {
+          "role": "assistant",
+          "content": "fixture complete",
+          "turnSeq": 1,
+          "toolCalls": [
+            {
+              "id": "call_EFFECT_0_large",
+              "name": "tool_invoke_exec",
+              "input": {
+                "name": "effect_fixture__macro_run",
+                "arguments": {
+                  "fixture_case": "large"
+                }
+              },
+              "result": {
+                "ok": false,
+                "code": "unknown-tool",
+                "error": "tool not found: effect_fixture__macro_run. Call tool_search first. Did you mean: office_open, request_user_input, acceptance_report?",
+                "didYouMean": [
+                  "office_open",
+                  "request_user_input",
+                  "acceptance_report"
+                ],
+                "hint": "use tool_search {query} to find the exact tool name and its tier"
+              },
+              "irreversibleProjection": {
+                "schemaVersion": 1,
+                "items": [],
+                "incomplete": false
+              }
+            }
+          ],
+          "segments": [
+            {
+              "id": "segment-1",
+              "type": "tool",
+              "toolCallId": "call_EFFECT_0_large",
+              "name": "tool_invoke_exec",
+              "batchId": "openai-batch-1",
+              "status": "error"
+            },
+            {
+              "id": "segment-2",
+              "type": "permission",
+              "requestId": "perm_909da9f2a67470a8",
+              "toolName": "tool_invoke_exec",
+              "tier": "exec",
+              "revertible": false,
+              "status": "allowed"
+            },
+            {
+              "id": "segment-3",
+              "type": "text",
+              "text": "fixture complete"
+            }
+          ],
+          "turnSummary": {
+            "turnSeq": 1,
+            "filesChanged": [],
+            "commands": 0,
+            "artifacts": [],
+            "irreversible": []
+          },
+          "usage": {
+            "usage": {
+              "input_tokens": 4933,
+              "output_tokens": 4
+            },
+            "contextTokens": 4937,
+            "contextWindow": 1000000,
+            "calls": 0,
+            "estimated": true,
+            "contextEngine": "openai",
+            "contextProviderId": "fake",
+            "contextModel": "fake-model"
+          },
+          "createdAt": "2026-11-11T12:32:22.095Z",
+          "source": "provider:fake",
+          "engine": "openai",
+          "providerId": "fake",
+          "providerLabel": "fake",
+          "model": "fake-model",
+          "traceId": "trace_666bdcd3d2e9de9c"
+        }
+      ],
+      "snapshot": {
+        "sessionId": "sess_0fe435a1d7d6243b",
+        "missionId": "sess_0fe435a1d7d6243b",
+        "kind": "quick_ask",
+        "title": "EFFECT_0_large",
+        "summary": "fixture complete",
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-effect-e2e-wyIEN6/work",
+        "createdAt": "2026-11-11T12:32:21.856Z",
+        "updatedAt": "2026-11-11T12:32:22.096Z",
+        "status": "none",
+        "activeTurn": false,
+        "queued": false,
+        "mission": null,
+        "acceptance": {
+          "total": 0,
+          "done": 0,
+          "blocked": 0,
+          "pending": 0,
+          "items": [],
+          "ledger": false,
+          "container": null,
+          "merged": {
+            "total": 0,
+            "done": 0
+          },
+          "byProvenance": {
+            "machine": 0,
+            "self": 0,
+            "human": 0,
+            "open": 0
+          }
+        },
+        "runs": [],
+        "changes": {
+          "filesChanged": [],
+          "artifacts": [],
+          "commands": 0
+        },
+        "irreversible": {
+          "total": 0,
+          "byKind": {},
+          "items": [],
+          "legacyCommands": 0
+        },
+        "result": null,
+        "resultHistory": [],
+        "checkpoints": {
+          "entries": 0,
+          "turnSeqs": [],
+          "totalBytes": 0,
+          "rollbackAvailable": false
+        },
+        "controls": {
+          "activeTurn": false,
+          "liveRuns": 0,
+          "terminal": false,
+          "unfinished": false,
+          "budgetRemaining": false,
+          "rollbackTargetTurnSeq": 0,
+          "actions": {
+            "pause": {
+              "enabled": false,
+              "scope": "turn_driver",
+              "reason": "mission_missing"
+            },
+            "continue": {
+              "enabled": false,
+              "scope": "turn_driver",
+              "reason": "complete"
+            },
+            "stop": {
+              "enabled": false,
+              "scope": "mission",
+              "reason": "mission_missing"
+            },
+            "retry": {
+              "enabled": false,
+              "scope": "mission",
+              "reason": "not_terminal"
+            },
+            "next_turn": {
+              "enabled": false,
+              "scope": "mission",
+              "reason": "budget_exhausted"
+            },
+            "takeover": {
+              "enabled": false,
+              "scope": "turn_driver",
+              "reason": "mission_missing"
+            },
+            "rollback": {
+              "enabled": false,
+              "scope": "mission",
+              "reason": "target_unknown"
+            }
+          }
+        },
+        "ledger": {
+          "entries": [],
+          "truncated": false,
+          "totalEntries": 0,
+          "nonRevertibleFiles": [],
+          "irreversible": {
+            "items": [],
+            "legacyCommands": 0
+          },
+          "rollbackTargetTurnSeq": 0,
+          "recoverability": "none",
+          "reversibleEntries": 0,
+          "nonRevertibleEntries": 0
+        },
+        "usage": {
+          "inTok": 4933,
+          "outTok": 4,
+          "cachedInTok": 0,
+          "turns": 1,
+          "subagentTurns": 0,
+          "costsByCurrency": {}
+        },
+        "pending": {
+          "permissions": 0,
+          "questions": 0,
+          "plans": 0,
+          "pool": 0
+        },
+        "cursor": {
+          "turnSeq": 1,
+          "runs": {},
+          "projectionRevision": "a511332cac0a3015fe4c4876",
+          "snapshotAt": "2026-11-11T12:32:22.104Z"
+        },
+        "projectionRevision": "a511332cac0a3015fe4c4876",
+        "freshness": {
+          "persistentRevision": "a511332cac0a3015fe4c4876",
+          "indexedAt": "2026-11-11T12:32:22.103Z",
+          "liveOverlay": false,
+          "overlayAt": "2026-11-11T12:32:22.104Z"
+        }
+      }
+    }
+  ],
+  "cleanups": [],
+  "retained": true,
+  "calls": ""
+}

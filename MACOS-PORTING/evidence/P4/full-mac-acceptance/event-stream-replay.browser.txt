@@ -1,0 +1,8 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 三条线程已建（{"seated":"sess_8746efbdff0c42a0","other":"sess_b7fd583886c72eca","third":"sess_1e8acf20890a5f9a"}）
+PASS A0d Edge/Chrome found
+FAIL A0e browser target available
+FAIL 未预期异常: CDP target unavailable
+
+EVENT STREAM REPLAY BROWSER E2E: FAIL (2)

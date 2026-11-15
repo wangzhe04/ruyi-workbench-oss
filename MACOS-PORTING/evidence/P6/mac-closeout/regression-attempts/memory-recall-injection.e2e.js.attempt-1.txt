@@ -1,0 +1,23 @@
+PASS P0 记忆夹具落盘(1 核心偏好 + 2 教训 + 1 惯例)
+PASS P0b 三回合都正常完成
+PASS P0c 三个回合的请求都抓到了
+PASS P1 核心胶囊在首条 user 里,三回合逐字节相同
+PASS P2 第二、第三回合的首条 user 逐字节相同(前缀缓存不再从 messages[1] 断裂)(true)
+PASS P2b 首条 user 里没有检索回执 / 相关索引
+PASS P3 系统提示三回合逐字节相同
+PASS P3b 第二回合的回执(matches=1)与相关索引在末条 user 尾部
+PASS P4 索引行是 [id](scope),不带记忆文件路径
+PASS P4b 表头指示 workbench_memory_read 按 id 读(不再让模型 file_read 被封的记忆目录)
+PASS P5 零命中只有规则补位:matches="0" rule-fill="1",补位的惯例仍列出
+PASS P5b 回执文字如实说额外匹配 0 条(修前把规则补位算成匹配)
+PASS P5c 流式 meta 的 memoryCheck:matchCount 0、ruleFillCount 1
+PASS C0 记忆夹具落盘
+PASS C0b 四回合都抓到了 stdin
+PASS C1 稳定索引只在首轮发一次,换召回不重发(indexInjected=[true,false,false,false];修前每次召回一变整块就重发;每回合 hash / 续接重置原因:[["327f228f9b79",""],["327f228f9b79",""],["327f228f9b79",""],["327f228f9b79",""]])
+PASS C2 首轮 <workbench-context> 里有核心胶囊、没有相关记忆索引
+PASS C2b 后续回合的信封里没有 <workbench-context>(去重生效)
+PASS C3 第二回合的相关索引(带绝对路径)与回执拼进回合信封,排在 current_user_message 之前
+PASS C3b 第三回合(无关问句)信封里没有上一回合的相关列表
+PASS C3c 第四回合(回到部署话题)信封里是部署那条,不是第二回合的
+
+MEMORY RECALL INJECTION E2E: ALL PASS

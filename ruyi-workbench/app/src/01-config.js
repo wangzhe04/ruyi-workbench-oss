@@ -560,7 +560,8 @@ const THREAD_INDEX_RECENT_MIN = 10;
 const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
-  let s = String(value == null ? '' : value).trim();
+  const raw = String(value == null ? '' : value);
+  let s = process.platform === 'darwin' && raw.startsWith('/') ? raw : raw.trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
   for (let guard = 0; guard < 3; guard++) {
     const pair = pairs.find(([open, close]) => s.length >= 2 && s.startsWith(open) && s.endsWith(close));
@@ -568,7 +569,7 @@ function normalizeWorkspacePathString(value) {
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
   // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
-  const stripped = s.replace(/[\\/]+$/, '');
+  const stripped = s.replace(process.platform === 'darwin' && s.startsWith('/') ? /\/+$/ : /[\\/]+$/, '');
   if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
   else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);
@@ -1676,8 +1677,22 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
-    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    if (opts.exclusiveTemp === true) {
+      let file, created = false;
+      try {
+        file = await fsp.open(tmpPath, 'wx', Number.isInteger(opts.mode) ? opts.mode : 0o600);
+        created = true;
+        try { await file.writeFile(payload, 'utf8'); } finally { await file.close(); file = null; }
+      } catch (error) {
+        if (file) { try { await file.close(); } catch { /* preserve the failed write */ } }
+        // EEXIST is someone else's inode. Never unlink it while recovering our own attempt.
+        if (created) { try { await fsp.unlink(tmpPath); } catch { /* best effort; no publication */ } }
+        throw error;
+      }
+    } else {
+      try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
+      catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
       try { await fsp.rename(tmpPath, finalPath); return; }
@@ -1755,7 +1770,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const target = resolvePath(value, rule && rule.path);
       const max = Math.max(0, Math.floor(Number(rule && rule.max) || 0));
       if (!target || !max) continue;
-      if (Array.isArray(target) && target.length > max) target.splice(0, target.length - max);
+      if (Array.isArray(target) && target.length > max) Array.prototype.splice.call(target, 0, target.length - max);
       else if (typeof target === 'object') {
         const keys = Object.keys(target);
         for (const key of keys.slice(0, Math.max(0, keys.length - max))) delete target[key];
@@ -1771,32 +1786,39 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
     const quarantineEnabled = options.quarantine !== false;
+    const maxBytes = options.maxBytes;
+    if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024)) throw new TypeError('invalid durable JSON byte bound');
+    if (options.ownedRegular === true && maxBytes === undefined) throw new TypeError('owned durable JSON reads require a byte bound');
+    if (options.ownedRegular === true && options.mode !== undefined && options.mode !== 0o600) throw new TypeError('owned durable JSON files require mode 0600');
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
 
     const filePath = () => String(typeof options.file === 'function' ? options.file() : options.file);
-    const fallback = () => cloneJson(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
+    const copyValue = value => options.ordinaryJson === true && value !== undefined ? copyOrdinaryJsonData(value, false) : cloneJson(value);
+    const fallback = () => copyValue(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
 
     function prepare(raw, forWrite) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
-      const actualSchema = raw[schemaKey];
+      const sourceValue = options.ordinaryJson === true ? copyOrdinaryJsonData(raw, false) : raw;
+      const actualSchema = sourceValue[schemaKey];
       if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
-      let value = cloneJson(raw);
+      let value = options.ordinaryJson === true ? sourceValue : cloneJson(raw);
       if (typeof options.sanitize === 'function') value = options.sanitize(value);
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw storeError('EDURABLE_SANITIZE', id + ': sanitizer returned a non-object');
       }
+      if (options.ordinaryJson === true) value = copyOrdinaryJsonData(value, false);
       if (schemaVersion !== null) value[schemaKey] = schemaVersion;
       applyCapacity(value, options.capacity);
       if (typeof options.validate === 'function' && options.validate(value) !== true) {
         throw storeError('EDURABLE_VALIDATE', id + ': validation failed');
       }
-      return value;
+      return options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value;
     }
 
     function freshDefault() {
@@ -1813,11 +1835,81 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       }
     }
 
+    function parseText(text) {
+      const value = JSON.parse(text);
+      // Opt-in stores own this exact formatter. Equality rejects duplicate keys, alternate
+      // numeric lexemes and discarded bytes without maintaining a second JSON parser.
+      if (options.canonicalRead === true && JSON.stringify(options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value, null, 2) !== text) {
+        throw storeError('EDURABLE_CANONICAL', id + ': noncanonical JSON evidence');
+      }
+      return prepare(value, false);
+    }
+
+    function readFlags() {
+      let flags = fsModule.constants.O_RDONLY | (fsModule.constants.O_NONBLOCK || 0);
+      if (options.ownedRegular === true) {
+        if (!fsModule.constants.O_NOFOLLOW || typeof process.getuid !== 'function') {
+          throw storeError('EDURABLE_PLATFORM', id + ': owned descriptor reads unavailable');
+        }
+        flags |= fsModule.constants.O_NOFOLLOW;
+      }
+      return flags;
+    }
+    function checkReadStat(stat) {
+      if (!stat.isFile() || stat.size > BigInt(maxBytes)) throw storeError('EDURABLE_CAPACITY', id + ': invalid or oversized JSON file');
+      if (options.ownedRegular === true && (stat.uid !== BigInt(process.getuid()) || stat.nlink !== 1n || (stat.mode & 0o077n))) {
+        throw storeError('EDURABLE_OWNER', id + ': JSON file is not private and owned');
+      }
+    }
+    function unchangedRead(before, after) {
+      if (['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].some(key => before[key] !== after[key])) {
+        throw storeError('EDURABLE_CHANGED', id + ': JSON file changed during read');
+      }
+    }
+    function boundedText(buffer, used) {
+      if (used > maxBytes) throw storeError('EDURABLE_CAPACITY', id + ': JSON read exceeds byte bound');
+      const data = buffer.subarray(0, used), text = data.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(data)) throw storeError('EDURABLE_ENCODING', id + ': invalid UTF-8 JSON');
+      return text;
+    }
+    function readTextSync() {
+      if (maxBytes === undefined) return fsModule.readFileSync(filePath(), 'utf8');
+      const fd = fsModule.openSync(filePath(), readFlags());
+      try {
+        const before = fsModule.fstatSync(fd, { bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const count = fsModule.readSync(fd, buffer, used, buffer.length - used, null);
+          if (!count) break;
+          used += count;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, fsModule.fstatSync(fd, { bigint: true }));
+        return boundedText(buffer, used);
+      } finally { fsModule.closeSync(fd); }
+    }
+    async function readText() {
+      if (maxBytes === undefined) return fspModule.readFile(filePath(), 'utf8');
+      const file = await fspModule.open(filePath(), readFlags());
+      try {
+        const before = await file.stat({ bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const { bytesRead } = await file.read(buffer, used, buffer.length - used, null);
+          if (!bytesRead) break;
+          used += bytesRead;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, await file.stat({ bigint: true }));
+        return boundedText(buffer, used);
+      } finally { await file.close(); }
+    }
+
     function readSync() {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
+        value = parseText(readTextSync());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
@@ -1845,7 +1937,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+        value = parseText(await readText());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
@@ -1860,8 +1952,14 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     }
 
     function write(value) {
-      let snapshot;
-      try { snapshot = prepare(value, true); }
+      let snapshot, serialized;
+      try {
+        snapshot = prepare(value, true);
+        if (maxBytes !== undefined) serialized = JSON.stringify(snapshot, null, 2);
+        if (maxBytes !== undefined && Buffer.byteLength(serialized, 'utf8') > maxBytes) {
+          throw storeError('EDURABLE_CAPACITY', id + ': JSON write exceeds byte bound');
+        }
+      }
       catch (error) { return Promise.reject(error); }
       // Advance the write-through cache at enqueue time. Updating it on I/O completion lets an older queued
       // write temporarily replace newer in-memory state while the next atomic write is still awaiting disk.
@@ -1869,7 +1967,10 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const pending = writeChain.catch(() => {}).then(async () => {
         const file = filePath();
         await fspModule.mkdir(pathModule.dirname(file), { recursive: true });
-        await atomicWriteFn(file, snapshot);
+        const payload = maxBytes === undefined ? snapshot : serialized;
+        if (options.ownedRegular === true) await atomicWriteFn(file, payload, { mode: 0o600, exclusiveTemp: true });
+        else if (Number.isInteger(options.mode)) await atomicWriteFn(file, payload, { mode: options.mode });
+        else await atomicWriteFn(file, payload);
         return snapshot;
       });
       writeChain = pending;
@@ -3549,6 +3650,13 @@ async function desktopMcpFromRepoAsync(repoRoot) {
 // installed package rather than a checkout with src/, so it needs its own recognizer.
 function desktopMcpInstalledEnv(root) {
   const desktopEnv = { PYTHONUTF8: '1' };
+  if (process.platform === 'darwin') {
+    desktopEnv.PYTHONPATH = '';
+    desktopEnv.PYTHONNOUSERSITE = '1';
+    desktopEnv.PYTHONDONTWRITEBYTECODE = '1';
+    desktopEnv.RUYI_MACOS_AUTOMATION_HELPER = path.join(externalRoot(), 'runtime', 'macos', 'ruyi-automation-helper');
+    desktopEnv.ACC_BROWSER_MODE = 'bundled';
+  }
   const bundledBrowsers = path.join(root, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
@@ -3556,8 +3664,12 @@ function desktopMcpInstalledEnv(root) {
 }
 function desktopMcpInstalledPickOptions(root, options) {
   const installedCandidates = [
-    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
-    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ...(process.platform === 'darwin' ? [
+      { command: path.join(root, 'runtime', 'python', 'bin', 'python3'), args: [], source: 'installed-runtime', requireExisting: true },
+    ] : [
+      { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+      { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ]),
   ];
   return {
     candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
@@ -3609,6 +3721,9 @@ function desktopMcpRootPlan() {
       env.USERPROFILE && path.join(env.USERPROFILE, 'Documents', 'Claude Code', 'ai-computer-control'),
     ].filter(Boolean);
     for (const dir of repoCandidates) {
+      if (process.platform === 'darwin' && fs.existsSync(path.join(dir, 'runtime', 'python', 'bin', 'python3'))) {
+        steps.push({ kind: 'installed', root: path.resolve(dir) });
+      }
       if (!isDesktopMcpRepo(dir)) continue;
       steps.push({ kind: 'repo', root: path.resolve(dir) });
     }

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "checkedAt": "2026-11-12T11:23:38.248Z",
+  "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "reviewReport": "/tmp/ruyi-p603-review/packager-cleanup-delta-review.json",
+  "committedChangedFiles": [
+    "dev-harness/macos-offline-package.e2e.js",
+    "ruyi-workbench/tools/package-macos-trial.js"
+  ],
+  "exactTwoReviewedFiles": true,
+  "checks": [
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "reviewedSha256": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+      "current": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+      "committed": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-offline-package.e2e.js",
+      "reviewedSha256": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23",
+      "current": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23",
+      "committed": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23",
+      "pass": true
+    }
+  ],
+  "rawApplicationCandidates": "Both prebuilt492-source-fingerprint Full/Slim raw candidates retain b662 source provenance; their application fingerprints must be compared against b662, while final wrapper material fingerprints must match1953.",
+  "pass": true,
+  "mode": "Read-only committed blob binding; no tests, App/helper execution, native signature tools, mounts, image builds or deletions."
+}

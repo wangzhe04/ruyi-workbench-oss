@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+  "files": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "sha256": "4b121649d49c2d52ae5514b02dbe3eced18eed1ac0df8028cbd3859799ceb464"
+    },
+    {
+      "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+      "sha256": "34ec1204002011e843a85599a6827be5158a23ec4d48e7c5b7f5bdd0f495ee09"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4"
+    }
+  ]
+}

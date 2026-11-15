@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "at": "2026-11-11T15:47:54.036736+00:00",
+  "status": "uncommitted_WIP_not_integrated_into_main",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "archive": "source-snapshot-20261111T154754Z.tar.gz",
+  "archive_sha256": "c89b37f5e1fb6558a1eafef6279682fd6e4936ad4382d6d6932775061631ccdd",
+  "files": [
+    {
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86",
+      "gitBlob": "ae4b32700165d1195f42042d9865a10031978003"
+    },
+    {
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "bytes": 14294,
+      "sha256": "31475a9f813062edcb77e928aef06eee76664f60eaae8dbd60cb477ada48d286",
+      "gitBlob": "d8188c8d552452abf8952690b97a0f5ac9d6cf63"
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874",
+      "gitBlob": "28e2addbb6fc12cc07d493cf27beeca3484f0e41"
+    },
+    {
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4662,
+      "sha256": "d2d4aea58c1a3f332b8f1d6ca25506b7ad32ae8020a1750a2d07a220ccac9a5f",
+      "gitBlob": "74536466c5a358aed2dc693ce230782e0c47a49a"
+    },
+    {
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8",
+      "gitBlob": "4905e390e78a6ada688e148751d8c9210b821395"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b",
+      "gitBlob": "ddee26d77746c0881cea591ae59571d9605ec329"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11166,
+      "sha256": "d821887a8867abdd710b8a61ae3d03376dc5ce17940a1c0450449bcad420f15d",
+      "gitBlob": "0d906038c5602d672b27a0fa94d22bfbe8606ebd"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2",
+      "gitBlob": "7ec7f6ccfaeba0e518f4363452d73ed48880836a"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d",
+      "gitBlob": "ab749f99f2ac35188dccdff7d3fe88e0e15a5e1f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 11277,
+      "sha256": "840a68cf894af6b123019bcb941e793490aee9a33098fb18f6c8824d9ebb1901",
+      "gitBlob": "0bff20117fe54d4763ef340b5772b58ecc37f7f1"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "gitBlob": "f7e5d0ad3e45c499dab73e86ffcbed753c9e4759"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19893,
+      "sha256": "9ee32da54e86a439b60ce8e9a9fcabc34df9b9198cbcab1922cace2be063087b",
+      "gitBlob": "d08d85a18da19cc0ed014ad374c89aed15561fff"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "gitBlob": "6020317c850e54e696524d544e4b79693462a90f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "gitBlob": "f8b66192a931e5207dce9341ce0c4f5f6b168b1c"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9151,
+      "sha256": "0faea33fe37d7b60302af09162a712d3b7f1511484864caf3148567c7cabe5a7",
+      "gitBlob": "6c9e197d27686e94d975772792d2f69997b913b8"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5",
+      "gitBlob": "14fa52a52ef3fd93d33d3f37001206ffefe92af1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 12714,
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798",
+      "gitBlob": "be4706549924f5889eb5d2758dff77e557402d5c"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a",
+      "gitBlob": "9796d0b3212f0aa8b6eef82b4bde8d26b22e5ce1"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1",
+      "gitBlob": "14b995a4ea0050e5f415d80df28d3bc7c1ba13bd"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097",
+      "gitBlob": "bbc6fc25e09d7e7b3e4c0ef88058f6011225be10"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6800364,
+      "sha256": "b0f7fe241bfff18a13907e7242e150dc544bc7d3895aa4688a287d1a4288b787",
+      "gitBlob": "21174332193bc9393c27a29b74d97812186976dc"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 6192,
+      "sha256": "5f8900407070b0afb4237de335768b7929779db4fd4a3d828f4c8756d72e98df",
+      "gitBlob": "ef9e328ff9c5cc7c84a6bc57d4def8b31120ebd8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197549,
+      "sha256": "b817f08dfca5fe7fe75beb1c4425246c21bf832510be92fbbd593fe8cf122aba",
+      "gitBlob": "b709ad18ea80a8e032b1e56e20167354611fb16d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 24052,
+      "sha256": "dfc019c1c941d613b814db994c8fd2e04235664cd5330b26acc00839a857de59",
+      "gitBlob": "079ed96b46c889b9da9b6ec9bacf6205db37b5c3"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "gitBlob": "b5b4c5305653330d7abdc3c877f30fbe3b421580"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "gitBlob": "f03fead3cd0a5b0f4d29de8a88a330ef24cef632"
+    }
+  ]
+}

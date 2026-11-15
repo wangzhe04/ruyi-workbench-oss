@@ -1,0 +1,52 @@
+PASS old and new image checksums/provenance verify and bind different same-variant builds
+PASS previous installed App starts after its image is ejected and its service exits cleanly
+PASS offline complete data snapshot preserves representative legacy config and session bytes
+PASS corrupt distribution is refused before any old App or data changes
+PASS incomplete staged copy fails integrity checks while the previous App remains usable
+FAIL Error: ditto failed: -E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/tokenize.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/tomllib: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/trace.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/traceback.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/tracemalloc.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/tty.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/turtle.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/turtledemo: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/types.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/typing.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/unittest: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/urllib: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/uu.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/uuid.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/venv: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/warnings.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/wave.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/weakref.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/webbrowser.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/wsgiref: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/xdrlib.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/xml: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/xmlrpc: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/zipapp.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/zipfile: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/zipimport.py: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/zoneinfo: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/tcl9: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/tcl9.0: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/tk9.0: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/share: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/third-party-notices: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/wheels: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/native-dependencies.json: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/package.json: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/python-licenses.json: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/resources: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/runtime: No space left on device
+ditto: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/incoming/Ruyi.app/Contents/Resources/workbench/THIRD-PARTY-NOTICES.md: No space left on device
+
+    at run (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:71:50)
+    at installTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:155:5)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-upgrade-rollback.e2e.js:66:75
+Failed upgrade fixture retained: /private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-upgrade-Yh5T3o
+
+MACOS UPGRADE ROLLBACK E2E: FAIL (1)

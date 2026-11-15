@@ -1,0 +1,11 @@
+PASS native clipboard transaction rejects admission after stop and retains an active owned snapshot
+PASS production helper excludes the input-state test protocol
+PASS nonactivating fixture preserves the pre-test clipboard before its owned seed
+PASS blocked native fixture owns a tracked temporary clipboard version
+FAIL Error: Injected premature watchdog-fixture failure
+    at runWatchdog (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-events.e2e.js:43:68)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-events.e2e.js:93:7
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+
+MACOS INPUT EVENTS E2E: FAIL (1)

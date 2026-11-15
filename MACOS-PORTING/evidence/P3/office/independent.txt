@@ -1,0 +1,53 @@
+[11/07/26 03:12:04] WARNING  Matplotlib is building the     font_manager.py:1249
+                             font cache; this may take a                        
+                             moment.                                            
+[11/07/26 03:12:09] INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Suppleme                     
+                             ntal/NISC18030.ttf:                                
+                             Non-scalable fonts are not                         
+                             supported                                          
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/LastReso                     
+                             rt.otf: tuple indices must be                      
+                             integers or slices, not str                        
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Apple                        
+                             Color Emoji.ttc: Non-scalable                      
+                             fonts are not supported                            
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/PrivateFramewo                     
+                             rks/FontServices.framework/Res                     
+                             ources/Reserved/PingFangUI.ttc                     
+                             : FT_Open_Face (ft2font.cpp                        
+                             line 200) failed with error                        
+                             0x02: unknown file format                          
+                    INFO     generated new fontManager      font_manager.py:1848
+PASS independent DOCX reader preserves Chinese table rows and numbers
+PASS DOCX uses an installed Mac CJK family
+PASS independent XLSX reader matches every source header, string and numeric value
+PASS XLSX contains its native chart and the Mac CJK font
+PASS independent PPTX reader finds all three specified slides
+PASS PPTX data table matches the source values
+PASS PPTX shapes stay within the slide bounds
+PASS chart is a real high-resolution raster with visible content
+PASS selected chart font contains every Chinese sample label glyph
+PASS independent PDF resources contain actual embedded font streams
+PASS independent PDF text extraction retains Chinese, English and table data
+PASS source-with-image.docx native reader extracts images without warnings
+PASS source-with-image.docx embedded image bytes match the source chart
+PASS source-with-image.xlsx native reader extracts images without warnings
+PASS source-with-image.xlsx embedded image bytes match the source chart
+PASS slides.pptx native reader extracts images without warnings
+PASS slides.pptx embedded image bytes match the source chart
+PASS summary.pdf native reader extracts images without warnings
+PASS native PDF reader returns an actual page raster
+PASS missing embeddable CJK font returns an accurate reader-font warning
+PASS blank PDF is inspected as having no font resources; selection is not treated as embedding proof
+PASS unreadable chart font keeps its accurate warning across cached calls
+PASS Windows Office style retains its original font contract
+PASS zero-exit renderer cannot accept stale PDF outputs as a fresh render
+MACOS OFFICE INDEPENDENT VERIFICATION: ALL PASS

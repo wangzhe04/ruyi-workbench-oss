@@ -1,0 +1,17 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S0 建出那条老会话
+PASS S0 改盘前先读一次老会话
+PASS S0 206 条填充/标题会话都建出来了(建失败 0 条)
+PASS S0 前提:GET /api/sessions 里老会话排在前 200 之外(第 206 位,共 207 条)
+PASS S1 前提:老会话不在左栏已取到的那一页里(当前 200 行)
+PASS S1 老会话中间那句搜得到,并且画进了左栏(按 id 补取了它的行)
+PASS S2 命中行下挂着摘录(…e2e-tmp-r1XGfd/ruyi-rail-search-Tee6Hk/work 先帮我看看项目结构 下载器要支持断点续传,中断后从已下载的字节接着拉 后续闲聊第 0 条 后续闲聊第 2 条 后续闲聊第 4 条 后续闲聊第 6 条 后续闲聊第 8 条 后续闲聊第 9 条 后续闲聊第 7 条 后续闲聊第 5 条 后续闲聊第 3 条 后续闲聊第 1 条 用…)
+PASS S3 标题含查询词的会话留在左栏
+PASS S4 搜索时只剩命中的两条会话(2 条)
+PASS S5 页面无未捕获异常([])
+
+RAIL SESSION SEARCH BROWSER E2E: ALL PASS

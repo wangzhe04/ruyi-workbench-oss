@@ -1,0 +1,46 @@
+{
+  "label": "build",
+  "argv": [
+    "node",
+    "ruyi-workbench/app/build.js",
+    "--check"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-61iar0y1/home",
+    "USERPROFILE": "/tmp/rd-61iar0y1/userprofile",
+    "APPDATA": "/tmp/rd-61iar0y1/appdata",
+    "LOCALAPPDATA": "/tmp/rd-61iar0y1/localappdata",
+    "RUYI_HOME": "/tmp/rd-61iar0y1/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-61iar0y1/data",
+    "WCW_DATA_DIR": "/tmp/rd-61iar0y1/acc-data",
+    "TMPDIR": "/tmp/rd-61iar0y1/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-61iar0y1/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-61iar0y1/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T18:36:56.938059+00:00",
+  "freezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T18:36:57.126447+00:00",
+  "elapsedSeconds": 0.18824895902071148,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v2/build.log",
+    "bytes": 69,
+    "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+  }
+}

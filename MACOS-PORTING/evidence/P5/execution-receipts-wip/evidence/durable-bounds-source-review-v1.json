@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T16:22:49.423Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent read-only source review, existing parent development-log inspection, and narrow no-filesystem VM probes using source slices with mocked writes. No reviewer filesystem mutation tests, FIFO/native/helper/MCP/GUI execution, build, source edits or settings changes.",
+  "scope": "Shared ordinary-JSON copier extraction, DurableJsonStore opt-in bounded/canonical/private descriptor reads and fixed bounded writes, and exclusive private atomic-write temp creation. Node ledger factory/store/provider integration is outside this slice.",
+  "sourceInputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/00-boot.js",
+      "bytes": 99405,
+      "sha256": "c6b8fffd816160a806b5bcb466da3eefbdda9f983dd596fb6f1679fa27c6a72b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/01-config.js",
+      "bytes": 296227,
+      "sha256": "36ebe66a701261130bfb2fef1ea40b1afce00e3f59b3aebb8fe97aafd5d75453"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 3957,
+      "sha256": "653350f8ffdf3c17ee5e5dc9509f1be9a5c7b0121074b8d7b1df2538c1b01898"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/durable-json-bounded.test.js",
+      "bytes": 9396,
+      "sha256": "84f0f2e9a9f6660ea672cc7bbab318060824e6c08c916558a191382fa3784fb1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/durable-json-strict-read.test.js",
+      "bytes": 3308,
+      "sha256": "69fc4eebace19a54830231acf4a6cd18cd4404cd7e9f053999db49d82c482245"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4739,
+      "sha256": "9f48f8e37717b2af02675c8f2e70ec6fad7f86fa30f0c08fb35ed994fe640c3f"
+    }
+  ],
+  "findings": [
+    {
+      "id": "ordinary-schema-accessor-before-copy",
+      "priority": 2,
+      "status": "closed",
+      "original": "ordinaryJson prepare read raw[schemaKey] before safe descriptor copying, allowing a schema getter to execute even though later copying rejected it.",
+      "correction": "Ordinary JSON is descriptor-copied first; schema lookup uses that safe copied value.",
+      "verification": "Current source/new regression inspected; current no-filesystem VM probe rejects schema accessor with calls=0. The probe ran after the patch, so it is closure evidence, not a claimed runtime reproduction of the original version."
+    },
+    {
+      "id": "bounded-queued-write-can-grow",
+      "priority": 2,
+      "status": "closed",
+      "original": "Only enqueue-time serialization was size-checked; a mutable legacy cache could grow the snapshot before delayed atomic serialization and exceed maxBytes.",
+      "correction": "When maxBytes is enabled, serialization is fixed at enqueue, the exact string is bounded, and that immutable serialized string is passed to the atomic writer. Legacy unbounded snapshot behavior remains unchanged.",
+      "verification": "Current regression inspects real fixture bytes after cache mutation; reviewer no-filesystem VM expands cache by 500 characters yet captures only the original 34-byte published JSON, within a 100-byte bound."
+    },
+    {
+      "id": "owned-mode-omission-disables-private-exclusive-write",
+      "priority": 2,
+      "status": "closed",
+      "original": "ownedRegular=true without explicit mode skipped exclusiveTemp and could write a nonprivate file unreadable by its own strict owned reader.",
+      "correction": "Owned writes independently always pass mode0600 and exclusiveTemp=true; create rejects explicit non0600. The opt-in atomic writer opens temp wx and only removes a temp created by this attempt; EEXIST preserves the foreign inode.",
+      "verification": "Current source and owned-without-mode/foreign-temp-collision regressions inspected. Reviewer VM captures mode=384 and exclusiveTemp=true even when caller omits mode."
+    }
+  ],
+  "checked": [
+    "maxBytes is validated as a safe integer 1..64MiB; ownedRegular cannot select unbounded reads.",
+    "Bounded sync/async reads open an actual fd, use NONBLOCK and optional NOFOLLOW, check a regular private owned single-link file, allocate at most maxBytes+1, require complete observed extent, compare dev/ino/size/mtimeNs/ctimeNs, reject invalid UTF8 roundtrip, and close descriptors in finally.",
+    "canonicalRead compares exact producer formatting after parsing; duplicate keys, alternate numeric spelling, extra whitespace/BOM/trailing bytes cannot silently normalize into accepted canonical evidence.",
+    "ordinaryJson uses the shared descriptor copier before schema access, after sanitizer and for the frozen output. Mutable intermediate null-prototype containers allow intentional sanitize/capacity work while final objects/arrays resist queued getter/toJSON mutation.",
+    "Preparation now reuses the same boot-level copier rather than maintaining a second implementation. Input array/object hooks, unsupported values and recursive bounds retain their rejection behavior.",
+    "Default callers without new options still use legacy readFile/clone/cache/recovery/writeFile semantics. The generic splice invocation accommodates null-prototype arrays while preserving normal existing capacity behavior.",
+    "New exclusive-temp writer does not publish after create/write/close failure and does not unlink another inode on EEXIST. Existing default atomic writer remains on its previous branch."
+  ],
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/durable-preparation-v3.log",
+        "bytes": 2707,
+        "sha256": "b588b0cbd05a3891a64c5843925eb9dbf7b21c1ad0a7ffd8099eff8b175eeb73"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/durable-preparation-v4.log",
+        "bytes": 2765,
+        "sha256": "9a167b93fa9ad4f2947cd3f5af8a8d4336a7b0c4a904f70386aa9f7426f020e5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/durable-preparation-v5.log",
+        "bytes": 2953,
+        "sha256": "c32cc089390fc4308a008108c42922aecd9c14802efc5ec55a70879db4d9db4f"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/durable-preparation-v6.log",
+        "bytes": 3158,
+        "sha256": "8dd23700f94a4ac26d3f307489d57ca8eb681b5b810037d7810d95592d7b8f7c"
+      }
+    ],
+    "current": {
+      "version": 6,
+      "total": 29,
+      "breakdown": {
+        "bounded": 14,
+        "oldStrict": 3,
+        "preparation": 6,
+        "arguments": 6
+      },
+      "result": "PASS"
+    },
+    "history": "v3 contains a genuine SyntaxError from incorrectly escaped template delimiters in the new FIFO fixture test; the old strict/preparation/argument tests still ran, with 15 pass and one test-file failure. v4 passed25, v5 passed27 after the first two findings, v6 passed29 after owned/exclusive protection. All original logs are retained and are not summarized as first-attempt success.",
+    "fifo": "The existing parent FIFO regression runs sync/async reads in an independent child with a 3-second deadline. Reviewer inspected this test/log but did not execute it.",
+    "reviewerExecuted": false
+  },
+  "reviewerPureProbeTreatment": "Only isolated VM source-slice/mocked-writer probes were executed. Facts are summarized from chat tool outputs; no standalone original-stdout artifact was captured or reconstructed.",
+  "outcome": "All three actionable findings identified in this slice are closed in current source; no further actionable source finding identified within the reviewed scope.",
+  "mandatoryFactoryLimits": [
+    "New options are composable and do not silently change legacy cache/recovery. Authoritative dispatch evidence must explicitly use cache:false, strictRead:true, quarantine:false, bounded canonical ordinary JSON and private owned reads/writes; cached or fallback data is not proof of committed state.",
+    "Missing-file default behavior remains an initial-state convenience. A later ledger must not infer not_dispatched or replay permission merely because an already-known invocation ledger is missing.",
+    "Parent directory ownership/confinement, cross-process ledger serialization, transition/correlation semantics and retention of unresolved traces remain the ledger factory/protocol responsibility.",
+    "The shared atomic writer remains atomic replacement; this change does not introduce an fsync/power-loss durability guarantee or compare-and-swap transaction. Required persistence semantics need explicit protocol acceptance rather than inference from this bounds review.",
+    "Node durable preparation/dispatcher activation, returned-result storage and restart reconciliation are not implemented by this slice. Existing reader/native/context gates are not automatically requalified by these source changes.",
+    "Held-state fault qualification requires independent qualified rescue; whole P5 and automatic-lock restoration gates remain unchanged."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no lock settings inspected or changed."
+}

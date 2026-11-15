@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-08",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "uncommitted_worktree",
+  "status": "passed_automated_current_local_scope",
+  "checks": [
+    {
+      "command": "node --require ./dev-harness/lib/self-isolate-home.js --test 'dev-harness/unit/*.test.js'",
+      "exitCode": 0,
+      "tests": 2509,
+      "passed": 2491,
+      "failed": 0,
+      "skipped": 18,
+      "log": "unit.txt"
+    },
+    {
+      "command": "node dev-harness/run-all.js --fast",
+      "exitCode": 0,
+      "passed": 80,
+      "failed": 0,
+      "liveExcluded": 7,
+      "log": "static.txt"
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js",
+      "exitCode": 0,
+      "files": 1134,
+      "failed": 0,
+      "log": "syntax.txt"
+    },
+    {
+      "command": "node ruyi-workbench/app/build.js --check",
+      "exitCode": 0,
+      "result": "fresh",
+      "log": "freshness.txt"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "nativeIndependent": "../media/physical/reporting-delay/review.json",
+  "workspaceIndependent": "../bridge/workspace-alias/workspace-independent-current.txt",
+  "remainingLocal": "real native file and directory drag/drop, final evidence closeout",
+  "external": "formal identity user-deferred; actual macOS14 and same-candidate Windows unverified"
+}
