@@ -118,7 +118,13 @@ function rememberAuditLogFailure(file, error) {
   const failure = auditLogError(error);
   // Diagnostics are bounded independently of the Writable's row backlog. An
   // overflow remains fail-closed until restart; it never drops or caps writes.
-  if (auditLogFailures.has(file) || auditLogFailures.size < 64) auditLogFailures.set(file, failure);
+  if (auditLogFailures.has(file) || auditLogFailures.size < 64) {
+    // A later unavailable policy must not turn an unacknowledged IO failure into
+    // a recoverable policy-only refusal. Only a successful append clears IO loss.
+    const previous = auditLogFailures.get(file);
+    if (!previous || previous.code === 'work_data_journal.switch_unavailable'
+      || failure.code !== 'work_data_journal.switch_unavailable') auditLogFailures.set(file, failure);
+  }
   else auditLogFailureOverflow = failure;
   try { process.stderr.write(failure.code + '\n'); } catch { /* diagnostics only */ }
 }
@@ -181,7 +187,19 @@ async function recoverWorkbenchAudit(journal) {
 async function writeWorkbenchLogChunks(entries) {
   for (let index = 0; index < entries.length;) {
     const entry = entries[index].chunk;
-    if (entry.barrier) { entry.finish(pendingAuditLogFailure()); index++; continue; }
+    if (entry.barrier) {
+      // Only refusals already observed when this read queued its barrier qualify.
+      // Revalidate the same file against current policy and authenticate its full
+      // journal without appending, replaying a lost row, or acknowledging recovery.
+      for (const [file, failure] of entry.policyFailures) {
+        if (auditLogFailures.get(file) !== failure) continue;
+        try {
+          await workbenchAuditJournal(file).preflight();
+          if (auditLogFailures.get(file) === failure) auditLogFailures.delete(file);
+        } catch { /* unknown policy, unsafe journal and key failures stay closed */ }
+      }
+      entry.finish(pendingAuditLogFailure()); index++; continue;
+    }
     const file = path.join(paths.logs, `workbench-${entry.day}.ndjson`), rows = [];
     let bytes = 0;
     while (index < entries.length && rows.length < AUDIT_LOG_BATCH_ROWS) {
@@ -232,7 +250,8 @@ async function flushWorkbenchLogs({ allowFailure = false } = {}) {
     const finish = failure => { if (auditLogFlush === pending) auditLogFlush = null; resolve(failure); };
     // Resolve at the barrier itself, even when Node passes later chunks in the
     // same _writev invocation. Those later writes cannot delay this read forever.
-    logStream.write({ barrier: true, finish });
+    const policyFailures = [...auditLogFailures].filter(([file, failure]) => file && failure.code === 'work_data_journal.switch_unavailable');
+    logStream.write({ barrier: true, finish, policyFailures });
   }
   const failure = await pending.promise;
   if (failure && !allowFailure) throw failure;

@@ -128,6 +128,10 @@ function reference() {
   // [T3] 一次真变化:用户把线程交给管家 -> 下一拍入箱一行 adopted、inboxSeq 前进 -> 游标必须重写
   const seqBefore = reference().inboxSeq;
   srv.RUYI_EVENTS.emit('thread.adopted', { sessionId: 'sess_000001', by: 'user', note: 'tick-cost' });
+  // This fixture drives ticks manually; exclude the event's asynchronous wake
+  // ticks from the later per-call I/O counters without changing inbox readers.
+  // Production wake behavior remains covered by work-data-autonomous-wake.test.js.
+  srv.__eval('stewardClearWake()');
   reset(); await srv.startStewardInbox(cfg); out.changeTick = snap();
   out.cursorAfterChange = JSON.parse(fs.readFileSync(cursorFile, 'utf8'));
   out.seqBefore = seqBefore; out.seqAfter = reference().inboxSeq;

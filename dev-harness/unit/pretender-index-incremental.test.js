@@ -23,7 +23,9 @@ const os = require('os');
 const path = require('path');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-pretender-incr-'));
 process.env.RUYI_HOME = root;
-const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+const srv = require('../lib/server-internals').loadServerInternals([
+  'pretenderIndexTestHooks', 'getPretenderProjectionIndex', 'loadSession', 'saveSession', 'listSessions', 'appendUsageLedger',
+], { withEval: true });
 const hooks = srv.pretenderIndexTestHooks;
 const sessionsDir = path.join(root, 'sessions');
 const usageDir = path.join(root, 'usage');
@@ -131,32 +133,48 @@ test('[I5] 外部往用量账追加:下一次读的用量就对', async () => {
   assert.equal(after.inTok, 12);
 });
 
-test('[I6][I7] 增量刷新延迟落盘;挂起时删缓存 → 从权威源重建', async () => {
-  await hooks.flushPersist();
-  const s = await srv.loadSession(sid(7));
-  s.mission.goal = 'goal 7 v2';
-  s.mission.changeSeq += 1;
-  await srv.saveSession(s);
-  const persistsBefore = hooks.stats().persists;
-  const index = await srv.getPretenderProjectionIndex();
-  assert.equal(hooks.stats().persists, persistsBefore, '读路径上不写盘');
-  assert.equal(hooks.stats().persisted, false, '标记为待落盘');
-  await hooks.flushPersist();
-  assert.equal(hooks.stats().persists, persistsBefore + 1, 'flush 写了一次');
-  assert.equal(JSON.parse(fs.readFileSync(indexFile, 'utf8')).revision, index.revision, '盘上那份与内存同修订号');
+test('[I6][I7] 增量刷新延迟落盘;挂起时删缓存 → 从权威源重建', async t => {
+  // This case explicitly drives persistence and deletion. Freeze its background
+  // callbacks so a scheduled writer cannot recreate the cache between those steps.
+  const clearTimers = () => srv.__eval('for (const key of ["persistTimer", "verifyTimer"]) { if (pretenderIndexRuntime[key]) clearTimeout(pretenderIndexRuntime[key]); pretenderIndexRuntime[key] = null; }');
+  // saveSession also schedules the session-index debounce. Drain its native
+  // timer before mocking, then drain the virtual timer before leaving this case.
+  const flushSessionTimer = () => srv.__eval('(async () => { if (sessionIndexFlushTimer) clearTimeout(sessionIndexFlushTimer); sessionIndexFlushTimer = null; await flushSessionIndex(); })()');
+  clearTimers();
+  await flushSessionTimer();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    await hooks.flushPersist();
+    const s = await srv.loadSession(sid(7));
+    s.mission.goal = 'goal 7 v2';
+    s.mission.changeSeq += 1;
+    await srv.saveSession(s);
+    const persistsBefore = hooks.stats().persists;
+    const index = await srv.getPretenderProjectionIndex();
+    assert.equal(hooks.stats().persists, persistsBefore, '读路径上不写盘');
+    assert.equal(hooks.stats().persisted, false, '标记为待落盘');
+    await hooks.flushPersist();
+    assert.equal(hooks.stats().persists, persistsBefore + 1, 'flush 写了一次');
+    assert.equal(JSON.parse(fs.readFileSync(indexFile, 'utf8')).revision, index.revision, '盘上那份与内存同修订号');
 
-  // 再改一条 → 待落盘;此时用户删掉缓存文件
-  const s2 = await srv.loadSession(sid(8));
-  s2.mission.goal = 'goal 8 v2';
-  s2.mission.changeSeq += 1;
-  await srv.saveSession(s2);
-  await srv.getPretenderProjectionIndex();
-  assert.equal(hooks.stats().persisted, false);
-  fs.rmSync(indexFile, { force: true });
-  const rebuilt = await srv.getPretenderProjectionIndex();
-  assert.equal(rebuilt.buildReason, 'missing_index', '丢内存、从权威源重建');
-  assert.ok(fs.existsSync(indexFile), '冷重建立即落盘');
-  assert.match(cardText(rebuilt, 8), /goal 8 v2/);
+    // 再改一条 → 待落盘;此时用户删掉缓存文件
+    const s2 = await srv.loadSession(sid(8));
+    s2.mission.goal = 'goal 8 v2';
+    s2.mission.changeSeq += 1;
+    await srv.saveSession(s2);
+    await srv.getPretenderProjectionIndex();
+    assert.equal(hooks.stats().persisted, false);
+    fs.rmSync(indexFile, { force: true });
+    const rebuilt = await srv.getPretenderProjectionIndex();
+    assert.equal(rebuilt.buildReason, 'missing_index', '丢内存、从权威源重建');
+    assert.ok(fs.existsSync(indexFile), '冷重建立即落盘');
+    assert.match(cardText(rebuilt, 8), /goal 8 v2/);
+  } finally {
+    try { await flushSessionTimer(); }
+    finally { clearTimers(); t.mock.timers.reset(); }
+  }
+  assert.deepEqual(srv.__eval('({ timer: !!sessionIndexFlushTimer, pending: pendingSessionIndex.size, inflight: inflightSessionIndex.size })'),
+    { timer: false, pending: 0, inflight: 0 }, 'mocked session-index debounce leaves no handle or unflushed batch');
 });
 
 test('[I8][I10] 外部写账与本进程追加同时发生:两边用量都对;missionsUsageRevision 跟着变', async () => {

@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "note": "Final schema-hardened predicates; earlier first-red and earlier postfix retained separately.",
+  "cases": [
+    {
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "name": "steward-relay-channels",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/steward-relay-channels.e2e.js"
+      ],
+      "cwd": "E:\\Claude\\worktrees\\steward-3x-implementation",
+      "node": "v24.14.1",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "7e19bf7e0b1c7f0fd37bd2a4546584f89f97deca91ec733d5897887f5a1289e3",
+      "home": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-e2e-home-2Ju7Cp",
+      "tmp": "E:\\Claude\\worktrees\\steward-3x-implementation\\output\\20261115-round2-terra\\postfix-final-steward\\steward-relay-channels\\temp",
+      "start": "2026-11-15T12:08:16.229Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T12:08:46.190Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T12:08:46.190Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "STEWARD RELAY CHANNELS E2E: ALL PASS"
+      ]
+    },
+    {
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "name": "live-full-text",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/live-full-text.e2e.js"
+      ],
+      "cwd": "E:\\Claude\\worktrees\\steward-3x-implementation",
+      "node": "v24.14.1",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "6df1be9d267ab95ff2be0703b20d3d27778a53d866b8b5e46afae805b5a80f6b",
+      "home": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-e2e-home-ksvJPp",
+      "tmp": "E:\\Claude\\worktrees\\steward-3x-implementation\\output\\20261115-round2-terra\\postfix-final-live\\live-full-text\\temp",
+      "start": "2026-11-15T12:08:49.980Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T12:09:00.489Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T12:09:00.489Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "LIVE FULL TEXT E2E: ALL PASS"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-steward\\controller.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\steward-relay-channels-controller.js.gz",
+      "bytes": 2556,
+      "sha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "gzipBytes": 1167,
+      "gzipSha256": "054a2439766dd9c861f4846ca95bf65826a9db16e44d5c880317637ccb9cf137",
+      "readbackSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-steward\\steward-relay-channels\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\steward-relay-channels-stdout.log.gz",
+      "bytes": 8396,
+      "sha256": "d1cf45fdcc1e43d4d5ba032ce43d9df783fe15a89331eeedbc8a2a00a031ae98",
+      "gzipBytes": 3811,
+      "gzipSha256": "9a9d36f86a912c3303fac1aa67798aa258a1a53333171e32cfda0f306ac32088",
+      "readbackSha256": "d1cf45fdcc1e43d4d5ba032ce43d9df783fe15a89331eeedbc8a2a00a031ae98"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-steward\\steward-relay-channels\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\steward-relay-channels-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-steward\\steward-relay-channels\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\steward-relay-channels-receipt.json.gz",
+      "bytes": 1018,
+      "sha256": "05e9045bab413f7aff3c805848fef1b4f44893b866db86ed7434b3b0c776ceb0",
+      "gzipBytes": 556,
+      "gzipSha256": "d677b2fb6b5dcba9ebc01ce0c5ed2a3bcdbcd91662f56c5173fb3a4e66e74eeb",
+      "readbackSha256": "05e9045bab413f7aff3c805848fef1b4f44893b866db86ed7434b3b0c776ceb0"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-live\\controller.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\live-full-text-controller.js.gz",
+      "bytes": 2556,
+      "sha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "gzipBytes": 1167,
+      "gzipSha256": "054a2439766dd9c861f4846ca95bf65826a9db16e44d5c880317637ccb9cf137",
+      "readbackSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-live\\live-full-text\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\live-full-text-stdout.log.gz",
+      "bytes": 4394,
+      "sha256": "27687990a07f218343410de2da2b003122e4881c656dd0f48d6a2bbb1b2f2b5e",
+      "gzipBytes": 2071,
+      "gzipSha256": "ce315beea74bb7a19c497ec4a47ff87e80daa0ac3a64723e25a121512fd22a57",
+      "readbackSha256": "27687990a07f218343410de2da2b003122e4881c656dd0f48d6a2bbb1b2f2b5e"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-live\\live-full-text\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\live-full-text-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\postfix-final-live\\live-full-text\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-final-20261115\\live-full-text-receipt.json.gz",
+      "bytes": 991,
+      "sha256": "625f673808f66e0c487597b74530d8e91d45d83f1f9fb25be8b1b8f9014a1c2f",
+      "gzipBytes": 555,
+      "gzipSha256": "62289b4456682c116676f661cf914d7968e75bde9910359a58e9bc58d002130e",
+      "readbackSha256": "625f673808f66e0c487597b74530d8e91d45d83f1f9fb25be8b1b8f9014a1c2f"
+    }
+  ]
+}

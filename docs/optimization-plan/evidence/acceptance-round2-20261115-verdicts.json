@@ -1,0 +1,113 @@
+{
+  "note": "Companion includes standalone ALL PASS verdicts omitted by the primary manifest filter.",
+  "cases": [
+    {
+      "name": "shell-session",
+      "verdict": "SHELL-SESSION E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "rail-session-search.browser",
+      "verdict": "RAIL SESSION SEARCH BROWSER E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "external-bots.browser",
+      "verdict": "EXTERNAL BOTS BROWSER E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "external-bot-setup.browser",
+      "verdict": "EXTERNAL BOT SETUP BROWSER E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "attachment-http-roundtrip",
+      "verdict": "ATTACHMENT HTTP ROUNDTRIP E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "privacy-gateway",
+      "verdict": "PRIVACY GATEWAY E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "scheduler-crash",
+      "verdict": "ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "checkpoint-mcpchild",
+      "verdict": "CHECKPOINT-MCPCHILD E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "privacy-channels",
+      "verdict": "PRIVACY CHANNELS E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "privacy-managed-mcp",
+      "verdict": "PRIVACY MANAGED MCP E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "budget-guard",
+      "verdict": "BUDGET-GUARD E2E: ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    },
+    {
+      "name": "overlay-update-core",
+      "verdict": "ALL PASS",
+      "exit": 0,
+      "close": 0,
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "timeout": false
+    }
+  ]
+}

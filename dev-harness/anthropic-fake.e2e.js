@@ -56,6 +56,16 @@ function handler(req) {
   if (!req.stream) return messageEvents({ text: 'draft ok: ' + (allText(req).includes('<system-reminder>') ? 'reminder-seen' : 'no-reminder') });
   if (isSub(req)) return messageEvents({ text: 'sub done', usage: { input_tokens: 9, output_tokens: 2 } });
   const all = allText(req);
+  if (all.includes('MISSION_CHANGE')) {
+    const results = blocksOf(req).filter(b => b.type === 'tool_result');
+    if (!results.some(b => b.tool_use_id === 'toolu_mission')) return messageEvents({
+      thinking: 'Update one milestone', signature: 'SIG-MISSION',
+      toolUses: [{ id: 'toolu_mission', name: 'mission_update', input: { milestones: [{ id: 'cache_one', status: 'done' }] } }],
+    });
+    if (hasThinking(req)) return { status: 400, json: { type: 'error', error: { type: 'invalid_request_error',
+      message: 'Invalid signature: mission_update changed the user prefix bound to this thinking block.' } } };
+    return messageEvents({ text: 'mission cache done' });
+  }
   if (all.includes('REFERENCE_CHANGE')) {
     const results = blocksOf(req).filter(b => b.type === 'tool_result');
     if (!results.some(b => b.tool_use_id === 'toolu_ref1')) {
@@ -228,6 +238,22 @@ async function waitFor(fn, tries = 150, gap = 100) {
       'M11 前缀变化在发包前停用旧签名，保留工具调用与结果配对');
     const persisted = fs.readFileSync(providerFile, 'utf8');
     ok(!persisted.includes('REFERENCE_A') && !persisted.includes('REFERENCE_B') && !persisted.includes('<ruyi-reference-context>'), 'M11 临时引用不进入持久历史');
+
+    // Mission state is rebuilt in the current user tail, independently of reference data.
+    const missionCreated = await request(port, 'POST', '/api/sessions', { title: 'cache mission', cwd: WORK }, headers);
+    const missionSessionId = missionCreated.session.id;
+    const missionStart = await request(port, 'POST', '/api/mission', { action: 'start', sessionId: missionSessionId,
+      mission: { goal: 'Cache mission', milestones: [{ id: 'cache_one', desc: 'Update this step' }, { id: 'cache_two', desc: 'Keep pending' }] } }, headers);
+    ok(missionStart.ok === true, 'M12 初始化真实任务账本');
+    const beforeMission = fake.requests.length;
+    const evMission = await chatStream(port, { sessionId: missionSessionId, cwd: WORK, message: 'MISSION_CHANGE 更新第一个里程碑并汇报' }, headers);
+    const missionRequests = fake.requests.slice(beforeMission);
+    ok(missionRequests.length === 2 && (evMission.find(e => e.type === 'result') || {}).ok === true,
+      'M12 mission_update改变用户尾部的真实工具循环两发成功，不依赖签名400重试');
+    ok(evMission.some(e => e.type === 'mission' && e.mission?.milestones?.some(m => m.id === 'cache_one' && m.status === 'done')),
+      'M12 真实mission_update已把里程碑改为done');
+    ok(!hasThinking(missionRequests[1]) && blocksOf(missionRequests[1]).some(b => b.type === 'tool_result' && b.tool_use_id === 'toolu_mission'),
+      'M12 用户尾部变化在发包前停用签名并保留工具结果配对');
 
     // ── 子代理 ───────────────────────────────────────────────────────────────────────────
     const launch = await request(port, 'POST', '/api/agent-workflow/launch', { token, sessionId, async: true, nodes: [{ id: 'reader', task: '子任务:说一句完成', toolTier: 'read' }] }, headers);

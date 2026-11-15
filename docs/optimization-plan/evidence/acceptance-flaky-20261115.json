@@ -1,0 +1,730 @@
+{
+  "schema": 1,
+  "node": "v24.14.1",
+  "platform": "win32",
+  "mode": "serial direct; 120s each; isolated HOME/AppData/TEMP; no retries",
+  "scope": "12 historical flaky; excludes production-restore, independently scheduled",
+  "cases": [
+    {
+      "name": "monitor-incremental",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/monitor-incremental.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "d976363721130c0aee2f4b161d4513d19c11ff5f11c1f29f600fff0988da0e46",
+      "start": "2026-11-15T11:49:20.059Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:49:30.019Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:49:30.019Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "MONITOR-INCREMENTAL E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "loop-guard-read-exempt",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/loop-guard-read-exempt.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "2c633f8734596a4bb0b1c2c43c97e0b3bf336cb12cabe8c20abcde80e18ca796",
+      "start": "2026-11-15T11:49:35.681Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:49:52.618Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:49:52.618Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "LOOP-GUARD READ-EXEMPT E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "memory-scope-card.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/memory-scope-card.browser.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "22eae4f84d620093fe38a2a90ed5c402fb45273f3428e20b49836a34b1bd12c2",
+      "start": "2026-11-15T11:49:55.976Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:50:40.141Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:50:40.141Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "MEMORY SCOPE CARD BROWSER E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "missions-readmodel",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/missions-readmodel.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "50984a3ab977a8804e12529ba3d7f512bcefa92f21837ae968794513456815ea",
+      "start": "2026-11-15T11:50:46.970Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:50:57.097Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:50:57.097Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "MISSIONS READMODEL E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "steward-delivery.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/steward-delivery.browser.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "fa544cbb534aebec56476f594e1f3ef57e6686e4810b827f3fce52e626a705a6",
+      "start": "2026-11-15T11:51:02.683Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:51:25.057Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:51:25.057Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "STEWARD DELIVERY BROWSER E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "external-bots-human-decisions",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/external-bots-human-decisions.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "c63dd3b9945895274b4458fd8f265b8eacd3acacdf11de1d965816867591b885",
+      "start": "2026-11-15T11:51:28.618Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:52:27.258Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:52:27.258Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "EXTERNAL BOTS C2 ACTUAL HTTP E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "external-bots-retry.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/external-bots-retry.browser.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "6b57d9c85803b8d7e64ae3221316473e43bce66eaba9e0f006387676c65abadd",
+      "start": "2026-11-15T11:52:34.604Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:53:48.092Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:53:48.092Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "EXTERNAL BOTS RETRY BROWSER E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "live-full-text",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/live-full-text.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "c2b31e477b3c34e7b7a657b28d5fab5d69cee165827cb8de9f21ecbfb24779b9",
+      "start": "2026-11-15T11:53:52.628Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:54:03.088Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:54:03.088Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "LIVE FULL TEXT E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "privacy-protocols",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/privacy-protocols.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "571541eb258381a6e0ab372c73379a75a1a3256c84f15d128203568d0b32eab2",
+      "start": "2026-11-15T11:54:11.277Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:54:57.533Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:54:57.533Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "PRIVACY PROTOCOLS E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "steward-relay-channels",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/steward-relay-channels.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "97f5451f026ba821ade96c3cd20e83ec734186c40c2c27579f3c048114ecdc27",
+      "start": "2026-11-15T11:55:01.188Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 1,
+        "signal": null,
+        "time": "2026-11-15T11:55:31.272Z"
+      },
+      "close": {
+        "code": 1,
+        "signal": null,
+        "time": "2026-11-15T11:55:31.272Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "STEWARD RELAY CHANNELS E2E: FAIL (1)"
+      ],
+      "failLines": [
+        "FAIL H3b 回合结束后 resumable.live 不是 true(got {\"dangling\":false,\"kind\":null,\"turnSeq\":1,\"historyLength\":2,\"live\":true})"
+      ]
+    },
+    {
+      "name": "thread-relay",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/thread-relay.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "2c25572094441407688138e2cad74f1339bcf953d5be134c5a9bf04954b4fcbb",
+      "start": "2026-11-15T11:55:44.059Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:55:59.359Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:55:59.359Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "THREAD RELAY E2E: ALL PASS"
+      ],
+      "failLines": []
+    },
+    {
+      "name": "vision-loop",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/vision-loop.e2e.js"
+      ],
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "85b1a5208a5b4f57f94cf70b8b699ae3c10e2ab522b4ade63b588463612e952f",
+      "start": "2026-11-15T11:56:02.714Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:56:18.752Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:56:18.752Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "VISION-LOOP E2E: ALL PASS"
+      ],
+      "failLines": []
+    }
+  ],
+  "files": [
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\controller.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\controller.js.gz",
+      "bytes": 2556,
+      "sha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "gzipBytes": 1167,
+      "gzipSha256": "054a2439766dd9c861f4846ca95bf65826a9db16e44d5c880317637ccb9cf137",
+      "readbackSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\cases.txt",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\cases.txt.gz",
+      "bytes": 253,
+      "sha256": "bc17456fb77226156304b65a57a893396e02fb190445fa58e0657010886dfa0b",
+      "gzipBytes": 167,
+      "gzipSha256": "e2d07c225f4bb5bf9a957d019482c8e31dbfa4d8c5b5a3fe80f3f9d1623103ab",
+      "readbackSha256": "bc17456fb77226156304b65a57a893396e02fb190445fa58e0657010886dfa0b"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\run-one.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\run-one.js.gz",
+      "bytes": 357,
+      "sha256": "568e0400922ef5df0999155cb4faf54684f5c051e4b41993edd23f2d271236bf",
+      "gzipBytes": 261,
+      "gzipSha256": "f91a68417f5c4383a544b0758373c1d78640359945f21e5f5c7c5598083872e9",
+      "readbackSha256": "568e0400922ef5df0999155cb4faf54684f5c051e4b41993edd23f2d271236bf"
+    },
+    {
+      "source": "output/20261115-round2-luna/README.md",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\luna-audit.md.gz",
+      "bytes": 10180,
+      "sha256": "ca750f3af90cdedc5918ac4a858a6e0d132f11226235b17c2eedffe539597081",
+      "gzipBytes": 5301,
+      "gzipSha256": "2abfae1d1d0aee71043f090a837bc311cb5647b1046a116f53448f922df4ab76",
+      "readbackSha256": "ca750f3af90cdedc5918ac4a858a6e0d132f11226235b17c2eedffe539597081"
+    },
+    {
+      "source": "output/20261115-round2-terra/flaky-plan.md",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\flaky-plan.md.gz",
+      "bytes": 3376,
+      "sha256": "807f1e626f18c8381489f7a9ab5daf5e05d27d91f24e22520bbfb8e5cad83c46",
+      "gzipBytes": 2103,
+      "gzipSha256": "078d8df0410c2b2bb2bed8bb7130f6eade5d7655774a090d101ff7b18680cb19",
+      "readbackSha256": "807f1e626f18c8381489f7a9ab5daf5e05d27d91f24e22520bbfb8e5cad83c46"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\monitor-incremental\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\monitor-incremental-stdout.log.gz",
+      "bytes": 4364,
+      "sha256": "347b86b3326e142ed420cb71bbc13633e5795dc434cf4a5be366ecb3e9ebb503",
+      "gzipBytes": 2465,
+      "gzipSha256": "b1dca3db5f83c8bcdc261ab7eae8b82ac970d7a0454b198520ff98c756ac40d0",
+      "readbackSha256": "347b86b3326e142ed420cb71bbc13633e5795dc434cf4a5be366ecb3e9ebb503"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\monitor-incremental\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\monitor-incremental-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\monitor-incremental\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\monitor-incremental-receipt.json.gz",
+      "bytes": 1000,
+      "sha256": "dabcaaafb9c71ca6d6d51133836500e41284ef4414ee9996d246a496561e41ee",
+      "gzipBytes": 552,
+      "gzipSha256": "0ac75f5b94f6ce7fb2e7db9b3b44e9ed0b1dfd2175fcb2b95807b492f9156d6c",
+      "readbackSha256": "dabcaaafb9c71ca6d6d51133836500e41284ef4414ee9996d246a496561e41ee"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\loop-guard-read-exempt\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\loop-guard-read-exempt-stdout.log.gz",
+      "bytes": 626,
+      "sha256": "00f061cfe7c1da15ee435dac997341d4a272f1068db285c4d40793f676c0d1f0",
+      "gzipBytes": 408,
+      "gzipSha256": "31af264379471fc4dc4a41e0179d86f6f546ac29d4ac01f391f9f4c33fac00b4",
+      "readbackSha256": "00f061cfe7c1da15ee435dac997341d4a272f1068db285c4d40793f676c0d1f0"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\loop-guard-read-exempt\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\loop-guard-read-exempt-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\loop-guard-read-exempt\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\loop-guard-read-exempt-receipt.json.gz",
+      "bytes": 1009,
+      "sha256": "2cc33ac896c8cb17318924b5a0a67cc390b421507be6f73283fcf1e8200990ef",
+      "gzipBytes": 556,
+      "gzipSha256": "18b4997887f01df1345309b0bb7bd3bc2d9809312f9067522eacda663645464f",
+      "readbackSha256": "2cc33ac896c8cb17318924b5a0a67cc390b421507be6f73283fcf1e8200990ef"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\memory-scope-card.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\memory-scope-card.browser-stdout.log.gz",
+      "bytes": 6469,
+      "sha256": "a451b0a1949960794ed3fe20b0b3229381b62922f212fe0256b7d3027abc64b8",
+      "gzipBytes": 2685,
+      "gzipSha256": "d675dffbe6c1c33a14089f2e894c3a7b8ae6e5a7022b988c5c80472b00a50017",
+      "readbackSha256": "a451b0a1949960794ed3fe20b0b3229381b62922f212fe0256b7d3027abc64b8"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\memory-scope-card.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\memory-scope-card.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\memory-scope-card.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\memory-scope-card.browser-receipt.json.gz",
+      "bytes": 1018,
+      "sha256": "edfeb91d74e5f1ee6d1a2c3eefea297a0e604c3132eac4c8ccae77e6b849f357",
+      "gzipBytes": 559,
+      "gzipSha256": "d8d2d392725f11b5565af5ba89e7db845e6209c7b98d68bb739d10abad2d67de",
+      "readbackSha256": "edfeb91d74e5f1ee6d1a2c3eefea297a0e604c3132eac4c8ccae77e6b849f357"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\missions-readmodel\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\missions-readmodel-stdout.log.gz",
+      "bytes": 2684,
+      "sha256": "4339955d9b46437a391e1e93c83ff1e718a3731794c658c7e6aad9dd23c6c985",
+      "gzipBytes": 1480,
+      "gzipSha256": "e48872178b49da6d19d3bf94614b5d7b11d58d2ad34e70faea5cc5587b2fb14f",
+      "readbackSha256": "4339955d9b46437a391e1e93c83ff1e718a3731794c658c7e6aad9dd23c6c985"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\missions-readmodel\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\missions-readmodel-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\missions-readmodel\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\missions-readmodel-receipt.json.gz",
+      "bytes": 997,
+      "sha256": "ad3a4c684003215534010beeedab68b6e0320ffa970b371d641588be53cf06ab",
+      "gzipBytes": 552,
+      "gzipSha256": "018c97250cf622104f76eb237840a6892655f19e3087a73d83d11ff36dcc4ac4",
+      "readbackSha256": "ad3a4c684003215534010beeedab68b6e0320ffa970b371d641588be53cf06ab"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-delivery.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-delivery.browser-stdout.log.gz",
+      "bytes": 4619,
+      "sha256": "c9ebe8685cfe4d27c3555fdf4c4ae2ecf99975543206948f70bebdbd4608354d",
+      "gzipBytes": 2226,
+      "gzipSha256": "6316ff653ea369546ea72aedbd200ca0524501b4f1da4e4bdea4a38e4d7dfdc0",
+      "readbackSha256": "c9ebe8685cfe4d27c3555fdf4c4ae2ecf99975543206948f70bebdbd4608354d"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-delivery.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-delivery.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-delivery.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-delivery.browser-receipt.json.gz",
+      "bytes": 1015,
+      "sha256": "ede886f20a4baa20907664feb86faff7899f0c5561d081266479a8342c1fb754",
+      "gzipBytes": 557,
+      "gzipSha256": "fc8db6c5d3f30e7f0bb4081f1d2cf2bb97625ae831e6ef9c7792e7a85a2b034b",
+      "readbackSha256": "ede886f20a4baa20907664feb86faff7899f0c5561d081266479a8342c1fb754"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-human-decisions\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-human-decisions-stdout.log.gz",
+      "bytes": 703,
+      "sha256": "b8a3b17be8b98ae6bb925cb846928c939ad2e94bc9b78aa75f64ce7753344e86",
+      "gzipBytes": 182,
+      "gzipSha256": "11cc5e70b094b180e17305360f5726e05053f10dac11efe9b462883a02161bcc",
+      "readbackSha256": "b8a3b17be8b98ae6bb925cb846928c939ad2e94bc9b78aa75f64ce7753344e86"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-human-decisions\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-human-decisions-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-human-decisions\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-human-decisions-receipt.json.gz",
+      "bytes": 1030,
+      "sha256": "f8e16cb39021905beee2b45d16484d575b6ab352dd787ee5f8050860b89b96c1",
+      "gzipBytes": 561,
+      "gzipSha256": "776e5494db1979fd4445f5cfd2713b1713ccc574b140ea5d3391be9905ced2b8",
+      "readbackSha256": "f8e16cb39021905beee2b45d16484d575b6ab352dd787ee5f8050860b89b96c1"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-retry.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-retry.browser-stdout.log.gz",
+      "bytes": 24523,
+      "sha256": "8b53281d9b593abef1d9b3eced0eda064436c39dce38494301e326fdb8375a2e",
+      "gzipBytes": 2600,
+      "gzipSha256": "a5b4b8402b7f5c848af0ae5fdc01a784b5ab4f7d075cd4f85b61f458f1d46344",
+      "readbackSha256": "8b53281d9b593abef1d9b3eced0eda064436c39dce38494301e326fdb8375a2e"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-retry.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-retry.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\external-bots-retry.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\external-bots-retry.browser-receipt.json.gz",
+      "bytes": 1024,
+      "sha256": "7651c797a40ad5dd80b5297a64ffff3f8be1bdd83c2ab954425792c7e5e3486d",
+      "gzipBytes": 559,
+      "gzipSha256": "4d3439e92c27100c6bf29a80edb77a13c882fe0480fcdfcdcdd6ef7cf10448ff",
+      "readbackSha256": "7651c797a40ad5dd80b5297a64ffff3f8be1bdd83c2ab954425792c7e5e3486d"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\live-full-text\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\live-full-text-stdout.log.gz",
+      "bytes": 4382,
+      "sha256": "a060ed2136db8556c32d00b4d30302a0151c4d6ad4ea9bbff68e968d1671e70d",
+      "gzipBytes": 2067,
+      "gzipSha256": "e369de35689c17b662090a2559c57bc6c3691a24683224a4434f1d5a0e035030",
+      "readbackSha256": "a060ed2136db8556c32d00b4d30302a0151c4d6ad4ea9bbff68e968d1671e70d"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\live-full-text\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\live-full-text-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\live-full-text\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\live-full-text-receipt.json.gz",
+      "bytes": 985,
+      "sha256": "22b40f9b7fe61bc656f34e3de8e0c9e857e28c2d1c1dcc8ae53d1a9e5b864862",
+      "gzipBytes": 552,
+      "gzipSha256": "eeee508f326f385c1fa23ed17c734df2af3065fe5660ca6fa3ac831d90382bad",
+      "readbackSha256": "22b40f9b7fe61bc656f34e3de8e0c9e857e28c2d1c1dcc8ae53d1a9e5b864862"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\privacy-protocols\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\privacy-protocols-stdout.log.gz",
+      "bytes": 43772,
+      "sha256": "e9bb08f4dfe72c761b5e88b83fe42821d485da8641b045ed521a3c47697793e7",
+      "gzipBytes": 1503,
+      "gzipSha256": "8358814a97ce807a8f9f675f407bd70057e3192672b46c535545b75b0f6e6505",
+      "readbackSha256": "e9bb08f4dfe72c761b5e88b83fe42821d485da8641b045ed521a3c47697793e7"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\privacy-protocols\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\privacy-protocols-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\privacy-protocols\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\privacy-protocols-receipt.json.gz",
+      "bytes": 994,
+      "sha256": "3d4d7247c052d775ee8175eeec4a6ee440fd77d65264c037a5c1264e2e732d5a",
+      "gzipBytes": 553,
+      "gzipSha256": "579b27df6745e10ded72721d23ca9f7085f70db8d71162f9565b72a71c9fc939",
+      "readbackSha256": "3d4d7247c052d775ee8175eeec4a6ee440fd77d65264c037a5c1264e2e732d5a"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-relay-channels\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-relay-channels-stdout.log.gz",
+      "bytes": 8408,
+      "sha256": "f3d4b70ac0ae26da656a59c9d5957cc3ba4fc0678f04010a70dee6c95d2110d8",
+      "gzipBytes": 3822,
+      "gzipSha256": "c29b25681bed8adadeef4ab8b8fd5c92aa649be9e8d083aa5345c50db8bf1824",
+      "readbackSha256": "f3d4b70ac0ae26da656a59c9d5957cc3ba4fc0678f04010a70dee6c95d2110d8"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-relay-channels\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-relay-channels-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\steward-relay-channels\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\steward-relay-channels-receipt.json.gz",
+      "bytes": 1009,
+      "sha256": "2fd495097198986e2bf7adbac6017ac26154de8f2d3a7d4f6c5826c1edce9b80",
+      "gzipBytes": 556,
+      "gzipSha256": "ec8fc80c30ccddffdc47feb32282f4d83e9e4bfefa1399ece955d9dd133d56fa",
+      "readbackSha256": "2fd495097198986e2bf7adbac6017ac26154de8f2d3a7d4f6c5826c1edce9b80"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\thread-relay\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\thread-relay-stdout.log.gz",
+      "bytes": 2489,
+      "sha256": "9b0ac3efa82c409cc4238a26b6218a186715767aca08a69a1e5ba7fd8bf20ee8",
+      "gzipBytes": 1065,
+      "gzipSha256": "bce9c7ef686ed232a3efc924aba3206a63c4a7ff25618928fc7eb605b7cea186",
+      "readbackSha256": "9b0ac3efa82c409cc4238a26b6218a186715767aca08a69a1e5ba7fd8bf20ee8"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\thread-relay\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\thread-relay-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\thread-relay\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\thread-relay-receipt.json.gz",
+      "bytes": 979,
+      "sha256": "aeb77baff427464e95e7f8ad9c939c6856b19a0b8715ad0c736e637b892017ae",
+      "gzipBytes": 546,
+      "gzipSha256": "914be83c7ae4ef1d29242b9504d58c749be8a921bc45ff8d4ce574a6813241da",
+      "readbackSha256": "aeb77baff427464e95e7f8ad9c939c6856b19a0b8715ad0c736e637b892017ae"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\vision-loop\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\vision-loop-stdout.log.gz",
+      "bytes": 4499,
+      "sha256": "589b50fb764cff3e7816918cc80b62b65313d433a479a7d35acf15c883e9b85b",
+      "gzipBytes": 1880,
+      "gzipSha256": "5921d818094dbd1791bc2788bd8fbee6ce84f44097c9e661124ee18adbc22479",
+      "readbackSha256": "589b50fb764cff3e7816918cc80b62b65313d433a479a7d35acf15c883e9b85b"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\vision-loop\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\vision-loop-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\flaky-single\\vision-loop\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-flaky-20261115\\vision-loop-receipt.json.gz",
+      "bytes": 976,
+      "sha256": "63c4cf1630d0a3a4d1e9b9fc723524703f613b51b6c79fc8b2300afe5b7e40eb",
+      "gzipBytes": 546,
+      "gzipSha256": "f98930497004d1d7b470df014a41f8a18a44b3b834fd578d52086b855a80d587",
+      "readbackSha256": "63c4cf1630d0a3a4d1e9b9fc723524703f613b51b6c79fc8b2300afe5b7e40eb"
+    }
+  ]
+}

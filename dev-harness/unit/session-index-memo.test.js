@@ -18,8 +18,11 @@ const { describe, it, before, after } = require('node:test');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-index-memo-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
-const repo = path.resolve(__dirname, '../..');
-const srv = require(path.join(repo, 'ruyi-workbench', 'app', 'server.js'));
+const { loadServerInternals } = require('../lib/server-internals');
+const srv = loadServerInternals([
+  'createSession', 'saveSession', 'flushSessionIndex', 'scheduleSessionIndexUpdate',
+  'SESSION_TOMBSTONE', 'listSessions', 'invalidateSessionIndex', 'deleteSession',
+], { withEval: true });
 const indexFile = path.join(root, 'sessions', 'index.json');
 
 let indexReads = 0;
@@ -106,5 +109,49 @@ describe('会话索引内存镜像', () => {
     assert.strictEqual(diskIndex().length, 4);
     const listed = await srv.listSessions();
     assert.strictEqual(listed.length, 4);
+  });
+
+  it('[M5] 显式 flush 等待已取走的墓碑批次落盘', { timeout: 15000 }, async () => {
+    const row = await srv.createSession({ title: 'memo-inflight-tombstone', cwd: root });
+    await srv.listSessions();
+    await srv.flushSessionIndex();
+    assert.ok(diskIndex().some(e => e.id === row.id), '前置索引包含待删除会话');
+
+    srv.scheduleSessionIndexUpdate(row.id, srv.SESSION_TOMBSTONE);
+    // Avoid the debounce timer racing the explicit first flush; the test controls
+    // the exact moment the pending batch moves into the in-flight table.
+    srv.__eval('if (sessionIndexFlushTimer) clearTimeout(sessionIndexFlushTimer); sessionIndexFlushTimer = null;');
+    const originalRename = fsp.rename;
+    let reachedResolve, releaseResolve, reachedOnce = false;
+    const reached = new Promise(resolve => { reachedResolve = resolve; });
+    const releaseGate = new Promise(resolve => { releaseResolve = resolve; });
+    fsp.rename = async function (from, to, ...args) {
+      if (!reachedOnce && path.resolve(String(to)) === path.resolve(indexFile)) {
+        reachedOnce = true;
+        reachedResolve();
+        await releaseGate;
+      }
+      return originalRename.call(this, from, to, ...args);
+    };
+    let first = null, second = null;
+    try {
+      first = srv.flushSessionIndex();
+      await reached;
+      assert.ok(diskIndex().some(e => e.id === row.id), 'rename 被卡住时盘上仍是旧索引');
+
+      let secondSettled = false;
+      second = srv.flushSessionIndex().then(() => { secondSettled = true; });
+      await Promise.resolve();
+      assert.equal(secondSettled, false, 'pending 为空但已有 inflight 写时，第二次 flush 必须等待当前 owner chain');
+
+      releaseResolve();
+      await Promise.all([first, second]);
+      assert.ok(!diskIndex().some(e => e.id === row.id), '两次 flush 完成后磁盘索引已应用墓碑');
+    } finally {
+      releaseResolve();
+      await Promise.all([first, second].filter(Boolean).map(promise => promise.catch(() => {})));
+      fsp.rename = originalRename;
+      srv.__eval('if (sessionIndexFlushTimer) clearTimeout(sessionIndexFlushTimer); sessionIndexFlushTimer = null;');
+    }
   });
 });

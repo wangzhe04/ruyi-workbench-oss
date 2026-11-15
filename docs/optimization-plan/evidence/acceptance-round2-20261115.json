@@ -1,0 +1,736 @@
+{
+  "schema": 1,
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "mode": "serial direct E2E; not complete runner",
+    "isolation": "fixtureChildEnv per case, isolated TEMP/TMP and APPDATA/LOCALAPPDATA; no cleanup of retained roots"
+  },
+  "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+  "controllerEvidence": "First three isolated cases ran an earlier version of the controller which was overwritten and its exact bytes and SHA are unavailable. The archived single-case controller is the later version used for the remaining nine cases.",
+  "earlyInterruption": "First shell-session completed exit/close 0 with both EOF. The initially started rail-session-search was interrupted, with partial logs and no exit/close/EOF receipt; lifecycle is UNKNOWN. Subsequent isolated run does not retroactively close that evidence.",
+  "overlayPython": "Static inspection of overlay test found no Python invocation; no Python 3.12 dependency was asserted.",
+  "cases": [
+    {
+      "name": "shell-session",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/shell-session.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "63cf6752195ca88dd2ea54a76b28ec4975d9777341c53181d358cd1a1a3fbef8",
+      "controllerSha256": null,
+      "start": "2026-11-15T11:09:25.447Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:09:39.481Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:09:39.481Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "SHELL-SESSION E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "rail-session-search.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/rail-session-search.browser.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "bfd40b88263079fa7069cfe75401ebeae710b98be603994f23be734ef565d43c",
+      "controllerSha256": null,
+      "start": "2026-11-15T11:09:39.489Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:10:22.551Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:10:22.551Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "RAIL SESSION SEARCH BROWSER E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "external-bots.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/external-bots.browser.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "f493381bf29f9580f5f57cb357d53c576823eea749bb78ac7bf2ccfa1e3df171",
+      "controllerSha256": null,
+      "start": "2026-11-15T11:10:22.561Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:11:08.404Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:11:08.405Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "EXTERNAL BOTS BROWSER E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "external-bot-setup.browser",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/external-bot-setup.browser.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "d787341a079af0b9ff3f6ffddf6e172f71dcdfd395c51318d63aa3e779c8a953",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:11:39.417Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:12:18.574Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:12:18.574Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "EXTERNAL BOT SETUP BROWSER E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "attachment-http-roundtrip",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/attachment-http-roundtrip.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "aca02ec93b25e242fccda515aa6cdb2e522e2875a05006332e74084a2fea9731",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:12:21.739Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:13:05.859Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:13:05.859Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "ATTACHMENT HTTP ROUNDTRIP E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "privacy-gateway",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/privacy-gateway.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "6201d8813ce01ed9fb07cfe803398bae3d7d23881d104e31d7a9d2b9194740c7",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:13:09.690Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:14:29.128Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:14:29.128Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "PRIVACY GATEWAY E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "scheduler-crash",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/scheduler-crash.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "9cbbd5a7114a1b0761af8439c6fac5d0628e5e70156cf64bc922e94bb299530f",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:14:35.638Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:20.960Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:20.960Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": []
+    },
+    {
+      "name": "checkpoint-mcpchild",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/checkpoint-mcpchild.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "2f2dd95f12b2816e2a5fba88ba333caadcee8afd5db51bac0aa4d074b48410a8",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:15:24.562Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:33.850Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:33.850Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "CHECKPOINT-MCPCHILD E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "privacy-channels",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/privacy-channels.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "efae19540889ebca620054265ad42fe1d4093a2fa187049323b7681be549c0d6",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:15:37.379Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:54.533Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:15:54.533Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "PRIVACY CHANNELS E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "privacy-managed-mcp",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/privacy-managed-mcp.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "261459a174b1543cde272abdd88030e5e40a973e9a7cf7f9f8887a5431ffe238",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:16:01.828Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:17:12.418Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:17:12.418Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "PRIVACY MANAGED MCP E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "budget-guard",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/budget-guard.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "b7a5100114b2d1110a80e904d91305432db7cc18f884679df652bae52ced19f5",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:17:16.129Z",
+      "timeoutMs": 120000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:18:19.160Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:18:19.160Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": [
+        "BUDGET-GUARD E2E: ALL PASS"
+      ]
+    },
+    {
+      "name": "overlay-update-core",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "dev-harness/overlay-update-core.e2e.js"
+      ],
+      "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+      "testSha256": "22fec8bdb953341a4b1a09664a34a2358d5324c594adc534793f0a452b807dfd",
+      "controllerSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "start": "2026-11-15T11:18:25.382Z",
+      "timeoutMs": 300000,
+      "timeout": false,
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:20:58.017Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:20:58.017Z"
+      },
+      "stdoutEOF": true,
+      "stderrEOF": true,
+      "verdictLines": []
+    }
+  ],
+  "files": [
+    {
+      "source": "output\\20261115-round2-terra\\controller.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-controller.js.gz",
+      "bytes": 2056,
+      "sha256": "8d4340cd8923467905d4dd22ddd21c08efab956c05147caeac7e4853464e9dc6",
+      "gzipBytes": 977,
+      "gzipSha256": "ace4cde91430cf5338ea116e33190639514d5bfa663ed415da8efeadea56e7f4",
+      "readbackSha256": "8d4340cd8923467905d4dd22ddd21c08efab956c05147caeac7e4853464e9dc6"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\shell-session.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-shell-session.json.gz",
+      "bytes": 691,
+      "sha256": "166481dbd3d735bbae545cb2c41124215ee65c9274d891a2db19004992bb14d8",
+      "gzipBytes": 399,
+      "gzipSha256": "4316719b88073f8a069db20fd02344c214b007c63851b8f639d4d66bca71ad6d",
+      "readbackSha256": "166481dbd3d735bbae545cb2c41124215ee65c9274d891a2db19004992bb14d8"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\shell-session.stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-shell-session.stdout.log.gz",
+      "bytes": 3098,
+      "sha256": "7bb47c80d096b0af289f957d811dc27ef4984eea5c77f1cad32f32f77db2859e",
+      "gzipBytes": 1012,
+      "gzipSha256": "f7c0d468cbbe372ccbe14b7aa96ffc77a554295d3fd21d2faf413767bd85038a",
+      "readbackSha256": "7bb47c80d096b0af289f957d811dc27ef4984eea5c77f1cad32f32f77db2859e"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\shell-session.stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-shell-session.stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\rail-session-search.browser.stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-rail-session-search.browser.stdout.log.gz",
+      "bytes": 209,
+      "sha256": "2a73c8e2e05f49b6a1a829be64ffad6f32d15d7580a4faec724eb997158564f9",
+      "gzipBytes": 193,
+      "gzipSha256": "b6054fd26fc0c36cba2b4bfbf879e148f9a9a76c49bcd5a957b21405a0cfcc5f",
+      "readbackSha256": "2a73c8e2e05f49b6a1a829be64ffad6f32d15d7580a4faec724eb997158564f9"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\rail-session-search.browser.stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\early-rail-session-search.browser.stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\controller.js",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\single-case-controller.js.gz",
+      "bytes": 2556,
+      "sha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc",
+      "gzipBytes": 1167,
+      "gzipSha256": "054a2439766dd9c861f4846ca95bf65826a9db16e44d5c880317637ccb9cf137",
+      "readbackSha256": "b1dc6770a4e888fdd376b009c611778eb1423694573e251df93906752ba365cc"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\shell-session\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\shell-session-stdout.log.gz",
+      "bytes": 3503,
+      "sha256": "2d5117b3ae4d5d7ec5b2a657d8ef2123dd59f102474f2f4ba9028f1877914ec4",
+      "gzipBytes": 1066,
+      "gzipSha256": "bb1d1195244544df212d218e3ccac3f030f7f65d3d3510405afed6e78c62686d",
+      "readbackSha256": "2d5117b3ae4d5d7ec5b2a657d8ef2123dd59f102474f2f4ba9028f1877914ec4"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\shell-session\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\shell-session-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\shell-session\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\shell-session-receipt.json.gz",
+      "bytes": 888,
+      "sha256": "03fcb30ae8b3a6dea40ca22d1c156b1f0467a6cad501e1fc11e092f404efcdd0",
+      "gzipBytes": 494,
+      "gzipSha256": "22fa1461810f6c059968487df02561dc207ee0324a56c471a0eac79515d7deb3",
+      "readbackSha256": "03fcb30ae8b3a6dea40ca22d1c156b1f0467a6cad501e1fc11e092f404efcdd0"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\rail-session-search.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\rail-session-search.browser-stdout.log.gz",
+      "bytes": 910,
+      "sha256": "b71b71d08312d15ff683bc5efc4151251da4cc0c75d7f49b5edd80973177cd23",
+      "gzipBytes": 650,
+      "gzipSha256": "2a2abb8b964f5a99f558002d7bf35caba60a8f2816f668f2e750c2651710333d",
+      "readbackSha256": "b71b71d08312d15ff683bc5efc4151251da4cc0c75d7f49b5edd80973177cd23"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\rail-session-search.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\rail-session-search.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\rail-session-search.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\rail-session-search.browser-receipt.json.gz",
+      "bytes": 930,
+      "sha256": "128976c952671a85f12e8d9fdfd3e32a62068cd5048dca75ae4d7bd6c67ff545",
+      "gzipBytes": 508,
+      "gzipSha256": "8846803416115e2538bf1bd763a3f54bfefafc58f8afbc7b2275885d2a881a6e",
+      "readbackSha256": "128976c952671a85f12e8d9fdfd3e32a62068cd5048dca75ae4d7bd6c67ff545"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bots.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bots.browser-stdout.log.gz",
+      "bytes": 18375,
+      "sha256": "7239a22f5656366c64b6476971511ae320126e59ef00659ebbf445196a604bd2",
+      "gzipBytes": 2985,
+      "gzipSha256": "009d8ed84bedbbc1f3da73b9fee661d44fc73423ca3cc3aa05fb92f6635e6d3e",
+      "readbackSha256": "7239a22f5656366c64b6476971511ae320126e59ef00659ebbf445196a604bd2"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bots.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bots.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bots.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bots.browser-receipt.json.gz",
+      "bytes": 912,
+      "sha256": "5980cf03a9731876d14e75d8dd30417854731832aac2b0dc10adc8fd6be42981",
+      "gzipBytes": 504,
+      "gzipSha256": "ae166f8a9c6226892fe0794bd5a406a09e4994a04d44ee1379d1d63e4762cef6",
+      "readbackSha256": "5980cf03a9731876d14e75d8dd30417854731832aac2b0dc10adc8fd6be42981"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bot-setup.browser\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bot-setup.browser-stdout.log.gz",
+      "bytes": 2848,
+      "sha256": "62bd393f9474762d04351bcd22544b8f00f142ea4f58fc38b994bd8993880424",
+      "gzipBytes": 1229,
+      "gzipSha256": "bb3a4e310ccc25df8d0b5abe89050e972c1917b8c9902dc5008b62788200b225",
+      "readbackSha256": "62bd393f9474762d04351bcd22544b8f00f142ea4f58fc38b994bd8993880424"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bot-setup.browser\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bot-setup.browser-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\external-bot-setup.browser\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\external-bot-setup.browser-receipt.json.gz",
+      "bytes": 1017,
+      "sha256": "f1d2a21b7e5bcb996e1bdb518682351e709a3d7d9c11600a72edb53ed62f8f13",
+      "gzipBytes": 556,
+      "gzipSha256": "760c05eb07984e395f2339ddddb5197584f5b991b46a77f95251508cda23b56b",
+      "readbackSha256": "f1d2a21b7e5bcb996e1bdb518682351e709a3d7d9c11600a72edb53ed62f8f13"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\attachment-http-roundtrip\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\attachment-http-roundtrip-stdout.log.gz",
+      "bytes": 780,
+      "sha256": "5b22011fd0704c5cd6ef84b2867c6129bd050a026d5a6f5289969142a954e030",
+      "gzipBytes": 399,
+      "gzipSha256": "f4b97419f08e351dfad0c73b309eef33b97d2ae7489dc257f2809e6882557c90",
+      "readbackSha256": "5b22011fd0704c5cd6ef84b2867c6129bd050a026d5a6f5289969142a954e030"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\attachment-http-roundtrip\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\attachment-http-roundtrip-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\attachment-http-roundtrip\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\attachment-http-roundtrip-receipt.json.gz",
+      "bytes": 1014,
+      "sha256": "637bf3b84d3f8f3a3e323df84689e45a35cfb5713e041b272f7704a406717a0f",
+      "gzipBytes": 552,
+      "gzipSha256": "cbbe116ee72715366d9f155c295885f5f29febce0032a56e6a69096addc05816",
+      "readbackSha256": "637bf3b84d3f8f3a3e323df84689e45a35cfb5713e041b272f7704a406717a0f"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-gateway\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-gateway-stdout.log.gz",
+      "bytes": 11601,
+      "sha256": "6f8375ab10cd4330c3c806c048f0d47788b89e7df513053ed5bc6fc123793f67",
+      "gzipBytes": 3669,
+      "gzipSha256": "8a81be05ef58fbd8acdf12ee4e05f37bedab919148fd0eb705b88e80ecfdde56",
+      "readbackSha256": "6f8375ab10cd4330c3c806c048f0d47788b89e7df513053ed5bc6fc123793f67"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-gateway\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-gateway-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-gateway\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-gateway-receipt.json.gz",
+      "bytes": 984,
+      "sha256": "3e0f9551261a6c16082ca5dbaf68c889ea05deb166d2954c5afa94721ab015d9",
+      "gzipBytes": 550,
+      "gzipSha256": "7f90c99aa76fcdb28dab8f4f6e53750480fb2d93b30c66a7ee456eb436b955c8",
+      "readbackSha256": "3e0f9551261a6c16082ca5dbaf68c889ea05deb166d2954c5afa94721ab015d9"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\scheduler-crash\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\scheduler-crash-stdout.log.gz",
+      "bytes": 4694,
+      "sha256": "6780590f33d2c918871cb35446b190cb56dc49e3dc1612f2b97b7383e06ae63f",
+      "gzipBytes": 1201,
+      "gzipSha256": "63e37275a5ce09cc0a84dde6639687e7102b218053e74c7e844bf59e1aebc7b7",
+      "readbackSha256": "6780590f33d2c918871cb35446b190cb56dc49e3dc1612f2b97b7383e06ae63f"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\scheduler-crash\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\scheduler-crash-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\scheduler-crash\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\scheduler-crash-receipt.json.gz",
+      "bytes": 984,
+      "sha256": "a4ffb2b1ef8bcf51df31b755c85be554b2860c2749624012ce41ec3e64a3c64c",
+      "gzipBytes": 547,
+      "gzipSha256": "3f7a7f23195d96de6df1a655ea7e58f63c51fb4a5345ebbb9cfae8aced15410d",
+      "readbackSha256": "a4ffb2b1ef8bcf51df31b755c85be554b2860c2749624012ce41ec3e64a3c64c"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\checkpoint-mcpchild\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\checkpoint-mcpchild-stdout.log.gz",
+      "bytes": 877,
+      "sha256": "cbf6e8805c0b550d25c50048d09f8efcbd94ecf86519f981b67a2b41e6d59f01",
+      "gzipBytes": 464,
+      "gzipSha256": "bbb2b0bdd756ee21bbb88b08b6364fe53a45c7f0111a1cd58f9d29873cc3c28c",
+      "readbackSha256": "cbf6e8805c0b550d25c50048d09f8efcbd94ecf86519f981b67a2b41e6d59f01"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\checkpoint-mcpchild\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\checkpoint-mcpchild-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\checkpoint-mcpchild\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\checkpoint-mcpchild-receipt.json.gz",
+      "bytes": 996,
+      "sha256": "a2ef534340c2eab1e7bd811810ddfda7347c5e2afeec268f8ba879d740c79166",
+      "gzipBytes": 550,
+      "gzipSha256": "9f69dcbc2361f5a5137f011cb490e6a55fa4622e5d42a92f4cf92a669f08b57f",
+      "readbackSha256": "a2ef534340c2eab1e7bd811810ddfda7347c5e2afeec268f8ba879d740c79166"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-channels\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-channels-stdout.log.gz",
+      "bytes": 3648,
+      "sha256": "0b2474661ecd866fa5dec415bf345467a28a00094e624181987278edffdfa9ca",
+      "gzipBytes": 1515,
+      "gzipSha256": "92fc4c4827c54ce6fa4e085017bfac54d9be6ae16dcf9061870045524d7bf873",
+      "readbackSha256": "0b2474661ecd866fa5dec415bf345467a28a00094e624181987278edffdfa9ca"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-channels\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-channels-stderr.log.gz",
+      "bytes": 777,
+      "sha256": "dac0607187a3afb7ba67b9162c860f516e8f47f07bc75e79252bcbd4140ce087",
+      "gzipBytes": 65,
+      "gzipSha256": "2b84bf9f346284348fa16c2deb9920c1cf556628d764b7c3e1f07ae778a5601d",
+      "readbackSha256": "dac0607187a3afb7ba67b9162c860f516e8f47f07bc75e79252bcbd4140ce087"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-channels\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-channels-receipt.json.gz",
+      "bytes": 987,
+      "sha256": "161b780d10252a793c213a95560399f2b5483ebc4b1ffb10fb5f8c24cd47de55",
+      "gzipBytes": 548,
+      "gzipSha256": "24443bf8f91a59789dea44d8b1c0cd9a9288a1cbc78186d7826b23af55fccf9f",
+      "readbackSha256": "161b780d10252a793c213a95560399f2b5483ebc4b1ffb10fb5f8c24cd47de55"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-managed-mcp\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-managed-mcp-stdout.log.gz",
+      "bytes": 44714,
+      "sha256": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423",
+      "gzipBytes": 2781,
+      "gzipSha256": "3baf4215357c915868d64cd55ce794bd74c47b40ae31a0bc8747a83ec72839ea",
+      "readbackSha256": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-managed-mcp\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-managed-mcp-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\privacy-managed-mcp\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\privacy-managed-mcp-receipt.json.gz",
+      "bytes": 996,
+      "sha256": "3b64e7a3e28d4f6b46fefcecd0dddc1808454fadf0c3b2939c4df4e9a42b3511",
+      "gzipBytes": 552,
+      "gzipSha256": "9c6f1dfdf4d028674ac4883089b4678ced13b46b3bed66916f4eed57744653f2",
+      "readbackSha256": "3b64e7a3e28d4f6b46fefcecd0dddc1808454fadf0c3b2939c4df4e9a42b3511"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\budget-guard\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\budget-guard-stdout.log.gz",
+      "bytes": 3451,
+      "sha256": "273ee6ee6b2b9ac5b887e8344f7f84a6903dd7eaea1c34205bec876d585dfb8d",
+      "gzipBytes": 1792,
+      "gzipSha256": "48f4a7a8d1d40ca81238bbedd1b1beb03d0fde9a04ee64e0e3a951588b6eeb05",
+      "readbackSha256": "273ee6ee6b2b9ac5b887e8344f7f84a6903dd7eaea1c34205bec876d585dfb8d"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\budget-guard\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\budget-guard-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\budget-guard\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\budget-guard-receipt.json.gz",
+      "bytes": 975,
+      "sha256": "9f844b118943e4eb58405cc4a566cf92d3990f7d77666840091400d6d131de28",
+      "gzipBytes": 546,
+      "gzipSha256": "f18015a2cd81ab208672bc942da68c547be018e407ae08addbccd5b156f04da0",
+      "readbackSha256": "9f844b118943e4eb58405cc4a566cf92d3990f7d77666840091400d6d131de28"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\overlay-update-core\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\overlay-update-core-stdout.log.gz",
+      "bytes": 8616,
+      "sha256": "7e03ee3d6d7fb1355845d77a99aed410b2c622d53ee72e13dca803c6fd330ec6",
+      "gzipBytes": 3174,
+      "gzipSha256": "4418b929d6044fbba986ee06ce6ce831863cf3b38324d681198148e3b413dcaa",
+      "readbackSha256": "7e03ee3d6d7fb1355845d77a99aed410b2c622d53ee72e13dca803c6fd330ec6"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\overlay-update-core\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\overlay-update-core-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-terra\\isolated\\overlay-update-core\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-round2-20261115\\overlay-update-core-receipt.json.gz",
+      "bytes": 996,
+      "sha256": "083d84a53cea76ac4df941270d205350a4849bd2d3b5f496227a37f4d0b4066f",
+      "gzipBytes": 551,
+      "gzipSha256": "cc01d5d386d2a142f3296541b401a7aaba89ef326ddf86599f8caf05ad457a63",
+      "readbackSha256": "083d84a53cea76ac4df941270d205350a4849bd2d3b5f496227a37f4d0b4066f"
+    }
+  ]
+}

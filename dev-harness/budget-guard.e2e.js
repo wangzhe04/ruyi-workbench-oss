@@ -251,6 +251,30 @@ function normalizeCapText(raw) {
       ok(T3.capCount() === 2 && !!(ev.find(e => e.type === 'result') || {}).ok, 'E29 主动档零触发:快命令正常完成');
       ok(t0Caps && JSON.stringify(caps) === JSON.stringify(t0Caps), 'E30 零触发路径请求体与全关基线逐字节一致(elapsedMs 墙钟已归一化)');
       const logs = await T3.waitLog(l => l.kind === 'tool_time_budget' || l.kind === 'tool_byte_budget_shadow', 1500);
+      if (logs.length !== 0) {
+        // E31-only diagnostic: emit timing and a strict event-field whitelist, never raw tool output.
+        const cap2 = T3.readCap(2);
+        const toolElapsedMs = [];
+        for (const message of Array.isArray(cap2 && cap2.messages) ? cap2.messages : []) {
+          if (!message || message.role !== 'tool') continue;
+          let result = message.content;
+          if (typeof result === 'string') { try { result = JSON.parse(result); } catch { result = null; } }
+          if (result && typeof result === 'object' && Number.isFinite(result.elapsedMs)) toolElapsedMs.push(result.elapsedMs);
+        }
+        const allowedKinds = new Set(['tool_time_budget', 'tool_byte_budget_shadow']);
+        const allowedModes = new Set(['enforce', 'shadow']);
+        const allowedStates = new Set(['soft_warning', 'hard_kill', 'would_soft_warning', 'would_hard_kill']);
+        const safeEvents = logs.filter(l => l && allowedKinds.has(l.kind)).map(l => ({
+          kind: l.kind,
+          ...(allowedModes.has(l.mode) ? { mode: l.mode } : {}),
+          ...(allowedStates.has(l.state) ? { state: l.state } : {}),
+          ...(['warnMs', 'deadlineMs', 'elapsedMs'].reduce((out, key) => {
+            if (Number.isFinite(l[key])) out[key] = l[key];
+            return out;
+          }, {})),
+        }));
+        console.error('[E31 diagnostic] ' + JSON.stringify({ toolResultElapsedMs: [...new Set(toolElapsedMs)], budgetEvents: safeEvents }));
+      }
       ok(logs.length === 0, 'E31 零触发路径零预算日志(无误报)');
     } catch (e) { console.log('ERROR ' + (e && e.stack || e)); failures++; }
     finally { await T3.cleanup(); }

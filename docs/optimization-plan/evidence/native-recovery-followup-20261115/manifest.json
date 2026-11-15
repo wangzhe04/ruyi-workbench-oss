@@ -1,0 +1,802 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-15T11:49:32.063Z",
+  "kind": "FOUR_NATIVE_FOCUSED_FOLLOWUP",
+  "sourceServerSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+  "cases": [
+    {
+      "label": "completed-claim",
+      "receipt": "output/20261115-sol-native-review/actual-completed-claim-1/receipt.json",
+      "start": "2026-11-15T11:23:00.408Z",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:25:37.513Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:25:37.513Z"
+      },
+      "timeoutMs": 900000,
+      "elapsedMs": 158494,
+      "checks": 5,
+      "inputProof": {
+        "sameInputs": true,
+        "files": 166,
+        "productSource": true,
+        "executionInputSha256": "d73a15ff3282528c09747141565014571d2f872a126b3d4d007e7e297a6e6992"
+      },
+      "fixture": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN",
+      "scope": "Completed owned-claim retirement only; no interrupted-operation resume, C10/C11 cleanup, special portable or whole 3.1 acceptance.",
+      "whole3_1Complete": false,
+      "restorationComplete": false
+    },
+    {
+      "label": "bound-deep",
+      "receipt": "output/20261115-sol-native-review/actual-bound-deep-1/receipt.json",
+      "start": "2026-11-15T11:27:12.036Z",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:33:26.336Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:33:26.336Z"
+      },
+      "timeoutMs": 900000,
+      "elapsedMs": 375773,
+      "checks": 14,
+      "inputProof": {
+        "sameInputs": true,
+        "files": 162,
+        "productSource": true,
+        "executionInputSha256": "75b117243f0a2ed143d1da1b237c88699e23003de957123422195bca4d6cd2a6"
+      },
+      "fixture": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft",
+      "scope": "Real serve/cold/successor lifecycle plus actual sampled CIM identity. The simulated four-process fixture is not used as evidence here.",
+      "whole3_1Complete": false,
+      "restorationComplete": false
+    },
+    {
+      "label": "completed-intent",
+      "receipt": "output/20261115-sol-native-review/actual-completed-intent-1/receipt.json",
+      "start": "2026-11-15T11:35:06.018Z",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:43:07.296Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:43:07.296Z"
+      },
+      "timeoutMs": 1200000,
+      "elapsedMs": 483081,
+      "checks": 10,
+      "inputProof": {
+        "sameInputs": true,
+        "files": 166,
+        "productSource": true,
+        "executionInputSha256": "70e136d3b65f8da5491d4ae60f60c79c7a77ce175b5e313fc41febc63c4a07db"
+      },
+      "fixture": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK",
+      "scope": null,
+      "whole3_1Complete": false,
+      "restorationComplete": false
+    },
+    {
+      "label": "owned-source",
+      "receipt": "output/20261115-sol-native-review/actual-owned-source-1/receipt.json",
+      "start": "2026-11-15T11:44:24.696Z",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:48:54.812Z"
+      },
+      "close": {
+        "code": 0,
+        "signal": null,
+        "time": "2026-11-15T11:48:54.812Z"
+      },
+      "timeoutMs": 900000,
+      "elapsedMs": 271847,
+      "checks": 14,
+      "inputProof": {
+        "sameInputs": true,
+        "files": 166,
+        "productSource": true,
+        "executionInputSha256": "6a7e42623ba08c62b0c12eb6797636c57740b2a6e64a71f86da182125184bcd0"
+      },
+      "fixture": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y",
+      "scope": "Actual source doctor and subsequent source serve only; no production crash capture, unknown target completion, maintenance replay or whole M3-3 acceptance.",
+      "whole3_1Complete": false,
+      "restorationComplete": false
+    }
+  ],
+  "eventScans": [
+    {
+      "file": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/events.jsonl",
+      "bytes": 82079,
+      "rows": 83,
+      "maxLineBytes": 56089,
+      "maxStringUtf16": 2507,
+      "maxStringPath": "row.args.3"
+    },
+    {
+      "file": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft/evidence/events.jsonl",
+      "bytes": 102094,
+      "rows": 153,
+      "maxLineBytes": 55128,
+      "maxStringUtf16": 2507,
+      "maxStringPath": "row.args.3"
+    },
+    {
+      "file": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/events.jsonl",
+      "bytes": 115364,
+      "rows": 200,
+      "maxLineBytes": 55991,
+      "maxStringUtf16": 2507,
+      "maxStringPath": "row.args.3"
+    },
+    {
+      "file": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/events.jsonl",
+      "bytes": 123350,
+      "rows": 212,
+      "maxLineBytes": 56080,
+      "maxStringUtf16": 2507,
+      "maxStringPath": "row.args.3"
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/controller.cjs",
+      "archive": "completed-claim/controller.cjs.gz",
+      "rawBytes": 3742,
+      "rawSha256": "9c3a8ada14b0e520de26190630827a934b28ce5d876c74978805df5ec1efef05",
+      "gzipBytes": 1524,
+      "gzipSha256": "fd8ff3d476640e25602a4496f74eb55c394e6119ce2a23f0e27926b8c0bc5c18",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/receipt.json",
+      "archive": "completed-claim/receipt.json.gz",
+      "rawBytes": 1705,
+      "rawSha256": "a762486b38fc8f9cbf032dd403335db7ddb27fb43f011fa64b4654246dba6fb3",
+      "gzipBytes": 854,
+      "gzipSha256": "9ac334ee114474f53ffee80d1473d04c3d56761b5aad2facd9762d5abfffdea3",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/inputs-before.json",
+      "archive": "completed-claim/inputs-before.json.gz",
+      "rawBytes": 69371,
+      "rawSha256": "dd07dcaac3dcdec678ceb3948f67cfccd5e84c4c8948abe2dadcbb5b757a95e3",
+      "gzipBytes": 11820,
+      "gzipSha256": "62bde59bb691b214e1330a45706ee24e66183735bb2c2fbaf5d550bf38efc4e9",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/stdout.log",
+      "archive": "completed-claim/stdout.log.gz",
+      "rawBytes": 1856,
+      "rawSha256": "50172b44f98c48b1077a0273c348f26ce17f67c8093fc9193ef5d61b40a547cc",
+      "gzipBytes": 629,
+      "gzipSha256": "212400c959d552bab96cd3ee42120166bb2a98c9eb0e3c7de22dcafd11ed9160",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/stderr.log",
+      "archive": "completed-claim/stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/claim-producer-stderr.log",
+      "archive": "completed-claim/evidence/claim-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/claim-producer-stdout.log",
+      "archive": "completed-claim/evidence/claim-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/constructed-owned.json",
+      "archive": "completed-claim/evidence/constructed-owned.json.gz",
+      "rawBytes": 2186,
+      "rawSha256": "b8890d57873df216336fffb3a920f39667c8f9a42b011202af82ceea15fd90f5",
+      "gzipBytes": 681,
+      "gzipSha256": "687dbd1070768fc664d379d6d2bb7821c2b951da7a8938c820cc22f652d5cd89",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/events.jsonl",
+      "archive": "completed-claim/evidence/events.jsonl.gz",
+      "rawBytes": 82079,
+      "rawSha256": "ce3c2fa59fe1931c143bc17be31f45a05c9ffd80bd157e696b99c3c6d94815b3",
+      "gzipBytes": 17012,
+      "gzipSha256": "fd202f8a0f90e03c36dd116112724898219fc53e90aaf177b55521f579f449b9",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/producer-death.json",
+      "archive": "completed-claim/evidence/producer-death.json.gz",
+      "rawBytes": 1021,
+      "rawSha256": "d5ed2dd14c92408a00ffbfbe1dbaa0c42f0c5b7652f64ae65f4e16ad642e0ad8",
+      "gzipBytes": 392,
+      "gzipSha256": "94e4e20aa5b4743dd4171363bc8a05f8c50fb67be9839c2bb264ac51b59267c1",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/evidence/result.json",
+      "archive": "completed-claim/evidence/result.json.gz",
+      "rawBytes": 1017,
+      "rawSha256": "93afa252de1a2e9ec89d9cd4237b71d789caf1411cb6d06f65f6c81ea9a02513",
+      "gzipBytes": 535,
+      "gzipSha256": "66bd25210abb8fd6e98f4cb1e09059c73fd959e730928eca420289e3b39ae088",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/completed-seed-keeper/outer-job-result.json",
+      "archive": "completed-claim/completed-seed-keeper/outer-job-result.json.gz",
+      "rawBytes": 183,
+      "rawSha256": "c463b35f1dd5f4b8484a53c42ee135271612507e1aef423dced555f8f673a998",
+      "gzipBytes": 133,
+      "gzipSha256": "4926864932c684763af4a461c532c169efc1a40f479a2318697b2f720cffc64f",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-claim-1/temp/ruyi-completed-claim-4iTSZN/producer-keeper/outer-job-result.json",
+      "archive": "completed-claim/producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "e14ff7a6186129b60e9ed97b2098f99dea12805963944ee8bf181d5d62dcd239",
+      "gzipBytes": 129,
+      "gzipSha256": "ffb8ea64d5b9e3d11339a5db1e770ab525eb4872df9dc62ddc65ec88239df618",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/controller.cjs",
+      "archive": "bound-deep/controller.cjs.gz",
+      "rawBytes": 3917,
+      "rawSha256": "122020bb37cae05f5232f48abd7461522a2ca708b81f5788416c06eb8ff64693",
+      "gzipBytes": 1593,
+      "gzipSha256": "e07280b727abd1347c676466f37bdcb3af0940c9b255fc51405e368b8278790f",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/receipt.json",
+      "archive": "bound-deep/receipt.json.gz",
+      "rawBytes": 1817,
+      "rawSha256": "0495d8e3e5ffdb5bba0afeadea153a8f70e919d0baa88534eb2b0e84372fe381",
+      "gzipBytes": 922,
+      "gzipSha256": "59d37c7851e847a50cab3be54fd262f530e0948af0ad8a1431e95a93ae3cb838",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/inputs-before.json",
+      "archive": "bound-deep/inputs-before.json.gz",
+      "rawBytes": 68105,
+      "rawSha256": "637f3293c44a709e3ee3fe4713d7eb656436ad28b12f4f7298c6091b183ec411",
+      "gzipBytes": 11678,
+      "gzipSha256": "d49d2cdb0f4c9c9b074d79cb1c72fac5f17638862aa53c6b47655d209ff79d50",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/stdout.log",
+      "archive": "bound-deep/stdout.log.gz",
+      "rawBytes": 4422,
+      "rawSha256": "5e15d56421c3505ae17d25046ae2ace2011f71eced34f3e79b9b906bc6f6333c",
+      "gzipBytes": 938,
+      "gzipSha256": "f038ffe50b6c76eefb511610ea29577064a38609898217f2b1db9b96940a35bf",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/stderr.log",
+      "archive": "bound-deep/stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft/evidence/events.jsonl",
+      "archive": "bound-deep/evidence/events.jsonl.gz",
+      "rawBytes": 102094,
+      "rawSha256": "412cd33f25b75793faf2a7c860b31f319044c8cc1629fdfa4aab2531bce78a9b",
+      "gzipBytes": 18908,
+      "gzipSha256": "3c08f509d57154d184ef53416f58662fda9c1403f666b97615d5c569eb220719",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft/evidence/execution-inputs-after.json",
+      "archive": "bound-deep/evidence/execution-inputs-after.json.gz",
+      "rawBytes": 160,
+      "rawSha256": "3e83f9a95d46d485147396d9f36caa18e912ac7f1b7704178b4c82b2ff42a066",
+      "gzipBytes": 146,
+      "gzipSha256": "6b16ad82075d8133162d02a8183569f612ca2de06a6057536601fc22027d064e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft/evidence/result.json",
+      "archive": "bound-deep/evidence/result.json.gz",
+      "rawBytes": 3474,
+      "rawSha256": "dc542b744d034bc8785476d14a0dcb9db1cc90de73de48e4e139cdafc96bb0bc",
+      "gzipBytes": 1284,
+      "gzipSha256": "939d17b58b23220a4dce5ab924893ce01acc9e701e620960744d2aa0d862770a",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-bound-deep-1/temp/ruyi-bound-deep-ES7zTl/ttttttttttttttttttttttttt/ruyi-production-maintenance-vlmcft/outer-job-result.json",
+      "archive": "bound-deep/outer-job-result.json.gz",
+      "rawBytes": 183,
+      "rawSha256": "46a034591fee26f6aef1414a5d64ffd208dbc7e70196064bdda9bd6488ece541",
+      "gzipBytes": 132,
+      "gzipSha256": "9507ab7e6432f0ee182bc2b8052b4029e93b3531b1a45700aef38bf05dcbeb0a",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/controller.cjs",
+      "archive": "completed-intent/controller.cjs.gz",
+      "rawBytes": 3744,
+      "rawSha256": "3d049e36f495a47bc8425b5f6eb95300b5772e7268faa4586edfeb871667d42f",
+      "gzipBytes": 1532,
+      "gzipSha256": "75e2b19a4bbf2442dc9bda529bf9232b057143644945aca585c261ff11fa11e4",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/receipt.json",
+      "archive": "completed-intent/receipt.json.gz",
+      "rawBytes": 1709,
+      "rawSha256": "5e7bb0fc888b042d57b20f20b4b5f706afaee5e8459a972c837b5e511b9d95ca",
+      "gzipBytes": 853,
+      "gzipSha256": "9175675d42295392f779d37452038260b9eb7b2813fef7130f5cad4537b0e91f",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/inputs-before.json",
+      "archive": "completed-intent/inputs-before.json.gz",
+      "rawBytes": 69372,
+      "rawSha256": "08a7bebef0e24d9ea409aa95cc64e7f65d85abb7d08acdee3f460d73924eeb1a",
+      "gzipBytes": 11835,
+      "gzipSha256": "7a30d18505a60ab28f5b15f48864b40124633dd4ccc0e5f0ee837f942a566f08",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/stdout.log",
+      "archive": "completed-intent/stdout.log.gz",
+      "rawBytes": 4726,
+      "rawSha256": "2247ebd9e0f1fb6cd49ea2ef85e12cbae185b3f7717af40db7d66d0582a925ca",
+      "gzipBytes": 764,
+      "gzipSha256": "3f81711ea9cd02304d5d793f7c97f748bf75488d73e9db1eceb7c649ee08dfca",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/stderr.log",
+      "archive": "completed-intent/stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/disable-doctor-proof.json",
+      "archive": "completed-intent/evidence/disable-doctor-proof.json.gz",
+      "rawBytes": 142210,
+      "rawSha256": "baf3d21af37e026dbd09e7f951cbaa7d3a151575036441eefd5571b618f7a5c4",
+      "gzipBytes": 11458,
+      "gzipSha256": "0b74691fbf4738c89be63e5ab5d74c920d2377ddde911fcf29f2497751131296",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/disable-producer-constructed-owned.json",
+      "archive": "completed-intent/evidence/disable-producer-constructed-owned.json.gz",
+      "rawBytes": 2555,
+      "rawSha256": "d9453e478658f4b2e248bca6f974d18493a79f0c4a35bdc70a1128114e0db746",
+      "gzipBytes": 798,
+      "gzipSha256": "6d325e075e2611992af77b49bbd8c71593843b401538a8f7c58a33c951ad41f6",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/disable-producer-death.json",
+      "archive": "completed-intent/evidence/disable-producer-death.json.gz",
+      "rawBytes": 1023,
+      "rawSha256": "d75a531040f1144a9ae8c352bb17597d586437e76ca1476f5aa8542e2076b5d5",
+      "gzipBytes": 392,
+      "gzipSha256": "2f7a4e326dd8ffd364af8819abe4eec7590a0fb8b5e54bded82dd4e246175f38",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/disable-producer-stderr.log",
+      "archive": "completed-intent/evidence/disable-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/disable-producer-stdout.log",
+      "archive": "completed-intent/evidence/disable-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/enable-doctor-proof.json",
+      "archive": "completed-intent/evidence/enable-doctor-proof.json.gz",
+      "rawBytes": 89757,
+      "rawSha256": "2c50b50a948fae96076dfab955ca27e9bd3252c8935c14a8b27af3099c4310d9",
+      "gzipBytes": 8374,
+      "gzipSha256": "9645d9145d40a9cc1b1873696a0699fb4d3ba93227ace7eabe0d74d906b356c8",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/enable-producer-constructed-owned.json",
+      "archive": "completed-intent/evidence/enable-producer-constructed-owned.json.gz",
+      "rawBytes": 2549,
+      "rawSha256": "65eb8c7f5f4b162050e654c1328347dab85d4b55bc3ce60958251c4945b5ae3d",
+      "gzipBytes": 800,
+      "gzipSha256": "d591b5e2d39b24e4196073efaeece64a2ce2e88f888121b6abe8dfb0b3a4e3cf",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/enable-producer-death.json",
+      "archive": "completed-intent/evidence/enable-producer-death.json.gz",
+      "rawBytes": 1022,
+      "rawSha256": "fb292275915e58a9cf140bbdd33635c83fb0e1f2bc8e13ab75cbceb7b25872bc",
+      "gzipBytes": 391,
+      "gzipSha256": "c6ace26b58f591bfab73974d6b11cb8362d01d973ec5c75ad45c4fe21178903f",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/enable-producer-stderr.log",
+      "archive": "completed-intent/evidence/enable-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/enable-producer-stdout.log",
+      "archive": "completed-intent/evidence/enable-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/events.jsonl",
+      "archive": "completed-intent/evidence/events.jsonl.gz",
+      "rawBytes": 115364,
+      "rawSha256": "90eb6cb3b5d4310b4aecc6dd413baae17fc9ac9d3804a35497927fc37b13e7cb",
+      "gzipBytes": 19770,
+      "gzipSha256": "cd2a6def19cc046e97c510f9d967534e50feb8a530340abb776892f8b0f85875",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/evidence/result.json",
+      "archive": "completed-intent/evidence/result.json.gz",
+      "rawBytes": 1511,
+      "rawSha256": "e228c288525b86a1aea8ae8b073416e96cceecfc7b7d9b8dc3f68a0a4d2da941",
+      "gzipBytes": 514,
+      "gzipSha256": "18b0c0bde60760875b6a1d3f465b3c18a151af3315ece950ca682894e968f7ec",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/disable-producer-keeper/outer-job-result.json",
+      "archive": "completed-intent/disable-producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "91166a7179d6b0d9f6cc1a2e5b62a34cef3c0fecdae355a28f69b88fe21f8bac",
+      "gzipBytes": 128,
+      "gzipSha256": "fea1ab241ade756b7af1395cec52895624bd3087acfbdcf9782131999b67e1db",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/disable-seed-keeper/outer-job-result.json",
+      "archive": "completed-intent/disable-seed-keeper/outer-job-result.json.gz",
+      "rawBytes": 183,
+      "rawSha256": "8c0241d10ef8a3194f734c93ee8a9e8738e69134116758db18ccb86f5b421918",
+      "gzipBytes": 133,
+      "gzipSha256": "060f9969198bdecd3526ba810de7d1456bff2eec66a48bf5f8fc82fb7e1af8d7",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/enable-producer-keeper/outer-job-result.json",
+      "archive": "completed-intent/enable-producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "269c5fa05576d1edc39c9a7fc4e14c043f551832894d4a6cdadc5b8db19b688c",
+      "gzipBytes": 129,
+      "gzipSha256": "7cab14c28cdde317796f4760af2c2de8daeab62211b15b7d54f18763789b8cf5",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-completed-intent-1/temp/ruyi-c11-recovery-IkFdbK/enable-seed-keeper/outer-job-result.json",
+      "archive": "completed-intent/enable-seed-keeper/outer-job-result.json.gz",
+      "rawBytes": 183,
+      "rawSha256": "87e175e7cf40a9ddb8cc62f3296e230355e2d1cc582ff5c2b4668044c8bd4012",
+      "gzipBytes": 133,
+      "gzipSha256": "fb192bfcb94a894f9a80b09e7931f806b7c380a3e533d25268c38269b92241a6",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/controller.cjs",
+      "archive": "owned-source/controller.cjs.gz",
+      "rawBytes": 3739,
+      "rawSha256": "7259c53f01d0bec1caab58835224b461903ed814f947769b9025b5a3cab1c197",
+      "gzipBytes": 1524,
+      "gzipSha256": "024dbfb7a0d232609159cdf9c80d752aba3e7460820022c3b5510c5d8a3bfad5",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/receipt.json",
+      "archive": "owned-source/receipt.json.gz",
+      "rawBytes": 1696,
+      "rawSha256": "80cd07b12225b849bfe43b5df427ea4c1a55b6ffcea404d3d471378972c3c605",
+      "gzipBytes": 851,
+      "gzipSha256": "f6d2e2647fa0ff5fb429acca4e746e218a2966a2c605708ff0db268244df66d6",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/inputs-before.json",
+      "archive": "owned-source/inputs-before.json.gz",
+      "rawBytes": 69368,
+      "rawSha256": "a8358a78264ee838a9e442a74b8df31cbdd5451bd8b91a8139077edb071e6a0a",
+      "gzipBytes": 11829,
+      "gzipSha256": "042c3a57428bd1f1ba7b0f4d61c38b736b6efb17780a8755d8c69e0c045a797e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/stdout.log",
+      "archive": "owned-source/stdout.log.gz",
+      "rawBytes": 2946,
+      "rawSha256": "baa785c622317fda08fb78cd0e9a6de344c1d9b3b505af0c4936b99941b45020",
+      "gzipBytes": 820,
+      "gzipSha256": "95cfd16cbb485420dbcaf46ba67331fcd9187632c3a941ed77d77ad55756782f",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/stderr.log",
+      "archive": "owned-source/stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/encrypted-producer-constructed-owned.json",
+      "archive": "owned-source/evidence/encrypted-producer-constructed-owned.json.gz",
+      "rawBytes": 2163,
+      "rawSha256": "b0f4ac2afee0272d25f72eed802bb9db5e8b075d96fcb82044b3cd86d32acc3d",
+      "gzipBytes": 683,
+      "gzipSha256": "a602c94c00d58ac8b66c9d879a805d7975c3fd80df9471c0fdbf450bebadcf82",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/encrypted-producer-death.json",
+      "archive": "owned-source/evidence/encrypted-producer-death.json.gz",
+      "rawBytes": 1025,
+      "rawSha256": "d3cebab05900b2b9177a4e8b2607b64856b2bb83aab73daae8b122cf953b3a31",
+      "gzipBytes": 395,
+      "gzipSha256": "a65ed594921dc72721ec527fa4da0a80d7c4ecbf9108e3dff0876a3235898de4",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/encrypted-producer-stderr.log",
+      "archive": "owned-source/evidence/encrypted-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/encrypted-producer-stdout.log",
+      "archive": "owned-source/evidence/encrypted-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/events.jsonl",
+      "archive": "owned-source/evidence/events.jsonl.gz",
+      "rawBytes": 123350,
+      "rawSha256": "33e25e8da91f9bf18625353de7d464101855624c5d5955361d5409579aae5c6c",
+      "gzipBytes": 20272,
+      "gzipSha256": "a0a93f2e6287ad5d45f330229399f1de5b6854d727ae7c4f640e427c4a92698a",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/matching-producer-constructed-owned.json",
+      "archive": "owned-source/evidence/matching-producer-constructed-owned.json.gz",
+      "rawBytes": 2161,
+      "rawSha256": "7c1248984669fcfbb5cccc3a85560823ec1692f7b34c4bf405b8cf49a8f04489",
+      "gzipBytes": 685,
+      "gzipSha256": "e68fdb930dc752d5f78a03f75fc5dea64740ade97d0c897115c9c55bee3e39c0",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/matching-producer-death.json",
+      "archive": "owned-source/evidence/matching-producer-death.json.gz",
+      "rawBytes": 1024,
+      "rawSha256": "1b3d2103dc28c9e05f3ee82476c204e1fc59e3708ed1dcba48a3396b299ee8c6",
+      "gzipBytes": 394,
+      "gzipSha256": "093a8905096d6ee686d474b93cb09703c742b1cccd4cdba5e241e9f569409482",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/matching-producer-stderr.log",
+      "archive": "owned-source/evidence/matching-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/matching-producer-stdout.log",
+      "archive": "owned-source/evidence/matching-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/plain-producer-constructed-owned.json",
+      "archive": "owned-source/evidence/plain-producer-constructed-owned.json.gz",
+      "rawBytes": 2147,
+      "rawSha256": "3e59b098a9026cc3b67a2b706aac0ca5e59c2db903309a556ed17a988cd1900c",
+      "gzipBytes": 683,
+      "gzipSha256": "9d898038571241ec02b6163f9012b7654c2834059dd0a2e22cac75fba85df40e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/plain-producer-death.json",
+      "archive": "owned-source/evidence/plain-producer-death.json.gz",
+      "rawBytes": 1021,
+      "rawSha256": "9896d779e0575df3f17c659aa36a90bfba1fbfacd907deb694fbd29eb03788ce",
+      "gzipBytes": 390,
+      "gzipSha256": "90e4d587501624681050f3de16fa1342db381729330d10fe819cdbb9e66ee34e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/plain-producer-stderr.log",
+      "archive": "owned-source/evidence/plain-producer-stderr.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/plain-producer-stdout.log",
+      "archive": "owned-source/evidence/plain-producer-stdout.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/evidence/result.json",
+      "archive": "owned-source/evidence/result.json.gz",
+      "rawBytes": 2121,
+      "rawSha256": "50af994805c91a586937604773e23aff851c033fce829158b46ac578a41e437d",
+      "gzipBytes": 720,
+      "gzipSha256": "d81ce39b4f95657ac0d6a9a27c79486d8929825750373c15b85834d512a2d8d3",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/encrypted-producer-keeper/outer-job-result.json",
+      "archive": "owned-source/encrypted-producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "4e7036ac4526ddf242270b9ce87cdb607c36e79f73c04e30d10be7b6e528521c",
+      "gzipBytes": 129,
+      "gzipSha256": "d9b305bb82a1a619feb7cfa64c604dd104513f30e754a22c01c113fe5459a0e7",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/encrypted-seed-keeper/outer-job-result.json",
+      "archive": "owned-source/encrypted-seed-keeper/outer-job-result.json.gz",
+      "rawBytes": 183,
+      "rawSha256": "1fad6de3b915c560fc72dc60e5c4fb27118586c2dce0167472f644a06ac741cd",
+      "gzipBytes": 133,
+      "gzipSha256": "90de0d7aa2debc27727bf9f26a642ce15164fafde940fb104c7e6cfb163f6c14",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/matching-producer-keeper/outer-job-result.json",
+      "archive": "owned-source/matching-producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "6f795d6fd13f4dcb097e748838ae3b99d78f027f663ddeddc676749b39019c2b",
+      "gzipBytes": 128,
+      "gzipSha256": "9153a929391a7d1f67eecac7b2ef1c6f3344cada0a357ffacbbdaa5b10f8bb53",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/actual-owned-source-1/temp/ruyi-owned-source-K0sL6Y/plain-producer-keeper/outer-job-result.json",
+      "archive": "owned-source/plain-producer-keeper/outer-job-result.json.gz",
+      "rawBytes": 136,
+      "rawSha256": "be1f178c09c71bd6da748aa3b344b25efea57d33f73645370ced6147e6a79552",
+      "gzipBytes": 129,
+      "gzipSha256": "d18d206782122fddad213f8d17f0c4a7dfc5226ea65d87a8855c18f7e43304c4",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/applied-diagnostics-final-24-unit.log",
+      "archive": "review/applied-diagnostics-final-24-unit.log.gz",
+      "rawBytes": 2580,
+      "rawSha256": "1cd552e1d06e50dad72923d7aa7013b04304fbc92986b2d1d922fb6e8be65d46",
+      "gzipBytes": 1014,
+      "gzipSha256": "8d1e39a8b7c72917e48be1a1cd05b0b46968da267cfd436145848fc002a7656a",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/applied-diagnostics-final-24-receipt.json",
+      "archive": "review/applied-diagnostics-final-24-receipt.json.gz",
+      "rawBytes": 1010,
+      "rawSha256": "e49cbbea83f91eb16375fe192b0fe161c17c586efc3149518ffca62577e06e5e",
+      "gzipBytes": 510,
+      "gzipSha256": "e8133463aea831cab50f8a6d5e69af9bcf2ba663d437febd74558145bb4b00f2",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/native-owner-seam-unit-85.log",
+      "archive": "review/native-owner-seam-unit-85.log.gz",
+      "rawBytes": 8900,
+      "rawSha256": "00037882a27e43c1811226e09fb64699a8a98680009018ad389f5197f911d24a",
+      "gzipBytes": 3298,
+      "gzipSha256": "72c3b06936ae64423ca73adc04a9c877b7988e5ac8a229783063d115ec25e388",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/native-owner-seam-unit-85-receipt.json",
+      "archive": "review/native-owner-seam-unit-85-receipt.json.gz",
+      "rawBytes": 484,
+      "rawSha256": "6db0c3127f246913fb27257626e13477d436130e596536a23ab9b3cd4e4bf59e",
+      "gzipBytes": 290,
+      "gzipSha256": "720e51bced7216cb6e93eb9293d2871452cb080232463c5e51e4f3ded123d6ca",
+      "readbackEqual": true
+    },
+    {
+      "source": "output/20261115-sol-native-review/original-failure-sections.json",
+      "archive": "review/original-failure-sections.json.gz",
+      "rawBytes": 4596,
+      "rawSha256": "83bd4d43365d752b6766989e6d3ec6127576fcea2aa98cb6b27da295d71bbede",
+      "gzipBytes": 1207,
+      "gzipSha256": "13f417dbb427673677712d79aea1ac31ef17c543f88c9c965e483d8cc1ca74ce",
+      "readbackEqual": true
+    }
+  ],
+  "limitations": [
+    "Original 631 RED is not rewritten; isolated current-source passes do not establish the historical root cause.",
+    "Constructed crash windows and sampled native creation identities only; no whole-kernel or continuous whole-tree completion claim.",
+    "No historical UNKNOWN scene was read, reclaimed or deleted.",
+    "Cold HTTP sampling is new observation and may add two 2500ms requests per eligible iteration; not zero timing impact.",
+    "No bodies, uploads, packages, full fixture roots or user data were copied."
+  ]
+}

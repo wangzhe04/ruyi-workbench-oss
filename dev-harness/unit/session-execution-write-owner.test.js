@@ -117,6 +117,7 @@ test('session stays live across final persistence after its provider child has e
     assert.equal((await srv.loadSession(session.id)).messages.some(m => m.role === 'assistant'), false, 'final assistant is not yet on disk');
     const during = internals.sessionEnvelopeLiveParts(session.id);
     assert.equal(during.live, true, 'polling must not stop on the old user-only history');
+    assert.equal(during.liveTail, null, 'the provider tail is gone while its driver still owns final persistence');
     const etag = internals.sessionEnvelopeEtag(session.id, await internals.sessionEnvelopeStamp(session.id), during);
     release();
     assert.equal((await turn).ok, true);

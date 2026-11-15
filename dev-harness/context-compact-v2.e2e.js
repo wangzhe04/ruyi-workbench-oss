@@ -34,7 +34,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
-function get(port, p, headers = {}) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 1500, headers }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
+function get(port, p, headers = {}, options = {}) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    let finished = false;
+    const finish = (value, status, error) => {
+      if (finished) return;
+      finished = true;
+      if (options.diagnostic) console.log(`DIAG status elapsed=${Date.now() - start}ms http=${status ?? 'none'} error=${error || 'none'}`);
+      resolve(value);
+    };
+    const r = http.get({ host: '127.0.0.1', port, path: p, timeout: options.timeout || 1500, headers }, res => {
+      let b = '';
+      res.on('data', c => b += c);
+      res.on('end', () => { try { finish(JSON.parse(b), res.statusCode, null); } catch { finish(null, res.statusCode, 'invalid-json'); } });
+    });
+    r.on('error', e => finish(null, null, e.code || 'request-error'));
+    r.on('timeout', () => { finish(null, null, 'timeout'); r.destroy(); });
+  });
+}
 function post(port, p, body, headers = {}) { return new Promise(resolve => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', timeout: 15000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); r.write(raw); r.end(); }); }
 function stream(port, body, headers = {}) { return new Promise(resolve => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', timeout: 120000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = '', events = []; res.on('data', c => { b += c; let i; while ((i = b.indexOf('\n')) >= 0) { const line = b.slice(0, i); b = b.slice(i + 1); try { if (line.trim()) events.push(JSON.parse(line)); } catch { /* ignore */ } } }); res.on('end', () => resolve(events)); }); r.on('error', () => resolve(events)); r.on('timeout', () => { r.destroy(); resolve(events); }); r.write(raw); r.end(); }); }
 async function up(port) { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.6-6.3s 且余量过窄,是「FAIL workbench up」假红的根(30 号文 P1-31)
@@ -204,8 +222,11 @@ const asst = content => ({ role: 'assistant', content });
       ok(saved?.ok && saved.config.contextWindowOverrides[agentKey] === 1000000, 'D4 手动窗口通过真实 config API 持久化');
       const providerStatus = await get(PORT, '/api/status', hdr);
       ok(providerStatus?.contextWindowResolved?.value === 300000, 'D5 provider 面板读数与服务端会话 override 一致');
-      await post(PORT, '/api/config', { activeProvider: '', agentCliType: 'claude', model: 'ark-code-latest' }, hdr);
-      const agentStatus = await get(PORT, '/api/status', hdr);
+      const agentSaved = await post(PORT, '/api/config', { activeProvider: '', agentCliType: 'claude', model: 'ark-code-latest' }, hdr);
+      ok(agentSaved?.ok === true && agentSaved.config?.activeProvider === '' && agentSaved.config?.agentCliType === 'claude'
+        && agentSaved.config?.model === 'ark-code-latest', 'D6a CLI 路由配置保存成功');
+      // 冷 CLI 探测可能超过默认采集超时；仅 D6 使用 15s，整件仍受 runner 的 120s 约束。
+      const agentStatus = await get(PORT, '/api/status', hdr, { timeout: 15000, diagnostic: true });
       ok(agentStatus?.contextWindowResolved?.value === 1000000 && agentStatus.contextWindowResolved.engine === 'agent'
         && agentStatus.contextWindowResolved.source === 'manual', `D6 未知 CLI 模型采用手动 1M，不受本地 128K 摘要模型影响 (${JSON.stringify(agentStatus?.contextWindowResolved)})`);
       await post(PORT, '/api/config', { model: 'other-unknown-model' }, hdr);

@@ -1,0 +1,336 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-15T12:27:47.642Z",
+  "runs": [
+    {
+      "label": "first-red",
+      "receipt": {
+        "command": [
+          "C:\\Program Files\\nodejs\\node.exe",
+          "dev-harness/run-all.js",
+          "--fast",
+          "--parallel",
+          "4"
+        ],
+        "cwd": "E:\\Claude\\worktrees\\steward-3x-implementation",
+        "node": "v24.14.1",
+        "start": "2026-11-15T12:09:12.873Z",
+        "controllerSha256": "bd8e6fd165a38fcf2bd0ba82c47e49ac76c636b45a98691bb1fd4178206514b2",
+        "inputsBefore": {
+          "ruyi-workbench/app/server.js": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+          "ruyi-workbench/app/src/manifest.json": "e865f1d145bb23f1ad4be62ca29ebc0ac649fcbc5aa1961cb80283e88d945582",
+          "dev-harness/run-all.js": "1808e69e7a1df0e0cf6918c980935c8c6f09a33e1b6880c8c7b32caa4cb0c7b5",
+          "dev-harness/budget-guard.e2e.js": "a87fc0d4919a8a3d0e55fd63be90cca81bf6338a22d8164ca02fb781a722d485",
+          "dev-harness/live-full-text.e2e.js": "6df1be9d267ab95ff2be0703b20d3d27778a53d866b8b5e46afae805b5a80f6b",
+          "dev-harness/steward-relay-channels.e2e.js": "7e19bf7e0b1c7f0fd37bd2a4546584f89f97deca91ec733d5897887f5a1289e3",
+          "dev-harness/lib/work-data-production-upload-core.js": "d46f87d7b303c24fb0f0dc0c10c0d152f61419ec58b1fbc9ce243dbb48dec903",
+          "dev-harness/work-data-production-maintenance.e2e.js": "b229514677521f25b8f7fcf4cb6be671f1aa61d03f56b8516eb3c8f9df470595",
+          "dev-harness/work-data-production-restore.e2e.js": "7d514c7b8f3807b50adda2e6298f1fbf701fb8aed4d9379ee4222f3dc52fd7cb",
+          "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js": "418ed05b41b8ca581739733b38a8b47c582cb52eb06007e62a25423b6c8852b9",
+          "dev-harness/unit/session-execution-write-owner.test.js": "0b5d00bccf98f5938376a0cc28338750832351a523b56b22a6405712463288ad"
+        },
+        "exit": {
+          "code": 1,
+          "signal": null,
+          "time": "2026-11-15T12:17:00.113Z"
+        },
+        "close": {
+          "code": 1,
+          "signal": null,
+          "time": "2026-11-15T12:17:00.114Z"
+        },
+        "stdoutEOF": true,
+        "stderrEOF": true,
+        "inputsAfter": {
+          "ruyi-workbench/app/server.js": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+          "ruyi-workbench/app/src/manifest.json": "e865f1d145bb23f1ad4be62ca29ebc0ac649fcbc5aa1961cb80283e88d945582",
+          "dev-harness/run-all.js": "1808e69e7a1df0e0cf6918c980935c8c6f09a33e1b6880c8c7b32caa4cb0c7b5",
+          "dev-harness/budget-guard.e2e.js": "a87fc0d4919a8a3d0e55fd63be90cca81bf6338a22d8164ca02fb781a722d485",
+          "dev-harness/live-full-text.e2e.js": "6df1be9d267ab95ff2be0703b20d3d27778a53d866b8b5e46afae805b5a80f6b",
+          "dev-harness/steward-relay-channels.e2e.js": "7e19bf7e0b1c7f0fd37bd2a4546584f89f97deca91ec733d5897887f5a1289e3",
+          "dev-harness/lib/work-data-production-upload-core.js": "d46f87d7b303c24fb0f0dc0c10c0d152f61419ec58b1fbc9ce243dbb48dec903",
+          "dev-harness/work-data-production-maintenance.e2e.js": "b229514677521f25b8f7fcf4cb6be671f1aa61d03f56b8516eb3c8f9df470595",
+          "dev-harness/work-data-production-restore.e2e.js": "7d514c7b8f3807b50adda2e6298f1fbf701fb8aed4d9379ee4222f3dc52fd7cb",
+          "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js": "418ed05b41b8ca581739733b38a8b47c582cb52eb06007e62a25423b6c8852b9",
+          "dev-harness/unit/session-execution-write-owner.test.js": "0b5d00bccf98f5938376a0cc28338750832351a523b56b22a6405712463288ad"
+        },
+        "inputsUnchanged": true,
+        "runnerLogs": {
+          "last-unit-run.log": {
+            "sha256": "a63be0931aacedec46bc903bd2490a1cc83a5888e5f0671ecc0b578e38dde4dd",
+            "mtimeMs": 1794744991375.2273
+          },
+          "last-run.log": {
+            "sha256": "a17d98a7c506d30e90501e37e988ed16e6e5082efbaf9ed2e5c9f2b74e084909",
+            "mtimeMs": 1794745020108.573
+          }
+        }
+      },
+      "unit": {
+        "tests": 5350,
+        "suites": 194,
+        "pass": 5324,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 26,
+        "todo": 0,
+        "duration_ms": 436997.982
+      },
+      "static": {
+        "pass": 99,
+        "fail": 1,
+        "knownFail": 0,
+        "unexpectedPass": 0,
+        "flaky": 0,
+        "ran": 100,
+        "skippedLive": 7
+      },
+      "passed": false
+    },
+    {
+      "label": "final",
+      "receipt": {
+        "command": [
+          "C:\\Program Files\\nodejs\\node.exe",
+          "dev-harness/run-all.js",
+          "--fast",
+          "--parallel",
+          "4"
+        ],
+        "cwd": "E:\\Claude\\worktrees\\steward-3x-implementation",
+        "node": "v24.14.1",
+        "start": "2026-11-15T12:19:58.503Z",
+        "controllerSha256": "1a46fba27a949d36d28b944685281e5fb13168e99665d058e873741c9a19fafc",
+        "inputsBefore": {
+          "ruyi-workbench/app/server.js": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+          "ruyi-workbench/app/src/manifest.json": "e865f1d145bb23f1ad4be62ca29ebc0ac649fcbc5aa1961cb80283e88d945582",
+          "dev-harness/run-all.js": "1808e69e7a1df0e0cf6918c980935c8c6f09a33e1b6880c8c7b32caa4cb0c7b5",
+          "docs/architecture/route-inventory.json": "ddec24f8627aca7785b40f7fa673fb6fdccf0272ba5372e74578ecd50a427d47",
+          "docs/architecture/route-inventory.md": "8589b2b5a74a4f2b8e8efc27d630a9b2308096bfbbf4d793371a57e55978efa1",
+          "dev-harness/budget-guard.e2e.js": "a87fc0d4919a8a3d0e55fd63be90cca81bf6338a22d8164ca02fb781a722d485",
+          "dev-harness/live-full-text.e2e.js": "6df1be9d267ab95ff2be0703b20d3d27778a53d866b8b5e46afae805b5a80f6b",
+          "dev-harness/steward-relay-channels.e2e.js": "7e19bf7e0b1c7f0fd37bd2a4546584f89f97deca91ec733d5897887f5a1289e3",
+          "dev-harness/lib/work-data-production-upload-core.js": "d46f87d7b303c24fb0f0dc0c10c0d152f61419ec58b1fbc9ce243dbb48dec903",
+          "dev-harness/work-data-production-maintenance.e2e.js": "b229514677521f25b8f7fcf4cb6be671f1aa61d03f56b8516eb3c8f9df470595",
+          "dev-harness/work-data-production-restore.e2e.js": "7d514c7b8f3807b50adda2e6298f1fbf701fb8aed4d9379ee4222f3dc52fd7cb",
+          "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js": "418ed05b41b8ca581739733b38a8b47c582cb52eb06007e62a25423b6c8852b9",
+          "dev-harness/unit/session-execution-write-owner.test.js": "0b5d00bccf98f5938376a0cc28338750832351a523b56b22a6405712463288ad"
+        },
+        "exit": {
+          "code": 0,
+          "signal": null,
+          "time": "2026-11-15T12:27:41.182Z"
+        },
+        "close": {
+          "code": 0,
+          "signal": null,
+          "time": "2026-11-15T12:27:41.182Z"
+        },
+        "stdoutEOF": true,
+        "stderrEOF": true,
+        "inputsAfter": {
+          "ruyi-workbench/app/server.js": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+          "ruyi-workbench/app/src/manifest.json": "e865f1d145bb23f1ad4be62ca29ebc0ac649fcbc5aa1961cb80283e88d945582",
+          "dev-harness/run-all.js": "1808e69e7a1df0e0cf6918c980935c8c6f09a33e1b6880c8c7b32caa4cb0c7b5",
+          "docs/architecture/route-inventory.json": "ddec24f8627aca7785b40f7fa673fb6fdccf0272ba5372e74578ecd50a427d47",
+          "docs/architecture/route-inventory.md": "8589b2b5a74a4f2b8e8efc27d630a9b2308096bfbbf4d793371a57e55978efa1",
+          "dev-harness/budget-guard.e2e.js": "a87fc0d4919a8a3d0e55fd63be90cca81bf6338a22d8164ca02fb781a722d485",
+          "dev-harness/live-full-text.e2e.js": "6df1be9d267ab95ff2be0703b20d3d27778a53d866b8b5e46afae805b5a80f6b",
+          "dev-harness/steward-relay-channels.e2e.js": "7e19bf7e0b1c7f0fd37bd2a4546584f89f97deca91ec733d5897887f5a1289e3",
+          "dev-harness/lib/work-data-production-upload-core.js": "d46f87d7b303c24fb0f0dc0c10c0d152f61419ec58b1fbc9ce243dbb48dec903",
+          "dev-harness/work-data-production-maintenance.e2e.js": "b229514677521f25b8f7fcf4cb6be671f1aa61d03f56b8516eb3c8f9df470595",
+          "dev-harness/work-data-production-restore.e2e.js": "7d514c7b8f3807b50adda2e6298f1fbf701fb8aed4d9379ee4222f3dc52fd7cb",
+          "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js": "418ed05b41b8ca581739733b38a8b47c582cb52eb06007e62a25423b6c8852b9",
+          "dev-harness/unit/session-execution-write-owner.test.js": "0b5d00bccf98f5938376a0cc28338750832351a523b56b22a6405712463288ad"
+        },
+        "inputsUnchanged": true,
+        "runnerLogs": {
+          "last-unit-run.log": {
+            "sha256": "67b4d588757e12a7806a88b9b959de6c3a81ff831a7688c96bff738b2f214a02",
+            "mtimeMs": 1794745633668.2776
+          },
+          "last-run.log": {
+            "sha256": "23e7635d4e6c49d95636a85f5af709d1d82c21a0bff812cca6a2e1953a4e7b67",
+            "mtimeMs": 1794745661173.1057
+          }
+        }
+      },
+      "unit": {
+        "tests": 5350,
+        "suites": 194,
+        "pass": 5324,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 26,
+        "todo": 0,
+        "duration_ms": 434202.489
+      },
+      "static": {
+        "pass": 100,
+        "fail": 0,
+        "knownFail": 0,
+        "unexpectedPass": 0,
+        "flaky": 0,
+        "ran": 100,
+        "skippedLive": 7
+      },
+      "passed": true
+    }
+  ],
+  "files": [
+    {
+      "source": "output\\20261115-round2-root-fast\\controller.cjs",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-controller.cjs.gz",
+      "bytes": 3708,
+      "sha256": "bd8e6fd165a38fcf2bd0ba82c47e49ac76c636b45a98691bb1fd4178206514b2",
+      "gzipBytes": 1447,
+      "gzipSha256": "5e342d6432162c762b04bc0f1324948e73ed6ab2166e5b77e3ae1fec6785aa82",
+      "readbackSha256": "bd8e6fd165a38fcf2bd0ba82c47e49ac76c636b45a98691bb1fd4178206514b2"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-stdout.log.gz",
+      "bytes": 9504,
+      "sha256": "cb7584d9ca7be8fd9f63f835d615a96c1e7ce4833f4c753a68965c71043107ef",
+      "gzipBytes": 3078,
+      "gzipSha256": "5e7297af401fefd202e206a08d1254854c34d7e407d4614cbff24445c9124a2e",
+      "readbackSha256": "cb7584d9ca7be8fd9f63f835d615a96c1e7ce4833f4c753a68965c71043107ef"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "9e72928e7a01615b4cf090daa617b4ca9d68531748f887f323f695eb4ca3ef63",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-receipt.json.gz",
+      "bytes": 3564,
+      "sha256": "1402c9d24fb9410b1b9cf4fadb346b7df1d2c5f19c9e1a56ad7df731ab163fd5",
+      "gzipBytes": 1167,
+      "gzipSha256": "fa37b2eba0a51d04ebd66c472d794db82c860aa504bd6d8db0d139fd95ac13ac",
+      "readbackSha256": "1402c9d24fb9410b1b9cf4fadb346b7df1d2c5f19c9e1a56ad7df731ab163fd5"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast\\last-unit-run.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-last-unit-run.log.gz",
+      "bytes": 699212,
+      "sha256": "a63be0931aacedec46bc903bd2490a1cc83a5888e5f0671ecc0b578e38dde4dd",
+      "gzipBytes": 255107,
+      "gzipSha256": "39fcf14e3f16694fd735ccfefea90c64e64908d4f91b5e87db40dda83eaba1ef",
+      "readbackSha256": "a63be0931aacedec46bc903bd2490a1cc83a5888e5f0671ecc0b578e38dde4dd"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast\\last-run.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\first-red-last-run.log.gz",
+      "bytes": 4526,
+      "sha256": "a17d98a7c506d30e90501e37e988ed16e6e5082efbaf9ed2e5c9f2b74e084909",
+      "gzipBytes": 1471,
+      "gzipSha256": "03770e5093f7e1cc181810ecd3567c6fb35fb6cbb5726b672ad82d1032d22d25",
+      "readbackSha256": "a17d98a7c506d30e90501e37e988ed16e6e5082efbaf9ed2e5c9f2b74e084909"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\controller.cjs",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-controller.cjs.gz",
+      "bytes": 3790,
+      "sha256": "1a46fba27a949d36d28b944685281e5fb13168e99665d058e873741c9a19fafc",
+      "gzipBytes": 1476,
+      "gzipSha256": "43f8fb1bfc8816f8e3ed2b8b5f400740d6ac8ccb841d9fdbfe66ec4791b7fe5d",
+      "readbackSha256": "1a46fba27a949d36d28b944685281e5fb13168e99665d058e873741c9a19fafc"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\stdout.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-stdout.log.gz",
+      "bytes": 7581,
+      "sha256": "2c5ea6b280d1a756a9ad8400b6aa2e1a994e1fb81be882a5e83e85e2b7c5d6c5",
+      "gzipBytes": 2206,
+      "gzipSha256": "9aa0fce5ba64511d360b3bceabb07fa4a0f0edcd14403b1476167b4c4e800edc",
+      "readbackSha256": "2c5ea6b280d1a756a9ad8400b6aa2e1a994e1fb81be882a5e83e85e2b7c5d6c5"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\stderr.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-stderr.log.gz",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "9e72928e7a01615b4cf090daa617b4ca9d68531748f887f323f695eb4ca3ef63",
+      "readbackSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\receipt.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-receipt.json.gz",
+      "bytes": 4017,
+      "sha256": "6b9d29af470e53bf4704605809f579f191c227082a38f6ceb8da05d4d5584c29",
+      "gzipBytes": 1276,
+      "gzipSha256": "7c37fb2143082be428f3fc0016b045447c0788c25d93ad60b940f67c13572b26",
+      "readbackSha256": "6b9d29af470e53bf4704605809f579f191c227082a38f6ceb8da05d4d5584c29"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\last-unit-run.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-last-unit-run.log.gz",
+      "bytes": 699265,
+      "sha256": "67b4d588757e12a7806a88b9b959de6c3a81ff831a7688c96bff738b2f214a02",
+      "gzipBytes": 255102,
+      "gzipSha256": "e576a63e94e1a49cecb678b9255984dd2ef82db53d4a8c0ab9ca8abd7ad29cf4",
+      "readbackSha256": "67b4d588757e12a7806a88b9b959de6c3a81ff831a7688c96bff738b2f214a02"
+    },
+    {
+      "source": "output\\20261115-round2-root-fast-2\\last-run.log",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\final-last-run.log.gz",
+      "bytes": 4529,
+      "sha256": "23e7635d4e6c49d95636a85f5af709d1d82c21a0bff812cca6a2e1953a4e7b67",
+      "gzipBytes": 1468,
+      "gzipSha256": "068eb9db6f7e4eef5db3b613aeb9f6fbaadc79846169084d3dfa15266a951412",
+      "readbackSha256": "23e7635d4e6c49d95636a85f5af709d1d82c21a0bff812cca6a2e1953a4e7b67"
+    },
+    {
+      "source": "output/20261115-round2-root-fast/route-inventory-before.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\route-inventory-before.json.gz",
+      "bytes": 236308,
+      "sha256": "6768e1d1d205e41be59bfa95e8e9b7e54eb304f918eabe3c8b4c10d2cbf69914",
+      "gzipBytes": 15608,
+      "gzipSha256": "da68f702f2491bebfb0bb8ef25cff7d3edf69326a798c256ca0566389cfb2ae0",
+      "readbackSha256": "6768e1d1d205e41be59bfa95e8e9b7e54eb304f918eabe3c8b4c10d2cbf69914"
+    },
+    {
+      "source": "docs/architecture/route-inventory.json",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\route-inventory-final.json.gz",
+      "bytes": 236389,
+      "sha256": "ddec24f8627aca7785b40f7fa673fb6fdccf0272ba5372e74578ecd50a427d47",
+      "gzipBytes": 15628,
+      "gzipSha256": "d048b78e79768f22227ea29ccfe49c4d34defbaf570e01fb08f8e987f8eaa258",
+      "readbackSha256": "ddec24f8627aca7785b40f7fa673fb6fdccf0272ba5372e74578ecd50a427d47"
+    },
+    {
+      "source": "output/20261115-round2-root-fast/route-inventory-before.md",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\route-inventory-before.md.gz",
+      "bytes": 39360,
+      "sha256": "ab69eeaac9567aef61cc493f71ba1ac7574cda98a625a39b4ca4e1a7c1c3c916",
+      "gzipBytes": 5369,
+      "gzipSha256": "0467bad1831ab8cbd78e98205eeb5baa31d97cec80e905d7ea4b389244a42226",
+      "readbackSha256": "ab69eeaac9567aef61cc493f71ba1ac7574cda98a625a39b4ca4e1a7c1c3c916"
+    },
+    {
+      "source": "docs/architecture/route-inventory.md",
+      "archive": "docs\\optimization-plan\\evidence\\acceptance-fast-final-20261115\\route-inventory-final.md.gz",
+      "bytes": 39360,
+      "sha256": "8589b2b5a74a4f2b8e8efc27d630a9b2308096bfbbf4d793371a57e55978efa1",
+      "gzipBytes": 5362,
+      "gzipSha256": "2305e0706da8e901e5905d4d422d3ad7bb08efe66ea18da699ac51d0958aaebf",
+      "readbackSha256": "8589b2b5a74a4f2b8e8efc27d630a9b2308096bfbbf4d793371a57e55978efa1"
+    }
+  ],
+  "rootChecksObservedViaTools": {
+    "diagnosticUnitPass": 24,
+    "finalPersistenceBarrierPass": 1,
+    "officialBuildCheckExit": 0
+  },
+  "limitations": [
+    "Focused E2E passes and fast do not replace the complete default E2E or release gates.",
+    "First full fast remains RED; the second run is independently recorded.",
+    "Prior historical UNKNOWN scenes remain unchanged."
+  ]
+}

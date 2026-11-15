@@ -470,15 +470,24 @@ try {
     // needs_you,于是恒判成不在跑。钉住活回合期间这个键必须是 true。
     ok(!!(liveResumable && liveResumable.live === true), `H1b 活回合时 resumable.live === true(got ${JSON.stringify(liveResumable)})`);
     let idleResumable = null;
+    let idleSnapshot = null;
     for (let i = 0; i < 300; i++) {
       const s = await request('GET', `/api/sessions/${sid}`, undefined, hdr);
-      if (!s.json || !s.json.liveTail) { tail = null; idleResumable = s.json && s.json.resumable; break; }
+      const resumable = s && s.status === 200 && s.json && typeof s.json === 'object' && s.json.resumable;
+      const settled = resumable && typeof resumable === 'object' && !Array.isArray(resumable)
+        && typeof resumable.dangling === 'boolean' && (resumable.kind === null || typeof resumable.kind === 'string')
+        && Number.isSafeInteger(resumable.turnSeq) && resumable.turnSeq >= 0
+        && Number.isSafeInteger(resumable.historyLength) && resumable.historyLength >= 0
+        && (!Object.hasOwn(resumable, 'live') || resumable.live === false);
+      if (settled && !Object.hasOwn(s.json, 'liveTail')) {
+        tail = null; idleResumable = resumable; idleSnapshot = s; break;
+      }
       await sleep(100);
     }
-    ok(tail === null, 'H3 回合结束后 liveTail 不再下发(不落盘)');
-    // companion:回合结束后不是活回合,resumable.live 不该是 true —— detectDanglingTurn 那一支的
-    // 形状一个字不动(悬挂与否是另一条判据的事,不在本条范围内)。
-    ok(!(idleResumable && idleResumable.live === true), `H3b 回合结束后 resumable.live 不是 true(got ${JSON.stringify(idleResumable)})`);
+    const completeIdle = !!(idleSnapshot && idleResumable);
+    ok(completeIdle && !Object.hasOwn(idleSnapshot.json, 'liveTail'), 'H3 回合结束后 liveTail 不再下发(不落盘)');
+    // companion:等待完整 idle 信封(resumable 是对象且 live 不是 true),不把关闭中间态误判成已结束。
+    ok(completeIdle && idleResumable.live !== true, `H3b 回合结束后 resumable.live 不是 true(got ${JSON.stringify(idleResumable)})`);
   }
 
   /* ═════ (I2) 看板行的 asksYou ═════ */

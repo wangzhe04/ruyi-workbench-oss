@@ -712,14 +712,14 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }
   throw Error('COLD_WINDOW_MISSED: no read-only maintenance listener observed within budget');
  }
- async function readColdVerdict(port){
+ async function readColdVerdict(port,{recordObservation=true}={}){
   try{
    const boot=await upload.makeHttp({port,token:''},'/api/bootstrap',undefined,{method:'POST',auth:false,timeout:2500});
    if(boot.status!==200||typeof boot.value?.token!=='string')return null;
    const st=await upload.makeHttp({port,token:boot.value.token},'/api/work-data/status',undefined,{timeout:2500});
    if(st.status!==200)return null;
    const value={job:st.value?.job??null,authority:st.value?.authority??null};
-   record({kind:'cold-verdict',...value});return value;
+   if(recordObservation)record({kind:'cold-verdict',...value});return value;
   }catch{return null;}
  }
  async function waitOldServeExit(ref,{budget=BUDGET.handoff}={}){
@@ -733,11 +733,25 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   return{closedAt:Date.now()};
  }
  async function waitSuccessor(ref,f,{homeBase=f.base,jobId,expectedAuthority=null,requireResultId=null,forbidResultId=null,notPids=[]}){
-  const deadline=Date.now()+BUDGET.successor;
+  const startedAt=Date.now(),deadline=startedAt+BUDGET.successor;
+  let nextProgressPoll=startedAt;
+  let lastProgress='';
+  const observe=(listener,job,extra={},final=false)=>{
+   const value=core.maintenanceProgressDiagnostic(job,{elapsedMs:Date.now()-startedAt,listener,...extra});
+   ctx.diagnostics={...(ctx.diagnostics||{}),successorObservation:value};
+   const key=JSON.stringify({...value,elapsedMs:0});
+   if(final||key!==lastProgress){lastProgress=key;record({kind:'successor-observation',...value});
+    process.stdout.write('WORK-DATA-SUCCESSOR-PROGRESS '+JSON.stringify(value)+'\n');}
+  };
   for(;;){
    // Source runtime DATA must not be opened while the cold owner is proving
    // native metadata. A warm HTTP verdict comes before any filesystem read.
    const probe=await probePort(ref.port);
+   if(probe.kind==='cold'&&Date.now()>=nextProgressPoll){
+    nextProgressPoll=Date.now()+1000;
+    const verdict=await readColdVerdict(ref.port,{recordObservation:false});
+    observe('cold',verdict?.job?.id===jobId?verdict.job:null);
+   }else if(probe.kind!=='warm'&&probe.kind!=='cold')observe(probe.kind,null);
    if(probe.kind==='warm'){
     const rt=(()=>{try{return JSON.parse(fs.readFileSync(p.join(homeBase,'runtime.json'),'utf8'));}catch{return null;}})();
     if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
@@ -745,6 +759,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
      const ready=st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.job===null;
      const matched=ready&&(requireResultId===null||st.value.lastResult?.id===requireResultId)&&(expectedAuthority===null||sameAuthority(st.value.authority,expectedAuthority));
+     observe('warm',st?.value?.job,{workerReady:!!ready,resultMatches:!!matched});
      if(matched){
       if(forbidResultId&&st.value.lastResult?.id===forbidResultId)throw Error('the successor inherited this job result on the fresh root');
       const identity=await cimIdentity(rt.pid);
@@ -759,6 +774,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    }
    if(Date.now()>=deadline){
     const held=await readColdVerdict(ref.port);
+    observe(probe.kind,held?.job?.id===jobId?held.job:null,{},true);
     if(held)throw Error('successor readiness deadline; cold job state='+held.job?.state+' phase='+held.job?.phase+' error='+held.job?.error);
     throw Error('successor readiness deadline; no cold verdict available on the same port');
    }

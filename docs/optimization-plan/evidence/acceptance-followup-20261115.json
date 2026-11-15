@@ -1,0 +1,530 @@
+{
+  "schema": 1,
+  "date": "2026-11-15",
+  "timezone": "Asia/Shanghai",
+  "baseCommit": "29e32c58083589038118e56924ec469dafcf3d17",
+  "branch": "codex/3.1-completion-plan",
+  "workspace": "E:/Claude/worktrees/steward-3x-implementation",
+  "node": "v24.14.1",
+  "platform": "win32",
+  "runtimeVersion": "3.0.1",
+  "releasePublished": false,
+  "changesCommitted": false,
+  "serverSha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073",
+  "productFixes": [
+    "Invalidate Claude signed thinking after changes to the previously built request prefix, including mission, sidecars, tools and older tool results; retain stable appended loops and ignore shadow layouts.",
+    "Revalidate pre-existing policy-only audit failures with journal preflight; preserve IO failure, unknown policy, key, downgrade, recovery and overflow refusals.",
+    "Wait for the captured session-index write chain when pending is empty but a batch is already in flight."
+  ],
+  "fixtureFixes": [
+    "Bound the D6 cold status request to 15s with diagnostics and successful route-persistence assertions; retain 120s whole-case budget and 1M/manual checks.",
+    "Clear adopted-event wake callbacks in the manually driven steward I/O counting fixture; retain all read/parser/count assertions.",
+    "Control background persistence only within I6/I7 and drain session-index timer/pending/inflight during cleanup; retain every original assertion."
+  ],
+  "review": {
+    "root": "Reviewed all product diffs, rejected duplicate test loader, detected mock-timer cleanup leak, independently ran 84 tests, inspected final results and route metadata diff.",
+    "luna": "Acceptance inventory and session-index fix with deterministic rename barrier; HEAD M5 failed and candidate passed, reported by agent without a retained raw reverse log.",
+    "sol": "Cache and audit diagnosis/fixes, deterministic timer fixture proofs, independent review of session-index product change.",
+    "terra": "Windows Node24 baseline and final execution, context timeout diagnosis, generated route inventory refresh."
+  },
+  "initialFast": {
+    "command": "node dev-harness/run-all.js --fast",
+    "exitCode": 2,
+    "unit": {
+      "tests": 5339,
+      "pass": 5310,
+      "fail": 3,
+      "skipped": 26
+    },
+    "failures": [
+      "pretender-index-incremental I6/I7",
+      "session-index-memo M4",
+      "steward-inbox-tick-cost S1"
+    ],
+    "staticStageExecuted": false
+  },
+  "originalServerDirectDiagnostics": {
+    "serverSha256": "428428f390124cacd363884f0a8d86cd527738488d674007ee7d9b318ba0ca0d",
+    "exitCodes": {
+      "config-read-safety": 0,
+      "budget-guard": 0,
+      "context-compact-v2": 1
+    },
+    "originalRawLogsAvailable": false,
+    "limitation": "The execution agent reused direct log filenames and overwrote these three logs during the fixed run. Exit codes remain in results.txt and the D6 failure was observed by Root before overwrite; no original log hashes are claimed.",
+    "separateContextDiagnostic": {
+      "exitCode": 0,
+      "httpStatus": 200,
+      "elapsedMs": 1694,
+      "oldTimeoutMs": 1500,
+      "contextWindow": 1000000,
+      "source": "manual",
+      "rawLogAvailable": true
+    }
+  },
+  "interruptedRuns": [
+    "Duplicate serial historical runner interrupted during unit; its three selected E2Es did not execute.",
+    "Early post-fix fast chain interrupted pending final fixture freeze; not accepted as a complete run."
+  ],
+  "finalFast": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "run": "final-1",
+    "exitCode": 1,
+    "status": "RED_RETAINED",
+    "unit": {
+      "tests": 5347,
+      "suites": 194,
+      "pass": 5321,
+      "fail": 0,
+      "skipped": 26,
+      "cancelled": 0
+    },
+    "static": {
+      "ran": 100,
+      "pass": 99,
+      "fail": 1,
+      "flaky": 0
+    },
+    "failure": "route-inventory.static.e2e.js: generated coverage missing anthropic-fake.e2e.js for mission route",
+    "postFix": {
+      "productCodeChanged": false,
+      "testCodeChanged": false,
+      "generatedCoverage": "69 to 70",
+      "routeCheckExitCode": 0,
+      "status": "99_PLUS_1_STATIC_SEPARATE_PASSES_NOT_A_GREEN_FULL_FAST"
+    }
+  },
+  "finalOtherChecks": {
+    "buildExitCode": 0,
+    "buildCheckExitCode": 0,
+    "syntax": {
+      "files": 1515,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "diffCheckExitCode": 0,
+    "directE2EExitCodes": {
+      "config-read-safety": 0,
+      "budget-guard": 0,
+      "context-compact-v2": 0,
+      "anthropic-fake": 0,
+      "session-index": 0
+    },
+    "sessionIndexElapsedMs": 23503,
+    "rootIndependentUnit": {
+      "critical": 68,
+      "fixtures": 16,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "limits": [
+    "140's original 631-case result remains 612 PASS / 19 FAIL, with 13 FLAKY included in PASS.",
+    "Budget-guard passed in isolation; the original parallel E31 failure is not declared resolved.",
+    "No complete default E2E rerun, installation/upgrade/rollback, real QQ/Feishu, cross-account/machine or Full-local public distribution qualification in this turn.",
+    "No real paid provider calls, platform messages, user-data migration, installation replacement or Computer Use.",
+    "Source hashes and archived logs bind their described scope, not a full environment or OS lifecycle proof."
+  ],
+  "sourceFiles": [
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8823701,
+      "sha256": "664e42bf8314965fb9e2596329fb688bab1ee79bc68fa774aad91174b43f6073"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 40058,
+      "sha256": "e865f1d145bb23f1ad4be62ca29ebc0ac649fcbc5aa1961cb80283e88d945582"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 495569,
+      "sha256": "9d3d7a6a9819c5f051ec93f6dbaeb1b49166dfa460a65688b8c5f399eaa3518b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 227961,
+      "sha256": "a37d292d04cb632311d5a053158541b9f20ceb0d189f9cc4c723d5b36ab83450"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 370768,
+      "sha256": "ee637f396eedb4a1c7e056bb6ff69a10f037ab94147cb83bf89faa1e926b66bb"
+    },
+    {
+      "path": "dev-harness/anthropic-fake.e2e.js",
+      "bytes": 26300,
+      "sha256": "34d58c1e637c3bdccff909b8ae74f6fafe06056a454a40bc6bbc9239a0753d2e"
+    },
+    {
+      "path": "dev-harness/context-compact-v2.e2e.js",
+      "bytes": 27355,
+      "sha256": "77bf3621ca888ca32f26057a4e51ec629b9ad114c0a5ba016159be2fd1c9c7da"
+    },
+    {
+      "path": "dev-harness/unit/audit-log-work-data.test.js",
+      "bytes": 28789,
+      "sha256": "b392efaf1a7a00d100d59793d573b71061f43393e3b09c01faa1179bcbaedf49"
+    },
+    {
+      "path": "dev-harness/unit/provider-wire-anthropic.test.js",
+      "bytes": 62240,
+      "sha256": "bf987c6f83834b25d796828c6a9645e1c22667f65eb6ef8fa844501fdd1954e0"
+    },
+    {
+      "path": "dev-harness/unit/session-index-memo.test.js",
+      "bytes": 8842,
+      "sha256": "08e1c8a06915e9176b5f34c71e8c51dcf4b2a62e53096cc1b12158986df67a84"
+    },
+    {
+      "path": "dev-harness/unit/steward-inbox-tick-cost.test.js",
+      "bytes": 17761,
+      "sha256": "b530b845b70b7d503643b14cd120887ac0bdb6e6166cc515f9f50ae389376689"
+    },
+    {
+      "path": "dev-harness/unit/pretender-index-incremental.test.js",
+      "bytes": 14750,
+      "sha256": "f8391509f882721d9d59b15eb823c1cf0a67c4bc5f6712dfe9cfc92834104085"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 236308,
+      "sha256": "6768e1d1d205e41be59bfa95e8e9b7e54eb304f918eabe3c8b4c10d2cbf69914"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 39360,
+      "sha256": "ab69eeaac9567aef61cc493f71ba1ac7574cda98a625a39b4ca4e1a7c1c3c916"
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/20261115-root-verification/critical-unit.log",
+      "archive": "acceptance-followup-20261115/root--critical-unit.log.gz",
+      "rawBytes": 7137,
+      "rawSha256": "80aad932eac3713bc2a6df39cbbcc053bd9bac981953dfa48b64a8368c515948",
+      "gzipBytes": 3781,
+      "gzipSha256": "e081c8e845a3b06958007c3e27eed45e3be9df8f6827dcc3e514db33a2dcce6f"
+    },
+    {
+      "source": "output/20261115-root-verification/critical-unit-exit.txt",
+      "archive": "acceptance-followup-20261115/root--critical-unit-exit.txt.gz",
+      "rawBytes": 3,
+      "rawSha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "gzipBytes": 23,
+      "gzipSha256": "7676d9552736e34b7d76d94f08bde9c0a842450c98fe926d4f41c65cd6150cdc"
+    },
+    {
+      "source": "output/20261115-root-verification/fixture-unit.log",
+      "archive": "acceptance-followup-20261115/root--fixture-unit.log.gz",
+      "rawBytes": 1690,
+      "rawSha256": "77086c8533238aa1507d49af1f35124f9a96753e9456c741af6b447ba215462e",
+      "gzipBytes": 1075,
+      "gzipSha256": "c87962a4d0c35d7a749c9caec0eda319cfabf2cc7ef511327489b6fddb9c551f"
+    },
+    {
+      "source": "output/20261115-root-verification/fixture-unit-exit.txt",
+      "archive": "acceptance-followup-20261115/root--fixture-unit-exit.txt.gz",
+      "rawBytes": 3,
+      "rawSha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "gzipBytes": 23,
+      "gzipSha256": "7676d9552736e34b7d76d94f08bde9c0a842450c98fe926d4f41c65cd6150cdc"
+    },
+    {
+      "source": "output/20261115-sol-review/audit-baseline-4-red.log",
+      "archive": "acceptance-followup-20261115/review--audit-baseline-4-red.log.gz",
+      "rawBytes": 3337,
+      "rawSha256": "977b18b097ce983812355eb450254df193d4d9c2e2e82b3b415224caec6ec117",
+      "gzipBytes": 869,
+      "gzipSha256": "2d607040cd9e1ac695e8c5dd4392269ea49f316f15e19cf14bdbde03b36a5680"
+    },
+    {
+      "source": "output/20261115-sol-review/audit-candidate-31-green.log",
+      "archive": "acceptance-followup-20261115/review--audit-candidate-31-green.log.gz",
+      "rawBytes": 3540,
+      "rawSha256": "3c47a5a3f8f69d8b718591b49426831670bb8200a99710ac1bd8937cb72eb18b",
+      "gzipBytes": 1597,
+      "gzipSha256": "b1f89e907f281184a9823936d53e0e9a3cae43ede79622d08c5db22e535532b9"
+    },
+    {
+      "source": "output/20261115-sol-review/audit-candidate-receipt.json",
+      "archive": "acceptance-followup-20261115/review--audit-candidate-receipt.json.gz",
+      "rawBytes": 1122,
+      "rawSha256": "410ea191f2d86850196b3ba32cb36ed32721c9b88357ee46590a71e9352a8e9f",
+      "gzipBytes": 457,
+      "gzipSha256": "86380c06818b19ccb70d5a62127054ec03483a455f41e070dc8a1aa5f5d7c030"
+    },
+    {
+      "source": "output/20261115-sol-review/cache-candidate-31-green.log",
+      "archive": "acceptance-followup-20261115/review--cache-candidate-31-green.log.gz",
+      "rawBytes": 3010,
+      "rawSha256": "73bf76e6bfd1991afe141d587471e1c79c49e4727c5457f6e359be49ec5d5737",
+      "gzipBytes": 1815,
+      "gzipSha256": "04324694a2d62a1a9fbce8464a7c9230df873d4e03f52f4a806edca6d9a85691"
+    },
+    {
+      "source": "output/20261115-sol-review/cache-candidate-receipt.json",
+      "archive": "acceptance-followup-20261115/review--cache-candidate-receipt.json.gz",
+      "rawBytes": 1501,
+      "rawSha256": "5fedc1a444e1f47d14a7e406716581e790e829658babb1450fb4eacc7350be73",
+      "gzipBytes": 609,
+      "gzipSha256": "f2da2b3a8b012804a2e92ff876aee8ec936aba2e338797c578a2c4ba3827e36b"
+    },
+    {
+      "source": "output/20261115-sol-review/cache-mission-baseline-red.log",
+      "archive": "acceptance-followup-20261115/review--cache-mission-baseline-red.log.gz",
+      "rawBytes": 1094,
+      "rawSha256": "8c7e4d6a401bee253c567b56f1c3549ada3995ad072c4a3acf9aa2ca824095ff",
+      "gzipBytes": 550,
+      "gzipSha256": "7c922c452edfb7aa5a7f8010a4e12f4ac897bc1023c747c86eea7aeb20d102f5"
+    },
+    {
+      "source": "output/20261115-sol-review/pretender-session-timer-leak-proof.log",
+      "archive": "acceptance-followup-20261115/review--pretender-session-timer-leak-proof.log.gz",
+      "rawBytes": 1284,
+      "rawSha256": "742b3bb2ed5faa07d58cbb50472fff1dfd13de9b095eff06bb63e8f58450b7ff",
+      "gzipBytes": 837,
+      "gzipSha256": "cabc1e0d37e123f8b4259afa81cc8b2c1cc160d0df406b6299050228c259d3d8"
+    },
+    {
+      "source": "output/20261115-sol-review/pretender-timer-proof.log",
+      "archive": "acceptance-followup-20261115/review--pretender-timer-proof.log.gz",
+      "rawBytes": 2014,
+      "rawSha256": "c833f315801402d979be3043a56a13a894403203e44b20077d0e402ce838fa7c",
+      "gzipBytes": 1222,
+      "gzipSha256": "677dc409bf250d8786fb17412a16975f29bb137b13c1cc235c21368121faffa7"
+    },
+    {
+      "source": "output/20261115-sol-review/steward-wake-instrumentation.json",
+      "archive": "acceptance-followup-20261115/review--steward-wake-instrumentation.json.gz",
+      "rawBytes": 2338,
+      "rawSha256": "807fc6b595184b495b558f8e017d63f9ecd7b0f7be0a5b6a129539687ee42ae4",
+      "gzipBytes": 481,
+      "gzipSha256": "8472cd1a0ff325a94b6ca6f744a850379b779695a6dbf2c8f0553153e7cc8af4"
+    },
+    {
+      "source": "output/20261115-terra-validation/results.txt",
+      "archive": "acceptance-followup-20261115/validation--results.txt.gz",
+      "rawBytes": 658,
+      "rawSha256": "1ae00e15b8fc4a433a4bd58b1371096a710e9ef32831869b8ffcdb10d5d84f73",
+      "gzipBytes": 253,
+      "gzipSha256": "e1683a321fccd16194bd304c34bd14fd824aadaee97defda61ccebfb434296ee"
+    },
+    {
+      "source": "output/20261115-terra-validation/fast.log",
+      "archive": "acceptance-followup-20261115/validation--fast.log.gz",
+      "rawBytes": 2338,
+      "rawSha256": "ec1067cd434098ac3641c3079cdf973969c2c6437e75bc0bac8756749b617b15",
+      "gzipBytes": 1244,
+      "gzipSha256": "cc72a7d73e53405735d7868c267f614496262b75422231b25439b7f8841e0a17"
+    },
+    {
+      "source": "output/20261115-terra-validation/fast-first-unit-full.log",
+      "archive": "acceptance-followup-20261115/validation--fast-first-unit-full.log.gz",
+      "rawBytes": 702674,
+      "rawSha256": "e588d169efde9791f8fa27470b427f63da3da4c633632645b9c6f275d170337e",
+      "gzipBytes": 257301,
+      "gzipSha256": "4263d5d2892d210b928ef02556db804e96549e8fbd15dbd4b15c8efd783777a5"
+    },
+    {
+      "source": "output/20261115-terra-validation/historical.log",
+      "archive": "acceptance-followup-20261115/validation--historical.log.gz",
+      "rawBytes": 457,
+      "rawSha256": "62b42c139f358f838c6702927119e9beacbaf731c1f3f69b945d7c03d5678f8e",
+      "gzipBytes": 425,
+      "gzipSha256": "5e59667fdb00476719cd296a76de7d274ac86350fc69c138965872a38a5b82c7"
+    },
+    {
+      "source": "output/20261115-terra-validation/fast-parallel4.log",
+      "archive": "acceptance-followup-20261115/validation--fast-parallel4.log.gz",
+      "rawBytes": 442,
+      "rawSha256": "20e3bf95f6eabda244d89345ee42ad23af2fdd1baf0f7e6dc11934b75d66dab7",
+      "gzipBytes": 412,
+      "gzipSha256": "85dcdd06e79b6ccc1701c3d217027eb7bcd1cc7ab2513492a520213b499bbbb4"
+    },
+    {
+      "source": "output/20261115-terra-validation/diagnostic-context-compact-v2.log",
+      "archive": "acceptance-followup-20261115/validation--diagnostic-context-compact-v2.log.gz",
+      "rawBytes": 3145,
+      "rawSha256": "006ebb7f34e5f3685b19f48a5298e4099ac0526dc99030c4dc36ed34563fe7e8",
+      "gzipBytes": 1916,
+      "gzipSha256": "3cff53881d25dd855fc96905446b0910a382302b1b01c6cacbe5b8390e9b2ddf"
+    },
+    {
+      "source": "output/20261115-terra-validation/direct-config-read-safety.log",
+      "archive": "acceptance-followup-20261115/validation--direct-config-read-safety.log.gz",
+      "rawBytes": 1690,
+      "rawSha256": "2d95cc0970f9837dd9c8402fc626feb34cef75a71e68ef662a9db8b727352447",
+      "gzipBytes": 786,
+      "gzipSha256": "b753e518594e3d055c366f91fcb9982be5e0685232a5510b094940c769bc9335"
+    },
+    {
+      "source": "output/20261115-terra-validation/direct-budget-guard.log",
+      "archive": "acceptance-followup-20261115/validation--direct-budget-guard.log.gz",
+      "rawBytes": 3451,
+      "rawSha256": "bb951a4a0612b77b6fa6270ea6f18ba4d00a12ec925f38183f0660f1452abbc7",
+      "gzipBytes": 1793,
+      "gzipSha256": "43f436794543dd057d6b3d147f06f4b0eb275e1899114ee6683b2af8907fc495"
+    },
+    {
+      "source": "output/20261115-terra-validation/direct-context-compact-v2.log",
+      "archive": "acceptance-followup-20261115/validation--direct-context-compact-v2.log.gz",
+      "rawBytes": 3144,
+      "rawSha256": "829b779013084beb6ca3dbeb64ce2b15e1ecf1ddc5d327136eb78af87da0a52a",
+      "gzipBytes": 1915,
+      "gzipSha256": "062a0b239671f83fe11de9d5d66d12a488b1acd7ac60a78b66d1fc993276e40d"
+    },
+    {
+      "source": "output/20261115-terra-validation/fix-anthropic.log",
+      "archive": "acceptance-followup-20261115/validation--fix-anthropic.log.gz",
+      "rawBytes": 3559,
+      "rawSha256": "373bbe1f5f6919d70e0ce8db25d4de435e6e60efdf59ef7ea1e2da649de718da",
+      "gzipBytes": 1929,
+      "gzipSha256": "1840734b7e1aa4c28d7c2a2119591147540a90db06d4c8805d19e440ea31dedb"
+    },
+    {
+      "source": "output/20261115-terra-validation/fix-unit.log",
+      "archive": "acceptance-followup-20261115/validation--fix-unit.log.gz",
+      "rawBytes": 6507,
+      "rawSha256": "9c9fac361fe8393f2cf934c057d04d58ca3297a674d86d6c1f045974276319d3",
+      "gzipBytes": 3288,
+      "gzipSha256": "8dd36ae06530d610915d7721fcbbc72f0372dc4c64ced3acdec244af3ee039d7"
+    },
+    {
+      "source": "output/20261115-terra-validation/subagent-thinking.log",
+      "archive": "acceptance-followup-20261115/validation--subagent-thinking.log.gz",
+      "rawBytes": 2644,
+      "rawSha256": "f5959a8b31556e27531d2eec054bda13e6505f8d16d0037678549d0e9ddf0c45",
+      "gzipBytes": 878,
+      "gzipSha256": "ebf6e0ebee90278a43655b4ac0d82c0fa5e31cf075ba9c06289182a7a5bc0abd"
+    },
+    {
+      "source": "output/20261115-terra-validation/subagent.log",
+      "archive": "acceptance-followup-20261115/validation--subagent.log.gz",
+      "rawBytes": 4697,
+      "rawSha256": "8cb493e95bdd6d67b3489984f70d6b53e3102e967ba801ffde540b0c468357a8",
+      "gzipBytes": 1673,
+      "gzipSha256": "6572b00eac9fe11f6f4d6225657d3adda2fbe1a9caf1b57c81aafc8190872ffe"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/build-check-after-route.log",
+      "archive": "acceptance-followup-20261115/final--build-check-after-route.log.gz",
+      "rawBytes": 70,
+      "rawSha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "gzipBytes": 93,
+      "gzipSha256": "ce3c554cf7d3c67589399a7d063633ed93e4b20c70eaa2b56296d0362d0bb4c2"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/build-check.log",
+      "archive": "acceptance-followup-20261115/final--build-check.log.gz",
+      "rawBytes": 70,
+      "rawSha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "gzipBytes": 93,
+      "gzipSha256": "ce3c554cf7d3c67589399a7d063633ed93e4b20c70eaa2b56296d0362d0bb4c2"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/build.log",
+      "archive": "acceptance-followup-20261115/final--build.log.gz",
+      "rawBytes": 52,
+      "rawSha256": "cecaeb1ca04fa7443c0e562115292f7cf7be60d5b76cdbd81be490dfca0793b8",
+      "gzipBytes": 72,
+      "gzipSha256": "d03d6eb136535b21e9f798d3b5ed08116ed211e322cb607cec000e15e27cc458"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/diff-check.log",
+      "archive": "acceptance-followup-20261115/final--diff-check.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipBytes": 20,
+      "gzipSha256": "9e72928e7a01615b4cf090daa617b4ca9d68531748f887f323f695eb4ca3ef63"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/fast.log",
+      "archive": "acceptance-followup-20261115/final--fast.log.gz",
+      "rawBytes": 9675,
+      "rawSha256": "66bf2e6caf0be1f9ec20cf0a244a8edef3b05214eb055261b09f83ee60e02477",
+      "gzipBytes": 3090,
+      "gzipSha256": "fa6e6b9919cfb52beabcd11518a80437359fae04fa3509cb4f38d800bd24c4db"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/results.txt",
+      "archive": "acceptance-followup-20261115/final--results.txt.gz",
+      "rawBytes": 87,
+      "rawSha256": "07929abf1785f08ba4917b3efb34f44ea289c162328d0bb8c9779dcc5f43a8ab",
+      "gzipBytes": 79,
+      "gzipSha256": "1c06fc0569252ac36e640cb1350b2a6a006dc65ecbba9d32bab68003a7e8ac37"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/route-regenerate.log",
+      "archive": "acceptance-followup-20261115/final--route-regenerate.log.gz",
+      "rawBytes": 123,
+      "rawSha256": "ca29160644b63896b285d3498ecb5ea473042b7d069b66d6af7eeb6d6af515c3",
+      "gzipBytes": 140,
+      "gzipSha256": "d137062f2454691138125a8e5535c27cbb1ce48975b193d87ce2d9457f782c47"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/runner-compact.log",
+      "archive": "acceptance-followup-20261115/final--runner-compact.log.gz",
+      "rawBytes": 4549,
+      "rawSha256": "85ad9781bce530dcfcee39957b41cda5be05b3293585a260bcee3cf6b6c8d267",
+      "gzipBytes": 1486,
+      "gzipSha256": "a46a260b1ed086b121ac7f2f613fbe70d3c2f9e33220b4e1d52d315cf2b238bf"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/server-sha256.txt",
+      "archive": "acceptance-followup-20261115/final--server-sha256.txt.gz",
+      "rawBytes": 66,
+      "rawSha256": "65df9a2c6128db88b588d9817cf5e281c00ba59119a40defe940a0afb4b152cd",
+      "gzipBytes": 74,
+      "gzipSha256": "5c2446812df1478bfb01b7840a8520b04470a8f9ed9c25fdc9c5b23a23506ada"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/syntax.log",
+      "archive": "acceptance-followup-20261115/final--syntax.log.gz",
+      "rawBytes": 61,
+      "rawSha256": "5fa8b0bdf31f8dc0da385be301d0f67b23979ee57a3e0a2a43edf5ea1743a7be",
+      "gzipBytes": 81,
+      "gzipSha256": "41cb79e25e857da206d7b85bac798f2fd6bce7e66ad7bb3c9fcd8641b3d8e24e"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1/unit-full.log",
+      "archive": "acceptance-followup-20261115/final--unit-full.log.gz",
+      "rawBytes": 699768,
+      "rawSha256": "8e02d5999376454be59f304fefc6e30f658c9a787fcfa94c8e050af3da39c9d9",
+      "gzipBytes": 255755,
+      "gzipSha256": "af96ced890443a7fbf46991d2432c866ce809a71c70bdbfbc87ff13cb5dae4a8"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1-session/results.txt",
+      "archive": "acceptance-followup-20261115/final-session--results.txt.gz",
+      "rawBytes": 64,
+      "rawSha256": "80a6ac34a2877ed62a2cb95cd174f0af08cfb139369d7fdc1251c765220afa6d",
+      "gzipBytes": 83,
+      "gzipSha256": "da7fc6b07d8e5fe017039e28e17532bc0aedc03be3c85a7bea2bf53818c0c3b5"
+    },
+    {
+      "source": "output/20261115-terra-validation/final-1-session/session-index.log",
+      "archive": "acceptance-followup-20261115/final-session--session-index.log.gz",
+      "rawBytes": 1964,
+      "rawSha256": "b7633606082d7e8adeea2db8225ff155e62944d04fba9c682e33bd17ad10e559",
+      "gzipBytes": 828,
+      "gzipSha256": "7ca90f662ed23e3baac8204f64dde62ce428bdc3efd1535efa314675efb2fbfd"
+    },
+    {
+      "source": "output/20261115-terra-validation/route-recheck-2/results.txt",
+      "archive": "acceptance-followup-20261115/route-recheck--results.txt.gz",
+      "rawBytes": 72,
+      "rawSha256": "283027aa87aea8d3b2fcec6cdd9f0e78485314b0b0b3ef6f394190430a57aa2c",
+      "gzipBytes": 89,
+      "gzipSha256": "c71e19cbdb59712282a3a25fe5606c555683ac27b96c5c1bcda2f80b7ae5004d"
+    },
+    {
+      "source": "output/20261115-terra-validation/route-recheck-2/route-inventory.static.log",
+      "archive": "acceptance-followup-20261115/route-recheck--route-inventory.static.log.gz",
+      "rawBytes": 1313,
+      "rawSha256": "17b6f9aa3c5d9fc52549ca8aef65367af69c7d7b517191b8d780081edc7eed3b",
+      "gzipBytes": 760,
+      "gzipSha256": "93cc13cd1f692d2788443818ebeba1504e5468e82ad3105b40d8079606b796b9"
+    }
+  ]
+}

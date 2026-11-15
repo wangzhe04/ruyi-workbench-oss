@@ -1921,7 +1921,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
   const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
   const useCachePromptLayers = !stewardVolatile && wire.preferVolatileTail(model);
-  let cachePrompt = null;
+  let cachePrompt = null, cachePromptPrefix = null;
   let cacheSkillConfig = config, cacheSkillSelection = JSON.stringify(effectiveSkillSelection(session, config));
   let currentProjectMemory = projectMemory, currentSkillEntries = enabledSkillEntries, currentPlaybookEntries = playbookEntries;
   let promptMemoryEntries = enabledMemoryEntries, promptMemoryConflicts = enabledMemoryConflicts, promptMemoryStatus = memoryPreflight.status;
@@ -2119,6 +2119,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
+    if (useCachePromptLayers && !layoutOverride) {
+      // Compare the entire previous request prefix after every user-tail sidecar
+      // is applied. Appending normal assistant/tool replies preserves it; edits
+      // to mission/notes/recall/scratchpad, tools or earlier tool results do not.
+      // Shadow layouts are candidates, so they cannot change the real baseline.
+      const fingerprint = history => crypto.createHash('sha256').update(JSON.stringify({
+        rules: cachePrompt.rules, references: cachePrompt.references,
+        messages: history, tools: hasTools ? loadedTools : [],
+      })).digest('hex');
+      const nextFingerprint = fingerprint(msgs);
+      if (cachePromptPrefix && (msgs.length < cachePromptPrefix.messageCount
+        || cachePromptPrefix.fingerprint !== (msgs.length === cachePromptPrefix.messageCount
+          ? nextFingerprint : fingerprint(msgs.slice(0, cachePromptPrefix.messageCount))))) cachePrompt.replayThinking = false;
+      cachePromptPrefix = { messageCount: msgs.length, fingerprint: nextFingerprint };
+    }
     const cacheUserPrefix = viewHistory.findLast(m => m && m.role === 'user')?.content;
     const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix, cachePrompt });
     wire.applyTemperature(b, temp);

@@ -499,6 +499,14 @@ function createWorld({root,evidence,target}){
   const startedAt=Date.now();
   const deadline=startedAt+budget;
   let nextFailurePoll=startedAt;
+  let lastProgress='';
+  const observe=(listener,job,extra={},final=false)=>{
+   const value=core.maintenanceProgressDiagnostic(job,{elapsedMs:Date.now()-startedAt,listener,...extra});
+   ctx.diagnostics={...(ctx.diagnostics||{}),successorObservation:value};
+   const key=JSON.stringify({...value,elapsedMs:0});
+   if(final||key!==lastProgress){lastProgress=key;record({kind:'successor-observation',...value});
+    process.stdout.write('WORK-DATA-SUCCESSOR-PROGRESS '+JSON.stringify(value)+'\n');}
+  };
   for(;;){
    // The cold snapshot proves Basic/atime as well as DATA. An ordinary runtime
    // read here can itself invalidate that source proof. Poll HTTP until the
@@ -510,6 +518,8 @@ function createWorld({root,evidence,target}){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
      const readyAt=Date.now();
+     observe('warm',st?.value?.job,{workerReady:st?.status===200&&st.value?.capabilities?.worker===true,
+      resultMatches:st?.status===200&&st.value?.lastResult?.id===jobId});
      if(readyAt<deadline&&st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){
       const identity=await cimIdentity(rt.pid);
       a.notEqual(rt.pid,ref.pid,'successor is a new process');
@@ -519,10 +529,12 @@ function createWorld({root,evidence,target}){
      }
     }
    }
-   if(stopOnColdFailure&&probe.kind==='cold'&&Date.now()>=nextFailurePoll){
+   if(probe.kind!=='warm'&&probe.kind!=='cold')observe(probe.kind,null);
+   if(probe.kind==='cold'&&Date.now()>=nextFailurePoll){
     nextFailurePoll=Date.now()+1000;
-    const verdict=await readColdVerdict(ref.port);
-    if(verdict?.job?.id===jobId&&verdict.job.state==='failed')throw Object.assign(Error('cold maintenance failed'),{code:verdict.job.error});
+    const verdict=await readColdVerdict(ref.port,{recordObservation:false});
+    observe('cold',verdict?.job?.id===jobId?verdict.job:null);
+    if(stopOnColdFailure&&verdict?.job?.id===jobId&&verdict.job.state==='failed')throw Object.assign(Error('cold maintenance failed'),{code:verdict.job.error});
    }
    if(Date.now()>=deadline){
     // A cold worker that never hands over keeps its read-only listener and its
@@ -530,6 +542,7 @@ function createWorld({root,evidence,target}){
     // of only reporting a successor deadline.
     const waited=Math.round((Date.now()-startedAt)/1000);
     const held=await readColdVerdict(ref.port);
+    observe(probe.kind,held?.job?.id===jobId?held.job:null,{},true);
     if(held)throw Error('successor readiness deadline after '+waited+'s; cold job state='+held.job?.state+' phase='+held.job?.phase+' error='+held.job?.error);
     throw Error('successor readiness deadline after '+waited+'s; no cold verdict available on the same port');
    }
@@ -538,15 +551,15 @@ function createWorld({root,evidence,target}){
  }
  // Read-only: the cold listener's bootstrap token is its own, and this never
  // writes anything. Used only to explain a missed successor.
- async function readColdVerdict(port){
+ async function readColdVerdict(port,{recordObservation=true}={}){
   try{
    const boot=await upload.makeHttp({port,token:''},'/api/bootstrap',undefined,{method:'POST',auth:false,timeout:2500});
    if(boot.status!==200||typeof boot.value?.token!=='string')return null;
    const st=await upload.makeHttp({port,token:boot.value.token},'/api/work-data/status',undefined,{timeout:2500});
    if(st.status!==200)return null;
    const value={job:st.value?.job??null,authority:st.value?.authority??null};
-   record({kind:'cold-verdict',...value});
-   ctx.diagnostics={...(ctx.diagnostics||{}),coldVerdict:value};
+   if(recordObservation)record({kind:'cold-verdict',...value});
+   if(recordObservation)ctx.diagnostics={...(ctx.diagnostics||{}),coldVerdict:value};
    return value;
   }catch{return null;}
  }

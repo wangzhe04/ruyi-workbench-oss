@@ -339,3 +339,76 @@ test('audit policy retries are bounded and corrupt policy, pending import or vau
     assert.equal(reads, 1); assert.equal(fs.existsSync(f.file()), false);
   }
 });
+
+
+test('restored known policy recovers the strict barrier without writing or replaying refused rows',async t=>{
+  for(const enabled of [false,true]){
+    const f=auditFixture(t);f.state.enabled=enabled;
+    f.api.logEvent({kind:'before'});await f.api.flushWorkbenchLogs();
+    const before=await fsp.readFile(f.file());const batches=f.state.appendBatches.length;
+    f.state.degraded=true;f.api.logEvent({kind:'refused',value:'NEVER REPLAY'});
+    await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+    await assert.rejects(f.api.readLogTailSnapshot(10),{code:'work_data_journal.switch_unavailable'});
+    f.state.degraded=false;
+    const tail=await f.api.readLogTailSnapshot(10);
+    assert.equal(tail.count,1);assert.ok(!tail.lines.join('').includes('NEVER REPLAY'));
+    assert.deepEqual(await fsp.readFile(f.file()),before);
+    assert.equal(f.state.appendBatches.length,batches+1,'recovery itself never appends');
+    assert.equal((await f.api.readWorkbenchAudit(10)).length,1);
+  }
+});
+test('restoring policy does not create an absent refused log file',async t=>{
+  const f=auditFixture(t);f.state.degraded=true;f.api.logEvent({kind:'refused'});
+  await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+  f.state.degraded=false;await f.api.flushWorkbenchLogs();assert.equal(fs.existsSync(f.file()),false);
+});
+test('policy recovery preserves real IO failures even after a later unknown-policy refusal',async t=>{
+  const f=auditFixture(t);f.state.enabled=false;f.state.failPlain=true;f.api.logEvent({kind:'io_lost'});
+  await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_audit.write_failed'});
+  f.state.failPlain=false;f.state.degraded=true;f.api.logEvent({kind:'policy_refused'});
+  await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_audit.write_failed'});
+  f.state.degraded=false;
+  await assert.rejects(f.api.readLogTailSnapshot(10),{code:'work_data_audit.write_failed'});
+  f.api.logEvent({kind:'actual_success'});await f.api.flushWorkbenchLogs();
+  assert.equal((await f.api.readLogTailSnapshot(10)).count,1);
+});
+test('policy recovery refuses missing keys, modified sealed bytes and OFF downgrade until the original authority returns',async t=>{
+  for(const fault of ['key','cipher','off']){
+    const f=auditFixture(t);f.api.logEvent({kind:'before'});await f.api.flushWorkbenchLogs();
+    const original=await fsp.readFile(f.file());
+    f.state.degraded=true;f.api.logEvent({kind:'refused'});
+    await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+    f.state.degraded=false;
+    if(fault==='key') f.state.keyError=Object.assign(Error('absent'),{code:'work_data_key.absent'});
+    if(fault==='cipher') {const bytes=Buffer.from(original);bytes[bytes.indexOf(Buffer.from('"e"'))+6]^=1;await fsp.writeFile(f.file(),bytes);}
+    if(fault==='off') f.state.enabled=false;
+    const rejected=await fsp.readFile(f.file());
+    await assert.rejects(f.api.readLogTailSnapshot(10),{code:'work_data_journal.switch_unavailable'});
+    assert.deepEqual(await fsp.readFile(f.file()),rejected);
+    f.state.keyError=null;f.state.enabled=true;await fsp.writeFile(f.file(),original);
+    assert.equal((await f.api.readLogTailSnapshot(10)).count,1);
+  }
+});
+
+test('policy recovery cannot acknowledge unresolved journal recovery',async t=>{
+  const f=auditFixture(t);f.api.logEvent({kind:'before'});await f.api.flushWorkbenchLogs();
+  const journal=f.api.workbenchAuditJournal(f.file());
+  f.state.failAppend=true;f.state.failTruncate=true;
+  await assert.rejects(journal.append(['{"kind":"partial"}',JSON.stringify({value:'x'.repeat(200000)})],()=>{}),{code:'work_data_journal.recovery_required'});
+  f.state.failAppend=false;f.state.failTruncate=false;
+  f.state.degraded=true;f.api.logEvent({kind:'policy_refused'});
+  await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+  const before=await fsp.readFile(f.file());f.state.degraded=false;
+  await assert.rejects(f.api.readLogTailSnapshot(10),{code:'work_data_journal.switch_unavailable'});
+  assert.equal(journal.recoveryPending(),true);assert.deepEqual(await fsp.readFile(f.file()),before);
+});
+test('policy recovery never clears a diagnostic overflow',async t=>{
+  const f=auditFixture(t);f.state.degraded=true;
+  for(let day=0;day<65;day++){
+    f.state.now=new Date(Date.UTC(2026,0,1+day)).toISOString();f.api.logEvent({kind:'refused'});
+    await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+  }
+  f.state.degraded=false;
+  await assert.rejects(f.api.flushWorkbenchLogs(),{code:'work_data_journal.switch_unavailable'});
+  assert.deepEqual(await fsp.readdir(f.logs),[]);
+});

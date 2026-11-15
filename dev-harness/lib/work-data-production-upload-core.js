@@ -77,4 +77,14 @@ function loadProductTarget(harness){
  }};
  target.recheck();return target;
 }
-module.exports={H,norm,physical,read,json,inventory,samePinned,assertStatus,assertNoKernelHooks,observeDifference,validateExternalCapture,validateCohortTarget,loadRootAdmission,loadProductTarget};
+function maintenanceProgressDiagnostic(job,{elapsedMs,listener=null,workerReady=null,resultMatches=null}={}){
+ const safe=value=>typeof value==='string'?value:null;
+ const phase=safe(job?.phase),code=safe(job?.error),state=safe(job?.state);
+ return {elapsedMs:Number.isSafeInteger(elapsedMs)&&elapsedMs>=0?elapsedMs:null,
+  listener:['cold','warm','none','other','error'].includes(listener)?listener:null,
+  state:['handoff','running','failed','uncertain','complete','succeeded','published','verified'].includes(state)?state:null,
+  phase:phase&&/^[a-z][a-z0-9-]{0,63}$/.test(phase)?phase:null,
+  code:code&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.]{1,120}$/.test(code)?code:null,
+  workerReady:typeof workerReady==='boolean'?workerReady:null,resultMatches:typeof resultMatches==='boolean'?resultMatches:null};
+}
+module.exports={maintenanceProgressDiagnostic,H,norm,physical,read,json,inventory,samePinned,assertStatus,assertNoKernelHooks,observeDifference,validateExternalCapture,validateCohortTarget,loadRootAdmission,loadProductTarget};

@@ -1805,7 +1805,17 @@ function scheduleSessionIndexUpdate(id, valueOrTombstone) {
 // Apply the whole pending batch in a single locked read-modify-write. Best-effort: if there is no valid index
 // we drop the batch (listSessions rebuilds from truth); on any error we invalidate so the next read falls back.
 async function flushSessionIndex() {
-  if (!pendingSessionIndex.size) return;
+  if (!pendingSessionIndex.size) {
+    // A debounce callback may already have taken the batch and moved it to
+    // inflightSessionIndex. Join only the chain that owns that in-flight work;
+    // returning here would let an explicit flush caller observe stale disk.
+    // Snapshot the chain once so later, unrelated writes do not extend this wait.
+    if (inflightSessionIndex.size) {
+      const currentChain = sessionIndexChain;
+      await currentChain.catch(() => {});
+    }
+    return;
+  }
   // Take the batch so saves made during the I/O queue up for the NEXT flush — but move it into the in-flight table
   // in the same synchronous step, so there is no instant at which a read can miss it (107-F9a, see the table's note).
   const batch = pendingSessionIndex; pendingSessionIndex = new Map();

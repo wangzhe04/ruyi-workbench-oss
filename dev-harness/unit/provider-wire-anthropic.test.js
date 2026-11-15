@@ -20,7 +20,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-wire-anthropic-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-const srv = require('../lib/server-internals').loadServerInternals(['PROVIDER_WIRE_PROTOCOLS', 'providerCallIsTransient', 'normalizeConfig', 'extractContextLength', 'buildVolatileParts', 'effectiveSkillSelection']);
+const srv = require('../lib/server-internals').loadServerInternals(['PROVIDER_WIRE_PROTOCOLS', 'providerCallIsTransient', 'normalizeConfig', 'extractContextLength', 'buildVolatileParts', 'effectiveSkillSelection', 'applyMissionUpdate']);
 const wire = srv.PROVIDER_WIRE_PROTOCOLS.anthropic;
 
 const OFFICIAL = { id: 'a', apiKey: ' sk-ant-test ', baseUrl: 'https://api.anthropic.com', apiStyle: 'anthropic' };
@@ -693,4 +693,65 @@ test('[A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务�
   assert.equal(wire.encodeQuick({ ...q, provider: SMALL }).max_tokens, 300);
   assert.equal(wire.encodeQuick({ ...q, provider: OTHER }).max_tokens, 400);
   assert.equal(wire.encodeQuick(q).max_tokens, 400, '不带 provider 的老调用形态照旧');
+});
+
+
+test('[cache layers] actual user-tail and tool changes drop signatures while unchanged tool loops and shadow retain replay', () => {
+  const vm = require('node:vm'), crypto = require('node:crypto');
+  const { bracedBlock, functionBlock } = require('../lib/source-slice');
+  const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/09-workflow.js'), 'utf8');
+  const append = functionBlock(fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/10-context-governance.js'), 'utf8'), 'appendPromptToLastUserMessage');
+  const model = 'claude-sonnet-5-5';
+  const tool = { id: 'call_mission', type: 'function', function: { name: 'mission_update', arguments: '{}' } };
+  const fixture = () => {
+    const tools = [{ type: 'function', function: { name: 'mission_update', parameters: { type: 'object', properties: {} } } }];
+    const context = { crypto, model, provider: GATEWAY, wire, config: { locale: 'en-US' },
+      session: { skills: [], providerHistory: [{ role: 'user', content: 'Complete the milestone' }],
+        mission: { goal: 'Deliver', milestones: [{ id: 'one', desc: 'Do work', status: 'pending' }] } },
+      currentProjectMemory: null, currentSkillEntries: [], currentPlaybookEntries: [], promptMemoryEntries: [],
+      promptMemoryConflicts: null, promptMemoryStatus: null, initialTools: tools, caps: {}, workingDir: root,
+      useCachePromptLayers: true, stewardVolatile: false, useVolatileTail: true, sys: 'BASE',
+      cachePrompt: null, cachePromptPrefix: null, cacheSkillConfig: {}, cacheSkillSelection: '[]',
+      catalogReferences: '', parallelRules: '', volatileExtras: '', turnPolicyExtras: '', memoryTurnTail: 'MEMORY',
+      buildVolatileParts: srv.buildVolatileParts, effectiveSkillSelection: srv.effectiveSkillSelection,
+      memorySelectionSignature: () => '', memorySnapshotSelection: '', enabledMemoryEntries: [],
+      toolLoading: { current: () => tools }, serverToolItems: [], temp: undefined, applyProviderReasoningEffort() {},
+      scratchpadPrompt: 'SCRATCH', recall: 'RECALL', notes: 'NOTES',
+      appendRecallPrompt: msgs => context.append(msgs, context.recall),
+      appendSessionNotesPrompt: msgs => context.append(msgs, context.notes) };
+    vm.createContext(context);
+    vm.runInContext(append + '\nthis.append=appendPromptToLastUserMessage;\n' + bracedBlock(source, 'const renderPromptLayers =') + '\n' + bracedBlock(source, 'const buildBodyWithLayout =') + '\nthis.render=renderPromptLayers;this.build=buildBodyWithLayout;', context);
+    context.render(); context.build(true);
+    context.session.providerHistory.push({ role: 'assistant', tool_calls: [tool], providerBlocks: { protocol: 'anthropic', model,
+      blocks: [{ type: 'thinking', thinking: 'Bound thought', signature: 'SIG-MISSION' }, { type: 'tool_use', id: tool.id, name: 'mission_update', input: {} }] } },
+      { role: 'tool', tool_call_id: tool.id, content: 'UPDATED' });
+    return { context, tools };
+  };
+  const signature = body => JSON.stringify(body).includes('"signature":"SIG-MISSION"');
+  const stable = fixture();
+  assert.ok(signature(stable.context.build(true)), 'normal tool results after the last user retain the signed thinking');
+  stable.context.build(true, 'first');
+  assert.ok(signature(stable.context.build(true)), 'an alternate shadow layout cannot poison the actual prefix baseline');
+  stable.context.render();
+  assert.ok(signature(stable.context.build(true)), 'repeated captures with identical rendered state retain signatures');
+  const mission = fixture();
+  mission.context.session.mission = srv.applyMissionUpdate(mission.context.session.mission,
+    { milestones: [{ id: 'one', desc: 'Do work', status: 'done' }] }, false);
+  mission.context.render();
+  const changed = mission.context.build(true);
+  assert.ok(!signature(changed), 'real mission_update changes its injected user prefix before replay');
+  assert.ok(JSON.stringify(changed).includes('call_mission'), 'tool use and paired result remain');
+  assert.equal(mission.context.cachePrompt.replayThinking, false);
+  for (const field of ['memoryTurnTail', 'scratchpadPrompt', 'recall', 'notes']) {
+    const f = fixture(); f.context[field] += ' CHANGED';
+    assert.ok(!signature(f.context.build(true)), field + ' is part of the actual signature prefix');
+  }
+  const history = fixture(); history.context.build(true);
+  history.context.session.providerHistory.at(-1).content = 'EVAPORATED RESULT';
+  assert.ok(!signature(history.context.build(true)), 'changed earlier tool results invalidate later bound thinking');
+  const compacted = fixture(); compacted.context.build(true);
+  compacted.context.session.providerHistory.splice(0, 1);
+  assert.ok(!signature(compacted.context.build(true)), 'a shortened compacted request invalidates the previous prefix');
+  const schema = fixture(); schema.tools.push({ type: 'function', function: { name: 'file_read', parameters: { type: 'object' } } });
+  assert.ok(!signature(schema.context.build(true)), 'changed actual tools invalidate bound signatures');
 });

@@ -16550,7 +16550,17 @@ function scheduleSessionIndexUpdate(id, valueOrTombstone) {
 // Apply the whole pending batch in a single locked read-modify-write. Best-effort: if there is no valid index
 // we drop the batch (listSessions rebuilds from truth); on any error we invalidate so the next read falls back.
 async function flushSessionIndex() {
-  if (!pendingSessionIndex.size) return;
+  if (!pendingSessionIndex.size) {
+    // A debounce callback may already have taken the batch and moved it to
+    // inflightSessionIndex. Join only the chain that owns that in-flight work;
+    // returning here would let an explicit flush caller observe stale disk.
+    // Snapshot the chain once so later, unrelated writes do not extend this wait.
+    if (inflightSessionIndex.size) {
+      const currentChain = sessionIndexChain;
+      await currentChain.catch(() => {});
+    }
+    return;
+  }
   // Take the batch so saves made during the I/O queue up for the NEXT flush — but move it into the in-flight table
   // in the same synchronous step, so there is no instant at which a read can miss it (107-F9a, see the table's note).
   const batch = pendingSessionIndex; pendingSessionIndex = new Map();
@@ -25547,7 +25557,13 @@ function rememberAuditLogFailure(file, error) {
   const failure = auditLogError(error);
   // Diagnostics are bounded independently of the Writable's row backlog. An
   // overflow remains fail-closed until restart; it never drops or caps writes.
-  if (auditLogFailures.has(file) || auditLogFailures.size < 64) auditLogFailures.set(file, failure);
+  if (auditLogFailures.has(file) || auditLogFailures.size < 64) {
+    // A later unavailable policy must not turn an unacknowledged IO failure into
+    // a recoverable policy-only refusal. Only a successful append clears IO loss.
+    const previous = auditLogFailures.get(file);
+    if (!previous || previous.code === 'work_data_journal.switch_unavailable'
+      || failure.code !== 'work_data_journal.switch_unavailable') auditLogFailures.set(file, failure);
+  }
   else auditLogFailureOverflow = failure;
   try { process.stderr.write(failure.code + '\n'); } catch { /* diagnostics only */ }
 }
@@ -25610,7 +25626,19 @@ async function recoverWorkbenchAudit(journal) {
 async function writeWorkbenchLogChunks(entries) {
   for (let index = 0; index < entries.length;) {
     const entry = entries[index].chunk;
-    if (entry.barrier) { entry.finish(pendingAuditLogFailure()); index++; continue; }
+    if (entry.barrier) {
+      // Only refusals already observed when this read queued its barrier qualify.
+      // Revalidate the same file against current policy and authenticate its full
+      // journal without appending, replaying a lost row, or acknowledging recovery.
+      for (const [file, failure] of entry.policyFailures) {
+        if (auditLogFailures.get(file) !== failure) continue;
+        try {
+          await workbenchAuditJournal(file).preflight();
+          if (auditLogFailures.get(file) === failure) auditLogFailures.delete(file);
+        } catch { /* unknown policy, unsafe journal and key failures stay closed */ }
+      }
+      entry.finish(pendingAuditLogFailure()); index++; continue;
+    }
     const file = path.join(paths.logs, `workbench-${entry.day}.ndjson`), rows = [];
     let bytes = 0;
     while (index < entries.length && rows.length < AUDIT_LOG_BATCH_ROWS) {
@@ -25661,7 +25689,8 @@ async function flushWorkbenchLogs({ allowFailure = false } = {}) {
     const finish = failure => { if (auditLogFlush === pending) auditLogFlush = null; resolve(failure); };
     // Resolve at the barrier itself, even when Node passes later chunks in the
     // same _writev invocation. Those later writes cannot delay this read forever.
-    logStream.write({ barrier: true, finish });
+    const policyFailures = [...auditLogFailures].filter(([file, failure]) => file && failure.code === 'work_data_journal.switch_unavailable');
+    logStream.write({ barrier: true, finish, policyFailures });
   }
   const failure = await pending.promise;
   if (failure && !allowFailure) throw failure;
@@ -58352,7 +58381,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
   const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
   const useCachePromptLayers = !stewardVolatile && wire.preferVolatileTail(model);
-  let cachePrompt = null;
+  let cachePrompt = null, cachePromptPrefix = null;
   let cacheSkillConfig = config, cacheSkillSelection = JSON.stringify(effectiveSkillSelection(session, config));
   let currentProjectMemory = projectMemory, currentSkillEntries = enabledSkillEntries, currentPlaybookEntries = playbookEntries;
   let promptMemoryEntries = enabledMemoryEntries, promptMemoryConflicts = enabledMemoryConflicts, promptMemoryStatus = memoryPreflight.status;
@@ -58550,6 +58579,21 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
+    if (useCachePromptLayers && !layoutOverride) {
+      // Compare the entire previous request prefix after every user-tail sidecar
+      // is applied. Appending normal assistant/tool replies preserves it; edits
+      // to mission/notes/recall/scratchpad, tools or earlier tool results do not.
+      // Shadow layouts are candidates, so they cannot change the real baseline.
+      const fingerprint = history => crypto.createHash('sha256').update(JSON.stringify({
+        rules: cachePrompt.rules, references: cachePrompt.references,
+        messages: history, tools: hasTools ? loadedTools : [],
+      })).digest('hex');
+      const nextFingerprint = fingerprint(msgs);
+      if (cachePromptPrefix && (msgs.length < cachePromptPrefix.messageCount
+        || cachePromptPrefix.fingerprint !== (msgs.length === cachePromptPrefix.messageCount
+          ? nextFingerprint : fingerprint(msgs.slice(0, cachePromptPrefix.messageCount))))) cachePrompt.replayThinking = false;
+      cachePromptPrefix = { messageCount: msgs.length, fingerprint: nextFingerprint };
+    }
     const cacheUserPrefix = viewHistory.findLast(m => m && m.role === 'user')?.content;
     const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix, cachePrompt });
     wire.applyTemperature(b, temp);

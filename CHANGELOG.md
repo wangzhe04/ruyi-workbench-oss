@@ -7,6 +7,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 修复 Claude 工具回合更新任务或改写既有请求前缀后仍回放旧思考签名的问题；配置恢复后，审计日志读取可在严格验证后解除策略拒读；显式会话索引刷新现在等待已在途的写入完成。
+- Fix stale Claude thinking replay after task updates or request-prefix edits, recover audit reads after strict policy revalidation, and make explicit session-index flushes wait for writes already in flight.
+
 - 进一步优化 Claude Messages 跨用户回合的缓存：固定指南与当前引用分别布局，目录撤销及时生效，引用变化时预先停用旧思考签名回放。保留受保护图片引用的严格形状和发送预算快照。
 - Improve Claude Messages caching across user turns by separating fixed guidance from current reference data, refreshing revoked catalog entries and dropping bound thinking before changed-prefix requests. Preserve protected-image reference shapes and the budgeted send snapshot.
 

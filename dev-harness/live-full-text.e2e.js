@@ -272,7 +272,13 @@ try {
     let gone = false;
     for (let i = 0; i < 400; i++) {
       const s = await request('GET', `/api/sessions/${sidA}`, undefined, hdr);
-      if (s.json && !s.json.liveTail) { gone = true; break; }
+      const resumable = s && s.status === 200 && s.json && typeof s.json === 'object' && s.json.resumable;
+      const settled = resumable && typeof resumable === 'object' && !Array.isArray(resumable)
+        && typeof resumable.dangling === 'boolean' && (resumable.kind === null || typeof resumable.kind === 'string')
+        && Number.isSafeInteger(resumable.turnSeq) && resumable.turnSeq >= 0
+        && Number.isSafeInteger(resumable.historyLength) && resumable.historyLength >= 0
+        && (!Object.hasOwn(resumable, 'live') || resumable.live === false);
+      if (settled && !Object.hasOwn(s.json, 'liveTail')) { gone = true; break; }
       await sleep(100);
     }
     ok(gone, 'B1 回合结束后 liveTail 不再下发(始终不落盘)');
@@ -285,8 +291,14 @@ try {
     ok(landed.some(m => /第三段/.test(String(m.content || ''))),
       `B2 回合结束后正文落盘(实测 ${landed.length} 条助手消息)`);
     const after = await request('GET', `/api/sessions/${sidA}`, undefined, hdr);
-    ok(!!(after.json && !(after.json.resumable && after.json.resumable.live === true)),
-      `B3 回合结束后 resumable.live 不是 true(got ${JSON.stringify(after.json && after.json.resumable)})`);
+    const afterResumable = after && after.status === 200 && after.json && typeof after.json === 'object' && after.json.resumable;
+    const settledAfter = afterResumable && typeof afterResumable === 'object' && !Array.isArray(afterResumable)
+      && typeof afterResumable.dangling === 'boolean' && (afterResumable.kind === null || typeof afterResumable.kind === 'string')
+      && Number.isSafeInteger(afterResumable.turnSeq) && afterResumable.turnSeq >= 0
+      && Number.isSafeInteger(afterResumable.historyLength) && afterResumable.historyLength >= 0
+      && (!Object.hasOwn(afterResumable, 'live') || afterResumable.live === false);
+    ok(!!(settledAfter && !Object.hasOwn(after.json, 'liveTail')),
+      `B3 回合结束后 resumable.live 不是 true(got ${JSON.stringify(afterResumable || null)})`);
   }
 
   /* ═════════ (C) full 超顶:从头部截断 ═════════ */
