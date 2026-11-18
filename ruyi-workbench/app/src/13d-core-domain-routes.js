@@ -928,6 +928,35 @@ function overlayMissionAggregateFields(card, row) {
   });
 }
 
+// 150 号文 U1:GET /api/missions?sessionIds= 点名要、但 13e 切片没有卡片(在 threadVisible 窗口外)的会话,按需现算一张卡。
+// 与 13e buildPretenderSessionSlice 造卡同一条路:唯一解密读口 readSessionHeadText → buildMissionCard(persistent)→
+// overlayMissionCard 叠加 live 层。不写回索引。work_data_* 照常上抛(加密权威读不到不许假装没有这条会话);
+// 普通的读不到(刚删、坏头、头与 id 对不上)返回 null,调用方就不画这一行 —— 宁可少一行也不编一行。
+// 1C 审查：listAgentRuns 会把该会话每个 run 快照整份读盘，续搜时同一组会话被反复点名。现算的卡按
+// (会话, 13e 切片的 sourceStamp, interventionRevision) 进程内缓存 —— sourceStamp 覆盖会话头与 run 来源，任一变了键就变；
+// live 层每次照常叠加。上限 256 条、按插入序淘汰；只缓存成功算出的卡，不缓存「读不到」。
+const missionSearchHitCardCache = new Map();
+const MISSION_SEARCH_HIT_CARD_CACHE_MAX = 256;
+async function missionCardForSearchHit(slice, overlayAt) {
+  const sid = String((slice && slice.sessionId) || '');
+  if (!sid) return null;
+  const cacheKey = slice.sourceStamp ? JSON.stringify([sid, String(slice.sourceStamp), slice.interventionRevision ?? null]) : '';
+  let card = cacheKey ? missionSearchHitCardCache.get(cacheKey) : undefined;
+  if (!card) {
+    let head = null;
+    try { head = safeJsonParse(await readSessionHeadText(sid), null); } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; return null; }
+    // 管家会话不是任务（与 06i threadVisible 同口径，纵深防御：不只认固定 id）。
+    if (!head || String(head.id || '') !== sid || head.kind === 'steward') return null;
+    const runs = await listAgentRuns(sid).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; return []; });
+    card = await buildMissionCard(head, runs, { interventions: slice.interventions, persistent: true });
+    if (cacheKey && card) {
+      missionSearchHitCardCache.set(cacheKey, card);
+      while (missionSearchHitCardCache.size > MISSION_SEARCH_HIT_CARD_CACHE_MAX) missionSearchHitCardCache.delete(missionSearchHitCardCache.keys().next().value);
+    }
+  }
+  return overlayMissionCard({ ...slice, card }, overlayAt);
+}
+
 async function handleMissionsApiRoutes(req, res, pathname) {
   // 75c:列表走可删物化索引。冷读验证/重建权威源，热读只叠加 live overlay；cursor 携带 revision，
   // 跨页期间事实变化返回 409 snapshot_changed，绝不静默漏项/重复。
@@ -975,7 +1004,25 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const wanted = String(new URL(req.url, 'http://x').searchParams.get('sessionIds') || '').split(',').map(id => safeSessionId(id.trim())).filter(Boolean).slice(0, 60);
     if (wanted.length) {
       const set = new Set(wanted);
-      return send(res, json({ ok: true, missions: missions.filter(row => set.has(String(row.sessionId || ''))), projectionRevision: index.missionsRevision }));
+      const picked = missions.filter(row => set.has(String(row.sessionId || '')));
+      // 150 号文 U1:上面那份 missions 只收【有卡片】的切片,而 13e 的造卡条件是 threadVisible 窗口(在途 ∪ 今天 ∪
+      // 最近 N 条 ∪ 管家盯着)—— 搜索命中的较早线程恰好都在窗口外(切片 card:null),于是后端搜到 26 条、左栏只画得出 2–3 条。
+      // 这里对【点名要的、切片在索引里但没有卡片】的那几条按需现算一张卡:判据与 13e 造卡同一个 buildMissionCard
+      // (persistent 口径 + overlayMissionCard 叠加 live 层),只出现在这次回包里,不写回索引、不动 revision,
+      // 所以分页、ETag、304 与主列表的行集合逐字节不变。管家自己的会话照旧不进;会话头读不到(刚删、坏头)就不编行。
+      const have = new Set(picked.map(row => String(row.sessionId || '')));
+      const slices = new Map(index.sessions.map(row => [String(row.sessionId || ''), row]));
+      for (const sid of wanted) {
+        const slice = slices.get(sid);
+        if (have.has(sid) || sid === STEWARD_SESSION_ID || !slice || slice.card) continue;
+        have.add(sid);
+        const card = await missionCardForSearchHit(slice, overlayAt);
+        // 聚合行里这条线程走的是「没卡片 → factsUnknown」那一支(buildMissionAggregateRows ③),它的聚合态不是这张现算卡的态。
+        // 只有真有事项容器时才借聚合行(事项标题、验收项是组级事实);未归类的单线程组走无聚合行的退化支,聚合态从这张卡现算。
+        const groupRow = aggregate.rowBySessionId.get(sid);
+        if (card) picked.push(overlayMissionAggregateFields(card, groupRow && !groupRow.derived ? groupRow : undefined));
+      }
+      return send(res, json({ ok: true, missions: picked, projectionRevision: index.missionsRevision }));
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);

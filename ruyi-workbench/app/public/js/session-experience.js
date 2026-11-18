@@ -32,6 +32,8 @@ import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
 import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT, EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
+// 150 号文 U2／U11：搜索回包怎么并进状态、要不要接着搜、说明说什么 —— 纯函数住那一个文件（单测直接 import）。
+import { nextSessionSearchState, failedSessionSearchState, sessionSearchFollowUp, sessionSearchNotices } from './session-search-state.js';
 
 // 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
 // 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
@@ -154,10 +156,13 @@ function cancelSessionSearch() {
   sessionSearchAbort = null;
 }
 
-function scheduleSessionSearch(refreshAttempt = 0, continueIndex = false) {
+// resume:用户按下「继续搜索」—— 同一查询词手上已有的结果与覆盖率留着(修前按钮一按就先清成 null,等于又清空一次),
+// 连续超时的计数归零(用户亲手再要一次,退避从头算)。
+function scheduleSessionSearch(refreshAttempt = 0, continueIndex = false, resume = false) {
   if (!Number.isSafeInteger(refreshAttempt)) refreshAttempt = 0;
   const q = sessionSearchQuery();
-  const previous = refreshAttempt > 0 && sessionSearchState.query === q ? sessionSearchState : null;
+  const kept = (refreshAttempt > 0 || resume === true) && sessionSearchState.query === q ? sessionSearchState : null;
+  const previous = kept && resume === true ? { ...kept, timeouts: 0, canResume: false } : kept;
   cancelSessionSearch();
   if (q.length < SESSION_SEARCH_MIN_QUERY) {
     // 序号同样要推进:清空搜索框时可能还有一次请求在飞,不推序号的话它回来后会把
@@ -167,7 +172,7 @@ function scheduleSessionSearch(refreshAttempt = 0, continueIndex = false) {
     return;
   }
   sessionSearchState = previous
-    ? { ...previous, loading: true }
+    ? { ...previous, loading: true, error: '' }
     : { query: q, results: null, loading: true, failed: false };
   renderSessions({ refresh: false });
   sessionSearchTimer = setTimeout(async () => {
@@ -175,38 +180,36 @@ function scheduleSessionSearch(refreshAttempt = 0, continueIndex = false) {
     const seq = ++sessionSearchSeq;
     const abort = new AbortController();
     sessionSearchAbort = abort;
+    let response = null;
     try {
       const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30${continueIndex ? '' : '&preview=1'}`, { signal: abort.signal });
       if (seq !== sessionSearchSeq) return;
       if (res && res.ok && Array.isArray(res.results)) {
-        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage, semantic: res.semantic, lexicalPreview: res.lexicalPreview === true };
+        // U2:超时的空回包不覆盖已出的结果(判据在 session-search-state.js)。
+        response = res;
+        sessionSearchState = nextSessionSearchState(previous, res, q);
       } else {
+        // ok:false(如 session_search.disabled):回退子串过滤,与修前一致;不是错误,不出说明。
         sessionSearchState = { query: q, results: null, loading: false, failed: true };
       }
-    } catch {
+    } catch (error) {
       if (seq !== sessionSearchSeq) return;
-      sessionSearchState = { query: q, results: null, loading: false, failed: true };
+      // 5xx／断网:保留上一次的结果,说一句人话,允许「继续搜索」重试(修前一律清成 null)。
+      sessionSearchState = failedSessionSearchState(previous, q, error);
     } finally {
       if (sessionSearchAbort === abort) sessionSearchAbort = null;
     }
-    renderSessions({ refresh: false });
-    const semantic = sessionSearchState.semantic;
-    const coverage = sessionSearchState.coverage;
     // A bounded encoding pass can finish its budget after caching useful fragments.
-    // Continue warming that same query; a zero-progress timeout must not poll forever.
-    const sourcePending = coverage?.complete === false && coverage.pendingSessions > 0 && ['pending', 'building', 'idle'].includes(coverage.phase);
-    const sourceAdvanced = coverage?.phase === 'timeout' && coverage.preparedThisRequest > 0
-      || sourcePending && Number.isSafeInteger(coverage.indexedSessions)
-        && coverage.indexedSessions > (previous?.coverage?.indexedSessions ?? 0);
-    const semanticAdvanced = !semantic?.truncated && semantic?.coverage !== 'complete'
-      && semantic?.cachedFragments > (previous?.semantic?.cachedFragments ?? 0);
-    const semanticPending = ['loading', 'partial', 'timeout'].includes(semantic?.status) && !semantic?.truncated
-      && semantic?.coverage !== 'complete';
-    const canContinue = !['paused', 'disabled'].includes(coverage?.phase)
-      && (sessionSearchState.lexicalPreview || sourceAdvanced || semanticAdvanced || semantic?.status === 'loading' && refreshAttempt < 3);
-    if (q === sessionSearchQuery() && refreshAttempt < 127 && canContinue) {
-      sessionSearchTimer = setTimeout(() => { if (q === sessionSearchQuery()) scheduleSessionSearch(refreshAttempt + 1, true); }, 500);
-    } else if (coverage?.phase === 'timeout' || sourcePending || semanticPending) {
+    // Continue warming that same query; a zero-progress timeout must not poll forever, and consecutive
+    // timeouts back off (0.5 → 1 → 2 → 4 s) before stopping on 「继续搜索」.
+    const step = response ? sessionSearchFollowUp({ response, previous, refreshAttempt, timeouts: sessionSearchState.timeouts || 0 }) : null;
+    // 两发之间的空档(等下一发的那 0.5–4 s)也是「准备中」:说明不在「准备中」与别的状态之间来回跳。
+    if (step && step.next && q === sessionSearchQuery()) sessionSearchState.continuing = true;
+    renderSessions({ refresh: false });
+    if (!step) return;
+    if (q === sessionSearchQuery() && step.next) {
+      sessionSearchTimer = setTimeout(() => { if (q === sessionSearchQuery()) scheduleSessionSearch(refreshAttempt + 1, true); }, step.delayMs);
+    } else if (step.resume) {
       sessionSearchState.canResume = true;
       renderSessions({ refresh: false });
     }
@@ -248,33 +251,17 @@ function syncOwnTurnLiveIndicator() {
 function renderSessions(opts) {
   const coverageNode = $('sessionSearchCoverage');
   if (coverageNode) {
-    const coverage = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.coverage : null;
-    const lines = [];
-    const semantic = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.semantic : null;
+    // U11:一条按状态互斥的说明(准备中／超时已暂停可继续／部分覆盖可继续／完成),判据在 session-search-state.js。
+    // 修前这里几条判据各自 push,于是「先显示关键词结果」与「本次搜索超时」同屏、英文叠成五行压住列表。
     const searchCurrent = sessionSearchState.query === sessionSearchQuery();
-    if (searchCurrent && (sessionSearchState.loading || sessionSearchState.lexicalPreview)) {
-      lines.push(t(sessionSearchState.lexicalPreview && !sessionSearchState.results?.length
-        ? 'session.searchPreviewEmpty' : 'session.searchPreparing'));
-    }
-    if (coverage?.phase !== 'timeout' && semantic && !['disabled', 'deferred'].includes(semantic.status)) {
-      if (semantic.status === 'loading') lines.push(t('session.semanticLoading'));
-      else if (['unavailable', 'timeout', 'overloaded'].includes(semantic.status) && !semantic.cachedFragments) lines.push(t('session.semanticFallback'));
-      else if (semantic.coverage !== 'complete') lines.push(t('session.semanticPartial', { cached: semantic.cachedFragments || 0, total: semantic.candidateFragments || 0 }));
-    }
-    if (coverage?.phase === 'timeout') lines.push(t('session.searchProgressUnavailable'));
-    else if (coverage && Number.isSafeInteger(coverage.indexedSessions) && Number.isSafeInteger(coverage.sessions)) {
-      lines.push(t('session.searchCoverage', { indexed: coverage.indexedSessions, total: coverage.sessions }));
-      if (coverage.phase === 'paused') lines.push(t('session.searchPaused'));
-      if (coverage.attachments?.unverifiedFullText > 0) lines.push(t('session.searchUnverifiedAttachments', { count: coverage.attachments.unverifiedFullText }));
-      if (coverage.messages?.unverifiedText > 0) lines.push(t('session.searchUnverifiedMessages', { count: coverage.messages.unverifiedText }));
-    }
+    const lines = searchCurrent ? sessionSearchNotices(sessionSearchState).map(item => t(item.key, item.params)) : [];
     coverageNode.textContent = lines.join(' ');
     coverageNode.hidden = !lines.length;
   }
   const continueButton = $('sessionSearchContinue');
   if (continueButton) {
     continueButton.hidden = sessionSearchState.query !== sessionSearchQuery() || sessionSearchState.loading || !sessionSearchState.canResume;
-    continueButton.onclick = () => scheduleSessionSearch(0, true);
+    continueButton.onclick = () => scheduleSessionSearch(0, true, true);
   }
   if (!railRenderer) return false;
   try { railRenderer(opts); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }

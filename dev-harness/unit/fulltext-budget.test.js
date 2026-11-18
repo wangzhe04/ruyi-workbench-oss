@@ -37,7 +37,9 @@ test('thread rail renders unmeasured deadlines distinctly from a measured zero',
  a.equal(out.indexed,null);a.equal(out.coverage.indexedSessions,null);a.equal(out.coverage.sessions,null);
  const {functionBlock}=require('../lib/source-slice'),fs=require('node:fs'),path=require('node:path');
  const render=functionBlock(fs.readFileSync(path.join(__dirname,'../../ruyi-workbench/app/public/js/session-experience.js'),'utf8'),'renderSessions');
- const node={};const view={railRenderer:null,$:()=>node,t:(key,values)=>key+(values?JSON.stringify(values):''),sessionSearchQuery:()=>out.query,sessionSearchState:out};
+ // 150 号文 U11:说明的判据搬进了纯函数模块 session-search-state.js(renderSessions 从那里 import),vm 视图把它一并递进去。
+ const {sessionSearchNotices}=await import(require('node:url').pathToFileURL(path.join(__dirname,'../../ruyi-workbench/app/public/js/session-search-state.js')).href);
+ const node={};const view={railRenderer:null,$:()=>node,t:(key,values)=>key+(values?JSON.stringify(values):''),sessionSearchQuery:()=>out.query,sessionSearchState:out,sessionSearchNotices};
  vm.runInNewContext(render+'\nrenderSessions();',view);
  a.equal(node.textContent,'session.searchProgressUnavailable');
  view.sessionSearchState={query:out.query,coverage:{phase:'idle',indexedSessions:0,sessions:400}};

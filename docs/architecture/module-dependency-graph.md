@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 144 | 4338 | 4322 | 951 | 67 | 0 | 1 |
+| 144 | 4341 | 4323 | 951 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -106,7 +106,7 @@
 | 88 | `13-http-router.js` | transport | 64 | 268 | 36 |
 | 89 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 90 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 91 | `13d-core-domain-routes.js` | transport | 40 | 135 | 15 |
+| 91 | `13d-core-domain-routes.js` | transport | 43 | 136 | 15 |
 | 92 | `13e-pretender-index.js` | transport | 61 | 44 | 9 |
 | 93 | `13i-steward-inbox.js` | transport | 93 | 34 | 11 |
 | 94 | `13j-steward-tool-base.js` | transport | 85 | 31 | 12 |
@@ -822,7 +822,7 @@
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `decodeConsoleText`, `externalRoot`, `fs`, `fsp`, `json`, `path` |
 | `13c-overlay-routes.js` | `01-config.js` | backward | `readJsonBody`, `send`, `tokenOk` |
 | `13c-overlay-routes.js` | `04-permission-runtime.js` | backward | `logEvent` |
-| `13d-core-domain-routes.js` | `00-boot.js` | backward | `CliBusinessHooks`, `EventStreamHooks`, `ProxyModelHooks`, `RUYI_EVENTS`, `SessionFullTextHooks`, `ThreadRelayHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `crypto`, `dataRootAliases`, `fsp`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeDecodeURIComponent` |
+| `13d-core-domain-routes.js` | `00-boot.js` | backward | `CliBusinessHooks`, `EventStreamHooks`, `ProxyModelHooks`, `RUYI_EVENTS`, `SessionFullTextHooks`, `ThreadRelayHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `crypto`, `dataRootAliases`, `fsp`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeDecodeURIComponent`, `safeJsonParse` |
 | `13d-core-domain-routes.js` | `01-config.js` | backward | `configReadFence`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `tokenMatches`, `tokenOk` |
 | `13d-core-domain-routes.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13d-core-domain-routes.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `resolvePermissionMode` |

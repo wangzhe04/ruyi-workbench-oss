@@ -8,10 +8,15 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app
 const start = source.indexOf('let sessionSearchState =');
 const end = source.indexOf('// 121-K4', start);
 assert.ok(start > 0 && end > start);
+// 150 号文 U2:回包并状态与续搜判据搬进了纯函数模块 session-search-state.js(session-experience.js 从那里 import),
+// 切片里没有 import 语句,vm 上下文把那几个导出一并递进去。断言一条未改。
+let searchState = null;
+test.before(async () => { searchState = await import(require('node:url').pathToFileURL(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/session-search-state.js')).href); });
 function fixture(responses) {
   const input = { value: 'resume interrupted downloads' }, timers = new Map();
   let timerId = 0, requests = 0;
   const ctx = vm.createContext({
+    ...searchState,
     $: () => input, renderSessions() {}, AbortController,
     setTimeout(fn) { timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },

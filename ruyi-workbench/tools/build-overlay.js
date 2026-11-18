@@ -100,6 +100,8 @@ const PAYLOAD_FILES = [
   'app/public/js/confirm-panel.js',
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
+  // 150 号文 U2／U11:左栏线程搜索的状态机纯函数(session-experience 静态 import)—— 漏登记即离线包白屏(43e 同款)。
+  'app/public/js/session-search-state.js',
   'app/public/js/interaction-prompts.js',
   'app/public/js/prompt-queue.js', // 135:interaction-prompts.js 静态 import 它,漏发即提问/权限弹窗全挂
   'app/public/js/presence-viewing.js', // 2026-10:interaction-prompts.js 静态 import 它(用户正看着的提问/权限,管家不插手),漏发即弹窗全挂

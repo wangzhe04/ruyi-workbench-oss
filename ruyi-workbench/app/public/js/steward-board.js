@@ -722,14 +722,22 @@ export function createStewardBoard({
   let searchExtraRows = [];
   let searchExtraKey = '';
   let searchExtraSeq = 0;
+  function searchExtraHas(sessionId) {
+    const id = String(sessionId || '');
+    return Boolean(id) && searchExtraRows.some(row => row && String(row.sessionId || '') === id);
+  }
   function loadSearchExtras(filter) {
     if (!filter || !filter.ids) { searchExtraRows = []; searchExtraKey = ''; return; }
     const have = new Set(rows.map(row => String((row && row.sessionId) || '')));
     const missing = [...filter.ids].filter(id => id && !have.has(id)).slice(0, 60);
     const key = filter.query + '|' + missing.join(',');
     if (key === searchExtraKey) return;
+    // 150 号文 U2:同一查询词续搜(命中集合变了)时,仍被命中的那几条补取行先留着,等新的一发回来再换 ——
+    // 修前这里一律先清空,左栏在每次续搜之间闪成「没有匹配」。换了查询词才整份作废。
+    const sameQuery = searchExtraKey.slice(0, searchExtraKey.lastIndexOf('|')) === filter.query;
+    const still = new Set(missing);
     searchExtraKey = key;
-    searchExtraRows = [];
+    searchExtraRows = sameQuery ? searchExtraRows.filter(row => row && still.has(String(row.sessionId || ''))) : [];
     if (!missing.length) return;
     const seq = ++searchExtraSeq;
     fetchMissionRows('?sessionIds=' + encodeURIComponent(missing.join(',')))
@@ -1891,6 +1899,9 @@ export function createStewardBoard({
     // closeDrawer()，恰好把抽屉刚打开的那一份关掉。所以「还没被行核实」的那一小段无条件认这一钉；
     // 核实完（verifyPinnedRow 的 finally）立刻交回下面这道原判据，一个字不改。
     if (pinnedId && (pinnedUnverified || rows.some(row => String(row.sessionId) === pinnedId))) return pinnedId;
+    // 150 号文 U1:搜索时按 id 补取进左栏的那几行(searchExtraRows,不在 rows 那一页里)同样是「行核实过」的线程 ——
+    // 修前点了它,钉子立刻被上面那道门否掉、焦点回落到别的线程,管家视角下搜到的较早线程点不开。上面那条原判据一字不动。
+    if (pinnedId && searchExtraHas(pinnedId)) return pinnedId;
     const focus = focusThreadFor(threadViews());
     return focus ? String(focus.sessionId) : '';
   }

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 144,
-    "providedSymbols": 4338,
-    "requiredSymbols": 4322,
+    "providedSymbols": 4341,
+    "requiredSymbols": 4323,
     "edges": 951,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -18655,6 +18655,7 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "MISSION_SEARCH_HIT_CARD_CACHE_MAX",
         "SESSION_SEARCH_MIN_QUERY",
         "addMissionCostBucket",
         "agentRunActionCommand",
@@ -18674,6 +18675,7 @@
         "lastMissionRunProgress",
         "mapInterventionTransitionFailure",
         "missionAggregateStats",
+        "missionCardForSearchHit",
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
@@ -18681,6 +18683,7 @@
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
+        "missionSearchHitCardCache",
         "normalizeContractQuestionDecision",
         "overlayMissionAggregateFields",
         "pendingInterventionItem",
@@ -18810,6 +18813,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
           "kinds": [
             "call"
           ]
@@ -43291,7 +43301,8 @@
         "os",
         "path",
         "paths",
-        "safeDecodeURIComponent"
+        "safeDecodeURIComponent",
+        "safeJsonParse"
       ],
       "direction": "backward"
     },

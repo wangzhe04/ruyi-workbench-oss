@@ -18461,6 +18461,7 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "MISSION_SEARCH_HIT_CARD_CACHE_MAX",
         "SESSION_SEARCH_MIN_QUERY",
         "addMissionCostBucket",
         "agentRunActionCommand",
@@ -18480,6 +18481,7 @@
         "lastMissionRunProgress",
         "mapInterventionTransitionFailure",
         "missionAggregateStats",
+        "missionCardForSearchHit",
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
@@ -18487,6 +18489,7 @@
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
+        "missionSearchHitCardCache",
         "normalizeContractQuestionDecision",
         "overlayMissionAggregateFields",
         "pendingInterventionItem",
@@ -18616,6 +18619,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
           "kinds": [
             "call"
           ]
