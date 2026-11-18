@@ -1,0 +1,1279 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T19:38:11.169Z",
+  "status": "CORE_UNIT_AND_SEPARATE_STATIC_PASS_POOLED_RESOURCE_RESEARCH_QUALITY_RED",
+  "limits": [
+    "Native-only research; no new default or shipped model profile.",
+    "Control/graph/buffer runtime36vector comparisons maxAbs0 atctx1024 host512; no-repack flags have real numerical differences and are not accepted as quality equivalent.",
+    "All native resource figures are isolated process observations on one AVX2 machine, not whole desktop deltas or generic API guarantees.",
+    "V5 remains evaluated once and RED; pair verifier and single-MMARCO hidden retrieval studies rejected.",
+    "Official stronger reranker preparation is a new unqualified checkpoint, not a release acceptance.",
+    "All static tests passed in a separate source-stable run after byte-preserving prototype relocation; fullfast originalexit1 retained."
+  ],
+  "records": [
+    {
+      "source": "output/semantic-owner-id-fast-r2-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/001-semantic-owner-id-fast-r2-receipt.json.gz",
+      "sha256": "9a48583b29272da56b2493ecff7bdb7e16962164376d2386ee4c16d872cf2fc2",
+      "bytes": 587,
+      "gzipSha256": "b4f406e2b072d6b08d1dd589257a5b4586ad56a5b79f1f6ffcdab337266234ad",
+      "gzipBytes": 414
+    },
+    {
+      "source": "output/semantic-owner-id-fast-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/002-semantic-owner-id-fast-r2.log.gz",
+      "sha256": "c84e8a5c352b52401015a50c11dec5f894b829e4675d55f32edc28ac537338f2",
+      "bytes": 10274,
+      "gzipSha256": "11e741bccb286eb3999f023361cd662efa8d27aa9e2d344d6769e6459c5701de",
+      "gzipBytes": 3591
+    },
+    {
+      "source": "output/semantic-owner-id-fast-r2-unit.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/003-semantic-owner-id-fast-r2-unit.log.gz",
+      "sha256": "9db33502d879bebfd0caaad31fddc656117c5d94aeea2af9ed849acb08739c50",
+      "bytes": 714722,
+      "gzipSha256": "b948d94c20e59e9d00e5a5e37d31c03997e048df25dfffa0c845d4d8b7e764da",
+      "gzipBytes": 261014
+    },
+    {
+      "source": "output/semantic-native-rehomed-unit-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/004-semantic-native-rehomed-unit-r1.log.gz",
+      "sha256": "5235d2e976ab982b5b46752f2b50afe9cb300a69de1606a435a3daa72dcf269f",
+      "bytes": 1140,
+      "gzipSha256": "a160f0b141452005e8a23688aefd78397c7f490e897540ee97b5604203112ef0",
+      "gzipBytes": 597
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/005-receipt.json.gz",
+      "sha256": "252f1dc22b6412109a59a715bfdaffbed926635907222c7d7d61f5cfae0281eb",
+      "bytes": 61075,
+      "gzipSha256": "85e2479fbeb5ee8979dc4d52ff7ff3400e6564e09e9cc9d2cede49f40a2626b7",
+      "gzipBytes": 18124
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/acc-offline-installer.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/006-acc-offline-installer.static.e2e.js.log.gz",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "bytes": 4389,
+      "gzipSha256": "6cc79f9128e534bf25c7d93660b206be9935606e85d8884900490c59aff8886f",
+      "gzipBytes": 1907
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/action-feedback.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/007-action-feedback.static.e2e.js.log.gz",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "bytes": 1029,
+      "gzipSha256": "a9d8028f8e52774ed316a92acec348c9842c81f2eb14abf6df2386d4d6dae5fc",
+      "gzipBytes": 702
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/agent-workflows-polling-visibility.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/008-agent-workflows-polling-visibility.static.e2e.js.log.gz",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "bytes": 829,
+      "gzipSha256": "cfb82ca785b63de91c3c10f5885f1dd499f40ee89305177f073fcb8b67dcee49",
+      "gzipBytes": 619
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/asr-config-ui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/009-asr-config-ui.static.e2e.js.log.gz",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "bytes": 35,
+      "gzipSha256": "68d5a312c529671392cee0e19258880e991a8298dcfaad0721eecd0a03197d29",
+      "gzipBytes": 55
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/agent-mode-v2.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/010-agent-mode-v2.static.e2e.js.log.gz",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "bytes": 4237,
+      "gzipSha256": "69f431202df03263621fdc61a6dd31ae1cc1d4439da7ba23657ff43484df34a8",
+      "gzipBytes": 2255
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/c2-evidence-spawn-budget.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/011-c2-evidence-spawn-budget.static.e2e.js.log.gz",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "bytes": 745,
+      "gzipSha256": "9950e41eb651ceedb40e5d8e70e907dcfe6dab7641e881965ba1616a15a12a7e",
+      "gzipBytes": 400
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/architecture-contract-snapshots.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/012-architecture-contract-snapshots.static.e2e.js.log.gz",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "bytes": 869,
+      "gzipSha256": "b10f40120c60c913872f79ba3a271134917f4b620b174e4ddab794868deae85b",
+      "gzipBytes": 347
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/copy-terms.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/013-copy-terms.static.e2e.js.log.gz",
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "bytes": 4662,
+      "gzipSha256": "c25f1fae149f308cc0f229ec3c458fcff5dc34b2aa8edf634fc6b39f5e344c6d",
+      "gzipBytes": 773
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/cost-zero.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/014-cost-zero.static.e2e.js.log.gz",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "bytes": 740,
+      "gzipSha256": "864b99a88085b2cd6c622ad7a90a81516bfb3688fb367dcb78f874380bfb6d3f",
+      "gzipBytes": 463
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/copy-path-guard.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/015-copy-path-guard.static.e2e.js.log.gz",
+      "sha256": "33ff37927a028dc03d5b2dbac71cdebf8124908d336afde3a1717206aee980bc",
+      "bytes": 5477,
+      "gzipSha256": "7a40678272fdc3eec13129f7190e4876038ac3eb54608b2cfe952f7f57e402d2",
+      "gzipBytes": 2758
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/css-typography-debt.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/016-css-typography-debt.static.e2e.js.log.gz",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "bytes": 1326,
+      "gzipSha256": "b9ae053129f0a872a3b1d4c9cc243dce72c9f4e393d7effcbfde1abcdf1bab88",
+      "gzipBytes": 429
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/desktop-dpi.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/017-desktop-dpi.static.e2e.js.log.gz",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "bytes": 33,
+      "gzipSha256": "428bebf33355a4127043daf35e79c15638a8ddf49b15bcfd3904ffcc51897d50",
+      "gzipBytes": 53
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/desktop-shell.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/018-desktop-shell.static.e2e.js.log.gz",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "bytes": 3360,
+      "gzipSha256": "d56db024dcc5f7e51fb212341156fb619e9b775a525dcf88154fad235329e189",
+      "gzipBytes": 1978
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ec-d-closure.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/019-ec-d-closure.static.e2e.js.log.gz",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "bytes": 802,
+      "gzipSha256": "7ea3623034e1e8b51e7f9b106750108998a7d48f8d50c52f513b6f03e2d19a45",
+      "gzipBytes": 664
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/encrypted-storage-freeze.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/020-encrypted-storage-freeze.static.e2e.js.log.gz",
+      "sha256": "b5bd3b8e6f7fdec15756691d34c7695b091f786634ec8111f45362c21e8cd264",
+      "bytes": 1698,
+      "gzipSha256": "3fe28a193cced61be7ee330d37440fc246dfe65cebd3c94b29b3e0785b3d7a12",
+      "gzipBytes": 766
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/durable-state-inventory.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/021-durable-state-inventory.static.e2e.js.log.gz",
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "bytes": 798,
+      "gzipSha256": "26e42444d5dea0922f80b8d6c1ed057a8b9c26fe4005aecffaf2cde7f767ded0",
+      "gzipBytes": 371
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/agent-team-budget.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/022-agent-team-budget.static.e2e.js.log.gz",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "bytes": 93,
+      "gzipSha256": "37fdf0f53c0091e7e001e032bfc8b9e694f789c9c5b24ce8f5983607312f8cec",
+      "gzipBytes": 106
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/engine-env-brief.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/023-engine-env-brief.static.e2e.js.log.gz",
+      "sha256": "aafef739bef4cd9a6356b7139b6b931a5a6699973f96a1f0212d0ec0eb3ec127",
+      "bytes": 4471,
+      "gzipSha256": "afd6cb649901348b502ef6c724a329e51169ce5aa06187ea83dbdb8e42ff1e4f",
+      "gzipBytes": 2618
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/browser-mcp.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/024-browser-mcp.static.e2e.js.log.gz",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "bytes": 962,
+      "gzipSha256": "b31f66731a9a8c5d575cc9010724426b4545ddbf8b1517f76dbd6b472ac59e3f",
+      "gzipBytes": 521
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/external-bots-progress.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/025-external-bots-progress.static.e2e.js.log.gz",
+      "sha256": "b81bb1e5287e05b63404e995cfd2621a6682f418df27fb7523aaf428fda2756e",
+      "bytes": 1901,
+      "gzipSha256": "2294836af6a79c11732526a207f18210d5dbb19a1c836ef2b69bb3c8d83d3255",
+      "gzipBytes": 949
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/finalize-segments.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/026-finalize-segments.static.e2e.js.log.gz",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "bytes": 1244,
+      "gzipSha256": "66c43298b6d966c98bb9c5121846bcebefd50a37d71258df5baf1db501df9b83",
+      "gzipBytes": 696
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/frontend-domains.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/027-frontend-domains.static.e2e.js.log.gz",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "bytes": 7594,
+      "gzipSha256": "4fe5072094111a27d6cdd77116f019de5715a83e7228d3603c168eecfcd92b47",
+      "gzipBytes": 2485
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/health-i18n.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/028-health-i18n.static.e2e.js.log.gz",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "bytes": 3392,
+      "gzipSha256": "ffb64e25465ab280bdbcd358d3aed191147ef4091946ae86ea3c52edc3cbd294",
+      "gzipBytes": 2140
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/i18n-en-terms.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/029-i18n-en-terms.static.e2e.js.log.gz",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "bytes": 673,
+      "gzipSha256": "c28dfd332fee114818bbdd8427addf07baf317dc6f093a43496c913580576089",
+      "gzipBytes": 397
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/facts.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/030-facts.static.e2e.js.log.gz",
+      "sha256": "c7b04d3ac19570f103324cf58e587733d9606d8a8510e52d6094934411383406",
+      "bytes": 2335,
+      "gzipSha256": "78021941f4ead32404e6ac37e17b4b456a569cea91b6ec5f21d4907fdeab6f9c",
+      "gzipBytes": 894
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/i18n.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/031-i18n.static.e2e.js.log.gz",
+      "sha256": "9578d003a3a99f0c182897fd7d08148e99c13dc24aaf758f3d955713d7679895",
+      "bytes": 749,
+      "gzipSha256": "54bbfc628dc6ba3fe5a0a32f740ea44baf1f68913928fb220e2b0c07426cb244",
+      "gzipBytes": 442
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/inline-script-csp-hash.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/032-inline-script-csp-hash.static.e2e.js.log.gz",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "bytes": 863,
+      "gzipSha256": "62a7bd778a2926ed14ead595aa8623ef10d147050cbe3ab996a64d2961f9cc97",
+      "gzipBytes": 613
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/kimi-plan-ui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/033-kimi-plan-ui.static.e2e.js.log.gz",
+      "sha256": "b4259aa8ec3faeb26fe0918604a8aee665dc6f91749eeddfd9f803b4161084ad",
+      "bytes": 573,
+      "gzipSha256": "9b8c51b610400cec4abab0bcb0801e2ebd2e5c9d73f17fafbbb7af81b8dc0575",
+      "gzipBytes": 406
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/live-full-text.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/034-live-full-text.static.e2e.js.log.gz",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "bytes": 7248,
+      "gzipSha256": "53133ef174cb06a6a621f70568e44f60ea94ec4dc4131f339fba3f24948f4817",
+      "gzipBytes": 3995
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/mcp-ops-gui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/035-mcp-ops-gui.static.e2e.js.log.gz",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "bytes": 2978,
+      "gzipSha256": "3ffd3cccd952c21e3b1eaf50acf274d929e25132c837f799d8226ef8856cd2de",
+      "gzipBytes": 1186
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/manifest-ranges.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/036-manifest-ranges.static.e2e.js.log.gz",
+      "sha256": "f08e27114033fa031db5587ff3a5084443ea4b8e3b11d2c8dc65af9d2990a763",
+      "bytes": 35519,
+      "gzipSha256": "a48ee30e55c8c4eddabe68e2c95bf7276718153392f16d10ea2c0bead705d473",
+      "gzipBytes": 5622
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/media-artifact-package.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/037-media-artifact-package.static.e2e.js.log.gz",
+      "sha256": "3d9460ec1f9f6bc018d6f25200762abf3a54710499956a7f57451f33d04a1386",
+      "bytes": 441,
+      "gzipSha256": "1c35965a5c84afeff6a012a1286b30e05a2e4fb37572cf800af93c625bf320fe",
+      "gzipBytes": 293
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/media-runtime-inventory.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/038-media-runtime-inventory.static.e2e.js.log.gz",
+      "sha256": "d28a66380faa9724689bab7813ad59f8709969f5e0bea9545183a8491fe5faee",
+      "bytes": 558,
+      "gzipSha256": "b51c7bc746b6e5ac9383e2a82feaef7f32ea08ae965b3ff9c65978d5717dec95",
+      "gzipBytes": 334
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/media-runtime-notices.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/039-media-runtime-notices.static.e2e.js.log.gz",
+      "sha256": "3528878e3f0d0bcb041c04e6c0c4421c0eacc961cf01328ebdc7b962dc46944b",
+      "bytes": 10858,
+      "gzipSha256": "c8ec71aa1792dff3a407a2281aa4491c3ade72e73dafadad40f539b01912bbd7",
+      "gzipBytes": 1309
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/media-runtime-source-evidence.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/040-media-runtime-source-evidence.static.e2e.js.log.gz",
+      "sha256": "8d82dcd7d7bb1da21f544c06bc15cb884b3fdf00d6f2c19135e591bfed894199",
+      "bytes": 5209,
+      "gzipSha256": "2ad683890463b8598f24b2e867d8dabc7dd7cde51e7b2a03b789f728fd0f29b5",
+      "gzipBytes": 1126
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/memory-toolbox.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/041-memory-toolbox.static.e2e.js.log.gz",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "bytes": 813,
+      "gzipSha256": "3c22ee45ed5f454e1ccf8541fd03d0e5dbfd5a0195278cf596d82a3e5f4fffff",
+      "gzipBytes": 475
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/model-menu-classes.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/042-model-menu-classes.static.e2e.js.log.gz",
+      "sha256": "d746bd3cb8ea39fb2b49e1917b6d70a463b792de0e110e693178f7ed5266d64c",
+      "bytes": 1087,
+      "gzipSha256": "7c545b9ab09e72118cd41928a26b4b498a2dcda2999461d9a35b0e0c915ad1a0",
+      "gzipBytes": 780
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/mermaid-render.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/043-mermaid-render.static.e2e.js.log.gz",
+      "sha256": "c571800f24768b225614ff3576d452e78372ca435ced07dc2de17d0e3cbb7a0b",
+      "bytes": 9060,
+      "gzipSha256": "c9721b688e3839519dd6cc221a21823c1f8f68603ee8660f2a327727220b7ce8",
+      "gzipBytes": 4260
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ndjson-line-feeder.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/044-ndjson-line-feeder.static.e2e.js.log.gz",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "bytes": 1836,
+      "gzipSha256": "744c21e7117e049c628c7b37f294314f093882bd88595c3f84ba834d928c43d9",
+      "gzipBytes": 822
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/net-token-replay.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/045-net-token-replay.static.e2e.js.log.gz",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "bytes": 1350,
+      "gzipSha256": "4d6e7c1ac6d52c2f60ecc98135d51e8060e97aad36d59f38cee0eb01d661d11d",
+      "gzipBytes": 900
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/new-thread-engine-default.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/046-new-thread-engine-default.static.e2e.js.log.gz",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "bytes": 1545,
+      "gzipSha256": "0e0e1d98052839bf0d36a1b08278ea3aaec97c162c02c037031cea8b9b63c0bd",
+      "gzipBytes": 780
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/onboarding.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/047-onboarding.static.e2e.js.log.gz",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "bytes": 9579,
+      "gzipSha256": "58ad68151d8e3e8f0266e797e216115202615f1edbda177ee62462bbd0796aca",
+      "gzipBytes": 5092
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/overlay-payload-lock.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/048-overlay-payload-lock.static.e2e.js.log.gz",
+      "sha256": "7b1cc925bcd02981a824bbf0e6c12b970a11f0af10e2f4e2d16a99af9201c516",
+      "bytes": 1938,
+      "gzipSha256": "ea0a979899f828e7014193a46e3929a72817b0abc188e3bc7e2addb85b6694ab",
+      "gzipBytes": 1157
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/overlay-update-gui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/049-overlay-update-gui.static.e2e.js.log.gz",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "bytes": 1269,
+      "gzipSha256": "244b4c325712c3894dc6387f37c7e196489cb14e3e4344e32c00b5eeea200db6",
+      "gzipBytes": 628
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/fixture-home.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/050-fixture-home.static.e2e.js.log.gz",
+      "sha256": "926b13d72d4f86563c979ead4c0474bed3d4b90c1b4f7ed60ba34988cf65941d",
+      "bytes": 5636,
+      "gzipSha256": "5a28bb30faf1f8ca0c3c95de727c4e1061d4cb16becec96804d8b237f846efb9",
+      "gzipBytes": 2462
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/eol-policy.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/051-eol-policy.static.e2e.js.log.gz",
+      "sha256": "7051636ee519206ed708b50eaa05f29b7cfca9b91da9c759c127e2f8c83f8732",
+      "bytes": 257,
+      "gzipSha256": "111138a4d1a73d1a0422df14d872f1e3ac3cb2734274369664865a6a4c8faa42",
+      "gzipBytes": 165
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/module-dependency-graph.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/052-module-dependency-graph.static.e2e.js.log.gz",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "bytes": 1233,
+      "gzipSha256": "5b52ba464a8f8ebd98a06087becfcb67568403dfefa934a9d938bb2e7937771c",
+      "gzipBytes": 650
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/provider-reasoning-effort-ui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/053-provider-reasoning-effort-ui.static.e2e.js.log.gz",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "bytes": 50,
+      "gzipSha256": "8ec71dc970688f741fe6bf109ea16678a13f9603851acb19c5895470b2f442c3",
+      "gzipBytes": 70
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/rail-pocket.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/054-rail-pocket.static.e2e.js.log.gz",
+      "sha256": "966c1d226227c8865cdacf1d69de1900f2ceb5f8b84ff99f74ffb6e811bea62e",
+      "bytes": 2948,
+      "gzipSha256": "52bfb158a9ac3cfe5a0b6c5e4a3186b91dfcb27d43fa0a2513652448c3980343",
+      "gzipBytes": 1931
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/resume-banner-dismiss.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/055-resume-banner-dismiss.static.e2e.js.log.gz",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "bytes": 335,
+      "gzipSha256": "9ba12ab11277a7fe869a8373b4e8d78670e05156a57bd0116f62623892777efb",
+      "gzipBytes": 227
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/prompt-snapshot.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/056-prompt-snapshot.static.e2e.js.log.gz",
+      "sha256": "6a48be1b8ed4cf61cb001104191c63b97512e6ffc9dd167bdac416d8d0e6199e",
+      "bytes": 8099,
+      "gzipSha256": "ce43c1ee663116b6a0572e0e744f88bd4b17c68040d37a83b452f727983cd322",
+      "gzipBytes": 4315
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/progress-events.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/057-progress-events.static.e2e.js.log.gz",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "bytes": 2394,
+      "gzipSha256": "a8bc60c799ecfc3a2406a02a38edb8a7dd41c53ac804a0ac015491f2527ded59",
+      "gzipBytes": 1460
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-calendar-editor.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/058-scheduled-playbooks-calendar-editor.static.e2e.js.log.gz",
+      "sha256": "fee8b76a4d0f726ca92fa0ee557a8ae32adf38fce2a264ba025bd7b460ac8691",
+      "bytes": 1420,
+      "gzipSha256": "984eb5f0dadef1a320e096a84750cb725cbac153743bf12dd8a38efb415da954",
+      "gzipBytes": 555
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/runtime-optimization.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/059-runtime-optimization.static.e2e.js.log.gz",
+      "sha256": "ae1f83bc5586a74943cfd0af1108c6c933df2508847c47833cd5abf00b9f9b7a",
+      "bytes": 12904,
+      "gzipSha256": "c1952f0ac470e3724a7ff3aa71a4c67d6aeb96f274eec932c1c3e2c1b4044aef",
+      "gzipBytes": 5602
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-contract.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/060-scheduled-playbooks-contract.static.e2e.js.log.gz",
+      "sha256": "ce3f54f3aee43e5859347e5de51d42994c309bae362d3b3584cbc4fdf0a70888",
+      "bytes": 1193,
+      "gzipSha256": "b9180eef1c99122c5cff00d8bea3524f5de7a854bc023f166455b2dac7ad94bd",
+      "gzipBytes": 606
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-lifecycle.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/061-scheduled-playbooks-lifecycle.static.e2e.js.log.gz",
+      "sha256": "9f19387f392c48e68582f4460a16ff204be78f9bcdd62e668b6cd6bd3e955c70",
+      "bytes": 2292,
+      "gzipSha256": "379ff335779fcba877f922ec4b6a8e70c6d9e6084e59ee02aca6076fad251507",
+      "gzipBytes": 844
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/process-safety.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/062-process-safety.static.e2e.js.log.gz",
+      "sha256": "b0bfda3e27dc44a3115e5600d22d6ab740a84654339027322d170c674b679e33",
+      "bytes": 856,
+      "gzipSha256": "b28c301d489d3237e8ea2d5b89898e643cd14761aa76064492c22aa7d90318a7",
+      "gzipBytes": 599
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/route-inventory.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/063-route-inventory.static.e2e.js.log.gz",
+      "sha256": "17b6f9aa3c5d9fc52549ca8aef65367af69c7d7b517191b8d780081edc7eed3b",
+      "bytes": 1313,
+      "gzipSha256": "93cc13cd1f692d2788443818ebeba1504e5468e82ad3105b40d8079606b796b9",
+      "gzipBytes": 760
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-permissions.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/064-scheduled-playbooks-permissions.static.e2e.js.log.gz",
+      "sha256": "8c96bca0910352bf7419e10c55efaa0bf652fc3a5ce8009f0a414b4ed9b7ce87",
+      "bytes": 2045,
+      "gzipSha256": "6d4a6b4eb97af4ff690799679c775c5665ca4c7aaf03cba621255b216c7dcd74",
+      "gzipBytes": 637
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-cold-effects.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/065-scheduled-playbooks-cold-effects.static.e2e.js.log.gz",
+      "sha256": "bb334448cfd698941f103415da8618ddd303adf79f9a7107862808e7bbe1ef6a",
+      "bytes": 2053,
+      "gzipSha256": "72d76a07dab745f339d6d872ff07ab4661a792f8abdd8ccba6c06546b6ddd37e",
+      "gzipBytes": 619
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduler-ui.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/066-scheduler-ui.static.e2e.js.log.gz",
+      "sha256": "6f84f1e3877a8203668f0d03020023c5c6f3453061e81f2e455efba852df50f9",
+      "bytes": 3111,
+      "gzipSha256": "ae0c203c62e14027f00bc98f536e57d4b71e767f9a18d64e306d7415eefb7604",
+      "gzipBytes": 1343
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/session-save-census.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/067-session-save-census.static.e2e.js.log.gz",
+      "sha256": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "bytes": 2070,
+      "gzipSha256": "2994d57ac71e21f081a5b1cadcc32a036e04103663563e43894fc30698b1a0dd",
+      "gzipBytes": 867
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-r7.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/068-scheduled-playbooks-r7.static.e2e.js.log.gz",
+      "sha256": "805d4f049779c95512a2556a25f78b09369d1af40804b29b6b6a14ef32cc438a",
+      "bytes": 1023,
+      "gzipSha256": "7f7ae29a6f8312ad7b70a003e3a8f2ad70dcea43b0950aedd1b78080ae8bd954",
+      "gzipBytes": 314
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/start-experience.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/069-start-experience.static.e2e.js.log.gz",
+      "sha256": "078a4b816003b24116345ff52a1c31707c01b58c30800ae2cd0e9c056644111d",
+      "bytes": 5285,
+      "gzipSha256": "8d02e0bbd0c4903d468a1d58013ead24da96c3f4e6695d2c8c7157ba4a348aad",
+      "gzipBytes": 2899
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-avatar.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/070-steward-avatar.static.e2e.js.log.gz",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "bytes": 5169,
+      "gzipSha256": "e16ce9320fd8ea3f6f6f944e45d37c5761a9088fe543f80096959fce13b1b2ea",
+      "gzipBytes": 2766
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/software-engineering-prompt.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/071-software-engineering-prompt.static.e2e.js.log.gz",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "bytes": 2961,
+      "gzipSha256": "38f434137a5a115ea7af2432aad0d7f2b747eb4415177de5fc0f7a3fbae01c62",
+      "gzipBytes": 1131
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-board.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/072-steward-board.static.e2e.js.log.gz",
+      "sha256": "f72b72d0e5dd119eb7e671104b1352b0bda6b9b9314883ecb5b7c594c52b1b74",
+      "bytes": 22724,
+      "gzipSha256": "4bda0120a063708f4176639c6a7510f75c8b37a9ea062c002ef4429a51445afd",
+      "gzipBytes": 10397
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-conversation.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/073-steward-conversation.static.e2e.js.log.gz",
+      "sha256": "b384a1567ad6f85657022a84bcf81ad46f54e6ed7beded8d8c2166a275dba6b0",
+      "bytes": 31835,
+      "gzipSha256": "a46ce61eced7f29002f8e810d62dcb6331c0050d698fd2b5fec0a4d179e8b0f8",
+      "gzipBytes": 14785
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-drawer.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/074-steward-drawer.static.e2e.js.log.gz",
+      "sha256": "e5362927f31922018d8693f5ca37590ae6c78501df99a8fd5557811853b6fb00",
+      "bytes": 23287,
+      "gzipSha256": "f8b20608fd6c0f36f764ca69d212dac960141d6d21493cfe7ac3e1d57dd18819",
+      "gzipBytes": 10769
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-events.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/075-steward-events.static.e2e.js.log.gz",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "bytes": 5780,
+      "gzipSha256": "a5869aa3af5e07823fef963528b0309781b433a274648d676a73b9cea7399417",
+      "gzipBytes": 2957
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-runner.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/076-steward-runner.static.e2e.js.log.gz",
+      "sha256": "66e2834d5824e97722d1552ad9c9db9bde99307c1ca49c86a7aa6938c46f2084",
+      "bytes": 14598,
+      "gzipSha256": "fdbc7401bd9e4d29cfc88e3ba647c9c32403055b7da232c08c59115b3141edc9",
+      "gzipBytes": 5982
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-config.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/077-steward-config.static.e2e.js.log.gz",
+      "sha256": "c7208a639a5021c4cf90ad807656141b4dd77f68d0c6f95526644c57e1e5ba2a",
+      "bytes": 6797,
+      "gzipSha256": "a241ef6cf63c8ac25c4d29c40fd8a1f67e69a0ec8a2f096a46d7096ddf0bf328",
+      "gzipBytes": 2576
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-settings.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/078-steward-settings.static.e2e.js.log.gz",
+      "sha256": "428757923cd0ee3e97d833bcd0840749bdc43096b0445dc393b9de752763d45b",
+      "bytes": 12947,
+      "gzipSha256": "cdeb7edd225ebfffb167741f6fbb1641ed08edeca87dc65fc318ceb87cad16f1",
+      "gzipBytes": 6637
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-shell.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/079-steward-shell.static.e2e.js.log.gz",
+      "sha256": "ec33f29a181d9c25cbf4bcf62b4c4f85272f31894765c2ef9bd7901b2c6b9cb0",
+      "bytes": 5454,
+      "gzipSha256": "3b5f35f0981e3990b1007b14932c8d96d81b9829895f854dda04bed5445aae88",
+      "gzipBytes": 3110
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-r5.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/080-scheduled-playbooks-r5.static.e2e.js.log.gz",
+      "sha256": "e963efdfc2c96027ca1fa27609db55701ed55ec5aba417dc3c1a3319682af6ac",
+      "bytes": 2592,
+      "gzipSha256": "091e220919dea11f082093579fb9c32e639dc10481799a1e4ef8b687baf8bcb1",
+      "gzipBytes": 697
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-walkthrough.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/081-steward-walkthrough.static.e2e.js.log.gz",
+      "sha256": "d03bda38501081542b63f5ca81380d8599421d3e23b4a7e7ef979d72101329bc",
+      "bytes": 12712,
+      "gzipSha256": "14e6051c852a6dc3cfe0e3121bd87cd53ca6b918902dfeefa07ca3db4867fc65",
+      "gzipBytes": 6982
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/streaming-responsiveness.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/082-streaming-responsiveness.static.e2e.js.log.gz",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "bytes": 1189,
+      "gzipSha256": "9d2041d05f52fcf23752c9a65b4ab5a60827872027456b95763155df492993a9",
+      "gzipBytes": 642
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thinking-boundary.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/083-thinking-boundary.static.e2e.js.log.gz",
+      "sha256": "d22437f8ccbc400390e6c88baaf0522cb51e4f1cca0adadf820d06b3246a7900",
+      "bytes": 579,
+      "gzipSha256": "95acdc5de392030eb8f9ad485b8f4f22553f12479ab7854510556b84b1e21f57",
+      "gzipBytes": 412
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-commission.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/084-thread-commission.static.e2e.js.log.gz",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "bytes": 1725,
+      "gzipSha256": "1a5bc46b7f5c24ce7ab29efd48289c6ba7b2f55e08eb95a2b06cddad440bddc6",
+      "gzipBytes": 1073
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-brief.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/085-thread-brief.static.e2e.js.log.gz",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "bytes": 3219,
+      "gzipSha256": "479a23edbd832bfe1153f4494942cec70de9a90f90f1a475ffe6fada4fb9277d",
+      "gzipBytes": 1674
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-relay-contract.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/086-thread-relay-contract.static.e2e.js.log.gz",
+      "sha256": "a529ddbeb5a76d3ad99a3ec35078e5fb3c23be3f95e5ca838841dba798b2b196",
+      "bytes": 1918,
+      "gzipSha256": "020421be5cf43dd662c8266969c373f7ee93b6e466bad5272c56ae2f11d3da0d",
+      "gzipBytes": 870
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-relay-admission.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/087-thread-relay-admission.static.e2e.js.log.gz",
+      "sha256": "5307c45d470ed637f3cd34cae7fcc63e04738617f24468363c47931ecb0ace17",
+      "bytes": 2161,
+      "gzipSha256": "af5f5043d949b4b76ed6e0b820b9d3ee82f403db12b760e12a24ad16a2efd5e1",
+      "gzipBytes": 752
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-relay-nested.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/088-thread-relay-nested.static.e2e.js.log.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "gzipSha256": "9e72928e7a01615b4cf090daa617b4ca9d68531748f887f323f695eb4ca3ef63",
+      "gzipBytes": 20
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-relay-dispatch.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/089-thread-relay-dispatch.static.e2e.js.log.gz",
+      "sha256": "ceafef72c5aa9f52495cad786b4dae1db202b92eba46c1666c147f0182212dbb",
+      "bytes": 2068,
+      "gzipSha256": "db6071093ab5d743efd0a162ae5b467dd0bb637abfec95ce942a468062032911",
+      "gzipBytes": 597
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/tool-image-inline.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/090-tool-image-inline.static.e2e.js.log.gz",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "bytes": 2817,
+      "gzipSha256": "0c2a9807e5ee16cd2c27ca3028d1b83fe26c0683e954a237ad573e330d3bac99",
+      "gzipBytes": 1302
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/thread-relay-retirement.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/091-thread-relay-retirement.static.e2e.js.log.gz",
+      "sha256": "e14a4f0b05383793cb9eb6e8cdbd6e78aff6f46831f91a11844a3be33ae69e6e",
+      "bytes": 3860,
+      "gzipSha256": "5544b713554c2fb3aa72317eb83f7c74fb53822950204f3d717aadeae68c8feb",
+      "gzipBytes": 1317
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/tool-verb-coverage.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/092-tool-verb-coverage.static.e2e.js.log.gz",
+      "sha256": "f0daba21fddaa87cb27973e987d8fef1c4363fb3202271dda7bab73e46bd02b9",
+      "bytes": 1025,
+      "gzipSha256": "d0e9f4b80a02eb1fdfec17749d8c3b9ccc15f44ca04f7605a24c1d57c8beacd3",
+      "gzipBytes": 711
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-bugfix.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/093-ui-bugfix.static.e2e.js.log.gz",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "bytes": 1159,
+      "gzipSha256": "5a8b4ae75207008ae718a12f29fb1b07d69afb1dff90a93f1b8f21227a7614f3",
+      "gzipBytes": 698
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/turn-narrative.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/094-turn-narrative.static.e2e.js.log.gz",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "bytes": 2351,
+      "gzipSha256": "3a090bf2a2581fbcc7226322b06a471f7525a2f62a9cdc997d715891edf1312d",
+      "gzipBytes": 1368
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v3-p1.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/095-ui-v3-p1.static.e2e.js.log.gz",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "bytes": 3986,
+      "gzipSha256": "b3ca179afeecd8fc32dc839180a7f5f9d1cd507e4254c81af92fbcf13d4c94ff",
+      "gzipBytes": 1788
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v3-p2.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/096-ui-v3-p2.static.e2e.js.log.gz",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "bytes": 4131,
+      "gzipSha256": "0a90340f0db3afe71fc29126e2ecaae0cb7493121054771c3c08311297c8ac93",
+      "gzipBytes": 2142
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v3-p3a.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/097-ui-v3-p3a.static.e2e.js.log.gz",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "bytes": 4739,
+      "gzipSha256": "da2785248cf710b1c193dd43b9bc55d7a6dfa4a76bc33c52acf7b860a71c7466",
+      "gzipBytes": 2691
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v3-p3b.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/098-ui-v3-p3b.static.e2e.js.log.gz",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "bytes": 4227,
+      "gzipSha256": "f5ee7914b7b85ebe00bbdd94e56f48f175edbee4fc38c3d96da08219bf558ee9",
+      "gzipBytes": 2356
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v3-wave1.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/099-ui-v3-wave1.static.e2e.js.log.gz",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "bytes": 3383,
+      "gzipSha256": "08497a8d89cb52fea41196b5c742bba5f2d9b330fbc799c8efc7e70e5b843fa7",
+      "gzipBytes": 1988
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/ui-v4-glass.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/100-ui-v4-glass.static.e2e.js.log.gz",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "bytes": 1284,
+      "gzipSha256": "72837ab1ef646c5bfbe63cfe38022eff33d8c7c1abfdc780417b002d59ebc7ba",
+      "gzipBytes": 873
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/v17-review-fixes.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/101-v17-review-fixes.static.e2e.js.log.gz",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "bytes": 1379,
+      "gzipSha256": "a36e864673c5ad8e1a595c74ed24e52b7ccaedf95d5facbb1ef8deb091ded6d9",
+      "gzipBytes": 946
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/workflow-combination.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/102-workflow-combination.static.e2e.js.log.gz",
+      "sha256": "bfb514cc688aa2ee97c0122d52bc8929080a60394e3aaf9561e381734b6dff08",
+      "bytes": 2043,
+      "gzipSha256": "1d78191bd4699b0341791c0ca039b3269444823d2b0a3fd5077db2e620e13501",
+      "gzipBytes": 835
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/workflow-editor-v2.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/103-workflow-editor-v2.static.e2e.js.log.gz",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "bytes": 3537,
+      "gzipSha256": "8a1fb6e577be78e60975d2a8f7a7866bee65dfb8942819cc16fa5d83c81806cb",
+      "gzipBytes": 2120
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/steward-tools.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/104-steward-tools.static.e2e.js.log.gz",
+      "sha256": "b822bff5746187a2960c2ebebe9e300f4bc4a88726fde238fb3cddbc7a559f9b",
+      "bytes": 11387,
+      "gzipSha256": "05fc3af0e6fe2219233e0086fb5f07b363899301f485bf5cd1a5d31a6c20007f",
+      "gzipBytes": 5407
+    },
+    {
+      "source": "output/semantic-native-rehomed-static-r1/scheduled-playbooks-r6.static.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/105-scheduled-playbooks-r6.static.e2e.js.log.gz",
+      "sha256": "4c0725a1b81736e4634bc591aae02d93fb7a9d9bfc042678ae961f5a74ec0e6e",
+      "bytes": 2285,
+      "gzipSha256": "51242de3ce4b8293687f0803dca4384ea8c468753ec9b3f374b5232e1d3f6057",
+      "gzipBytes": 575
+    },
+    {
+      "source": "output/native-headless-qwen-research/archive-variant3-static-r1.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/106-archive-variant3-static-r1.cjs.gz",
+      "sha256": "a607428f7b84d2adc111d757c50cce38850e11eb84ef776dc501bbf3f898ad0d",
+      "bytes": 5602,
+      "gzipSha256": "0e39cab8075116249ac611739fb2ffc8d12e845e2294de3e79128c1b0df186dc",
+      "gzipBytes": 2641
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512-r2-result.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/107-benchmark-512-r2-result.json.gz",
+      "sha256": "3d3c48fb57ebaa1074668cc13359a9376371512574f7349c6bc3c45228a796c1",
+      "bytes": 43743,
+      "gzipSha256": "808e7e3ad0f38cc6e3e27973f4c6a5b4a7c346e7e91212e8d1a851526678d9ab",
+      "gzipBytes": 4471
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512-r2-run.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/108-benchmark-512-r2-run.log.gz",
+      "sha256": "ca765b7ab00dd51ccc0a5eb0c0938dc39cf1c8b31fb7156f8c5f5a3e576a9351",
+      "bytes": 62,
+      "gzipSha256": "08d884f0c3f52ea29fd00e63bce93a0614e99c4af475bfe8539b5a903cc67369",
+      "gzipBytes": 58
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512-r2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/109-benchmark-512-r2.cjs.gz",
+      "sha256": "9f1036e352126553eae76ee37ad12cf50c33a1ff3b83b3823b0ad1f873ddc527",
+      "bytes": 7163,
+      "gzipSha256": "265c6a4bedd674ea3baa284fc973cac92ebe2283b405cd4db933c70fbca6763f",
+      "gzipBytes": 3424
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512-result.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/110-benchmark-512-result.json.gz",
+      "sha256": "2b356cd855f4b206cbd14a2c41dbfdfb458dc4855af6a106296db692a8af5031",
+      "bytes": 1133,
+      "gzipSha256": "1a45124f308f809c8d769f8075bb74e721e12d4a44e871b2c357147055af85d3",
+      "gzipBytes": 608
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512-run.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/111-benchmark-512-run.log.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "gzipSha256": "9e72928e7a01615b4cf090daa617b4ca9d68531748f887f323f695eb4ca3ef63",
+      "gzipBytes": 20
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-512.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/112-benchmark-512.cjs.gz",
+      "sha256": "f9e0f16163c1bbad082f4e1325d9ee046d6cc1581a4af318f6efc83377077733",
+      "bytes": 7159,
+      "gzipSha256": "cd832dd359e3bf20dbb52fb30b612f9c798fe186535bdd63d08ea2fcb481848a",
+      "gzipBytes": 3418
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-result.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/113-benchmark-result.json.gz",
+      "sha256": "511e728c66cf5177f338cb2897f6c9b1aec684b1bd9e13395f2af8b279e6cd7c",
+      "bytes": 27228,
+      "gzipSha256": "9680c7134bc64e56c5a1024246a184494e23ca02e876d638f47cd920356b3b9e",
+      "gzipBytes": 3428
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark-run.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/114-benchmark-run.log.gz",
+      "sha256": "dab4861f44e94d1e749787cc618aeaa1dfe97bcba6d9f3865a6d69627f9ed40c",
+      "bytes": 39,
+      "gzipSha256": "27c804d7bbbe04879d50b8ffbce06a1d83f4352ba47a4c2ae630bf667dca2f1a",
+      "gzipBytes": 50
+    },
+    {
+      "source": "output/native-headless-qwen-research/benchmark.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/115-benchmark.cjs.gz",
+      "sha256": "49213b296f35696a9c460491ab954f3b9e596b3f94fa6e5a7328b00266f699cc",
+      "bytes": 6456,
+      "gzipSha256": "d154e9d30fac94cc78a3b94fb27bebcf1f8227d6c88abc520e2e00f3cb5d61da",
+      "gzipBytes": 3199
+    },
+    {
+      "source": "output/native-headless-qwen-research/buffer-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/116-buffer-inventory.json.gz",
+      "sha256": "0ae19bb469e281349f6e8ad2719fe9a65f8eced4d9acbce67bf98446e896d40c",
+      "bytes": 1166,
+      "gzipSha256": "7c9f916dc25527f8b1dce7458700a118b486b2c9c52811d0b18e17aa4973e566",
+      "gzipBytes": 492
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-buffer.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/117-build-buffer.bat.gz",
+      "sha256": "7fb5bb2368c71cc6f651a1fea545d89993c3f837e3e724a4cfacaf44699923ba",
+      "bytes": 297,
+      "gzipSha256": "f6ebda22bec3290e7a66e86e8afc652f043300a783265b027dcb2de2ec3afca2",
+      "gzipBytes": 234
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-buffer.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/118-build-buffer.log.gz",
+      "sha256": "20328bf9ba89bb301832dd20464a2935c48831accce70def2946dcd99e54a31c",
+      "bytes": 4904276,
+      "gzipSha256": "473a8b6aedd6f87ca6ebf0f5eadcec274bf3fffb021c8e9b26e6f055dc4a6dd8",
+      "gzipBytes": 206988
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-control.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/119-build-control.bat.gz",
+      "sha256": "6c25c396ddb3cb21fa2e71511a2ec605fe94ad277be51cfe5adf469cd3f41e5b",
+      "bytes": 298,
+      "gzipSha256": "b838d593e007732a6ff1b1396a16426ce67beb8ef950348360b0812f2af5d276",
+      "gzipBytes": 234
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-control.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/120-build-control.log.gz",
+      "sha256": "7777e7c81a170489b267c5cbca8c7551dbff548746c115a74c94db17315a2e69",
+      "bytes": 5012802,
+      "gzipSha256": "19fdc93ac8dac24de21c80612ba56567c6146650de521cf5767a7fb90794367c",
+      "gzipBytes": 207946
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-patched.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/121-build-patched.bat.gz",
+      "sha256": "05d7f1a0a9828b8a05070481bc6f69b68a584b0d8eef8fdfd6824025c0f140de",
+      "bytes": 298,
+      "gzipSha256": "a8be95099c66b4ed0fff4b9f33742d74631bd825689e752cc6ff86f431a24dd2",
+      "gzipBytes": 235
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-patched.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/122-build-patched.log.gz",
+      "sha256": "7e9be7ef57d6f843be69953cdb0fb202791430e6d83134dd476a642a6488af2c",
+      "bytes": 4907214,
+      "gzipSha256": "6b08e74c5e0b92d20d4304fea3d4db842dace3df91092ec3ae3a30217dbdd3cf",
+      "gzipBytes": 206875
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-quantize.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/123-build-quantize.bat.gz",
+      "sha256": "1d48f5b89c68530555153cb45e6eb6561837d4512f86be3f4b3ca90f2d4bad08",
+      "bytes": 296,
+      "gzipSha256": "6425b9a874615c61477efbc71f870487db7a2e8c862012718327e6920b062b92",
+      "gzipBytes": 235
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-quantize.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/124-build-quantize.log.gz",
+      "sha256": "3788249a88408fd1b082a61b6d5f2ecddcfd7aa9fe95d09ae9bae550b78cb992",
+      "bytes": 21431,
+      "gzipSha256": "18cc5192efbff0abbdbc4177e74d7be37e51aa016618acba5146a6085a5685a0",
+      "gzipBytes": 1671
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-buffer.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/125-configure-buffer.bat.gz",
+      "sha256": "7a17c45ee684cf4fa7f111002b2c17e53d1021034e67f062fc69233ad0f28a19",
+      "bytes": 559,
+      "gzipSha256": "f7847143cd6f7b7612d1cacc0f8434b29bffc335ee9bddc5f6b251fef462ba66",
+      "gzipBytes": 345
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-buffer.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/126-configure-buffer.log.gz",
+      "sha256": "fe6655c46bb6cea5b1b5351b7b5c712b95403d1830ee91850a5ce8af2aecdf4d",
+      "bytes": 2634,
+      "gzipSha256": "a267a4502bc3ce222d04b3f4d3e3fd62c2120d4a680c26e83a3f734e5846492a",
+      "gzipBytes": 1002
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-control-final.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/127-configure-control-final.log.gz",
+      "sha256": "450354f2aaa16853990c8fb990b27da8d2f4f1a6f0c2f27b6e8013434afd584a",
+      "bytes": 1181,
+      "gzipSha256": "0a8ff63ebdfc937c73f922cd4965268a03a653fc8d34454e734d72e25cbe1a8d",
+      "gzipBytes": 639
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-control.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/128-configure-control.bat.gz",
+      "sha256": "5e21f1e2c54c24f9d79ca3a1bd65952ff727bdd2bfd9cc57fc947c8009667237",
+      "bytes": 597,
+      "gzipSha256": "0981734b676a1370883a6ea1cb70be8ec95351eb60341aac9e274ee65df7dcb1",
+      "gzipBytes": 384
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-control.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/129-configure-control.log.gz",
+      "sha256": "1d7ea923e640b9125b8a350405221a6a03332e5aed3e8ffe58ad6520c8ed2eb1",
+      "bytes": 2719,
+      "gzipSha256": "5f4f716fdaa78d883c2bb3dd31d41485c62a41c9bcb2e9ebf0c88f448583f86c",
+      "gzipBytes": 1051
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-patched.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/130-configure-patched.bat.gz",
+      "sha256": "a347c4b028066af3183e041c7c21eadcde00f9fb89d5ff5ea350c5be543e3f85",
+      "bytes": 561,
+      "gzipSha256": "b7bdae9aebdf09974104e9a248ee0e28e25ea088223a570289c2a69a4cc04727",
+      "gzipBytes": 346
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-patched.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/131-configure-patched.log.gz",
+      "sha256": "b4fe3a3cf8bf32f8048bf77dbccc9ac5f1c112c4288fce034c795d3257a364b4",
+      "bytes": 2635,
+      "gzipSha256": "3e3141487dc89c81339e999afb98ec26eb29042a4c93ad58518e34abc0a2afab",
+      "gzipBytes": 1002
+    },
+    {
+      "source": "output/native-headless-qwen-research/control-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/132-control-inventory.json.gz",
+      "sha256": "ccf3bb92eacbbfdd9275b34ea22788080bcb4c3b04ec5510e2304734b019ea36",
+      "bytes": 1166,
+      "gzipSha256": "1191fcde05f990312b59dbf04d5da10eb8839afdb707b10cf327a431fad2c55b",
+      "gzipBytes": 494
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies-buffer.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/133-dependencies-buffer.bat.gz",
+      "sha256": "3a49db85016f5d92ff7412d6a9bcbbfe81bc6da2377b1cf004411d9ff7f695b2",
+      "bytes": 469,
+      "gzipSha256": "3e8ce405e47b159eaeb48b188acb0bb0861cab1552a72a6407e7ef73a24bb2b9",
+      "gzipBytes": 260
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies-buffer.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/134-dependencies-buffer.log.gz",
+      "sha256": "f16f3c682477a8610a1858524a725005893c3ef6234c20aa521107ff1e191f4d",
+      "bytes": 14555,
+      "gzipSha256": "6a24fcf32f5298142454c813b2b652e69417fcc78d19040c043b35244d3b0d0e",
+      "gzipBytes": 989
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/135-dependencies.bat.gz",
+      "sha256": "cdd786e1d6723574b2d020bc19a6f72cdaececbe1af1fccea9ccf9d9464af76c",
+      "bytes": 473,
+      "gzipSha256": "6524de8cafc43382603e05818ebf03234400046fe45a45b70d987935ede1ea4a",
+      "gzipBytes": 270
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/136-dependencies.log.gz",
+      "sha256": "3c34398623687fdfb8ca5add9f33f4db86e3b35aa9bb50acde24de4a60138874",
+      "bytes": 14587,
+      "gzipSha256": "878140d0ef116f4a291ab773d24a36fa52a52664aaaceae29bf99b0a23cdcdd4",
+      "gzipBytes": 1045
+    },
+    {
+      "source": "output/native-headless-qwen-research/final-research-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/137-final-research-receipt.json.gz",
+      "sha256": "0ee6797fff59d6089b8ed468643635458df1859f367c796dcab9b1b2ef613511",
+      "bytes": 2999,
+      "gzipSha256": "b1a6e7634d949fee728036b5c9f69c2f37f486c26e26dbb29ac1ba0d26ef7a4a",
+      "gzipBytes": 1526
+    },
+    {
+      "source": "output/native-headless-qwen-research/flags-2x2-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/138-flags-2x2-receipt.json.gz",
+      "sha256": "16dba6e51c4019bf44fe87dbe65c9ccff0fd4f59c9afaa4fe91b34a555b8f116",
+      "bytes": 3137,
+      "gzipSha256": "4ae48fba2fe4770beb0ccdf80a262a2c0fa2e9fec52713aa81734f40c95ddb30",
+      "gzipBytes": 1305
+    },
+    {
+      "source": "output/native-headless-qwen-research/flags-2x2-result.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/139-flags-2x2-result.json.gz",
+      "sha256": "c1c3d9f566f7a74f9b53d6193945c299c5e7f580b41197203ff33c7cc974555b",
+      "bytes": 67397,
+      "gzipSha256": "3b0e846b807f41ad18483ce0fcacb3b1c9a9f367dbc05519c460a2f34a23d1fc",
+      "gzipBytes": 6624
+    },
+    {
+      "source": "output/native-headless-qwen-research/flags-2x2-run.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/140-flags-2x2-run.log.gz",
+      "sha256": "0e8ff0b9b62c3387287aca6f24d94d9f791846a3ef147317feab64f5c2f59f72",
+      "bytes": 80,
+      "gzipSha256": "794a656823dc0c3828932fa3741e90f60b173990299b74662b019cc8e345156e",
+      "gzipBytes": 57
+    },
+    {
+      "source": "output/native-headless-qwen-research/flags-2x2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/141-flags-2x2.cjs.gz",
+      "sha256": "3701ee3cc73443c2bd16b6439570f49f25c0b373eba7591a0d9e607132e4e8fc",
+      "bytes": 8798,
+      "gzipSha256": "45d2390791cf8a5d1575309c61c4605615587db5a178c4a0300a4095161516b7",
+      "gzipBytes": 4091
+    },
+    {
+      "source": "output/native-headless-qwen-research/id-coverage-regression.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/142-id-coverage-regression.log.gz",
+      "sha256": "7f87523763a77d28ead763a774c30bf2565027e4a9c13017ba12dbacfde40344",
+      "bytes": 6379,
+      "gzipSha256": "db4ed32e9986f32e69931dfbe5ee8bef903ee4052e9aec34e2b675eb85b1917a",
+      "gzipBytes": 2492
+    },
+    {
+      "source": "output/native-headless-qwen-research/independent-static-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/143-independent-static-review-r1.json.gz",
+      "sha256": "065a0e10ba71ebdd838cae63ecfa0c25793c5b6de5c51589caf8ae00138dab7a",
+      "bytes": 3662,
+      "gzipSha256": "cb34c901b446c6f5e75318f9d15b5c51a5b7edfe22376529f7bf0c753881bd92",
+      "gzipBytes": 1696
+    },
+    {
+      "source": "output/native-headless-qwen-research/independent-variant3-static-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/144-independent-variant3-static-review-r1.json.gz",
+      "sha256": "1d19fa6febead282e4d012346420018c4ec062a9bb5673b6e8c69181114249fb",
+      "bytes": 4890,
+      "gzipSha256": "75a8bde4f3bb904ea06b29e1b1539b427b65791c57c2d6993920f503161e584f",
+      "gzipBytes": 2199
+    },
+    {
+      "source": "output/native-headless-qwen-research/NOTICE.md",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/145-NOTICE.md.gz",
+      "sha256": "75305e7411ad10913204d6845f873033674ad0f6437e559cca682ac6c3427986",
+      "bytes": 1577,
+      "gzipSha256": "4b268b517b8b8264937ec462061be2b29d6a391e91f0e73a70be7274dcbf6116",
+      "gzipBytes": 828
+    },
+    {
+      "source": "output/native-headless-qwen-research/patched-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/146-patched-inventory.json.gz",
+      "sha256": "20a9de5b66f64585f70d90525cfa5f8dccf9d3c042565f2b8c6d0d98642662b6",
+      "bytes": 1166,
+      "gzipSha256": "08235a50c473c8457e37107c7a8ce1322efc9a49f3e8d6fccce4a14df9c73040",
+      "gzipBytes": 490
+    },
+    {
+      "source": "output/native-headless-qwen-research/quant-postbuild-verification.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/147-quant-postbuild-verification.json.gz",
+      "sha256": "fda617a3f7069d50e257eed4911faa230be709222f2187931ce231f11d2dacc2",
+      "bytes": 2708,
+      "gzipSha256": "3947c744014ee2bf032e639dc68c82a50fe34c0271f129a5495bb9c19d2f6fc6",
+      "gzipBytes": 710
+    },
+    {
+      "source": "output/native-headless-qwen-research/quant-prebuild-freeze.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/148-quant-prebuild-freeze.json.gz",
+      "sha256": "502414123f65f4b0b41e2b2e0467bd2e9bea99e89b00d4376f038e28d90349c8",
+      "bytes": 163,
+      "gzipSha256": "7fedbd4510a73a840827f13dda2c238c423424a0a13cc2801e6166f23d7ac388",
+      "gzipBytes": 150
+    },
+    {
+      "source": "output/native-headless-qwen-research/qwen3-buffer-variant.patch",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/149-qwen3-buffer-variant.patch.gz",
+      "sha256": "931deaca04c03b3416d7d13c28cc95e5737dffbe8947cd5eb78c72c8d6a498d3",
+      "bytes": 473,
+      "gzipSha256": "1dcdae984ac9212e3c9d245c086eeddd2cadf754805aac95a12b3049f41e974d",
+      "gzipBytes": 264
+    },
+    {
+      "source": "output/native-headless-qwen-research/qwen3-headless.patch",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/150-qwen3-headless.patch.gz",
+      "sha256": "dd7b60621c71fa2e916130330e1325806be17960bb0df0b27d4b6b989e42505e",
+      "bytes": 565,
+      "gzipSha256": "1269387eee29cb18dc6147eccac8e0bb6941a83e656247faec4937fb359a6e4c",
+      "gzipBytes": 302
+    },
+    {
+      "source": "output/native-headless-qwen-research/source-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/151-source-receipt.json.gz",
+      "sha256": "611cb8ae017588b45672c534234614b61ff9593e7b7842651bfd5a3bca6291e5",
+      "bytes": 348,
+      "gzipSha256": "ceaa291e6e2ae747562793e49dce93b500debcf19d75bd6476ddb559ac8add61",
+      "gzipBytes": 262
+    },
+    {
+      "source": "output/native-headless-qwen-research/source-tree-differences.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/152-source-tree-differences.json.gz",
+      "sha256": "c99c0cd4427cda7441c284d9d9cdbfc30bf2b00acf3befc6c4acd8485ee69ff9",
+      "bytes": 115,
+      "gzipSha256": "a7cbb8c5ed4ebbc0954a8696c591a6dd1653137bd720820e8ecd46e88b1b92f0",
+      "gzipBytes": 114
+    },
+    {
+      "source": "output/semantic-qwen-mmarco-and-final-v4.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/153-semantic-qwen-mmarco-and-final-v4.json.gz",
+      "sha256": "cfbcbb1e4d2c9020c0a2257fa38c9fb4dd6abdd9c46fe158abe3e387a91fcbfd",
+      "bytes": 738990,
+      "gzipSha256": "dc744230f2c66298d13c7279acf0f5bfc71fad633de855c4e014e94aa3a61836",
+      "gzipBytes": 16960
+    },
+    {
+      "source": "output/semantic-qwen-mmarco-pair-plan-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/154-semantic-qwen-mmarco-pair-plan-v1.json.gz",
+      "sha256": "e24b001a3b4e3efaab7e178dc05473ed725d5e96bac5ad26bd926e27654c1501",
+      "bytes": 307920,
+      "gzipSha256": "ca1ecf4cc2597aa1f63fca8e81ab3c3c91c1555ddecb715140a42c86d96fc758",
+      "gzipBytes": 36831
+    },
+    {
+      "source": "output/semantic-shared-weights-feasibility-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/155-semantic-shared-weights-feasibility-v1.json.gz",
+      "sha256": "e5aff23ec10cc5152e806e6b90806837267a26c32d9a272b7cb5197b116992ea",
+      "bytes": 4849,
+      "gzipSha256": "b6f842761b3da21fa842d60bd18365b63654778247a7c8635d28b80d6bb3b9ba",
+      "gzipBytes": 2342
+    },
+    {
+      "source": "output/semantic-mmarco-dual-output-v1/export-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/156-export-receipt.json.gz",
+      "sha256": "010ab3d1160f190459edb84884b8d3e43badfe4c78eea4422d0b65d89062ae20",
+      "bytes": 1762,
+      "gzipSha256": "82814fec75b4fcf060142bfebadfb78bee61460e3786b44cb07a6730273dd122",
+      "gzipBytes": 924
+    },
+    {
+      "source": "output/semantic-mmarco-dual-output-v1/collection-plan.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/157-collection-plan.json.gz",
+      "sha256": "d999ed8ad48b597c01d4537bf0afef4af0a83b1cd30208be99ed42473ae643d4",
+      "bytes": 10384,
+      "gzipSha256": "aa3b1bb03637be8d02c76b65a593a4bb12c7d9e20a32522d1ddea96fcc5655ff",
+      "gzipBytes": 2218
+    },
+    {
+      "source": "output/reranker-qwen-metadata-audit-v1/report-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/158-report-r1.json.gz",
+      "sha256": "0b98de3580252e26c5dc0188c452edefc17be0770a66999a511a88e30e6c4bbf",
+      "bytes": 9065,
+      "gzipSha256": "5b3432460609f2745e73e754e86daf2aae4a18ff07aa1c79279e0d564b4251e0",
+      "gzipBytes": 3561
+    }
+  ]
+}
