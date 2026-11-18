@@ -1893,7 +1893,7 @@ function projectActionModelView(history, auditMap) {
 // failover 判定、400 归因(工具被拒 / 超窗 / stream_options)、SSE 分帧(空行分事件、多行 data: 拼接、[DONE])、raw_line;
 // 每一帧交给 protocol.createStreamDecoder 的解码器,非流式回体交给 protocol.decodeCompletion。调用方(09/08)显式传
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
-async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
+async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol, allowCompatibilityRetry = true }) {
   const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = async b => {
     const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
@@ -1933,6 +1933,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (definiteOverflow) {
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
+    // 协议字段的明确拒收可能带tool_result等路径，不能据此判成「工具不支持」。最多再发一次，
+    // 保留取消及用量回调；后续400不再进入兼容重打。
+    const earlyRetryBody = allowCompatibilityRetry ? wire.retryBeforeToolsOn400(body, t, { url: chatUrl }) : null;
+    if (earlyRetryBody) return openAiStreamOnce({ chatUrl, headers, body: earlyRetryBody, ctrl, onEvent, markUsage, rawSeqRef, touch,
+      protocol: wire, allowCompatibilityRetry: false });
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
@@ -1948,10 +1953,10 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
+    const retryBody = allowCompatibilityRetry ? wire.retryOn400(body, t, { url: chatUrl }) : null;   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+    } else if (allowCompatibilityRetry && body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
       // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
       // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.

@@ -33,7 +33,7 @@ const MEMBERS = {
   endpointBase: 'function', completionUrl: 'function', modelsUrl: 'function', requestHeaders: 'function',
   encodeMessages: 'function', applyEffort: 'function', applyTemperature: 'function', applyTools: 'function', encodeQuick: 'function',
   decodeCompletion: 'function', createStreamDecoder: 'function', normalizeUsage: 'function', assistantHistoryFields: 'function',
-  retryOn400: 'function',
+  retryOn400: 'function', retryBeforeToolsOn400: 'function', preferVolatileTail: 'function',
 };
 // 修前的三元式,外加批 2 登记的 anthropic(大小写错、带空格的照旧落回 chat)。
 const legacyStyle = value => (value === 'responses' ? 'responses' : value === 'anthropic' ? 'anthropic' : 'chat');
@@ -48,6 +48,8 @@ test('[R] 登记表成员齐全、冻结;前端表与服务端逐一相同', asy
     assert.equal(entry.id, id);
     assert.deepEqual(Object.keys(entry).sort(), Object.keys(MEMBERS).sort(), `${id} 成员齐全`);
     for (const [key, kind] of Object.entries(MEMBERS)) assert.equal(typeof entry[key], kind, `${id}.${key} 是 ${kind}`);
+    assert.equal(entry.preferVolatileTail('claude-sonnet-5-5'), id === 'anthropic', `${id} Claude 缓存布局由协议登记表决定`);
+    assert.equal(entry.preferVolatileTail('deepseek-flash'), false, `${id} 非 Claude 沿用布局开关`);
   }
   const fe = await loadFrontend();
   assert.ok(Object.isFrozen(fe.PROVIDER_API_STYLES));

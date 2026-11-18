@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 87 | 3858 | 3463 | 621 | 67 | 0 | 1 |
+| 87 | 3859 | 3465 | 621 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -42,8 +42,8 @@
 | 24 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
 | 25 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
 | 26 | `04h-provider-http.js` | foundation | 15 | 1 | 1 |
-| 27 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
-| 28 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
+| 27 | `04i-provider-anthropic.js` | foundation | 60 | 1 | 1 |
+| 28 | `04i-provider-wire.js` | foundation | 37 | 19 | 2 |
 | 29 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
 | 30 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
 | 31 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
@@ -182,7 +182,7 @@
 | `04h-provider-http.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `04i-provider-anthropic.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
 | `04i-provider-wire.js` | `04h-provider-http.js` | backward | `providerApiBase`, `providerBaseWithV1`, `providerCompletionUrl`, `providerRequestHeaders` |
-| `04i-provider-wire.js` | `04i-provider-anthropic.js` | backward | `anthropicApiBase`, `anthropicMessagesUrl`, `anthropicModelsUrl`, `anthropicRequestHeaders`, `anthropicRetryBodyOn400`, `applyAnthropicEffort`, `applyAnthropicTemperature`, `applyAnthropicTools`, `createAnthropicStreamDecoder`, `decodeAnthropicCompletion`, `encodeAnthropicMessages`, `encodeAnthropicQuick`, `normalizeAnthropicUsage` |
+| `04i-provider-wire.js` | `04i-provider-anthropic.js` | backward | `anthropicApiBase`, `anthropicCacheRetryBodyOn400`, `anthropicMessagesUrl`, `anthropicModelTraits`, `anthropicModelsUrl`, `anthropicRequestHeaders`, `anthropicRetryBodyOn400`, `applyAnthropicEffort`, `applyAnthropicTemperature`, `applyAnthropicTools`, `createAnthropicStreamDecoder`, `decodeAnthropicCompletion`, `encodeAnthropicMessages`, `encodeAnthropicQuick`, `normalizeAnthropicUsage` |
 | `04j-voice-learn.js` | `04j-hanzi-pinyin.js` | backward | `HanziPinyin` |
 | `04j-voice-learn.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |

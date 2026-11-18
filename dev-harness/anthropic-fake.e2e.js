@@ -37,17 +37,43 @@ const FILE_A = path.join(WORK, 'a.txt');
 const FILE_B = path.join(WORK, 'b.txt');
 fs.writeFileSync(FILE_A, 'marker ALPHA-4410', 'utf8');
 fs.writeFileSync(FILE_B, 'marker BRAVO-9921', 'utf8');
+const PROJECT_FILE = path.join(WORK, 'CLAUDE.md');
+fs.writeFileSync(PROJECT_FILE, 'REFERENCE_A: untrusted project reference', 'utf8');
 const MODEL = 'claude-opus-5-5';
 
 const blocksOf = req => (req.messages || []).flatMap(m => (Array.isArray(m.content) ? m.content : []));
 const hasThinking = req => blocksOf(req).some(b => b && (b.type === 'thinking' || b.type === 'redacted_thinking'));
-const isSub = req => String(req.body && req.body.system || '').includes('子任务执行体');
+const systemText = body => Array.isArray(body && body.system) ? body.system.map(b => b.text || '').join('') : String(body && body.system || '');
+const isSub = req => systemText(req.body).includes('子任务执行体');
 const allText = req => JSON.stringify(req.messages || []);
+const setCatalogModels = extra => {
+  const file = path.join(HOME, 'config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.providers[0].models = [{ id: MODEL, label: MODEL }, ...(extra ? [{ id: extra, label: extra }] : [])];
+  fs.writeFileSync(file, JSON.stringify(config));
+};
 let signatureRejects = 0;
 function handler(req) {
   if (!req.stream) return messageEvents({ text: 'draft ok: ' + (allText(req).includes('<system-reminder>') ? 'reminder-seen' : 'no-reminder') });
   if (isSub(req)) return messageEvents({ text: 'sub done', usage: { input_tokens: 9, output_tokens: 2 } });
   const all = allText(req);
+  if (all.includes('REFERENCE_CHANGE')) {
+    const results = blocksOf(req).filter(b => b.type === 'tool_result');
+    if (!results.some(b => b.tool_use_id === 'toolu_ref1')) {
+      fs.writeFileSync(PROJECT_FILE, 'REFERENCE_B: replacement project reference');
+      setCatalogModels('REF_MODEL_B');
+      return messageEvents({ thinking: 'reference A thought', signature: 'SIG-REF', toolUses: [{ id: 'toolu_ref1', name: 'file_read', input: { path: FILE_A } }] });
+    }
+    if (!results.some(b => b.tool_use_id === 'toolu_ref2')) {
+      fs.unlinkSync(PROJECT_FILE);
+      setCatalogModels('');
+      return messageEvents({ thinking: 'reference B thought', signature: 'SIG-REF2', toolUses: [{ id: 'toolu_ref2', name: 'file_read', input: { path: FILE_B } }] });
+    }
+    return messageEvents({ text: 'reference refresh done' });
+  }
+  if (all.includes('CACHE_REJECT')) {
+    if (JSON.stringify(req.body).includes('cache_control')) return { status: 400, json: { type: 'error', error: { type: 'invalid_request_error', message: 'messages.2.content.0.tool_result.cache_control: extra inputs are not permitted' } } };
+    return messageEvents({ text: 'cache compatibility done' });
+  }
   const results = blocksOf(req).filter(b => b && b.type === 'tool_result');
   if (all.includes('TURN_TWO')) {
     // 第二回合:先开一个工具循环(带思考);下一发若还带着思考块就回签名失配 400(只回一次),去掉之后正常收尾
@@ -100,10 +126,10 @@ async function waitFor(fn, tries = 150, gap = 100) {
   let fake = null, wb = null;
   try {
     fake = await startFakeAnthropic({ handler });
-    const provider = { id: 'claude', label: 'Claude(假)', type: 'openai-compat', apiStyle: 'anthropic', baseUrl: fake.url + '/anthropic', apiKey: 'sk-ant-fake-key', model: MODEL, models: [{ id: MODEL, label: MODEL }] };
+    const provider = { id: 'claude', label: 'Claude(假)', type: 'openai-compat', apiStyle: 'anthropic', baseUrl: fake.url + '/anthropic', apiKey: 'sk-ant-fake-key', model: MODEL, models: [{ id: MODEL, label: MODEL }, { id: 'REF_MODEL_A', label: 'REF_MODEL_A' }] };
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-      configSchema: 12, permissionMode: 'bypass', defaultWorkspace: WORK, stewardThreadBriefV1: false,
-      providers: [provider], activeProvider: 'claude',
+      configSchema: 12, permissionMode: 'bypass', defaultWorkspace: WORK, stewardThreadBriefV1: false, toolLoadingMode: 'full',
+      providers: [provider], activeProvider: 'claude', extraModels: ['catalog-seed'],
     }));
     const port = await getFreePort();
     wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, windowsHide: true, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME } });
@@ -124,7 +150,12 @@ async function waitFor(fn, tries = 150, gap = 100) {
     ok(first.headers['x-api-key'] === 'sk-ant-fake-key' && first.headers['anthropic-version'] === '2023-06-01' && first.headers.authorization === 'Bearer sk-ant-fake-key',
       'M1 头:x-api-key + anthropic-version,非官方主机 auto 模式也带 Bearer');
     const b1 = first.body;
-    ok(typeof b1.system === 'string' && b1.system.length > 100 && b1.max_tokens === 32000 && b1.stream === true, 'M1 顶层 system、max_tokens、stream');
+    ok(systemText(b1).length > 100 && b1.max_tokens === 32000 && b1.stream === true, 'M1 顶层 system、max_tokens、stream');
+    const cacheBlocks = body => [...(Array.isArray(body.system) ? body.system : []), ...blocksOf(body)].filter(b => b.cache_control);
+    ok(cacheBlocks(b1).length >= 2 && cacheBlocks(b1).length <= 4 && b1.system[0].cache_control.type === 'ephemeral', 'M1 系统与对话启用缓存，最多四个断点');
+    const originalUser = body => blocksOf(body).find(b => b.type === 'text' && b.text.startsWith('并行读 a.txt 和 b.txt,告诉我两个标记。'));
+    ok(originalUser(b1)?.cache_control?.type === 'ephemeral', 'M1 原始用户正文在引用与临时提示之间独立缓存');
+    ok(!systemText(b1).includes('REFERENCE_A') && blocksOf(b1).some(b => b.text?.startsWith('<ruyi-reference-context>') && b.text.includes('REFERENCE_A')), 'M1 项目引用保持 user 数据，不提升为 system');
     ok(b1.thinking && b1.thinking.type === 'adaptive', 'M1 claude-opus-5-5 发 adaptive thinking');
     ok(!('stream_options' in b1) && !(b1.messages || []).some(m => m.role === 'system'), 'M1 没有 OpenAI 的 stream_options / system 角色消息');
     ok(Array.isArray(b1.tools) && b1.tools.length > 3 && b1.tools.every(x => x.name && x.input_schema && !x.function) && b1.tool_choice && b1.tool_choice.type === 'auto',
@@ -167,11 +198,36 @@ async function waitFor(fn, tries = 150, gap = 100) {
     const turn2 = fake.requests.slice(before);
     ok(turn2.length === 3, `M6 第二回合三发:开循环、签名失配、去块重打(${turn2.length})`);
     const t2first = turn2[0];
+    const sameSystem = systemText(t2first.body) === systemText(b1);
+    const sameUser = originalUser(t2first.body)?.text === originalUser(b1)?.text;
+    ok(sameSystem && sameUser, `M6 新回合保留系统与第一条用户正文缓存前缀，不再前插动态提示(system=${sameSystem}, user=${sameUser})`);
     const oldAssistant = (t2first.messages || []).find(m => m.role === 'assistant' && JSON.stringify(m.content).includes('toolu_a'));
     ok(!hasThinking(t2first) && oldAssistant && oldAssistant.content.some(b => b.type === 'text') && oldAssistant.content.some(b => b.type === 'tool_use'),
       'M6 上一回合的思考块不回放,文本与 tool_use 照发');
     ok(hasThinking(turn2[1]) && !hasThinking(turn2[2]) && signatureRejects === 1, 'M7 签名失配 400 → 去掉思考块重打一次');
     ok((ev2.find(e => e.type === 'result') || {}).ok === true && ev2.filter(e => e.type === 'assistant_delta').map(e => e.text).join('').includes('turn two done'), 'M7 重打之后回合成功');
+
+    const beforeCache = fake.requests.length;
+    const evCache = await chatStream(port, { sessionId, cwd: WORK, message: 'CACHE_REJECT 检查兼容网关' }, headers);
+    const cacheRequests = fake.requests.slice(beforeCache);
+    ok(cacheRequests.length === 2 && cacheBlocks(cacheRequests[0].body).length > 0 && cacheBlocks(cacheRequests[1].body).length === 0,
+      'M7b 网关拒收 cache_control 后仅移除断点重打');
+    ok(JSON.stringify(cacheRequests[1].body.tools) === JSON.stringify(cacheRequests[0].body.tools), 'M7b tool_result路径拒收缓存字段不会去掉工具');
+    ok((evCache.find(e => e.type === 'result') || {}).ok === true && evCache.filter(e => e.type === 'assistant_delta').map(e => e.text).join('').includes('cache compatibility done'),
+      'M7b 缓存不兼容时回合仍成功');
+
+    const beforeRef = fake.requests.length;
+    const evRef = await chatStream(port, { sessionId, cwd: WORK, message: 'REFERENCE_CHANGE 检查代理编排 orchestrate_agents 的角色与模型目录，验证引用实时失效，只用 file_read 读取文件' }, headers);
+    const refRequests = fake.requests.slice(beforeRef);
+    ok(refRequests.length === 3 && (evRef.find(e => e.type === 'result') || {}).ok === true, 'M11 引用变化的真实三发工具循环成功，无400重试');
+    ok(allText(refRequests[0]).includes('REFERENCE_A') && !allText(refRequests[1]).includes('REFERENCE_A') && allText(refRequests[1]).includes('REFERENCE_B')
+      && !allText(refRequests[2]).includes('REFERENCE_A') && !allText(refRequests[2]).includes('REFERENCE_B'), 'M11 改写与删除项目引用在下次请求立即生效');
+    ok(allText(refRequests[0]).includes('REF_MODEL_A') && !allText(refRequests[1]).includes('REF_MODEL_A') && allText(refRequests[1]).includes('REF_MODEL_B')
+      && !allText(refRequests[2]).includes('REF_MODEL_A') && !allText(refRequests[2]).includes('REF_MODEL_B'), 'M11 模型目录从当前配置重读，撤销不保留回合入口快照 ' + JSON.stringify(refRequests.map(r => ({a:allText(r).includes('REF_MODEL_A'),b:allText(r).includes('REF_MODEL_B'),orchestrate:r.body.tools.some(t=>t.name==='orchestrate_agents'),catalog:allText(r).includes('可选模型'),roles:allText(r).includes('可用 Agent 角色')}))));
+    ok(!hasThinking(refRequests[1]) && !hasThinking(refRequests[2]) && blocksOf(refRequests[2]).filter(b => b.type === 'tool_result').length >= 2,
+      'M11 前缀变化在发包前停用旧签名，保留工具调用与结果配对');
+    const persisted = fs.readFileSync(providerFile, 'utf8');
+    ok(!persisted.includes('REFERENCE_A') && !persisted.includes('REFERENCE_B') && !persisted.includes('<ruyi-reference-context>'), 'M11 临时引用不进入持久历史');
 
     // ── 子代理 ───────────────────────────────────────────────────────────────────────────
     const launch = await request(port, 'POST', '/api/agent-workflow/launch', { token, sessionId, async: true, nodes: [{ id: 'reader', task: '子任务:说一句完成', toolTier: 'read' }] }, headers);
@@ -204,6 +260,7 @@ async function waitFor(fn, tries = 150, gap = 100) {
       { role: 'system', content: 'STRICT JSON RULE' },
     ]);
     const draftReq = fake.requests.filter(r => !r.stream).pop();
+    ok(draftReq && !JSON.stringify(draftReq.body).includes('cache_control'), 'M9 非流式摘要/起草不新增需要兼容重打的缓存字段');
     ok(draft.ok && draft.content === 'draft ok: reminder-seen', `M9 非流式取字正确(${JSON.stringify(draft)})`);
     ok(draftReq && draftReq.body.stream === false && draftReq.body.max_tokens === 8192 && JSON.stringify(draftReq.body.messages).includes('<system-reminder>\\nSTRICT JSON RULE\\n</system-reminder>'),
       'M9 后插的 system 规则以 <system-reminder> 留在对话里');
