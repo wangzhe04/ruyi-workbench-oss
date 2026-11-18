@@ -14,7 +14,7 @@
 
 **如意（Ruyi）** 是一个 clean-room 实现的 Windows 本地 AI 工作台。给它一个能用的模型：Anthropic Messages 或 OpenAI 兼容端点（云端 API、内网 vLLM、本机 Ollama / LM Studio 都行），或者本机装好的 Claude Code / Kimi Code 命令行。它就能在你的电脑上**真正动手**：读写文件、跑脚本、操作 Office 和桌面、派一队子代理去调研；还有一位「管家」替你盯着所有在办的事。
 
-> **如意 Ruyi 3.0.1。** 班组协作、跨会话接续和多媒体检查更顺手，修复管家会话与压缩后的任务连续性。[下载 3.0.1](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) · [本版更新](docs/release-notes/v3.0.1.md) · [完整变更记录](CHANGELOG.md)
+> **如意 Ruyi 3.0.2。** 修复 Anthropic Messages 多轮对话的提示缓存，以及兼容网关拒收缓存字段后工具调用中断的问题。[下载 3.0.2](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.2) · [本版更新](docs/release-notes/v3.0.2.md) · [完整变更记录](CHANGELOG.md)
 
 > **工程实测：如意 + DeepSeek V4.1 Flash，在 SWE-bench Pro V2 HARD-51（51 题困难子集）通过 44/51（86.27%），整套模型 API 费用估算 ¥42.15。** 与官方 Astra + Codex 的 90.20% 相差 3.93 个百分点，与 Sonnet 5 + Claude Code 的 88.20% 相差 1.93 个百分点。[查看对比、协议与 51 题数据](docs/benchmarks/hard51-2026-10-15/README.md)。这是如意 3.0.0 运行构建的本地单次结果，3.0.1 随附发布。
 
@@ -433,7 +433,7 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 
 ## 部署：离线包、内网与源码运行
 
-**离线包（推荐）**：从 [3.0.1 下载页](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) 获取 Full 或 Slim，完整解压到短路径（如 `C:\Ruyi`），再运行 `Start-Workbench.cmd` 或 `RuyiDesktop.exe`。需要桌面控制和 OCR 选 Full，只用聊天、文件和脚本等能力可选 Slim。模型需另行配置。
+**离线包（推荐）**：从 [3.0.2 下载页](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.2) 获取 Full 或 Slim，完整解压到短路径（如 `C:\Ruyi`），再运行 `Start-Workbench.cmd` 或 `RuyiDesktop.exe`。需要桌面控制和 OCR 选 Full，只用聊天、文件和脚本等能力可选 Slim。模型需另行配置。
 
 也可以自行打包：
 
