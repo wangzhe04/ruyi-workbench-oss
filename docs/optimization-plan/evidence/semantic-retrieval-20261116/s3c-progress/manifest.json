@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T13:52:06.516324+00:00",
+  "status": "PROGRESS_ONLY_QUALITY_RED_SOURCE_CHANGING",
+  "files": [
+    {
+      "path": "semantic-memory-real-v1.json.gz",
+      "source": "output/semantic-memory-real-v1.json",
+      "sha256": "ca6756d25a2c682958fde218c9677fd769e92705a738930487567bcbb8823b4a",
+      "bytes": 1450,
+      "decodedSha256": "d946b7b6a6e91abec0f7a96b007eb07fbf7907b7ba2dd9866499ac52ab395129",
+      "decodedBytes": 6296
+    },
+    {
+      "path": "semantic-memory-real-v1.log.gz",
+      "source": "output/semantic-memory-real-v1.log",
+      "sha256": "0841817aff0314141a35fccd82df50bf06c7b5f2ab1df2b71845f1b07d0a155b",
+      "bytes": 372,
+      "decodedSha256": "3514613c3f24b987185e42a9a1a4e20574c38014b541efb392c555a8689325a0",
+      "decodedBytes": 701
+    },
+    {
+      "path": "semantic-s3c-root-runtime-ui-gates.log.gz",
+      "source": "output/semantic-s3c-root-runtime-ui-gates.log",
+      "sha256": "398d2e3845d93d81ba311552211aac866e80dc14ada5a0145f0b4356cc5c080d",
+      "bytes": 571,
+      "decodedSha256": "d4ae6bc27f2a5a12954b5dadf4a7b167e248f89141908eb8f08f9908d71b6e11",
+      "decodedBytes": 958
+    },
+    {
+      "path": "semantic-s2b-wide-207.json.gz",
+      "source": "output/semantic-s2b-wide-207.json",
+      "sha256": "34105064f0070d5bbaf2cb6ee26a07d135db9ef631263c312215303b0b282b39",
+      "bytes": 3523,
+      "decodedSha256": "4c27a5812287559358ab1113e4aa3e7cee001f2699b80f0a1df69d4d90ec366e",
+      "decodedBytes": 26919
+    },
+    {
+      "path": "semantic-s2b-wide-207-r2.json.gz",
+      "source": "output/semantic-s2b-wide-207-r2.json",
+      "sha256": "5c0c300c07cd3970155ea9fe1a60a043075a5853d0924035b1188c688dd82c89",
+      "bytes": 2909,
+      "decodedSha256": "ae08efb6035dba4f5820f61928043397869da4491703b957426634dab1dca865",
+      "decodedBytes": 22019
+    },
+    {
+      "path": "semantic-calibration-hybrid-v1.json.gz",
+      "source": "output/semantic-calibration-hybrid-v1.json",
+      "sha256": "2d2cb0245fb9d719ddc2c4619972b3eef19f17c07b2d6ec257fb72e544820b76",
+      "bytes": 69917,
+      "decodedSha256": "7b40b71cab78fb15169ec7289f3dbf3cd17f5db635ac6c35b834a6eaa8ee2259",
+      "decodedBytes": 3286799
+    },
+    {
+      "path": "semantic-calibration-model-comparison-v2.json.gz",
+      "source": "output/semantic-calibration-model-comparison-v2.json",
+      "sha256": "8425194bb172cbc16bf7a409580115b32f90706790f655bde9c7eef6e969c73b",
+      "bytes": 1616,
+      "decodedSha256": "0e694fa17fae13728cc2b352eaf24c5b2e8a3f6a144d496c412f9900f450704f",
+      "decodedBytes": 13585
+    },
+    {
+      "path": "memory-owner-acceptance.json.gz",
+      "source": "output/s3c-storage/memory-owner-acceptance.json",
+      "sha256": "0def7d7af7ed1ea36cec9fec328abf660d3c11e9b644eb66865ff47893d10c2d",
+      "bytes": 11271,
+      "decodedSha256": "8555d68412aa4fcd322206745afd2b7fafadc4fb26f4f1e3031248f5482b39af",
+      "decodedBytes": 35549
+    }
+  ],
+  "limits": [
+    "207 encrypted warm r2 measured before subsequent authority fixes; requires final retest.",
+    "Real memory tool fixture passed all eight checks with source stable during its own run.",
+    "Development model grids do not close independent quality gate."
+  ]
+}

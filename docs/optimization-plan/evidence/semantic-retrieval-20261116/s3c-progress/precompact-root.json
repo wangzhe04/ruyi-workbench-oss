@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "status": "SCOPED_PASS_FINAL_TREE_PENDING",
+  "createdAt": "2026-11-16T13:53:15.049997+00:00",
+  "commands": [
+    {
+      "command": "node --test dev-harness/unit/observation-precompact.test.js",
+      "exitCode": 0,
+      "tests": 4
+    },
+    {
+      "command": "node dev-harness/observation-precompact.e2e.js",
+      "exitCode": 0,
+      "checks": 5
+    }
+  ],
+  "evidence": [
+    {
+      "path": "semantic-s3c-root-precompact-unit.log.gz",
+      "sha256": "b25f3e7ebc4d814765cae9b2783686aea28ffbfc34dc98b1e5250406ccfcf94d",
+      "decodedSha256": "7a6e1f2b6fd33324b7ec298b5724c082b7db28eefc7e668f3b371ba3dbe452ec"
+    },
+    {
+      "path": "semantic-s3c-root-precompact-e2e.log.gz",
+      "sha256": "5c7222b7fab55a1053b6503db893d313df1766e4ccdd71fb912f0fefeab74467",
+      "decodedSha256": "3e62b74d81760c33b8fb65c3d859a709dcc01d645665fc491161ed2b7a0a2b82"
+    }
+  ],
+  "currentSource": [
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "65cf13a35188f0d455646954371b13ded6426c7545cdd80a458de99edde392fd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "e2e0cc1eb0a107db42065baf910a95a026319d57a14f677d0501250a82ed118d"
+    },
+    {
+      "path": "dev-harness/observation-precompact.e2e.js",
+      "sha256": "024a8188036503156f17144124015082fa786628556ccc97135ddd7778d67b05"
+    },
+    {
+      "path": "dev-harness/unit/observation-precompact.test.js",
+      "sha256": "a92be66a04b57f10aa73fdb3fa2131bf7c3ddfa68729bd96f6a0a18a818e9d05"
+    }
+  ],
+  "limitations": [
+    "Source hashes captured after the scoped run, not a frozen final-tree assertion.",
+    "Forced summary and key protector are isolated synthetic adapters; actual compaction/persistence/restart functions are exercised.",
+    "Tool snapshot search remains bounded; this is not a full unlimited history indexing claim."
+  ]
+}

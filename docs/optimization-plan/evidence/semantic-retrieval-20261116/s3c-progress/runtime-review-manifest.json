@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "SCOPED_PASS_FINAL_TREE_PENDING",
+  "createdAt": "2026-11-16T13:56:23.308251+00:00",
+  "files": [
+    {
+      "path": "semantic-s3c-resources-bound.json.gz",
+      "sha256": "5987eaf9ec4936e9a9553d19e1785058721002aa7d5afa20a091e2e1113e81c3",
+      "decodedSha256": "066bc7afdd8db2951c1f758536da30d0c2cc49915b1cbd4ceeca7719f60473a5",
+      "bytes": 1241,
+      "decodedBytes": 2795
+    },
+    {
+      "path": "semantic-s3c-resources-bound.log.gz",
+      "sha256": "23c177c91b2ebbbdf8af602ceb9e7346ff5d4fc81478c3ec3ef60040bb97d994",
+      "decodedSha256": "a5f336727ef36117b9fb28bf89934cff8e299c9ece86d92170f0c161fefafc70",
+      "bytes": 312,
+      "decodedBytes": 530
+    },
+    {
+      "path": "fulltext-optimization-cross-review.json.gz",
+      "sha256": "202c0d6b530382d9043705eb7798c81e567b4c742c41f85305a6a409ba22bda1",
+      "decodedSha256": "91f144889b0d56fee8c1e7ae6645b92feb65c21df13d15f4faca3fbff72025fd",
+      "bytes": 2933,
+      "decodedBytes": 7754
+    }
+  ]
+}
