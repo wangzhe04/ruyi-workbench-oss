@@ -1,0 +1,597 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T20:30:49.132Z",
+  "status": "OFFICIAL_RERANKER_PROVENANCE_AND_RANK_SAFE_SCOPED_PASS_QUALITY_RED",
+  "assertions": [
+    {
+      "name": "scoped independent official receipt hashes and qualification boundary",
+      "passed": true
+    },
+    {
+      "name": "recorded conversion environment contains only the explicit nonsecret whitelist",
+      "passed": true
+    },
+    {
+      "name": "rank-safe frozen receipt source and result identity",
+      "passed": true
+    },
+    {
+      "name": "actual recorded rank-safe and control small binary inventories",
+      "passed": true
+    },
+    {
+      "name": "sanity baseline is separate and not a quality or 500ms qualification",
+      "passed": true
+    }
+  ],
+  "archivePreparationHistory": {
+    "attempts": [
+      {
+        "file": "output/archive-reranker-reviewed-r1.log",
+        "sha256": "5269ea58d8a5b0b1c3e38d2c48c7935d28402be600e5b9f7247755631f7b7426",
+        "exitCode": 1
+      },
+      {
+        "file": "output/archive-reranker-reviewed-r2.log",
+        "sha256": "a79bbcc4bfec7f4b20433c9b60f6ba7c6dc463fd22c8c8a9428c01ecea42b8c8",
+        "exitCode": 1
+      }
+    ],
+    "reason": "First scanner matched its own pattern, then the 4.9MB plain-text compiler log exceeded a 1MiB default. Fixed value-only secret detection and explicit8MiB allowance for that one log, preflight all sizes. Incomplete gzip directory preserved under output/semantic-qwen-reranker-independent-v1/incomplete-archive-preparation-r1; final directory rebuilt fresh."
+  },
+  "limits": [
+    "All evidence is small research/code/metadata/license data with gzip original-byte SHA and roundtrip; no weights, native binaries, wheels, tokenizer/vocabulary assets or credentials archived.",
+    "Original invalid-isolation/intermediate/unsafe-RANK-embedding sanity failures remain distinct and are not promoted. Recorded safe whitelist paths/flags contain no auth secrets; not an OS sandbox proof.",
+    "F16 to Q4_K_M is lossy weight quantization, distinct from graph/buffer runtime savings; Q4 classifier is Q4_K, not an unchanged F16 head.",
+    "Prior embedding-only control1366.1/graph962.0/graph-buffer665.3MiB are different from new reranker baseline1431289856B; no-repack has numeric differences, MRL512/256 fail fixed development OOD policy.",
+    "RANK safe aliases401/501 and three scalar/embedding comparisons are illustrative HTTP/numerical behavior checks, not quality/latency/resource qualification or generic C API compatibility.",
+    "Reranker baseline four short requests626–729ms, accepted512-token4091ms and1.431GB isolated process peak remain unqualified; no production/default/manifest adoption or release gate closed.",
+    "All SR1–SR8 remain pending and overall quality RED. New rank-buffer proposal/runtime work is excluded from this batch pass."
+  ],
+  "records": [
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/metadata-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/001-metadata-receipt.json.gz",
+      "sha256": "94ca941c1e81fb33aa98d875c5e7a44f45f6850076c814c6585c05dccc31129d",
+      "bytes": 2363,
+      "gzipSha256": "6888c6503f421650671023c8787dc18d0705c2c9214c0ba9997aec96429a6f81",
+      "gzipBytes": 696
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/download-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/002-download-receipt.json.gz",
+      "sha256": "748edbe799a59c9e9ff6580c6b40717295ffd187f219a50b86e11d2483e246fd",
+      "bytes": 11218,
+      "gzipSha256": "6b343d0232ff3c4bef931a3b16dc642e78de6c79f87a59a41e79cc347c42b5e8",
+      "gzipBytes": 3923
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/conversion-inputs.lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/003-conversion-inputs.lock.json.gz",
+      "sha256": "ede64c96e2dc136a484004e61385db8997f867039132a5d9f654cd17ce4cd4ad",
+      "bytes": 20961,
+      "gzipSha256": "96d89a2fad51f36ae84308dce1019809993d226d0f17e8fe420ee30599dbb839",
+      "gzipBytes": 6744
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/conversion-preflight.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/004-conversion-preflight.json.gz",
+      "sha256": "eb5fd069441e8c6ed03eaf0b12280fbbda528399dbe8de417c829782c0d74e4b",
+      "bytes": 1603,
+      "gzipSha256": "2231800d1cfdf767919c3131b490a41378bfadc6f73443f0e66b5f62c2514763",
+      "gzipBytes": 428
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-strict-execution.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/005-converter-f16-strict-execution.json.gz",
+      "sha256": "526adec0f57413ca420d7d0c465bb0af692b0a57cae2ea7fbf4d70c99c9037e6",
+      "bytes": 3769,
+      "gzipSha256": "df3ba38cb722dbadeefd929f9e28e3265eec9160663c9d85d3cfcd07e053b54a",
+      "gzipBytes": 1021
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-strict.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/006-converter-f16-strict.log.gz",
+      "sha256": "531b32c65d26708259c3d62aa016346d15f7f23738fff0c7506d7c17b1f9199b",
+      "bytes": 34731,
+      "gzipSha256": "9e02de866044b1b4d6857f5f590af3d77a2b97dad6b8083693f6f7511edfc465",
+      "gzipBytes": 3250
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-invalid-isolation-attempt-execution.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/007-converter-f16-invalid-isolation-attempt-execution.json.gz",
+      "sha256": "740ab604c33b506ca9f53760eb268f8c0117c503bc6a9b13296da740950e71d7",
+      "bytes": 175,
+      "gzipSha256": "d55b6b83240967cb4cb0c5306fcaf4a048d56a5785b86f6e33ff6705d9b94700",
+      "gzipBytes": 154
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-invalid-isolation-attempt.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/008-converter-f16-invalid-isolation-attempt.log.gz",
+      "sha256": "8463c9b666aaf46f6905d6810a0c0b9d79b4716703161c46ffb04e08f059715c",
+      "bytes": 34681,
+      "gzipSha256": "225b4d7767ee45d86722fcf0970821241ac11711acd41a371354fdd96d07135c",
+      "gzipBytes": 3237
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-intermediate-no-preflight-execution.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/009-converter-f16-intermediate-no-preflight-execution.json.gz",
+      "sha256": "3d9e430236d903fe12aa772e34939f43e58ec4d4976f99e35703d746a8285b32",
+      "bytes": 339,
+      "gzipSha256": "7ca3afcb3407cf6815112195793e0c683653f8dd65296ade7675a2d62e8958ea",
+      "gzipBytes": 259
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-f16-intermediate-no-preflight.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/010-converter-f16-intermediate-no-preflight.log.gz",
+      "sha256": "c85d9874410e7c71ab0d7dfd02e3957e42720cd5f9f716405ab39ca121696fa7",
+      "bytes": 34601,
+      "gzipSha256": "4599d221a0ccfcc68bdf08fa463cf569f6fe1299b61c984d8534392390869a67",
+      "gzipBytes": 3229
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/invalid-isolation-metadata-audit.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/011-invalid-isolation-metadata-audit.json.gz",
+      "sha256": "0e42f0165e775e29b1ff3a393b9ebcd2026f1734340046dd047bb3599101c2c8",
+      "bytes": 2674,
+      "gzipSha256": "0f9e146862426790edad64f476617fac21fa005e245da0e6a293de958d61954f",
+      "gzipBytes": 968
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/artifact-audit-r1-invalid-order-assumption.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/012-artifact-audit-r1-invalid-order-assumption.json.gz",
+      "sha256": "54754308ace839717fea94c7781b7506dd655281df05eb04c01b0ffc7b5d9da9",
+      "bytes": 329,
+      "gzipSha256": "b14f82fb253e535a1a4f43e3d16e1b56e05ce9acd0e027fd7b5dd5f2574513f9",
+      "gzipBytes": 265
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/artifact-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/013-artifact-inventory.json.gz",
+      "sha256": "3f442df23bb4e4eb5e14da9f59a3ee5d9770dfc6fd266deb44e2d22060abe204",
+      "bytes": 102162,
+      "gzipSha256": "614abff16358b4a924e7e110340ed98d9a161ef59a8e426ab497a64d36218355",
+      "gzipBytes": 3906
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/head-proof-f16.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/014-head-proof-f16.json.gz",
+      "sha256": "f8ec1e3650e18136fb244fcd5a51adb4834ef3a52cce6ee214ff890324e5d0e4",
+      "bytes": 1999,
+      "gzipSha256": "cb62751808e1b2149ffaf036701d68fa2dc900ab5a77297f10abdb643240ea8c",
+      "gzipBytes": 1089
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/head-proof-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/015-head-proof-final.json.gz",
+      "sha256": "ba15c79b9c99d9ee912643690c519195811b58cbcd139869fa6b1942ffabe5bb",
+      "bytes": 2278,
+      "gzipSha256": "247ea19afb987220911f92bd9c2257a74b0a6b116d0db167ca0eac756b6e0241",
+      "gzipBytes": 1155
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/quantize-q4km-execution.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/016-quantize-q4km-execution.json.gz",
+      "sha256": "2b6543f9cf8ebebf737d407dfbc191006089593dba23a2d3f2c68026718e983a",
+      "bytes": 811,
+      "gzipSha256": "6e086ccaffd6f5ef9be362ade2743d212ac9a2fafac3dea4fea4d57f95f44958",
+      "gzipBytes": 411
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/quantize-q4km.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/017-quantize-q4km.log.gz",
+      "sha256": "ec0a22fbf9903a83841cd6b694d09c61605fc9dc06d557c57bc6101f59c37862",
+      "bytes": 50509,
+      "gzipSha256": "054ddd2c53ca108228d714895746e3ca5ff860034197359c373b099392190df7",
+      "gzipBytes": 3627
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-input-requirements.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/018-converter-input-requirements.txt.gz",
+      "sha256": "6fb2b406f486d009b25c46184ed4ee593e714eece44acdcf2a5a5dc7979d7023",
+      "bytes": 148,
+      "gzipSha256": "f34aa5aceea6990bdee19312137a11ef296e28e2f6e3c4bfc4727a455c3b425f",
+      "gzipBytes": 136
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-requirements.lock.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/019-converter-requirements.lock.txt.gz",
+      "sha256": "ad039279b546984a01a436362f6dee567f068071d369276993c3ce5f047bb3d2",
+      "bytes": 2631,
+      "gzipSha256": "2a6d328ab3d71f183248460b5319fca52aa970d523ee793b8b85d94dbcfd7d9d",
+      "gzipBytes": 1405
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-pip-freeze.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/020-converter-pip-freeze.txt.gz",
+      "sha256": "266294fa32d1063f49e20a094a3743ced0c43763d363057a4fdf3402859a41b6",
+      "bytes": 511,
+      "gzipSha256": "7a6181fa3d9c2f54ba6e1b40a7306e1bf63809585312cb17a6f61f0a654d5911",
+      "gzipBytes": 353
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/converter-wheel-lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/021-converter-wheel-lock.json.gz",
+      "sha256": "41b9d9be1d1486b550a7bf77ebc1797976fab1d747fe4dfa0016ff4d3bcc7a03",
+      "bytes": 81100,
+      "gzipSha256": "6247e938c950126183b5c6e02ddf8670515d89990266a3ac5daa29d2c5197f55",
+      "gzipBytes": 22498
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/toolchain/quantizer.lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/022-quantizer.lock.json.gz",
+      "sha256": "080fd629a31104952113bc3b83cdd77f4e0a577fa437070e8d4b16fc7dd9fc6d",
+      "bytes": 2869,
+      "gzipSha256": "6c29fd466cffb7ec559f6239e2c539950c2ef1cd6fb18b7d953e66f447fd45ec",
+      "gzipBytes": 1131
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/research.lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/023-research.lock.json.gz",
+      "sha256": "5804edd9d6265d142bc8a82c50c29e4e98df3a2d985af09ede3aaa4dff999fad",
+      "bytes": 48962,
+      "gzipSha256": "fddb5066e9f7c2affdb7afc880ec0f9d54307415053a6d47318ac47735cb166e",
+      "gzipBytes": 4185
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/NOTICE.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/024-NOTICE.txt.gz",
+      "sha256": "04deda887dc8236cec2f9be187e594dbd2e4824735c22ffe4bf06ef47a343ed4",
+      "bytes": 1467,
+      "gzipSha256": "18bda59653210494881f9e3e4c9f111444a29431533ac4201f1aef089205f1ef",
+      "gzipBytes": 839
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/licenses/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/025-receipt.json.gz",
+      "sha256": "96ccf232ca40d1b3b2d283797dcba0109c722cd59a988b8410133d80a24c8926",
+      "bytes": 922,
+      "gzipSha256": "a1bdee161f1010d1f720239f7f64572c0421598613021a81f039e09db819645d",
+      "gzipBytes": 575
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/licenses/Apache-2.0.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/026-Apache-2.0.txt.gz",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358,
+      "gzipSha256": "ee32ee4f762de401f8bfed3b592234037f324135f19408044585c6ec82ff56b8",
+      "gzipBytes": 3928
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/licenses/llama.cpp-MIT.txt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/027-llama.cpp-MIT.txt.gz",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "bytes": 1078,
+      "gzipSha256": "c3821214228fa8586fc4799b642cba6841750f375dfdf8551b6d8dd3952c3775",
+      "gzipBytes": 665
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/source/Qwen3-Reranker-0.6B/config.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/028-config.json.gz",
+      "sha256": "d479c427a9ca5295218063d4f9aca4f297ab4ac27487cca7af42c84643d51ef0",
+      "bytes": 727,
+      "gzipSha256": "e5dd0b1c2c55e2e6689d9aae0af22517c8507e1586db1437bb98553cbefb9e21",
+      "gzipBytes": 390
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/source/Qwen3-Reranker-0.6B/generation_config.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/029-generation_config.json.gz",
+      "sha256": "81051cd3f6e77013827148d0b8a6ead93f8ac390d5ab805f849199f0af6a08db",
+      "bytes": 214,
+      "gzipSha256": "c9fbb9b0d4ba60660e0af946dd9b6e09133d95927d289cd65aecfdd40fada8bc",
+      "gzipBytes": 153
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/source/Qwen3-Reranker-0.6B/chat_template.jinja",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/030-chat_template.jinja.gz",
+      "sha256": "6f682162495ec5b39fd9005c01b6aa2a74669379fe967039f1e2cbbe8752369d",
+      "bytes": 741,
+      "gzipSha256": "9b423d18c56c4df4aadfefcb470a792e32f7e73ef956de02aa6c9f15f7bb8ab4",
+      "gzipBytes": 348
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/source/Qwen3-Reranker-0.6B/README.md",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/031-README.md.gz",
+      "sha256": "5bba8c734f6dd3ae48317b4139317e45a7fce48fc55e15670b23a0dd15492ab6",
+      "bytes": 14742,
+      "gzipSha256": "88f8b61fba9cae9e87118b6b399113ace7ed7e8f6641c4e00c0a33c5d4236a93",
+      "gzipBytes": 4994
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/sanity-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/032-sanity-v1.json.gz",
+      "sha256": "e26c478a2d74b178676d1e7c346b18c15ab479f80d0fbd480d70ff3fef525e4c",
+      "bytes": 2240,
+      "gzipSha256": "79849d42276111cc782edf4b5f94ee64c4a7b711fa0d12e4f4a9186cece9265b",
+      "gzipBytes": 1218
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/sanity-rerank-only-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/033-sanity-rerank-only-v2.json.gz",
+      "sha256": "6f326d41013f747c3da2b8baba4ca74725dd10ae803e6188d82a6cd107b8b056",
+      "bytes": 3284,
+      "gzipSha256": "091a7c550d702d9e69453a045fa6da90fb11adbf8d54a1c1d9e477fed476c143",
+      "gzipBytes": 1517
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/bytes-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/034-bytes-r1.json.gz",
+      "sha256": "5360685a4d0153e532f015cc8b5141d1d1855fee3f1fe600f7d11f23bd0d95a0",
+      "bytes": 6057,
+      "gzipSha256": "56b78baad2396ec31ada00a3dc9c0be954c74ccf938f22bf1340d2c83389ab0f",
+      "gzipBytes": 2306
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/provenance-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/035-provenance-r1.json.gz",
+      "sha256": "06d5175669cc3fbf14cdae027fb1720ef77f2dc902972006d4b96cbd1dbd93b2",
+      "bytes": 148531,
+      "gzipSha256": "a43afc1f69addaf5161c248d4afc7c9258654c915064bd2119735d074359ebd7",
+      "gzipBytes": 24098
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/provenance-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/036-provenance-r2.json.gz",
+      "sha256": "862c3badc82ffe334baf9d2da43a535269ef6a7e3d7fd9542cd74bc71c88a4de",
+      "bytes": 239658,
+      "gzipSha256": "425c0939609db0b8beb0cbffc05ef2d719cd4af94b5cb42d345e362b22436584",
+      "gzipBytes": 64183
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/mmarco-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/037-mmarco-r1.json.gz",
+      "sha256": "1a7e1a90b27c78759d5bda4e7f3f275a51fe8c88aa8905e376e91fdf91c265cd",
+      "bytes": 7748,
+      "gzipSha256": "deb211af9eec11b57335c235894dd95489947c82943760ac8d04b45d2f3bc9c7",
+      "gzipBytes": 1450
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/final-independent-receipt-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/038-final-independent-receipt-r1.json.gz",
+      "sha256": "621a06e8ac8fdafd2c260153377b4cc3f48f6fb2c1bc203e531ebb818cf80b8a",
+      "bytes": 21605,
+      "gzipSha256": "25ed43bc155e39b0dda5ff0dd0b541e560accc07ea2caa6301461390976fa1b6",
+      "gzipBytes": 5611
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/rank-endpoint-static-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/039-rank-endpoint-static-review-r1.json.gz",
+      "sha256": "1b3dd54c2968b93c051426c1d42b18afbff30a088b68dc33f964eacc258916d4",
+      "bytes": 2540,
+      "gzipSha256": "da5f1b097f29de2f88b2be3fe10e8e0a610521b9d26931294caffd8429fd87c2",
+      "gzipBytes": 1195
+    },
+    {
+      "source": "output/qwen-reranker-independent-bytes-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/040-qwen-reranker-independent-bytes-r1.log.gz",
+      "sha256": "83f1ecaa9c2d681093d15bc349fc39da78b4334e731c1a2c459ec3be243a5347",
+      "bytes": 1718,
+      "gzipSha256": "ce46dfbae8a507552825adcddb7a2182a6071a7fed3bce8fd330151890a80cc0",
+      "gzipBytes": 734
+    },
+    {
+      "source": "output/qwen-reranker-independent-provenance-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/041-qwen-reranker-independent-provenance-r1.log.gz",
+      "sha256": "8a3caba89e6c39b1bdf59fecad87c6929c6f9219f0f0cc582fda85ac7dd9cf2f",
+      "bytes": 147836,
+      "gzipSha256": "20ef7134d3621243f1801e271e15ac8bfd9e7398fd6e567c2a403874dc17ee2d",
+      "gzipBytes": 23842
+    },
+    {
+      "source": "output/qwen-reranker-independent-provenance-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/042-qwen-reranker-independent-provenance-r2.log.gz",
+      "sha256": "a1ae4469abe97ff71a83d5418339a9bf157363d8cad2dc0386035153b6f9669b",
+      "bytes": 230,
+      "gzipSha256": "5a9427bfec975f6494623225184e44c5c7e0f90632e4328b53cefa0741e4c1a0",
+      "gzipBytes": 214
+    },
+    {
+      "source": "output/mmarco-dual-independent-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/043-mmarco-dual-independent-r1.log.gz",
+      "sha256": "e9c3798df5347019b1172bf4b7904b8f8ff7bcbd98613ff97b72988032b29f1a",
+      "bytes": 279,
+      "gzipSha256": "ed071440f681c48ad9d4dc6c7ce2a5177925015539b9dd8529c2fe667874a68e",
+      "gzipBytes": 248
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-convert-run.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/044-qwen-reranker-convert-run.cjs.gz",
+      "sha256": "b8662b58739b01b2d33b399742ede91419343dbf5dad3139de7fdabdbfa68e5e",
+      "bytes": 5398,
+      "gzipSha256": "0e9a31ccdf66e1a601eee88e1995265484ac0248d530adfe04a98c510f7d66a6",
+      "gzipBytes": 2209
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-converter-entry.py",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/045-qwen-reranker-converter-entry.py.gz",
+      "sha256": "6f2c2a51c67e5f308ef7c69ad3e4030cc17275a8e2db4de8e0492a17e590eb63",
+      "bytes": 2696,
+      "gzipSha256": "0f2f039ee57af018a3ab6e01b74f7cab19e9a014e418088029b5310a1cb694eb",
+      "gzipBytes": 1265
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-head-proof.py",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/046-qwen-reranker-head-proof.py.gz",
+      "sha256": "4901d5d948d9ee621256466ee21be89f9f90d92b661204112558cc386570135a",
+      "bytes": 3989,
+      "gzipSha256": "286c13dd7dbda915932b5a3033ecdd1f1e425b5c63822a018fc492494bb101ff",
+      "gzipBytes": 1867
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-artifact-audit.py",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/047-qwen-reranker-artifact-audit.py.gz",
+      "sha256": "3bae081100e468b186855824fbd440379e0d9693dd0e0b62a3e04080edbf9cb3",
+      "bytes": 3735,
+      "gzipSha256": "5cdca472fadc6bc44aa62784e5ca0b1c7060249842816d1d563dea9be4b8ac2c",
+      "gzipBytes": 1592
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-independent-bytes.py",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/048-qwen-reranker-independent-bytes.py.gz",
+      "sha256": "f1dcca325dab73e0cc58cbad1f11f2a47dd5d8a29402465579de1607466a9d65",
+      "bytes": 11737,
+      "gzipSha256": "d88ce92500222fa5e57cac9150032e6e1ead0ff4eff9223ec58e3edee449dfd8",
+      "gzipBytes": 4062
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-independent-provenance.py",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/049-qwen-reranker-independent-provenance.py.gz",
+      "sha256": "ca024b703d0ba5c437b83d38f400ab1bf41bc92e89482035711bb2edec9dfb79",
+      "bytes": 11186,
+      "gzipSha256": "ef7697d6f76696f49dc75f3f410220c26d9b74c803db9a665675360cf0ff43c4",
+      "gzipBytes": 4237
+    },
+    {
+      "source": "dev-harness/semantic/mmarco-dual-independent-audit.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/050-mmarco-dual-independent-audit.cjs.gz",
+      "sha256": "b15042125e58fbbe58bcc76d4d1163465002a6071049d153c139734b109fb6ff",
+      "bytes": 7442,
+      "gzipSha256": "e33b0ef9795d5a0dbf4fdffeeb64ac3c91cb449c32de88a95dcf62044cfd70b6",
+      "gzipBytes": 2847
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-native.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/051-qwen-reranker-native.cjs.gz",
+      "sha256": "ff16d40b0a1e416ed534058ff03011f0524237bdbaa880070672c011837c7521",
+      "bytes": 10200,
+      "gzipSha256": "2b8dfc8958a0396e6dfc3b50ed274d2f462bae51f688e4ab9d75fe1391b57ffc",
+      "gzipBytes": 3982
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-sanity.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/052-qwen-reranker-sanity.cjs.gz",
+      "sha256": "6a5028375afba57e1ce8e0523e0ba16f5647975f28d99c3785db62da2997689d",
+      "bytes": 5429,
+      "gzipSha256": "7a29063eb478dc871afc6e0917c8a66908dd94cfeda10355e5a590e2f1b1d2cb",
+      "gzipBytes": 2257
+    },
+    {
+      "source": "dev-harness/semantic/archive-reranker-reviewed-evidence.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/053-archive-reranker-reviewed-evidence.cjs.gz",
+      "sha256": "5dc9238033b369f983fdb597bff1fdc70f05db3d57741d18bd4c62ce47973989",
+      "bytes": 11346,
+      "gzipSha256": "053dfbd924c04cc3c9d9ab45b37100775fae0fb59084c8c7b4177ce6095f056d",
+      "gzipBytes": 4471
+    },
+    {
+      "source": "output/native-headless-qwen-research/qwen3-headless.patch",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/054-qwen3-headless.patch.gz",
+      "sha256": "dd7b60621c71fa2e916130330e1325806be17960bb0df0b27d4b6b989e42505e",
+      "bytes": 565,
+      "gzipSha256": "9664fed81b2a3cb01c7424dd7b5a7098c68f41c0a28a16066e3543bf22febb4a",
+      "gzipBytes": 302
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-endpoint.patch",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/055-rank-safe-endpoint.patch.gz",
+      "sha256": "f2f3bbe8592fefe987fc02dcb955261af2f46d216ba0147451363badcb9de611",
+      "bytes": 680,
+      "gzipSha256": "cebafd921aa1d1d9fbcb1ec1e3335c1c63bec0bf689c54ed28abea1e211b46f8",
+      "gzipBytes": 384
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/056-rank-safe-receipt.json.gz",
+      "sha256": "a0c57a240bcfff86850949e39a1f1af484988a853ea3946cc16286972e071ca4",
+      "bytes": 1851,
+      "gzipSha256": "0411d94860a9dd47186fdbd453b46af37898abab19ba97252bb348453a00b3f0",
+      "gzipBytes": 1080
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-e2e.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/057-rank-safe-e2e.cjs.gz",
+      "sha256": "1e52977c5a3ea797e90d854c916cb39309d673b6aa8454b7576649b939d933c8",
+      "bytes": 7220,
+      "gzipSha256": "dab85edea6a0ae04a363ce4d4c9f3fd1dd5a8a3ba8e0d4a0b175a63146a776e6",
+      "gzipBytes": 3125
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-e2e-result.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/058-rank-safe-e2e-result.json.gz",
+      "sha256": "076cb7f99e7aa689409be71d51b45790b461318eda2265c37595ebb84d30fab2",
+      "bytes": 3384,
+      "gzipSha256": "efafd64967aa470b1ef40c6c07cbb6dc4f7bc39d370d2fb45366a13932d47a2b",
+      "gzipBytes": 753
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/059-rank-safe-inventory.json.gz",
+      "sha256": "f9064fe38a93bf338623ec421a182ca87430b70056f3225c6d600fdce5c4e3c6",
+      "bytes": 1166,
+      "gzipSha256": "ba40a08ec0aa472df17ee577fbc1f2e988d8f5f89f59be32d7fd8fe3730797b7",
+      "gzipBytes": 494
+    },
+    {
+      "source": "output/native-headless-qwen-research/control-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/060-control-inventory.json.gz",
+      "sha256": "ccf3bb92eacbbfdd9275b34ea22788080bcb4c3b04ec5510e2304734b019ea36",
+      "bytes": 1166,
+      "gzipSha256": "63d1f968e3bcda92d6dc206e90374fdbee6f251c437466def7474307634f3a17",
+      "gzipBytes": 494
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-safe-source-differences.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/061-rank-safe-source-differences.json.gz",
+      "sha256": "e490a6cddbc1cb48943f70cb8a555a1f2531bdda22a17cc71f3948271498d14b",
+      "bytes": 126,
+      "gzipSha256": "6dff03e02d3d60832ceff423f3612533f26e131c097febabe714720babdaf77e",
+      "gzipBytes": 122
+    },
+    {
+      "source": "output/native-headless-qwen-research/RANK-SAFE-NOTICE.md",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/062-RANK-SAFE-NOTICE.md.gz",
+      "sha256": "0e1d5c45a4394588afeaec0cf4877cf2110128b9442ad9079ccd194ac3f7d6c3",
+      "bytes": 1131,
+      "gzipSha256": "1023da9872cde68ef82417af53e5a1e8b200d160367d99d80a95f43f510a6751",
+      "gzipBytes": 617
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-rank-safe.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/063-configure-rank-safe.bat.gz",
+      "sha256": "c3c70300469c190549ac85afc6791b0a1ee4db25cc936ce4d9198afdeeb522a4",
+      "bytes": 565,
+      "gzipSha256": "af09ce0150624c392a388c474c4ee14c49c100300e9228e256e0a6275722535c",
+      "gzipBytes": 346
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-rank-safe.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/064-configure-rank-safe.log.gz",
+      "sha256": "2024507f5279ec6c1ff48f54d23af83ef793503d2ee5e4849dd94c50f43cbd39",
+      "bytes": 2637,
+      "gzipSha256": "48b0f0ec9105600d8b29fe2765dd2fcdae8e2659c4e01b3ecedd1f5d92df7bd3",
+      "gzipBytes": 1004
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-rank-safe.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/065-build-rank-safe.bat.gz",
+      "sha256": "ea6fe68a7d20872986dfec1cdbcd305742a30523170ec2eeaf93ea62ee4964f9",
+      "bytes": 300,
+      "gzipSha256": "3ec78778ffa431edce70a11014e55c4bb888d91260dccb62ccf6a09debef56e3",
+      "gzipBytes": 235
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-rank-safe.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/066-build-rank-safe.log.gz",
+      "sha256": "b4c8f27c212f07a3a99f66a31a72fa933a1c45261599a2fc2b39e6ad64afeb38",
+      "bytes": 4913090,
+      "gzipSha256": "36d9caed5045dbb26df3290a4658c0f674a8756f82cf831aa7ebc478d1d90d55",
+      "gzipBytes": 186229
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies-rank-safe.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/067-dependencies-rank-safe.bat.gz",
+      "sha256": "b83d14c28d8b6f4b7d8628c8fddf6f9dab82b7e079101ad2c3dfd173a8b5f8af",
+      "bytes": 481,
+      "gzipSha256": "f3ec1550bfeba07658c6d8f21e09e8c1809d811efb06ea1b2badb614ed27bd88",
+      "gzipBytes": 262
+    },
+    {
+      "source": "output/native-headless-qwen-research/dependencies-rank-safe.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/068-dependencies-rank-safe.log.gz",
+      "sha256": "a0cf1a7b2234fdfdb3f571ce44e25e4ebf159362ad2b6377565928d85e7d892a",
+      "bytes": 14651,
+      "gzipSha256": "53377ff0556454ae783845d4f3e387fe1d0001c31dadb386ed6878f777aba9ed",
+      "gzipBytes": 981
+    }
+  ]
+}

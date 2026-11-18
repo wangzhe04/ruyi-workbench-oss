@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T14:47:40.024605+00:00",
+  "status": "SCOPED_REGRESSION_PASS_NEW_ID_UI_REQUIRES_FINAL_REBINDING",
+  "files": [
+    {
+      "path": "semantic-s3c-fast-r2.log.gz",
+      "source": "output/semantic-s3c-fast-r2.log",
+      "sha256": "5f5f3b9f41a5c9c9697974e8be7c86038eced391e726ecd2440cc356141c7b77",
+      "decodedSha256": "c7d3a9138184e73eaf272fac1a7603133728bbe018244de6b8324de3691edf47",
+      "bytes": 4814,
+      "decodedBytes": 14578
+    },
+    {
+      "path": "semantic-s3c-fast-r2-unit.log.gz",
+      "source": "output/semantic-s3c-fast-r2-unit.log",
+      "sha256": "93bfab290f58e9101bb317d687baa57787dfecd58e4ff79c98d9755f40f95555",
+      "decodedSha256": "8e8b9101dfbc05cd00de6ce329c7e1e35fc88553925c3ccfc4e36a9845ed5244",
+      "bytes": 255106,
+      "decodedBytes": 709887
+    },
+    {
+      "path": "semantic-s3c-fast-r2-static.log.gz",
+      "source": "output/semantic-s3c-fast-r2-static.log",
+      "sha256": "9193d25dda558f224f9187fa2f7f0e6827763575a217699a57f5485f453bc7a8",
+      "decodedSha256": "4ca79a6e9c53b7bc8b72857f344d643a164229285c627a2c97c263ef1932cdcf",
+      "bytes": 1497,
+      "decodedBytes": 4551
+    },
+    {
+      "path": "semantic-s3c-fast-r2-source-before.json.gz",
+      "source": "output/semantic-s3c-fast-r2-source-before.json",
+      "sha256": "45ccb8c3736f1c55e2647b64cf22d97902c5d8b18fbcfe1e94f1563d7614e114",
+      "decodedSha256": "63e2caad767f48fa595afe005a880f427331eb82eabd1ced1492f126ee5d8cf6",
+      "bytes": 33703,
+      "decodedBytes": 105726
+    },
+    {
+      "path": "semantic-s3c-fast-r2-source-after.json.gz",
+      "source": "output/semantic-s3c-fast-r2-source-after.json",
+      "sha256": "3f634c18edc91a8f66848751ccc30539027ed24787e5de9b33177ec41c04605e",
+      "decodedSha256": "6ce8a579cf7d15ceb47c62a4666116899c2d73b48002d8e88afd92c26f12890f",
+      "bytes": 77,
+      "decodedBytes": 69
+    },
+    {
+      "path": "semantic-s3c-static-r3-receipt.json.gz",
+      "source": "output/semantic-s3c-static-r3/receipt.json",
+      "sha256": "ba2176a2cbf59da6d0451f3d3db480dee28b2af1a5ef714e601adf5339b1428b",
+      "decodedSha256": "91e2ca72e6bb8b6cafff349c4e535ea60f118f864b5abd43ff3e1246d7f85202",
+      "bytes": 18983,
+      "decodedBytes": 61073
+    },
+    {
+      "path": "semantic-s3c-functional-final-receipt.json.gz",
+      "source": "output/semantic-s3c-functional-final/receipt.json",
+      "sha256": "4e6b6a9276bfecd73ca239543baa153030cf409e7fc95f16c48ff75ed9d13ca4",
+      "decodedSha256": "2a04f25ebb2a5fb02c5eff016a375a7a2bc68cb631c09b3ab391ba26f348cf5e",
+      "bytes": 10481,
+      "decodedBytes": 27592
+    },
+    {
+      "path": "semantic-s3c-encrypted-query-final-receipt.json.gz",
+      "source": "output/semantic-s3c-encrypted-query-final/receipt.json",
+      "sha256": "74badf3687f26f146710be139062abbe8b3f51612054d7f3a2bdd0d51f3a51c9",
+      "decodedSha256": "481ae7ff2ad03f82bca1c4566997e98e8af70e68e5aee508693decf9c19d70f5",
+      "bytes": 8276,
+      "decodedBytes": 19381
+    },
+    {
+      "path": "semantic-s3c-final-real-1000.json.gz",
+      "source": "output/semantic-s3c-final-real-1000.json",
+      "sha256": "34aba3642eedbc78a83f81a347ea51c4cb5420320bb6b7324b69379e47968f82",
+      "decodedSha256": "1cfb745a6b21509dae18e8227b8bc8beb42b8c39fb919277413406828e9039e8",
+      "bytes": 5952,
+      "decodedBytes": 40164
+    },
+    {
+      "path": "semantic-s3c-final-wide-207.json.gz",
+      "source": "output/semantic-s3c-final-wide-207.json",
+      "sha256": "c6806ac7e9e7fadf666ffac1a1e9cdbfe8aeaf5e6aeb64eebfeaa2d2aa648b82",
+      "decodedSha256": "07b39a4784c6c55db607578cd19aa2cda0a9e4e3833f090eaa2dcd8c4de22bf0",
+      "bytes": 3535,
+      "decodedBytes": 23253
+    },
+    {
+      "path": "semantic-s3c-rail-browser-final.log.gz",
+      "source": "output/semantic-s3c-rail-browser-final.log",
+      "sha256": "aaeab2cc58edc392b0d659f322f44dbc8cffbc7d9db56e37cb01595b31cfa131",
+      "decodedSha256": "f5b69dce116034d502a49c71cf7968f646fe59ce2a3a88ec7899345e25599e2a",
+      "bytes": 849,
+      "decodedBytes": 1272
+    },
+    {
+      "path": "semantic-s3c-rail-browser-idle-fixed.log.gz",
+      "source": "output/semantic-s3c-rail-browser-idle-fixed.log",
+      "sha256": "45d8b92931e687aca0a9b326df7d24bbe5c2d96c2c1225f39baebc7409410c19",
+      "decodedSha256": "5cde2b681306626bb96276f565efb8eb1ddfe7314500ca0e2507b7fd29678d1a",
+      "bytes": 1015,
+      "decodedBytes": 2392
+    },
+    {
+      "path": "semantic-s3c-ui-idle-refresh-fixed.log.gz",
+      "source": "output/semantic-s3c-ui-idle-refresh-fixed.log",
+      "sha256": "5b37e2ee8be8480d4fd9302c57aea3d1cdcaf80c00b5000c842ac2bf4a5f45d3",
+      "decodedSha256": "136e5844421eb5f7b59b1be7ee0ccaff10018c668bcc2b34fbea82fa90955a52",
+      "bytes": 351,
+      "decodedBytes": 556
+    },
+    {
+      "path": "semantic-s3c-final-id-ui-unit.log.gz",
+      "source": "output/semantic-s3c-final-id-ui-unit.log",
+      "sha256": "7d9f00b5b84d6b4341a3b8032d93478727a735a3a52c3c7f20f8022571bd53e6",
+      "decodedSha256": "86799abd56b09529645301dc205c7590a1e25d25b115e6dc49b1eee112c2df2f",
+      "bytes": 1076,
+      "decodedBytes": 2161
+    },
+    {
+      "path": "semantic-s3c-runtime-assets-final.log.gz",
+      "source": "output/semantic-s3c-runtime-assets-final.log",
+      "sha256": "b3b8887a03668749d28cee1ae4600d0a4ccbfa809eea37570ced2437df62d041",
+      "decodedSha256": "50e66a7e78174f8ec310217c8b7711481eb8fa20286e0da3256b4e91bf335cf3",
+      "bytes": 395,
+      "decodedBytes": 626
+    },
+    {
+      "path": "semantic-memory-real-current.json.gz",
+      "source": "output/semantic-memory-real-current.json",
+      "sha256": "e63aaf421e1ce541855be2418a4370cad3bdf7bc804135d8294c76d2cc496efd",
+      "decodedSha256": "7f800b6494db3efd3be168fb3b01f89d32c7b0dd66ef0d91939d544963fe6423",
+      "bytes": 1440,
+      "decodedBytes": 5738
+    },
+    {
+      "path": "semantic-observation-real-current.json.gz",
+      "source": "output/semantic-observation-real-current.json",
+      "sha256": "a55bacdec3145a26cb61b50747fcf2590a398c9dc40f5d3fbdc5ed002f47baea",
+      "decodedSha256": "c023e8f6b89c81c6da06e0cf07c99e562c93be18c949429cf5211a2bc86df950",
+      "bytes": 1516,
+      "decodedBytes": 2631
+    },
+    {
+      "path": "semantic-s3c-real-browser-current.log.gz",
+      "source": "output/semantic-s3c-real-browser-current.log",
+      "sha256": "6287c060fef4be835d1c902dc24ea28fa78364f8d763a82688241e3119bfcb73",
+      "decodedSha256": "99f77d0f7998a2d7780c4162c61b3bd4ac348935f00d6a4fbbacd5260248316e",
+      "bytes": 504,
+      "decodedBytes": 758
+    }
+  ],
+  "unit": {
+    "tests": 5436,
+    "passed": 5401,
+    "failed": 0,
+    "skipped": 35
+  },
+  "static": {
+    "passed": 100,
+    "failed": 0,
+    "flaky": 0
+  },
+  "functional": {
+    "passed": 21,
+    "failed": 0,
+    "flaky": 0,
+    "encryptedObservationExtra": 1
+  },
+  "limits": [
+    "R2 full runner static first had three failures; only static fixtures/generated documentation were corrected before separate all100 static rerun.",
+    "Subsequent whole-ID grammar and UI idle-partial refresh changes have22 focused unit passes, require final full-source binding.",
+    "Real1000 p95351.47ms and encrypted207 p952070.55ms precede latest ID parser; they do not claim final new-parser measurement.",
+    "Independent quality remains RED; no package or commit acceptance."
+  ]
+}

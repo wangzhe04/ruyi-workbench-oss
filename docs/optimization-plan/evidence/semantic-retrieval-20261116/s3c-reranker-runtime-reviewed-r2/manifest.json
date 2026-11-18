@@ -1,0 +1,271 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T20:34:49.876Z",
+  "status": "RANK_BUFFER_SCOPED_NUMERICAL_AND_RESOURCE_RESEARCH_PASS_QUALITY_RED",
+  "parent": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/manifest.json",
+    "sha256": "86006a765f8cae0e9e8b807d8c2d75d9ff5e1705ea970eeaa76c9bc836e8d669"
+  },
+  "checks": [
+    {
+      "name": "immutable parent and both final receipt identities",
+      "passed": true
+    },
+    {
+      "name": "actual source/artifact/record bounds",
+      "passed": true
+    },
+    {
+      "name": "independent exact44 paired variant records and44 cross-thread records",
+      "passed": true
+    },
+    {
+      "name": "actual rank-buffer small binaries and exact narrow source delta",
+      "passed": true
+    }
+  ],
+  "modelsRunByAuditor": 0,
+  "records": [
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/001-rank-buffer-receipt.json.gz",
+      "sha256": "ec311bb5081602f9f3ab709472f67847150e4713a28270f8d544bcb7e9fb2401",
+      "bytes": 3157,
+      "gzipSha256": "02f7055bfd9d79a18e5d9c92dbdfd0d7fc01c42063064c8ba4b7e95e75c015d0",
+      "gzipBytes": 1109
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-proposal.patch",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/002-rank-buffer-proposal.patch.gz",
+      "sha256": "025c15bb4f8006623169b14650cfba7e56efb13e8ffa38d9aec0c2290df9caf7",
+      "bytes": 473,
+      "gzipSha256": "b3eb86b5cb54683932e4c79f1c8c54a077c85afeec7801df21d92f7a4986b5ae",
+      "gzipBytes": 264
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-inventory.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/003-rank-buffer-inventory.json.gz",
+      "sha256": "4f1a7c841c37606e5b1f4c11e6967ded0aaf9add860f923d67c4af516955beac",
+      "bytes": 1166,
+      "gzipSha256": "ba5a728a842528fdf4c8b1fb40078a4f2df7ea60f554f551e8746cbfd5d98e54",
+      "gzipBytes": 491
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-source-differences.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/004-rank-buffer-source-differences.json.gz",
+      "sha256": "2b2e78de3d20352dd14c546a7cb71d2cafe0e61cd0a1d2708e7a424c76819326",
+      "bytes": 157,
+      "gzipSha256": "fe628d739f8fe1a2682243d47ff303b91adb2e81df7fe15d5abc5d16114bdd13",
+      "gzipBytes": 129
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-comparison.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/005-rank-buffer-comparison.cjs.gz",
+      "sha256": "ef422ba75ed27ee28637538a3d9264ad8444909ef59f104c3305565c06747b91",
+      "bytes": 7790,
+      "gzipSha256": "7106a66b4f718d070322c278e1fbdc2a8ab239f1cfa6fe241203751b48273c9a",
+      "gzipBytes": 3706
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-comparison.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/006-rank-buffer-comparison.json.gz",
+      "sha256": "9a1af80b33cc792c9d5dcf823fea67d8db87ae20689cb1eaf603534fb0dae84b",
+      "bytes": 50578,
+      "gzipSha256": "d9ef6a1eaf23f4d7c0b0358fe0c5c03e6f9f85030f0dbf70d070568fde712768",
+      "gzipBytes": 4412
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-comparison.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/007-rank-buffer-comparison.log.gz",
+      "sha256": "26aa76d4f888a44186a150e99f0e38bc01845c3f5d294bcce0d5b5cb514ec3d1",
+      "bytes": 92,
+      "gzipSha256": "d2ee0d3dc26d14e9093c979663b40f39d2b953c909a3aaf6bbe42204bcfc940b",
+      "gzipBytes": 61
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-threads68-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/008-rank-buffer-threads68-receipt.json.gz",
+      "sha256": "e67661bf50fb216221c66d3de4187f74a11a2df80e41eb9e3043d77763043f35",
+      "bytes": 1799,
+      "gzipSha256": "280f5918ff330e25eaabe24665e0c65547f51806eb086b3f83e83cb9f2bed610",
+      "gzipBytes": 912
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-threads68.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/009-rank-buffer-threads68.cjs.gz",
+      "sha256": "e639cce1c96c2f62a42dd1a973c3effbf00aa1e54f382718b832c5573fe05821",
+      "bytes": 8133,
+      "gzipSha256": "c8fa7cf59d56f3443a5a351b78c6243ca376873896c26c9acc2163bf6d4e0ca3",
+      "gzipBytes": 3799
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-threads68.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/010-rank-buffer-threads68.json.gz",
+      "sha256": "89655392a63f09d52dd78a6ddb7bebc446c7cac3ed021eb5dbbb65333b6d0860",
+      "bytes": 31062,
+      "gzipSha256": "db1ad0b24199f218bf8ba803736b32df175110728ac24a15f65dee0f675bf6a6",
+      "gzipBytes": 2866
+    },
+    {
+      "source": "output/native-headless-qwen-research/rank-buffer-threads68.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/011-rank-buffer-threads68.log.gz",
+      "sha256": "ac43ff8db3f621c064a420a68b701b96d0907744f57cd73ade296b77097b0ee6",
+      "bytes": 48,
+      "gzipSha256": "172b1c4064a636802a9ba23fd713406ec1a8e88d148a4e7909c6576fd94a7188",
+      "gzipBytes": 50
+    },
+    {
+      "source": "output/native-headless-qwen-research/RANK-BUFFER-NOTICE.md",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/012-RANK-BUFFER-NOTICE.md.gz",
+      "sha256": "0fefae8acf48e2f57c0f146c22e7901563b5c53f19d9b887f2a5cf9c9dce7b0e",
+      "bytes": 889,
+      "gzipSha256": "91671cef9713ff24c56f076f96f163e7112d5114b92cc9ddbefb6c4bb205bb17",
+      "gzipBytes": 509
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-rank-buffer.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/013-configure-rank-buffer.bat.gz",
+      "sha256": "2a1766076a27a33790c5e3310d11b16eabde2bd6917001a00c2bbb87eb2b0e96",
+      "bytes": 569,
+      "gzipSha256": "f8ff57d61abc11fc1c182b8301f7df3bdd9713edfb7abb468478458a6491d1cb",
+      "gzipBytes": 348
+    },
+    {
+      "source": "output/native-headless-qwen-research/configure-rank-buffer.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/014-configure-rank-buffer.log.gz",
+      "sha256": "02c6a3394679ec1ddedf34eded56131013771121b8b5da0c2f8f8850357fe281",
+      "bytes": 2639,
+      "gzipSha256": "c52929101018fb6706f04ad7bd9d54a204104ee34484f3380ddec252512497d8",
+      "gzipBytes": 1006
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-rank-buffer.bat",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/015-build-rank-buffer.bat.gz",
+      "sha256": "0ccd7c11e49f088c4c04c1b3942f9195e8082bf47a5ac67a6af11c1bd775ca70",
+      "bytes": 302,
+      "gzipSha256": "07fd47721dc7fd4cc14905edf7ca31d0207ac8248c8f362a71d10a395587de77",
+      "gzipBytes": 238
+    },
+    {
+      "source": "output/native-headless-qwen-research/build-rank-buffer.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/016-build-rank-buffer.log.gz",
+      "sha256": "733569ba7741c1eb52352306267b2186113dae08763001531967a2c979017383",
+      "bytes": 4918966,
+      "gzipSha256": "3729013608ec65241770b1d4222d2e28daa785e231cc267130f73e4cc7ded92a",
+      "gzipBytes": 186397
+    },
+    {
+      "source": "output/semantic-qwen-reranker-independent-v1/rank-buffer-static-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/017-rank-buffer-static-review-r1.json.gz",
+      "sha256": "92fb506b2784727491b707f17224a6239e7655dba5e4949d6a1c7d7a43a08646",
+      "bytes": 5920,
+      "gzipSha256": "5df19c0d3f8a62f7a353532f77729138e0de4cdbe46d963e64ad55998f114952",
+      "gzipBytes": 2521
+    },
+    {
+      "source": "dev-harness/semantic/archive-rank-buffer-reviewed-evidence.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/018-archive-rank-buffer-reviewed-evidence.cjs.gz",
+      "sha256": "9e12b455434a5581dab1cc2f7a8c260d719021f2f5c3418e87773712e7f0bb80",
+      "bytes": 9068,
+      "gzipSha256": "7d89cc6193edc95e87fb9fdeca40e70146c8f38ed6281bffc42bfa15d2350d6b",
+      "gzipBytes": 3740
+    }
+  ],
+  "resources": [
+    {
+      "kind": "rank-safe",
+      "threads": 2,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 669204480,
+      "peakWorkingSetBytes": 1009889280,
+      "peakMiB": 963.10546875,
+      "shortNativeP50Ms": 394.52040000000034,
+      "shortNativeP95Ms": 439.9115999999999,
+      "shortEraseAndNativeP95Ms": 440.77019999999993,
+      "mediumSingleNativeMs": 1240.5960999999988,
+      "long512SingleNativeMs": 2505.6990000000005
+    },
+    {
+      "kind": "rank-buffer",
+      "threads": 2,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 667512832,
+      "peakWorkingSetBytes": 698478592,
+      "peakMiB": 666.12109375,
+      "shortNativeP50Ms": 375.0849999999991,
+      "shortNativeP95Ms": 424.8227999999981,
+      "shortEraseAndNativeP95Ms": 425.53340000000026,
+      "mediumSingleNativeMs": 1150.5604999999996,
+      "long512SingleNativeMs": 2313.0967999999993
+    },
+    {
+      "kind": "rank-safe",
+      "threads": 4,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 669425664,
+      "peakWorkingSetBytes": 1010536448,
+      "peakMiB": 963.72265625,
+      "shortNativeP50Ms": 207.59660000000076,
+      "shortNativeP95Ms": 243.80050000000483,
+      "shortEraseAndNativeP95Ms": 244.56760000000213,
+      "mediumSingleNativeMs": 693.3015000000014,
+      "long512SingleNativeMs": 1337.9406000000017
+    },
+    {
+      "kind": "rank-buffer",
+      "threads": 4,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 667639808,
+      "peakWorkingSetBytes": 699777024,
+      "peakMiB": 667.359375,
+      "shortNativeP50Ms": 226.443299999999,
+      "shortNativeP95Ms": 258.84130000000005,
+      "shortEraseAndNativeP95Ms": 259.58570000000327,
+      "mediumSingleNativeMs": 623.9994999999981,
+      "long512SingleNativeMs": 1283.8510999999999
+    },
+    {
+      "kind": "rank-buffer",
+      "threads": 6,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 667717632,
+      "peakWorkingSetBytes": 699285504,
+      "peakMiB": 666.890625,
+      "shortNativeP50Ms": 174.47890000000007,
+      "shortNativeP95Ms": 187.38920000000053,
+      "shortEraseAndNativeP95Ms": 188.01300000000083,
+      "mediumSingleNativeMs": 516.4727999999996,
+      "long512SingleNativeMs": 1330.4125999999997
+    },
+    {
+      "kind": "rank-buffer",
+      "threads": 8,
+      "actualCtx": 1024,
+      "shortSamples": 20,
+      "readyWorkingSetBytes": 667979776,
+      "peakWorkingSetBytes": 698830848,
+      "peakMiB": 666.45703125,
+      "shortNativeP50Ms": 172.69580000000133,
+      "shortNativeP95Ms": 195.1219000000001,
+      "shortEraseAndNativeP95Ms": 195.9289000000008,
+      "mediumSingleNativeMs": 501.5566999999992,
+      "long512SingleNativeMs": 938.5548999999992
+    }
+  ],
+  "percentileMethod": "nearest rank ceil(q*N)-1;20 measured short requests per worker,2 warmup excluded",
+  "limits": [
+    "Dedicated fresh fixed two-label Qwen3 RANK context only; no sampling/get_logits/dynamic modes/optimizer/generic C API guarantee.",
+    "44 variant pairs at2/4threads and44 cross-thread pairs against4thread baseline are saved finite scalar equality checks, not retrieval/OOD qualification.",
+    "Original stock1.431GB peak/626–729ms belongs to an earlier baseline; compare rank-safe vs rank-buffer within this new same-input2/4thread protocol, not a controlled three-way stock comparison.",
+    "Six/eight thread long samples occur once each; do not infer a stable preferred thread setting or claim product p95.",
+    "Measured native request excludes tokenization/source/privacy/controller work; erase+native timing also separately reported, not whole product latency.",
+    "threads68 producer records exactEqual but does not throw for nonzero values; this independent auditor additionally asserts all actual records/repeats are exactly equal.",
+    "No model/compile was run by auditor; runtime evidence is producer-owned and hash-verified, current source/binaries verified read-only.",
+    "All SR pending, quality RED, production default/manifest unchanged; no commit/push/public release or package qualification."
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "status": "INVALID_AUDIT_ASSUMPTION",
+  "invalidExplanation": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/research-source-boundary.json",
+    "sha256": "8b683ebce531922738e7aadb35c25fb980a5b0229f70f4e7a80ae22f3ec59e43"
+  },
+  "reason": "Auditor incorrectly treated sanity report sourceSha256 as adapter identity; producer source shows it hashes __filename, the sanity driver. Driver6a502837 is still present and archived in r1 record052. Preserve invalid explanation as evidence of the corrected audit error, not as a product finding."
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "status": "CORRECTED_DRIVER_AND_ADAPTER_IDENTITY_BOUNDARY",
+  "sanityReport": "output/semantic-qwen-reranker-official-v1/sanity-rerank-only-v2.json",
+  "sourceSha256Object": "driver qwen-reranker-sanity.cjs __filename",
+  "reportedDriverSha256": "6a5028375afba57e1ce8e0523e0ba16f5647975f28d99c3785db62da2997689d",
+  "currentDriverSha256": "6a5028375afba57e1ce8e0523e0ba16f5647975f28d99c3785db62da2997689d",
+  "driverArchivedR1Record": 52,
+  "r1CapturedAdapterSha256": "ff16d40b0a1e416ed534058ff03011f0524237bdbaa880070672c011837c7521",
+  "laterAdapterSha256": "b3d91e52ea4016006250eadb98e39d30cc082f1034bfd30346eb5bc4eee8439c",
+  "limits": [
+    "Driver bytes exist and match report; prior missing-driver/host6a claim invalid.",
+    "Adapter source has a separate later authorized drift. Sanity v2 embeds fingerprint but does not expose a standalone adapter-source hash. Its precise adapter/runtime fingerprint reproduction is a separate audit and is not inferred from driver hash.",
+    "No retrospective model/quality/performance qualification; official conversion/head/nativeCPP evidence remains separately pinned."
+  ]
+}

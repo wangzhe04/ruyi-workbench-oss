@@ -1,0 +1,983 @@
+{
+  "schema": 1,
+  "status": "RAW_SCOPED_LOGS_NOT_FINAL_RELEASE",
+  "createdAt": "2026-11-16T14:49:27.127055+00:00",
+  "files": [
+    {
+      "path": "semantic-s3c-static-r3-acc-offline-installer.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/acc-offline-installer.static.e2e.js.log",
+      "sha256": "789dd0ea48a85b48edc16993bdff58b04ed157ec5f7ef5d0fce1eaeaa5bd92ef",
+      "decodedSha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "bytes": 1936,
+      "decodedBytes": 4389
+    },
+    {
+      "path": "semantic-s3c-static-r3-action-feedback.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/action-feedback.static.e2e.js.log",
+      "sha256": "f2b1e54eab2ab64c2f2bc943491db704a326f5bfcf1b99b81b7398f695fae59c",
+      "decodedSha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "bytes": 692,
+      "decodedBytes": 1029
+    },
+    {
+      "path": "semantic-s3c-static-r3-agent-mode-v2.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/agent-mode-v2.static.e2e.js.log",
+      "sha256": "9f043ed523482eed3b6e8409b356bbc65688f29f7356685b612b9fbcdc065d2d",
+      "decodedSha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "bytes": 2198,
+      "decodedBytes": 4237
+    },
+    {
+      "path": "semantic-s3c-static-r3-agent-team-budget.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/agent-team-budget.static.e2e.js.log",
+      "sha256": "f596ddcfeeb333052a9fb5aac136a3d8af008a8521165b3933d72aeeaefacf6f",
+      "decodedSha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "bytes": 107,
+      "decodedBytes": 93
+    },
+    {
+      "path": "semantic-s3c-static-r3-agent-workflows-polling-visibility.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "7b399756bbb332116939caf28af9ce665faa1e1db0363c25d2f57c52161ace42",
+      "decodedSha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "bytes": 609,
+      "decodedBytes": 829
+    },
+    {
+      "path": "semantic-s3c-static-r3-architecture-contract-snapshots.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "3c4c0e8be44323e9c7178d7529255773ddee0bc933695a0dfc1f340f034ade68",
+      "decodedSha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "bytes": 352,
+      "decodedBytes": 869
+    },
+    {
+      "path": "semantic-s3c-static-r3-asr-config-ui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/asr-config-ui.static.e2e.js.log",
+      "sha256": "0b8e3d461b3c99aecef100c17b5b1a2dcbd13fc708091983a8b5b72046bd0959",
+      "decodedSha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "bytes": 55,
+      "decodedBytes": 35
+    },
+    {
+      "path": "semantic-s3c-static-r3-browser-mcp.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/browser-mcp.static.e2e.js.log",
+      "sha256": "d951390094117074c21c5537d82edce4d6aa75d0efa7f5045ca272abfe3ec66a",
+      "decodedSha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "bytes": 526,
+      "decodedBytes": 962
+    },
+    {
+      "path": "semantic-s3c-static-r3-c2-evidence-spawn-budget.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "3408a99dcd206ca21686e38082161b6a977f0bd1522db262a1097a11632945fa",
+      "decodedSha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "bytes": 405,
+      "decodedBytes": 745
+    },
+    {
+      "path": "semantic-s3c-static-r3-copy-path-guard.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/copy-path-guard.static.e2e.js.log",
+      "sha256": "68ea96dba65c47837184a55fb2b5c9cacf856850442f35e9471e2e6bb4708a44",
+      "decodedSha256": "33ff37927a028dc03d5b2dbac71cdebf8124908d336afde3a1717206aee980bc",
+      "bytes": 2671,
+      "decodedBytes": 5477
+    },
+    {
+      "path": "semantic-s3c-static-r3-copy-terms.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/copy-terms.static.e2e.js.log",
+      "sha256": "b3c65ec3c0fadce557e2257c95a581830c38787e8205e932619af2c1a072232a",
+      "decodedSha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "bytes": 768,
+      "decodedBytes": 4662
+    },
+    {
+      "path": "semantic-s3c-static-r3-cost-zero.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/cost-zero.static.e2e.js.log",
+      "sha256": "6195afcdb2a1e5696628015b6fb9437938141c103bc92d593033965ab2680fad",
+      "decodedSha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "bytes": 460,
+      "decodedBytes": 740
+    },
+    {
+      "path": "semantic-s3c-static-r3-css-typography-debt.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/css-typography-debt.static.e2e.js.log",
+      "sha256": "f3b996f0cbe9521106c8a77ec6ba91e7e910feae228f28d6f10e505ed180c2c4",
+      "decodedSha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "bytes": 428,
+      "decodedBytes": 1326
+    },
+    {
+      "path": "semantic-s3c-static-r3-desktop-dpi.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/desktop-dpi.static.e2e.js.log",
+      "sha256": "8c2584c292155f2c176c7723cf6c350ab772b87ff4d9fce9b8c2b339a7c6343f",
+      "decodedSha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "bytes": 53,
+      "decodedBytes": 33
+    },
+    {
+      "path": "semantic-s3c-static-r3-desktop-shell.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/desktop-shell.static.e2e.js.log",
+      "sha256": "730857f83c9e3ad2b13d87b0ed5cb929bddcee07e330135407fe6a80147ab85b",
+      "decodedSha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "bytes": 1915,
+      "decodedBytes": 3360
+    },
+    {
+      "path": "semantic-s3c-static-r3-durable-state-inventory.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/durable-state-inventory.static.e2e.js.log",
+      "sha256": "19eccd80e5d2679a5c75ffbebd3974b579c9a5c33e1e843f16b4961bb8682757",
+      "decodedSha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "bytes": 375,
+      "decodedBytes": 798
+    },
+    {
+      "path": "semantic-s3c-static-r3-ec-d-closure.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ec-d-closure.static.e2e.js.log",
+      "sha256": "79a3c27f90b513ae4ec9079f6b3eeecd289ab5377cd50f33a725a9fd5cb14da9",
+      "decodedSha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "bytes": 647,
+      "decodedBytes": 802
+    },
+    {
+      "path": "semantic-s3c-static-r3-encrypted-storage-freeze.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "e38f5286a8082d665073a0f5824820c5b813849461971e617e4c5f43970f7dd8",
+      "decodedSha256": "b5bd3b8e6f7fdec15756691d34c7695b091f786634ec8111f45362c21e8cd264",
+      "bytes": 774,
+      "decodedBytes": 1698
+    },
+    {
+      "path": "semantic-s3c-static-r3-engine-env-brief.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/engine-env-brief.static.e2e.js.log",
+      "sha256": "a5a7a6c8fefdfa25979353e37562c1cd51c426c5936349cfa7ef85bc13b9c95d",
+      "decodedSha256": "aafef739bef4cd9a6356b7139b6b931a5a6699973f96a1f0212d0ec0eb3ec127",
+      "bytes": 2546,
+      "decodedBytes": 4471
+    },
+    {
+      "path": "semantic-s3c-static-r3-eol-policy.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/eol-policy.static.e2e.js.log",
+      "sha256": "25018c35d7625b208d8a8d23abaed1c152ce2101815fc963111285fae00c0c27",
+      "decodedSha256": "7051636ee519206ed708b50eaa05f29b7cfca9b91da9c759c127e2f8c83f8732",
+      "bytes": 168,
+      "decodedBytes": 257
+    },
+    {
+      "path": "semantic-s3c-static-r3-external-bots-progress.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/external-bots-progress.static.e2e.js.log",
+      "sha256": "3ac60c00f5b7040e1c741a5e5bde90370baa73fcd98b89162a1368b6f4be5493",
+      "decodedSha256": "b81bb1e5287e05b63404e995cfd2621a6682f418df27fb7523aaf428fda2756e",
+      "bytes": 965,
+      "decodedBytes": 1901
+    },
+    {
+      "path": "semantic-s3c-static-r3-facts.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/facts.static.e2e.js.log",
+      "sha256": "012bf4ea29550279f2b44df6db66c3ddeefa76abaa8a72590b0e73147bd9d95f",
+      "decodedSha256": "a2f329fb005a580cd0ec762877b430841effec4b7737b96a7c3f00b8a5c1c215",
+      "bytes": 881,
+      "decodedBytes": 2335
+    },
+    {
+      "path": "semantic-s3c-static-r3-finalize-segments.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/finalize-segments.static.e2e.js.log",
+      "sha256": "73a1192a7ce5f29e03fd59bf45c9259ddd9dfd627c30c2f2ae6467cf23bdee53",
+      "decodedSha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "bytes": 691,
+      "decodedBytes": 1244
+    },
+    {
+      "path": "semantic-s3c-static-r3-fixture-home.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/fixture-home.static.e2e.js.log",
+      "sha256": "6d74ce09ac54cbd24505078e57deb4a6f9700944c74857d31048d451545cf8ad",
+      "decodedSha256": "926b13d72d4f86563c979ead4c0474bed3d4b90c1b4f7ed60ba34988cf65941d",
+      "bytes": 2408,
+      "decodedBytes": 5636
+    },
+    {
+      "path": "semantic-s3c-static-r3-frontend-domains.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/frontend-domains.static.e2e.js.log",
+      "sha256": "839496369971f135bd92f9ecfca4bd4147c76e1fabb2ac7f47c2a46c2cabef21",
+      "decodedSha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "bytes": 2453,
+      "decodedBytes": 7594
+    },
+    {
+      "path": "semantic-s3c-static-r3-health-i18n.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/health-i18n.static.e2e.js.log",
+      "sha256": "ba55f2bf10c500ac3f2f218ac693a80726494d8ad1a291d438917e3e4fae0bee",
+      "decodedSha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "bytes": 2071,
+      "decodedBytes": 3392
+    },
+    {
+      "path": "semantic-s3c-static-r3-i18n-en-terms.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/i18n-en-terms.static.e2e.js.log",
+      "sha256": "85a505858662c48b73c11a746fafe63c8eab37816c8334906dce1b18357a89e2",
+      "decodedSha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "bytes": 393,
+      "decodedBytes": 673
+    },
+    {
+      "path": "semantic-s3c-static-r3-i18n.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/i18n.static.e2e.js.log",
+      "sha256": "fe3d7d223efe6273fd6a8bf0ef74790d8890b41cb27b3b6bd47732a431994205",
+      "decodedSha256": "9578d003a3a99f0c182897fd7d08148e99c13dc24aaf758f3d955713d7679895",
+      "bytes": 447,
+      "decodedBytes": 749
+    },
+    {
+      "path": "semantic-s3c-static-r3-inline-script-csp-hash.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "7add2cf51a359e2f8c6db6f54d3c18cae986b305ef4e47f1872ca4f61ae6ceca",
+      "decodedSha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "bytes": 612,
+      "decodedBytes": 863
+    },
+    {
+      "path": "semantic-s3c-static-r3-kimi-plan-ui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/kimi-plan-ui.static.e2e.js.log",
+      "sha256": "2ac49e831a434032b803e461e4ea8615918dec97e078a05f4db4576bc48b3196",
+      "decodedSha256": "1fc3c448cf5bab1aa7a3922a61b25aead1b8517555758921ba8441737d409b66",
+      "bytes": 409,
+      "decodedBytes": 573
+    },
+    {
+      "path": "semantic-s3c-static-r3-live-full-text.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/live-full-text.static.e2e.js.log",
+      "sha256": "f78926db52162b1c1aaf08d267791e0ee2c46967bc5ea19cab3f09dea8f15b5b",
+      "decodedSha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "bytes": 3855,
+      "decodedBytes": 7248
+    },
+    {
+      "path": "semantic-s3c-static-r3-manifest-ranges.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/manifest-ranges.static.e2e.js.log",
+      "sha256": "b15623cce732a3badb6bace5b0b6495ebc6f870309efbe4f07448c98d32912c7",
+      "decodedSha256": "63845673827fa8c49a4c24086aefe44cff7572381eec7987d908b7b71ab97729",
+      "bytes": 5611,
+      "decodedBytes": 35519
+    },
+    {
+      "path": "semantic-s3c-static-r3-mcp-ops-gui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/mcp-ops-gui.static.e2e.js.log",
+      "sha256": "397aab2d8f404eadee0f5103cfe68e06308c2ecc06e53551e37411b2efdc555a",
+      "decodedSha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "bytes": 1169,
+      "decodedBytes": 2978
+    },
+    {
+      "path": "semantic-s3c-static-r3-media-artifact-package.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/media-artifact-package.static.e2e.js.log",
+      "sha256": "08d172567c1cbaf5a5517a5c3840ec59078499e8d929b7319b8fdf6aa8402dcb",
+      "decodedSha256": "3d9460ec1f9f6bc018d6f25200762abf3a54710499956a7f57451f33d04a1386",
+      "bytes": 297,
+      "decodedBytes": 441
+    },
+    {
+      "path": "semantic-s3c-static-r3-media-runtime-inventory.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/media-runtime-inventory.static.e2e.js.log",
+      "sha256": "6e6ca4e310a7adf0bf55ca59a8a1f4e9f8a7881e5ce88568b278cb3c4a1ab0e7",
+      "decodedSha256": "d28a66380faa9724689bab7813ad59f8709969f5e0bea9545183a8491fe5faee",
+      "bytes": 335,
+      "decodedBytes": 558
+    },
+    {
+      "path": "semantic-s3c-static-r3-media-runtime-notices.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/media-runtime-notices.static.e2e.js.log",
+      "sha256": "01bff21e84b1904ce3ecb4a7047450e9b020676299b67ad864df6772ab32b4f7",
+      "decodedSha256": "3528878e3f0d0bcb041c04e6c0c4421c0eacc961cf01328ebdc7b962dc46944b",
+      "bytes": 1313,
+      "decodedBytes": 10858
+    },
+    {
+      "path": "semantic-s3c-static-r3-media-runtime-source-evidence.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/media-runtime-source-evidence.static.e2e.js.log",
+      "sha256": "cb7650b15e7b33e5b4e44ab8e214697039f0e3554312853bb9df0ce80df2a061",
+      "decodedSha256": "8d82dcd7d7bb1da21f544c06bc15cb884b3fdf00d6f2c19135e591bfed894199",
+      "bytes": 1137,
+      "decodedBytes": 5209
+    },
+    {
+      "path": "semantic-s3c-static-r3-memory-toolbox.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/memory-toolbox.static.e2e.js.log",
+      "sha256": "5f61e64c10b990eded8185e0beb26de9d73edda1910e604b750f48ccce7a214c",
+      "decodedSha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "bytes": 480,
+      "decodedBytes": 813
+    },
+    {
+      "path": "semantic-s3c-static-r3-mermaid-render.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/mermaid-render.static.e2e.js.log",
+      "sha256": "e7653f42537b254c7c8b13bb6f31c66e9ef6887e9f54eaa03dc475d5d1a28677",
+      "decodedSha256": "c3258a91819efa883b0e23b493acf7e43689d214b81e989916ffec70d470c7e9",
+      "bytes": 4135,
+      "decodedBytes": 9060
+    },
+    {
+      "path": "semantic-s3c-static-r3-model-menu-classes.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/model-menu-classes.static.e2e.js.log",
+      "sha256": "c52408c0891dd88cb41bf6bc54204e65407879b76fec2d104942149597963844",
+      "decodedSha256": "30b9a616873a1ffce3f12fbe77d49f8b987f85a2bf1b24147004e9ddae19b38d",
+      "bytes": 762,
+      "decodedBytes": 1087
+    },
+    {
+      "path": "semantic-s3c-static-r3-module-dependency-graph.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/module-dependency-graph.static.e2e.js.log",
+      "sha256": "7092c752bd7671ac2f420fa6d83a1bef78cb0a326a03f70004ae632c1dcc9b72",
+      "decodedSha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "bytes": 648,
+      "decodedBytes": 1233
+    },
+    {
+      "path": "semantic-s3c-static-r3-ndjson-line-feeder.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "81f1bc4f1be72e6bfd9828c9ccc78127f45414b5359355a717b34eadca7a8bc7",
+      "decodedSha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "bytes": 811,
+      "decodedBytes": 1836
+    },
+    {
+      "path": "semantic-s3c-static-r3-net-token-replay.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/net-token-replay.static.e2e.js.log",
+      "sha256": "0ec64f55664cb51a290b656e49b874146e84fbd568546011f37d8d517e0a089e",
+      "decodedSha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "bytes": 859,
+      "decodedBytes": 1350
+    },
+    {
+      "path": "semantic-s3c-static-r3-new-thread-engine-default.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/new-thread-engine-default.static.e2e.js.log",
+      "sha256": "9003fa58e4aa4f6d24526440fed072a48037ca3c3263323556b0c2b2e4aa86c7",
+      "decodedSha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "bytes": 765,
+      "decodedBytes": 1545
+    },
+    {
+      "path": "semantic-s3c-static-r3-onboarding.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/onboarding.static.e2e.js.log",
+      "sha256": "9415fa7b55c9b070f0378b5049d092cea6bec4564fe532cd78a47c4cce3ee879",
+      "decodedSha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "bytes": 4944,
+      "decodedBytes": 9579
+    },
+    {
+      "path": "semantic-s3c-static-r3-overlay-payload-lock.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/overlay-payload-lock.static.e2e.js.log",
+      "sha256": "c273404b76384228128f96554c5c0e345f40774b6c35c37b30bf26021e64e183",
+      "decodedSha256": "7b1cc925bcd02981a824bbf0e6c12b970a11f0af10e2f4e2d16a99af9201c516",
+      "bytes": 1140,
+      "decodedBytes": 1938
+    },
+    {
+      "path": "semantic-s3c-static-r3-overlay-update-gui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/overlay-update-gui.static.e2e.js.log",
+      "sha256": "75a890f8b223e9ecb5e781b914b9f8c016786883b4855ecaa603302756cac3c9",
+      "decodedSha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "bytes": 624,
+      "decodedBytes": 1269
+    },
+    {
+      "path": "semantic-s3c-static-r3-process-safety.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/process-safety.static.e2e.js.log",
+      "sha256": "ee5c2e9fe131d3aebf03bd3253fd47f3619d961f40fa911b9f56c7ac2a9c8e01",
+      "decodedSha256": "b0bfda3e27dc44a3115e5600d22d6ab740a84654339027322d170c674b679e33",
+      "bytes": 589,
+      "decodedBytes": 856
+    },
+    {
+      "path": "semantic-s3c-static-r3-progress-events.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/progress-events.static.e2e.js.log",
+      "sha256": "debbbb5d211eca98340f1abb2190d9a430721240e7ab69478b894971885824b5",
+      "decodedSha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "bytes": 1427,
+      "decodedBytes": 2394
+    },
+    {
+      "path": "semantic-s3c-static-r3-prompt-snapshot.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/prompt-snapshot.static.e2e.js.log",
+      "sha256": "07b066654c93cf7bbb6b296e53136cb029c54803db6f5208da5e19bd5445aa54",
+      "decodedSha256": "6a48be1b8ed4cf61cb001104191c63b97512e6ffc9dd167bdac416d8d0e6199e",
+      "bytes": 4177,
+      "decodedBytes": 8099
+    },
+    {
+      "path": "semantic-s3c-static-r3-provider-reasoning-effort-ui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "56c179ab5aa0a7e173079d22f2c08a52e48cbfd0d9bcc3d46e6ac16ffedbebf4",
+      "decodedSha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "bytes": 70,
+      "decodedBytes": 50
+    },
+    {
+      "path": "semantic-s3c-static-r3-rail-pocket.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/rail-pocket.static.e2e.js.log",
+      "sha256": "67eccd41933fc187e883aef80eed237766d80a74b5afcc0a24bc812bcc7e9f99",
+      "decodedSha256": "012469c8f6f429d9389b41f14f428aab71d843c57b7a7235b1f8ba92a74553e6",
+      "bytes": 1857,
+      "decodedBytes": 2948
+    },
+    {
+      "path": "semantic-s3c-static-r3-resume-banner-dismiss.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "ae8f8af849a38bfc5f6954a822e09c7268c3ebd91327da8bdf470888b346deb2",
+      "decodedSha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "bytes": 228,
+      "decodedBytes": 335
+    },
+    {
+      "path": "semantic-s3c-static-r3-route-inventory.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/route-inventory.static.e2e.js.log",
+      "sha256": "a71bbf325e500fe851b142a08a917aad549a73a9e85ce0e92384852e0be2c83c",
+      "decodedSha256": "17b6f9aa3c5d9fc52549ca8aef65367af69c7d7b517191b8d780081edc7eed3b",
+      "bytes": 753,
+      "decodedBytes": 1313
+    },
+    {
+      "path": "semantic-s3c-static-r3-runtime-optimization.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/runtime-optimization.static.e2e.js.log",
+      "sha256": "311c8a8b4d06a4a40e8225f03cf294ad787d0b99dc7fe874d1fec86b7eb9207f",
+      "decodedSha256": "0fa27990e25607b61ab2808300811142ddee107b80b08d74451ded27c642953c",
+      "bytes": 5423,
+      "decodedBytes": 12843
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-calendar-editor.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-calendar-editor.static.e2e.js.log",
+      "sha256": "6ef65cbbbfb70c996441e6151b1473de37bb9811647474d40afd3bb312b8f507",
+      "decodedSha256": "fee8b76a4d0f726ca92fa0ee557a8ae32adf38fce2a264ba025bd7b460ac8691",
+      "bytes": 563,
+      "decodedBytes": 1420
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-cold-effects.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-cold-effects.static.e2e.js.log",
+      "sha256": "1e1bcdef93a19f4e67bd6d92a7b7ead67c0ee01a066279c6a4ae01bef6961ce1",
+      "decodedSha256": "bb334448cfd698941f103415da8618ddd303adf79f9a7107862808e7bbe1ef6a",
+      "bytes": 631,
+      "decodedBytes": 2053
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-contract.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-contract.static.e2e.js.log",
+      "sha256": "9fa9dd417451642e3619418b518f9bebb0c98f2ae28faba48887a2755d113df9",
+      "decodedSha256": "ce3f54f3aee43e5859347e5de51d42994c309bae362d3b3584cbc4fdf0a70888",
+      "bytes": 610,
+      "decodedBytes": 1193
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-lifecycle.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-lifecycle.static.e2e.js.log",
+      "sha256": "1c2b3d497b2ace992594c228eace15ce3fe066de14a09d83e3e08005a41ce459",
+      "decodedSha256": "9f19387f392c48e68582f4460a16ff204be78f9bcdd62e668b6cd6bd3e955c70",
+      "bytes": 860,
+      "decodedBytes": 2292
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-permissions.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-permissions.static.e2e.js.log",
+      "sha256": "d6ffe26cebff3671236c807f3ccebb42194984fd521f09b07b0a46b4fafd9d93",
+      "decodedSha256": "8c96bca0910352bf7419e10c55efaa0bf652fc3a5ce8009f0a414b4ed9b7ce87",
+      "bytes": 652,
+      "decodedBytes": 2045
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-r5.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-r5.static.e2e.js.log",
+      "sha256": "bea2aa6b4dc9ddb17d78700a9f06cf94856a98fcb3dc0eceb7a9e8f0ccc5b736",
+      "decodedSha256": "e963efdfc2c96027ca1fa27609db55701ed55ec5aba417dc3c1a3319682af6ac",
+      "bytes": 711,
+      "decodedBytes": 2592
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-r6.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-r6.static.e2e.js.log",
+      "sha256": "69301b341abac0e22824752a1dac736785bd5ca1c581f29bb7ee647389096bd7",
+      "decodedSha256": "4c0725a1b81736e4634bc591aae02d93fb7a9d9bfc042678ae961f5a74ec0e6e",
+      "bytes": 576,
+      "decodedBytes": 2285
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduled-playbooks-r7.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduled-playbooks-r7.static.e2e.js.log",
+      "sha256": "987b98a5ce77f9214c43ee45e516d70c66d1baac0de6d8524d7ada23d504d043",
+      "decodedSha256": "805d4f049779c95512a2556a25f78b09369d1af40804b29b6b6a14ef32cc438a",
+      "bytes": 319,
+      "decodedBytes": 1023
+    },
+    {
+      "path": "semantic-s3c-static-r3-scheduler-ui.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/scheduler-ui.static.e2e.js.log",
+      "sha256": "a76a32c69140f8f963d0d0c5c5c4cc55294aef1e69c6578a93cbfef6faf21b3a",
+      "decodedSha256": "6f84f1e3877a8203668f0d03020023c5c6f3453061e81f2e455efba852df50f9",
+      "bytes": 1303,
+      "decodedBytes": 3111
+    },
+    {
+      "path": "semantic-s3c-static-r3-session-save-census.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/session-save-census.static.e2e.js.log",
+      "sha256": "c5487d8f12ec66fcecfe28d8fb9de11337c28784d2ea1733c10a1bcf8d029617",
+      "decodedSha256": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "bytes": 852,
+      "decodedBytes": 2070
+    },
+    {
+      "path": "semantic-s3c-static-r3-software-engineering-prompt.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/software-engineering-prompt.static.e2e.js.log",
+      "sha256": "99a8aeb6cf636742cbb0c972be903a228853d7406632324a3f1743572cb6bfc3",
+      "decodedSha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "bytes": 1158,
+      "decodedBytes": 2961
+    },
+    {
+      "path": "semantic-s3c-static-r3-start-experience.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/start-experience.static.e2e.js.log",
+      "sha256": "bbb62655322b732520ed10118e7b824c96eeb369496c960e7d8dd1f8c04c15f3",
+      "decodedSha256": "e24b22d595e2614569db3a83a2a75bcb426041d8fb44ff0dae1e777036561687",
+      "bytes": 2804,
+      "decodedBytes": 5285
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-avatar.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-avatar.static.e2e.js.log",
+      "sha256": "a8644a86723f5799e403a95686eb4ca338bb870c62ce421237d7367432c9996f",
+      "decodedSha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "bytes": 2685,
+      "decodedBytes": 5169
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-board.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-board.static.e2e.js.log",
+      "sha256": "37e0bf5cf2027f5da1211683590df2a6086a0f287bec419d112b10671431d4b2",
+      "decodedSha256": "67bed75891f5a571feaeb5a6efb0173b0dfbf75e66d8fdec0c8cb1e0a9a0f23a",
+      "bytes": 10130,
+      "decodedBytes": 22723
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-config.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-config.static.e2e.js.log",
+      "sha256": "231d8b0a2e9e6841f89372573acf9a6d577fa705c36dcab6662dc381cf59dc24",
+      "decodedSha256": "c7208a639a5021c4cf90ad807656141b4dd77f68d0c6f95526644c57e1e5ba2a",
+      "bytes": 2500,
+      "decodedBytes": 6797
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-conversation.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-conversation.static.e2e.js.log",
+      "sha256": "5105a0878676f1b15f864d5d841ab3663f34d28c2e477d9a2d9b173c06e3b00b",
+      "decodedSha256": "d0822a549a8e707af4347fe3efc951b4179ba95f67f4c00632802ef76a5e4ee4",
+      "bytes": 14456,
+      "decodedBytes": 31833
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-drawer.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-drawer.static.e2e.js.log",
+      "sha256": "9467eb56a02b3d33c7cd0330eb5e4b4492cd1d3738a1144fbf86e4966f1021c7",
+      "decodedSha256": "4fa9fb4fbb8030eada3ce2bb18095e3dd5759aede3ecc0b5dff8f02af80bf294",
+      "bytes": 10464,
+      "decodedBytes": 23287
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-events.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-events.static.e2e.js.log",
+      "sha256": "96e8e6c6d053dea20b4df87de6c0fc763f4661fc8c2aec425fdb137498979307",
+      "decodedSha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "bytes": 2871,
+      "decodedBytes": 5780
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-runner.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-runner.static.e2e.js.log",
+      "sha256": "d7eb83c5f6f91d43a6fb26699e78cb9ba9bfea7f54a346e179dea6a8ebaa1fd1",
+      "decodedSha256": "66e2834d5824e97722d1552ad9c9db9bde99307c1ca49c86a7aa6938c46f2084",
+      "bytes": 5801,
+      "decodedBytes": 14598
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-settings.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-settings.static.e2e.js.log",
+      "sha256": "b1781f9bd7d5b8f21590cf665352028cf9e3150edf26c6e210810f988dd7a466",
+      "decodedSha256": "b9b7578f333621d0df5c2816674fc77eb3cd10f66292337ad8470fa064129a6b",
+      "bytes": 6420,
+      "decodedBytes": 12948
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-shell.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-shell.static.e2e.js.log",
+      "sha256": "db9ed7058ffcb7ab6c77ef8e7530195d078e3457ad4d3efd7ca4e470b56553b4",
+      "decodedSha256": "7a394821c77ea2a3c321e4906535a6d291bbd7837d7f24712026f6d0407d6a98",
+      "bytes": 2995,
+      "decodedBytes": 5453
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-tools.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-tools.static.e2e.js.log",
+      "sha256": "b0783b6667c3c93b90959aee6cf8b4e934bd53b23443ba4b8bdac3495d8612da",
+      "decodedSha256": "b822bff5746187a2960c2ebebe9e300f4bc4a88726fde238fb3cddbc7a559f9b",
+      "bytes": 5231,
+      "decodedBytes": 11387
+    },
+    {
+      "path": "semantic-s3c-static-r3-steward-walkthrough.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/steward-walkthrough.static.e2e.js.log",
+      "sha256": "1ae551aa85d439a662f6d3f4cdf13909012b916a6a88805a15c1ed0774ac964e",
+      "decodedSha256": "28cc69acbc57a9cce71650d6df85f52dfce180c5449b4e1a53a349ad2d924ddb",
+      "bytes": 6738,
+      "decodedBytes": 12712
+    },
+    {
+      "path": "semantic-s3c-static-r3-streaming-responsiveness.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/streaming-responsiveness.static.e2e.js.log",
+      "sha256": "09829f0ca888eaf9c3d7da06f9839e3a8032f98a3a1841ca5acafe9d0e3432e4",
+      "decodedSha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "bytes": 654,
+      "decodedBytes": 1189
+    },
+    {
+      "path": "semantic-s3c-static-r3-thinking-boundary.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thinking-boundary.static.e2e.js.log",
+      "sha256": "c9b4e418e12f8710f84264c3913062745c40a8b9c6e9f2770350fc42d0da9844",
+      "decodedSha256": "b27630f6843bb37ab1ebd245f5301331f3a83661217068238e0792c6914d68d2",
+      "bytes": 415,
+      "decodedBytes": 579
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-brief.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-brief.static.e2e.js.log",
+      "sha256": "4cf7657b363f3abcdba939adddc741db35c946429e3ab3c42388df13cd4ea783",
+      "decodedSha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "bytes": 1627,
+      "decodedBytes": 3219
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-commission.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-commission.static.e2e.js.log",
+      "sha256": "8f912b5050526c6bb2d5f9fc0648e0acbc36e43db211859b6c1fbd12b0e6cc83",
+      "decodedSha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "bytes": 1047,
+      "decodedBytes": 1725
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-relay-admission.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-relay-admission.static.e2e.js.log",
+      "sha256": "63181ac0ea98d916ff2ddc79702f8eefb4db8c8cbad2272c69308b245647135a",
+      "decodedSha256": "5307c45d470ed637f3cd34cae7fcc63e04738617f24468363c47931ecb0ace17",
+      "bytes": 763,
+      "decodedBytes": 2161
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-relay-contract.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-relay-contract.static.e2e.js.log",
+      "sha256": "4fe3b9f2fd85beccd0974afd383e6ef1d56b0fe0b174cf8ba71ce68a73620706",
+      "decodedSha256": "a529ddbeb5a76d3ad99a3ec35078e5fb3c23be3f95e5ca838841dba798b2b196",
+      "bytes": 886,
+      "decodedBytes": 1918
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-relay-dispatch.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-relay-dispatch.static.e2e.js.log",
+      "sha256": "8fb1b8b47fb4ba033f72d5d1827e00f906e6a91031dfe7cdeb8a587cd3775101",
+      "decodedSha256": "ceafef72c5aa9f52495cad786b4dae1db202b92eba46c1666c147f0182212dbb",
+      "bytes": 608,
+      "decodedBytes": 2068
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-relay-nested.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-relay-nested.static.e2e.js.log",
+      "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "decodedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 20,
+      "decodedBytes": 0
+    },
+    {
+      "path": "semantic-s3c-static-r3-thread-relay-retirement.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/thread-relay-retirement.static.e2e.js.log",
+      "sha256": "8d66133fd5abfbc6d2ea4c5fa8a7917f4a1fdbdacbf278003220a50395888ed6",
+      "decodedSha256": "e14a4f0b05383793cb9eb6e8cdbd6e78aff6f46831f91a11844a3be33ae69e6e",
+      "bytes": 1313,
+      "decodedBytes": 3860
+    },
+    {
+      "path": "semantic-s3c-static-r3-tool-image-inline.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/tool-image-inline.static.e2e.js.log",
+      "sha256": "97f8ccd85c2215d50a75940c6e85458fe6646392670f1b7dcc475ed3bb55fc56",
+      "decodedSha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "bytes": 1278,
+      "decodedBytes": 2817
+    },
+    {
+      "path": "semantic-s3c-static-r3-tool-verb-coverage.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/tool-verb-coverage.static.e2e.js.log",
+      "sha256": "082520309c9a7a9f970625df58ae8568cca97890fe1b9263eae2219813c516ca",
+      "decodedSha256": "1226caa6bc5c9a68b68df4af6910ffd559bc70db513ac6e29f7048893a2f9a0a",
+      "bytes": 704,
+      "decodedBytes": 1026
+    },
+    {
+      "path": "semantic-s3c-static-r3-turn-narrative.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/turn-narrative.static.e2e.js.log",
+      "sha256": "e41b85c086c8983ab64555de147c36f3b62d5d2999f8e634e224c93951411787",
+      "decodedSha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "bytes": 1346,
+      "decodedBytes": 2351
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-bugfix.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-bugfix.static.e2e.js.log",
+      "sha256": "03fed9a0127ef002cfb5abd7160ede1dda0b158d9ef57afeeca32b89539eecd1",
+      "decodedSha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "bytes": 698,
+      "decodedBytes": 1159
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v3-p1.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v3-p1.static.e2e.js.log",
+      "sha256": "07fc2598d063c8caf0febc7c17dad7e2f73a087212e21a40adb01db6e6286c9d",
+      "decodedSha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "bytes": 1750,
+      "decodedBytes": 3986
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v3-p2.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v3-p2.static.e2e.js.log",
+      "sha256": "413ac4c85e4c37f27574c8e5894ea8efee9cb2b8709007b90a619134846ab49d",
+      "decodedSha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "bytes": 2091,
+      "decodedBytes": 4131
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v3-p3a.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v3-p3a.static.e2e.js.log",
+      "sha256": "97f9d60e34e11f3ec6d15559d6863a9abdb289b469195afea3b94ad9ae92a8fd",
+      "decodedSha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "bytes": 2616,
+      "decodedBytes": 4739
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v3-p3b.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v3-p3b.static.e2e.js.log",
+      "sha256": "8ea57feab0a8426178ac1167ecc787cbfb136546a9925d77644ddd10b4da29c4",
+      "decodedSha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "bytes": 2306,
+      "decodedBytes": 4227
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v3-wave1.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v3-wave1.static.e2e.js.log",
+      "sha256": "865aaf8ffb86e73c28b40491152b2e31398be7c275fd726e804e948b2d4d632b",
+      "decodedSha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "bytes": 1945,
+      "decodedBytes": 3383
+    },
+    {
+      "path": "semantic-s3c-static-r3-ui-v4-glass.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/ui-v4-glass.static.e2e.js.log",
+      "sha256": "ce274b7a537fb3d351f2614710dcde14095abf408180c1f654e64c67c909c63a",
+      "decodedSha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "bytes": 867,
+      "decodedBytes": 1284
+    },
+    {
+      "path": "semantic-s3c-static-r3-v17-review-fixes.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/v17-review-fixes.static.e2e.js.log",
+      "sha256": "313efb4379216844cc44f9250c4302b08f4ec9964f2b1d3f75018066ae489468",
+      "decodedSha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "bytes": 933,
+      "decodedBytes": 1379
+    },
+    {
+      "path": "semantic-s3c-static-r3-workflow-combination.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/workflow-combination.static.e2e.js.log",
+      "sha256": "4ff5ae55319f89911a46b1ea1c488b6a916add7f142550f01bd6ee727c4952a5",
+      "decodedSha256": "bfb514cc688aa2ee97c0122d52bc8929080a60394e3aaf9561e381734b6dff08",
+      "bytes": 849,
+      "decodedBytes": 2043
+    },
+    {
+      "path": "semantic-s3c-static-r3-workflow-editor-v2.static.e2e.js.log.gz",
+      "source": "output/semantic-s3c-static-r3/workflow-editor-v2.static.e2e.js.log",
+      "sha256": "b5eb2130fd813c65a741004af5ef4bc2d8bdffe6516a6919572e1e745e3a5c44",
+      "decodedSha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "bytes": 2058,
+      "decodedBytes": 3537
+    },
+    {
+      "path": "semantic-s3c-functional-final-autocompact.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/autocompact.e2e.js.log",
+      "sha256": "371145d4868eb0e69d8c3ceb174e77daf542b437dad31109e2be055238049349",
+      "decodedSha256": "55a2041d5091cbb3cdd531b24ceeb34384954cfc4f4a25ec159969dae49ea8cb",
+      "bytes": 992,
+      "decodedBytes": 1692
+    },
+    {
+      "path": "semantic-s3c-functional-final-compaction-refetch-guard.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/compaction-refetch-guard.e2e.js.log",
+      "sha256": "277e2effd19232ef17e5e7daa70a6abee50f447c2764ee5523c7d860c6ef6262",
+      "decodedSha256": "a2836e91bbaaa1fad3cf18125accbc5f1b4aa02f4bf674cea45d946993d88d1b",
+      "bytes": 525,
+      "decodedBytes": 660
+    },
+    {
+      "path": "semantic-s3c-functional-final-context-compact-v2.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/context-compact-v2.e2e.js.log",
+      "sha256": "43af3ec1e986ee779e2182e39c62c3ab858d23f7f66505b52105b7b74f3803d9",
+      "decodedSha256": "ef437f1238223652274ee40a90db8820653dabf5596cff4b007e2fbd439a6cdc",
+      "bytes": 1872,
+      "decodedBytes": 3145
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-active-scope.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-active-scope.e2e.js.log",
+      "sha256": "2eb73af9a8772519148e0851146d56ae487110971294f8ef514734713e9284ca",
+      "decodedSha256": "1d2e1beab261936527e2ceb7bc661bfe0887d3f37c01fc1c83f96baac2aaf95c",
+      "bytes": 934,
+      "decodedBytes": 2560
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-caller-safety.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-caller-safety.e2e.js.log",
+      "sha256": "baebf05f0d7dcf704e15d2cafc8bc8af50fc9f6aca2f4cb230c38872984bc488",
+      "decodedSha256": "e303620c22e255ec772cdd1d01188770875677d8c471af8c215e1d26c96e7d06",
+      "bytes": 250,
+      "decodedBytes": 470
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-cli-relay.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-cli-relay.e2e.js.log",
+      "sha256": "5723b4a66923924281c0282972d8ca6b3dfdc40afe481c7e53650311a9cb12b7",
+      "decodedSha256": "c92b22466f0230c9152ed9b3b2d34e082ecbbe5cffbc8fd877542b563f0d5929",
+      "bytes": 370,
+      "decodedBytes": 619
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-explicit-semantic.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-explicit-semantic.e2e.js.log",
+      "sha256": "d8108651dab78e8e49c4e3c8ac17d8daed226fee57239ab9b7610e13be372a1e",
+      "decodedSha256": "169dd0cf731a56a2dfe39a5f2fcf0cccfc5b1ca69194b5414a662d6a0e43be7f",
+      "bytes": 706,
+      "decodedBytes": 1533
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-recall-injection.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-recall-injection.e2e.js.log",
+      "sha256": "ef06bbf578e376cd06ca928161eeddf0db4f3ee31bae38d9c58f7c40c615d3b8",
+      "decodedSha256": "a0e56c31ac59b87eb28ffc44805ca4be48495d2384b4b908b669c2210f9baec4",
+      "bytes": 1000,
+      "decodedBytes": 1694
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-semantic.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-semantic.e2e.js.log",
+      "sha256": "63a79664bb9a91a18ec998b21357e02e6f63fbfc85b83f57b157b015e2608fd6",
+      "decodedSha256": "39b013d9dbc27ab263999cdf72ae8f58fb2599520a2cb9b768a452d7ca1eebdf",
+      "bytes": 679,
+      "decodedBytes": 1368
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-subagent.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-subagent.e2e.js.log",
+      "sha256": "ea6f2295935be20191c3108505dd675d9c0f121af09b260e0c2fa3cc4d08b5ee",
+      "decodedSha256": "ba6c82d2eecd6e67a6c63a72c3b8ecdcdca604d07433612e4a8aadf5f55807c3",
+      "bytes": 658,
+      "decodedBytes": 1006
+    },
+    {
+      "path": "semantic-s3c-functional-final-memory-veto-precedence.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/memory-veto-precedence.e2e.js.log",
+      "sha256": "92708d5345155b48ecabc036386b8831414ba5266b74321deb5ad86d798acb45",
+      "decodedSha256": "6dc0e5dc7db90b575decd567fc3949ddf30c7c4f025d26ab182936519592c32e",
+      "bytes": 2413,
+      "decodedBytes": 5561
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-full-restore.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-full-restore.e2e.js.log",
+      "sha256": "27f0774eade9d6c2a6125f3f8be07f09e590d0dfe2a30954032bed7b5cd99665",
+      "decodedSha256": "bebed0beb99a8c46a4944d67a6db5135610cd25546a9225742ff5d268067ad77",
+      "bytes": 283,
+      "decodedBytes": 444
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-messages.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-messages.e2e.js.log",
+      "sha256": "a6b7fcaf8f489a4949800ccef9d598e0353dd992e69834887531bd138113c4b8",
+      "decodedSha256": "a90413f47eefdac74ef67652407f27ddef223037c88afbd6a603d3b680d483ad",
+      "bytes": 634,
+      "decodedBytes": 1368
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-precompact.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-precompact.e2e.js.log",
+      "sha256": "d2e2563b594bafd2683d0b030d3366c4702affaeaef28415bce35463959ffb29",
+      "decodedSha256": "f0d81d21ea25578dd744211e2c02505007ea95284004cb9e211417189eb76380",
+      "bytes": 258,
+      "decodedBytes": 398
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-query.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-query.e2e.js.log",
+      "sha256": "58fd23219e03fa45949d63b6d42514b6e4af053c8eadc93ad518bcd12e8188b2",
+      "decodedSha256": "b95577a1b25733cf2d1c5ce62c08a747b16f0afc27dcf8422d01f15b87c06e68",
+      "bytes": 564,
+      "decodedBytes": 1081
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-recall-realhistory.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-recall-realhistory.e2e.js.log",
+      "sha256": "cfedda8775a3ada8c56fc953930f1cbaf0c74e3320fb114d0e155d987896a1ef",
+      "decodedSha256": "de3f4cca6bd0741dcab9e561c6b0a3a14831f1d29bea98f26ceb98ed46f9094e",
+      "bytes": 1855,
+      "decodedBytes": 9131
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-recall-replay.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-recall-replay.e2e.js.log",
+      "sha256": "f195471676843aa5922c764bf4cc419f62232436793f445485db8b2677fff057",
+      "decodedSha256": "c6f5c1268b64b9a325052e1de12e975b46fd909582c689872c53ec4a5c282bb6",
+      "bytes": 1839,
+      "decodedBytes": 4359
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-recall-snapshot-cap.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-recall-snapshot-cap.e2e.js.log",
+      "sha256": "541165a42c172fe9b9fe555fcccb345e137b9e2f0cb86a06d850dec43678114a",
+      "decodedSha256": "3103ad5d32b5d6f70cf6a6be530de784614f0b3b5af6269fe79e2d46aa02a263",
+      "bytes": 704,
+      "decodedBytes": 916
+    },
+    {
+      "path": "semantic-s3c-functional-final-observation-recall.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/observation-recall.e2e.js.log",
+      "sha256": "d5dad0be3459a16a1d8f51f8f66fc2ec84b4f0dfbbb2018ec6e10b33fe57985d",
+      "decodedSha256": "2a0a2d261987c46d3ae905ca684f7bcfb5ddfb048757dc9655038587d1076611",
+      "bytes": 983,
+      "decodedBytes": 1523
+    },
+    {
+      "path": "semantic-s3c-functional-final-semantic-retrieval.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/semantic-retrieval.e2e.js.log",
+      "sha256": "0a1ccb138eb7b731a43639221e105f14a8d0dff0caf9f7b152fa1b76a1f70fa6",
+      "decodedSha256": "da37189275a20c72d59256d212f8c8c4cc9ce9f563436aaba0511adeb40600cf",
+      "bytes": 459,
+      "decodedBytes": 795
+    },
+    {
+      "path": "semantic-s3c-functional-final-session-search.e2e.js.log.gz",
+      "source": "output/semantic-s3c-functional-final/session-search.e2e.js.log",
+      "sha256": "3f8884d72683b97e8ea3e7999ad0ce64d59dc156105a7d1738aeb833816cb497",
+      "decodedSha256": "46a72c23d5de4ba6670ec0e01c2b59c854f15f928a420077aa8941015919fa4f",
+      "bytes": 1754,
+      "decodedBytes": 2822
+    },
+    {
+      "path": "semantic-s3c-encrypted-query-final-observation-query.e2e.js.log.gz",
+      "source": "output/semantic-s3c-encrypted-query-final/observation-query.e2e.js.log",
+      "sha256": "c658b7b4fb7e3f8e7b96d9d75176dbda91116325ecd65a0a391a94120dbf2fa4",
+      "decodedSha256": "dfd9535c5ef5131d54fb1510f7fe8c3068dd9835a505e7fa90c392fd9645460c",
+      "bytes": 592,
+      "decodedBytes": 1160
+    }
+  ]
+}
