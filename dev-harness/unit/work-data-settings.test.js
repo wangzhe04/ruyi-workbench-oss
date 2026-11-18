@@ -354,3 +354,23 @@ test('cancelled, failed and superseded restore receipts cannot claim a later act
   assert.equal(f.calls.filter(row=>row.route==='/api/work-data/jobs').length,1,'no restore is replayed');f.panel.dispose();
  }
 });
+// 151 阶段 1 · W10/U3：失败码显示人话（仍带码）；failed 与 uncertain 分开说；读 processRestartRequired 给出重启指引。
+test('cold-service failed and uncertain jobs are explained separately and ask for a restart instead of waiting for a new process',async()=>{
+ const scenario=async(state,extra={})=>{const j=job({state,cancellable:false,takeover:true,error:state==='failed'?'work_data_setup.worker_failed_after_handoff':null});const f=fixture(route=>route.includes('/jobs/')?{ok:true,job:j}:status({maintenance:{phase:'retired',accepting:false},capabilities:{worker:false,upload:false,download:false},job:j,...extra}));await f.panel.refresh();const text=f.find('workDataProgress').textContent;f.panel.dispose();return text;};
+ const failed=await scenario('failed');
+ assert.doesNotMatch(failed,/Wait for the new process state/i,'failed after takeover must not say wait for the new process');
+ assert.match(failed,/failed after handoff/i);assert.match(failed,/exited after handoff/i,'the code is explained');assert.match(failed,/work_data_setup\.worker_failed_after_handoff/,'the code stays visible');
+ assert.match(failed,/Restart required/);
+ const uncertain=await scenario('uncertain');
+ assert.match(uncertain,/not confirmed yet/i);assert.doesNotMatch(uncertain,/failed after handoff/i);assert.match(uncertain,/Restart required/);
+ const noRestartFlag=await scenario('uncertain',{processRestartRequired:false});assert.doesNotMatch(noRestartFlag,/Restart required/,'the restart line follows processRestartRequired');
+ const handoff=await scenario('handoff');assert.doesNotMatch(handoff,/Restart required/,'handoff still waits for the successor');
+});
+test('refusal codes are shown as plain-language reasons with the code alongside, and the restart notice precedes a submit',async()=>{
+ const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw{code:'work_data_setup.busy',status:409};return status();});
+ await f.panel.refresh();assert.equal(f.find('workDataRestartNotice').hidden,false);assert.match(f.find('workDataRestartNotice').textContent,/switches to a new process/);
+ await populate(f);f.click('workDataSubmit');await f.flush();
+ const notice=f.find('workDataNotice').textContent;assert.match(notice,/work data maintenance/i);assert.match(notice,/work_data_setup\.busy/);f.panel.dispose();
+ const g=fixture(()=>status({capabilities:{worker:false,upload:true,download:false}}));await g.panel.refresh();
+ assert.match(g.find('workDataUnavailable').textContent,/desktop app/);assert.match(g.find('workDataUnavailable').textContent,/work_data_setup\.worker_unavailable/);g.panel.dispose();
+});

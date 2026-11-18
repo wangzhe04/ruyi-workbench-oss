@@ -1,6 +1,25 @@
 import { api, apiErrorInfo } from './net.js';
 import { t } from './i18n.js';
 import { icon } from './icons.js';
+import { privacyFailure } from './privacy-failure.js';
+import { apiErrorCopyKey } from './api-error-i18n.js';
+
+// 151 阶段 1 · P10：设置页自己的几条措辞（规则草稿语境）优先；其余码走与聊天同一张隐私失败表、再走接口码表，
+// 最后才落到 privacy.failed。修前 privacy.busy、credential_vault.* 都落成「请检查规则格式、密码或恢复包」。
+const SETTINGS_FAILURE_KEYS = Object.freeze({ 'privacy.regex_timeout': 'regexTimeout', 'privacy.regex_startup_timeout': 'regexTimeout', 'privacy.regex_invalid': 'regexInvalid', 'privacy.regex_empty_match': 'regexEmpty', 'privacy.regex_busy': 'regexBusy', 'privacy.regex_input_limit': 'regexLimit', 'privacy.regex_matches_limit': 'regexLimit', 'privacy.regex_rules_limit': 'regexLimit', 'privacy.preview_input_limit': 'regexLimit', 'privacy.json_sensitive_structure': 'jsonStructure', 'privacy.numeric_sensitive': 'numericSensitive', 'privacy.typed_sensitive': 'typedSensitive', 'privacy.encryption_required': 'encryptionRequired', 'privacy.plaintext_confirmation_required': 'plaintextRequired', 'credential_vault.unsupported': 'encryptionUnsupported', 'privacy.settings_changed': 'settingsChanged', 'privacy.config_changed': 'settingsChanged', 'privacy.settings_conflict': 'settingsChanged', 'privacy.busy': 'busy', 'privacy.policy_unavailable': 'policyRecoveryRequired' });
+export function privacySettingsFailureKey(code) {
+  const value = typeof code === 'string' ? code : '';
+  if (Object.hasOwn(SETTINGS_FAILURE_KEYS, value)) return 'privacy.' + SETTINGS_FAILURE_KEYS[value];
+  return (value && privacyFailure(value)?.key) || apiErrorCopyKey(value) || 'privacy.failed';
+}
+// U12：解锁并预览前要有恰好一个不超过 2 MiB 的文件和一个至少 12 个字符的密码；缺什么就地说什么，不发请求。
+export function recoveryPreviewBlocker(files, password) {
+  const selected = files && typeof files.length === 'number' ? files[0] : null;
+  if (!selected) return 'privacy.previewNeedFile';
+  if (typeof selected.size === 'number' && selected.size > 2 * 1024 * 1024) return 'privacy.previewFileTooLarge';
+  if (typeof password !== 'string' || password.length < 12) return 'privacy.previewNeedPassword';
+  return '';
+}
 
 const MODES = ['off', 'basic', 'enhanced', 'strict'];
 let indicatorConfig = null, indicatorOpen = null;
@@ -87,6 +106,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
   const password = node('input'); password.type = 'password'; password.id = 'privacyPassword'; password.autocomplete = 'new-password'; password.maxLength = 1024;
   const file = node('input'); file.type = 'file'; file.id = 'privacyBackupFile'; file.accept = '.json,application/json';
   const preview = node('div'); preview.id = 'privacyRecoveryPreview';
+  const previewHint = node('p', null, 'field-help'); previewHint.id = 'privacyPreviewHint'; previewHint.setAttribute('aria-live', 'polite');
   const restoreHint = node('p', 'restoreDraftNotice', 'field-help'); restoreHint.hidden = true;
   const clearTrial = () => { output.textContent = ''; hits.replaceChildren(); version.textContent = ''; };
   const invalidateTicket = () => { ticket = ''; preview.replaceChildren(); restore.disabled = true; restoreHint.hidden = true; };
@@ -116,6 +136,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
     save.disabled = busy || !loaded || conflict || ruleEntryPending() || (!dirty() && !saved?.recoveryRequired) || (mode.value !== 'off' && !supported && !saved?.encryption);
     encryption.disabled = busy || !loaded || mode.value !== 'off' || (!supported && !saved?.encryption);
     restore.disabled = busy || !loaded || !ticket || dirty(); restoreHint.hidden = !ticket || !dirty(); exportButton.disabled = busy || !loaded || !saved?.encryption;
+    { const blocker = loaded && !ticket ? recoveryPreviewBlocker(file.files, password.value) : ''; previewHint.textContent = blocker ? t(blocker) : ''; previewHint.hidden = !blocker; }
     reload.hidden = loaded && !dirty() && !conflict; reload.disabled = busy || ruleEntryPending();
     rules.disabled = busy || !loaded || ruleEntryPending(); trial.disabled = busy || !loaded || ruleEntryPending();
     cancelEdit.hidden = !ruleEntryPending();
@@ -160,7 +181,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
   rules.addEventListener('input', () => { editingRule = null; renderRuleList(); changed(); });
   encryption.addEventListener('input', () => { if (mode.value === 'off') manualEncryption = encryption.checked; changed(); });
   confirmPlaintext.addEventListener('input', render); sample.addEventListener('input', clearTrial);
-  file.addEventListener('change', invalidateTicket); password.addEventListener('input', invalidateTicket);
+  file.addEventListener('change', () => { invalidateTicket(); render(); }); password.addEventListener('input', () => { invalidateTicket(); render(); });
   async function action(work) {
     if (busy) return; busy = true; render(); status.textContent = t('privacy.working');
     try { await work(); }
@@ -168,8 +189,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
       const detail = apiErrorInfo(error);
       if (!loaded) { summaryUnknown = true; renderSummary(); }
       if (['privacy.settings_changed', 'privacy.config_changed', 'privacy.settings_conflict'].includes(detail.code)) conflict = true;
-      const keys = { 'privacy.regex_timeout': 'regexTimeout', 'privacy.regex_startup_timeout': 'regexTimeout', 'privacy.regex_invalid': 'regexInvalid', 'privacy.regex_empty_match': 'regexEmpty', 'privacy.regex_busy': 'regexBusy', 'privacy.regex_input_limit': 'regexLimit', 'privacy.regex_matches_limit': 'regexLimit', 'privacy.regex_rules_limit': 'regexLimit', 'privacy.preview_input_limit': 'regexLimit', 'privacy.json_sensitive_structure': 'jsonStructure', 'privacy.numeric_sensitive': 'numericSensitive', 'privacy.typed_sensitive': 'typedSensitive', 'privacy.encryption_required': 'encryptionRequired', 'privacy.plaintext_confirmation_required': 'plaintextRequired', 'credential_vault.unsupported': 'encryptionUnsupported', 'privacy.settings_changed': 'settingsChanged', 'privacy.config_changed': 'settingsChanged', 'privacy.settings_conflict': 'settingsChanged' };
-      status.textContent = t(error instanceof SyntaxError ? 'privacy.rulesInvalid' : 'privacy.' + (detail.code === 'privacy.policy_unavailable' ? 'policyRecoveryRequired' : keys[detail.code] || 'failed'));
+      status.textContent = t(error instanceof SyntaxError ? 'privacy.rulesInvalid' : privacySettingsFailureKey(detail.code));
     } finally { busy = false; render(); }
   }
   async function load() {
@@ -215,7 +235,9 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
     setTimeout(() => URL.revokeObjectURL(url), 1000); status.textContent = t('privacy.exported');
   });
   const previewButton = button('preview', 'privacyPreview', async () => {
-    invalidateTicket(); const selected = file.files?.[0]; if (!selected || selected.size > 2 * 1024 * 1024) throw Error();
+    invalidateTicket(); const blocker = recoveryPreviewBlocker(file.files, password.value);
+    if (blocker) { status.textContent = t(blocker); (blocker === 'privacy.previewNeedPassword' ? password : file).focus?.(); return; }
+    const selected = file.files[0];
     const pass = password.value; password.value = ''; const response = await api('/api/privacy/backup/preview', { method: 'POST', body: JSON.stringify({ backup: await selected.text(), password: pass }) });
     file.value = ''; ticket = response.ticket; preview.append(node('p', 'mergeNotice'));
     for (const row of [...response.summary.providers, ...response.summary.connectors]) { const item = node('p'); item.textContent = [row.label, row.origin, row.command].filter(Boolean).join(' · '); preview.append(item); }
@@ -249,7 +271,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
   const exampleToolbar = node('div', null, 'privacy-example-toolbar'); exampleToolbar.append(field('sampleExampleLabel', trialExample), fillExample);
   const trialFold = fold('trialTitle', 'privacyTrial'); trialFold.append(node('p', 'trialDraftHelp', 'field-help'), exampleToolbar, field('sample', sample), trial, output, hits);
   const channels = fold('compatibility', 'privacyCompatibility'); channels.append(node('p', 'nativeCoverage', 'field-help'), node('p', 'coverage', 'field-help'), coverage, node('p', 'sourceViews', 'field-help'), version);
-  const backup = fold('backup', 'privacyBackup'); backup.append(node('p', 'backupHelp', 'field-help'), field('password', password), exportButton, field('file', file), previewButton, preview, restoreHint, restore);
+  const backup = fold('backup', 'privacyBackup'); backup.append(node('p', 'backupHelp', 'field-help'), field('password', password), exportButton, field('file', file), previewButton, previewHint, preview, restoreHint, restore);
   const savebar = node('div', null, 'privacy-savebar'); savebar.id = 'privacySavebar';
   const footerStatus = node('div', null, 'privacy-footer-status'); footerStatus.append(pending, status); savebar.append(footerStatus, reload, save);
   const footer = document.querySelector('#settingsModal .modal-foot'); footer.prepend(savebar);

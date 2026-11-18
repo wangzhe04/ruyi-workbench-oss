@@ -395,7 +395,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 /* 走查 U13：管家视角右栏底部是「在工作台打开／停止」那一行，提示条改到中栏输入框上方居中，不再压着它。 */
 :root[data-shell-mode="steward"] .toast-tray { right: auto; left: 50%; bottom: 96px; transform: translateX(-50%); align-items: center; }
 .toast { background: var(--glass-bg-2); border: 1px solid var(--glass-border); border-left: 3px solid var(--accent);
-  -webkit-backdrop-filter: var(--glass-blur-1); backdrop-filter: var(--glass-blur-1); /* 第50波:浮层族,blur-1 防多 toast 叠爆预算 */ border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
+  -webkit-backdrop-filter: var(--glass-blur-1); backdrop-filter: var(--glass-blur-1); /* 第50波:浮层族,blur-1 防多 toast 叠爆预算 */ border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: min(340px, calc(100vw - 36px)); overflow-wrap: anywhere; max-height: 40vh; overflow: hidden; animation: slidein var(--dur-base) var(--ease-out); }
 .toast.err { border-left-color: var(--danger); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--warn); } /* v1.0-S6 (B4): failover 提示 — 复用既有 --warn 令牌，无新色字面量 */

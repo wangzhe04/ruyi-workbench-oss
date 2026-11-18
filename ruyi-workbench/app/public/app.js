@@ -30,6 +30,8 @@ import { createAgentWorkflowsDomain } from './js/agent-workflows.js';
 import { createNavigationControlsDomain } from './js/navigation-controls.js'; import { createSettingsSkillsDomain } from './js/settings-skills.js'; // 设置页「技能与模板」
 import { privacyFailure, privacyVoiceFailure } from './js/privacy-failure.js';
 import { createApiErrorPresenter } from './js/api-error-i18n.js';
+import { createMaintenanceGate } from './js/work-data-maintenance-gate.js'; // 151-U3
+import { createMemoryBadgeAttacher } from './js/memory-check-badge.js'; // 151-U4
 import { createSessionExperienceDomain } from './js/session-experience.js';
 import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
@@ -81,6 +83,7 @@ const {
 // 不再被流式跟随拉回底部（“弹回去滑不动”）。
 const messagesSmoothWheel = enableSmoothWheelScroll(() => $('messages'), chatScrollController);
 const apiErrText = createApiErrorPresenter({ t, apiErrorInfo, rawApiErrText, privacyFailure });
+const maintenanceGate = createMaintenanceGate({ api, apiErrorInfo, t });
 const {
   bindSettingsOperations,
   refreshMcpOps,
@@ -366,6 +369,7 @@ const {
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   renderToolImageInto, // 109b: 工具产出图内联缩略图,tool_result 到达后补渲染。
   renderToolResultInto, // N11: 结果框富渲染(多行文本块/截图缩略图)
+  attachMemoryBadge: createMemoryBadgeAttacher({ t }), noteMaintenanceFailure: (error, message) => { const box = $('promptInput'); if (maintenanceGate.noteFailure(error) && message && box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } },
   renderStaleBadgeInto, // 125-P2:缓存徽标,同一趟补渲染(判据只看结构化字段 fromCache/ts)。
   renderSessions: (...args) => renderSessions(...args),
   renderStaticMessage: (...args) => renderStaticMessage(...args),

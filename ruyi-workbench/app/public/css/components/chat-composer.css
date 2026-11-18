@@ -214,3 +214,6 @@
 .image-region-list button { margin-left: 8px; }
 .image-region-editor :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 560px) { .image-region-editor { padding: 12px; } .image-region-coordinates { grid-template-columns: repeat(2,minmax(0,1fr)); } .image-region-coordinates > button { grid-column: 1 / -1; } .image-region-actions > button { flex: 1 1 45%; } }
+/* 151 阶段 1 · U3：工作数据维护期输入框被禁用时，在输入框上方说明原因与该怎么做。 */
+.maintenance-composer-notice { margin-bottom: 6px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-fg); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.maintenance-composer-notice[hidden] { display: none; }

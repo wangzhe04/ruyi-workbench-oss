@@ -317,3 +317,10 @@ span.ts-undo, span.ts-undo-all { cursor: default; }   /* 刷新后画的「已�
    代价是页面高度每 3 秒（LIVE_TURN_POLL_MS）变一次；由 session-experience.js 的 paintLiveTurnCard()
    在重绘前后用 captureScrollAnchor / restoreScrollAnchor 兜住阅读位置，别处不必再管。 */
 .live-turn-truncated { color: var(--muted); font-size: var(--fs-xs); margin-bottom: 4px; }
+/* 151 阶段 1 · U4：每轮记忆检查摘要的尾标（与 token/用量同一行）；点开看候选、项目/全局分布与回退原因。 */
+.memory-check-badge { color: var(--muted); }
+.memory-check-badge > summary { cursor: pointer; list-style: none; }
+.memory-check-badge > summary::-webkit-details-marker { display: none; }
+.memory-check-badge[data-fallback] > summary { color: var(--warn-fg); }
+.memory-check-badge[open] > .memory-check-detail { margin-top: 4px; }
+.memory-check-detail p { margin: 2px 0; overflow-wrap: anywhere; }

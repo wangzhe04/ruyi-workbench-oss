@@ -1,10 +1,33 @@
 import { api, apiErrorInfo, apiRaw } from './net.js';
 import { t } from './i18n.js';
+import { apiErrorCopyKey } from './api-error-i18n.js';
 
 const panels = new WeakMap();
 const OPERATIONS = ['enable', 'disable', 'export', 'restore'];
 const STATES = ['queued', 'draining', 'preparing', 'ready', 'handoff', 'uncertain', 'cancel_requested', 'cancelled', 'failed'];
 const TERMINAL = new Set(['cancelled', 'failed']);
+// 151 阶段 1 · W10/U3：任务说明按【状态】选，不按 takeover。冷端只读服务对交接后的作业一律报 takeover:true，
+// 修前 failed 也显示「请等待新进程」；现在 handoff / uncertain / 交接后失败 / 交接前失败各说各的。
+export function workDataJobHelpKey(job) {
+  if (!job) return '';
+  if (job.state === 'handoff') return 'workData.handoffHelp';
+  if (job.state === 'uncertain') return 'workData.uncertainHelp';
+  if (job.state === 'failed') return job.takeover === true ? 'workData.failedAfterHandoffHelp' : 'workData.failureHelp';
+  if (job.state === 'cancelled') return 'workData.cancelledHelp';
+  return job.takeover === true ? 'workData.handoffHelp' : 'workData.drainHelp';
+}
+// processRestartRequired：这类操作靠换进程收尾。结果没法在本进程里确认时（uncertain、交接后失败、或答话的已是
+// 退休的冷端维护进程且不在交接中），明确告诉用户要重启如意。
+export function workDataRestartRequired(status, job) {
+  if (!status || status.processRestartRequired !== true || !job) return false;
+  if (job.state === 'uncertain' || (job.state === 'failed' && job.takeover === true)) return true;
+  return status.maintenance?.phase === 'retired' && job.state !== 'handoff';
+}
+// 码 → 人话（仍带着码，便于对照）；没有专属文案的码沿用原来那句带码的通用话。
+function codeText(code, fallbackKey) {
+  const key = apiErrorCopyKey(code);
+  return key ? t('workData.errorReason', { reason: t(key), code }) : t(fallbackKey, { code });
+}
 
 export function mountWorkDataSettings() {
   const host = document.getElementById('workDataSettings');
@@ -57,7 +80,8 @@ export function mountWorkDataSettings() {
   const download = button('downloadPackage', 'workDataDownload', () => void savePackage());
   const clear = button('clearDraft', 'workDataClearDraft', () => { if (clear.disabled) return; clearSecrets(); upload.value = ''; confirmRestore.checked = false; notice.textContent = ''; render(); });
   const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect, download, clear);
-  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, unavailable, notice, progress, actions);
+  const restartNotice = node('p', 'restartNotice', 'field-help work-data-restart-notice'); restartNotice.id = 'workDataRestartNotice'; restartNotice.hidden = true;
+  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, restartNotice, unavailable, notice, progress, actions);
   host.append(heading, summary, scope, retained, form);
   let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
   let pendingRestore = null, restoreServing = null;
@@ -70,7 +94,7 @@ export function mountWorkDataSettings() {
     if (pendingRestore && candidate && (candidate.id !== pendingRestore.id || candidate.operation !== 'restore' || TERMINAL.has(candidate.state))) pendingRestore = null;
   };
   const errorCode = error => { const code = apiErrorInfo(error).code; return /^[a-zA-Z0-9_.-]{1,128}$/.test(code || '') ? code : 'net.disconnected'; };
-  function report(error) { const code = errorCode(error); notice.textContent = t(code === 'net.disconnected' ? 'workData.disconnected' : 'workData.failed', { code }); notice.dataset.state = 'error'; }
+  function report(error) { const code = errorCode(error); notice.textContent = code === 'net.disconnected' ? t('workData.disconnected', { code }) : codeText(code, 'workData.failed'); notice.dataset.state = 'error'; }
   function blockedByCapability() {
     if (!current?.capabilities?.worker) return 'work_data_setup.worker_unavailable';
     // Export writes a backup directory; it never depended on a download endpoint.
@@ -125,7 +149,8 @@ export function mountWorkDataSettings() {
     uploadHelp.textContent = t('workData.restoreFileHelp', { bytes: maximum });
     if (upload.files?.length && !selectedFile()) uploadHelp.textContent = t('workData.restoreFileInvalid', { bytes: maximum });
     targetPreview.textContent = t('workData.restoreTarget', { target: targetDirectory() || t('workData.restoreTargetMissing') });
-    unavailable.hidden = !blocked; unavailable.textContent = blocked ? t('workData.unavailable', { code: blocked }) : '';
+    unavailable.hidden = !blocked; unavailable.textContent = blocked ? codeText(blocked, 'workData.unavailable') : '';
+    restartNotice.hidden = current?.processRestartRequired !== true || stale || active();
     submit.textContent = t('workData.operation.' + operation.value); submit.disabled = disabled || !!blocked || !backup.value
       || password.value.length < 12 || new TextEncoder().encode(password.value).length > 1024 || password.value.includes('\0')
       || password.value !== confirmation.value || operation.value === 'disable' && !plaintext.checked
@@ -144,9 +169,14 @@ export function mountWorkDataSettings() {
     progress.replaceChildren();
     if (job) {
       const line = node('strong'); line.textContent = t('workData.job.' + job.state); progress.append(line);
-      const help = node('p', null, 'field-help'); help.textContent = t(job.takeover || ['handoff', 'uncertain'].includes(job.state) ? 'workData.handoffHelp'
-        : job.state === 'cancelled' ? 'workData.cancelledHelp' : job.state === 'failed' ? 'workData.failureHelp' : 'workData.drainHelp'); progress.append(help);
-      if (job.error) { const code = node('code'); code.textContent = typeof job.error === 'string' && /^[\w.-]{1,128}$/.test(job.error) ? job.error : 'work_data_setup.job_failed'; progress.append(code); }
+      const help = node('p', null, 'field-help'); help.textContent = t(workDataJobHelpKey(job)); progress.append(help);
+      if (job.error) {
+        const value = typeof job.error === 'string' && /^[\w.-]{1,128}$/.test(job.error) ? job.error : 'work_data_setup.job_failed';
+        const reasonKey = apiErrorCopyKey(value);
+        if (reasonKey) { const reason = node('p', null, 'field-help work-data-reason'); reason.textContent = t(reasonKey); progress.append(reason); }
+        const code = node('code'); code.textContent = value; progress.append(code);
+      }
+      if (workDataRestartRequired(current, job)) { const restart = node('p', 'restartRequired', 'work-data-restart'); restart.setAttribute('role', 'alert'); progress.append(restart); }
     } else if (restoreServing && !stale && rootKey(current?.selectedBase) === rootKey(restoreServing.target)) {
       const line = node('strong'); line.textContent = t('workData.restoreServing'); progress.append(line);
       const help = node('p', null, 'field-help'); help.textContent = t('workData.restoreServingHelp', { target: restoreServing.target }); progress.append(help);
@@ -194,6 +224,10 @@ export function mountWorkDataSettings() {
         }
         stale = false;
         if (!unknownSubmission) { notice.textContent = ''; notice.dataset.state = ''; }
+        // 维护期输入框闸门（app.js 的 work-data-maintenance-gate）从这里拿到同一份已校验的状态，不再自己多轮询一路。
+        if (typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('workdata:status', { detail: { maintenance: current.maintenance || null, job, processRestartRequired: current.processRestartRequired === true } }));
+        }
       } catch (error) { stale = true; report(error); }
       finally { reading = null; loading = false; render(); schedule(); }
     })();

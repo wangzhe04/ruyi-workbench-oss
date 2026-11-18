@@ -3,6 +3,8 @@
 // request outcomes; it is not a layout/accessibility browser verification.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/js/work-data-settings.js'),'utf8');
+// 151 阶段 1:面板经 api-error-i18n 的 apiErrorCopyKey 把码翻成人话。imports 被剥掉了,这里装入真模块的那个函数(不是桩)。
+const {apiErrorCopyKey}=vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/js/api-error-i18n.js'),'utf8').replace(/^export /gm,'')+'\n({apiErrorCopyKey});',{});
 // The raw (binary) request body must never be routed through the JSON api mock:
 // it is a File, not JSON. Keep the original object by identity and a byte copy
 // so tests can prove exactly what left the page, without parsing it as JSON.
@@ -41,7 +43,7 @@ function fixture(respond,rawRespond){
   if(typeof rawRespond!=='function')throw Error('unexpected raw request in this test: '+route);
   return rawRespond(route,options,record,rawCalls);
  };
- const context={document,window,WeakMap,Set,TextEncoder,URL,Blob,Response,api,apiRaw,t,apiErrorInfo:error=>({code:error?.error?.code||error?.code||(error?.name==='TypeError'?'net.disconnected':'')}),setTimeout:fn=>{const id=++serial;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id),
+ const context={document,window,WeakMap,Set,TextEncoder,URL,Blob,Response,api,apiRaw,t,apiErrorCopyKey,apiErrorInfo:error=>({code:error?.error?.code||error?.code||(error?.name==='TypeError'?'net.disconnected':'')}),setTimeout:fn=>{const id=++serial;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id),
   localStorage:{setItem(){throw Error('UI stored a secret');}},sessionStorage:{setItem(){throw Error('UI stored a secret');}}};
  const mount=vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'')+'\nmountWorkDataSettings;',context);
  const panel=mount();

@@ -60,7 +60,8 @@ test('rebound Host cross-origin bootstrap and browser cross-site requests never 
 test('all writes cancel unknown ids query aliases and warm routes fail closed without calling status owner',async t=>{
   let reads=0;const f=await fixture(t,{readStatus:()=>{reads++;return ordinary();}});
   for(const [url,method] of [['/api/work-data/jobs','POST'],['/api/work-data/jobs/'+id+'/cancel','POST'],['/api/config','POST'],
-    ['/api/work-data/jobs/'+other,'GET'],['/api/work-data/status?token='+f.token,'GET'],['/api/status','GET'],['/','GET']]){
+    // 151 阶段 1:GET / 不再在这张表里 —— 它现在回静态维护页(见下方「maintenance page」两条);POST / 仍按写请求拒绝。
+    ['/api/work-data/jobs/'+other,'GET'],['/api/work-data/status?token='+f.token,'GET'],['/api/status','GET'],['/','POST'],['/?x=1','GET']]){
     const result=await request(f.port,url,{method,headers:f.headers});assert.ok([404,409].includes(result.status));assert.equal(result.value.ok,false);
   }
   assert.equal(reads,0);
@@ -127,6 +128,39 @@ test('original IPv6 loopback binding supports actual bootstrap progress and succ
   const result=await request(port,undefined,{hostname:'::1',headers:{'x-wcw-token':bootstrap.value.token}});assert.equal(result.status,200);assert.equal(result.value.job.id,id);
   const rebound=await request(port,'/api/bootstrap',{hostname:'::1',method:'POST',headers:{host:'evil.test:'+port}});assert.equal(rebound.status,403);
   await host.close();const successor=http.createServer();await bind(successor,port,'::1');await new Promise(resolve=>successor.close(resolve));
+});
+// 151 阶段 1 · U3/W10:交接期刷新页面得到的是一页可读的维护页,不是 403 JSON。
+function rawRequest(port,url,{method='GET',headers={}}={}){
+  return new Promise((resolve,reject)=>{
+    const req=http.request({hostname:'127.0.0.1',port,path:url,method,headers,agent:false},res=>{
+      const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('error',reject);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,text:Buffer.concat(chunks).toString('utf8')}));
+    });req.on('error',reject);req.setTimeout(2000,()=>req.destroy(Error('unit request timeout')));req.end();
+  });
+}
+test('maintenance page: GET / without a token is a static bilingual page with the current operation and no secrets',async t=>{
+  const value=ordinary(),f=await fixture(t,{readStatus:()=>value});
+  for(const [state,zh,en] of [['handoff','正在交接','handing off'],['uncertain','尚未确认','not confirmed'],['failed','没有完成','did not finish']]){
+    value.job.state=state;value.job.error=state==='handoff'?undefined:'work_data_setup.worker_failed';
+    const page=await rawRequest(f.port,'/',{headers:{'sec-fetch-site':'none'}});
+    assert.equal(page.status,503);assert.match(page.headers['content-type'],/^text\/html; charset=utf-8/);assert.equal(page.headers['cache-control'],'no-store');
+    assert.match(page.headers['content-security-policy'],/default-src 'none'/);assert.equal(page.headers['x-frame-options'],'DENY');
+    assert.ok(page.text.includes(zh)&&page.text.toLowerCase().includes(en),state+' copy in both languages');
+    assert.ok(page.text.includes('启用工作数据加密')&&page.text.includes('Turning on work data encryption'),'names the running operation');
+    assert.doesNotMatch(page.text,/<script|\son[a-z]+\s*=|javascript:/i);
+    for(const leak of [f.token,secret,'actual.ruyi','C:\\backup','work_data_setup.worker_failed',id])assert.ok(!page.text.includes(leak),'page must not contain '+leak);
+  }
+  const head=await rawRequest(f.port,'/',{method:'HEAD'});assert.equal(head.status,503);assert.equal(head.text,'');
+  const index=await rawRequest(f.port,'/index.html');assert.equal(index.status,503);assert.match(index.text,/Ruyi is running work data maintenance/);
+});
+test('maintenance page keeps the host, origin and body gates and degrades to a generic page when status is unreadable',async t=>{
+  let fail=false,owned=true;const f=await fixture(t,{assertColdOwner:()=>owned,readStatus:()=>{if(fail)throw Error(secret+' C:\\private');return ordinary();}});
+  for(const headers of [{host:'evil.test:'+f.port},{origin:'http://evil.test:'+f.port},{'sec-fetch-site':'cross-site'}]){
+    const result=await rawRequest(f.port,'/',{headers});assert.equal(result.status,403);assert.ok(!/<html/i.test(result.text));assert.equal(JSON.parse(result.text).error.code.startsWith('auth.'),true);
+  }
+  const body=await rawRequest(f.port,'/',{headers:{'content-length':'2'}});assert.equal(body.status,413);
+  fail=true;const generic=await rawRequest(f.port,'/');assert.equal(generic.status,503);assert.match(generic.text,/工作数据维护/);assert.match(generic.text,/Work data maintenance/);
+  assert.ok(!generic.text.includes(secret)&&!generic.text.includes('C:\\private'));
+  fail=false;owned=false;const lost=await rawRequest(f.port,'/');assert.equal(lost.status,503);assert.ok(!/<html/i.test(lost.text),'ownership loss before routing still refuses as before');
 });
 test('arbitrary remote or DNS bind hosts are rejected before listener creation',()=>{
   for(const bindHost of ['0.0.0.0','::','evil.test','127.0.0.1.evil','[::1]',''])assert.throws(()=>api.create({id,port:34567,bindHost,assertColdOwner:()=>true,readStatus:ordinary}),{code:'work_data_setup.http_host_invalid'});

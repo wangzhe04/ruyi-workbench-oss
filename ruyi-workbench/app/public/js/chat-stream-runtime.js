@@ -105,7 +105,7 @@ export function createChatStreamRuntime(deps = {}) {
     renderMarkdown,
     renderMissionBar,
     // 109b: 工具产出图内联缩略图,tool_result 到达后与 renderGitDiffInto 同一趟补渲染(见下方 case 'tool_result')。
-    renderToolImageInto = () => {}, renderToolResultInto = null, // N11: renderToolResultInto = 结果框富渲染(多行文本块/截图缩略图),缺省退回整份 JSON 文本
+    renderToolImageInto = () => {}, renderToolResultInto = null, attachMemoryBadge = () => null, noteMaintenanceFailure = () => {}, // N11: renderToolResultInto = 结果框富渲染(多行文本块/截图缩略图),缺省退回整份 JSON 文本
     // 125-P2:缓存徽标。与上面那两个补渲染同一个模具 —— 摘要行的徽标位在 tool_use 阶段是空的,
     // 结果到达才知道这次是不是回落了缓存。
     renderStaleBadgeInto = () => {},
@@ -302,7 +302,7 @@ export function createChatStreamRuntime(deps = {}) {
     const box = $('messages');
     const { row, main } = messageShell('assistant', new Date().toISOString(), currentEngineMeta());
     const live = { thinkingText: '', thinkingActive: false, bufferText: '', thinkingEl: null, thinkingNode: null, bubble: null, textNode: null, renderedChars: 0, toolCards: new Map(), toolBatches: new Map(), toolIndex: [], subCards: new Map(), workflowCards: new Map(), semanticCards: new Map(), semanticData: new Map(), completedRun: [], completedGroup: null, rendered: false, rafPending: false, rafId: 0, thinkingFollowTimer: 0, followThinkingPanel: false };
-    live.narrative = el('div', 'turn-narrative');
+    live.narrative = el('div', 'turn-narrative'); live.main = main;
     main.appendChild(live.narrative);
     live.toolsWrap = live.narrative; // compatibility host for sub-agent/workflow cards
     startLiveTextSegment(live);
@@ -823,7 +823,7 @@ export function createChatStreamRuntime(deps = {}) {
           ...(turnState.knownMessages ? { knownMessages: turnState.knownMessages } : {}),
         }),
       });
-      if (!res.ok || !res.body) throw new Error(await res.text());
+      if (!res.ok || !res.body) { const failure = new Error(await res.text()); failure.status = res.status; throw failure; }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -882,7 +882,7 @@ export function createChatStreamRuntime(deps = {}) {
       live = turnState.live; main = turnState.main;
       turnEndedBadly = true;
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
-      else if (/"session\.turn_busy_elsewhere"/.test(String(err && err.message || ''))) { /* 线程正被别处起的回合占着(后台代理唤醒 / 管家 / 定时任务)而本页的插话快照还没跟上:服务端 409、这句没发出 —— 放回输入框,不吞 */ appendMsgNote(main, live, t('chat.turnBusyElsewhere')); const box = $('promptInput'); if (box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } toast(t('chat.turnBusyElsewhere')); } else { if (privacyFailure(err)) main.appendChild(errorCard('', err, false)); else appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
+      else if (/"session\.turn_busy_elsewhere"/.test(String(err && err.message || ''))) { /* 线程正被别处起的回合占着(后台代理唤醒 / 管家 / 定时任务)而本页的插话快照还没跟上:服务端 409、这句没发出 —— 放回输入框,不吞 */ appendMsgNote(main, live, t('chat.turnBusyElsewhere')); const box = $('promptInput'); if (box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } toast(t('chat.turnBusyElsewhere')); } else { if (privacyFailure(err)) main.appendChild(errorCard('', err, false)); else appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); noteMaintenanceFailure(err, message); }
       finalizeLive(live);
       // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
       // 也把重取回来的会话装回 state(与成功路径同口径,不重画):中止/断流时服务端已经落了半截回答,修前 state 里没有它,
@@ -1222,7 +1222,7 @@ export function createChatStreamRuntime(deps = {}) {
       if (card.resPre && !card.resPre.textContent) card.resPre.textContent = t('chat.toolResultMissing');
       settleNarrativeTool(live, id, true);
     }
-    compactNarrativeProcessRuns(live && live.narrative);
+    compactNarrativeProcessRuns(live && live.narrative); attachMemoryBadge(live, null);
     if (live.bubble && !live.bufferText && (live.errorShown || live.noteShown || live.narrative.childElementCount > 1)) sealLiveTextSegment(live);
     else if (live.bubble) {
       if (!live.bufferText) live.bufferText = t('chat.noTextOutput');
@@ -1338,7 +1338,7 @@ export function createChatStreamRuntime(deps = {}) {
       case 'meta': {
         // Engine-aware prefix: provider turns show the provider label, claude turns show 'claude'.
         const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : (evt.agentCliLabel || agentCliMeta(evt.agentCliType).eventTag);
-        const mc = evt.memoryCheck;
+        const mc = evt.memoryCheck; if (live && mc) live.memoryCheck = mc;
         const semanticFallback = mc?.semantic?.fallback?.reason;
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
@@ -1565,7 +1565,7 @@ export function createChatStreamRuntime(deps = {}) {
         // the streamed markdown bubble intact; this card sits after the tools wrap.
         { const record = turnToolIndexCard(live && live.toolIndex ? live.toolIndex : [], main); if (record) main.appendChild(record); }
         main.appendChild(turnSummaryCard(evt));
-        if (live && live.pendingUsage) { main.appendChild(usageLine(live.pendingUsage)); live.pendingUsage = null; }
+        if (live && live.pendingUsage) { const line = usageLine(live.pendingUsage); attachMemoryBadge(live, line); main.appendChild(line); live.pendingUsage = null; }
         // v0.9-S1 (C6): remember whether anything actually changed, so a following error `result` can decide
         // whether to append the 「本次未改动任何文件」 reassurance line.
         if (live) live.filesTouched = (Array.isArray(evt.filesChanged) && evt.filesChanged.length > 0)

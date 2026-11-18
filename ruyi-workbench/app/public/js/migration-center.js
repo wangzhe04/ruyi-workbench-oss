@@ -4,6 +4,7 @@ import { api, apiErrorInfo } from './net.js';
 import { el, fmtBytes, fmtTime, toast } from './util.js';
 import { t, tCount } from './i18n.js';
 import { confirmDanger } from './confirm-panel.js';
+import { apiErrorCopyKey, looksLikeRawPayload } from './api-error-i18n.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // migration-center.js — 迁移中心（W2，56 号文 §3）。
@@ -97,7 +98,12 @@ export function migrationErrorText(e) {
   if (src && typeof src === 'object' && !(src instanceof Error) && typeof src.error === 'string') src = { error: { code: 'migration.' + src.error.replace(/-/g, '_'), message: src.error } };
   const info = apiErrorInfo(src);
   const code = String(info.code || '').replace(/^migration\./, '');
-  return ERROR_CODES.has(code) ? t('migration.error.' + code) : (info.message || String(e || ''));
+  if (ERROR_CODES.has(code)) return t('migration.error.' + code);
+  // 151 阶段 1 · W10：迁移中心也会收到 work_data_backup.* 等工作数据码（13u）—— 有专属文案就用；绝不把响应体 JSON 原样端上屏。
+  const copy = apiErrorCopyKey(info.code);
+  if (copy) return t(copy);
+  const text = info.message || String(e || '');
+  return looksLikeRawPayload(text) ? (info.code ? t('error.api.codeOnly', { code: info.code }) : t('error.api.unreadableResponse')) : text;
 }
 const errorText = migrationErrorText;
 function statusChip(status) {

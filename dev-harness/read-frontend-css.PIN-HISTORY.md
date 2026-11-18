@@ -916,3 +916,7 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 
 // M4+committed-B2 composition20261030: only the accepted image editor composer CSS is added to8cca.
 // Exact in-memory replacement with8cca composer restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b; no other CSS layer is replaced.
+
+// 3.1 精简 P12 重钉(前值 3709bb1f…):仅 chat-shell.css 删去从未渲染的账本状态卡 .mission-card / -ok / -warn / -head / -body 五条规则及其说明注释
+// (missionStateCard 零调用点,随 6 个 i18n 键一起删除),其余各层逐字未动。算法自证:只把 chat-shell.css 的内存读取替回基线 ce9b329d
+// 字节时精确复现 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;反向检查:内存里改坏 .mission-bar-list li .mb-text 一条规则得到不同摘要,D51/F3 当场拒绝。
