@@ -376,7 +376,7 @@ function sessionSearchHayOf(entry) {
   return hay;
 }
 function sessionSearchScope(indexEnabled = true) { return SessionFullTextHooks.scope(indexEnabled); }
-async function searchSessionsByContent(query, limit) { return SessionFullTextHooks.search(query, limit); }
+async function searchSessionsByContent(query, limit, options) { return SessionFullTextHooks.search(query, limit, options); }
 
 // GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
 // 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
@@ -528,7 +528,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, apiFailure('session_search.disabled', {}, 'session search index is disabled', 200));
     }
     const params = new URL(req.url, 'http://x').searchParams;
-    return SessionFullTextHooks.withUI(req,res,params.get('project'),async()=>{const result=await searchSessionsByContent(params.get('q')||'',params.get('limit'));return SessionFullTextHooks.emitUI(result,value=>send(res,json(value)));});
+    return SessionFullTextHooks.withUI(req,res,params.get('project'),async()=>{const result=await searchSessionsByContent(params.get('q')||'',params.get('limit'),{preview:params.get('preview')==='1'});return SessionFullTextHooks.emitUI(result,value=>send(res,json(value)));});
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);

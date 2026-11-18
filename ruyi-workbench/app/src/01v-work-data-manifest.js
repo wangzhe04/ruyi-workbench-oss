@@ -52,13 +52,16 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
     catch (cause) { throw error('durability_unsupported', cause); }
     finally { if (handle) await handle.close(); }
   }
-  function create({ base, publish: explicitPublish } = {}) {
+  function create({ base, publish: explicitPublish, candidateAllocator } = {}) {
     if (typeof base !== 'string' || !pathApi.isAbsolute(base)) throw error('base_invalid');
     const publish = explicitPublish === undefined ? Hooks.publish : explicitPublish;
     if (publish !== undefined && typeof publish !== 'function') throw error('publisher_invalid');
     const root = pathApi.resolve(base), control = pathApi.join(root, '.work-data');
     const generations = pathApi.join(control, 'generations'), active = pathApi.join(control, 'active-v1.json');
-    const candidates = new WeakMap();
+    const candidates = new WeakMap(), candidateState = new WeakMap(), candidateBoundaries = new WeakMap();
+    const candidateIssued = candidate => ["creating", "created"].includes(candidateState.get(candidate));
+    const candidateReady = candidate => candidateState.get(candidate) === "created";
+    const candidateBoundary = (candidate,sourceProof) => { const known=candidateBoundaries.get(candidate); if(!candidateReady(candidate) || !known || !sourceProof || digest(JSON.stringify({sourceFiles:sourceProof.sourceFiles,sourceDirectories:sourceProof.sourceDirectories}))!==known.baselineSha256) throw error("candidate_invalid"); return known.boundary; };
     let committing = false;
     function activeFromBytes(bytes) {
       if (!Buffer.isBuffer(bytes) || bytes.length > MAX_BYTES) throw error('invalid');
@@ -140,10 +143,22 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
       try { await fsApi.mkdir(generations); } catch (cause) { if (cause.code !== 'EEXIST') throw error('prepare_failed', cause); }
       await directory(generations);
       const id = cryptoApi.randomBytes(24).toString('hex'), target = pathApi.join(generations, id);
-      try { await fsApi.mkdir(target); } catch (cause) { throw error('prepare_failed', cause); }
-      await directory(target);
       const pointer = { schema: SCHEMA, generation: previous.generation + 1, id, mode, activeRoot: 'generations/' + id };
       const candidate = Object.freeze({ ...pointer, root: target, pointerProof: pointerProof(JSON.stringify(pointer) + '\n') });
+      if (candidateAllocator === undefined) {
+        try { await fsApi.mkdir(target); } catch (cause) { throw error('prepare_failed', cause); }
+      } else {
+        if (typeof candidateAllocator !== 'function') throw error('prepare_failed');
+        candidateState.set(candidate, 'creating');
+        try {
+          const created=await candidateAllocator({ candidate, root, expected: proof, assertIssued: candidateIssued });
+          if(!created || created.candidate!==candidate || created.root!==target || !/^[a-f0-9]{24}$/.test(created.id||'') || !/^[a-f0-9]{64}$/.test(created.baselineSha256||'') || !Array.isArray(created.parents) || created.parents.length!==3 || created.parents.some(id=>!/^[a-f0-9]{24}$/.test(id||''))) throw error('candidate_invalid');
+          candidateBoundaries.set(candidate,Object.freeze({baselineSha256:created.baselineSha256,boundary:Object.freeze({rel:'.work-data/generations/'+id,id:created.id,parents:Object.freeze([...created.parents])})}));
+        }
+        catch (cause) { candidateState.set(candidate, 'failed'); throw error('prepare_failed', cause); }
+      }
+      try { await directory(target); } catch(cause) { if(candidateAllocator !== undefined) candidateState.set(candidate, 'failed'); throw cause; }
+      if(candidateAllocator !== undefined) candidateState.set(candidate, 'created');
       candidates.set(candidate, Object.freeze({ proof, generation: candidate.generation, mode, root: target }));
       return candidate;
     }
@@ -195,7 +210,7 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
         committing = false;
       }
     }
-    return Object.freeze({ readActive, readCaptured, prepare, commit });
+    return Object.freeze({ readActive, readCaptured, prepare, commit, ...(candidateAllocator === undefined ? {} : { candidateBoundary }) });
   }
   return Object.freeze({ create, SCHEMA, Hooks });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

@@ -405,22 +405,23 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
   // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope, reason: 'query_too_short' };
-  const metas = await SessionFullTextHooks.metadata();
-  const byId = new Map(metas.map(meta => [meta.id, meta]));
-  const relations = threadRelationsIndex(metas);
-
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
-  let degraded = '';let coverage=null;const matches=new Map(),sourceBoundMethod=typeof SessionFullTextHooks.usesSourceBoundMethod==='function'&&SessionFullTextHooks.usesSourceBoundMethod();
+  let degraded = '';let coverage=null,lexicalPreview=false;const matches=new Map(),sourceBoundMethod=typeof SessionFullTextHooks.usesSourceBoundMethod==='function'&&SessionFullTextHooks.usesSourceBoundMethod();
   if (sessionSearchIndexEnabled(config)||sourceBoundMethod) {
     // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
-    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10));
+    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10),{previewIfLarge:true});
     if (found && Array.isArray(found.results)) {
-      indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;for(const match of found.results)matches.set(match.id,match);
+      if (found.reason === 'deadline' && found.indexed === null)
+        return SessionFullTextHooks.finish(stewardForeignProjection({ok:true,query:q,results:[],indexed:null,scope:found.scope,coverage:found.coverage,partial:true,reason:'deadline'}));
+      indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;lexicalPreview=found.lexicalPreview===true;for(const match of found.results)matches.set(match.id,match);
       ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
     } else throw Object.assign(Error('session_search.result_invalid'),{code:'session_search.result_invalid'});
     if(!sessionSearchIndexEnabled(config))degraded='index_disabled';
   } else degraded = 'index_disabled';
+  const metas = await SessionFullTextHooks.metadata();
+  const byId = new Map(metas.map(meta => [meta.id, meta]));
+  const relations = threadRelationsIndex(metas);
   if (!ranked.length && !sessionSearchIndexEnabled(config)&&!sourceBoundMethod) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
@@ -491,7 +492,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return SessionFullTextHooks.finish(stewardForeignProjection({ok:true,query:q,results,indexed,scope,...(coverage?{coverage}:{}),...(degraded?{degraded}:{})}));
+  return SessionFullTextHooks.finish(stewardForeignProjection({ok:true,query:q,results,indexed,scope,...(coverage?{coverage}:{}),...(lexicalPreview?{lexicalPreview:true,partial:true,reason:'index_preparing'}:{}),...(degraded?{degraded}:{})}));
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。

@@ -382,7 +382,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         if (context.operation === 'enable') uploadsOwnerFactory = ({ root, keys }) => WorkDataUploadsOwner.create({ root, keys, enabled: () => true });
         else if (context.operation === 'disable') uploadsRestoreFactory = ({ sourceRoot, keys }) => WorkDataUploadsOwner.create({ root: sourceRoot, keys, enabled: () => true });
         const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,onNativeCause:retainHelper,
-          manifest: WorkDataManifest.create({ base }), protector,
+          manifest: WorkDataManifest.create({ base, candidateAllocator: typeof host.createCandidateBoundary==='function' ? ({candidate,root,assertIssued}) => host.createCandidateBoundary({candidate,root,sourceProof:captured,assertIssued,ownership:context.ownership,assertExclusive,assertIntent:async()=>{await control.verify(intent);},onNativeCause:retainHelper}) : undefined }), protector,
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
           assertIntent: async () => { await control.verify(intent); return Object.freeze({ ownedFile: intent }); },
           onCandidate: ({ candidate }) => update('candidate', candidate),

@@ -58,6 +58,7 @@ test('private restored receipt binds mapped paths, staged DATA and an unchanged 
    pathMappings:[{source:oldFile,target:newFile,dir:false},{source:oldDirectory,target:newDirectory,dir:true}]};},
   async installPortable(){await fsp.mkdir(at(newDirectory));await fsp.writeFile(at(newFile),opaque);await fsp.writeFile(at(archive),staged);return installed;},
   async verifyPortableInstalled(){return installed;},
+  async retirePortable(){return {target,stageRemoved:true};},
  });
  const sourceOwner={roots:[f.base]},firstOwner={roots:[target]},nextOwner={roots:[target]};
  const live=new Set([sourceOwner,firstOwner]),exclusive=owner=>live.has(owner);
@@ -72,9 +73,12 @@ test('private restored receipt binds mapped paths, staged DATA and an unchanged 
    fingerprint:captured=>proofs.get(captured),
   };
  };
- const producer=()=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership:sourceOwner,assertExclusive:exclusive,
-  protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,skillBackupOwner,restoredTreeFor});
+ const producer=(special=skillBackupOwner)=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership:sourceOwner,assertExclusive:exclusive,
+  protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,skillBackupOwner:special,restoredTreeFor});
  const owner=producer(),{serialized}=await owner.seal({password,appVersion:'3.0.1',generation:0});
+ const incomplete=producer(async()=>{const {retirePortable,...methods}=await skillBackupOwner();return methods;});
+ await assert.rejects(incomplete.restore({serialized,password,target,targetOwnership:firstOwner}),{code:'work_data_full.special_owner_required'});
+ assert.equal(fs.existsSync(target),false);
  const result=await owner.restore({serialized,password,target,targetOwnership:firstOwner});
  const receipt=await owner.describeRestored(result),files=new Map(receipt.namespace.files.map(row=>[row.path,row]));
  assert.equal(receipt.packageSha256,hash(Buffer.from(serialized)));

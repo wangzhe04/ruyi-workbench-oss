@@ -2,7 +2,7 @@
 const { test } = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), crypto = require('node:crypto');
 const { check, sr2Accepted, sr6Accepted } = require('../lib/semantic-release-gates.cjs');
-const acceptedMetrics = () => ({schema:1,kind:'semantic-sr2-acceptance',realModel:true,encryptedSource:true,frozenBeforeEvaluation:true,fixtureSha256:'a'.repeat(64),quality:{noAnswerCount:40,chineseRecallAt5:.95,zhEnRecallAt5:.9,enZhRecallAt5:.9,mrr:.8,noAnswerFalsePositiveRate:.025,completeCoverage:true},performance:{fragments:1000,warmSamplesMs:Array(20).fill(400),completeCoverage:true,includesSourceAndPrivacy:true,coldReadyMs:2000,indexBuildMs:800,prewarmMs:12000},rawEvidence:[]});
+const acceptedMetrics = () => ({schema:1,kind:'semantic-sr2-acceptance',realModel:true,encryptedSource:true,frozenBeforeEvaluation:true,fixtureSha256:'a'.repeat(64),quality:{noAnswerCount:40,chineseRecallAt5:.95,zhEnRecallAt5:.9,enZhRecallAt5:.9,mrr:.8,noAnswerFalsePositiveRate:.025,completeCoverage:true},performance:{fragments:1000,warmSamplesMs:Array(20).fill(400),warmQueryEncodeSamplesMs:Array(20).fill(100),completeCoverage:true,includesSourceAndPrivacy:true,coldReadyMs:2000,indexBuildMs:800,prewarmMs:12000},rawEvidence:[]});
 test('3.1 release rejects pending gates and stale evidence while candidate 3.0 builds remain possible', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-semantic-gates-'));
   t.after(() => { assert.equal(path.dirname(root), path.resolve(os.tmpdir())); fs.rmSync(root, { recursive: true, force: true }); });
@@ -21,6 +21,12 @@ test('3.1 release rejects pending gates and stale evidence while candidate 3.0 b
   data.gates[5].acceptance=write('sr6.json',JSON.stringify(privacy));
   data.bindings = ['app/server.js', 'semantic-runtime/models.lock.json', 'semantic-runtime/worker.cjs'].map(name => write('ruyi-workbench/' + name, name));
   save(); assert.equal(check(root).passed, true);
+  const historical = structuredClone(metrics);
+  delete historical.performance.warmQueryEncodeSamplesMs;
+  data.gates[1].acceptance = write('sr2.json', JSON.stringify(historical));
+  save(); assert.throws(() => check(root), /SR2 quantitative quality\/performance acceptance is missing or failed/);
+  data.gates[1].acceptance = write('sr2.json', JSON.stringify(metrics));
+  save();
   write('receipt.json', '{}'); assert.throws(() => check(root), /evidence is missing or changed/);
   write('receipt.json', '{"passed":true}'); write('ruyi-workbench/app/server.js', 'changed'); assert.throws(() => check(root), /bindings are missing or changed/);
 });
@@ -56,4 +62,36 @@ test('SR2 refuses high false positives, incomplete or selectively summarized lat
   bad(v=>v.performance.includesSourceAndPrivacy=false);
   bad(v=>v.performance.fragments=999);
   bad(v=>v.frozenBeforeEvaluation=false);
+});
+test('SR2 checks independent nearest-rank p95 limits on paired warm query samples', () => {
+  const value = acceptedMetrics();
+  value.rawEvidence = [{}, {}];
+  const p = value.performance;
+  p.warmSamplesMs = [501, ...Array(19).fill(500)];
+  p.warmQueryEncodeSamplesMs = [151, ...Array(19).fill(150)];
+  assert.equal(sr2Accepted(value), true);
+
+  p.warmQueryEncodeSamplesMs[1] = 150.01;
+  assert.equal(sr2Accepted(value), false);
+  p.warmQueryEncodeSamplesMs[1] = 150;
+  p.warmSamplesMs[1] = 500.01;
+  assert.equal(sr2Accepted(value), false);
+});
+test('SR2 requires finite nonnegative encode timings for the entire warm search cohort', () => {
+  const value = acceptedMetrics();
+  value.rawEvidence = [{}, {}];
+  const p = value.performance;
+  for (const count of [19, 21]) {
+    p.warmQueryEncodeSamplesMs = Array(count).fill(100);
+    assert.equal(sr2Accepted(value), false, `encode sample count ${count}`);
+  }
+  p.warmQueryEncodeSamplesMs = Array(20).fill(100);
+  for (const invalid of [NaN, Infinity, -1, '100', null]) {
+    p.warmQueryEncodeSamplesMs[0] = invalid;
+    assert.equal(sr2Accepted(value), false, `encode sample ${invalid}`);
+  }
+  delete p.warmQueryEncodeSamplesMs[0];
+  assert.equal(sr2Accepted(value), false);
+  p.warmQueryEncodeSamplesMs[0] = 0;
+  assert.equal(sr2Accepted(value), true);
 });

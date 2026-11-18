@@ -1,0 +1,955 @@
+{
+  "schema": 1,
+  "campaign": "3.1 local encrypted lifecycle",
+  "cases": [
+    {
+      "output": "release149-m3-current-r9",
+      "source": "46b7aa24ca8ea90cc95a580cc4617ea0645a3353c402d6399b9bfde192d8c936",
+      "hashes": {
+        "contract.json": "db8e0d15cd67c5275d2322cf87698b2327437e15c98e6b5abbcdc3ae5fc72b6c",
+        "bootstrap-receipt.json": "47ac1c44270d3396ea7bddd635c7260287e2b035b0887025afb16df134e9c3d8",
+        "outer-job-receipt.json": "14beb451bc86941fd828c1ad3c655b836afd549c5c0a3a3aacda84c3a453d5fa",
+        "launcher-receipt.json": "fced3dd50e8f97987d23483dce6a1ffca2059164d45a457d9e68e5f0cfed5302",
+        "baseline-evidence/events.jsonl": "1534906ed6303a8231e37059c916e10c2e388d89edca11ba46f099bbc6cad94a"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "FAIL_RETAIN_AND_FENCE",
+      "outer": "FAIL",
+      "forced": true,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 303,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    },
+    {
+      "output": "release149-m3-current-r13",
+      "source": "e2573e1bdc0548058df35543ce79d870a13c89cef573b8d6c1cf7047062c32b8",
+      "hashes": {
+        "contract.json": "d1d0569aa3e3b93813ff6a9fee449d7d8384fe9d270e04ff5fcc0e98d5acfad7",
+        "bootstrap-receipt.json": "0d6e4df12310902bddf3ae3f51b337c325bec20a77a70915e067d9083e89c116",
+        "outer-job-receipt.json": "bbde875f0046b0e5822e4456670d73cd8429d9ade0ecb01de333caf240a99972",
+        "launcher-receipt.json": "0941a7b872cf7ca6af7537318a8d32ee13103808b2d00022d1831ed74e516b4e",
+        "baseline-evidence/events.jsonl": "bf6c8a7d43baeb53904b777b4d1aa39fa2cf67ebf07ef223ac7cbd9d525f9d09"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index",
+        "plain-disabled-read-index",
+        "deleted-source-index",
+        "successor-and-keeper-absent"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "plain-disabled-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "deleted-source-index": [
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "LIFECYCLE_PENDING_OUTER_JOB_ATTESTATION",
+      "outer": "PASS_CONTROLLER_EXIT_AND_JOB_EMPTY",
+      "forced": false,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 730,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 2
+    },
+    {
+      "output": "release149-m3-current-r14",
+      "source": "b0d543fa997b9cbfcf93558b1636f702cdf41a0f8e9aa0dfc668f9f514f910a9",
+      "hashes": {
+        "contract.json": "dabcdbfadea908e79dfe5ff970e212b2c48646055d3c0021260edf5ad8da846a",
+        "bootstrap-receipt.json": "7dbece1de3871aac21e076b04f709aa59c5334dc4a4f0fd73951c0679d1fe511",
+        "outer-job-receipt.json": "9ca0bf3505e09b5f587eee9c8ddd093c453f4ce3ad19fb1da31c4b5d604fd56b",
+        "launcher-receipt.json": "70e1f542e86d5e1d254c549a72341e8b2b7426c350e7dcdda9ed6be7ca7fa1bf",
+        "baseline-evidence/events.jsonl": "689fb5c4cc8f48bb334350c08b9f2311e03123d7df2f11d89c354767a3be9e77"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "FAIL_RETAIN_AND_FENCE",
+      "outer": "FAIL",
+      "forced": true,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 377,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 1
+    },
+    {
+      "output": "release149-m3-current-r15",
+      "source": "4c63e24c75d614bd5948a9405dde9c7e487c4dc87b93fb0461019bbc644693fa",
+      "hashes": {
+        "contract.json": "8b525d7450c52cb0f1e161c1c932fb565de70c6990a877b4643552423cf2c46a",
+        "bootstrap-receipt.json": "0b8511871d0ece229d4eadda7139c349733dcec27531f7cfd94807b4cb7b8b33",
+        "outer-job-receipt.json": "9f41ea5cbbb6dbe9d56deb451c7191680919480f87d67792a072b01fd0fb7d23",
+        "launcher-receipt.json": "eb887e877709871de6c3ea23228ae7fac495efdcf35d641db7e0ac211abc25ff",
+        "baseline-evidence/events.jsonl": "64f3bc409b4def5492a570cdedec0b25732176c960af4d90cf77d2e6b81c9219"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "FAIL_RETAIN_AND_FENCE",
+      "outer": "FAIL",
+      "forced": true,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 377,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 1
+    },
+    {
+      "output": "release149-m3-current-r20",
+      "source": "b9139c1d7b10c5d13a1254dba101c496da89701ebddd9a656345f498efcfdca2",
+      "hashes": {
+        "contract.json": "0b6e4a2ff3b30163cb13276f59998c7692dd58fc852af2767f79d5f4112291f5",
+        "bootstrap-receipt.json": "9a76516c6fde5bb26e1a2b2470ad8f9c8ae72f18849c7d9b43b48279f48946fc",
+        "outer-job-receipt.json": "208d0bf45c08533753a9eb209cc4b348e32824dcc24be4495f01ef261067ff56",
+        "launcher-receipt.json": "95e41430db1293370e0ee58aba50e788542fa23f80d9fa9f95fb16a6c59f6733",
+        "baseline-evidence/events.jsonl": "fa3f0d044511127e2745efd0965552489eedb3765df871e588909629bea8ef7d"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index",
+        "plain-disabled-read-index",
+        "deleted-source-index",
+        "successor-and-keeper-absent"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "plain-disabled-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "deleted-source-index": [
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "LIFECYCLE_PENDING_OUTER_JOB_ATTESTATION",
+      "outer": "PASS_CONTROLLER_EXIT_AND_JOB_EMPTY",
+      "forced": false,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 744,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    },
+    {
+      "output": "release149-m3-current-r40",
+      "source": "b968490373bba65e7ac30d9f46e894410f34bc96db81b955a543b2a68879b03d",
+      "hashes": {
+        "contract.json": "112756a44b59731419218c18f1643b1e5c29d34ea8e6209129d2995af2499f3c",
+        "bootstrap-receipt.json": "b2f04251d898727036efce4d357be7c82035509afdf46ca2b3de16f8fdff266b",
+        "outer-job-receipt.json": "f20ee4a5a582597c8d4ee988298ec1e50a4d4f0d7f21fd36969d83de76d12281",
+        "launcher-receipt.json": "1978afdbd808e54227bfa72afb05b4de4d6f6b8c3fd778ba2d4e8629f98ca125",
+        "baseline-evidence/events.jsonl": "0761490049676faf4459c18bad8b25190765c4e0ad708dca29e2ca92f3e55319"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index",
+        "plain-disabled-read-index",
+        "deleted-source-index",
+        "successor-and-keeper-absent"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "plain-disabled-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "deleted-source-index": [
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "LIFECYCLE_PENDING_OUTER_JOB_ATTESTATION",
+      "outer": "PASS_CONTROLLER_EXIT_AND_JOB_EMPTY",
+      "forced": false,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 742,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    },
+    {
+      "output": "release149-m3-current-r46",
+      "source": "3f294068de7718d0ce4107c8c247c86104830beb60cc60e1e378ee12a6dbd483",
+      "hashes": {
+        "contract.json": "d7958f0cd87607ef7510ff3d0f54229750af5b211992056463b14829941941ef",
+        "bootstrap-receipt.json": "4c70f69568085d0ae2e4dd18bd580540955fef4631798e6acf216da9e83f017e",
+        "outer-job-receipt.json": "a461b684c4310b869874ede96ceb85300fb1245d4cbb6c184d174ace9c3fc1fd",
+        "launcher-receipt.json": "a8f0c7d04ee50f4520408e795607c4e49413e6d9e018eb360c1c572b783f70bf",
+        "baseline-evidence/events.jsonl": "f491ec1dad80a95a74f644c8ddc5c4c42dc04c06a8efde13a8df3209d3129ba6"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index",
+        "plain-disabled-read-index",
+        "deleted-source-index",
+        "verified-cleanup",
+        "successor-and-keeper-absent"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "plain-disabled-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "deleted-source-index": [
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "LIFECYCLE_PENDING_OUTER_JOB_ATTESTATION",
+      "outer": "PASS_CONTROLLER_EXIT_AND_JOB_EMPTY",
+      "forced": false,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 742,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    },
+    {
+      "output": "release149-m3-current-r48",
+      "source": "5dd8b915a915d3979123a0102c7f7be6fa4c80823168015d7e633e73a8d749f9",
+      "hashes": {
+        "contract.json": "7f5f5d6bbe58e6c1bdadfff7869764dfda1f6cac6d16f501b9f4d73106428215",
+        "bootstrap-receipt.json": "06653811614a532b0260f5714e667e4bdbbde91a8198fef0ff10a148e0ef2e7f",
+        "outer-job-receipt.json": "ece01ee9e10439f13bd94efdc50b98fdc1b6522db38124936449096e981cd27d",
+        "launcher-receipt.json": "df3a56141c9c52ab239763d017265934fd5037e6ba5c0992fd16c05a7c50fa1f",
+        "baseline-evidence/events.jsonl": "558bc57f1019a7933897d61d0d36d66d5632e32a7e7b7c885f87a90e09871e18"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "FAIL_RETAIN_AND_FENCE",
+      "outer": "FAIL",
+      "forced": true,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 715,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    },
+    {
+      "output": "release149-m3-ordinary-disable-final-diagnostic",
+      "source": "3f93e6e24049b9be592c9e279ecf3ea2d2f35df89eb4c134709180489de62d4e",
+      "hashes": {
+        "contract.json": "def0c098574aac25054b79aa1176fd55513cb0599072c0ba845147da8b588408",
+        "bootstrap-receipt.json": "f307df7504c0e08a528643a1ead75f9500589c072fa14343631c495d4bff66bc",
+        "outer-job-receipt.json": "ff4136ee10cbcec88fbfea38d0d5e654b4d083ea8439b6085758590792222a5f",
+        "launcher-receipt.json": "04d4ebbdea5298decf9c74bc918eebcd46155396d2f19f8effe76d07b7890d44",
+        "baseline-evidence/events.jsonl": "e93840f5263d9eed42837b7d415f6c2ba7b984951c385e3496e4d940c3d0aef0"
+      },
+      "stages": [
+        "plain-ready",
+        "enable-published",
+        "encrypted-read-index",
+        "encrypted-export-read-index",
+        "plain-disabled-read-index",
+        "deleted-source-index",
+        "verified-cleanup",
+        "successor-and-keeper-absent"
+      ],
+      "coverage": {
+        "encrypted-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "encrypted-export-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "plain-disabled-read-index": [
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 2,
+            "indexedSessions": 2,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ],
+        "deleted-source-index": [
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          },
+          {
+            "sessions": 1,
+            "indexedSessions": 1,
+            "pendingSessions": 0,
+            "complete": true,
+            "coverageUnit": "committed-display-message-sources"
+          }
+        ]
+      },
+      "status": "LIFECYCLE_PENDING_OUTER_JOB_ATTESTATION",
+      "outer": "PASS_CONTROLLER_EXIT_AND_JOB_EMPTY",
+      "forced": false,
+      "accounting": {
+        "active": 0,
+        "totalProcesses": 1080,
+        "members": [],
+        "limitTerminatedProcesses": 0
+      },
+      "stable": true,
+      "portableStageDirectories": 0
+    }
+  ],
+  "indexedRehearsal": {
+    "output": "release149-m3-auth-indexed-r12",
+    "hashes": {
+      "contract.json": "0b588b85adf494ce1a445ee2a6851b100dd69a602e1a39646bde1be3681c334e",
+      "outer-job-receipt.json": "352f583a2b70ffb9fd78a4cb2d42814d2d71d2d3e2d3c2014ceacfaaa7e26bde",
+      "indexed-rehearsal/harness-receipt.json": "cca76912d432f64b4b40ce65a8a93ffef52dc83ee143decd1a59b8bb73d5e228"
+    }
+  },
+  "standaloneNodeApi": {
+    "output": "standalone-napi-149-runtime-terra-r2",
+    "hashes": {
+      "receipt.json": "c0cc4feb6f4ace83f034ec3bd473db0cc548d8feb48a2ed834ae2f9f9bca3ce5",
+      "outer-job-receipt.json": "f0a4e16b4029c7a96d3248811c88868fff7afd1db19488c1e0b686764165b811"
+    }
+  },
+  "baselineControls": {
+    "output": "release150-cold-baseline",
+    "hashes": {
+      "tests.tap": "677087a34f012d5ebdea733ee2daaa51bc50168e08984ee507b034bedf96975b",
+      "cold-e2e.log": "69e3f78647df1563b09d252040249eeab331b8daf6b53669d4e3872db0d344cf",
+      "candidate-native-controls.tap": "48667f94732acc425c93ace975f08da4623e1ef2756d193f10e49c9069fd6c70"
+    }
+  },
+  "restoredStagePositive": {
+    "output": "release149-m3-retire-direct-r19",
+    "receiptSha256": "b023b328e6d044bfc29440c151226b63c8dd893b679101e89ba576027c15360a"
+  },
+  "restoredStageTimeChangeRefused": {
+    "output": "release149-m3-retire-direct-r23",
+    "receiptSha256": "3d4069b8c88a24f4cdbd4d0701dba05c89b34a23a598bb3a90936e6c9547ce82"
+  },
+  "retirementBarrierIndependent": {
+    "output": "release149-portable-retire-native-terra-r1",
+    "receiptSha256": "ec1f9d617dec8b79f09b9ef582c167501c940ea21b1bd15ec54d62eca41181e1"
+  },
+  "slimFinal": {
+    "output": "release150-slim-r20",
+    "receiptSha256": "f62e0fb87811bffcd799deec361739932a99dea50ced5280394af3a7a3dfea1e",
+    "result": {
+      "exitCode": 0,
+      "modelSha256": "26B7C55675703CEFC0994A55057F06ED84DFB925A7BF25CCCE3269844EAEAD00",
+      "upgradeAssertions": 25,
+      "archiveSha256": "0568D197549369AA669803925B5C20E8F061571E143DED265525B6553BFF121B",
+      "serviceSha256": "B9139C1D7B10C5D13A1254DBA101C496DA89701EBDDD9A656345F498EFCFDCA2",
+      "upgradeSha256": "757DB22C6478A644081689495801E65404B7EF742155770BC559AE180F8217A7"
+    }
+  },
+  "fullLocalR20": {
+    "output": "release149-full-local-r20-r2",
+    "receiptSha256": "8eb59b8c93901950c4857d65493f63574889e661e1bf2d555e7164133a6711d7"
+  },
+  "fullLocalR20Inventory": {
+    "output": "release149-full-local-r20-r2",
+    "receiptSha256": "bf7a51ac0ae1fde9d92c3329598b102cfbcddbb52badb3a31cfbc5880d1e3d47"
+  },
+  "fullLocalR20Install": {
+    "output": "release149-full-local-r20-r2",
+    "receiptSha256": "18c6a0030d8db81db5c6dcfcdfe456aa051030dab5eea8a95a514510733825f5"
+  },
+  "fullLocalR20ColdShutdownProbe": {
+    "output": "release149-full-local-r20-r2",
+    "receiptSha256": "427f7c2b50d464c8550abe890422be41de07e18ea8bfc367a280140116144684"
+  },
+  "unitFinal": {
+    "output": "release150-unit-r20",
+    "receiptSha256": "f264dcf58c2a695fbc5b34aa46d26e27ca05fdbca5b8610fb45be53a6263dd28",
+    "result": {
+      "serviceBefore": "B9139C1D7B10C5D13A1254DBA101C496DA89701EBDDD9A656345F498EFCFDCA2",
+      "logSha256": "0F71D037CA68009766FC63321A86A9CCBA973C83CEB194D521293B3CF10CC4F0",
+      "exitCode": 0,
+      "serviceAfter": "B9139C1D7B10C5D13A1254DBA101C496DA89701EBDDD9A656345F498EFCFDCA2",
+      "filesChanged": [],
+      "files": 534
+    },
+    "counts": {
+      "tests": 5663,
+      "pass": 5621,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 42
+    }
+  },
+  "release150-gemma2-budget-fix-r1": {
+    "hashes": {
+      "reviewed-receipt.json": "1540c5ff68a9cc68ce9894967cc00ca22572c3f77a785d37090e68f58ff9ea2e",
+      "gemma2-final-admission-budget-reviewed.patch": "a1646e2b6ecc0e3d49d475f109ee8e5ed36f2bf2fc2523d6d7cb18245756b509",
+      "reviewed-baseline-negative.log": "d6624bf133a970b39547dff8b4ddcc51263d2927b6103f370e883c0cc33923f8",
+      "reviewed-fixed-regression.log": "b72612a45d8ab586b50c481c2ba6004cc93c10b62499a4721a0a628fc53e8e55"
+    }
+  },
+  "release150-unit-r48-all": {
+    "hashes": {
+      "receipt.json": "c2fb710709719b560346c1103544a66c0cb0063493a3f5405b5e2e7b777ba983",
+      "all.tap": "da447a68822b86244d69ec5b1a461bd44ca57371eaa6a0880310808131aca806"
+    }
+  },
+  "release149-native-representation-r1": {
+    "hashes": {
+      "materialized-receipt.json": "633fe8d30f7a27dd50fc4643cf3a14f6473794b19b9cd3701df06e5ce849efed"
+    }
+  },
+  "release149-native-representation-r2": {
+    "hashes": {
+      "materialized-receipt.json": "823fcb0396863054066caf37f62ded89ae1cdb87a7a2fbfd714e0a1e709dcf48"
+    }
+  },
+  "release149-full-local-r48": {
+    "hashes": {
+      "receipt.json": "0f4091a3d40622880a6e4a4a1d9f726bcb79a535c2e39d62ac4a8353895fd0cb",
+      "zip-inventory.json": "2791c91367c471d82b13de213b4734643e227f58a8dd00e16a8d217c77f82c22",
+      "package-service-health.json": "bb0a2bc13d4e7d0a7c792272cec9d8d78b3e1e6c98e4955580ac6352b5b9ab51",
+      "install-receipt.json": "69b0879055547bc5796e239ec9963961af4f6438eebf7e9a95d718b3dda35083"
+    }
+  },
+  "release150-slim-r48": {
+    "hashes": {
+      "receipt.json": "ba9df91ae1d371f1ddca80b15a3160b11716fc73d9370916b724c47e54c30ca1",
+      "model.log": "26b7c55675703cefc0994a55057f06ed84dfb925a7bf25ccce3269844eaead00",
+      "upgrade.log": "757db22c6478a644081689495801e65404b7ef742155770bc559ae180f8217a7"
+    }
+  },
+  "release150-slim-r48-terra-upgrade": {
+    "hashes": {
+      "receipt.json": "f45b56732127520205847432e5d1fa401d7d706e77ceb48feaf165fa1a82b433"
+    }
+  },
+  "release150-forward-plain-inverse": {
+    "hashes": {
+      "suite.tap": "8262c279ddcbb44f871cd4db0591cc4d2d06ff5d47e6d7708859e5b533f93409"
+    }
+  },
+  "release150-combined-regression-r46": {
+    "hashes": {
+      "receipt.json": "2b343c92ad89ba15cd80dc1fd205c4bbea0d440c54060e874bba74bf1d39f7b5",
+      "suite.tap": "53a9372abdfad9ab204c3bb71739fa54487a62e4c8bf4684dd50c041ae209c24",
+      "historical-close-inverse.tap": "379f3170a51afc1878f83ac75d085ee3b3bebcb1d55920486d16baa6e0f62097"
+    }
+  },
+  "release150-combined-regression-r46-reviewed": {
+    "hashes": {
+      "receipt.json": "44e615b7eeee41d34738d798459627ecf9cb8cbbb22dde80d1c9830dbf867d19",
+      "suite.tap": "c1b751d7780b4ae342c69421583fe02e6f6268236edcbe1ac263c1753573772d"
+    }
+  },
+  "release150-slim-r46": {
+    "hashes": {
+      "receipt.json": "44dd5517fc5ae9025d58be2d6a4cf843efc13c9fbf30d9fe916cb4dafb9a6f70",
+      "frozen-inputs.json": "bd41d63fbd2566aee99dad81bf39a62da44cbeff12e85d7975994f48ba914577",
+      "model.log": "26b7c55675703cefc0994a55057f06ed84dfb925a7bf25ccce3269844eaead00",
+      "upgrade.log": "757db22c6478a644081689495801e65404b7ef742155770bc559ae180f8217a7"
+    }
+  },
+  "release150-slim-r46-terra-upgrade": {
+    "hashes": {
+      "receipt.json": "3611bec2aafde4d53d4dac6c89e7ac596f3517cfdfe4cbd478cd7cbb55f0886f"
+    }
+  },
+  "release149-m3-originals-r33": {
+    "hashes": {
+      "cold-operation-trace.json": "0bf18be54c44919e1ed2fd8e3ed4ca488e3d33f5dc3861b2e81084aaa8acb1fd",
+      "outer-job-receipt.json": "a5ece73e3901c5671657ed8060e8a0192fdaa7b30bc6cc317a3b303fdf6cb491"
+    }
+  },
+  "release149-m3-originals-r34": {
+    "hashes": {
+      "contract.json": "769b49e0649971d275b47e5546319ac1a89221e778c866212f2974a7c0556936",
+      "outer-job-receipt.json": "3508af103cdadc1096d3119e8d8e15539afb7ea61238f7ed108f9a6ec332b580"
+    }
+  },
+  "release149-native-close-census-r2": {
+    "hashes": {
+      "receipt.json": "3e8bca8ea4d5514d9d475c59434ad4925e8a9dc4d98f7231fbe92eeef9b3468d"
+    }
+  },
+  "release149-native-close-census-r4": {
+    "hashes": {
+      "receipt.json": "fec54da057f6a74d69cd21cd744f82c9969e761171ec247e301095eb56f2afe9"
+    }
+  },
+  "release149-capsule-native-r38-undo": {
+    "hashes": {
+      "server-input.json": "50142945e806bb3f6d3132cda8c887e3a35a8dd8d3f263f4ad7cb50dfa408133",
+      "trace.log": "0678d156190e2bbd76227fbe251b1ca7401822a738664e7b59fffcb22c5799c6"
+    }
+  },
+  "release149-capsule-native-r43-idle-witness": {
+    "hashes": {
+      "server-input.json": "2917ee04290952d9634198f0f4105215c171605dd867fb67587b1ecf3db07a82",
+      "trace.log": "0e5e2adecc4441783450a8827a12d086d962fa5b865596c74c21db64f96e7d0a",
+      "source-io.jsonl": "9d70f5801aba3c0508a6947368a213a9cbb6f01f503b50db7a76395188792a2a"
+    }
+  },
+  "release149-capsule-native-r44-exact-export": {
+    "hashes": {
+      "server-input.json": "50142945e806bb3f6d3132cda8c887e3a35a8dd8d3f263f4ad7cb50dfa408133",
+      "trace.log": "9a2766d05462d0d2cbe11c81a0b0efd6ba8303a213281f34ff6918b7fb95818a"
+    }
+  },
+  "release149-m3-originals-r32": {
+    "hashes": {
+      "cold-operation-trace.json": "182ec035cef9cda51eee5aac8977b5b177e5b6b59850d0d7b78ea978e7582675"
+    }
+  },
+  "release149-native-close-reuse-r1": {
+    "hashes": {
+      "receipt.json": "0d0b718f4c58b647697503632b9ee177e4560833aad457436799e5b260be58a5"
+    }
+  },
+  "release150-combined-regression": {
+    "hashes": {
+      "receipt.json": "06a4e3e065686f9f07278a399860a3538484c232aaa19971553b6e37e80789e7",
+      "suite.tap": "cf45f07f2cc550f44fff87e654e0c5173968d383bc940f37f997e07f67e6c93f"
+    }
+  },
+  "release149-m3-originals-r36": {
+    "hashes": {
+      "contract.json": "1a6106c179e8c0d1c001b0eae182447d898471ec3a914fe1420cb108be008a2a",
+      "outer-job-receipt.json": "e9aaa24dff4cfa7a1beaba6c7068966d852326af7a5211d197d9c81411ae2222",
+      "fixture-temp/ruyi-production-maintenance-TJP8go/evidence/events.jsonl": "374b77f1789a6f82afd83ffbc0b24a91a76ac07088dc306683a7d09d981af119",
+      "fixture-temp/ruyi-production-maintenance-TJP8go/evidence/failure-summary.json": "7b09edd1e3f2eb84837664db2a653521ce9fb4bbcd967a41a28d6aed9aa736cc"
+    }
+  },
+  "release149-m3-originals-r38": {
+    "hashes": {
+      "contract.json": "487c49295a48e498ce63f2339c394e1882902715a0e496d3273cebb3c7f3e90e",
+      "outer-job-receipt.json": "7c43f0113e5f11830142a4f6d9891d679fc0fc158ffb18700bf358bfb51aeba6",
+      "cold-operation-trace.json": "599a1234dfb5d2632cb97767d4a49b1a4320c9e7b643cfa45c670a77bbad6828",
+      "fixture-temp/ruyi-production-maintenance-s29YUU/evidence/events.jsonl": "98ab3ab08e2bfc602b8a8aa9ca2aaa26de00cf020b3aa922837e6686769011e2",
+      "fixture-temp/ruyi-production-maintenance-s29YUU/evidence/failure-summary.json": "014b421b3584287df278695df6895cf81769c416b6175a4c9f1127ce75d9228e"
+    }
+  },
+  "release149-m3-originals-r39": {
+    "hashes": {
+      "contract.json": "f582104396d5a45097649f43538f4be96df7d8ff89ac9cd2c649329d42f26d3e",
+      "outer-job-receipt.json": "92410c3fe00b9909cf928b55251bab801be572b55dbf5e3423f63afcb7c623e2",
+      "cold-operation-trace.json": "3d9e36b6cbe491fe829b20bfe3817b0f247bfc7ea26cafd4838de195cda78d37",
+      "plain-representation-mismatch.json": "ea436b94af6714fd5def15e15e1a0bbfbb714a1b08a0b81c521927c9587629d5",
+      "fixture-temp/ruyi-production-maintenance-XTQffr/evidence/events.jsonl": "b438873a10a05ba70bf5f332a0973f2896edfc84ecef4b05ce951ad5da295b65",
+      "fixture-temp/ruyi-production-maintenance-XTQffr/evidence/failure-summary.json": "5226b5569acb38e89e7c0061ff1118db3d6f7bf04002f1a4dbefe773ed4c3378"
+    }
+  },
+  "release149-m3-originals-r40": {
+    "hashes": {
+      "contract.json": "89aa29e5a62990a14abbda59992840a67416eba8e09d13b8d3f7751462480ad6",
+      "outer-job-receipt.json": "8a04e1f29486ba344e2245de06ca5bcdbdc6ccba53c18b2187347bf18ff7a5b2",
+      "fixture-temp/ruyi-production-maintenance-7FIpPk/evidence/events.jsonl": "27be692c91227e1e09153089823f6f5fe2f752fae608990c5d314f6842b6f195",
+      "fixture-temp/ruyi-production-maintenance-7FIpPk/evidence/failure-summary.json": "076413a3f02a34cf2d191e77c56d9f954c4f7a6f88157232d693b8f3c2e5b9b1"
+    }
+  },
+  "release149-m3-originals-r41": {
+    "hashes": {
+      "contract.json": "5cc42ee16542f541f1ce97f7407eac0c2da48a688487e0c3b75c5edef34df28d",
+      "outer-job-receipt.json": "cb4d5bf6d91d80821daef2fe30064374ac94e0b5cf033dd2ada1e99dea62093f",
+      "fixture-temp/ruyi-production-maintenance-4cxhZn/evidence/events.jsonl": "76fb3919dc412c60125c28efd4c4e84e59a931852cdedc08e35f9137ab91328a",
+      "fixture-temp/ruyi-production-maintenance-4cxhZn/evidence/failure-summary.json": "8f0efe570641b33532fbd2d5ff2bfc17503b63dea34dfbe30202f2f12b8edbb2"
+    }
+  },
+  "release149-m3-originals-r42": {
+    "hashes": {
+      "contract.json": "cc08e2a57f15e576f35020329a4ca146af9a4564b32c31822231e47b2a327317",
+      "outer-job-receipt.json": "522bbdda03e6bac37edc5584e4a34c64534e2efc74f1f7bc6fd72dfe00d60dde",
+      "fixture-temp/ruyi-production-maintenance-r86qri/evidence/events.jsonl": "e0221c3a66860aa57349203f86a920dbcb08a0851ecc4708b65215b8837902f3",
+      "fixture-temp/ruyi-production-maintenance-r86qri/evidence/failure-summary.json": "5681fb2f43eb87369144008f1b1392170bd820839bdfa7349f05c9cc69d369e9"
+    }
+  }
+}

@@ -26644,9 +26644,11 @@
         "migrationBackupHistoryShape",
         "migrationBackupHistoryStore",
         "migrationBackupRoot",
+        "migrationCandidateRetained",
         "migrationCapsuleArchive",
         "migrationCapsuleAssertTree",
         "migrationCapsuleBroker",
+        "migrationCapsuleBrokerChildren",
         "migrationCapsuleCapture",
         "migrationCapsuleCapturePreserved",
         "migrationCapsuleCarrierHeaderValid",
@@ -26680,6 +26682,7 @@
         "migrationCommitLog",
         "migrationCopyOneSkill",
         "migrationCopySkills",
+        "migrationCreateCandidateBoundary",
         "migrationCurrentRoot",
         "migrationDir",
         "migrationDirSize",
@@ -31244,6 +31247,13 @@
         {
           "provider": "13u-migration-center.js",
           "symbol": "migrationCapsuleShape",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationCreateCandidateBoundary",
           "kinds": [
             "call"
           ]

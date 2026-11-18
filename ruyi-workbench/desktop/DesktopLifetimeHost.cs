@@ -114,7 +114,7 @@ namespace RuyiDesktop
                     case "frame budget":reason="frame_budget";break;case "role":reason="role";break;
                     case "transfer":reason="transfer";break;case "listener":reason="listener";break;
                 }
-                if(!DiagnosticAllowed(stage,"unspecified|grant-accept|wait-exit|hello|read-request|request|members|reply-finished|client-exited|complete-members|stop-send|stop-timeout|startup|output-read|dispose-members|dispose-job"))stage="unspecified";
+                if(!DiagnosticAllowed(stage,"unspecified|grant-accept|wait-exit|hello|read-request|request|members|reply-finished|client-exited|client-uncertain|complete-members|stop-send|stop-timeout|startup|output-read|dispose-members|dispose-job"))stage="unspecified";
                 var handler=Observed;if(handler!=null)handler(new JavaScriptSerializer().Serialize(new {schema=1,phase="close-failure-diagnostic",origin="csharp",stage=stage,reason=reason,name=name,nativeCode=error is Win32Exception?(int?)((Win32Exception)error).NativeErrorCode:null,membersCount=lastCloseMembersCount<0?(int?)null:lastCloseMembersCount,membersContainsCurrent=lastCloseMembersCount<0?(bool?)null:lastCloseMembersContainsCurrent,membersElapsedMs=lastCloseMembersCount<0?(long?)null:lastCloseMembersElapsedMilliseconds}));
             }
             catch{ /* Diagnostic output cannot change unknown/retained behavior. */ }
@@ -127,7 +127,7 @@ namespace RuyiDesktop
                 var match=System.Text.RegularExpressions.Regex.Match(line,@"^RUYI_DESKTOP_DIAG_V1 stage=([a-z-]{1,32}) reason=([a-z_.]{1,80}) name=(Error|TypeError|RangeError|SyntaxError|AbortError|TimeoutError|unknown) kind=(close|finished|deferred) seq=([0-9]{1,10})$");
                 int sequence;if(!match.Success||!Int32.TryParse(match.Groups[5].Value,out sequence)||sequence<0)return;
                 string stage=match.Groups[1].Value,reason=match.Groups[2].Value;
-                if(!DiagnosticAllowed(stage,"setup|begin|cancel|infrastructure|settlers|first-idle|first-helper-check|http-close|second-idle|second-helper-check|retire|retired|finished-request|deferred-request")||!DiagnosticAllowed(reason,"unclassified|desktop_lifetime.uncertain|desktop_lifetime.helper_uncertain|desktop_lifetime.listener_changed|desktop_lifetime.channel_unavailable|desktop_lifetime.response_timeout|desktop_lifetime.owner_refused|desktop_lifetime.protocol|desktop_lifetime.channel_closed|desktop_lifetime.exit_returned|work_data.maintenance_busy|work_data.maintenance_nested|work_data.maintenance_cancelled|work_data.maintenance_stale_continuation|work_data.maintenance_owner_unavailable|work_data.maintenance_lease_expired|work_data.maintenance_not_idle|work_data.maintenance_infrastructure_unavailable|work_data.maintenance_infrastructure_uncertain"))return;
+                if(!DiagnosticAllowed(stage,"setup|begin|cancel|infrastructure|settlers|first-idle|first-helper-check|http-close|second-idle|second-helper-check|retire|retired|finished-request|deferred-request")||!DiagnosticAllowed(reason,"unclassified|desktop_lifetime.uncertain|desktop_lifetime.helper_uncertain|desktop_lifetime.semantic_uncertain|desktop_lifetime.listener_changed|desktop_lifetime.channel_unavailable|desktop_lifetime.response_timeout|desktop_lifetime.owner_refused|desktop_lifetime.protocol|desktop_lifetime.channel_closed|desktop_lifetime.exit_returned|work_data.maintenance_busy|work_data.maintenance_nested|work_data.maintenance_cancelled|work_data.maintenance_stale_continuation|work_data.maintenance_owner_unavailable|work_data.maintenance_lease_expired|work_data.maintenance_not_idle|work_data.maintenance_infrastructure_unavailable|work_data.maintenance_infrastructure_uncertain"))return;
                 lock(sync)
                 {
                     if(nodeDiagnosticObserved)return;nodeDiagnosticObserved=true;
@@ -237,7 +237,7 @@ namespace RuyiDesktop
                         else if(kind=="deferred"&&closing&&Shape(request,"schema","seq","kind"))
                         {if(client==current)closeDeferred=true;Reply(client,client.Sequence,null);}
                         else if(kind=="uncertain"&&Shape(request,"schema","seq","kind"))
-                        {Reply(client,client.Sequence,null);Failed("request");}
+                        {Reply(client,client.Sequence,null);Failed("client-uncertain");}
                         else if (kind == "finished" && client == current && closing && Shape(request, "schema", "seq", "kind"))
                         {
                             var deadline=Stopwatch.StartNew();
@@ -302,6 +302,9 @@ namespace RuyiDesktop
                 if(await Task.WhenAny(pending,Task.Delay(1000))==pending)return await pending;
                 lock(sync)
                 {
+                    // An unregistered descendant can exit without raising a host event.
+                    TryComplete();
+                    if(pending.IsCompleted)continue;
                     // A committed operation keeps its original maintenance budgets.
                     // Closing must not turn a valid long backup into a failed takeover.
                     if(closeDeferred||current!=null&&current.Grant.Role=="cold")closeClock.Restart();

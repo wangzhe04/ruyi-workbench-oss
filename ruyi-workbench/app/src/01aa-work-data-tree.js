@@ -28,6 +28,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     const known = preservedReadbacks.get(token);
     return !!known && known.root === root && known.revision === revision && preservedReadbacks.delete(token);
   }
+  function claimPreservedReadbackContext(token, root, revision) { const known=preservedReadbacks.get(token); if(!known || known.root!==root || known.revision!==revision) return null; preservedReadbacks.delete(token); return Object.freeze({candidateBoundary:known.candidateBoundary||null}); }
   const fileKey = file => typeof file === 'string' && pathApi.isAbsolute(file) ? pathKey(pathApi.resolve(file)) : null;
   function currentCapturedFile(token, file) {
     const known = capturedFileLeases.get(token);
@@ -206,9 +207,10 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   // Explicit bounded-native-v1 engineering profile: the existing native owner
   // caps 10,000 entries and 96,000,000 bytes including all ADS. Selecting this
   // reader never changes the default reader's larger original budgets.
-  function createPreserved({ capturePreserved, ownership, assertExclusive, assertExclusiveSync, limits = {} } = {}) {
+  function createPreserved({ capturePreserved, ownership, assertExclusive, assertExclusiveSync, candidateAuthority, limits = {} } = {}) {
     if (typeof capturePreserved !== 'function' || typeof assertExclusive !== 'function'
       || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
+      || candidateAuthority !== undefined && typeof candidateAuthority !== 'function'
       || !ownership || !Array.isArray(ownership.roots)) fail('preserved_owner_required');
     const { bytes = 256 * 1024 * 1024, files = 100000, directories = 100000, pathLength = 1024 } = limits;
     if ([bytes, files, directories, pathLength].some(value => !Number.isSafeInteger(value) || value < 1)) fail('limits_invalid');
@@ -301,7 +303,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       } catch(cause){failed=true;primary=cause;throw cause;}
       finally{if(!complete){const errors=[];for(const content of data)try{content.fill(0);}catch(cause){errors.push(cause);}if(errors.length)throw capturedCleanupFailure('work_data_tree.captured_cleanup',primary,failed,errors);}}
     }
-    async function census(root, retain) {
+    async function census(root, retain, candidateBoundary = null) {
       await admitted(root); await realDirectory(root);
       const firstRevision = cryptoApi.randomBytes(32).toString('hex'), revision = cryptoApi.randomBytes(32).toString('hex');
       let first, second, result, binding, bindingCompleted = false, accepting = true, success = false, failed = false, primary;
@@ -347,7 +349,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         return binding;
       };
       const readback = Object.freeze({ revision, bind });
-      preservedReadbacks.set(readback,{root,revision:firstRevision});
+      preservedReadbacks.set(readback,{root,revision:firstRevision,candidateBoundary});
       try {
         // The native producer may use one broker for both readings. Its first
         // response proves all captured handles closed before these Node checks,
@@ -355,6 +357,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         let snapshot = await capturePreserved(root, firstRevision, readback);
         accepting = false;
         if (!binding) {
+          if(candidateBoundary)fail('preserved_native_invalid');
           // Hosts implementing only the original single-read interface still
           // provide two fully closed, independent native readings.
           await bindFirst(snapshot);
@@ -384,8 +387,10 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     }
     const proofOf = result => ({ root: result.root, rootIdentity: result.rootIdentity,
       directories: result.directories.map(row => ({ ...row })), files: result.files.map(({ data, ...row }) => row), bytes: result.bytes });
-    async function capture(root) {
-      const { result: captured, nativeSha256 } = await census(root, true); let released = false;
+    async function capture(root, candidate) {
+      const boundary=candidate===undefined?null:(typeof candidateAuthority==='function'?candidateAuthority(candidate,root):fail('preserved_owner_required'));
+      if(candidate!==undefined&&!boundary)fail('preserved_owner_required');
+      const { result: captured, nativeSha256 } = await census(root, true, boundary); let released = false;
       const result = Object.freeze({ root, bytes: captured.bytes, directories: Object.freeze(captured.directories.map(row => row.path)),
         files: Object.freeze(captured.files.map(row => Object.freeze({ path: row.path, data: row.data, sha256: row.sha256 }))),
         release() {if(!released){released=true;const errors=[];let releaseFailed=false;
@@ -393,14 +398,14 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           for(const row of captured.files)try{row.data.fill(0);}catch(cause){errors.push(cause);}
           if(errors.length)throw capturedCleanupFailure('work_data_tree.captured_cleanup',undefined,false,errors,releaseFailed);
         }}  });
-      issued.set(result, { proof: proofOf(captured), nativeSha256, released: () => released });
+      issued.set(result, { proof: proofOf(captured), nativeSha256, boundary, released: () => released });
       preservedCaptures.set(result, { ownership, admit: () => admitted(root), admitSync: () => admittedSync(root), check: () => fingerprint(result), verify: () => verify(result), leases: new Set() }); return result;
     }
     async function verify(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
       for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
-      const actual = await census(captured.root, false);
+      const actual = await census(captured.root, false, owned.boundary);
       if (JSON.stringify(proofOf(actual.result)) !== JSON.stringify(owned.proof)) fail('source_changed');
       if (owned.released()) fail('snapshot_unavailable');
       for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
@@ -433,5 +438,5 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
     }),
   });
-  return Object.freeze({ create, createPreserved, claimPreservedReadback, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

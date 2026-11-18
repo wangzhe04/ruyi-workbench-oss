@@ -22,7 +22,7 @@ process.env.USERPROFILE = process.env.HOME;
 fs.mkdirSync(process.env.HOME, { recursive: true });
 const { loadServerInternals } = require('../lib/server-internals');
 const S = loadServerInternals([
-  'rankMemoriesForRecall', 'rankRelevantMemories', 'memorySearchTerms', 'resolveMemoryPreflight', 'buildMemoryPromptSection', 'buildMemoryCheckPrompt',
+  'rankMemoriesForRecall', 'rankMemoriesForRecallDetailed', 'rankRelevantMemories', 'memorySearchTerms', 'resolveMemoryPreflight', 'buildMemoryPromptSection', 'buildMemoryCheckPrompt',
   'buildMemoryConflictMap', 'analyzeMemoryMaintenance', 'saveMemory', 'deleteMemory', 'proposeMemoryRelation', 'confirmMemoryRelation',
 ]);
 
@@ -63,6 +63,18 @@ const POSITIVE = [
   ['怎么部署到生产环境', 'p5'], ['vite 热更新不生效', 'p4'], ['端口被占用了怎么办', 'g4'], ['Windows 路径太长', 'g3'], ['支付接口超时怎么重试', 'p7'], ['pip 镜像源用哪个', 'g6'], ['excel 日期变成数字了', 'g7'],
 ];
 const ids = list => list.map(e => e.id);
+
+test('a legacy gram hit on a zero-lexical rule remains a rule fill', () => {
+  const corpus = [
+    E('project','reference','inspection-main','Deployment release checklist','Record a release approval.'),
+    E('project','reference','inspection-side','Deployment incident guide','Record incident contacts.'),
+    E('project','convention','ordinary-rule','Deploying','Deploying'),
+  ];
+  const recall = S.rankMemoriesForRecallDetailed(corpus,'deployment',8,{runtimeMemoryVectorRecallV1:true});
+  assert.deepEqual(new Set(ids(recall.entries)),new Set(['inspection-main','inspection-side','ordinary-rule']));
+  assert.deepEqual([...recall.fillKeys],['project:ordinary-rule']);
+  assert.equal(recall.entries.at(-1).id,'ordinary-rule');
+});
 const ruleFree = list => list.filter(e => e.type !== 'convention' && e.type !== 'preference');
 
 // ───────────── [P] 负例精度 ─────────────

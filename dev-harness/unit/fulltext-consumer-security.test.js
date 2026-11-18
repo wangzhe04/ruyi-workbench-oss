@@ -229,13 +229,21 @@ test('pausing during a pending source build refuses publication before any manif
 });
 test('legal text alongside unknown array and block payloads never claims complete coverage',async t=>{const f=await fx(t),a=p.join(f.directory,'A'),b=p.join(f.directory,'B');await f.put('ArrayBody',[row([{type:'text',text:'legal array needle'},'second string',{type:'future_payload',data:'unverified'}])],{head:{cwd:a}});await f.put('BlocksBody',[{...row(null),blocks:[{type:'text',text:'block needle'},{type:'future_payload',data:'unverified'}]}],{head:{cwd:b}});const value=await f.ui('array needle');assert.equal(value.coverage.messages.unverifiedText,2);assert.equal(value.coverage.complete,false);assert.equal(value.scope.fullText,false);const narrow=await f.ui('array needle',f.projectKey(a));assert.equal(narrow.coverage.sessions,1);assert.equal(narrow.coverage.messages.unverifiedText,1);assert.equal(narrow.coverage.complete,false);});
 
-test('actual cold consumer uses one admitted private preparation and warm search never rebuilds',async t=>{
+test('actual cold consumer uses bounded admitted slices and warm search never prepares or rebuilds',async t=>{
   const f=await fx(t),total=33;for(let n=0;n<total;n++)await f.put('Consumer_'+String(n).padStart(3,'0'),[row(n===total-1?'consumer-private-prepare-needle':'ordinary complete text '+n)]);
+  // This test measures scan counts and admission, independent of host I/O speed.
+  const now=Date.now();f.context.Date=class extends Date{static now(){return now;}};
   let scans=0,prepares=0,gates=0;const create=f.context.createSessionFullTextSource;f.context.createSessionFullTextSource=()=>{const source=create();return{...source,scan:async(...args)=>{scans++;return source.scan(...args);}};};
-  const bind=f.context.SessionFullTextHooks.bindSessions;f.context.SessionFullTextHooks.bindSessions=disclosure=>{const index=bind(disclosure);return Object.freeze({...index,prepare:async context=>{prepares++;return index.prepare(context);},step(){throw Error('production preparation must not restart public step');}});};
+  const bind=f.context.SessionFullTextHooks.bindSessions;f.context.SessionFullTextHooks.bindSessions=disclosure=>{const index=bind(disclosure);return Object.freeze({...index,prepare:async(context,options)=>{prepares++;return index.prepare(context,options);},step(){throw Error('production preparation must not restart public step');}});};
   const run=f.context.WorkDataMaintenanceHooks.run;f.context.WorkDataMaintenanceHooks.run=(kind,work)=>{assert.equal(kind,'session-fulltext-index');gates++;return run(kind,work);};
-  const cold=await f.ui('consumer-private-prepare-needle');assert.equal(cold.coverage.complete,true);assert.equal(cold.results[0].id,'Consumer_032');assert.equal(prepares,1);assert.equal(gates,1);assert.ok(scans<=total*4+3,'complete source scan calls remain linear, not a timing threshold');
-  assert.equal((await f.ui('consumer-private-prepare-needle')).results[0].id,'Consumer_032');assert.equal(prepares,1);assert.equal(gates,1);
+  for(const count of [16,32,33]){
+    const before=scans;
+    const cold=await f.ui('consumer-private-prepare-needle');assert.equal(cold.coverage.indexedSessions,count);
+    assert.ok(scans-before<=total*4+3,'each query has bounded source scan calls');
+    if(count===33)assert.equal(cold.results[0].id,'Consumer_032');
+  }
+  assert.equal(prepares,3);assert.equal(gates,3);
+  assert.equal((await f.ui('consumer-private-prepare-needle')).results[0].id,'Consumer_032');assert.equal(prepares,3);assert.equal(gates,3);
 });
 test('actual consumer private preparation cannot bypass a closed maintenance admission',async t=>{
   const f=await fx(t);await f.put('MaintenancePrepare',[row('maintenance-private-prepare-needle')]);const fault=Object.assign(Error('maintenance admission closed'),{code:'fixture.maintenance_closed'});f.context.WorkDataMaintenanceHooks.run=()=>Promise.reject(fault);await assert.rejects(()=>f.ui('maintenance-private-prepare-needle'),error=>error===fault);await assert.rejects(()=>fs.stat(p.join(f.sessions,'_fulltext-index-v1')),error=>error.code==='ENOENT');

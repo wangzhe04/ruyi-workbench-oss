@@ -12,7 +12,7 @@ function fixture(responses) {
   const input = { value: 'resume interrupted downloads' }, timers = new Map();
   let timerId = 0, requests = 0;
   const ctx = vm.createContext({
-    $: () => input, renderSessions() {},
+    $: () => input, renderSessions() {}, AbortController,
     setTimeout(fn) { timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },
     async api() { const result = responses[Math.min(requests++, responses.length - 1)]; return typeof result === 'function' ? result() : result; },
@@ -39,11 +39,11 @@ test('search UI does not retry unavailable, zero-progress or truncated timeouts'
     const f = fixture([response(semantic)]); f.ctx.schedule(); await f.tick(); assert.equal(f.timers.size, 0);
   }
 });
-test('search UI stops at the existing retry cap and abandons changed queries', async () => {
+test('search UI stops without progress and abandons changed queries', async () => {
   const value = response({ status: 'timeout', coverage: 'partial', cachedFragments: 20 });
   const capped = fixture([value]); capped.ctx.schedule();
   while (capped.timers.size) await capped.tick();
-  assert.equal(capped.requests(), 33);
+  assert.equal(capped.requests(), 2);
   const changed = fixture([value]); changed.ctx.schedule(); await changed.tick();
   changed.input.value = 'different topic'; await changed.tick(); assert.equal(changed.timers.size, 0); assert.equal(changed.requests(), 1);
 });
@@ -56,12 +56,20 @@ test('clearing the query invalidates an in-flight semantic response', async () =
 });
 test('cold source indexing continues without vectors but paused and disabled sources do not', async () => {
   for (const phase of ['timeout', 'pending', 'building', 'idle', 'paused', 'disabled']) {
-    const f = fixture([{ ...response({ status: 'timeout', coverage: 'partial' }), coverage: { phase, complete: false, pendingSessions: 207 } }]);
+    const f = fixture([{ ...response({ status: 'timeout', coverage: 'partial' }), coverage: { phase, complete: false, indexedSessions: phase==='timeout'?null:4, pendingSessions: 207 } }]);
     f.ctx.schedule(); await f.tick();
-    assert.equal(f.timers.size, ['timeout', 'pending', 'building', 'idle'].includes(phase) ? 1 : 0, phase);
+    assert.equal(f.timers.size, ['pending', 'building', 'idle'].includes(phase) ? 1 : 0, phase);
+    if(phase==='timeout')assert.equal(f.ctx.current().canResume,true);
   }
   for (const phase of ['paused', 'disabled']) {
     const f = fixture([{ ...response({ status: 'partial', coverage: 'partial', cachedFragments: 20 }), coverage: { phase, complete: false, pendingSessions: 207 } }]);
     f.ctx.schedule(); await f.tick(); assert.equal(f.timers.size, 0, phase);
   }
+});
+test('one search reaches a match in the last slice of a 400-thread catalog',async()=>{
+ const replies=Array.from({length:100},(_,i)=>({ok:true,results:i===99?[{id:'last'}]:[],
+   coverage:{phase:'idle',sessions:400,indexedSessions:4*(i+1),pendingSessions:396-4*i,complete:i===99}}));
+ const f=fixture(replies);f.ctx.schedule();
+ while(f.timers.size)await f.tick();
+ assert.equal(f.requests(),100);assert.equal(f.ctx.current().results[0].id,'last');
 });

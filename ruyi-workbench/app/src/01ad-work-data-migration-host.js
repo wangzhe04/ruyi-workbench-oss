@@ -64,7 +64,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
     if(onSpecialPrepared!==undefined&&typeof onSpecialPrepared!=='function')fail('host_invalid');
     if(onSpecialReady!==undefined&&typeof onSpecialReady!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
-    base=p.resolve(base);const tree=WorkDataTree.create(limits),sourceTree=preservedRead===undefined?tree:WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership,assertExclusive,assertExclusiveSync,limits}),issued=new WeakMap(),published=new WeakMap();let busy=false;
+    base=p.resolve(base);const candidatePlans=new WeakMap(),tree=WorkDataTree.create(limits),sourceTree=preservedRead===undefined?tree:WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership,assertExclusive,assertExclusiveSync,limits,candidateAuthority:(candidate,root)=>{const plan=candidatePlans.get(candidate);if(!plan||!busy||key(p.resolve(root))!==key(base)||typeof assertExclusiveSync!=='function'||assertExclusiveSync(ownership)!==true||typeof manifest.candidateBoundary!=='function')fail('candidate_invalid');return manifest.candidateBoundary(candidate,plan.sourceProof);}}),issued=new WeakMap(),published=new WeakMap();let busy=false;
     const admission=async()=>{if(await assertExclusive(ownership)!==true)fail('ownership_required');};
     // A preserved source lease can fail to close. Keep its primary failure,
     // even when falsy, and never convert uncertain cleanup into a safe release.
@@ -166,9 +166,10 @@ const WorkDataMigrationHost = ((io,p,c) => {
       await admission();
       return true;
     }
+    async function capturePlanBase(plan){return sourceTree.capture(base,typeof manifest.candidateBoundary === "function" ? plan.candidate || undefined : undefined);}
     async function checkSource(plan){
       await current(plan.expected);await assertPlanIntent(plan);
-      return usingSource(await sourceTree.capture(base),snapshot=>validateSource(plan,snapshot));
+      return usingSource(await capturePlanBase(plan),snapshot=>validateSource(plan,snapshot));
     }
     async function validateSource(plan,snapshot){
         const files=new Map(plan.sourceProof.sourceFiles.map(row=>[key(row.path),row])),dirs=new Map(plan.sourceProof.sourceDirectories.map(row=>[key(row.path),row]));
@@ -210,7 +211,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
     }
     async function verifySpecialSource(plan){
       if(typeof plan.special.capturePortable!=='function')fail('special_owner_change_proof_required');
-      await usingSource(await sourceTree.capture(base),async complete=>{
+      await usingSource(await capturePlanBase(plan),async complete=>{
         await validateSource(plan,complete);
         const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
         const files=complete.files.filter(row=>!candidate(row.path)),directories=complete.directories.filter(name=>!candidate(name));
@@ -271,7 +272,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
       if(preservedRead===undefined)return {};
       return {withSourceReadScope:async work=>{
         await current(plan.expected);await assertPlanIntent(plan);
-        return usingSource(await sourceTree.capture(base),async captured=>{
+        return usingSource(await capturePlanBase(plan),async captured=>{
           await validateSource(plan,captured);
           const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work(codecGrant(plan,captured)));
           await validateSource(plan,captured);return result;
@@ -345,7 +346,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
                 fail('special_owner_change_proof_required');
             }
           }
-          plan.mutationStarted=true;plan.candidate=await manifest.prepare({expected:plan.expected,mode:targetMode});if(!/^[a-f0-9]{48}$/.test(plan.candidate.id||'')||key(plan.candidate.root)!==key(p.join(base,'.work-data','generations',plan.candidate.id))||plan.candidate.generation!==expected.generation+1||plan.candidate.mode!==targetMode)fail('candidate_invalid');await admission();plan.intent=await acceptIntent(await onCandidate({backupReceipt,expected:plan.expected,candidate:plan.candidate}));await checkSource(plan);
+          plan.mutationStarted=true;plan.candidate=await manifest.prepare({expected:plan.expected,mode:targetMode});candidatePlans.set(plan.candidate,plan);if(!/^[a-f0-9]{48}$/.test(plan.candidate.id||'')||key(plan.candidate.root)!==key(p.join(base,'.work-data','generations',plan.candidate.id))||plan.candidate.generation!==expected.generation+1||plan.candidate.mode!==targetMode)fail('candidate_invalid');await admission();plan.intent=await acceptIntent(await onCandidate({backupReceipt,expected:plan.expected,candidate:plan.candidate}));await checkSource(plan);
           const headerRow=rows.find(row=>key(row.path)==='work-data-key-v1.json'),sourceHeader=headerRow?JSON.parse(strict(headerRow.data)):WorkDataKeys.empty();if(!WorkDataKeys.validate(sourceHeader))fail('key_header_invalid');
           const oldKeys=WorkDataKeys.create({protector,enabled:()=>false,store:{read:async()=>sourceHeader}});plan.disposable.push(oldKeys);let targetHeader,staged;
           if(sourceHeader.instanceId){const lease=await oldKeys.snapshot();try{staged=await oldKeys.stageRecovered({instanceId:lease.instanceId,key:lease.key});}finally{lease.release();}}

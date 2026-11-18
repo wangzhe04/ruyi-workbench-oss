@@ -146,6 +146,7 @@ function groupKey(iso) {
 let sessionSearchState = { query: '', results: null, loading: false, failed: false };
 let sessionSearchTimer = 0;
 let sessionSearchSeq = 0;
+let sessionSearchAbort = null;
 const SESSION_SEARCH_MIN_QUERY = 2;
 const SESSION_SEARCH_DEBOUNCE_MS = 200;
 
@@ -153,48 +154,69 @@ function sessionSearchQuery() {
   return String($('sessionSearch')?.value || '').trim();
 }
 
-// 去抖 200ms；每次发请求带一个递增序号，只采信最新一次的结果（快打字时先发后到会把
-// 旧结果盖到新查询上）。不取消已发的请求：本机调用代价比 AbortController 的复杂度低。
-function scheduleSessionSearch(refreshAttempt = 0) {
+function cancelSessionSearch() {
+  clearTimeout(sessionSearchTimer);
+  sessionSearchTimer = 0;
+  sessionSearchSeq += 1;
+  sessionSearchAbort?.abort();
+  sessionSearchAbort = null;
+}
+
+function scheduleSessionSearch(refreshAttempt = 0, continueIndex = false) {
   if (!Number.isSafeInteger(refreshAttempt)) refreshAttempt = 0;
   const q = sessionSearchQuery();
-  if (sessionSearchTimer) { clearTimeout(sessionSearchTimer); sessionSearchTimer = 0; }
+  const previous = refreshAttempt > 0 && sessionSearchState.query === q ? sessionSearchState : null;
+  cancelSessionSearch();
   if (q.length < SESSION_SEARCH_MIN_QUERY) {
     // 序号同样要推进:清空搜索框时可能还有一次请求在飞,不推序号的话它回来后会把
     // 已经清掉的搜索态又写回去(渲染时虽有 query 比对兑底,但状态本身不该脏)。
-    sessionSearchSeq += 1;
     sessionSearchState = { query: q, results: null, loading: false, failed: false };
     renderSessions({ refresh: false });
     return;
   }
-  sessionSearchState = { ...sessionSearchState, query: q, loading: true, coverage: null };
+  sessionSearchState = previous
+    ? { ...previous, loading: true }
+    : { query: q, results: null, loading: true, failed: false };
   renderSessions({ refresh: false });
   sessionSearchTimer = setTimeout(async () => {
     sessionSearchTimer = 0;
     const seq = ++sessionSearchSeq;
+    const abort = new AbortController();
+    sessionSearchAbort = abort;
     try {
-      const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30`);
+      const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30${continueIndex ? '' : '&preview=1'}`, { signal: abort.signal });
       if (seq !== sessionSearchSeq) return;
       if (res && res.ok && Array.isArray(res.results)) {
-        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage, semantic: res.semantic };
+        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage, semantic: res.semantic, lexicalPreview: res.lexicalPreview === true };
       } else {
         sessionSearchState = { query: q, results: null, loading: false, failed: true };
       }
     } catch {
       if (seq !== sessionSearchSeq) return;
       sessionSearchState = { query: q, results: null, loading: false, failed: true };
+    } finally {
+      if (sessionSearchAbort === abort) sessionSearchAbort = null;
     }
     renderSessions({ refresh: false });
     const semantic = sessionSearchState.semantic;
     const coverage = sessionSearchState.coverage;
     // A bounded encoding pass can finish its budget after caching useful fragments.
     // Continue warming that same query; a zero-progress timeout must not poll forever.
-    const sourcePending = coverage?.complete === false && coverage.pendingSessions > 0 && ['timeout', 'pending', 'building', 'idle'].includes(coverage.phase);
-    const canContinue = !['paused', 'disabled'].includes(coverage?.phase) && (sourcePending || semantic?.status === 'loading' || !semantic?.truncated && (
-      semantic?.status === 'partial' || semantic?.status === 'timeout' && semantic.coverage === 'partial' && semantic.cachedFragments > 0
-    ));
-    if (q === sessionSearchQuery() && refreshAttempt < 32 && canContinue) {
-      sessionSearchTimer = setTimeout(() => { if (q === sessionSearchQuery()) scheduleSessionSearch(refreshAttempt + 1); }, 500);
+    const sourcePending = coverage?.complete === false && coverage.pendingSessions > 0 && ['pending', 'building', 'idle'].includes(coverage.phase);
+    const sourceAdvanced = coverage?.phase === 'timeout' && coverage.preparedThisRequest > 0
+      || sourcePending && Number.isSafeInteger(coverage.indexedSessions)
+        && coverage.indexedSessions > (previous?.coverage?.indexedSessions ?? 0);
+    const semanticAdvanced = !semantic?.truncated && semantic?.coverage !== 'complete'
+      && semantic?.cachedFragments > (previous?.semantic?.cachedFragments ?? 0);
+    const semanticPending = ['loading', 'partial', 'timeout'].includes(semantic?.status) && !semantic?.truncated
+      && semantic?.coverage !== 'complete';
+    const canContinue = !['paused', 'disabled'].includes(coverage?.phase)
+      && (sessionSearchState.lexicalPreview || sourceAdvanced || semanticAdvanced || semantic?.status === 'loading' && refreshAttempt < 3);
+    if (q === sessionSearchQuery() && refreshAttempt < 127 && canContinue) {
+      sessionSearchTimer = setTimeout(() => { if (q === sessionSearchQuery()) scheduleSessionSearch(refreshAttempt + 1, true); }, 500);
+    } else if (coverage?.phase === 'timeout' || sourcePending || semanticPending) {
+      sessionSearchState.canResume = true;
+      renderSessions({ refresh: false });
     }
   }, SESSION_SEARCH_DEBOUNCE_MS);
 }
@@ -237,12 +259,18 @@ function renderSessions(opts) {
     const coverage = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.coverage : null;
     const lines = [];
     const semantic = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.semantic : null;
-    if (semantic && semantic.status !== 'disabled') {
+    const searchCurrent = sessionSearchState.query === sessionSearchQuery();
+    if (searchCurrent && (sessionSearchState.loading || sessionSearchState.lexicalPreview)) {
+      lines.push(t(sessionSearchState.lexicalPreview && !sessionSearchState.results?.length
+        ? 'session.searchPreviewEmpty' : 'session.searchPreparing'));
+    }
+    if (coverage?.phase !== 'timeout' && semantic && !['disabled', 'deferred'].includes(semantic.status)) {
       if (semantic.status === 'loading') lines.push(t('session.semanticLoading'));
       else if (['unavailable', 'timeout', 'overloaded'].includes(semantic.status) && !semantic.cachedFragments) lines.push(t('session.semanticFallback'));
       else if (semantic.coverage !== 'complete') lines.push(t('session.semanticPartial', { cached: semantic.cachedFragments || 0, total: semantic.candidateFragments || 0 }));
     }
-    if (coverage && Number.isSafeInteger(coverage.indexedSessions) && Number.isSafeInteger(coverage.sessions)) {
+    if (coverage?.phase === 'timeout') lines.push(t('session.searchProgressUnavailable'));
+    else if (coverage && Number.isSafeInteger(coverage.indexedSessions) && Number.isSafeInteger(coverage.sessions)) {
       lines.push(t('session.searchCoverage', { indexed: coverage.indexedSessions, total: coverage.sessions }));
       if (coverage.phase === 'paused') lines.push(t('session.searchPaused'));
       if (coverage.attachments?.unverifiedFullText > 0) lines.push(t('session.searchUnverifiedAttachments', { count: coverage.attachments.unverifiedFullText }));
@@ -250,6 +278,11 @@ function renderSessions(opts) {
     }
     coverageNode.textContent = lines.join(' ');
     coverageNode.hidden = !lines.length;
+  }
+  const continueButton = $('sessionSearchContinue');
+  if (continueButton) {
+    continueButton.hidden = sessionSearchState.query !== sessionSearchQuery() || sessionSearchState.loading || !sessionSearchState.canResume;
+    continueButton.onclick = () => scheduleSessionSearch(0, true);
   }
   if (!railRenderer) return false;
   try { railRenderer(opts); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
@@ -1872,6 +1905,7 @@ function buildEmptyCTA() {
   // 117m-A5：页面藏起来／回到前台就重判一次表。挂在本域内，组合根零改动（app.js 不在本切片白名单）。
   try { globalThis.document.addEventListener('visibilitychange', () => syncLivePolling()); }
   catch { /* 非浏览器宿主（静态件 import 本模块时）：没有表可开 */ }
+  globalThis.addEventListener?.('pagehide', cancelSessionSearch);
   return Object.freeze({
     autonomyFormSync,
     buildEmptyState,

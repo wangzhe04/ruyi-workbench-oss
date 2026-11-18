@@ -35,6 +35,19 @@ function withPortableDurability(f){
      const info=await native.info(request.root);
      return Object.freeze({schema:1,kind:'captured-directory-flush-v1',role:'owned-stage',root:request.root,revision:request.revision,token:request.token,volume:info.volume,allFlushed:true,metadataExact:true,count:directories.length,directories});
     }
+    if(request.cmd==='retire-portable-stage'){
+     const {root,id,parentId,revision,snapshot}=request;
+     assert.equal((await native.info(root)).id,id);
+     assert.equal((await native.info(path.dirname(root))).id,parentId);
+     const summarize=entry=>({rel:entry.rel,id:entry.id,dir:entry.dir,attrs:entry.attrs,shortName:entry.shortName,times:entry.times,streams:entry.streams});
+     const captured=await native.capture(root,revision);
+     assert.deepEqual(captured.entries.map(summarize),snapshot.entries.map(summarize));
+     for(const entry of [...captured.entries].sort((a,b)=>b.rel.length-a.rel.length)){
+      const file=path.join(root,...entry.rel.split('/'));
+      if(entry.dir)await fsp.rmdir(file);else await fsp.unlink(file);
+     }
+     return {root,id,parentId,count:captured.entries.length,removed:true};
+    }
     throw failure('portable_durability_binding');
    },
    async close(){closed=true;}
@@ -95,6 +108,7 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
  const restoredRoot=path.join(f.root,'stable-native-portable-target'),restoreOwner={roots:[restoredRoot]};
  const staged=await fullPortableOwner(f).restore({serialized:sourceProof.serialized,password:'synthetic nonempty migration password',target:restoredRoot,targetOwnership:restoreOwner});
  assert.equal(staged.specialProfile.originalObjects,'new-owned-portable');
+ assert.equal((await fsp.readdir(f.root)).some(name=>name.startsWith('.ruyi-skill-portable-')),false);
  const resealed=await fullPortableOwner({...f,base:restoredRoot}).seal({password:'synthetic nonempty migration password',appVersion:'3.0.1',generation:selected.generation});
  assert.equal(resealed.specialCoverage.originalObjects,'new-owned-portable');
  const backupReceipt={sha256:hash(sourceProof.serialized)},ownership={roots:[base]},callbacks=[];
@@ -215,6 +229,37 @@ test('fixed typed auxiliary source binds all special generation files and empty 
 test('portable empty store stages native identity before target mkdir and cold owner opens new-base control AAD',async t=>{
  const f=withPortableDurability(await portableFixture(t)),{captured,request}=await f.capture(),target=path.join(f.root,'portable-target');try{const portable=await f.owner.capturePortable(request),sourceCatalog=JSON.parse(portable.data).records.find(row=>row.kind==='catalog').value,token=await f.owner.stagePortable({...request,data:portable.data,target,keysFor:async()=>f.keys,assertTargetExclusive:async()=>true});assert.equal(fs.existsSync(target),false);assert.ok(token.files.length===3);assert.equal(sourceCatalog.rootId===token.stageIdentity.id,false);await installStandalone(f,captured,token,target);const targetManifest=f.api.WorkDataManifest.create({base:target,publish:()=>{throw Error('read-only');}}),cold=f.special.api.hooks.createBackupOwner({base:target,readActive:()=>targetManifest.readActive(),sourceKeys:f.keys,targetKeys:f.keys,native:f.special.native});const verified=await cold.verifyPublished({expected:await targetManifest.readActive()});assert.notEqual(verified.rootId,sourceCatalog.rootId);assert.equal(verified.storeId,sourceCatalog.storeId);assert.equal((await f.owner.verifyPortableInstalled(token)).readOnly,true);await assert.rejects(()=>f.owner.installPortable(token,{targetIdentity:{dev:'0',ino:'0'}}),{code:'work_data_backup.portable_token'});portable.release();token.release();assert.equal((await f.tree.verify(captured)).files,captured.files.length);}finally{captured.release();}
 });
+for(const alteration of ['foreign leaf','same-bytes replacement','post-move parent access time','post-move stage root access time'])test('portable retirement refuses '+alteration+' without deleting the stage or target',async t=>{
+ const f=withPortableDurability(await portableFixture(t)),{captured,request}=await f.capture();
+ const target=path.join(f.root,'portable-target-retire-refusal');
+ let portable,token;
+ try{
+  portable=await f.owner.capturePortable(request);
+  token=await f.owner.stagePortable({...request,data:portable.data,target,keysFor:async()=>f.keys,assertTargetExclusive:async()=>true});
+  await installStandalone(f,captured,token,target);
+  const sealedFile=path.join(token.stageRoot,...token.files[0].path.split('/'));
+  let retained;
+  if(alteration==='foreign leaf'){
+   retained=path.join(token.stageRoot,'unknown');
+   await fsp.writeFile(retained,'foreign bytes',{flag:'wx'});
+  }else if(alteration==='same-bytes replacement'){
+   const bytes=await fsp.readFile(sealedFile);
+   retained=path.join(f.root,'original-sealed-file');
+   await fsp.rename(sealedFile,retained);
+   await fsp.writeFile(sealedFile,bytes,{flag:'wx'});
+  }else{
+   retained=alteration==='post-move stage root access time'?token.stageRoot:path.join(token.stageRoot,'.work-data','skill-backups');
+   const point=(await f.special.native.capture(retained,'1'.repeat(64))).entries[0];
+   const times=[...point.times];
+   times[1]=(BigInt(times[1])+1n).toString();
+   f.special.metadata.set(point.id,{attrs:point.attrs,shortName:point.shortName,times});
+  }
+  await assert.rejects(()=>f.owner.retirePortable(token),{code:'work_data_backup.portable_retire_changed'});
+  assert.ok(fs.existsSync(target));
+  assert.ok(fs.existsSync(sealedFile));
+  assert.ok(fs.existsSync(retained));
+ }finally{portable?.release();token?.release();captured.release();}
+});
 test('portable stage cannot overwrite or alias source/target and rejects owner loss before mutation',async t=>{
  const f=withPortableDurability(await portableFixture(t)),{captured,request}=await f.capture();try{const portable=await f.owner.capturePortable(request);await assert.rejects(()=>f.owner.stagePortable({...request,data:portable.data,target:f.base,keysFor:async()=>f.keys,assertTargetExclusive:async()=>true}),{code:'work_data_backup.portable_target'});const target=path.join(f.root,'existing-target');await fsp.mkdir(target);await assert.rejects(()=>f.owner.stagePortable({...request,data:portable.data,target,keysFor:async()=>f.keys,assertTargetExclusive:async()=>true}),{code:'work_data_backup.portable_target_exists'});await assert.rejects(()=>f.owner.stagePortable({...request,data:portable.data,target:path.join(f.root,'denied-target'),keysFor:async()=>f.keys,assertTargetExclusive:async()=>false}),{code:'work_data_backup.portable_owner'});portable.release();}finally{captured.release();}
 });
@@ -252,6 +297,6 @@ test('every retained generation binding must close to an actual terminal history
  const next=await f.capture();try{await assert.rejects(()=>f.owner.capturePortable(next.request),{code:'work_data_backup.portable_binding'});}finally{next.captured.release();}
 });
 
-test('full restore rejects missing native installation or verification proof from an adapter',async t=>{
- for(const method of ['installPortable','verifyPortableInstalled']){const f=withPortableDurability(await portableFixture(t));await fsp.unlink(path.join(f.base,'.work-data','maintenance-v1.json'));const password='synthetic proof refusal password',sealed=await fullPortableOwner(f).seal({password,appVersion:'3.0.1',generation:1}),target=path.join(f.root,'bad-'+method),bad=f.api.WorkDataFullSnapshot.create({base:f.base,ownership:{roots:[f.base]},assertExclusive:async()=>true,protector:f.protector,externalOwner:options=>f.api.ExternalBotCredentials.create(options),maintenanceResultOwner:f.api.WorkDataMaintenanceResult,skillBackupOwner:options=>{const owner=f.special.api.hooks.createBackupOwner({...options,native:f.special.native});return{...owner,[method]:async(...args)=>{await owner[method](...args);return null;}};}});await assert.rejects(()=>bad.restore({serialized:sealed.serialized,password,target,targetOwnership:{roots:[target]}}),error=>error.code==='work_data_full.restore_failed'&&error.cause?.code==='work_data_full.special_owner_proof');assert.equal((await f.manifest.readActive()).id,f.selected.id);}
+test('full restore rejects missing native installation, verification, or retirement proof from an adapter',async t=>{
+ for(const method of ['installPortable','verifyPortableInstalled','retirePortable']){const f=withPortableDurability(await portableFixture(t));await fsp.unlink(path.join(f.base,'.work-data','maintenance-v1.json'));const password='synthetic proof refusal password',sealed=await fullPortableOwner(f).seal({password,appVersion:'3.0.1',generation:1}),target=path.join(f.root,'bad-'+method),bad=f.api.WorkDataFullSnapshot.create({base:f.base,ownership:{roots:[f.base]},assertExclusive:async()=>true,protector:f.protector,externalOwner:options=>f.api.ExternalBotCredentials.create(options),maintenanceResultOwner:f.api.WorkDataMaintenanceResult,skillBackupOwner:options=>{const owner=f.special.api.hooks.createBackupOwner({...options,native:f.special.native});return{...owner,[method]:async(...args)=>{await owner[method](...args);return null;}};}});await assert.rejects(()=>bad.restore({serialized:sealed.serialized,password,target,targetOwnership:{roots:[target]}}),error=>error.code==='work_data_full.restore_failed'&&error.cause?.code==='work_data_full.special_owner_proof');assert.equal((await f.manifest.readActive()).id,f.selected.id);}
 });

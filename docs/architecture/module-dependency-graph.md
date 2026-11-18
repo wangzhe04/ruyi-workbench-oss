@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4400 | 4330 | 954 | 67 | 0 | 1 |
+| 145 | 4403 | 4331 | 954 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -124,7 +124,7 @@
 | 106 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 107 | `13s-scheduler.js` | transport | 77 | 44 | 11 |
 | 108 | `13t-steward-schedule.js` | transport | 23 | 42 | 10 |
-| 109 | `13u-migration-center.js` | transport | 120 | 42 | 13 |
+| 109 | `13u-migration-center.js` | transport | 123 | 42 | 13 |
 | 110 | `13v-external-channel-protocols.js` | transport | 1 | 1 | 1 |
 | 111 | `13x-external-channel-delivery.js` | transport | 1 | 0 | 0 |
 | 112 | `13y-external-bot-credentials.js` | transport | 1 | 8 | 4 |
@@ -153,7 +153,7 @@
 | 135 | `13bc-media-image-processor.js` | unclassified | 1 | 0 | 0 |
 | 136 | `13bd-media-image-service.js` | unclassified | 1 | 1 | 1 |
 | 137 | `13be-media-image-host.js` | unclassified | 1 | 31 | 14 |
-| 138 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 19 | 15 |
+| 138 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 20 | 15 |
 | 139 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 140 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 141 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 8 |
@@ -746,7 +746,7 @@
 | `13aq-work-data-native-adapters.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |
 | `13aq-work-data-native-adapters.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13aq-work-data-native-adapters.js` | `13an-work-data-disposable-tree.js` | backward | `WorkDataDisposableNativeTree` |
-| `13aq-work-data-native-adapters.js` | `13u-migration-center.js` | backward | `migrationCapsuleBroker`, `migrationCapsuleCapturePreserved`, `migrationCapsuleShape` |
+| `13aq-work-data-native-adapters.js` | `13u-migration-center.js` | backward | `migrationCapsuleBroker`, `migrationCapsuleCapturePreserved`, `migrationCapsuleShape`, `migrationCreateCandidateBoundary` |
 | `13aq-work-data-native-adapters.js` | `13y-external-bot-credentials.js` | backward | `ExternalBotCredentials` |
 | `13ar-work-data-verifier-entry.js` | `00-boot.js` | backward | `exePath`, `isPkg` |
 | `13ar-work-data-verifier-entry.js` | `13aq-work-data-native-adapters.js` | backward | `WorkDataNativeAdapters` |

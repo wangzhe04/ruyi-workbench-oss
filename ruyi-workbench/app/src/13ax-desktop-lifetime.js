@@ -1,7 +1,7 @@
 // Bounded diagnostic metadata only. No lifecycle authority or control message.
 const DesktopLifetimeDiagnostic = (() => {
   const stages = new Set(["setup","begin","cancel","infrastructure","settlers","first-idle","first-helper-check","http-close","second-idle","second-helper-check","retire","retired","finished-request","deferred-request"]);
-  const reasons = new Set(["unclassified","desktop_lifetime.uncertain","desktop_lifetime.helper_uncertain","desktop_lifetime.listener_changed","desktop_lifetime.channel_unavailable","desktop_lifetime.response_timeout","desktop_lifetime.owner_refused","desktop_lifetime.protocol","desktop_lifetime.channel_closed","desktop_lifetime.exit_returned","work_data.maintenance_busy","work_data.maintenance_nested","work_data.maintenance_cancelled","work_data.maintenance_stale_continuation","work_data.maintenance_owner_unavailable","work_data.maintenance_lease_expired","work_data.maintenance_not_idle","work_data.maintenance_infrastructure_unavailable","work_data.maintenance_infrastructure_uncertain"]);
+  const reasons = new Set(["unclassified","desktop_lifetime.uncertain","desktop_lifetime.helper_uncertain","desktop_lifetime.semantic_uncertain","desktop_lifetime.listener_changed","desktop_lifetime.channel_unavailable","desktop_lifetime.response_timeout","desktop_lifetime.owner_refused","desktop_lifetime.protocol","desktop_lifetime.channel_closed","desktop_lifetime.exit_returned","work_data.maintenance_busy","work_data.maintenance_nested","work_data.maintenance_cancelled","work_data.maintenance_stale_continuation","work_data.maintenance_owner_unavailable","work_data.maintenance_lease_expired","work_data.maintenance_not_idle","work_data.maintenance_infrastructure_unavailable","work_data.maintenance_infrastructure_uncertain"]);
   const names = new Set(['Error','TypeError','RangeError','SyntaxError','AbortError','TimeoutError']);
   let stage='setup',kind='close',seq=0,emitted=false;
   const own=(error,key)=>{try{const row=error&&Object.getOwnPropertyDescriptor(error,key);return row&&Object.hasOwn(row,'value')?row.value:undefined;}catch{return undefined;}};
@@ -35,7 +35,7 @@ const DesktopLifetime = (() => {
   }
   function create({ bootstrap, proc, connect, clock, stop }) {
     const config = descriptor(bootstrap), pending = new Map(), retained = new Set(), issued = new Map(), endpoints = new Set([config.pipe]);
-    let socket = null, connected = null, sequence = 0, buffer = '', closing = false, active = false, stopPromise = null, unknownSet = false, unknown = null, holdAttempted = false;
+    let socket = null, connected = null, sequence = 0, uncertainSequence = null, buffer = '', closing = false, active = false, stopPromise = null, unknownSet = false, unknown = null, holdAttempted = false;
     function retain(error) {
       if (!unknownSet) { unknownSet = true; unknown = error; }
       if (!holdAttempted) { holdAttempted = true; try { const hold = clock.setInterval(() => {}, 60000); hold?.ref?.(); retained.add(hold); }
@@ -60,6 +60,10 @@ const DesktopLifetime = (() => {
     }
     function receive(value) {
       if (!value || typeof value !== 'object' || value.schema !== 1 || !Number.isSafeInteger(value.seq)) throw fail('protocol');
+      if (value.seq === uncertainSequence && shape(value, 'schema,seq,kind') && value.kind === 'ok') {
+        uncertainSequence = null;
+        return;
+      }
       if(shape(value,'schema,seq,kind')&&value.seq===0&&value.kind==='active'){
         if(active)throw fail('protocol');active=true;return;
       }
@@ -72,7 +76,14 @@ const DesktopLifetime = (() => {
           await request('finished');
           proc.exit(0);
           throw fail('exit_returned');
-        }).catch(error => { retain(error); DesktopLifetimeDiagnostic.failure(error); try { send({ schema: 1, seq: 0, kind: 'uncertain' }); } catch {} });
+        }).catch(error => {
+          retain(error);
+          DesktopLifetimeDiagnostic.failure(error);
+          // This terminal notice still belongs to the same ordered channel.
+          // Accept its one exact ACK without reopening normal requests.
+          uncertainSequence = ++sequence;
+          try { send({ schema: 1, seq: uncertainSequence, kind: 'uncertain' }); } catch {}
+        });
         return;
       }
       const row = pending.get(value.seq);

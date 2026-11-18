@@ -1,0 +1,75 @@
+{
+  "artifact": "output\\release152-semantic-preview\\Ruyi-3.1-preview.3-slim.zip",
+  "sha256": "4652e1745207166256abd37ba448f0ce936fe93ce2109a625fa1416cc51af47c",
+  "server": "887c5b1bca399364e9ed07d51eb96f1421a598692b453da64b52af9a0b98649b",
+  "manifestVersion": "3.0.1",
+  "model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "status": "internal-preview",
+  "firstSearch": {
+    "preparing": {
+      "text": "正在准备搜索索引，先显示目前可用的关键词结果。",
+      "visible": true,
+      "ms": 13
+    },
+    "hit": {
+      "text": "正在准备搜索索引，先显示目前可用的关键词结果。",
+      "visible": true,
+      "ms": 194
+    },
+    "status": "PASS"
+  },
+  "threadSearch": {
+    "count": 400,
+    "earlyTitleMs": 2601,
+    "tailMs": 97193,
+    "crossLanguageMs": 8170,
+    "kind": "semantic",
+    "nativeAttempts": {
+      "lexical": 1,
+      "semantic": 21
+    },
+    "negativeControl": {
+      "checks": [
+        {
+          "complete": false,
+          "semantic": "deferred",
+          "count": 0,
+          "returnedTarget": false
+        },
+        {
+          "complete": true,
+          "semantic": "ready",
+          "count": 0,
+          "returnedTarget": false
+        }
+      ],
+      "status": "PASS"
+    },
+    "independentRun": "output/release152-thread-terra/packaged"
+  },
+  "memory": {
+    "coldKeywordMs": 384,
+    "eligible": 79,
+    "naturalQuestion": "semantic match at position 79",
+    "shortQuery": "大巴 missed intended memory and produced an unrelated header match",
+    "automatic": "reranks lexical candidates; no semantic expansion",
+    "frontend": "turn details show preserved results, core and rule-fill"
+  },
+  "shutdown": {
+    "cold": {
+      "ms": 1178,
+      "code": 0,
+      "http": 409,
+      "surviving": []
+    },
+    "warm": {
+      "ms": 816,
+      "code": 0,
+      "http": 200,
+      "surviving": []
+    }
+  },
+  "observation": 0.4814118932985593,
+  "offlineUpgradeChecks": 25,
+  "evidenceDirectory": "output\\release152-semantic-preview"
+}

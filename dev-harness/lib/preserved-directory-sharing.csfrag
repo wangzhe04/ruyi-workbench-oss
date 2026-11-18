@@ -1,0 +1,163 @@
+  static void RequireStudy(bool condition, string reason) {
+    if (!condition) Reject(reason);
+  }
+  static SafeFileHandle StudyDirectoryReader(string path) {
+    return CreateFile(NativePath(path), 0x80000000u, 7, IntPtr.Zero, 3, 0x02200000u, IntPtr.Zero);
+  }
+  static void StudySetAccessTime(string path) {
+    using (var attributes = CreateFile(NativePath(path), 0x00100180u, 7, IntPtr.Zero, 3, 0x02200000u, IntPtr.Zero)) {
+      RequireStudy(!attributes.IsInvalid, "attribute_writer_unavailable");
+      Basic before = BasicOf(attributes);
+      Basic change = new Basic { Access = before.Access - TimeSpan.TicksPerDay };
+      int length = Marshal.SizeOf(typeof(Basic));
+      IntPtr bytes = Marshal.AllocHGlobal(length), iosb = Marshal.AllocHGlobal(IntPtr.Size * 2);
+      try {
+        Marshal.StructureToPtr(change, bytes, false);
+        RequireStudy(NtSetInformationFile(attributes, iosb, bytes, (uint)length, 4) == 0, "attribute_write_failed");
+        RequireStudy(BasicOf(attributes).Access == change.Access, "external_access_change_missing");
+      } finally { Marshal.FreeHGlobal(bytes); Marshal.FreeHGlobal(iosb); }
+    }
+  }
+  public static void StudyPortablePublish(string root) {
+    for (int sample=0; sample<5; sample++) {
+      string scenario=System.IO.Path.Combine(root,"publish-"+sample);
+      string source=System.IO.Path.Combine(scenario,@"source\Snapshot_Skill");
+      string parent=System.IO.Path.Combine(scenario,@"stage\skills");
+      string target=System.IO.Path.Combine(parent,"Snapshot_Skill");
+      string nested=System.IO.Path.Combine(source,@"details\deep");
+      Directory.CreateDirectory(nested);Directory.CreateDirectory(parent);
+      File.WriteAllText(System.IO.Path.Combine(source,"SKILL.md"),"synthetic skill");
+      string file=System.IO.Path.Combine(nested,"data.bin");
+      File.WriteAllBytes(file,new byte[]{9,0,128,255});
+      using(var stream=CreateFile(NativePath(file)+":owned-ads",0x40000000u,7,IntPtr.Zero,1,0x02200000u,IntPtr.Zero)) {
+        RequireStudy(!stream.IsInvalid,"stream_setup_failed");
+        Write(stream,new byte[]{0,13,10,128,255});
+      }
+      StudySetAccessTime(source);
+      string revision=new string('b',64);
+      var sourceArgs=new Dictionary<string,object>{{"root",source},{"revision",revision}};
+      var targetArgs=new Dictionary<string,object>{{"root",target},{"revision",revision}};
+      Dictionary<string,object> original;
+      try {original=Dict(Dict(CapturePreservedCensusFirst(sourceArgs))["snapshot"]);}
+      catch(Exception error){throw new InvalidOperationException("test_source_capture: "+error.Message,error);}
+      try {
+        Dictionary<string,object> created;
+        try {created=Dict(CreateOwnedPortable(new Dictionary<string,object>{{"root",target},{"revision",revision},{"snapshot",original}}));}
+        catch(Exception error){throw new InvalidOperationException("test_target_create: "+error.Message,error);}
+        Close();
+        var reopened=Dict(Dict(CapturePreservedCensusFirst(targetArgs))["snapshot"]);
+        VerifyPortableReadback(created,reopened);
+        var before=new Dictionary<string,Dictionary<string,object>>();
+        foreach(object raw in (IEnumerable)original["entries"]) {
+          var entry=Dict(raw);before.Add(Str(entry["rel"]),entry);
+        }
+        foreach(object raw in (IEnumerable)reopened["entries"]) {
+          var entry=Dict(raw);var initial=before[Str(entry["rel"])];
+          RequireStudy(Str(entry["id"])!=Str(initial["id"]),"portable_creation_reused_id");
+          initial["id"]=entry["id"];
+        }
+        VerifyPortableReadback(original,reopened);
+      } finally {Close();}
+      Console.WriteLine(Json.Serialize(new Dictionary<string,object>{{"sample",sample},{"result","proved"}}));
+    }
+  }
+  static SafeFileHandle StudyOpenBasicGuard(SafeFileHandle parent,string name,string path,string id) {
+    var method=typeof(RuyiSkillCapsule).GetMethod("OpenPortableBasicGuard",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static);
+    RequireStudy(method!=null,"portable_basic_guard_missing");
+    return (SafeFileHandle)method.Invoke(null,new object[]{parent,name,path,id});
+  }
+  static string StudyId(string path) {
+    using(var witness=OpenPreservedHandle(null,null,path,0x00100180u,7)) {
+      PreserveHandleTimes(witness);
+      return Id(witness);
+    }
+  }
+  static void StudyRejectMove(string from,string to) {
+    RequireStudy(!MoveFileExW(from,to,0),"protected_relative_rename_succeeded: "+System.IO.Path.GetFileName(from));
+    int error=Marshal.GetLastWin32Error();
+    RequireStudy(error==5 || error==32,"unexpected_relative_rename_error");
+  }
+  public static void StudyPortableBasicRename(string root) {
+    string ancestor=NativePath(System.IO.Path.Combine(root,"stage"));
+    string parent=System.IO.Path.Combine(ancestor,"skills");
+    string folder=System.IO.Path.Combine(parent,"Snapshot_Skill");
+    string file=System.IO.Path.Combine(folder,"SKILL.md");
+    Directory.CreateDirectory(folder);
+    File.WriteAllText(file,"synthetic default DATA");
+    string parentId=StudyId(parent),folderId=StudyId(folder),fileId=StudyId(file);
+    using(var parentGuard=StudyOpenBasicGuard(null,null,parent,parentId))
+    using(var folderGuard=StudyOpenBasicGuard(parentGuard,"Snapshot_Skill",folder,folderId))
+    using(var fileGuard=StudyOpenBasicGuard(folderGuard,"SKILL.md",file,fileId)) {
+      StudyRejectMove(file,file+".moved");
+      StudyRejectMove(folder,folder+".moved");
+      StudyRejectMove(parent,parent+".moved");
+      StudyRejectMove(ancestor,ancestor+".moved");
+    }
+    RequireStudy(MoveFileExW(file,file+".moved",0),"rename_control_failed");
+    File.WriteAllText(file,"synthetic replacement");
+    try {
+      using(var replacement=StudyOpenBasicGuard(null,null,file,fileId))Reject("replacement_identity_accepted");
+    } catch(System.Reflection.TargetInvocationException error) {
+      RequireStudy(error.InnerException.Message=="portable_readback_changed","unexpected_replacement_error");
+    }
+    Console.WriteLine(Json.Serialize(new Dictionary<string,object>{{"result","proved"}}));
+  }
+  public static void StudyDirectorySharing(string root) {
+    string[] scenarios = { "existing-reader", "held-reader", "external-access", "external-name", "repeat-ads" };
+    const int samples = 10;
+    for (int sample = 0; sample < samples; sample++) foreach (string scenario in scenarios) {
+      string dir = System.IO.Path.Combine(root, scenario + "-" + sample);
+      string nested = System.IO.Path.Combine(dir, "nested");
+      Directory.CreateDirectory(nested);
+      File.WriteAllText(System.IO.Path.Combine(nested, "data.txt"), "synthetic");
+      if (scenario == "repeat-ads") {
+        using (var stream = CreateFile(NativePath(nested) + ":example", 0x40000000u, 7, IntPtr.Zero, 1, 0x02200000u, IntPtr.Zero)) {
+          RequireStudy(!stream.IsInvalid, "stream_setup_failed");
+          Write(stream, Encoding.UTF8.GetBytes("synthetic stream"));
+        }
+      }
+    }
+    for (int sample = 0; sample < samples; sample++) foreach (string scenario in scenarios) {
+      string dir = System.IO.Path.Combine(root, scenario + "-" + sample);
+      string nested = System.IO.Path.Combine(dir, "nested");
+      var args = new Dictionary<string,object> { { "root", dir }, { "revision", new string('a', 64) } };
+      string result = "proved";
+      try {
+        if (scenario == "existing-reader") {
+          using (var reader = StudyDirectoryReader(nested)) {
+            RequireStudy(!reader.IsInvalid, "existing_reader_unavailable");
+            try { CapturePreservedCensusFirst(args); Reject("unexpected_capture_success"); }
+            catch (Win32Exception error) {
+              if (error.NativeErrorCode != 32 || Nodes.Count != 1) throw;
+            }
+          }
+        } else if (scenario == "repeat-ads") {
+          for (int pass = 0; pass < 2; pass++) {
+            var census = Dict(CapturePreservedCensusFirst(args));
+            RequireStudy((int)census["closedHandles"] == 4, "incorrect_closed_handle_count");
+          }
+        } else {
+          CapturePreserved(args);
+          if (scenario == "held-reader") {
+            using (var reader = StudyDirectoryReader(nested))
+              RequireStudy(reader.IsInvalid && Marshal.GetLastWin32Error() == 32, "unexpected_reader_success");
+            Close();
+            using (var reader = StudyDirectoryReader(nested)) RequireStudy(!reader.IsInvalid, "released_reader_unavailable");
+          } else if (scenario == "external-access") {
+            StudySetAccessTime(nested);
+            try { VerifyCapturedBasicUnchanged(new List<Node>(Nodes.Values)); Reject("unexpected_metadata_success"); }
+            catch (InvalidOperationException error) { RequireStudy(error.Message == "metadata_changed", error.Message); }
+          } else {
+            File.WriteAllText(System.IO.Path.Combine(nested, "external.txt"), "external synthetic data");
+            PreserveTimeHandles = true;
+            try { VerifyEntries(Expected()); Reject("unexpected_entry_success"); }
+            catch (InvalidOperationException error) { RequireStudy(error.Message == "entry_set_changed", error.Message); }
+          }
+        }
+      } catch (Win32Exception error) {
+        if (error.NativeErrorCode != 32) throw;
+        result = "ambient_sharing_violation";
+      } finally { Close(); PreserveTimeHandles = false; }
+      Console.WriteLine(Json.Serialize(new Dictionary<string,object> { { "scenario", scenario }, { "sample", sample }, { "result", result } }));
+    }
+  }

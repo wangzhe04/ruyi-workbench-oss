@@ -739,38 +739,219 @@ public static class RuyiSkillCapsule {
       return children.ToArray();
     }finally{Marshal.FreeHGlobal(iosb);Marshal.FreeHGlobal(bytes);}
   }
-  static void Walk(string path, string rel, List<object> entries, bool capture) {
+  // Private source/output boundary. Caller must bind this receipt to the
+  // manifest-issued candidate and to the original legacy-source baseline.
+  static string BoundaryRel=null,BoundaryPath=null,BoundaryId=null;
+  static string[] BoundaryParents=null;
+  static SafeFileHandle BoundaryHandle=null;
+  static void BoundaryInit(Dictionary<string,object> args) {
+    object raw=null;if(!args.TryGetValue("candidateBoundary",out raw))return;
+    var proof=Dict(raw);if(proof.Count!=3||!proof.ContainsKey("rel")||!proof.ContainsKey("id")||!proof.ContainsKey("parents"))Reject("boundary_shape");
+    string rel=Str(proof["rel"]),id=Str(proof["id"]);object[] parents=proof["parents"] as object[];
+    if(!System.Text.RegularExpressions.Regex.IsMatch(rel,@"^\.work-data/generations/[a-f0-9]{48}$")||!System.Text.RegularExpressions.Regex.IsMatch(id,"^[a-f0-9]{24}$")||parents==null||parents.Length!=3)Reject("boundary_shape");
+    string[] parentIds=new string[3];for(int i=0;i<3;i++){parentIds[i]=Str(parents[i]);if(!System.Text.RegularExpressions.Regex.IsMatch(parentIds[i],"^[a-f0-9]{24}$"))Reject("boundary_shape");}
+    string boundaryPath=NativePath(System.IO.Path.Combine(Str(args["root"]),rel.Replace('/','\\')));
+    BoundaryRel=rel;BoundaryId=id;BoundaryParents=parentIds;BoundaryPath=boundaryPath;
+  }
+  static void BoundaryParent(string rel,SafeFileHandle handle) {
+    if(BoundaryRel==null)return;int at=rel==""?0:rel==".work-data"?1:rel==".work-data/generations"?2:-1;
+    if(at>=0&&Id(handle)!=BoundaryParents[at])Reject("boundary_parent_changed");
+  }
+  static bool BoundaryChild(Node parent,string child,string relative) {
+    if(BoundaryRel==null||!String.Equals(relative,BoundaryRel,StringComparison.Ordinal))return false;
+    if(BoundaryHandle!=null||Id(parent.Handle)!=BoundaryParents[2])Reject("boundary_parent_changed");
+    BoundaryHandle=OpenCandidateDirectoryRelative(parent.Handle,System.IO.Path.GetFileName(child),0x00100180u,3,1);
+    PreserveHandleTimes(BoundaryHandle);
+    CheckCandidateDirectory(BoundaryHandle,BoundaryPath,BoundaryId);return true;
+  }
+  static bool BoundaryContains(string child) {
+    if(BoundaryHandle==null||!String.Equals(child,BoundaryPath,StringComparison.OrdinalIgnoreCase))return false;
+    CheckCandidateDirectory(BoundaryHandle,BoundaryPath,BoundaryId);return true;
+  }
+  static void BoundaryClose(bool mustFind) {
+    try {if(mustFind&&BoundaryRel!=null&&BoundaryHandle==null)Reject("boundary_missing");
+      if(BoundaryHandle!=null){ClosePreservedTemporary(BoundaryHandle);BoundaryHandle=null;}}
+    finally {BoundaryRel=null;BoundaryPath=null;BoundaryId=null;BoundaryParents=null;}
+  }
+
+  static SafeFileHandle OpenPreservedRelative(SafeFileHandle parent, string name, uint access, uint share) {
+    if (String.IsNullOrEmpty(name) || name.Length > 32760 || name.IndexOfAny(new char[] { (char)92, '/', (char)0 }) >= 0)
+      Reject("capture_relative_name");
+    IntPtr buffer = IntPtr.Zero, objectName = IntPtr.Zero, iosb = IntPtr.Zero;
+    SafeFileHandle handle = null;
+    try {
+      buffer = Marshal.StringToHGlobalUni(name);
+      objectName = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RelativeName)));
+      iosb = Marshal.AllocHGlobal(IntPtr.Size * 2);
+      var unicode = new RelativeName { Length = (ushort)(name.Length * 2), MaximumLength = (ushort)((name.Length + 1) * 2), Buffer = buffer };
+      Marshal.StructureToPtr(unicode, objectName, false);
+      var attributes = new RelativeAttributes { Length = (uint)Marshal.SizeOf(typeof(RelativeAttributes)), RootDirectory = parent.DangerousGetHandle(), ObjectName = objectName, Attributes = 0x40 };
+      // Match CreateFile's synchronous handles. NtCreateFile requires an explicit
+      // SYNCHRONIZE bit with FILE_SYNCHRONOUS_IO_NONALERT, even for generic access.
+      int status = NtCreateFile(out handle, access | 0x00100000u, ref attributes, iosb, IntPtr.Zero, 0, share, 1, 0x00204020u, IntPtr.Zero, 0);
+      if (status < 0) throw new Win32Exception((int)RtlNtStatusToDosError(status));
+      if (status != 0 || handle == null || handle.IsInvalid) Reject("capture_relative_open");
+      SafeFileHandle result = handle; handle = null; return result;
+    } finally {
+      if (handle != null) handle.Dispose();
+      GC.KeepAlive(parent);
+      Marshal.FreeHGlobal(buffer);
+      Marshal.FreeHGlobal(objectName);
+      Marshal.FreeHGlobal(iosb);
+    }
+  }
+  static SafeFileHandle OpenPreservedHandle(SafeFileHandle parent, string name, string path, uint access, uint share) {
+    if (parent != null) return OpenPreservedRelative(parent, name, access, share);
+    SafeFileHandle handle = CreateFile(path, access, share, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+    if (handle.IsInvalid) {
+      int error = Marshal.GetLastWin32Error();
+      handle.Dispose();
+      throw new Win32Exception(error);
+    }
+    return handle;
+  }
+  static void ClosePreservedTemporary(SafeFileHandle handle) {
+    if (handle.IsInvalid || handle.IsClosed) Reject("census_first_close_unverified");
+    // Certify the kernel close of this still-owned object. A later query of its
+    // numeric value can see a different object after Windows recycles the slot.
+    if (!CloseHandle(handle.DangerousGetHandle())) Reject("census_first_close_unverified");
+    handle.SetHandleAsInvalid();
+    if (!handle.IsClosed) Reject("census_first_close_unverified");
+  }
+  static bool SamePreservedBasic(Basic a, Basic b) {
+    return a.Creation == b.Creation && a.Access == b.Access && a.Write == b.Write && a.Change == b.Change && a.Attr == b.Attr;
+  }
+  static bool RetiringPortableStage = false;
+  static SafeFileHandle OpenPreserved(SafeFileHandle parent, string name, string path, bool dataStream, out bool writable) {
+    SafeFileHandle metadata = null, actual = null;
+    Exception primary = null;
+    bool success = false;
+    writable = false;
+    try {
+      string parentId = null, parentPath = null;
+      if (parent != null) {
+        parentId = Id(parent); parentPath = PathOf(parent);
+        if (!String.Equals(parentPath, System.IO.Path.GetDirectoryName(path), StringComparison.OrdinalIgnoreCase))
+          Reject("entry_set_changed");
+      }
+      // Classify on a time-preserving handle so there is no pathname metadata read.
+      metadata = OpenPreservedHandle(parent, name, path, 0x00100180u, 7);
+      PreserveHandleTimes(metadata);
+      string expectedId = Id(metadata);
+      Basic before = BasicOf(metadata);
+      bool directory = !dataStream && (before.Attr & 0x10u) != 0, readOnly = (before.Attr & 1u) != 0;
+      writable = !directory && !readOnly;
+      uint access = CapturedDirectoryWrite && directory ? 0xC0010100u : writable ? 0xC0010000u : 0x80010100u;
+      // Only this held handle may enumerate a captured directory. Independent
+      // directory readers can update its access time during descendant I/O.
+      // Keep write/delete sharing and verify every name and Basic field again.
+      uint share = RetiringPortableStage ? 0u : directory ? 6u : 5u;
+      actual = OpenPreservedHandle(parent, name, path, access, share);
+      PreserveHandleTimes(actual);
+      if (Id(actual) != expectedId || !SamePreservedBasic(before, BasicOf(actual)) || !SamePreservedBasic(before, BasicOf(metadata)))
+        Reject("source_changed");
+      if (parent != null && (Id(parent) != parentId || !String.Equals(PathOf(parent), parentPath, StringComparison.OrdinalIgnoreCase)))
+        Reject("entry_set_changed");
+      if (!dataStream && !String.Equals(PathOf(actual), path, StringComparison.OrdinalIgnoreCase))
+        Reject("entry_set_changed");
+      success = true;
+      return actual;
+    } catch (Exception error) { primary = error; throw; }
+    finally {
+      Exception closeError = null;
+      try {
+        if (metadata != null) ClosePreservedTemporary(metadata);
+      } catch (Exception error) { closeError = error; }
+      try {
+        if ((!success || closeError != null) && actual != null) ClosePreservedTemporary(actual);
+      } catch (Exception error) { if (closeError == null) closeError = error; }
+      if (closeError != null) throw new InvalidOperationException("census_first_close_unverified", primary ?? closeError);
+    }
+  }
+  static void Walk(string path, string rel, List<object> entries, bool capture, bool preserved = false, SafeFileHandle parent = null, string name = null) {
     path=NativePath(path);
     if (entries.Count >= 10000 || rel.Split('/').Length > 256) Reject("archive_limit");
-    Node node = new Node(); node.Handle = Open(path, out node.Writable);
+    Node node = new Node();
+    node.Handle = preserved ? OpenPreserved(parent, name, path, false, out node.Writable) : Open(path, out node.Writable);
     try {
-      string id = Id(node.Handle); if (Nodes.ContainsKey(id)) Reject("object_duplicate");
+      string id = Id(node.Handle); BoundaryParent(rel,node.Handle); if (Nodes.ContainsKey(id)) Reject("object_duplicate");
       Basic basic = BasicOf(node.Handle); bool directory = (basic.Attr & 0x10u) != 0;
       node.Entry = new Dictionary<string,object> { { "rel", rel }, { "opaque", RandomName() }, { "id", id }, { "dir", directory }, { "attrs", basic.Attr },
         { "shortName", ShortName(node.Handle) }, { "times", new string[] { Str(basic.Creation), Str(basic.Access), Str(basic.Write), Str(basic.Change) } } };
       LegalShortName(Str(node.Entry["shortName"]));
       Nodes.Add(id, node); entries.Add(node.Entry);
       List<object> streams = new List<object>();
-      foreach (string name in StreamNames(node)) {
-        if (directory && name == "") Reject("directory_data");
+      foreach (string streamName in StreamNames(node)) {
+        if (directory && streamName == "") Reject("directory_data");
+        if(RetiringPortableStage && streamName!="")Reject("portable_retire_named_stream");
         bool writable = node.Writable;
-        SafeFileHandle handle = name == "" ? node.Handle : Open(PathOf(node.Handle) + name, out writable, true);
-        if (name != "") { node.Streams.Add(name, handle); if (!writable) node.ReadOnlyStreams.Add(name); }
+        SafeFileHandle handle = node.Handle;
+        if (streamName != "") {
+          string streamPath = PathOf(node.Handle) + streamName;
+          handle = preserved ? OpenPreserved(parent, name + streamName, streamPath, true, out writable) : Open(streamPath, out writable, true);
+          node.Streams.Add(streamName, handle);
+          if (!writable) node.ReadOnlyStreams.Add(streamName);
+        }
         if (capture) {
           byte[] bytes = Read(handle); TotalBytes += bytes.Length;
           if (TotalBytes > MaxBytes) Reject("archive_limit");
-          streams.Add(new Dictionary<string,object> { { "name", name }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });
+          streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });
           Array.Clear(bytes, 0, bytes.Length);
         }
       }
       if (!directory && !StreamNames(node).Contains("")) Reject("default_stream_missing");
       node.Entry["streams"] = streams;
-      if (directory) foreach (string child in DirectoryChildren(node.Handle,path)) Walk(child, rel == "" ? System.IO.Path.GetFileName(child) : rel + "/" + System.IO.Path.GetFileName(child), entries, capture);
+      if (directory) foreach (string child in DirectoryChildren(node.Handle,path)) {
+        string childName = System.IO.Path.GetFileName(child);
+        string childRelative = rel == "" ? childName : rel + "/" + childName;
+        if (!BoundaryChild(node, child, childRelative)) Walk(child, childRelative, entries, capture, preserved, node.Handle, childName);
+      }
     } catch { if (!Nodes.ContainsValue(node)) node.Handle.Dispose(); throw; }
   }
-  static object Capture(Dictionary<string,object> args) {
+  // Atomically create the private generation from its verified parent chain.
+  static string CandidateAllocationBase=null,CandidateAllocationRoot=null,CandidateAllocationToken=null;
+  static string[] CandidateAllocationAnchorParts=null,CandidateAllocationAnchorIds=null;
+  static readonly Dictionary<string,SafeFileHandle> CandidateAllocationHandles=new Dictionary<string,SafeFileHandle>(StringComparer.OrdinalIgnoreCase);
+  static readonly Dictionary<string,string> CandidateAllocationIds=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+  static string CandidateDirectoryId(SafeFileHandle h) {Info i;Check(GetFileInformationByHandle(h,out i));if((i.Attr&16u)==0||(i.Attr&0x400u)!=0)Reject("candidate_alias");return i.Volume.ToString("x8")+i.IndexHigh.ToString("x8")+i.IndexLow.ToString("x8");}
+  static void CheckCandidateDirectory(SafeFileHandle h,string expected,string id) {if(CandidateDirectoryId(h)!=id||!String.Equals(PathOf(h),NativePath(expected),StringComparison.OrdinalIgnoreCase))Reject("candidate_changed");}
+  static bool CandidatePathPart(string part) {return !String.IsNullOrEmpty(part)&&part!="."&&part!=".."&&part.Length<=255&&part.IndexOfAny(new char[]{'\\','/',':','\0','\r','\n'})<0;}
+  static SafeFileHandle OpenCandidateDirectoryRelative(SafeFileHandle parent,string part,uint access,uint share,uint disposition) {
+    if(!CandidatePathPart(part))Reject("candidate_name");
+    IntPtr buf=Marshal.StringToHGlobalUni(part),name=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RelativeName))),iosb=Marshal.AllocHGlobal(IntPtr.Size*2);SafeFileHandle h=null;
+    try {var u=new RelativeName{Length=(ushort)(part.Length*2),MaximumLength=(ushort)((part.Length+1)*2),Buffer=buf};Marshal.StructureToPtr(u,name,false);
+      var a=new RelativeAttributes{Length=(uint)Marshal.SizeOf(typeof(RelativeAttributes)),RootDirectory=parent.DangerousGetHandle(),ObjectName=name,Attributes=0x40};
+      int status=NtCreateFile(out h,access,ref a,iosb,IntPtr.Zero,0,share,disposition,0x00204021u,IntPtr.Zero,0);
+      if(status<0)throw new Win32Exception((int)RtlNtStatusToDosError(status));if(status!=0||h==null||h.IsInvalid)Reject("candidate_open");
+      SafeFileHandle result=h;h=null;return result;
+    }finally{if(h!=null)h.Dispose();GC.KeepAlive(parent);Marshal.FreeHGlobal(buf);Marshal.FreeHGlobal(name);Marshal.FreeHGlobal(iosb);}
+  }
+  static void CloseCandidateAllocationPins(List<SafeFileHandle> pins) {for(int i=pins.Count-1;i>=0;i--)pins[i].Dispose();}
+  static List<SafeFileHandle> PinCandidateAllocation() {
+    if(CandidateAllocationBase==null)Reject("candidate_inactive");var pins=new List<SafeFileHandle>();
+    try {
+      string drive=System.IO.Path.GetPathRoot(CandidateAllocationBase),current=drive;var root=CreateFile(NativePath(drive),0x001000a0u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);if(root.IsInvalid){int e=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(e);}pins.Add(root);CheckCandidateDirectory(root,current,CandidateAllocationAnchorIds[0]);SafeFileHandle parent=root;
+      for(int i=0;i<CandidateAllocationAnchorParts.Length;i++){current=System.IO.Path.Combine(current,CandidateAllocationAnchorParts[i]);uint access=i==CandidateAllocationAnchorParts.Length-1?0x001000a4u:0x001000a0u;var child=OpenCandidateDirectoryRelative(parent,CandidateAllocationAnchorParts[i],access,3,1);pins.Add(child);CheckCandidateDirectory(child,current,CandidateAllocationAnchorIds[i+1]);parent=child;}
+      return pins;
+    }catch{CloseCandidateAllocationPins(pins);throw;}
+  }
+  static object CandidateAllocationStart(Dictionary<string,object> args) {
+    if(CandidateAllocationBase!=null||CandidateAllocationHandles.Count!=0)Reject("candidate_busy");string basis=Str(args["base"]),id=Str(args["id"]);object[] ids=args["anchorIds"] as object[];
+    if(basis.Length<4||!Char.IsLetter(basis[0])||basis[1]!=':'||basis[2]!='\\'||!String.Equals(System.IO.Path.GetFullPath(basis),basis,StringComparison.OrdinalIgnoreCase)||!System.Text.RegularExpressions.Regex.IsMatch(id,"^[a-f0-9]{48}$"))Reject("candidate_scope");
+    string drive=System.IO.Path.GetPathRoot(basis),suffix=basis.Substring(drive.Length);var parts=new List<string>();foreach(string part in suffix.Split('\\')){if(!CandidatePathPart(part))Reject("candidate_name");parts.Add(part);}parts.Add(".work-data");parts.Add("generations");
+    if(ids==null||ids.Length!=parts.Count+1)Reject("candidate_anchor");var expected=new string[ids.Length];for(int i=0;i<ids.Length;i++){if(!(ids[i] is string)||!System.Text.RegularExpressions.Regex.IsMatch((string)ids[i],"^[a-f0-9]{24}$"))Reject("candidate_anchor");expected[i]=(string)ids[i];if(i>0&&expected[i].Substring(0,8)!=expected[0].Substring(0,8))Reject("candidate_volume");}
+    CandidateAllocationBase=basis;CandidateAllocationRoot=System.IO.Path.Combine(basis,".work-data","generations",id);CandidateAllocationAnchorParts=parts.ToArray();CandidateAllocationAnchorIds=expected;CandidateAllocationToken=RandomName();
+    List<SafeFileHandle> pins=null;SafeFileHandle created=null;
+    try {pins=PinCandidateAllocation();var parent=pins[pins.Count-1];created=OpenCandidateDirectoryRelative(parent,id,0xC0100100u,7,2);PreserveHandleTimes(created);CandidateAllocationHandles.Add("",created);created=null;var held=CandidateAllocationHandles[""];string childId=CandidateDirectoryId(held);CandidateAllocationIds.Add("",childId);CheckCandidateDirectory(held,CandidateAllocationRoot,childId);for(int i=0;i<pins.Count;i++){string current=drive;for(int j=0;j<i;j++)current=System.IO.Path.Combine(current,CandidateAllocationAnchorParts[j]);CheckCandidateDirectory(pins[i],current,CandidateAllocationAnchorIds[i]);}StoreFileSystem(held);
+      return new Dictionary<string,object>{{"kind","candidate-directory-created-v1"},{"token",CandidateAllocationToken},{"root",CandidateAllocationRoot},{"relative",""},{"id",childId},{"parentId",null},{"created",true}};
+    }finally{if(created!=null)created.Dispose();if(pins!=null)CloseCandidateAllocationPins(pins);}
+  }
+  static void CandidateAllocationAuth(Dictionary<string,object> args) {if(CandidateAllocationBase==null||Str(args["token"])!=CandidateAllocationToken||!String.Equals(Str(args["root"]),CandidateAllocationRoot,StringComparison.OrdinalIgnoreCase))Reject("candidate_binding");}
+  static object CandidateAllocationClose(Dictionary<string,object> args) {CandidateAllocationAuth(args);var addresses=new HashSet<IntPtr>();foreach(var h in CandidateAllocationHandles.Values){if(h.IsClosed||h.IsInvalid||!addresses.Add(h.DangerousGetHandle()))Reject("census_first_close_unverified");}foreach(var h in CandidateAllocationHandles.Values){try{h.Dispose();}catch{Reject("census_first_close_unverified");}}foreach(IntPtr address in addresses){uint flags;if(GetHandleInformation(address,out flags)||Marshal.GetLastWin32Error()!=6)Reject("census_first_close_unverified");}CandidateAllocationHandles.Clear();CandidateAllocationIds.Clear();CandidateAllocationBase=null;CandidateAllocationRoot=null;CandidateAllocationToken=null;CandidateAllocationAnchorParts=null;CandidateAllocationAnchorIds=null;return new Dictionary<string,object>{{"closed",true}};}
+
+  static object Capture(Dictionary<string,object> args, bool preserved = false) {
     if (Nodes.Count != 0) Reject("already_open"); TotalBytes = 0;
-    List<object> entries = new List<object>(); Walk(Str(args["root"]), "", entries, true);
+    List<object> entries = new List<object>(); Walk(Str(args["root"]), "", entries, true, preserved);
     StringBuilder filesystem = new StringBuilder(64); uint serial, component, flags;
     Check(GetVolumeInformationByHandleW(RootNode().Handle, null, 0, out serial, out component, out flags, filesystem, 64));
     if (filesystem.ToString() != "NTFS") Reject("filesystem_unsupported");
@@ -874,7 +1055,7 @@ public static class RuyiSkillCapsule {
     foreach (Node node in expected) paths.Add(PathOf(node.Handle));
     foreach (Node node in expected) if ((bool)node.Entry["dir"]) {
       foreach (string child in DirectoryChildren(node.Handle,PathOf(node.Handle))) {
-        if (!paths.Contains(child)) Reject("entry_set_changed");
+        if (!paths.Contains(child) && !BoundaryContains(child)) Reject("entry_set_changed");
       }
     }
   }
@@ -1055,18 +1236,28 @@ public static class RuyiSkillCapsule {
           || actual.Change != info.Change || actual.Attr != info.Attr) Reject("metadata_changed");
   }
   static void Publish(Dictionary<string,object> args) {
+    object exactOption;
+    if(args.TryGetValue("publishExactBasic",out exactOption)&&!(exactOption is bool))Reject("portable_publication_scope");
+    bool publishExactBasic=exactOption is bool&&(bool)exactOption;
     Verify(false,true); CheckPublication(args);
     Node root=RootNode();
     foreach(Node node in Nodes.Values) {
       foreach(SafeFileHandle stream in node.Streams.Values) stream.Dispose();node.Streams.Clear();
       if(node!=root) node.Handle.Dispose();
     }
-    string error=null;
+    string error=null,parentId=null,target=Str(args["target"]);
     try {
-      string name=System.IO.Path.GetFileName(Str(args["target"]));
+      string name=System.IO.Path.GetFileName(target),parentPath=System.IO.Path.GetDirectoryName(target);
       string alias=Str(root.Entry["shortName"]);
       if(String.Equals(alias,name,StringComparison.OrdinalIgnoreCase)) SetAlias(root,alias);
-      using(SafeFileHandle parent=Open(System.IO.Path.GetDirectoryName(Str(args["target"])))) Rename(root,name,parent);
+      using(SafeFileHandle parent=Open(parentPath)) {
+        if(publishExactBasic) {
+          StoreFileSystem(parent);
+          parentId=CandidateDirectoryId(parent);
+          CheckPortableBasicGuard(parent,NativePath(parentPath),parentId);
+        }
+        Rename(root,name,parent);
+      }
       SetAlias(root,alias);
     } catch(Win32Exception failure) { error="publish_win32_"+failure.NativeErrorCode; }
     string current=PathOf(root.Handle);root.Handle.Dispose();Nodes.Clear();
@@ -1077,10 +1268,23 @@ public static class RuyiSkillCapsule {
     }
     Verify(false,true);
     if(error!=null) Reject(error);
-    VerifyNames(Str(args["target"]),true);RestoreBasic(Expected());
+    VerifyNames(target,true);
+    if(!publishExactBasic){RestoreBasic(Expected());return;}
+    // Preserve the authorized output after the rename/read handles settle.
+    // The original authenticated record still dictates all Basic values.
+    var wanted=Snapshot;
+    var readArgs=new Dictionary<string,object>{{"root",target},{"revision",Str(wanted["revision"])}};
+    PublishOwnedPortableBasic(target,parentId,readArgs,wanted);
+    VerifyPortableReadback(wanted,Dict(CapturePreserved(readArgs)));
+    Close(true);
   }
-  static void Close() {
-    foreach (Node node in Nodes.Values) { foreach (SafeFileHandle stream in node.Streams.Values) stream.Dispose(); node.Handle.Dispose(); }
+  static void Close(bool certify = false) {
+    foreach (Node node in Nodes.Values) {
+      foreach (SafeFileHandle stream in node.Streams.Values) {
+        if(certify)ClosePreservedTemporary(stream);else stream.Dispose();
+      }
+      if(certify)ClosePreservedTemporary(node.Handle);else node.Handle.Dispose();
+    }
     Nodes.Clear(); Snapshot = null; OriginalRoot = null; if (Capsule != null) { Capsule.Dispose(); Capsule = null; }
   }
   static void StoreFileSystem(SafeFileHandle handle) {
@@ -1300,7 +1504,10 @@ public static class RuyiSkillCapsule {
   static object MoveStoreCore(Dictionary<string,object> args) {
     string source=System.IO.Path.GetFullPath(Str(args["source"])),target=System.IO.Path.GetFullPath(Str(args["target"]));
     string fromParent=System.IO.Path.GetDirectoryName(source),toParent=System.IO.Path.GetDirectoryName(target);
-    using(var original=Open(source)) using(var parent=Open(toParent)) {
+    using(var original=Open(source)) using(var parent=Open(toParent))
+    using(var stageParent=OpenPortableMoveParent(args,fromParent)) {
+      var stageAncestors=OpenPortableMoveAncestors(args,fromParent);
+      try {
       StoreFileSystem(original);
       if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+source,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
       if(!String.Equals(PathOf(parent),@"\\?\"+toParent,StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
@@ -1327,8 +1534,65 @@ public static class RuyiSkillCapsule {
         FlushStoreDirectory(target);RestoreNodeBasic(owned,original);
         Basic after=BasicOf(original);if(after.Creation!=before.Creation || after.Access!=before.Access || after.Write!=before.Write || after.Change!=before.Change || after.Attr!=before.Attr)Reject("metadata_changed");
       }
-      return new Dictionary<string,object>{{"id",Id(original)},{"volume",VolumeOf(original)}};
+      var receipt=new Dictionary<string,object>{{"id",Id(original)},{"volume",VolumeOf(original)}};
+      if(stageParent!=null) {
+        CheckPortableMoveParent(stageParent,fromParent,Str(args["stageParentId"]));
+        Basic post=BasicOf(stageParent);
+        receipt.Add("stageParent",new Dictionary<string,object>{{"id",Id(stageParent)},{"root",fromParent},
+          {"times",new string[]{Str(post.Creation),Str(post.Access),Str(post.Write),Str(post.Change)}}});
+        var witnesses=new List<object>();string cursor=fromParent;int index=0;
+        foreach(var handle in stageAncestors) {
+          cursor=System.IO.Path.GetDirectoryName(cursor);
+          string id=Str(((object[])args["stageAncestorIds"])[index++]);
+          CheckPortableMoveParent(handle,cursor,id);
+          Basic basic=BasicOf(handle);
+          witnesses.Add(new Dictionary<string,object>{{"id",id},{"root",cursor},
+            {"times",new string[]{Str(basic.Creation),Str(basic.Access),Str(basic.Write),Str(basic.Change)}}});
+        }
+        receipt.Add("stageAncestors",witnesses);
+      }
+      return receipt;
+      }finally{foreach(var handle in stageAncestors)handle.Dispose();}
     }
+  }
+  static void CheckPortableMoveParent(SafeFileHandle handle,string path,string id) {
+    if(CandidateDirectoryId(handle)!=id || !String.Equals(PathOf(handle),NativePath(path),StringComparison.OrdinalIgnoreCase))
+      Reject("portable_move_parent_changed");
+  }
+  static SafeFileHandle OpenPortableMoveParent(Dictionary<string,object> args,string path) {
+    object id;
+    if(!args.TryGetValue("stageParentId",out id))return null;
+    if(!PreserveTimeHandles || !(id is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)id,@"^[a-f0-9]{24}$"))
+      Reject("portable_move_parent_changed");
+    return HoldPortableMoveDirectory(path,(string)id);
+  }
+  static SafeFileHandle HoldPortableMoveDirectory(string path,string id) {
+    var handle=OpenPreservedHandle(null,null,NativePath(path),0x001001a0u,3);
+    try {
+      PreserveHandleTimes(handle);
+      CheckPortableMoveParent(handle,path,id);
+      return handle;
+    }catch{handle.Dispose();throw;}
+  }
+  static List<SafeFileHandle> OpenPortableMoveAncestors(Dictionary<string,object> args,string parent) {
+    var handles=new List<SafeFileHandle>();
+    if(!args.ContainsKey("stageParentId"))return handles;
+    string root=Str(args["stageRoot"]),cursor=parent;
+    object[] ids=args["stageAncestorIds"] as object[];
+    if(ids==null||ids.Length>255||System.IO.Path.GetFullPath(root)!=root
+      ||!System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(root),@"^[.]ruyi-skill-portable-[a-f0-9]{48}$")
+      ||!String.Equals(parent,root,StringComparison.OrdinalIgnoreCase)&&!parent.StartsWith(root+"\\",StringComparison.OrdinalIgnoreCase))
+      Reject("portable_move_parent_changed");
+    try {
+      foreach(object raw in ids) {
+        if(String.Equals(cursor,root,StringComparison.OrdinalIgnoreCase)||!(raw is string)
+          ||!System.Text.RegularExpressions.Regex.IsMatch((string)raw,@"^[a-f0-9]{24}$"))Reject("portable_move_parent_changed");
+        cursor=System.IO.Path.GetDirectoryName(cursor);
+        handles.Add(HoldPortableMoveDirectory(cursor,(string)raw));
+      }
+      if(!String.Equals(cursor,root,StringComparison.OrdinalIgnoreCase))Reject("portable_move_parent_changed");
+      return handles;
+    }catch{foreach(var handle in handles)handle.Dispose();throw;}
   }
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateDirectoryW(string path,IntPtr security);
   // FILE_BASIC_INFORMATION -1 suppresses automatic updates on this handle.
@@ -1371,7 +1635,7 @@ public static class RuyiSkillCapsule {
   static object CapturePreserved(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     Exception primary=null;
-    try {return Capture(args);}
+    try {BoundaryInit(args);return Capture(args,true);}
     catch(Exception error) {primary=error;throw;}
     finally {
       try {VerifyCapturedBasicUnchanged(new List<Node>(Nodes.Values));}
@@ -1381,7 +1645,7 @@ public static class RuyiSkillCapsule {
         if(primary==null)throw;
         primary.Data["preservedMetadataVerificationFailed"]=verificationError.GetType().Name;
       }
-      finally {PreserveTimeHandles=previous;}
+      finally {try {BoundaryClose(primary==null);} catch(Exception closeError) {if(BoundaryHandle!=null || closeError.Message=="census_first_close_unverified")throw new InvalidOperationException("census_first_close_unverified",primary??closeError);throw;} finally {PreserveTimeHandles=previous;}}
     }
   }
   static object ReadPreservedControl(Dictionary<string,object> args) {
@@ -1423,6 +1687,7 @@ public static class RuyiSkillCapsule {
       finally{foreach(Node node in opened)node.Handle.Dispose();PreserveTimeHandles=previous;}
     }
   }
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool CloseHandle(IntPtr handle);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetHandleInformation(IntPtr handle,out uint flags);
   static object CapturePreservedCensusFirst(Dictionary<string,object> args) {
     if(Nodes.Count!=0 || Snapshot!=null || OriginalRoot!=null || Capsule!=null || CapturedFlushScope || PreserveTimeHandles)Reject("census_scope");
@@ -1432,33 +1697,33 @@ public static class RuyiSkillCapsule {
     var addresses=new HashSet<IntPtr>();int closedHandles=handles.Count;
     try {
       foreach(SafeFileHandle handle in handles)if(handle.IsClosed || handle.IsInvalid || !addresses.Add(handle.DangerousGetHandle()))Reject("census_first_close_unverified");
-      Close();TotalBytes=0;
+      Close(true);TotalBytes=0;
       if(handles.Count==0 || Nodes.Count!=0 || Snapshot!=null || OriginalRoot!=null || Capsule!=null || CapturedFlushScope || PreserveTimeHandles)Reject("census_first_close_unverified");
       foreach(SafeFileHandle handle in handles)if(!handle.IsClosed)Reject("census_first_close_unverified");
-      foreach(IntPtr address in addresses) {uint flags;if(GetHandleInformation(address,out flags) || Marshal.GetLastWin32Error()!=6)Reject("census_first_close_unverified");}
     } catch {Reject("census_first_close_unverified");}
     addresses.Clear();handles.Clear();Step="idle";
-    return new Dictionary<string,object>{{"revision",Str(args["revision"])},{"closedHandles",closedHandles},{"snapshot",snapshot}};
+    return new Dictionary<string,object>{{"revision",Str(args["revision"])},{"closedHandles",closedHandles+(args.ContainsKey("candidateBoundary")?1:0)},{"snapshot",snapshot}};
   }
   static object CreateOwnedPortable(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     try {return CreateOwnedPortableCore(args);}
     finally {PreserveTimeHandles=previous;}
   }
-  static void VerifyPortableReadback(Dictionary<string,object> wanted,Dictionary<string,object> actual) {
+  static void VerifyPortableReadback(Dictionary<string,object> wanted,Dictionary<string,object> actual,bool compareBasic=true) {
     Dictionary<string,Dictionary<string,object>> byPath=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
     foreach(object raw in (IEnumerable)actual["entries"]) {Dictionary<string,object> entry=Dict(raw);byPath.Add(Str(entry["rel"]),entry);}
     int count=0;
     foreach(object raw in (IEnumerable)wanted["entries"]) {
       Dictionary<string,object> expected=Dict(raw);string rel=Str(expected["rel"]);count++;
       if(!byPath.ContainsKey(rel))Reject("portable_readback_changed");Dictionary<string,object> entry=byPath[rel];
-      if(Str(entry["id"])!=Str(expected["id"]) || (bool)entry["dir"]!=(bool)expected["dir"] || Convert.ToUInt32(entry["attrs"])!=Convert.ToUInt32(expected["attrs"]))Reject("portable_readback_changed");
+      if(Str(entry["id"])!=Str(expected["id"]) || (bool)entry["dir"]!=(bool)expected["dir"]
+        || compareBasic && Convert.ToUInt32(entry["attrs"])!=Convert.ToUInt32(expected["attrs"]))Reject("portable_readback_changed");
       if(!String.Equals(Str(entry["shortName"]),Str(expected["shortName"]),StringComparison.Ordinal))Reject("portable_short_name_unrepresentable");
       List<string> expectedTimes=new List<string>(),actualTimes=new List<string>();
       foreach(object time in (IEnumerable)expected["times"])expectedTimes.Add(Str(time));
       foreach(object time in (IEnumerable)entry["times"])actualTimes.Add(Str(time));
       if(expectedTimes.Count!=4 || actualTimes.Count!=4)Reject("portable_readback_changed");
-      for(int index=0;index<4;index++)if(actualTimes[index]!=expectedTimes[index])Reject("portable_metadata_changed");
+      for(int index=0;compareBasic && index<4;index++)if(actualTimes[index]!=expectedTimes[index])Reject("portable_metadata_changed");
       Dictionary<string,Dictionary<string,object>> streams=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);int streamCount=0;
       foreach(object streamRaw in (IEnumerable)entry["streams"]) {Dictionary<string,object> stream=Dict(streamRaw);streams.Add(Str(stream["name"]),stream);}
       foreach(object streamRaw in (IEnumerable)expected["streams"]) {
@@ -1471,6 +1736,95 @@ public static class RuyiSkillCapsule {
     if(count!=byPath.Count)Reject("portable_readback_changed");
   }
 
+  static object RetirePortableStage(Dictionary<string,object> args) {
+    string root=Str(args["root"]), id=Str(args["id"]), ancestorId=Str(args["parentId"]);
+    string parent=System.IO.Path.GetDirectoryName(root);
+    if(parent==null || System.IO.Path.GetFullPath(root)!=root
+      || !System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(root),@"^[.]ruyi-skill-portable-[a-f0-9]{48}$")
+      || !System.Text.RegularExpressions.Regex.IsMatch(id,@"^[a-f0-9]{24}$")
+      || !System.Text.RegularExpressions.Regex.IsMatch(ancestorId,@"^[a-f0-9]{24}$"))Reject("portable_retire_scope");
+    using(var ancestor=OpenPreservedHandle(null,null,NativePath(parent),0x00100180u,3)) {
+      PreserveHandleTimes(ancestor);
+      if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
+      bool previous=PreserveTimeHandles;
+      PreserveTimeHandles=true;RetiringPortableStage=true;
+      try {
+        var captured=Dict(CapturePreserved(args));var expected=Dict(args["snapshot"]);
+        if(RootNode().Entry["id"].ToString()!=id || Str(captured["revision"])!=Str(expected["revision"]))Reject("portable_retire_changed");
+        VerifyPortableReadback(expected,captured);
+        var nodes=Expected();
+        if(nodes.Exists(n=>(Convert.ToUInt32(n.Entry["attrs"])&1u)!=0))Reject("portable_retire_readonly");
+        nodes.Sort((a,b)=>Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length));
+        VerifyOriginalLayout();VerifyEntries(nodes);VerifyCapturedBasicUnchanged(nodes);
+        if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
+        Step="portable-retire";
+        foreach(var node in nodes) {
+          if(Id(node.Handle)!=Str(node.Entry["id"]))Reject("portable_retire_changed");
+          DeleteStream(node.Handle);
+        }
+        return new Dictionary<string,object>{{"root",root},{"id",id},{"parentId",ancestorId},{"count",nodes.Count},{"removed",true}};
+      }finally{RetiringPortableStage=false;PreserveTimeHandles=previous;}
+    }
+  }
+
+  static void CheckPortableBasicGuard(SafeFileHandle handle,string path,string id) {
+    if(Id(handle)!=id || !String.Equals(PathOf(handle),path,StringComparison.OrdinalIgnoreCase))
+      Reject("portable_readback_changed");
+  }
+  static SafeFileHandle OpenPortableBasicGuard(SafeFileHandle parent,string name,string path,string id) {
+    // FILE_EXECUTE/FILE_TRAVERSE makes the open participate in share checks
+    // without requesting FILE_READ_DATA or FILE_LIST_DIRECTORY.
+    var handle=OpenPreservedHandle(parent,name,path,0x001001a0u,3);
+    try {
+      PreserveHandleTimes(handle);
+      CheckPortableBasicGuard(handle,path,id);
+      return handle;
+    } catch {handle.Dispose();throw;}
+  }
+  static void PublishOwnedPortableBasic(string root,string parentId,Dictionary<string,object> readArgs,Dictionary<string,object> wanted) {
+    var nodes=Expected();
+    nodes.Sort((a,b)=>Str(a.Entry["rel"]).Length.CompareTo(Str(b.Entry["rel"]).Length));
+    var witnesses=new List<SafeFileHandle>();
+    var guards=new Dictionary<string,SafeFileHandle>(StringComparer.Ordinal);
+    string rootPath=NativePath(root),parentPath=System.IO.Path.GetDirectoryName(rootPath);
+    try {
+      foreach(Node node in nodes) {
+        string path=PathOf(node.Handle);
+        var witness=OpenPreservedHandle(null,null,path,0x00100180u,7);
+        witnesses.Add(witness);
+        PreserveHandleTimes(witness);
+        CheckPortableBasicGuard(witness,path,Str(node.Entry["id"]));
+      }
+      // The creation handles can leave an NTFS access update after close. Verify
+      // the independently opened namespace and bytes before publishing Basic
+      // metadata on these newly owned objects through the bound witnesses.
+      Close();
+      VerifyPortableReadback(wanted,Dict(CapturePreserved(readArgs)),compareBasic:false);
+      Close();
+      // DATA handles require delete sharing during creation. Now lock the
+      // verified parent and the whole target tree against rename before writes.
+      using(var parent=OpenPortableBasicGuard(null,null,parentPath,parentId)) {
+        foreach(Node node in nodes) {
+          string rel=Str(node.Entry["rel"]),path=rel==""?rootPath:System.IO.Path.Combine(rootPath,rel.Replace('/','\\'));
+          int slash=rel.LastIndexOf('/');
+          SafeFileHandle containing=rel==""?parent:guards[slash<0?"":rel.Substring(0,slash)];
+          guards.Add(rel,OpenPortableBasicGuard(containing,System.IO.Path.GetFileName(path),path,Str(node.Entry["id"])));
+        }
+        for(int index=nodes.Count-1;index>=0;index--) {
+          Node node=nodes[index];string rel=Str(node.Entry["rel"]);
+          string path=rel==""?rootPath:System.IO.Path.Combine(rootPath,rel.Replace('/','\\'));
+          SafeFileHandle guard=guards[rel];
+          CheckPortableBasicGuard(parent,parentPath,parentId);
+          CheckPortableBasicGuard(guard,path,Str(node.Entry["id"]));
+          RestoreNodeBasic(node,guard);
+          PreserveHandleTimes(guard);
+        }
+      }
+    } finally {
+      foreach(SafeFileHandle guard in guards.Values)guard.Dispose();
+      foreach(SafeFileHandle witness in witnesses)witness.Dispose();
+    }
+  }
   static object CreateOwnedPortableCore(Dictionary<string,object> args) {
     // All objects are new, created without replacement. Security is inherited
     // from the destination; source IDs/opaque names never authorize a live object.
@@ -1513,8 +1867,9 @@ public static class RuyiSkillCapsule {
       if(alias!="" && names.Contains(key) && !String.Equals(key,rel,StringComparison.OrdinalIgnoreCase))Reject("portable_alias");
     }
     // Validate the real destination parent and flush capability before mutation.
-    string parentRoot=System.IO.Path.GetDirectoryName(root);using(SafeFileHandle parent=Open(parentRoot)) {
+    string parentRoot=System.IO.Path.GetDirectoryName(root),parentId;using(SafeFileHandle parent=Open(parentRoot)) {
       StoreFileSystem(parent);if(!String.Equals(PathOf(parent),@"\\?\"+parentRoot,StringComparison.OrdinalIgnoreCase))Reject("portable_parent_alias");
+      parentId=Id(parent);
       FlushStoreDirectory(parentRoot);
     }
     entries.Sort(delegate(Dictionary<string,object> a,Dictionary<string,object> b){return Str(a["rel"]).Length.CompareTo(Str(b["rel"]).Length);});
@@ -1546,12 +1901,11 @@ public static class RuyiSkillCapsule {
     }
     Snapshot=new Dictionary<string,object>{{"schema",1},{"platform","ntfs-objects-v1"},{"revision",revision},{"entries",created}};
     Step="portable-verify";Verify(false,true);VerifyOriginalLayout();
-    // Enumeration and every auxiliary flush handle finish before the final
-    // metadata application. Suppressed primary/stream handles cannot overwrite
-    // restored Basic values on close. Reopen and inspect actual objects/bytes.
     foreach(Node node in Expected())if((bool)node.Entry["dir"])FlushStoreDirectory(PathOf(node.Handle));FlushStoreDirectory(parentRoot);
-    RestoreBasic(Expected());Dictionary<string,object> wanted=Snapshot;Close();
-    Dictionary<string,object> observed=Dict(CapturePreserved(new Dictionary<string,object>{{"root",root},{"revision",revision}}));
+    Dictionary<string,object> wanted=Snapshot;
+    var readArgs=new Dictionary<string,object>{{"root",root},{"revision",revision}};
+    PublishOwnedPortableBasic(root,parentId,readArgs,wanted);
+    Dictionary<string,object> observed=Dict(CapturePreserved(readArgs));
     Step="portable-readback";VerifyPortableReadback(wanted,observed);return observed;
   }
 
@@ -1566,9 +1920,15 @@ public static class RuyiSkillCapsule {
           bool firstCommand=commands++==0;
           if(censusPhase!=0 && command!="close" && (censusPhase!=1 || command!="capture-preserved-census-final"))Reject("census_scope");
           if(CapturedFlushScope && command!="flush-captured-directories" && command!="close")Reject("captured_flush_scope");
-          if (command == "store-info") result=StoreInfo(args);
+          if (command == "candidate-allocation-start") result=CandidateAllocationStart(args);
+          else if (command == "candidate-allocation-close") result=CandidateAllocationClose(args);
+          else if (command == "store-info") result=StoreInfo(args);
           else if (command == "store-move") result=MoveStore(args);
           else if (command == "create-owned-portable") result=CreateOwnedPortable(args);
+          else if (command == "retire-portable-stage") {
+            if(!firstCommand)Reject("portable_retire_scope");
+            result=RetirePortableStage(args);
+          }
           else if (command == "capture") result = Capture(args);
           else if (command == "capture-preserved") result=CapturePreserved(args);
           else if (command == "read-preserved-control") {
@@ -1617,7 +1977,7 @@ public static class RuyiSkillCapsule {
         } catch (Exception error) {
           Win32Exception native = error as Win32Exception;
           string code = native == null ? error is InvalidOperationException ? error.Message : "native_failure" : Step.Replace('-','_') + "_win32_" + native.NativeErrorCode;
-          Console.WriteLine(Json.Serialize(new Dictionary<string,object> { { "ok", false }, { "code", code } }));
+          var failureRow=new Dictionary<string,object> { { "ok", false }, { "code", code } }; if(code=="census_first_close_unverified" && error.InnerException!=null) {var inner=error.InnerException;string safe=inner is Win32Exception?"native_win32_"+((Win32Exception)inner).NativeErrorCode:inner is InvalidOperationException?inner.Message:"native_failure";if(System.Text.RegularExpressions.Regex.IsMatch(safe,"^[a-z0-9_]{1,128}$"))failureRow.Add("primaryCode",safe);} Console.WriteLine(Json.Serialize(failureRow));
         }
       }
     } finally { Close(); }
@@ -2269,6 +2629,7 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
     ...(cached ? { codeIdentity: Object.freeze({ contextKey: cached.key, sourceHash: cached.sourceHash, artifactSha256: cached.sha256, clr: cached.clr, mvid: cached.mvid }) } : {}) }) });
 })();
 const migrationCapsuleIssuedChildren = new Set();
+const migrationCapsuleBrokerChildren = new WeakMap();
 async function migrationCapsuleBroker() {
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
@@ -2288,7 +2649,7 @@ async function migrationCapsuleBroker() {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
-  migrationCapsuleIssuedChildren.add(child);
+  migrationCapsuleIssuedChildren.add(child);const candidateChildObservation={child,closeObserved:false,closeCode:null,closeSignal:null};child.once('close',(code,signal)=>{candidateChildObservation.closeObserved=true;candidateChildObservation.closeCode=code;candidateChildObservation.closeSignal=signal;});
   try {
     child.once('close', () => migrationCapsuleIssuedChildren.delete(child));
   try { code?.observe(child); } catch { /* Optional code reuse cannot replace the original child/error pipeline. */ }
@@ -2362,7 +2723,7 @@ async function migrationCapsuleBroker() {
         if (response?.ok === true) entry.resolve(response.value);
         else {
           const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
-          const error = failure(suffix); firstError ||= error; entry.reject(error);
+          const primarySuffix=/^[a-z0-9_]{1,128}$/.test(response?.primaryCode||'')?response.primaryCode:null;const error = failure(suffix,primarySuffix?failure(primarySuffix):undefined); firstError ||= error; entry.reject(error);
         }
       }
     });
@@ -2394,7 +2755,7 @@ async function migrationCapsuleBroker() {
     }
     return closePromise;
   };
-  return Object.freeze({ command, close });
+  const issuedBroker=Object.freeze({ command, close });migrationCapsuleBrokerChildren.set(issuedBroker,candidateChildObservation);return issuedBroker;
   } catch (cause) {
     migrationCapsuleBroker.helperMayStillRun = true;
     throw failure('native_helper_uncertain', cause, true);
@@ -2512,9 +2873,93 @@ async function migrationCapsuleRoots(descriptor, intent) {
   for (const entry of await fsp.readdir(objects, { withFileTypes: true })) roots.push(path.join(objects, entry.name));
   return roots;
 }
+// The manifest candidate, durable intent and exclusive owner authorize allocation.
+const migrationCandidateRetained = new Set();
+async function migrationCreateCandidateBoundary({candidate,root,sourceProof,assertIssued,ownership,assertExclusive,assertIntent,onNativeCause}) {
+  const fail=reason=>migrationCapsuleFail('candidate_'+reason);
+  const check=()=>{if(assertIssued(candidate)!==true||assertExclusive(ownership)!==true)fail('authority');};
+  if(!candidate||typeof assertIssued!=='function'||typeof assertExclusive!=='function'||typeof assertIntent!=='function'||typeof onNativeCause!=='function')fail('arguments');
+  const base=path.resolve(root),target=path.join(base,'.work-data','generations',candidate.id);
+  if(candidate.root!==target||!/^[a-f0-9]{48}$/.test(candidate.id||''))fail('scope');
+  if(!sourceProof||!Array.isArray(sourceProof.sourceFiles)||!Array.isArray(sourceProof.sourceDirectories))fail('baseline');
+  const excluded=('.work-data/generations/'+candidate.id).toLowerCase();
+  for(const row of [...sourceProof.sourceFiles,...sourceProof.sourceDirectories]){
+    if(typeof row?.path!=='string')fail('baseline');const name=row.path.toLowerCase();
+    if(name===excluded||name.startsWith(excluded+'/'))fail('baseline');
+  }
+  const baselineSha256=crypto.createHash('sha256').update(JSON.stringify({sourceFiles:sourceProof.sourceFiles,sourceDirectories:sourceProof.sourceDirectories})).digest('hex');
+  await assertIntent();check();
+  const drive=path.parse(base).root,parts=base.slice(drive.length).split(path.sep).filter(Boolean).concat(['.work-data','generations']);
+  let cursor=drive;const anchors=[];
+  for(const part of [null,...parts]){if(part)cursor=path.join(cursor,part);const st=await fsp.lstat(cursor,{bigint:true});
+    if(!st.isDirectory()||st.isSymbolicLink()||path.resolve(await fsp.realpath(cursor)).toLowerCase()!==path.resolve(cursor).toLowerCase())fail('anchor');
+    anchors.push(st.dev.toString(16).padStart(8,'0')+st.ino.toString(16).padStart(16,'0'));}
+  await assertIntent();check();let broker,closed=false,started=false,uncertain=false;
+  const windowsRoot=process.env.SystemRoot||process.env.SYSTEMROOT;
+  if(typeof windowsRoot!=='string'||!path.isAbsolute(windowsRoot))fail('process_environment');
+  const tmpRoot=path.resolve(require('node:os').tmpdir()),installation=path.resolve(__dirname,'..');
+  const overlaps=(a,b)=>{const rel=path.relative(a,b);return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);};
+  if(overlaps(base,tmpRoot)||overlaps(tmpRoot,base)||overlaps(installation,tmpRoot)||overlaps(tmpRoot,installation))fail('process_environment');
+  const observerRoot=await fsp.mkdtemp(path.join(tmpRoot,'ruyi-candidate-observer-'));
+  await fsp.writeFile(path.join(observerRoot,'OWNER.json'),JSON.stringify({kind:'ruyi-candidate-identity-query-v1'}),{flag:'wx'});
+  const windows=path.resolve(windowsRoot),system32=path.join(windows,'System32');
+  const powershell=path.join(system32,'WindowsPowerShell','v1.0','powershell.exe');
+  const queryEnv={SystemRoot:windows,WINDIR:windows,ComSpec:path.join(system32,'cmd.exe'),PATH:system32,TEMP:observerRoot,TMP:observerRoot,USERPROFILE:observerRoot,APPDATA:observerRoot,LOCALAPPDATA:observerRoot,PSModuleAnalysisCachePath:path.join(observerRoot,'ModuleAnalysisCache')};
+  let nativeChild,observation,creation,osIdentityChecked=false,sameIdentityAbsent=null,result,primary,failed=false;
+  async function processIdentity(pid,allowAbsent){
+    if(!Number.isSafeInteger(pid)||pid<1)fail('process_identity');
+    const script=`$ProgressPreference='SilentlyContinue';[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' -ErrorAction Stop;if(!$p){'ABSENT'}else{$p.CreationDate.ToUniversalTime().ToFileTimeUtc()}`;
+    const value=await new Promise((resolve,reject)=>{
+      let child,out='',error=null,settled=false;try{child=require('node:child_process').spawn(powershell,['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,stdio:['ignore','pipe','ignore'],env:queryEnv});}catch(cause){reject(cause);return;}
+      const timer=setTimeout(()=>{if(settled)return;settled=true;migrationCandidateRetained.add(Object.freeze({nativeChild:child,ownership}));reject(Error('candidate_identity_timeout'));},10000);
+      child.stdout.on('data',chunk=>{out+=String(chunk);if(out.length>4096)error=Error('candidate_identity_output');});
+      child.stdout.on('error',cause=>{error=cause;});
+      child.on('error',cause=>{error=cause;});
+      child.once('close',(code,signal)=>{clearTimeout(timer);if(settled)return;settled=true;if(error||code!==0||signal)reject(error||Error('candidate_identity_query'));else resolve(out.trim());});
+    });
+    if(!(value==='ABSENT'||/^\d+$/.test(value))||!allowAbsent&&value==='ABSENT')fail('process_identity');return value;
+  }
+  try {
+    broker=await migrationCapsuleBroker();started=true;
+    observation=migrationCapsuleBrokerChildren.get(broker);nativeChild=observation?.child;if(!nativeChild||!migrationCapsuleIssuedChildren.has(nativeChild)){uncertain=true;fail('process_identity');}
+    try{creation=await processIdentity(nativeChild.pid,false);}catch(cause){uncertain=true;throw cause;}check();
+    const receipt=await broker.command({cmd:'candidate-allocation-start',base,id:candidate.id,anchorIds:anchors});
+    if(!receipt||receipt.kind!=='candidate-directory-created-v1'||receipt.root!==target||receipt.relative!==''||receipt.parentId!==null||receipt.created!==true||!/^[a-f0-9]{24}$/.test(receipt.id||'')||!/^[a-f0-9]{64}$/.test(receipt.token||''))fail('receipt');
+    await assertIntent();check();let released;
+    try{released=await broker.command({cmd:'candidate-allocation-close',root:target,token:receipt.token});}
+    catch(cause){uncertain=true;throw cause;}
+    if(!released||released.closed!==true||Object.keys(released).join(',')!=='closed'){uncertain=true;fail('close');}
+    try{await broker.close();if(observation?.closeObserved!==true||observation.closeCode!==0||observation.closeSignal!==null)fail('process_identity');const after=await processIdentity(nativeChild.pid,true);osIdentityChecked=true;sameIdentityAbsent=after==='ABSENT'||after!==creation;if(!sameIdentityAbsent)fail('process_identity');closed=true;}catch(cause){uncertain=true;throw cause;}
+    await assertIntent();check();
+    result=Object.freeze({candidate,root:target,id:receipt.id,parents:Object.freeze(anchors.slice(-3)),baselineSha256});
+  }catch(cause){
+    if(broker&&!closed&&!uncertain){try{await broker.close();if(!nativeChild||!creation||observation?.closeObserved!==true)fail('process_identity');const after=await processIdentity(nativeChild.pid,true);osIdentityChecked=true;sameIdentityAbsent=after==='ABSENT'||after!==creation;if(!sameIdentityAbsent)fail('process_identity');closed=true;}catch{uncertain=true;}}
+    if(uncertain||migrationCapsuleBroker.helperMayStillRun===true){
+      migrationCapsuleBroker.helperMayStillRun=true;
+      migrationCandidateRetained.add(Object.freeze({broker,nativeChild,ownership}));
+      const error=Object.assign(Error('work_data_backup.candidate_close_unverified',{cause}),{code:'work_data_backup.candidate_close_unverified',helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:started,retry:false});
+      try{onNativeCause(error);}catch(observerError){error.observerFailed=true;}primary=error;failed=true;
+    }else{
+      primary=cause;failed=true;
+    }
+  }
+  const audit={schema:1,kind:'candidate-allocator-process-v1',status:uncertain||migrationCapsuleBroker.helperMayStillRun===true?'unknown':failed?'failure':'success',native:{pid:Number.isSafeInteger(nativeChild?.pid)?nativeChild.pid:null,creationFileTime:creation||null,closeObserved:observation?.closeObserved===true,closeCode:Number.isInteger(observation?.closeCode)?observation.closeCode:null,closeSignal:typeof observation?.closeSignal==='string'?observation.closeSignal:null,osIdentityChecked,sameIdentityAbsent},ownerRetained:uncertain||migrationCapsuleBroker.helperMayStillRun===true?true:null};
+  let auditHandle;
+  try{auditHandle=await fsp.open(path.join(observerRoot,'allocator-receipt.json'),'wx',0o600);await auditHandle.writeFile(JSON.stringify(audit)+'\n','utf8');await auditHandle.sync();await auditHandle.close();auditHandle=null;}
+  catch(auditError){
+    migrationCapsuleBroker.helperMayStillRun=true;migrationCandidateRetained.add(Object.freeze({broker,nativeChild,ownership,auditHandle}));
+    const cause=failed?new AggregateError([primary,auditError],'candidate_audit_failed',{cause:primary}):auditError;
+    const error=Object.assign(Error('work_data_backup.candidate_audit_unverified',{cause}),{code:'work_data_backup.candidate_audit_unverified',helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:started,retry:false});
+    try{onNativeCause(error);}catch{}throw error;
+  }
+  if(failed)throw primary;return result;
+}
+
 async function migrationCapsuleCapturePreserved(root, revision, readback) {
   const paired=readback!==undefined;
-  if(paired&&!WorkDataTree.claimPreservedReadback(readback,root,revision))migrationCapsuleFail('census_scope');
+  const readbackContext=paired?(typeof WorkDataTree.claimPreservedReadbackContext==='function'?WorkDataTree.claimPreservedReadbackContext(readback,root,revision):(WorkDataTree.claimPreservedReadback(readback,root,revision)?{candidateBoundary:null}:null)):null;
+  if(paired&&!readbackContext)migrationCapsuleFail('census_scope');
+  const candidateBoundary=readbackContext?.candidateBoundary||null;
   const {revision:finalRevision,bind}=readback||{};
   if(paired&&(!readback||!Object.isFrozen(readback)||Object.keys(readback).sort().join(',')!=='bind,revision'||typeof bind!=='function'
     ||!/^[a-f0-9]{64}$/.test(revision)||!/^[a-f0-9]{64}$/.test(finalRevision)||finalRevision===revision))migrationCapsuleFail('census_scope');
@@ -2532,11 +2977,11 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       return Object.assign(new Error(code,{cause}),{code,apiCode:code,statusCode:503,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
     };
     let first;
-    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision});}
+    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,...(candidateBoundary?{candidateBoundary}:{})});}
     catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     if(!first||Object.keys(first).sort().join(',')!=='closedHandles,revision,snapshot'||first.revision!==revision
       ||!migrationCapsuleShape(first.snapshot)||first.snapshot.revision!==revision
-      ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0))throw unverified();
+      ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0)+(candidateBoundary?1:0))throw unverified();
     // The first handles are closed. Bound the now-idle helper even if Node's
     // identity checks are delayed, and still wait for the checks to settle.
     const timers=require('node:timers');let idleError;
@@ -2549,7 +2994,7 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
     catch(cause){if(idleError)throw Object.assign(new AggregateError([cause,idleError],idleError.code,{cause}),{code:idleError.code,retry:false});throw cause;}
     finally{timers.clearTimeout(timer);}
     if(idleError)throw idleError;
-    final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision});
+    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     if(!migrationCapsuleShape(final)||final.revision!==finalRevision)migrationCapsuleFail('shape');
   }catch(cause){failed=true;primary=cause;}
   try{await (idleClose||broker.close());}catch(cause){
@@ -4091,10 +4536,10 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       await broker.command({ cmd: 'attach', roots: [root], snapshot });
       await broker.command({ cmd: 'seal-attached', container }); await broker.command({ cmd: 'verify', cleared: true });
     } finally { await broker.close(); } },
-    materialize: async ({ roots, snapshot, alternate, paths }) => { const broker = await migrationCapsuleBroker(); try {
+    materialize: async ({ roots, snapshot, alternate, paths, publishExactBasic }) => { const broker = await migrationCapsuleBroker(); try {
       await broker.command({ cmd: 'attach', roots, snapshot }); await broker.command({ cmd: 'publish-check', target: paths.backup });
       await broker.command({ cmd: 'restore', target: path.join(paths.restored, rootId(snapshot)), container: path.join(paths.capsule, 'objects'), allowedSnapshot: alternate });
-      await broker.command({ cmd: 'publish', target: paths.backup, container: path.join(paths.capsule, 'objects') });
+      await broker.command({ cmd: 'publish', target: paths.backup, container: path.join(paths.capsule, 'objects'), ...(publishExactBasic?{publishExactBasic:true}:{}) });
     } finally { await broker.close(); } },
   };
   function requireConversionNative() {
@@ -4329,7 +4774,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       await admit?.();
       await fsp.mkdir(paths.restored, { recursive: true }); await directory(paths.restored);
       const roots=await conversionRoots(paths,snapshot);await admit?.();
-      await conversionNative.materialize({ paths, snapshot, alternate, roots });
+      await conversionNative.materialize({ paths, snapshot, alternate, roots, publishExactBasic:forward&&Boolean(admit) });
     }
     await conversionNative.flush([paths.anchor, path.dirname(paths.backup), control],Boolean(admit));
     await admit?.();
@@ -4936,7 +5381,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       return portableClone(receipt);
     });
     await portableFlushBound(externalBindings,admission);await admission();const observed=await portableCapture(root,fixed.revision);await admission();if(!portableProofExact(observed,fixed))migrationCapsuleFail('portable_stage_changed');
-    const token=Object.freeze({});portableDurabilityProofs.set(token,{root,volume:boundIdentity.volume,rootId:boundIdentity.id,proof:fixed,receipt:nativeReceipt});return token;
+    const token=Object.freeze({});portableDurabilityProofs.set(token,{root,volume:boundIdentity.volume,rootId:boundIdentity.id,proof:fixed,receipt:nativeReceipt,externalBindings});return token;
   }
   function portableAssertDurability(token,root,identity,observed){const proof=portableDurabilityProofs.get(token);if(!proof||!eq(proof.root,root)||proof.rootId!==identity?.id||proof.volume!==identity?.volume||!portableProofExact(observed,proof.proof))migrationCapsuleFail('portable_stage_changed');return proof;}
   function portableDurabilitySlice(proof,name){const anchor=proof.entries.find(entry=>entry.dir&&portableFold(entry.rel)===portableFold(name))?.rel;if(typeof anchor!=='string'||anchor==='')migrationCapsuleFail('portable_durability_binding');const prefix=anchor+'/',entries=proof.entries.filter(entry=>entry.rel===anchor||entry.rel.startsWith(prefix)).map(entry=>({...portableClone(entry),rel:entry.rel===anchor?'':entry.rel.slice(prefix.length)}));const snapshot={...portableClone(proof),entries};if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_durability_binding');return snapshot;}
@@ -4947,6 +5392,92 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   }
   function portableAssertExternal(token,bindings){const proof=portableDurabilityProofs.get(token);if(!proof||bindings.some(row=>row.volume!==proof.volume||proof.proof.entries.some(entry=>entry.id===row.id)))migrationCapsuleFail('portable_durability_binding');}
   function portableExternalOnly(roots,protectedRoots){return roots.filter(root=>!protectedRoots.some(protectedRoot=>portableWithin(protectedRoot,root)));}
+
+  async function movePortableStageObject(owned,name,id) {
+    const expected=[];
+    for(let cursor=name;cursor;){
+      const parent=path.posix.dirname(cursor);
+      cursor=parent==='.'?'':parent;
+      const row=owned.stageProof.entries.find(entry=>entry.dir&&portableFold(entry.rel)===portableFold(cursor));
+      if(!row)migrationCapsuleFail('portable_move_parent_changed');
+      expected.push({row,root:cursor?path.join(owned.stageRoot,...cursor.split('/')):owned.stageRoot});
+    }
+    const source=path.join(owned.stageRoot,...name.split('/')),target=path.join(owned.target,...name.split('/'));
+    const moved=await platform.move({source,target,id,preserveMetadata:true,stageParentId:expected[0].row.id,
+      stageRoot:owned.stageRoot,stageAncestorIds:expected.slice(1).map(value=>value.row.id)});
+    let witnesses=Array.isArray(moved?.stageAncestors)?[moved.stageParent,...moved.stageAncestors]:null;
+    if(native && moved?.stageParent===undefined){
+      // Injected native models may not implement the production move receipt.
+      witnesses=[];
+      for(const {root} of expected){
+        const baseline=await portableCapture(root,owned.stageProof.revision);
+        const directory=baseline?.entries.find(row=>row.rel===''&&row.dir);
+        witnesses.push({id:directory?.id,root,times:directory?.times});
+      }
+    }
+    if(witnesses?.length!==expected.length)migrationCapsuleFail('portable_move_parent_changed');
+    const stageParents=owned.stageParents??=new Map();
+    for(const [index,{row,root}] of expected.entries()){
+      const witness=witnesses[index],prior=stageParents.get(row.rel)||row.times;
+      if(!exact(witness,'id,root,times')||witness.id!==row.id||witness.root!==root
+        ||!Array.isArray(witness.times)||witness.times.length!==4
+        ||witness.times.some(value=>typeof value!=='string'||!/^\d{1,19}$/.test(value)||BigInt(value)>9223372036854775807n)
+        ||witness.times[0]!==prior[0])migrationCapsuleFail('portable_move_parent_changed');
+      if(index!==0&&(witness.times[2]!==prior[2]||witness.times[3]!==prior[3]))migrationCapsuleFail('portable_move_parent_changed');
+      // NTFS may update Access on private ancestor traversal. Other Basic
+      // fields may change only on the move's immediate parent.
+      stageParents.set(row.rel,Object.freeze([...witness.times]));
+    }
+    return moved;
+  }
+
+  async function retirePortable(token) {
+    const owned=portableStages.get(token);
+    if(!owned?.installed || owned.retireStarted || !owned.targetIdentity)migrationCapsuleFail('portable_token');
+    const {target,stageRoot,stageIdentity,stageDurability,admission}=owned;
+    const durability=portableDurabilityProofs.get(stageDurability),parent=path.dirname(stageRoot);
+    const parentBinding=durability?.externalBindings.find(row=>eq(row.root,parent));
+    if(!eq(parent,path.dirname(target)) || !parentBinding || !eq(durability.root,stageRoot)
+      || durability.rootId!==stageIdentity.id || durability.volume!==stageIdentity.volume
+      || !/^\.ruyi-skill-portable-[a-f0-9]{48}$/.test(path.basename(stageRoot)))migrationCapsuleFail('portable_retire_binding');
+    const moved=(owned.originals?owned.moves.map(row=>row.path):owned.objectsName?[owned.objectsName]:[]).map(portableFold);
+    const checkTarget=async()=>{
+      await admission();
+      const actual=await fsp.lstat(target,{bigint:true});
+      if(!actual.isDirectory() || actual.isSymbolicLink() || String(actual.dev)!==owned.targetIdentity.dev
+        || String(actual.ino)!==owned.targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
+    };
+    let started=false;
+    try {
+      await checkTarget();
+      const actual=await portableCapture(stageRoot,durability.proof.revision);
+      if(!migrationCapsuleShape(actual))migrationCapsuleFail('portable_retire_changed');
+      const entries=durability.proof.entries.filter(row=>{
+        const name=portableFold(row.rel);
+        return !moved.some(root=>name===root||name.startsWith(root+'/'));
+      }).map(row=>{
+        const times=owned.stageParents?.get(row.rel);
+        return times?{...row,times}:row;
+      });
+      if(!portableProofExact(actual,{...durability.proof,entries}))migrationCapsuleFail('portable_retire_changed');
+      await checkTarget();owned.retireStarted=true;started=true;
+      const receipt=await portableWithDurabilityBroker(broker=>broker.command({cmd:'retire-portable-stage',root:stageRoot,
+        revision:actual.revision,id:stageIdentity.id,parentId:parentBinding.id,snapshot:actual}));
+      if(!exact(receipt,'count,id,parentId,removed,root') || receipt.removed!==true || receipt.root!==stageRoot
+        || receipt.id!==stageIdentity.id || receipt.parentId!==parentBinding.id || receipt.count!==entries.length
+        || await stat(stageRoot))migrationCapsuleFail('portable_retire_receipt');
+      await portableFlushBound([Object.freeze({...parentBinding,ordinal:0})],admission);
+      await checkTarget();
+      portableStages.delete(token);
+      return Object.freeze({target,stageRemoved:true});
+    } catch(cause) {
+      if(!started)throw cause;
+      throw Object.assign(new Error('work_data_backup.portable_retire_uncertain',{cause}),{
+        code:'work_data_backup.portable_retire_uncertain',retry:false,operationMayHaveExecuted:true,resultUnavailable:true,
+        stageRetained:stageRoot,targetRetained:target,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{}),
+      });
+    }
+  }
 
   // Portable source/live/stage evidence must not leave read-induced Basic time
   // changes behind. Keep the older local migration platform unchanged.
@@ -5536,7 +6067,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     if(owned.installed||owned.installStarted||!targetIdentity||!['dev','ino'].every(key=>typeof targetIdentity[key]==='string'))migrationCapsuleFail('portable_token');await owned.admission();await directory(owned.target);const root=await fsp.lstat(owned.target,{bigint:true});if(String(root.dev)!==targetIdentity.dev||String(root.ino)!==targetIdentity.ino)portableTargetFailure('originals.install.root-identity',()=>({expected:targetIdentity,actual:{dev:String(root.dev),ino:String(root.ino)}}));
     const stage=await portableCapture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSameMetadata(stage,owned.stageProof))migrationCapsuleFail('portable_stage_changed');portableAssertDurability(owned.stageDurability,owned.stageRoot,owned.stageIdentity,stage);
     const moveNames=owned.moves.map(row=>row.path),protectedRoots=moveNames.map(name=>path.join(owned.target,...name.split('/'))),requiredFlushRoots=[owned.target,...new Set(owned.moves.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))],targetBindings=await portableBindExternal(portableExternalOnly(requiredFlushRoots,protectedRoots),'new-target-ancestor',owned.admission);portableAssertExternal(owned.stageDurability,targetBindings);
-    try{owned.installStarted=true;for(const move of owned.moves){await owned.admission();const source=path.join(owned.stageRoot,...move.path.split('/')),target=path.join(owned.target,...move.path.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const result=await platform.move({source,target,id:move.info.id,preserveMetadata:true});if(!result||result.id!==move.info.id||result.volume!==move.info.volume)migrationCapsuleFail('portable_store');}
+    try{owned.installStarted=true;for(const move of owned.moves){await owned.admission();const target=path.join(owned.target,...move.path.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const result=await movePortableStageObject(owned,move.path,move.info.id);if(!result||result.id!==move.info.id||result.volume!==move.info.volume)migrationCapsuleFail('portable_store');}
       owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await portableVerifyInherited(owned.stageDurability,owned.stageRoot,owned.target,owned.stageIdentity,moveNames,owned.admission);await portableFlushBound(targetBindings,owned.admission);return await verifyPortableOriginals(owned);
     }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:owned.stageRoot,targetRetained:owned.target,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
   }
@@ -5607,7 +6138,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     for(const row of owned.replacements)if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');
     try{
       owned.installStarted=true;
-      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await portableCapture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
+      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await portableCapture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await movePortableStageObject(owned,owned.objectsName,owned.objectInfo.id);if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
       owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await portableVerifyInherited(owned.stageDurability,owned.stageRoot,owned.target,owned.stageIdentity,inheritedNames,owned.admission);await portableFlushBound(targetBindings,owned.admission);
       return await verifyPortableInstalled(token);
     }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,targetRetained:owned.target,stageRetained:owned.stageRoot,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
@@ -5747,7 +6278,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     await emptyAdmission(known, assertUnchanged); return true;
   }
 
-  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, preparedDelta, recoverRepresentation, recoverPreparedTransition, prepareEmptyCancellation, retireEmptyCancellation, verifyEmptyCancellation, verifyPublished, capturePortable, readInlineProvenance, validatePortable, stagePortable, installPortable, verifyPortableInstalled });
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, preparedDelta, recoverRepresentation, recoverPreparedTransition, prepareEmptyCancellation, retireEmptyCancellation, verifyEmptyCancellation, verifyPublished, capturePortable, readInlineProvenance, validatePortable, stagePortable, installPortable, verifyPortableInstalled, retirePortable });
 }
 
 async function readMigrationControlPreserved(file,base,limit) {

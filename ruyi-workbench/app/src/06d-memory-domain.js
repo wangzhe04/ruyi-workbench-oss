@@ -907,10 +907,12 @@ async function listWorkbenchMemories(args, ctx) {
       if(!await context.current())stale();sync();
     };
     try{
+      const scopeId='memory-explicit:'+String(session?.id||'')+':'+projectKeyForCwd(cwd);
+      const progressKey=crypto.createHash('sha256').update(JSON.stringify([scopeId,scope,query,libraryVersion,configVersion,registry.map(memoryRetrievalKey)])).digest('hex');
       const recalled=typeof MemorySemanticHooks.search==='function'
         ?await MemorySemanticHooks.search(registry,query,limit,{...config,semanticRetrievalV1:config.semanticRetrievalV1!==false&&currentConfig.semanticRetrievalV1!==false,
           runtimeMemoryVectorRecallV1:memoryVectorRecallEnabled(config)&&memoryVectorRecallEnabled(currentConfig)},
-          {scopeId:'memory-explicit:'+String(session?.id||'')+':'+projectKeyForCwd(cwd),signal:ctx?.signal,check:semanticCheck})
+          {scopeId,progressKey,signal:ctx?.signal,check:semanticCheck})
         :null;
       if(recalled){registry=recalled.entries;matched=recalled.matched;semantic=recalled.semantic;semanticMatches=recalled.matches;}
       else{const ranked=rankRelevantMemoriesScored(registry,query).slice(0,limit);registry=ranked.map(x=>x.entry);matched=ranked.filter(x=>x.shared>0).map(x=>x.entry);}
@@ -923,6 +925,7 @@ async function listWorkbenchMemories(args, ctx) {
     || registry.some(e => memoryIsExpired(e))) return { ok: false, error: 'memory context changed or unavailable' };
   if(semanticCheck){try{await semanticCheck();}catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}}
   return { ok: true, query, scope, count: registry.length, core: coreState.stats,...(semantic?{semantic}:{}),
+    ...(query?{matchedCount:matched?.length||0,ruleFillCount:registry.length-(matched?.length||0)}:{}),
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
       createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
       reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount,
@@ -2086,6 +2089,9 @@ function buildMemoryCheckPrompt(status, config) {
     globalMatches: safe(status.globalMatches),
     excluded: safe(status.excludedCount),
     coreActive: safe(status.coreActiveCount),
+    semanticFallback: status.enabled !== false && status.checked === true
+      && ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status.semantic?.fallback?.reason)
+      ? status.semantic.fallback.reason : '',
   });
 }
 
@@ -2623,8 +2629,9 @@ function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX
   const vectorRows = rankRetrievalCorpus(corpus, query);
   const vectorTop = vectorRows.length ? vectorRows[0].score : 0;
   const lexicalSet = new Set(lexicalRanking);
+  const ruleFallback = new Set(lexicalFallback);
   const vectorRanking = vectorRows
-    .filter(row => lexicalSet.has(row.id) || (row.score >= MEMORY_VECTOR_ONLY_MIN_SCORE && row.score >= MEMORY_VECTOR_ONLY_REL_SCORE * vectorTop))
+    .filter(row => lexicalSet.has(row.id) || (!ruleFallback.has(row.id) && row.score >= MEMORY_VECTOR_ONLY_MIN_SCORE && row.score >= MEMORY_VECTOR_ONLY_REL_SCORE * vectorTop))
     .map(row => row.id);
 
   const takeFallback = out => {

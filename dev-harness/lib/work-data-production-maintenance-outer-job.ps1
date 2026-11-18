@@ -78,6 +78,8 @@ $root = $env:RUYI_PM_ROOT
 if (-not $root -or -not (Test-Path -LiteralPath $root)) { throw 'owned outer Job requires an existing fixture root' }
 $waitMs = 900000
 if ($env:RUYI_PM_WAIT_MS) { $waitMs = [int]$env:RUYI_PM_WAIT_MS }
+$targetWaitMs = $waitMs
+if ($env:RUYI_PM_TARGET_WAIT_MS) { $targetWaitMs = [int]$env:RUYI_PM_TARGET_WAIT_MS }
 $holdMs = 120000
 if ($env:RUYI_PM_HOLD_MS) { $holdMs = [int]$env:RUYI_PM_HOLD_MS }
 $target = Join-Path $root 'job-target.json'
@@ -89,7 +91,7 @@ $job = [RuyiMaintenanceOuterJob]::Create()
 $member = $null
 try {
   Write-Json (Join-Path $root 'job-ready.json') ([pscustomobject]@{ schema = 1; kind = 'OWNED_OUTER_JOB'; keeperPid = $PID })
-  $deadline = (Get-Date).AddMilliseconds($waitMs)
+  $deadline = (Get-Date).AddMilliseconds($targetWaitMs)
   while (-not (Test-Path -LiteralPath $target)) {
     if (Test-Path -LiteralPath $hold) {
       # Nothing was assigned yet: the retained scene belongs to the test, and

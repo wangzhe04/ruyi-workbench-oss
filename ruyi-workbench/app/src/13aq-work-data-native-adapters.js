@@ -687,7 +687,7 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
     }
     function coldOperationHost(progress) {
       if (typeof progress !== 'function') throw fail('progress_invalid'); check();
-      return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots,{preserveRuntime:true});},sourceKeeper,flush,verifyFresh,captureRehearsal,
+      return Object.freeze({createCandidateBoundary: options => guarded(()=>migrationCreateCandidateBoundary(options)),acquire:roots => {check();return bindings.ownership.acquire(roots,{preserveRuntime:true});},sourceKeeper,flush,verifyFresh,captureRehearsal,
         fullSnapshot:(base,ownership,assertExclusive,{onNativeCause,rehearsalReceipt}={})=>createSnapshot(base,ownership,assertExclusive,{rehearsalReceipt},onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
           check(); const {base,ownership,assertExclusive,onNativeCause}=options;

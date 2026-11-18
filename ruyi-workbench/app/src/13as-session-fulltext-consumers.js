@@ -5,7 +5,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
   const hash=value=>c.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const clone=value=>structuredClone(value);
   function create(host) {
-    const local=new AsyncLocalStorage(),issued=new WeakMap();
+    const local=new AsyncLocalStorage(),issued=new WeakMap(),threadPreviews=new Map();
     const required=['readConfig','configGeneration','uiAuthority','modelAuthority','source','catalog','metadata','projectKey','terms','redact','bindIndex'];
     if(required.some(name=>typeof host?.[name]!=='function')||!host.privacy)throw fail('host_invalid');
     const source=host.source(),privacy=host.privacy;
@@ -13,12 +13,13 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     const selectedMethod=config=>config.semanticRetrievalV1!==false&&typeof SemanticRuntimeTransportProof!=='undefined'&&typeof SemanticRuntimeTransportProof.method==='function'?SemanticRuntimeTransportProof.method():null;
     function current(token=local.getStore()) {const cap=issued.get(token);if(!cap||cap.closed)throw fail('scope_required');cap.assert();return cap;}
     function projectFilter(value) {if(value===undefined||value===null||value==='')return null;if(typeof value!=='string'||!/^project:[a-f0-9]{16}$/.test(value))throw fail('project_invalid');return value;}
-    async function enter(kind,authority,filter,work,exactSid=null) {
+    async function enter(kind,authority,filter,work,exactSid=null,threadSearch=false) {
       const startedAt=Date.now(),selectedFilter=projectFilter(filter),policy=privacy.disclosurePolicyGuard(),generation=host.configGeneration(),config=await host.readConfig();policy();
       if(host.configGeneration()!==generation)throw fail('destination_changed');const grant=await authority(config);policy();
       if(!grant||typeof grant.assert!=='function'||typeof grant.revalidate!=='function'||typeof grant.scopeId!=='string')throw fail('destination_invalid');
       if(exactSid&&grant.scopeId!==exactSid)throw fail('destination_changed');
       const token=Object.freeze({}),cap={kind,config,generation,grant,startedAt,method:selectedMethod(config),semanticEpoch:selectedMethod(config)?SemanticRuntimeTransportProof.lifecycle():null,relatedMetadata:null,filter:selectedFilter,exactSid,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],indexState:null,closed:false,emitted:false};
+      cap.threadSearch=threadSearch;cap.preparedSessions=0;
       cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
       cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
       issued.set(token,cap);
@@ -96,16 +97,22 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
-    async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();const ids=cap.exactSid?[cap.exactSid]:await host.catalog();
-      for(let start=0;start<ids.length;start+=4){check();const batch=await Promise.allSettled(ids.slice(start,start+4).map(async sid=>{check();return await authorize(sid,token,cap.access)?clone(cap.sources.get(sid).metadata):null;}));
+    async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();
+      for(let start=0;start<ids.length;start+=4){check();const batch=await Promise.allSettled(ids.slice(start,start+4).map(async sid=>{check();return (cap.threadSearch&&assertAuthorized(sid,token,cap.access)||await authorize(sid,token,cap.access))?clone(cap.sources.get(sid).metadata):null;}));
         const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==timeout)||failures[0]).reason;
         for(const row of batch)if(row.value)out.push(row.value);}
-      cap.assert();check();return out;}
-    async function searchOnce(query,limit,check,deadline,timeout) {
+      cap.assert();check();if(cap.threadSearch)cap.metadataView=clone(out);return out;}
+    async function searchOnce(query,limit,check,deadline,timeout,preview) {
       const token=local.getStore(),cap=current(token),q=String(query||'').trim();cap.query=q;cap.relatedMetadata=null;
       if(q.length>256)throw fail('query_invalid');
       if(q.length<2)return{ok:true,query:q,results:[],indexed:0,scope:scope(cap.config.sessionSearchIndexV1!==false),reason:'query_too_short'};
-      check();const enabled=cap.config.sessionSearchIndexV1!==false,metas=await metadata(check,timeout),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
+      check();const enabled=cap.config.sessionSearchIndexV1!==false,paused=cap.config.sessionSearchIndexPausedV1===true;
+      const resumable=typeof index.resetPreparation==='function',early=enabled&&cap.threadSearch&&resumable;
+      const preparationKey=cap.threadSearch?JSON.stringify([cap.kind,cap.access.scopeId,cap.filter]):cap.access.scopeId;
+      const prepare=()=>index.prepare(token,{check,timeout,incremental:true,threadSearch:cap.threadSearch,preparationKey,onPrepared:()=>{cap.preparedSessions++;}});
+      const lexicalPreview=preview&&cap.threadSearch;
+      let progress=null;if(early&&!paused&&!lexicalPreview)progress=index.preparationComplete?.(preparationKey)?{done:true}:await prepare();
+      const metas=await metadata(check,timeout),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
       const fieldsOf=meta=>[['title',meta.title],['summary',meta.summary],['brief.title',meta.brief?.title],['brief.gist',meta.brief?.gist],['cwd',meta.cwd]].filter(([,text])=>typeof text==='string'&&text.length);
       const metadataEntries=[],metadataIds=typeof SemanticRetrieval!=='undefined'?SemanticRetrieval.structuredIds(q):[],metadataPhrase=q.normalize('NFKC').toLowerCase();let metadataEntryTruncated=false;
       for(const meta of metas){check();const fields=fieldsOf(meta);if(!cap.method&&fields.some(([,text])=>{const norm=text.normalize('NFKC').toLowerCase();return norm.includes(metadataPhrase)||terms.length>0&&terms.every(term=>norm.includes(term));}))continue;for(const [field,text]of fields){const norm=text.normalize('NFKC').toLowerCase(),ids=cap.method?SemanticRetrieval.structuredIds(text):[];if(cap.method&&metadataIds.some(id=>!ids.includes(id)))continue;const eligible=cap.method?(metadataIds.length>0||norm.includes(metadataPhrase)||terms.some(term=>norm.includes(term))):terms.some(term=>norm.includes(term));if(!eligible)continue;const selected=cap.sources.get(meta.id);if(!selected)throw fail('source_changed');if(metadataEntries.length<256)metadataEntries.push({sid:meta.id,field,text,epoch:selected.epoch,sequence:selected.sequence});else metadataEntryTruncated=true;}}
@@ -114,12 +121,12 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       let found={results:[],coverage:{phase:'disabled',sessions:metas.length,indexedSessions:0,pendingSessions:metas.length,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false}};
       let proofResult=null;
       if(enabled){
-        cap.assert();const paused=cap.config.sessionSearchIndexPausedV1===true;
-        const incremental=!cap.exactSid&&metas.length>64&&typeof index.resetPreparation==='function';let progress=null;if(incremental&&!paused)progress=await index.prepare(token,{check,timeout,incremental:true});
-        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});
-        if(!paused&&found.coverage.pendingSessions&&found.coverage.phase!=='paused'){
+        cap.assert();
+        const incremental=early||!cap.exactSid&&metas.length>64&&resumable;if(!early&&incremental&&!paused&&!lexicalPreview)progress=await prepare();
+        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata,lexicalOnly:lexicalPreview});
+        if(!lexicalPreview&&!paused&&found.coverage.pendingSessions&&found.coverage.phase!=='paused'){
           if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
-          else if(progress?.done){index.resetPreparation(cap.access.scopeId);await index.prepare(token,{check,timeout,incremental:true});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
+          else if(progress?.done){index.resetPreparation(preparationKey);if(!cap.threadSearch||metas.length<=16){await prepare();check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}}
         }
         proofResult=found;if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
       }
@@ -136,11 +143,22 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(indexState){const current=index.mutationState();if(indexState.active||current.active||current.serial!==indexState.serial)verified={...verified,changed:Math.max(1,verified.changed||0)};}
       if(verified?.changed){const coverage={...found.coverage,phase:'pending',pendingSessions:Math.max(found.coverage.pendingSessions||0,verified.changed),complete:false};return{ok:true,query:q,results:[],indexed:Math.max(0,(found.coverage.indexedSessions||0)-verified.changed),coverage,partial:true,reason:'index_changed',...(found.semantic?{semantic:{...found.semantic,coverage:'partial'}}:{}),scope:{...scope(enabled),fullText:false}};}
       if(indexState&&!cap.indexState)cap.indexState=indexState;
-      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
+      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(lexicalPreview?{lexicalPreview:true,partial:!found.coverage.complete}:{}),...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
     }
-    async function search(query,limit){const cap=current(),timeout=Object.freeze(Object.assign(Error('session_search.deadline'),{code:'session_search.deadline'})),budget=Math.max(1,Math.min(30000,Number(host.searchBudgetMs)||2500)),deadline=cap.startedAt+budget;
+    async function search(query,limit,options={}){const cap=current(),timeout=Object.freeze(Object.assign(Error('session_search.deadline'),{code:'session_search.deadline'})),budget=Math.max(1,Math.min(30000,Number(host.searchBudgetMs)||(cap.threadSearch?15000:2500))),deadline=cap.startedAt+budget;
       const check=()=>{cap.assert();if(Date.now()>=deadline)throw timeout;};
-      for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit,check,deadline,timeout);}catch(error){if(error===timeout){await final(cap);const enabled=cap.config.sessionSearchIndexV1!==false;return{ok:true,query:String(query||'').trim(),results:[],indexed:0,partial:true,reason:'deadline',coverage:{phase:'timeout',sessions:cap.sources.size,indexedSessions:0,pendingSessions:cap.sources.size,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false},semantic:{status:'timeout',coverage:'partial'},scope:scope(enabled)};}if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;cap.attachmentChecks.length=0;await final(cap);check();}}}
+      let preview=options.preview===true;
+      if(options.previewIfLarge===true&&cap.threadSearch&&cap.kind==='model'&&cap.config.sessionSearchIndexV1!==false){
+        const key=hash([cap.access.scopeId,cap.filter,query]);
+        if(!threadPreviews.has(key)&&!index.preparationComplete?.(JSON.stringify([cap.kind,cap.access.scopeId,cap.filter]))){
+          cap.searchCatalog=await host.catalog();cap.assert();
+          if(cap.searchCatalog.length>=64){
+            preview=true;threadPreviews.set(key,true);
+            if(threadPreviews.size>64)threadPreviews.delete(threadPreviews.keys().next().value);
+          }
+        }
+      }
+      for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit,check,deadline,timeout,preview);}catch(error){if(error===timeout){await final(cap);const enabled=cap.config.sessionSearchIndexV1!==false;return{ok:true,query:String(query||'').trim(),results:[],indexed:cap.threadSearch?null:0,partial:true,reason:'deadline',coverage:{phase:'timeout',sessions:cap.threadSearch?null:cap.sources.size,indexedSessions:cap.threadSearch?null:0,pendingSessions:cap.threadSearch?null:cap.sources.size,complete:false,attachments:{unverifiedFullText:cap.threadSearch?null:0},fullTextSampling:false,...(cap.threadSearch?{preparedThisRequest:cap.preparedSessions}:{})},semantic:{status:'timeout',coverage:'partial'},scope:scope(enabled)};}if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;cap.attachmentChecks.length=0;await final(cap);check();}}}
     function scope(enabled=true) {return{fullText:false,messageText:enabled,mode:enabled?'message_shards':'metadata_only',sampling:false,coordinate:'utf16',maxQueryChars:256,
       coverageUnit:'committed-display-message-sources',note:enabled?'搜索已提交的消息和可验证的附件正文。附件提取范围见 coverage。':'正文搜索已关闭，仅搜索会话元数据。'};}
     async function finish(value) {const cap=current();for(let pass=0;pass<4;pass++){try{const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[...cap.disclosed,cap.grant.scopeId],{recipient:cap.grant.scopeId,purpose:'session-search:result',sourceHash:hash(value)});cap.disclosures.push(prepared.assert);await final(cap);return prepared.value;}catch(error){if(error.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
@@ -154,8 +172,8 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(result&&typeof result.then==='function')throw fail('sink_invalid');
       return result;
     }
-    return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work),
-      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),withObservation:(ctx,work)=>{if(!ctx?.session?.id||!observationMainReadAllowed(ctx))throw fail('model_scope_required');return enter('observation',config=>host.modelAuthority(ctx,'observation_recall',config),null,work,ctx.session.id);},search,metadata,publicMetadata,usesSourceBoundMethod:()=>!!current().method,searchEvidenceActive:()=>!!current().relatedMetadata,finish,emitUI,scope,
+    return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work,null,true),
+      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work,null,tool==='threads_search'),withObservation:(ctx,work)=>{if(!ctx?.session?.id||!observationMainReadAllowed(ctx))throw fail('model_scope_required');return enter('observation',config=>host.modelAuthority(ctx,'observation_recall',config),null,work,ctx.session.id);},search,metadata,publicMetadata,usesSourceBoundMethod:()=>!!current().method,searchEvidenceActive:()=>!!current().relatedMetadata,finish,emitUI,scope,
       retireSession:id=>index.invalidate(id,true)});
   }
   return Object.freeze({create});
@@ -190,7 +208,7 @@ Object.assign(SessionFullTextHooks,{
   withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
   withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
   withObservation:(ctx,work)=>getSessionFullTextConsumers().withObservation(ctx,work),
-  search:(query,limit)=>getSessionFullTextConsumers().search(query,limit),metadata:()=>getSessionFullTextConsumers().metadata(),
+  search:(query,limit,options)=>getSessionFullTextConsumers().search(query,limit,options),metadata:()=>getSessionFullTextConsumers().metadata(),
   retireSession:id=>getSessionFullTextConsumers().retireSession(id),
   publicMetadata:id=>getSessionFullTextConsumers().publicMetadata(id),usesSourceBoundMethod:()=>getSessionFullTextConsumers().usesSourceBoundMethod(),searchEvidenceActive:()=>getSessionFullTextConsumers().searchEvidenceActive(),finish:value=>getSessionFullTextConsumers().finish(value),
   emitUI:(value,emit)=>getSessionFullTextConsumers().emitUI(value,emit),scope:enabled=>getSessionFullTextConsumers().scope(enabled),

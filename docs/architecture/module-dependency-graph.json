@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4400,
-    "requiredSymbols": 4330,
+    "providedSymbols": 4403,
+    "requiredSymbols": 4331,
     "edges": 954,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -26874,9 +26874,11 @@
         "migrationBackupHistoryShape",
         "migrationBackupHistoryStore",
         "migrationBackupRoot",
+        "migrationCandidateRetained",
         "migrationCapsuleArchive",
         "migrationCapsuleAssertTree",
         "migrationCapsuleBroker",
+        "migrationCapsuleBrokerChildren",
         "migrationCapsuleCapture",
         "migrationCapsuleCapturePreserved",
         "migrationCapsuleCarrierHeaderValid",
@@ -26910,6 +26912,7 @@
         "migrationCommitLog",
         "migrationCopyOneSkill",
         "migrationCopySkills",
+        "migrationCreateCandidateBoundary",
         "migrationCurrentRoot",
         "migrationDir",
         "migrationDirSize",
@@ -31532,6 +31535,13 @@
         {
           "provider": "13u-migration-center.js",
           "symbol": "migrationCapsuleShape",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationCreateCandidateBoundary",
           "kinds": [
             "call"
           ]
@@ -42670,7 +42680,8 @@
       "symbols": [
         "migrationCapsuleBroker",
         "migrationCapsuleCapturePreserved",
-        "migrationCapsuleShape"
+        "migrationCapsuleShape",
+        "migrationCreateCandidateBoundary"
       ],
       "direction": "backward"
     },

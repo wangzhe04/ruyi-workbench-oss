@@ -1,0 +1,107 @@
+{
+  "name": "Preview.2 package semantic and desktop walkthrough",
+  "zipSha256": "aaf30288420b2af882413849b1c25afdf84ace993fd2dea1916aab6170dc0881",
+  "serviceSha256": "6603fb03c503930e631fbbc0f44b9c2ca3ef0c360ebee6cf84e61b385783eb55",
+  "embeddedVersion": "3.0.1",
+  "inputs": "synthetic only; packaged Node and bundled multilingual MiniLM; chat provider scripted on loopback",
+  "memory": {
+    "headers": 79,
+    "targetPosition": 79,
+    "singleWordTarget": null,
+    "singleWordFalsePositive": [
+      {
+        "id": "hidden-body-only",
+        "kind": "semantic",
+        "score": 0.3638353216757591,
+        "core": "library"
+      }
+    ],
+    "automaticNoSharedWords": {
+      "checkTags": [
+        "<workbench-memory-check>",
+        "<workbench-memory-check mode=\\\"default\\\" enabled=\\\"true\\\" checked=\\\"true\\\" candidates=\\\"3\\\" matches=\\\"0\\\" project-matches=\\\"0\\\" global-matches=\\\"0\\\" excluded=\\\"0\\\" core-active=\\\"0\\\" rule-fill=\\\"1\\\">"
+      ],
+      "targetVisible": false,
+      "ruleVisible": true
+    },
+    "actualChat": [
+      {
+        "q": "大巴",
+        "status": "ready",
+        "rows": [
+          {
+            "id": "qa-rule",
+            "kind": "rule-fill"
+          }
+        ],
+        "matchedCount": 0,
+        "ruleFillCount": 1
+      },
+      {
+        "q": "换乘客运车辆应该从哪边登乘",
+        "status": "ready",
+        "rows": [
+          {
+            "id": "qa-vehicle",
+            "kind": "semantic"
+          },
+          {
+            "id": "qa-rule",
+            "kind": "rule-fill"
+          }
+        ],
+        "matchedCount": 1,
+        "ruleFillCount": 1
+      },
+      {
+        "q": "载具上下车",
+        "status": "ready",
+        "rows": [
+          {
+            "id": "qa-vehicle",
+            "kind": "lexical"
+          },
+          {
+            "id": "qa-rule",
+            "kind": "rule-fill"
+          }
+        ],
+        "matchedCount": 1,
+        "ruleFillCount": 1
+      }
+    ]
+  },
+  "ui": {
+    "coldLexicalMs": 135774,
+    "warmSemanticMs": 3112,
+    "unrelatedTarget": null
+  },
+  "observation": {
+    "crossLanguage": true,
+    "messageStatus": "ready",
+    "ownedToolSnapshotStatus": "unavailable",
+    "unrelated": {
+      "candidateCount": 0,
+      "matchedOriginal": false,
+      "messageSemantic": "ready"
+    }
+  },
+  "releaseDecision": "Internal preview. Single-word memory quality and desktop cold-close overlap remain unresolved on this archive.",
+  "hashes": {
+    "receipt.json": "6b6cbe5f5595f67b4861a6567543d4806f021ad105975078c18616bb752d1cf4",
+    "memory-root-receipt.json": "e49542ffd3e8eaba3911a6d543ba70d442a57785ff03a9a96d8748e39e4030a3",
+    "chat-walk-r3/receipt.json": "d561064ebec785ed9f662006c53c16223daf4a1984550a854f45f9943ed098ec",
+    "thread-search/browser-receipt.json": "fba75ea49560ed0c2701b5028437794e410b3021dec1789b563422a4699bf6f4",
+    "thread-search/tool-receipt.json": "a6c9ff2271098d13b68c429a0723bd25ec8aae4676731f2309edbcf041b3aa40",
+    "thread-search/lexical.png": "83b840c59b335698b5f863acdb90acc02d9285b9dde0a8d9e5f06e152aa693f9",
+    "thread-search/semantic.png": "71d73155b3340cfb608526b1d7a5f253e308d7f53f5ffc7495c9de1b853857bc",
+    "thread-search/unrelated.png": "85def204dddf75b82fdf4b762358c4470453de0cdca651e03711631730f505bc",
+    "desktop-gui-cold-r151-gui-cold-0eNCPJ.json": "dc71e924f6613c39fdbee8e3b1ef0fa4c948693f95158de13fdc8565a832c253",
+    "desktop-gui-cold-r151-gui-cold-LnEyfd.json": "efd67fedc3e9ac0addc4299bae994f5dd41fa6829449bf06e97b6ed00afbd887",
+    "desktop-gui-cold-r151-gui-cold-vk2Lta.json": "2302f2dc087ff76b354a622a3e833ad8940688145f2446fa2ad52fa35d887b12",
+    "desktop-gui-cold-r151-gui-cold-ZINa9e.json": "f433ce274385c945eddd95b9e9b6e1ab78ff9ac416869e1c32c46c830f2c1333",
+    "desktop-gui-warm-r151-gui-warm-1tT6yH.json": "df62f3a0625cff5a53137d4fa2e853bce4f18b335a24db6a084eb6c6e8309ef8",
+    "desktop-gui-warm-r151-gui-warm-IL8paK.json": "29e11953bf11456b1a00c5c6486a9967c8b332927eff8deb49e161917cf2a039",
+    "desktop-gui-warm-r151-gui-warm-jenLuW.json": "f232a0ecc118edb5b07a7f0a0907f2cfa49337704485b876f82234fac149a5ea"
+  }
+}

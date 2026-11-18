@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-16T14:28:14.830Z",
+  "generatedAt": "2026-11-18T07:49:14.167Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -4409,11 +4409,13 @@
         "dev-harness\\ui-misc-wave1.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
+        "dev-harness\\unit\\fulltext-budget.test.js",
         "dev-harness\\unit\\fulltext-consumer-entry.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
+        "dev-harness\\unit\\semantic-gemma2-consumers.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
@@ -4456,7 +4458,9 @@
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
-        "dev-harness\\unit\\fulltext-consumer-entry.test.js"
+        "dev-harness\\unit\\fulltext-budget.test.js",
+        "dev-harness\\unit\\fulltext-consumer-entry.test.js",
+        "dev-harness\\unit\\semantic-gemma2-consumers.test.js"
       ]
     },
     {
@@ -4728,11 +4732,13 @@
         "dev-harness\\ui-misc-wave1.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
+        "dev-harness\\unit\\fulltext-budget.test.js",
         "dev-harness\\unit\\fulltext-consumer-entry.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
+        "dev-harness\\unit\\semantic-gemma2-consumers.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
@@ -4951,9 +4957,11 @@
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
+        "dev-harness\\unit\\fulltext-budget.test.js",
         "dev-harness\\unit\\fulltext-consumer-entry.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
+        "dev-harness\\unit\\semantic-gemma2-consumers.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\work-data-encrypted-browser.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",

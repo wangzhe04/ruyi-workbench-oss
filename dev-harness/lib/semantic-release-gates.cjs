@@ -8,6 +8,13 @@ const manifest = 'docs/optimization-plan/evidence/semantic-retrieval-20261116/re
 function sr2Accepted(value) {
   const finite = n => typeof n === 'number' && Number.isFinite(n);
   const fraction = n => finite(n) && n >= 0 && n <= 1;
+  const warmP95AtMost = (samples, limitMs) => {
+    if (!Array.isArray(samples) || samples.length < 20) return false;
+    const sorted = [...samples];
+    if (!sorted.every(n => finite(n) && n >= 0)) return false;
+    sorted.sort((a, b) => a - b);
+    return sorted[Math.ceil(sorted.length * .95) - 1] <= limitMs;
+  };
   const q = value?.quality, p = value?.performance;
   return value?.schema === 1 && value?.kind === 'semantic-sr2-acceptance'
     && value.realModel === true && value.encryptedSource === true
@@ -18,9 +25,9 @@ function sr2Accepted(value) {
     && q.chineseRecallAt5 >= .90 && q.zhEnRecallAt5 >= .85 && q.enZhRecallAt5 >= .85
     && q.mrr >= .75 && q.noAnswerFalsePositiveRate <= .05 && q.completeCoverage === true
     && Number.isInteger(p?.fragments) && p.fragments >= 1000
-    && Array.isArray(p.warmSamplesMs) && p.warmSamplesMs.length >= 20
-    && p.warmSamplesMs.every(n => finite(n) && n >= 0)
-    && [...p.warmSamplesMs].sort((a,b) => a-b)[Math.ceil(p.warmSamplesMs.length * .95)-1] <= 500
+    && warmP95AtMost(p.warmSamplesMs, 500)
+    && warmP95AtMost(p.warmQueryEncodeSamplesMs, 150)
+    && p.warmQueryEncodeSamplesMs.length === p.warmSamplesMs.length
     && p.completeCoverage === true && p.includesSourceAndPrivacy === true
     && finite(p.coldReadyMs) && p.coldReadyMs >= 0
     && finite(p.indexBuildMs) && p.indexBuildMs >= 0

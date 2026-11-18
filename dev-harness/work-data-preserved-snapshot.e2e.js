@@ -18,6 +18,7 @@ async function run(){
   await api.flushWorkbenchLogs({allowFailure:false});
   const temp=path.resolve(os.tmpdir()),root=await fsp.mkdtemp(path.join(temp,'ruyi-preserved-snapshot-')),base=path.join(root,'base'),payload=path.join(base,'data','payload.bin');
   const expected=Buffer.from([0,255,31,128,65,66,13,10]),ads=Buffer.from('SYNTHETIC public alternate stream');
+  const rootAds=Buffer.from('SYNTHETIC root stream'),directoryAds=Buffer.from('SYNTHETIC nested directory stream');
   let owner,keeper,adapter,completed=false,firstFailure,metadataUnknown=false;
   const uncertain=()=>metadataUnknown||api.MigrationHooks.helperMayStillRun()!==false||adapter?.helperMayStillRun()===true;
   const unknownError=()=>Object.assign(Error('preserved_snapshot.owner_uncertain'),{code:'preserved_snapshot.owner_uncertain',helperMayStillRun:true});
@@ -29,6 +30,8 @@ async function run(){
     await fsp.mkdir(path.join(base,'data','empty'),{recursive:true});
     await fsp.writeFile(path.join(base,'config.json'),'{"workDataEncryptionV1":false}\r\n');
     await fsp.writeFile(payload,expected);await fsp.writeFile(payload+':public-ads',ads);await fsp.chmod(payload,0o444);
+    await fsp.writeFile(base+':root-ads',rootAds);
+    await fsp.writeFile(path.join(base,'data')+':directory-ads',directoryAds);
     owner=await api.ServerOwnership.acquire([base]);keeper=api.ServerOwnership.createSourceKeeper(owner,base);
     const exclusive=value=>value===owner&&keeper.assertExclusive(value);
     adapter=api.WorkDataNativeAdapters.create();
@@ -37,7 +40,9 @@ async function run(){
     const file=before.entries.find(row=>row.rel==='data/payload.bin');
     assert.equal(file.attrs&1,1);assert.equal(file.streams.length,2);
     assert.equal(file.streams.find(row=>row.name===':public-ads:$DATA').hash,hash(ads));
-    ok(true,'genuine owner protects a nonempty readonly source with a real NTFS alternate stream');
+    assert.equal(before.entries.find(row=>row.rel==='').streams.find(row=>row.name===':root-ads:$DATA').hash,hash(rootAds));
+    assert.equal(before.entries.find(row=>row.rel==='data').streams.find(row=>row.name===':directory-ads:$DATA').hash,hash(directoryAds));
+    ok(true,'genuine owner protects exact file, root and nested directory ADS on a nonempty readonly source');
     const password='SYNTHETIC preserved snapshot package password';
     const sealed=await adapter.fullSnapshot(base,owner,exclusive).seal({password,appVersion:'3.0.1',generation:0});
     assert.equal(sealed.sourceProof.nativeMetadata,'preserved-reader-closed');

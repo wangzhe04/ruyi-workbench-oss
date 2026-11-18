@@ -154,10 +154,19 @@ const SessionFullTextIndex = ((io,p,c) => {
     // rebuilt as a missing derived pointer. A private symbol cannot be forged
     // by valid JSON and never softens key, schema, namespace or shard failures.
     const malformedManifest=Symbol('malformed-derived-manifest');
-    let chain=Promise.resolve(),paused=false,maintenancePaused=false,building=false,mutationSerial=0,mutationActive=0;const preparationProgress=new Map();
+    let chain=Promise.resolve(),maintenanceChain=chain,paused=false,maintenancePaused=false,building=false,mutationSerial=0,mutationActive=0;const preparationProgress=new Map();
+    const maintenanceCancellations=new WeakSet();
     const beginMutation=()=>{mutationSerial++;mutationActive++;return()=>{mutationActive--;mutationSerial++;};};
     const mutationState=()=>({serial:mutationSerial,active:mutationActive});
-    const run=work=>{const pending=chain.catch(()=>{}).then(work);chain=pending;return pending;};
+    const run=work=>{
+      const pending=chain.catch(()=>{}).then(work);
+      chain=pending;
+      // A deliberately cancelled index request has settled its maintenance
+      // obligation. Keep its original rejection for the request itself.
+      maintenanceChain=pending.catch(error=>{if(!maintenanceCancellations.has(error))throw error;});
+      void maintenanceChain.catch(()=>{});
+      return pending;
+    };
     const pathKey=value=>process.platform==='win32'?p.resolve(value).toLowerCase():p.resolve(value);
     async function namespace(sid,name=null,max=null){
       const directories=[host.root(),p.join(host.root(),'_fulltext-index-v1'),...(sid?[p.dirname(pathFor(sid,'manifest.json'))]:[])];
@@ -196,7 +205,12 @@ const SessionFullTextIndex = ((io,p,c) => {
     };
     const state=phase=>write(null,'state.json',{schema:SCHEMA,phase},1024);
     const isPaused=()=>paused||maintenancePaused;
-    const checkPaused=()=>{if(isPaused())throw fail('paused');};
+    const checkPaused=()=>{
+      if(!isPaused())return;
+      const error=fail('paused');
+      if(maintenancePaused)maintenanceCancellations.add(error);
+      throw error;
+    };
     async function removeOwned(sid,names,check=()=>{}){for(const name of names){check();try{await io.unlink(pathFor(sid,name));}catch(error){if(error.code!=='ENOENT')throw error;}}}
     async function ownedNames(sid,check=()=>{}){
       if(!valid(sid))throw fail('session_invalid');await namespace(sid);const directory=p.dirname(pathFor(sid,'manifest.json'));let names;
@@ -311,16 +325,18 @@ const SessionFullTextIndex = ((io,p,c) => {
       options.check?.();if(isPaused())return coverage(context,options);
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const assertAccess=()=>{if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');};
+      const preparationKey=options.preparationKey??access.scopeId;
       const finish=async()=>{assertAccess();const value=await coverage(context,options);assertAccess();return value;};
       if(isPaused())return options.incremental?{done:false}:finish();
-      if(options.incremental===true){const catalog=await host.catalog(),prior=preparationProgress.get(access.scopeId);options.check?.();assertAccess();if(Array.isArray(catalog)&&prior?.signature===hash(JSON.stringify(catalog))&&prior.next>=catalog.length)return {done:true};}
+      if(options.incremental===true){const catalog=await host.catalog(),prior=preparationProgress.get(preparationKey);options.check?.();assertAccess();if(Array.isArray(catalog)&&prior?.signature===hash(JSON.stringify(catalog))&&prior.next>=catalog.length)return {done:true};}
       let singleSid=null,buildingSid=null;const check=()=>{checkPaused();assertAccess();const sid=singleSid||buildingSid;if(sid&&host.assertAuthorized(sid,context,access)!==true)throw fail('disclosure_changed');options.check?.();};
       check();building=true;let failed=false,failure;
       try{
         await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
         const authorized=async sid=>typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true||await host.authorize(sid,context,access)===true;
-        if(options.incremental===true){const signature=hash(JSON.stringify(catalog)),key=access.scopeId,prior=preparationProgress.get(key),progress=prior?.signature===signature?prior:{signature,next:0};preparationProgress.set(key,progress);while(preparationProgress.size>32)preparationProgress.delete(preparationProgress.keys().next().value);
-          const end=Math.min(catalog.length,progress.next+64);for(;progress.next<end;progress.next++){check();const sid=catalog[progress.next];if(await authorized(sid)){buildingSid=sid;check();await build(sid,check);check();buildingSid=null;}}
+        if(options.incremental===true){const signature=hash(JSON.stringify(catalog)),prior=preparationProgress.get(preparationKey),progress=prior?.signature===signature?prior:{signature,next:0};preparationProgress.set(preparationKey,progress);while(preparationProgress.size>32)preparationProgress.delete(preparationProgress.keys().next().value);
+          const batchSize=options.threadSearch===true?16:64;
+          const end=Math.min(catalog.length,progress.next+batchSize);for(;progress.next<end;progress.next++){check();const sid=catalog[progress.next];if(await authorized(sid)){buildingSid=sid;check();if(await build(sid,check))options.onPrepared?.();check();buildingSid=null;}}
         }else{if(options.single===true){if(catalog.length!==1||!await authorized(catalog[0]))throw fail('source_denied');singleSid=catalog[0];check();}
           else await purgeMissing(catalog,check);check();let visited=0;
           for(const sid of catalog){check();if(singleSid||await authorized(sid)){buildingSid=sid;check();await build(sid,check);check();buildingSid=null;}if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}}
@@ -335,12 +351,14 @@ const SessionFullTextIndex = ((io,p,c) => {
         throw combined;
       }
       if(failed)throw failure;
-      if(options.incremental===true){const progress=preparationProgress.get(access.scopeId),catalog=await host.catalog();check();return {done:!!progress&&progress.signature===hash(JSON.stringify(catalog))&&progress.next>=catalog.length};}
+      if(options.incremental===true){const progress=preparationProgress.get(preparationKey),catalog=await host.catalog();check();const done=!!progress&&progress.signature===hash(JSON.stringify(catalog))&&progress.next>=catalog.length;if(progress)progress.done=done;return {done};}
       return finish();
     });
     function resetPreparation(scopeId){preparationProgress.delete(scopeId);}
+    function preparationComplete(scopeId){return preparationProgress.get(scopeId)?.done===true;}
     async function search(query,context,limit=20,options={}){
       const check=typeof options.check==='function'?options.check:()=>{};check();
+      const semantic=options.lexicalOnly===true?null:host.semantic||null;
       if(typeof query!=='string'||query.length<2||query.length>OVERLAP)throw fail('query_invalid');
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const terms=[...new Set(host.terms(query).filter(term=>typeof term==='string'&&!term.startsWith('#')).map(normalize))];
@@ -396,7 +414,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       const metadataRows=[];let metadataTruncated=options.metadataEntriesTruncated===true;
       if(semantic&&Array.isArray(options.metadataEntries)){for(const item of options.metadataEntries){check();if(!item||!valid(item.sid)||typeof item.field!=='string'||typeof item.text!=='string'||typeof item.epoch!=='string'||item.text.length>8192){metadataTruncated=true;continue;}const key=JSON.stringify([item.sid,item.field]);for(let at=0;at<item.text.length;){let end=Math.min(item.text.length,at+96);if(end<item.text.length&&item.text.charCodeAt(end)>=0xdc00&&item.text.charCodeAt(end)<=0xdfff)end--;metadataTotals.set(key,(metadataTotals.get(key)||0)+1);if(metadataRows.length<256)metadataRows.push({text:item.text.slice(at,end),identity:['metadata',item.sid,item.field,item.epoch,digest(item.text),at,end],metadata:item,metadataKey:key,hit:{row:{sessionId:item.sid},epoch:item.epoch}});else metadataTruncated=true;if(end===item.text.length)break;let next=end-16;if(item.text.charCodeAt(next)>=0xdc00&&item.text.charCodeAt(next)<=0xdfff)next--;at=next;}}}
       if(metadataRows.length){if(semanticRows.length+metadataRows.length>4096)metadataTruncated=true;semanticRows.splice(0,0,...metadataRows);if(semanticRows.length>4096)semanticRows.length=4096;}
-      let semanticState={status:semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
+      let semanticState={status:options.lexicalOnly===true?'deferred':semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
       let ranked=[],gemmaDecision=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method)?{complete:false,policyId:SemanticWindowPolicy.CONTRACT.id}:null;const gemmaMetadata=new Map(),gemmaWeak=new Map();
       if(semantic&&semanticRows.length){
         // Lexical shard text is uppercased. Resolve original spelling through
@@ -459,7 +477,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:semanticDeadline,signal:options.signal,
               resolve:async(index,whole)=>{guard();const item=rowSources[index];await resolveTexts([item.n]);guard();if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async()=>{guard();activeSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];activeMetadata=new Set(rowSources.map(item=>semanticRows[item.n].metadata).filter(Boolean));await beforeEncode();guard();}});
             try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
-          }catch(error){if(error!==expired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
+          }catch(error){if(error!==expired&&error!==sourceExpired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
         }
         if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
         const admission=semanticState.admission;
@@ -550,8 +568,8 @@ const SessionFullTextIndex = ((io,p,c) => {
       check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
-    return Object.freeze({step,prepare,resetPreparation,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
-      setMaintenancePaused:value=>{maintenancePaused=value===true;},busy:()=>building,pending:()=>chain});
+    return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
+      setMaintenancePaused:value=>{maintenancePaused=value===true;},busy:()=>building,pending:()=>maintenanceChain});
   }
   return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -687,7 +705,7 @@ function bindSessionFullTextIndex(disclosure,sessionResults=false) {
     }});
   const admitted=work=>WorkDataMaintenanceHooks.run('session-fulltext-index',work);
   sessionFullTextOwner=instance;
-  return Object.freeze({search:instance.search,revalidate:instance.revalidate,usesWindowPolicy:instance.usesWindowPolicy,metadataAdmission:instance.metadataAdmission,mutationState:instance.mutationState,coverage:instance.coverage,resetPreparation:instance.resetPreparation,prepare:(context,options)=>admitted(()=>instance.prepare(context,options)),
+  return Object.freeze({search:instance.search,revalidate:instance.revalidate,usesWindowPolicy:instance.usesWindowPolicy,metadataAdmission:instance.metadataAdmission,mutationState:instance.mutationState,coverage:instance.coverage,resetPreparation:instance.resetPreparation,preparationComplete:instance.preparationComplete,prepare:(context,options)=>admitted(()=>instance.prepare(context,options)),
     restorePause:context=>admitted(()=>instance.restorePause(context)),step:(limit,context)=>admitted(()=>instance.step(limit,context)),
     pause:()=>admitted(()=>instance.pause()),resume:()=>admitted(()=>instance.resume()),
     invalidate:(id,deleted)=>admitted(()=>instance.invalidate(id,deleted))});

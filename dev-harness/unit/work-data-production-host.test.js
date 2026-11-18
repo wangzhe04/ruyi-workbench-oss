@@ -1240,8 +1240,12 @@ async function modelPreservedSnapshot(mode, cold = false) {
       sourceProof: { nativeMetadata: 'preserved-reader-closed', nativeSha256: 'a'.repeat(64) },
       profile: { ordinaryFiles: 'default-stream-bytes', nativeMetadata: 'not-captured' }
     }) }) }) },
-    migrationCapsuleCapturePreserved: async () => ({ entries: [{ rel: 'data/payload.bin', attrs: 1,
-      streams: [{ name: '', hash: hash(expected) }, { name: ':public-ads:$DATA', hash: hash(ads) }] }] }),
+    migrationCapsuleCapturePreserved: async () => ({ entries: [
+      { rel: '', streams: [{ name: ':root-ads:$DATA', hash: hash('SYNTHETIC root stream') }] },
+      { rel: 'data', streams: [{ name: ':directory-ads:$DATA', hash: hash('SYNTHETIC nested directory stream') }] },
+      { rel: 'data/payload.bin', attrs: 1,
+        streams: [{ name: '', hash: hash(expected) }, { name: ':public-ads:$DATA', hash: hash(ads) }] },
+    ] }),
     WorkDataRecovery: { open: async () => ({ snapshot: { files: [{ path: 'data/payload.bin', data: expected }], directories: ['data','data/empty'], auxiliaries: [] }, release() {} }) }
   };
   const io = {

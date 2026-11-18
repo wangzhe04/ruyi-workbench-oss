@@ -29,7 +29,16 @@ const app=path.resolve(__dirname,'../ruyi-workbench/app'),manifest=JSON.parse(fs
  const relation=await a.proposeMemoryRelation({type:'supersedes',from:'exact-alpha',to:'cert-guidance',scope:'project'},cwd);await a.confirmMemoryRelation(relation.relation.id,cwd);a.clear();const superseded=await list('release credential approval');ok(superseded.memories.find(row=>row.id==='cert-guidance')?.superseded===true,'semantic discovery retains confirmed supersedes warnings');
  a.clear();const identifiers=await list('CASE-4477');ok(identifiers.ok&&!identifiers.memories.some(row=>row.retrieval?.kind==='semantic'),'high similarity cannot bypass structured-identifier admission');
  a.clear();a.setRuntime({prepare:async()=>({...ready(),modelId:'unregistered-model'}),encode});const unknown=await list('release credential approval');ok(unknown.ok&&unknown.semantic.status==='admission-unavailable'&&!unknown.memories.some(row=>row.id==='cert-guidance'),'unknown model without admission cannot add semantic-only memories');normal();
- for(const status of ['loading','timeout','overloaded']){a.clear();a.setRuntime({prepare:async()=>({available:false,reason:status==='loading'?'unavailable':status,state:status})});const unavailable=await list('release credential approval');ok(unavailable.ok&&!unavailable.memories.some(row=>row.id==='cert-guidance'),'availability '+status+' falls back to lexical');}normal();
+ for(const status of ['loading','timeout','overloaded']){
+   a.clear();
+   a.setRuntime({prepare:async()=>({available:false,reason:status==='loading'?'unavailable':status,state:status})});
+   const unavailable=await list('exact alpha release credential approval');
+   ok(unavailable.ok&&unavailable.memories.some(row=>row.id==='exact-alpha'&&row.retrieval?.kind==='lexical')
+     &&!unavailable.memories.some(row=>row.id==='cert-guidance')
+     &&unavailable.matchedCount===1&&unavailable.ruleFillCount>0
+     &&unavailable.semantic.fallback?.reason===status&&unavailable.semantic.fallback.method==='keywords',
+   'availability '+status+' keeps an authorized keyword hit and separately counts default fills');
+ }normal();
  a.clear();const beforePrepare=calls;prepareAction=()=>{session.memoryExclusions.push({id:'cert-guidance',scope:'project'});};const revoked=await list('release credential approval');ok(!revoked.ok&&calls===beforePrepare,'selection revocation during model preparation prevents encoding');session.memoryExclusions=[{id:'excluded',scope:'project'}];
  const race=async(change,extra={})=>{a.clear();action=change;return list('release credential approval',{},extra);};
  let raced=await race(()=>save('cert-guidance','changed',{description:'证书 changed'}));ok(!raced.ok,'metadata revision during encoding discards the result');

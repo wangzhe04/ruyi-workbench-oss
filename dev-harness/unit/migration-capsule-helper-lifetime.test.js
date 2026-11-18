@@ -17,7 +17,7 @@ function fixture(options={}){
    migrationRecoverSkillBackups:async()=>{},createMigrationBackupOwner(){},migrationScan(){},migrationApply(){},migrationUndo(){},migrationRecycle(){},migrationCopySkills(){},
    readWorkDataControlPreserved(){throw Error('control reads are outside the helper lifetime fixture');},
    require:name=>name==='node:child_process'?{spawn}:name==='node:timers'?{setTimeout(fn,ms){const id=++sequence;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)}:require(name)};
- const fragments=['migrationCapsuleCode','migrationChain','migrationRecoveryNeeded','migrationBackupAuthority'].map(name=>constBlock(source,name));
+ const fragments=['migrationCapsuleCode','migrationChain','migrationRecoveryNeeded','migrationBackupAuthority','migrationCapsuleIssuedChildren','migrationCapsuleBrokerChildren'].map(name=>constBlock(source,name));
  fragments.push(...['migrationCapsuleFail','migrationSerial','migrationCapsuleBroker'].map(name=>functionBlock(source,name)),bracedBlock(source,'Object.assign(MigrationHooks,')+');');
  assert.ok(fragments.every(Boolean));vm.createContext(context);vm.runInContext(fragments.join('\n')+'\nthis.make=migrationCapsuleBroker;this.serial=migrationSerial;',context);
  const fire=ms=>{const entry=[...timers].find(([,value])=>value.ms===ms);assert.ok(entry,'actual timer '+ms+' exists');timers.delete(entry[0]);entry[1].fn();};

@@ -67,9 +67,17 @@ test('committed maintenance defers desktop close to the authenticated successor'
   assert.equal(f.frames.some(row => row.kind === 'finished'), false); assert.deepEqual(f.exits, []); assert.equal(f.client.unknown(), false);
 });
 test('a rejected stop keeps the channel reference and cannot finish or exit', async () => {
-  const f = fixture({ stop: async () => { throw Object.freeze({ helperMayStillRun: true }); } }); await f.client.open(); f.close(); await tick();
+  const f = fixture({ stop: async () => { throw Object.freeze({ helperMayStillRun: true }); } });
+  await f.client.open();
+  await f.client.serving({ host: '127.0.0.1', port: 12345 });
+  f.close();
+  await tick();
   assert.equal(f.client.unknown(), true); assert.equal(f.refs(), 1); assert.deepEqual(f.exits, []);
-  assert.equal(f.frames.some(row => row.kind === 'finished'), false); assert.equal(f.frames.at(-1).kind, 'uncertain');
+  assert.equal(f.frames.some(row => row.kind === 'finished'), false);
+  assert.deepEqual(f.frames.at(-1), { schema: 1, seq: 3, kind: 'uncertain' });
+  assert.equal(f.socket.destroyed, undefined);
+  f.socket.emit('data', '{"schema":1,"seq":3,"kind":"ok"}\n');
+  assert.equal(f.socket.destroyed, true);
 });
 test('falsy thrown reasons still permanently retain the lifetime owner', async () => {
   for(const reason of [null,false,0,'',undefined]){

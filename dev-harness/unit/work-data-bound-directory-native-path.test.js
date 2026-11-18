@@ -2,6 +2,8 @@
 // Source and pure construction controls only. No C# method, DLL or Win32 API runs.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const {constBlock,sliceBlock,bracedBlock}=require('../lib/source-slice'),before=require('../fixtures/work-data-bound-directory-native-before.json');
+const {removeForwardPlainPublication,removePortableBasicPublication,removePortableMoveParentReceipt,removePortableStageRetirement,removePreservedCloseCertification,restorePreRelativeOpenNative}=require('../lib/preserved-relative-open-inverse');
+const {edits,guardNew,guardOld}=require('../lib/owned-restore-historical-inverse-fixture');
 const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/src/13u-migration-center.js'),'utf8'),box=vm.createContext({});
 vm.runInContext(constBlock(source,'MIGRATION_SKILL_CAPSULE_NATIVE')+'\nglobalThis.native=MIGRATION_SKILL_CAPSULE_NATIVE;',box);
 const native=box.native,method=sliceBlock(native,'  static object FlushStoreDirectoryBound(','  static void FlushStoreDirectoryById('),helper=sliceBlock(native,'  static string NativePath(','  static SafeFileHandle Open(string file)'),bare='CreateFile(root,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)',qualified='CreateFile(NativePath(root),0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)',sha=text=>crypto.createHash('sha256').update(text).digest('hex');
@@ -15,7 +17,48 @@ test('historical bare bound method and Rename remain exact negative controls wit
  // Preserve the historical receipt; later native census/control/alias features
  // legitimately changed the rest of the C# body, not either method under test.
  assert.equal(before.nativeSha256,'491cee21c881189594c105141675b51088e62b850078dbec58d7305fc8b3bdc8');
- assert.equal(sha(native.replace(rename,originalRename).replace(qualified,bare)),'63fd2c588b19edbf4ae5082668999c5cc7ea8b7099dcc8dcb702c527cd9a18b7','composing both reviewed inverses retains the current complete native baseline');
+ let historical=restorePreRelativeOpenNative(native);
+ for(const [previous,current] of [...edits].reverse()){assert.equal(historical.split(current).length,2);historical=historical.replace(current,previous);}
+ assert.equal(historical.split(guardNew).length,2);historical=historical.replace(guardNew,guardOld);
+ assert.equal(sha(historical.replace(rename,originalRename).replace(qualified,bare)),'63fd2c588b19edbf4ae5082668999c5cc7ea8b7099dcc8dcb702c527cd9a18b7','composing the reviewed inverses retains the historical complete native baseline');
+});
+test('forward plain publication inverse refuses weakened independent readback',()=>{
+ const publish=bracedBlock(native,'  static void Publish(');
+ const changed=publish.replace('VerifyPortableReadback(wanted,Dict(CapturePreserved(readArgs)));','VerifyPortableReadback(wanted,wanted);');
+ assert.notEqual(changed,publish);
+ assert.throws(()=>removeForwardPlainPublication(native.replace(publish,changed)),/reviewed forward plain publication/);
+});
+test('preserved close inverse refuses altered handle retirement semantics',()=>{
+ const changed=native.replace('    handle.SetHandleAsInvalid();','    handle.Dispose();');
+ assert.notEqual(changed,native);
+ assert.throws(()=>removePreservedCloseCertification(changed),/unique preserved close certification change/);
+});
+test('portable move parent receipt inverse refuses changed helper semantics and receipt fields',()=>{
+ const marker='  static void CheckPortableMoveParent(';
+ const check=bracedBlock(native,marker);
+ const changedCheck=check.replace('CandidateDirectoryId(handle)!=id','CandidateDirectoryId(handle)==id');
+ assert.notEqual(changedCheck,check);
+ assert.throws(()=>removePortableMoveParentReceipt(native.replace(check,changedCheck)),/reviewed portable move parent check/);
+ const open=bracedBlock(native,'  static SafeFileHandle OpenPortableMoveParent(');
+ assert.throws(()=>removePortableMoveParentReceipt(native+'\n'+open),/unique portable move parent open/);
+ const changedReceipt=native.replace('Str(post.Change)}}});','Str(post.Access)}}});');
+ assert.notEqual(changedReceipt,native);
+ assert.throws(()=>removePortableMoveParentReceipt(changedReceipt),/unique portable move parent receipt addition/);
+});
+test('portable Basic publication inverse refuses weakened deletion sharing',()=>{
+ const guard=bracedBlock(native,'  static SafeFileHandle OpenPortableBasicGuard(');
+ const changed=guard.replace('0x001001a0u,3','0x001001a0u,7');
+ assert.notEqual(changed,guard);
+ assert.throws(()=>removePortableBasicPublication(native.replace(guard,changed)),/reviewed portable Basic guard open/);
+});
+test('portable stage retirement inverse refuses drift in the reviewed method and dispatch',()=>{
+ const marker='  static object RetirePortableStage(Dictionary<string,object> args)';
+ const retirement=bracedBlock(native,marker);
+ const changed=retirement.replace('parent==null','parent!=null');
+ assert.notEqual(changed,retirement);
+ assert.throws(()=>removePortableStageRetirement(native.replace(retirement,changed)),/reviewed portable-stage retirement method/);
+ assert.throws(()=>removePortableStageRetirement(native+'\n'+retirement),/unique portable-stage retirement method/);
+ assert.throws(()=>removePortableStageRetirement(native.replace('result=RetirePortableStage(args);','result=Capture(args);')),/unique portable-stage retirement addition/);
 });
 test('qualification remains after original typed DOS root, volume, identity, role and ordinal admission',()=>{const binding=method.slice(0,method.indexOf('// Ordinary directory durability'));assert.equal(binding,before.method.slice(0,before.method.indexOf('// Ordinary directory durability')));for(const text of ["root.Length<3 || root.Length>32763","!Char.IsLetter(root[0]) || root[1]!=':' || root[2]!='\\\\'",'System.IO.Path.GetFullPath(root),root,StringComparison.OrdinalIgnoreCase','^[a-f0-9]{24}$','volume.Length<1 || volume.Length>128','role!="external-parent" && role!="new-target-ancestor"','ordinal<0 || ordinal>=10000'])assert.ok(binding.includes(text),text);assert.ok(binding.indexOf('Reject("bound_flush_binding")')<method.indexOf(qualified));assert.equal(binding.includes('NativePath('),false,'namespace conversion cannot precede admission');});
 test('external namespace and relative forms still fail the unchanged initial DOS shape; no permissive branch is added',()=>{const originalShape=root=>root.length>=3&&root.length<=32763&&/\p{L}/u.test(root[0])&&root[1]===':'&&root[2]==='\\';for(const invalid of ['\\\\?\\C:\\fresh','\\\\?\\UNC\\host\\share','\\\\.\\C:','\\??\\C:\\fresh','\\\\host\\share','C:relative','C:/fresh','relative','', 'C:\\'+'a'.repeat(32761)])assert.equal(originalShape(invalid),false);assert.throws(()=>constructionGuard(method.replace("root[2]!='\\\\'","false")),/original bindings/);assert.equal(helper,before.helper,'existing generic helper is not widened by this fix');});

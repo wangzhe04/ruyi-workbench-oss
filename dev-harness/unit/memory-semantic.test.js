@@ -76,3 +76,48 @@ test('explicit search names its bounded first-header selection and admits only s
   assert.equal(result.semantic.coverage.selection,'first-64-eligible-headers');assert.equal(result.semantic.coverage.candidateHeaders,70);
   assert.equal(result.semantic.coverage.selectedHeaders,64);assert.equal(result.semantic.coverage.omittedHeaders,6);assert.equal(result.semantic.coverage.complete,false);
 });
+
+test('explicit search resumes bounded authorized pages without skipping overloaded or timed-out work',async()=>{
+  const entries=Array.from({length:79},(_,n)=>({id:'m'+n,memoryVersion:'v1'}));
+  const calls=[];
+  const host={
+    enabled:()=>true, lexical:()=>[], key:entry=>entry.id,
+    text:entry=>entry.id+' '+'x'.repeat(125),
+    async score(_query,texts,opts){
+      calls.push({texts,opts});
+      if(calls.length===1)return {status:'overloaded'};
+      const complete=calls.length!==2;
+      const scores=texts.map((text,n)=>complete||n===0?text.startsWith('m0 ')?.4:text.startsWith('m75 ')?.6:0:null);
+      return {status:complete?'ready':'timeout',modelFingerprint:'fixture',scores,
+        admission:{policyId:'fixture',accepted:scores.map(score=>score>.34)},
+        coverage:{complete,cached:complete?texts.length:1}};
+    },
+  };
+  const {search,clear}=factory.create(host), context={scopeId:'owned',progressKey:'snapshot'};
+  const busy=await search(entries,'query',20,{},context);
+  assert.equal(busy.semantic.status,'overloaded');
+  assert.equal(busy.semantic.coverage.examinedHeaders,0);
+  assert.equal(busy.semantic.coverage.canContinue,true);
+  const timed=await search(entries,'query',20,{},context);
+  assert.equal(timed.entries.length,0);
+  assert.equal(timed.semantic.coverage.examinedHeaders,0);
+  const first=await search(entries,'query',20,{},context);
+  assert.equal(first.semantic.status,'partial');
+  assert.equal(first.semantic.coverage.examinedHeaders,64);
+  assert.equal(first.semantic.coverage.omittedHeaders,15);
+  const second=await search(entries,'query',20,{},context);
+  assert.deepEqual(Array.from(second.entries,entry=>entry.id),['m75','m0']);
+  assert.equal(second.semantic.coverage.examinedHeaders,79);
+  assert.equal(second.semantic.coverage.encodedFragments,158);
+  assert.equal(second.semantic.coverage.complete,true);
+  assert.equal(second.semantic.coverage.canContinue,undefined);
+  assert.deepEqual(calls.map(call=>call.texts.length),[128,128,128,30]);
+  assert.ok(calls.every(call=>call.opts.deadlineMs===1000&&call.opts.maxEncodeDocuments===128));
+  await assert.rejects(search(entries,'query',20,{},{
+    ...context,check:async phase=>{if(phase==='finish')throw Error('source revoked');},
+  }),/source revoked/);
+  clear();
+  const reset=await search(entries,'query',20,{},context);
+  assert.equal(reset.semantic.coverage.examinedHeaders,64);
+  assert.equal(reset.entries.some(entry=>entry.id==='m75'),false);
+});

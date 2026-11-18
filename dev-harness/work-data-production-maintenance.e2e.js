@@ -31,9 +31,10 @@ const SESSION_BYTES=JSON.stringify({id:SESSION_ID,private:'完整合成维护源
 // 到结果落盘 08:06:53 用了 104 s —— 旧的 90 s 比它观测的动作还短,于是产品还在正常干活、
 // 测试已经判红(successor-enable,冷端 phase 停在 publish-generation)。改成冷操作预算 + 交接预算。
 const BUDGET=Object.freeze({...upload.BUDGET,handoff:45000,claim:30000,coldPort:30000,successor:180000+45000,jobRelease:60000});
-// M3 closeout: the populated third-generation rehearsal took 312 s through
-// durable publication on Windows. Give this one successor a 390 s window.
-const CAPSULE_REENABLE_SUCCESSOR_MS=390000;
+// A populated disable took 466 s to reach publication on Windows. Its
+// observer must also allow the successor to finish the remaining checks.
+const NONEMPTY_CAPSULE_SUCCESSOR_MS=720000;
+const NONEMPTY_CAPSULE_KEEPER_TARGET_MS=3000000;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const AUTHORITY0=Object.freeze({generation:0,id:null,mode:'plain',sha256:null});
 const TRANSPORT=new Set(['ECONNREFUSED','ECONNRESET','EPIPE','EHOSTUNREACH','ENOTFOUND','EAI_AGAIN']);
@@ -495,7 +496,7 @@ function createWorld({root,evidence,target}){
   })();
   return{samples,stop:async()=>{stopped=true;await done;}};
  }
- async function waitSuccessor(ref,f,jobId,{notPids,stopOnColdFailure=false,budget=BUDGET.successor}){
+ async function waitSuccessor(ref,f,jobId,{notPids,stopOnColdFailure=false,stopOnColdUncertain=false,budget=BUDGET.successor}){
   const startedAt=Date.now();
   const deadline=startedAt+budget;
   let nextFailurePoll=startedAt;
@@ -534,7 +535,10 @@ function createWorld({root,evidence,target}){
     nextFailurePoll=Date.now()+1000;
     const verdict=await readColdVerdict(ref.port,{recordObservation:false});
     observe('cold',verdict?.job?.id===jobId?verdict.job:null);
-    if(stopOnColdFailure&&verdict?.job?.id===jobId&&verdict.job.state==='failed')throw Object.assign(Error('cold maintenance failed'),{code:verdict.job.error});
+    if(verdict?.job?.id===jobId&&(stopOnColdFailure&&verdict.job.state==='failed'||stopOnColdUncertain&&verdict.job.state==='uncertain')){
+     const message=verdict.job.state==='failed'?'cold maintenance failed':'cold maintenance requires inspection';
+     throw Object.assign(Error(message),{code:verdict.job.error});
+    }
    }
    if(Date.now()>=deadline){
     // A cold worker that never hands over keeps its read-only listener and its
@@ -658,7 +662,8 @@ function createWorld({root,evidence,target}){
    const observed=await coldWindow(ref.port,{base:f.base,jobId,source,staleToken:ref.token});
    record({kind:'cold-status',jobId,authority:observed.authority,jobState:observed.job.state});
    ctx.phase='successor-'+spec.operation;
-   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger),stopOnColdFailure:spec.stopOnColdFailure,budget:successorBudgetMs});
+   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger),stopOnColdFailure:spec.stopOnColdFailure,
+    stopOnColdUncertain:spec.stopOnColdUncertain,budget:successorBudgetMs});
    const owned=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='owned');
    a.ok(owned,'the cold worker records ownership before touching the base');
    const committed=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='committed');
@@ -885,7 +890,8 @@ async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
   return result;
  };
  const round=async (ref,operation,successorBudgetMs)=>{
-  const next=await w.runRound(f,ref,{operation,stopOnColdFailure:true,captureControl,successorBudgetMs},state);state.round++;return next;
+  const next=await w.runRound(f,ref,{operation,stopOnColdFailure:true,
+   stopOnColdUncertain:successorBudgetMs===NONEMPTY_CAPSULE_SUCCESSOR_MS,captureControl,successorBudgetMs},state);state.round++;return next;
  };
  const active=ref=>ref.status.authority.id?p.join(f.base,'.work-data','generations',ref.status.authority.id):f.base;
  const live=ref=>p.join(active(ref),'skills',id);
@@ -922,7 +928,7 @@ async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
   legacyWitness=await nativeSkill(legacyBackup);
   a.equal(legacyWitness.id,beforeCopy.id);a.deepEqual(legacyWitness.streams,beforeCopy.streams);
   a.equal(fs.existsSync(p.join(legacyBackup,'.ruyi-capsule-v1')),false);
-  current=await round(current,'enable');
+  current=await round(current,'enable',NONEMPTY_CAPSULE_SUCCESSOR_MS);
   a.equal(fs.existsSync(legacyBackup),false);
  }
  const backup=p.join(f.base,'.work-data','skill-backups','objects-v1',overwritten.id,id);
@@ -950,16 +956,16 @@ async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
  }
  if(fault)return{current,original,backup,marker,nativeSkill};
 
- current=await round(current,'export');
+ current=await round(current,'export',NONEMPTY_CAPSULE_SUCCESSOR_MS);
  a.equal(fs.existsSync(marker),true);
- current=await round(current,'disable');
+ current=await round(current,'disable',NONEMPTY_CAPSULE_SUCCESSOR_MS);
  w.ctx.phase='verify-plain-capsule';
  a.equal(fs.existsSync(marker),false);
  a.deepEqual(await nativeSkill(backup),original);
  a.equal(fs.readFileSync(p.join(live(current),filename),'utf8'),skillText(2));
  w.checked('same-root disable materializes the original skill DATA and ADS with native identity and metadata preserved');
 
- current=await round(current,'enable',CAPSULE_REENABLE_SUCCESSOR_MS);
+ current=await round(current,'enable',NONEMPTY_CAPSULE_SUCCESSOR_MS);
  w.ctx.phase='undo-resealed-capsule';
  a.equal(fs.existsSync(marker),true);
  a.equal(fs.existsSync(p.join(backup,filename)),false);
@@ -1073,8 +1079,10 @@ async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
  let keeper=null,keeperExit=null,assigned=false,passed=false,browser=null,capsuleFixture=null;
  try{
   w.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:browserEntry?'Synthetic settings browser enable only; the native folder picker is the only substituted route.':'Synthetic production maintenance E2E only;not restore, activation or complete 3.1.'});
+  const keeperEnv={...process.env,RUYI_PM_ROOT:root};
+  if(capsule)keeperEnv.RUYI_PM_TARGET_WAIT_MS=String(NONEMPTY_CAPSULE_KEEPER_TARGET_MS);
   keeper=cp.spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',p.join(harness,'lib/work-data-production-maintenance-outer-job.ps1')],
-   {cwd:harness,env:{...process.env,RUYI_PM_ROOT:root},stdio:'ignore',windowsHide:true});
+   {cwd:harness,env:keeperEnv,stdio:'ignore',windowsHide:true});
   // A retained keeper must not become a reason the test cannot end: unref the
   // handle and wait for it only through a bounded, explicit poll on success.
   keeper.unref();

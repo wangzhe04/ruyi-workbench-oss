@@ -388,6 +388,7 @@ return Object.freeze({isUnknown,flags});
         let nativeStage=null;
         const nativeProof=proof=>{if(!proof||proof.target!==target||proof.readOnly!==true||proof.originalObjects!==analyzed.nativePlan.profile.originalObjects||proof.terminalSnapshots!=='source-history-only')fail('special_owner_proof');return proof;};
         if(analyzed.nativePlan){const plan=analyzed.nativePlan,keysFor=async relative=>{const file=snapshot.files.find(row=>row.path===relative);if(!file)fail('key_missing');const text=decode(file.data);let marker;try{marker=JSON.parse(text.split('\n',1)[0]);}catch{}if(!marker)try{marker=JSON.parse(text);}catch{}const key=analyzed.masters.get(keyName('work-data',marker?.instanceId));if(!key)fail('key_missing');return{snapshot:async()=>{const bytes=Buffer.from(key.master);return{key:bytes,instanceId:key.instanceId,release(){bytes.fill(0);}};}};};
+          if(typeof plan.owner.retirePortable!=='function')fail('special_owner_required');
           nativeStage=await plan.owner.stagePortable({...plan.request,data:plan.portable.data,target,keysFor,targetOwnership,assertTargetExclusiveSync:selected=>{if(selected!==targetOwnership||typeof assertExclusiveSync!=='function')return false;const sourceProof=assertExclusiveSync(ownership);return sourceProof===true?assertExclusiveSync(targetOwnership):sourceProof;},assertTargetExclusive:async()=>{await targetAdmission();return true;}});disposable.push(nativeStage);
           for(const row of nativeStage.files){if(replacements.has(row.path))fail('special_owner_conflict');replacements.set(row.path,Buffer.from(row.data));}
         }
@@ -422,6 +423,12 @@ return Object.freeze({isUnknown,flags});
             mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:nativeStage?(nativeStage.profile.originalObjects==='new-owned-portable'?'new owned native objects with complete bound streams; destination inherited security; source IDs are historical':'new-default-files plus verified new native store identity; original-object-capsules-refused'):'new-default-files; original-object-capsules-require-special-owner',specialProfile:nativeStage?.profile||null});
           if(restoredTreeFor!==undefined){const initial=await restoredFingerprint(target,targetOwnership,assertExclusive,namespace);await targetAdmission();
             restoredProofs.set(result,Object.freeze({target,initial,namespace,packageSha256:hash(Buffer.from(serialized,'utf8')),packageBytes:Buffer.byteLength(serialized,'utf8'),manifestSha256:opened.manifestSha256}));}
+          if(nativeStage){
+            await targetAdmission();
+            const retired=await analyzed.nativePlan.owner.retirePortable(nativeStage);
+            if(retired?.target!==target||retired.stageRemoved!==true)fail('special_owner_proof');
+            await targetAdmission();
+          }
           return result;
         }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
       });

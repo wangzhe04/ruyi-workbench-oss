@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$OutputDir = "dist",
   [switch]$SkipExeBuild,
   [switch]$IncludeAcc,

@@ -1,5 +1,7 @@
 # 优化方案索引
 
+> 2026-11-18 发布执行入口：[149 · 3.1 发布推进与验收](149-3.1-release-execution.md)。含当前基线、关键依赖、逐点 Sol 实现与 Terra 独验分工，以及进入 RC 所需的实测结果。
+
 > 2026-11-18 提交交接：当前进度保存为 pre-RC 快照；M3导出首次native census的generation根Access仍FAIL，M5精确flush放行与同HANDLE观察器修复尚未实现。可信home v2仅无原生检查及编译通过，场景候选已归档、未执行。最新状态与接续顺序见 [148交接](148-3.1-checkpoint-handoff-20261118.md)。SR1–SR8全pending，版本3.0.1、原默认不变。以下旧批次“未commit/push”为当时历史状态。
 
 > 2026-11-18 最新进度：早期Node退出回收限定实测通过；完整加密生命周期在export的generation根Access校验失败，触发路径仍待定位。M5真实本地group测试也保留FAIL：身份观察器首红及后续serve-health/native helper启动断点，尚未进入业务验收。详见 [147 §10.36](147-3.1-semantic-retrieval-and-recovery.md#1036-导出-generation-根断点与固定-http-实测首红)。3.1未达到RC，全部SR门仍pending。
