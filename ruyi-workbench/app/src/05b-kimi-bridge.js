@@ -2949,8 +2949,8 @@ async function runKimiAcpTurnPrepared(context) {
   stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));
   const stderrText = stderrCapture.toString();
   if (stderrText.trim()) session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
-  if (isUntitledSessionTitle(session.title)) session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
-  session.summary = finalText.replace(/\s+/g, ' ').trim().slice(0, 160) || session.summary || '';
+  if (isUntitledSessionTitle(session.title)) session.title = sessionAutoTitle(message) || 'Session';   // 150 P1
+  session.summary = sessionAutoSummary(finalText) || session.summary || '';
   try {
     const onDisk = await loadSession(session.id);
     if (!state.planTouched && onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos;

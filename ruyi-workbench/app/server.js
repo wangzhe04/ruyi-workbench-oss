@@ -16385,6 +16385,26 @@ function sessionMissionId(o) {
 // 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
 const SESSION_BRIEF_TITLE_CHARS = 24;
 const SESSION_BRIEF_GIST_CHARS = 80;
+// 150 P1/P6:宿主从原文派生的短文本(自动标题 60 / 摘要 160 / 最近请求 240 / 起名 24·80 / 管家侧摘录)
+// 一律经这里截。隐私开着时先对【完整原文】识别,截断点落进某个敏感值或代号里就退到它开头(宁短勿泄);
+// 隐私关着时与裸 slice 逐字相同、零扫描(只做一次代号边界的字面量查找)。返回的仍是原文 —— 本机显示用的是
+// 用户自己的数据,出口(管家工具、线程清单)照旧经网关投影;这里只保证截断边界不切开敏感值。
+// 实现在 03a(PrivacyGateway.safePrefixEnd);本模块拼在 03a 之前,经 01h 的 configHooks 取。
+// opts.verify(审查):从原文【新生成】的标签即使装得下也要复核 —— 它会进别的 scope,本线程靠上下文/学来才认得出的
+// 值在那边就是明文;读时再截一次已存标签的调用方不带它(存的时候已经复核过)。
+function sessionTextPrefix(text, limit, opts) {
+  const s = String(text == null ? '' : text);
+  const verify = !!(opts && opts.verify === true);
+  if (s.length <= limit && !verify) return s;
+  const hook = typeof PrivacyCore !== 'undefined' && typeof PrivacyCore.configHooks.safeTextEnd === 'function' ? PrivacyCore.configHooks.safeTextEnd : null;
+  return s.slice(0, hook ? hook(s, limit, verify ? { verify: true } : undefined) : limit);
+}
+const SESSION_AUTO_TITLE_CHARS = 60;
+const SESSION_AUTO_SUMMARY_CHARS = 160;
+const SESSION_RECENT_REQUEST_CHARS = 240;
+// 三个引擎(05 / 05b / 09)收尾时的本地标题与摘要:同一个表达式,只在这里写一次。
+function sessionAutoTitle(message) { return sessionTextPrefix(String(message == null ? '' : message).replace(/\s+/g, ' ').trim(), SESSION_AUTO_TITLE_CHARS, { verify: true }); }
+function sessionAutoSummary(text) { return sessionTextPrefix(String(text == null ? '' : text).replace(/\s+/g, ' ').trim(), SESSION_AUTO_SUMMARY_CHARS, { verify: true }); }
 // 117l-A1-fix (2)(27 号文 §11.9;用户真机天天看见):占位标题不是名字,它是「还没有名字」。
 // 未命名线程在第一回合结束、摘要(threadBrief)生成之前,raw 逐字就是后端占位符 'New session'
 // (createSession 写的),于是收件箱事件行写成「线程「New session」(sess_x)」、routeHint 块与
@@ -16405,7 +16425,8 @@ function sessionFirstUserExcerpt(o) {
     const text = m.content.replace(/\s+/g, ' ').trim();   // 标题是一行:换行折成空格
     if (!text) continue;
     const chars = [...text];   // 按字符切,不按 UTF-16 码元(别把一个 emoji 劈成两半)
-    return chars.length > SESSION_BRIEF_TITLE_CHARS ? chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('') + '…' : text;
+    // 150 P1:这一档摘录同样会进管家模型,截断边界走 sessionTextPrefix(按字符数折成码元上限)。
+    return chars.length > SESSION_BRIEF_TITLE_CHARS ? sessionTextPrefix(text, chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('').length) + '…' : text;
   }
   return '';
 }
@@ -16431,8 +16452,17 @@ function applySessionTitleOverride(session) {
   return session;
 }
 
+// 150 P1 审查 3:修前落盘的自动标题是首条用户消息裸截 60 字,可能停在敏感值中间,而标题只在未命名时生成、以后不重算。
+// 手上有正文时判据可靠:非用户起的标题逐字等于「首条用户消息规范化后的前 60 字」且原话更长 —— 读时按 sessionAutoTitle
+// 重算(隐私关时两者相同,零扫描)。只有会话头没有正文的调用面判不了,交给管家出口侧的兜底(03a legacyLabelGuard)。
+function sessionLegacyAutoTitle(o, raw) {
+  if (!o || o.titleSource === 'user' || raw.length !== SESSION_AUTO_TITLE_CHARS || !Array.isArray(o.messages)) return raw;
+  const first = o.messages.find(m => m && m.role === 'user' && typeof m.content === 'string');
+  const text = first ? first.content.replace(/\s+/g, ' ').trim() : '';
+  return text.length > SESSION_AUTO_TITLE_CHARS && text.slice(0, SESSION_AUTO_TITLE_CHARS) === raw ? (sessionAutoTitle(text) || raw) : raw;
+}
 function sessionDisplayTitle(o) {
-  const raw = String((o && o.title) || '');
+  const raw = sessionLegacyAutoTitle(o, String((o && o.title) || ''));
   if (!o || o.titleSource === 'user') return raw;
   const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
   const generated = String((brief && brief.title) || '').trim();
@@ -16451,7 +16481,7 @@ function sessionRecentUserRequest(o) {
   const recent = messages ? messages.findLast(message => message && message.role === 'user' && !(message.meta && message.meta.origin === 'agent_wake')) : (o && o.recentUserRequest);
   if (!recent) return null;
   const content = recent.content == null ? recent.text : recent.content;
-  const text = (Array.isArray(content) ? content.map(part => typeof part === 'string' ? part : part && part.text || '').join('\n') : String(content || '')).replace(/\s+/g, ' ').trim().slice(0, 240);
+  const text = sessionTextPrefix((Array.isArray(content) ? content.map(part => typeof part === 'string' ? part : part && part.text || '').join('\n') : String(content || '')).replace(/\s+/g, ' ').trim(), SESSION_RECENT_REQUEST_CHARS, messages ? { verify: true } : undefined);
   if (!text) return null;
   return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
 }
@@ -17021,8 +17051,8 @@ function applySessionMetaPatch(session, patch, options = {}) {
     const stage = String(b.stage || '');
     session.threadBrief = {
       schema: 1,
-      title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_TITLE_CHARS),
-      gist: String(b.gist || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_GIST_CHARS),
+      title: sessionTextPrefix(String(b.title || '').replace(/\s+/g, ' ').trim(), SESSION_BRIEF_TITLE_CHARS),
+      gist: sessionTextPrefix(String(b.gist || '').replace(/\s+/g, ' ').trim(), SESSION_BRIEF_GIST_CHARS),
       at: String(b.at || ''),
       model: String(b.model || '').slice(0, 160),
       stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
@@ -21257,7 +21287,7 @@ async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackF
   session.claudeSessionId = null; // stale --resume context must not splice removed history back in
   // Refresh the derived summary/title tail off the surviving messages (best-effort).
   const lastAssistant = [...session.messages].reverse().find(m => m && m.role === 'assistant');
-  session.summary = lastAssistant ? String(lastAssistant.content || '').replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  session.summary = lastAssistant ? sessionAutoSummary(lastAssistant.content || '') : '';
   // 107-F7b:这一存抬撤回代数(见函数开头那段注与 sessionRewindGenHighWater 头注)。之后任何拿着撤回【之前】
   // 那份对象来写的人都会被 saveSession 的代数闸丢掉。它自己被丢只有两种可能,都是两次撤回交错:① 在它入链
   // 之后、执行之前又来了一次更新的撤回;② 它截断用的这份副本本身读在另一次已经抬了代数的撤回之前(照它截
@@ -24673,6 +24703,160 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     return { text: view.text.slice(offset(start), offset(end)), start, end };
   }
+  // 150 P1/P6: host-derived labels (thread title 60 / summary 160 / recent request 240 / brief
+  // 24·80 / steward excerpts) are budgets over a complete original, and they later reach a model
+  // in another scope (steward tools, thread lists). A raw prefix can split an identity, credential
+  // or reference into a fragment no detector recognizes. Identify the complete original first; a
+  // cut inside an identified span or reference moves back to the span start (shorter, never a
+  // fragment). The text itself stays the user's original for local display.
+  // OFF performs no detection: only a literal reference-boundary search (P6), no detector/scope.
+  const SAFE_PREFIX_LOOKAHEAD = 16 * 1024;
+  let safePrefixDetector = { signature: null, detector: null, regex: false };
+  // Custom regex rules execute only in the isolated worker; the synchronous host paths below
+  // scan every other rule and compensate (learned matches, run-boundary backoff, placeholders).
+  function labelDetector(policy) {
+    if (safePrefixDetector.signature !== policy.signature) {
+      const all = Array.isArray(policy.config?.privacyRulesV1) ? policy.config.privacyRulesV1 : [];
+      const rules = all.filter(rule => rule?.kind !== 'regex');
+      safePrefixDetector = { signature: policy.signature, detector: core.createDetector({ ...options(policy.config), rules }), regex: rules.length !== all.length };
+    }
+    return safePrefixDetector;
+  }
+  // 150 P1 review: an unexecuted custom rule may match any run, including CJK (`红星[一-鿿]{4}`).
+  // A cut inside a run moves to the run start: CJK runs end at a non-CJK character or punctuation,
+  // other runs at whitespace or CJK/full-width punctuation. assumeRun treats text end as mid-run
+  // (a legacy label stored at the old budget may itself end inside a value).
+  const LABEL_CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+  const labelBoundary = char => /\s/.test(char) || (char > '\x7f' && /\p{P}/u.test(char) && !LABEL_CJK.test(char));
+  function runBoundaryEnd(text, end, assumeRun = false) {
+    if (end <= 0 || (end >= text.length && !assumeRun)) return end;
+    const before = text[end - 1], cjk = LABEL_CJK.test(before);
+    // Whitespace, CJK/full-width punctuation or a CJK/non-CJK change already separates two runs.
+    if (labelBoundary(before) || (end < text.length && (labelBoundary(text[end]) || LABEL_CJK.test(text[end]) !== cjk))) return end;
+    while (end > 0 && !labelBoundary(text[end - 1]) && LABEL_CJK.test(text[end - 1]) === cjk) end--;
+    return end;
+  }
+  function referenceAlignedEnd(text, end) {
+    // Complete references are atomic; a malformed one spans to its "]]" or 128 characters,
+    // the same extent display restoration treats as one unavailable reference.
+    // Bounded: only a reference starting within 256 characters before the cut can cross it.
+    for (let moved = true; moved && end > 0;) {
+      moved = false;
+      const from = Math.max(0, end - 256), near = text.slice(from, Math.min(text.length, end + 132));
+      for (let at = near.indexOf(PREFIX); at >= 0 && from + at < end; at = near.indexOf(PREFIX, at + 1)) {
+        const close = near.indexOf(']]', at + PREFIX.length);
+        const finish = from + (close >= 0 && close - at <= 128 ? close + 2 : Math.min(near.length, at + 128));
+        if (finish > end) { end = from + at; moved = true; break; }
+      }
+    }
+    return end;
+  }
+  // opts.verify: also check a text that fits the budget (a label created from an original goes to
+  // another scope even when nothing is cut). Read-time copies of already checked labels omit it.
+  function safePrefixEnd(text, limit, opts = {}) {
+    if (typeof text !== 'string') return 0;
+    const requested = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, text.length) : 0;
+    if (requested >= text.length && opts.verify !== true) return text.length;   // nothing is cut: no fragment can arise
+    let end = referenceAlignedEnd(text, requested);
+    const policy = currentPolicy;
+    if (policy.mode === 'off' || end === 0) return end;
+    try {
+      const { detector, regex } = labelDetector(policy);
+      const windowText = text.slice(0, Math.min(text.length, requested + SAFE_PREFIX_LOOKAHEAD));
+      const found = detector.detect(windowText).slice();
+      const context = active();
+      if (context?.scope && context.policy === policy.signature) found.push(...context.scope.detectLearned(windowText));
+      // One fixed point: no span straddles the cut, every span kept inside the prefix is still
+      // recognized on the prefix alone by a fresh detector (another scope has not learned it),
+      // an unexecuted regex rule cannot be split, and no reference is split. end only decreases.
+      for (let previous = -1; end > 0 && end !== previous;) {
+        previous = end;
+        for (const span of found) if (span.start < end && span.end > end) end = span.start;
+        if (end > 0) {
+          const seen = detector.detect(text.slice(0, end));
+          const lost = found.filter(span => span.end <= end && !seen.some(row => row.start <= span.start && row.end >= span.end));
+          if (lost.length) end = Math.min(end, ...lost.map(span => span.start));
+        }
+        if (regex) end = runBoundaryEnd(text, end);
+        end = referenceAlignedEnd(text, end);
+      }
+    } catch { return 0; }   // local label only: an unscannable original yields no excerpt, never a raw prefix
+    if (end < requested) while (end > 0 && /\s/.test(text[end - 1])) end--;
+    return end;
+  }
+  function safePrefix(text, limit, opts) { return typeof text === 'string' ? text.slice(0, safePrefixEnd(text, limit, opts)) : ''; }
+  // 150 P1 review (legacy data): a label stored before this fix at exactly the old budget may end
+  // inside a value its original identified. With protection on, an exit copy drops that last run.
+  const LEGACY_LABEL_TAIL_MAX = 24;
+  function legacyLabelGuard(text, budget) {
+    if (typeof text !== 'string' || currentPolicy.mode === 'off' || text.length !== budget) return text;
+    let end = runBoundaryEnd(text, text.length, true);
+    // 一整段没有标点的中文会一路退到串首（1B2 复审：60 字标题被砍成空串）。中文尾段最多去掉 24 字——
+    // 足以覆盖汉字写的手机号、身份证与姓名；含 ASCII 字母数字的尾段整段去掉（其形状检测认得完整值）。
+    const tail = text.slice(end);
+    if (tail.length > LEGACY_LABEL_TAIL_MAX && !/[A-Za-z0-9]/.test(tail)) end = text.length - LEGACY_LABEL_TAIL_MAX;
+    end = referenceAlignedEnd(text, end);
+    while (end > 0 && /\s/.test(text[end - 1])) end--;
+    return text.slice(0, end);
+  }
+  // 150 P6 + review: a generated thread name (model output with references, or thread_title_update's
+  // restored arguments) is stored as text a list can display AND that another scope (the steward)
+  // still protects on its own. A value restored from this thread, or one this thread learned, keeps
+  // its original only when a fresh detector recognizes its complete span inside the label itself;
+  // a value identified only by context it no longer has (a labelled invalid-checksum ID, "a at b dot
+  // c", spelled-out digits, field/learned values) becomes a category word. Credentials and unknown or
+  // malformed references are never restored. OFF performs no detection: references become words.
+  const LABEL_WORDS = {
+    zh: { CREDENTIAL: '〔密钥〕', EMAIL: '〔邮箱〕', PHONE: '〔手机号〕', IDENTITY: '〔身份证〕', PAYMENT: '〔支付信息〕', INTERNAL: '〔内部信息〕', PATH: '〔路径〕', '': '〔隐私信息〕' },
+    en: { CREDENTIAL: '[secret]', EMAIL: '[email]', PHONE: '[phone]', IDENTITY: '[ID]', PAYMENT: '[payment]', INTERNAL: '[internal]', PATH: '[path]', '': '[private]' },
+  };
+  const labelWord = category => {
+    const words = LABEL_WORDS[String(currentPolicy.config?.locale || '').startsWith('en') ? 'en' : 'zh'];
+    return Object.hasOwn(words, category) ? words[category] : words[''];
+  };
+  const labelWordPattern = () => new RegExp([...Object.values(LABEL_WORDS.zh), ...Object.values(LABEL_WORDS.en)].map(word => word.replace(/[[\]]/g, '\\$&')).join('|'), 'g');
+  function safeLabel(text) {
+    if (typeof text !== 'string') return '';
+    const context = active(), policy = currentPolicy;
+    const scope = context?.scope && context.policy === policy.signature ? context.scope : null;
+    const sensitive = []; let out = '', from = 0;
+    const plain = piece => piece.replace(/\[\[RUYI_PVT[A-Za-z0-9:]*\]{0,2}/g, () => labelWord(''));
+    for (const match of text.matchAll(pattern())) {
+      out += plain(text.slice(from, match.index));
+      const category = match[0].slice(PREFIX.length).split(':')[0];
+      let value = null;
+      if (scope && category !== 'CREDENTIAL') {
+        try {
+          value = scope.restoreForTool(match[0], { scopeId: context.scopeId, tool: 'privacy_label', pointer: '/thread-brief',
+            destination: 'local-session-metadata', purpose: 'host-derived-label', authorize: grant => grant.category !== 'CREDENTIAL' });
+        } catch { value = null; }
+      }
+      if (value == null || policy.mode === 'off') out += labelWord(category);
+      else { sensitive.push({ start: out.length, end: out.length + value.length, category }); out += value; }
+      from = match.index + match[0].length;
+    }
+    out += plain(text.slice(from));
+    if (policy.mode !== 'off') {
+      try {
+        const { detector } = labelDetector(policy);
+        if (scope) for (const span of scope.detectLearned(out)) sensitive.push(span);
+        const seen = detector.detect(out);
+        // Merge overlapping sensitive spans; replace right to left so offsets stay valid.
+        const spans = sensitive.sort((a, b) => a.start - b.start).reduce((rows, span) => {
+          const last = rows[rows.length - 1];
+          if (last && span.start < last.end) { last.end = Math.max(last.end, span.end); return rows; }
+          rows.push({ ...span }); return rows;
+        }, []);
+        for (const span of spans.reverse()) {
+          if (seen.some(row => row.start <= span.start && row.end >= span.end)) continue;
+          out = out.slice(0, span.start) + labelWord(span.category) + out.slice(span.end);
+        }
+      } catch { return ''; }   // an unscannable label is not stored
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }
+  // Characters of a label that are not category words or whitespace (a name of only words is no name).
+  const labelSubstance = text => String(text || '').replace(labelWordPattern(), '').replace(/\s+/g, '').length;
   function sourcePointer(value, pointer) {
     if (typeof pointer !== 'string' || !pointer.startsWith('/') || /~(?![01])/.test(pointer)) fail('source_proof_invalid');
     for (const part of pointer.slice(1).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~'))) {
@@ -24891,13 +25075,83 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     }
     return changed ? result : segments;
   }
+  // 150 P6: session/list metadata (names, summaries, recent request) is a display copy too.
+  // Legacy rows may carry references or a reference cut in half; never show either raw.
+  const LABEL_FIELDS = ['title', 'displayTitle', 'summary', 'lastSay', 'missionTitle'];
+  const LABEL_OBJECTS = { brief: ['title', 'gist'], threadBrief: ['title', 'gist'], recentUserRequest: ['text'] };
+  const labelCandidate = row => !!row && typeof row === 'object' && (LABEL_FIELDS.some(key => typeof row[key] === 'string' && row[key].includes(PREFIX))
+    || Object.entries(LABEL_OBJECTS).some(([key, fields]) => row[key] && typeof row[key] === 'object' && fields.some(field => typeof row[key][field] === 'string' && row[key][field].includes(PREFIX))));
+  async function displayLabelCopy(context, row) {
+    if (!labelCandidate(row)) return row;
+    let next = row;
+    const set = (key, value) => { if (value !== row[key]) { if (next === row) next = { ...row }; next[key] = value; } };
+    for (const key of LABEL_FIELDS) if (typeof row[key] === 'string') set(key, await context.text(row[key]));
+    for (const [key, fields] of Object.entries(LABEL_OBJECTS)) {
+      const item = row[key]; if (!item || typeof item !== 'object') continue;
+      let copy = item;
+      for (const field of fields) if (typeof item[field] === 'string') {
+        const value = await context.text(item[field]); if (value !== item[field]) { if (copy === item) copy = { ...item }; copy[field] = value; }
+      }
+      set(key, copy);
+    }
+    return next;
+  }
+  // Each row is restored only in its own session's scope; rows without references are untouched.
+  // 150 review: a list re-reads the same few labels on every poll. Restored copies are cached by
+  // (mapping identity: in-memory revision or file stamp, policy epoch/signature, original text) for a
+  // bounded time; any mapping write, import, revocation or policy change misses. The combined stamp
+  // lets a list keep an ETag that changes whenever any restored copy could change.
+  const labelDisplayCache = new Map(), LABEL_CACHE_MAX = 4096, LABEL_CACHE_MS = 60 * 1000;
+  const entrySerials = new WeakMap(); let entrySerial = 0;
+  async function labelStamp(id) {
+    if (typeof id !== 'string' || !id || id.length > 160) return '';
+    const key = keyOf(id), cached = loaded.get(key);
+    if (cached?.value) {
+      let serial = entrySerials.get(cached); if (!serial) entrySerials.set(cached, serial = ++entrySerial);
+      return 'm' + serial + ':' + cached.value.scope.revision();
+    }
+    try { const stat = await fileApi.lstat(pathApi.join(host.data, 'privacy-scopes', key + '.json')); return 'f' + stat.size + ':' + stat.mtimeMs + ':' + stat.ino; }
+    catch (error) { return error.code === 'ENOENT' ? 'none' : ''; }
+  }
+  async function displayLabelsStamped(rows, idOf = row => row?.id) {
+    if (!Array.isArray(rows) || !rows.some(labelCandidate)) return { rows, stamp: '' };
+    const result = [], stamps = [];
+    for (const row of rows) {
+      if (!labelCandidate(row)) { result.push(row); continue; }
+      const id = String(idOf(row) || ''), mapping = await labelStamp(id);
+      const stamp = mapping && policyEpoch + ':' + currentPolicy.signature + ':' + mapping;
+      stamps.push(id + '=' + (stamp || Date.now()));
+      let context = null;
+      const text = async value => {
+        if (!value.includes(PREFIX)) return (context ||= displayContext(id)).text(value);
+        const key = stamp && stamp + '|' + keyOf(id) + '|' + value, hit = key && labelDisplayCache.get(key);
+        if (hit && Date.now() - hit.at < LABEL_CACHE_MS) { labelDisplayCache.delete(key); labelDisplayCache.set(key, hit); return hit.text; }
+        context ||= displayContext(id);
+        const shown = await context.text(value);
+        if (key && !context.limited) {
+          labelDisplayCache.set(key, { text: shown, at: Date.now() });
+          while (labelDisplayCache.size > LABEL_CACHE_MAX) labelDisplayCache.delete(labelDisplayCache.keys().next().value);
+        }
+        return shown;
+      };
+      try { result.push(await displayLabelCopy({ text }, row)); } finally { context?.close(); }
+    }
+    return { rows: result, stamp: cryptoApi.createHash('sha256').update(stamps.join('\n')).digest('hex').slice(0, 16) };
+  }
+  async function displayLabels(rows, idOf) { return (await displayLabelsStamped(rows, idOf)).rows; }
   async function displayEnvelopeCopy(context, envelope) {
     if (!envelope || typeof envelope !== 'object') return envelope;
     let next = envelope;
     const set = (key, value) => { if (value !== envelope[key]) { if (next === envelope) next = { ...envelope }; next[key] = value; } };
+    if (typeof envelope.displayTitle === 'string') set('displayTitle', await context.text(envelope.displayTitle));
     if (envelope.session && typeof envelope.session === 'object') {
+      const head = await displayLabelCopy(context, envelope.session);
       const messages = await displayMessageCopies(context, envelope.session.messages);
-      if (messages !== envelope.session.messages) set('session', { ...envelope.session, messages });
+      if (head !== envelope.session || messages !== envelope.session.messages) {
+        const copy = head === envelope.session ? { ...envelope.session } : head;
+        if (messages !== envelope.session.messages) copy.messages = messages;
+        set('session', copy);
+      }
     }
     if (envelope.liveTail && typeof envelope.liveTail === 'object') {
       let tail = envelope.liveTail;
@@ -25311,11 +25565,13 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       } });
     return snapshot;
   }
-  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
 PrivacyCore.configHooks.markPrivacyUnavailable = PrivacyGateway.markUnavailable;
+// 150 P1/P6: 02 (session store) cuts host-derived labels before this module is concatenated.
+PrivacyCore.configHooks.safeTextEnd = PrivacyGateway.safePrefixEnd;
 
 // Host-only drive classification; no user path, directory or volume-content probes.
 const PrivacyLocalDriveProbe = (() => {
@@ -34864,9 +35120,9 @@ async function runClaudeTurn({
   // 50-fix(标题卡死):前端曾把本地化占位名(新会话)当标题落库,旧的 `=== 'New session'` 判定永不
   // 匹配 → 所有会话标题卡死。未命名判定拓宽为中英占位集,历史会话下一轮自动补名。
   if (isUntitledSessionTitle(session.title)) {
-    session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
+    session.title = sessionAutoTitle(message) || 'Session';   // 150 P1:截断边界不切开敏感值(02 sessionTextPrefix)
   }
-  session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  session.summary = sessionAutoSummary(finalText) || session.summary || '';
   // v0.8-S3 cross-process reconcile: todo_write in the MCP child looped back to /api/todo, which wrote
   // session.todos to DISK. Our in-memory `session` predates that write; re-read the persisted todos before
   // the final save so we don't clobber them (the child never writes session files itself — double-write
@@ -39080,8 +39336,8 @@ async function runKimiAcpTurnPrepared(context) {
   stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));
   const stderrText = stderrCapture.toString();
   if (stderrText.trim()) session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
-  if (isUntitledSessionTitle(session.title)) session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
-  session.summary = finalText.replace(/\s+/g, ' ').trim().slice(0, 160) || session.summary || '';
+  if (isUntitledSessionTitle(session.title)) session.title = sessionAutoTitle(message) || 'Session';   // 150 P1
+  session.summary = sessionAutoSummary(finalText) || session.summary || '';
   try {
     const onDisk = await loadSession(session.id);
     if (!state.planTouched && onDisk && Array.isArray(onDisk.todos)) session.todos = onDisk.todos;
@@ -41467,6 +41723,22 @@ async function reassertThreadBrief(sessionId) {
 }
 
 // The current main agent supplies a title only after an explicit change of objective; no extra model call.
+// 150 P1/P6 + 审查:自动名字(模型起名 / thread_title_update)存成【管家 scope 自己也护得住】的文本。网关的 safeLabel 把
+// 代号还原成原文,但只留新 scope 单看名字本身就认得出完整区间的值;只靠上下文才认得出的(带标签但校验位不对的
+// 证件号、「a at b dot c」、中文数字手机号、字段规则/学来的值)换成类别词(〔身份证〕等)。截断再对齐值与代号边界。
+// 除去类别词后不足 4 个字的名字不算名字:不存,线程照旧显示原话标题。
+const THREAD_BRIEF_MIN_SUBSTANCE = 4;
+function threadBriefLabels(title, gist) {
+  const gateway = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway : null;
+  const label = value => gateway ? gateway.safeLabel(String(value || '')) : String(value || '');
+  const rawTitle = String(title || ''), labeledTitle = label(rawTitle);
+  const out = { title: sessionTextPrefix(labeledTitle, SESSION_BRIEF_TITLE_CHARS), gist: sessionTextPrefix(label(gist), SESSION_BRIEF_GIST_CHARS) };
+  // 最少字数只管「safeLabel 真替换过」的名字(换成类别词后可能只剩「给」)；隐私关或没碰到敏感值的名字
+  // （周报、Bug）照修前原样存（1B2 复审：v2 曾把所有短名字都丢掉）。
+  if (labeledTitle === rawTitle) return out;
+  const substance = gateway ? gateway.labelSubstance(out.title) : out.title.replace(/\s+/g, '').length;
+  return substance >= THREAD_BRIEF_MIN_SUBSTANCE ? out : null;
+}
 async function updateAutomaticThreadTitle(input) {
   const o = input || {}, sid = safeSessionId(o.sessionId);
   if (!sid) return { ok: false, error: 'session_required' };
@@ -41476,7 +41748,10 @@ async function updateAutomaticThreadTitle(input) {
   if (typeof o.title !== 'string') return { ok: false, error: 'title_required' };
   const parsed = parseThreadBrief(JSON.stringify({ title: o.title, gist: o.gist ?? '' }));
   if (!parsed) return { ok: false, error: 'title_required' };
-  const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: 'agent', stage: 'settled' };
+  // 150 P1/P6:工具参数已在网关还原成原文 —— 与模型起名同一口径(threadBriefLabels)。
+  const labels = threadBriefLabels(parsed.title, parsed.gist);
+  if (!labels) return { ok: true, updated: false, reason: 'privacy_label' };
+  const brief = { schema: 1, title: labels.title, gist: labels.gist, at: nowIso(), model: 'agent', stage: 'settled' };
   const rewindGen = Number(head.rewindGen) || 0;
   if (sessionTitleOverrides.get(sid)?.titleSource === 'user') return { ok: true, updated: false, reason: 'user_title' };
   sessionTitleOverrides.set(sid, { threadBrief: brief, rewindGen });
@@ -41546,10 +41821,14 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         }
       } catch { /* accounting must never break the brief */ }
       const parsed = (sc && sc.ok) ? parseThreadBrief(sc.content) : null;
+      // 150 P6:模型看到的是代号,起出来的名字也带代号。修前原样存模型输出、按 24 字硬截,侧栏出现
+      // 「给[[RUYI_PVT:EMAIL:09c9f2」。现在经 threadBriefLabels(见其头注);名字护不住就放弃这一份 brief(不重试)。
+      const labels = parsed ? threadBriefLabels(parsed.title, parsed.gist) : null;
+      if (parsed && !labels) return null;
       if (parsed) {
         // 走 updateSessionMeta:首回合那次发起时回合还在跑,这条通道会延后到 settle 之后在
         // 【重新装载的副本】上重放,绝不会用陈旧正文盖掉回合刚写的消息(116-2a 的既有防护)。
-        const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
+        const brief = { schema: 1, title: labels.title, gist: labels.gist, at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
         const current = await loadSession(sid).catch(() => null);
         if (!current || current.titleSource === 'user' || (Number(current.rewindGen) || 0) !== (Number(head.rewindGen) || 0)
             || String(current.threadBrief?.at || '') !== String(head.threadBrief?.at || '')) return null;
@@ -61436,11 +61715,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   });
   session.providerHistoryCursor = session.messages.length;
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
-    session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
+    session.title = sessionAutoTitle(message) || 'Session';   // 150 P1:先对完整原文识别再截(02 sessionTextPrefix)
   }
   // 摘要取【最后一个有文字的迭代】的开头(= 最终答复的首段,answerShape 要求它是结论),不取整段正文的前 160 字:多迭代回合里整段正文
   // 以第一轮的开场白起头(「我先看一下文件」)。回合没有任何迭代文字(整回合只有失败 / 提示)时才回落整段正文。
-  session.summary = (String(lastIterationText || finalText).replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  session.summary = sessionAutoSummary(lastIterationText || finalText) || session.summary || '';   // 150 P6:不截半个代号
   // P2-3: a mid-turn POST /api/session/skills wrote the new enable set to DISK (and updated reg.session in place);
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
@@ -83286,7 +83565,8 @@ async function importedSessionCwdAllowed(cwd, config) {
 
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
-    return send(res, json({ ok: true, sessions: await listSessions() }));
+    // 150 P6:列表与 GET 单会话走同一套 display 还原(各行在自己那条会话的 scope 里还原;无代号的行原样)。
+    return send(res, json({ ok: true, sessions: await PrivacyGateway.displayLabels(await listSessions()) }));
   }
   // 113b: 会话内容搜索。GET /api/sessions/search?q=&limit=
   // 必须排在下面那条 pathname.startsWith('/api/sessions/') 的通配分支【之前】，
@@ -83900,13 +84180,15 @@ async function buildMissionAggregateRows(options = {}) {
       // 116-5b:同 buildMissionCard —— title 仍是原话,显示名另给一个键(steward_missions 的线程清单、
       // 抽屉页签、看板行都读它)。meta 是索引条目形态(brief/titleSource),sessionDisplayTitle 两形态都认。
       displayTitle: stewardSanitizeText(sessionDisplayTitle(meta)),
+      // 1B2 复审：用户自起的标题不受旧数据兜底（legacyLabelGuard）影响；看板不读 threads[]，主列表字节不变。
+      ...(meta.titleSource === 'user' ? { titleSource: 'user' } : {}),
       ...(sessionBriefOf(meta) ? { brief: sessionBriefOf(meta) } : {}),
       kind: meta.kind || 'quick_ask',
       state: derived.state,
       stateLabel: derived.label,
       permissionMode: meta.permissionMode || null,
-      // 150 号文 §4 P8:先投影外线程代号再截 120 字(与 13k 的管家视图同口径),截断不会留下半个代号。
-      lastAssistantText: stewardSanitizeText(meta.summary || '', true).slice(0, 120),
+      // 150 号文 §4 P8 + P1/P6:先投影外线程代号(foreign),再按安全前缀截 120 字(不切开敏感值与代号)。
+      lastAssistantText: sessionTextPrefix(stewardSanitizeText(meta.summary || '', true), 120),
       updatedAt: String(meta.updatedAt || ''),
       cwd: String(meta.cwd || ''),   // W7:这条线程开在哪个目录(事项的 workspace 从这里派生)
       workspace: workspaceOf(meta.cwd),
@@ -84157,12 +84439,18 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         const groupRow = aggregate.rowBySessionId.get(sid);
         if (card) picked.push(overlayMissionAggregateFields(card, groupRow && !groupRow.derived ? groupRow : undefined));
       }
-      return send(res, json({ ok: true, missions: picked, projectionRevision: index.missionsRevision }));
+      // 1B2:与主列表同一套显示还原(每行用自己会话的 scope)。
+      return send(res, json({ ok: true, missions: await PrivacyGateway.displayLabels(picked, row => row.sessionId), projectionRevision: index.missionsRevision }));
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
+    // 150 P6:左栏行(名字/概括/末句)是显示副本,在各自会话的 scope 里还原。还原结果取决于映射,所以真还原过的
+    // 一页把「映射戳」(内存修订号或映射文件戳 + 策略代数)拼进 ETag 的末段:映射一变标签就变,不变照旧 304;
+    // 普通行(无代号)一个字节不变、标签也不变。
+    const displayed = await PrivacyGateway.displayLabelsStamped(paged.items, row => row.sessionId);
     // 用量修订号挂在【最后】一段:前面三段(修订号 - 在场覆盖 - 行指纹)的段位有测试按位读(steward-thread-order ⑪)。
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || ''), paged.page);
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || '') + (displayed.stamp ? '-d' + displayed.stamp : ''), paged.page);
+    paged.items = displayed.rows;
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
@@ -84376,9 +84664,7 @@ const runs = await listAgentRuns(sessionId).catch(error => { if (String(error &&
     };
     const pendingCounts = await missionPendingCounts(sessionId, runs, indexed && indexed.interventions);
 
-    return send(res, json({
-      ok: true,
-      snapshot: {
+    const snapshot = {
         sessionId, missionId: sessionMissionId(session), kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
@@ -84408,9 +84694,14 @@ const runs = await listAgentRuns(sessionId).catch(error => { if (String(error &&
           liveOverlay: activeChildren.has(sessionId) || runs.some(r => activeAgentRuns.has(r.id)),
           overlayAt: nowIso(),
         },
-      },
+      };
+    // 150 P6:详情的 title/summary 与列表同一套显示还原;真还原过的一份不发 ETag(还原取决于映射,不在上面的标签里)。
+    const shown = await PrivacyGateway.displayLabelsStamped([snapshot], () => sessionId);
+    return send(res, json({
+      ok: true,
+      snapshot: shown.rows[0],
       index: pretenderIndexMeta(index),
-    }, 200, etag ? { etag } : {}));
+    }, 200, shown.stamp ? { 'cache-control': 'no-store' } : (etag ? { etag } : {})));
   }
   return false;
 }
@@ -84992,7 +85283,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // (mission-index-scale 收件箱热 P95 闸 250 ms 红);标题从不进 ETag,挪到分页之后响应不变。
     const pageSids = [...new Set(paged.items.map(p => p.sessionId))];
     const heads = await Promise.all(pageSids.map(sid => readSessionHeadResilient(sid).catch(() => null)));
-    const titleOf = new Map(pageSids.map((sid, i) => [sid, String((heads[i] && heads[i].title) || '').slice(0, 120)]));
+    const titleOf = new Map(pageSids.map((sid, i) => [sid, sessionTextPrefix(String((heads[i] && heads[i].title) || ''), 120)]));   // 150 P1:用户起的标题可到 200 字
     for (const p of paged.items) p.title = titleOf.get(p.sessionId) || '';
     if (stewardView) {
       const ids = [...new Set(paged.items.map(p => p.missionId).filter(id => !pageSids.includes(id)))];
@@ -85010,6 +85301,8 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         p.detailsComplete = !!detail && text.length <= 32000;
       }
     }
+    // 150 P6:弹窗的「来自哪条线程」与列表同一套显示还原(标题本来就不进 ETag,见上)。
+    paged.items = await PrivacyGateway.displayLabels(paged.items, p => p.sessionId);
     return send(res, json({
       ok: true,
       pending: paged.items,
@@ -86746,7 +87039,7 @@ function stewardNormalizeThreadAdopted(record) {
   const kind = stewardKindFor('threadAdopted', 'thread_adopted', r);
   if (!kind) return null;
   const at = stewardIsoAt(r.at);
-  const title = stewardSanitizeText(r.title || '').slice(0, 120);
+  const title = sessionTextPrefix(stewardSanitizeText(r.title || ''), 120);   // 150 P1:标题是用户原话,截断不切开敏感值
   const note = stewardSanitizeText(r.note || '').slice(0, 200);
   // 121-K6a:委托一句缝进人话里——管家下一回合读收件箱摘要时,「盯着」与「盯什么」在同一句里,
   // 不必再去查第二个字段。没带就是老行为(一字不变)。
@@ -89144,17 +89437,21 @@ function threadRelatedThreads(head, metas) {
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
+// 150 P1 审查 3:修前落盘的标签可能停在敏感值中间。会话头上判不出是不是修前的,于是管家出口对【恰好等于旧预算】
+// 的自动标签去掉末尾那一段连续字符(03a legacyLabelGuard;隐私关时原样)。修后新截的标签若正好满额也会少一段,宁短勿泄。
 function stewardRecentUserRequest(o) {
   const request = sessionMeta(o).recentUserRequest;
-  return request ? { ...request, text: stewardSanitizeText(redact(request.text), true) } : null;
+  return request ? { ...request, text: stewardSanitizeText(redact(PrivacyGateway.legacyLabelGuard(request.text, SESSION_RECENT_REQUEST_CHARS)), true) } : null;
 }
 function stewardThreadDisplayTitle(head, config) {
   let title = sessionDisplayTitle(head);
   if (head?.titleSource !== 'user' && isUntitledSessionTitle(title)) {
     const request = stewardRecentUserRequest(head);
-    title = request?.text ? [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('')
+    // 150 P1:这一档摘录直接进管家模型,截断边界走 02 sessionTextPrefix(按字符数折成码元上限)。
+    title = request?.text ? sessionTextPrefix(request.text, [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('').length)
       : /^en/i.test(String(config?.locale || '')) ? 'Unnamed thread' : '未命名线程';
   }
+  if (head?.titleSource !== 'user') title = PrivacyGateway.legacyLabelGuard(String(title || ''), SESSION_AUTO_TITLE_CHARS);
   return stewardSanitizeText(redact(String(title || '')), true);
 }
 async function stewardImplThreadsSearch(args, ctx, config) {
@@ -89245,7 +89542,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
-      lastAssistantText: stewardClipSay(publicMeta.summary || ''),
+      lastAssistantText: stewardClipSay(PrivacyGateway.legacyLabelGuard(publicMeta.summary || '', SESSION_AUTO_SUMMARY_CHARS)),
       ...(recentUserRequest ? { recentUserRequest } : {}),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
       score: Number(row.score) || 0,...(matches.get(row.id)?.reference?{reference:matches.get(row.id).reference,snippet:matches.get(row.id).snippet}:{}),
@@ -89353,7 +89650,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     usage: usage ? { inTok: usage.inTok, outTok: usage.outTok, cachedInTok: usage.cachedInTok, turns: usage.turns, costsByCurrency: usage.costsByCurrency } : null,
     turnSeq: Math.max(0, Number(head.turnSeq) || 0),
     updatedAt: String(head.updatedAt || ''),
-    lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
+    lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : PrivacyGateway.legacyLabelGuard(head.summary || '', SESSION_AUTO_SUMMARY_CHARS)),
     recentUserRequest: stewardRecentUserRequest(session || head),
   });
 }
@@ -89693,7 +89990,7 @@ async function stewardImplThreadNew(args, ctx, config) {
   if (!cwdPick.ok) return cwdPick.fail;
 
   const session = await createSession({
-    title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
+    title: args.title ? sessionTextPrefix(String(args.title), STEWARD_TITLE_MAX) : undefined,   // 150 审查 2
     cwd: cwdPick.cwd,
     // 121-K3(§4.1 来源三值):出身在 createSession 那一次写死。与下面的 createdBy 是两个字段、
     // 一个事实的两面 —— createdBy 是权限判据(桌面权限只开给管家自己开的线程),origin 是展示与
@@ -90126,7 +90423,7 @@ async function stewardImplThreadRename(args, ctx, config) {
   // 第二轮工具走查(F8):title:{a:1} 修前被 String() 成 "[object Object]" 写进会话头(门控壳现在也会拦对象/数组,
   // 这里再收紧到「必须是字符串」—— 标题是给人看的名字,数字、布尔当标题都是模型传串了位)。
   if (args.title != null && typeof args.title !== 'string') return stewardFail('invalid_request', 'title must be a string');
-  const title = String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim().slice(0, STEWARD_TITLE_MAX);
+  const title = sessionTextPrefix(String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim(), STEWARD_TITLE_MAX);   // 150 审查 2
   if (!title) return stewardFail('invalid_request', 'title is required');
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
@@ -90415,7 +90712,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
-    title: stewardSanitizeText(question).slice(0, STEWARD_TITLE_MAX),
+    title: sessionTextPrefix(stewardSanitizeText(question), STEWARD_TITLE_MAX),   // 150 审查 2:速问原话可上千字
     cwd: quickCwdPick.cwd,
     origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
@@ -91540,7 +91837,9 @@ async function stewardImplMissions(args, ctx, config) {
   const missions = aggregate.rows.map(row => {
     const mission = {
       missionId: row.missionId,
-      title: stewardSanitizeText(row.title),
+      // 未归类事项的 title 取自线程标题（threads[0]），同样过旧数据兜底（1B2 复审：覆盖缺口）；用户自起的不动。
+      title: stewardSanitizeText(row.derived && !(row.threads && row.threads[0] && row.threads[0].titleSource === 'user')
+        ? PrivacyGateway.legacyLabelGuard(String(row.title || ''), SESSION_AUTO_TITLE_CHARS) : row.title),
       workspace: stewardSanitizeText(nameOf(row.workspace && row.workspace.path)),
       goal: stewardSanitizeText(row.goal).slice(0, 400),
       aggregateState: row.aggregateState,
@@ -91555,7 +91854,7 @@ async function stewardImplMissions(args, ctx, config) {
       derived: row.derived,
       threads: row.threads.map(thread => ({
         sessionId: thread.sessionId,
-        title: thread.title,
+        title: thread.title && (thread.titleSource === 'user' ? thread.title : PrivacyGateway.legacyLabelGuard(thread.title, SESSION_AUTO_TITLE_CHARS)),   // 150 审查 3:修前落盘的标题可能截在值中间
         state: thread.state,
         stateLabel: thread.stateLabel,
         workspace: stewardSanitizeText(nameOf(thread.cwd)),   // W7:同上
@@ -94034,9 +94333,12 @@ function stewardOverviewBlock(rows, pack) {
     // 117l D5:总览行的名字用【显示名】。修前这里是原话 title —— 用户机器上十几条还没起名的线程
     // 于是被管家一律叫成「New session」。**digest.title 本身不动**:preroute 的词法打分吃的就是它
     // (见 stewardPrerouteIndexRows 处的原注释),把索引里的原话换掉等于把用户当时打的词抹了。
-    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: row.displayTitle || row.digest.title }));
+    // 150 P1 审查 3:修前落盘的满额标题/摘要可能停在敏感值中间(03a legacyLabelGuard)。
+    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: PrivacyGateway.legacyLabelGuard(row.displayTitle || row.digest.title, SESSION_AUTO_TITLE_CHARS),
+      ...(typeof row.digest.lastSay === 'string' ? { lastSay: PrivacyGateway.legacyLabelGuard(row.digest.lastSay, SESSION_AUTO_SUMMARY_CHARS) } : {}) }));
     const request = row.digest && row.digest.recentUserRequest;
-    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text), true).slice(0, 80) : '';
+    // 150 P1:用户原话的摘录进管家提示词,截断边界不切开敏感值(02 sessionTextPrefix)。
+    const activity = request ? ' · ' + pack.steward.activityRequest + sessionTextPrefix(stewardSanitizeText(redact(request.text), true), 80) : '';
     // Related IDs are executable read targets: admit whole entries or omit them, never slice one.
     const clueBudget = Math.floor(STEWARD_DIGEST_LIMITS.lineChars / 2);
     const relatedEntries = [];
@@ -94132,9 +94434,10 @@ async function stewardKnownWorkspaceRows(config) {
 function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
   const limits = STEWARD_KNOWN_WORKSPACE_LIMITS;
+  // 150 P1:标题/原话/回复的摘录进管家提示词,截断边界不切开敏感值(02 sessionTextPrefix)。
   const clip = (value, max) => {
     const s = stewardSanitizeText(String(value == null ? '' : value), true).trim();
-    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+    return s.length > max ? sessionTextPrefix(s, max - 1) + '…' : s;
   };
   const lines = [];
   let used = 0;
@@ -94156,7 +94459,7 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
     // 一行太长就先少带几条线程(话题砍整条,不砍半句);连一条都不带还超,才截名字之外的尾巴。
     let line = pack.steward.workspaceRow({ name, tags, threads });
     while (line.length > limits.lineChars && threads.length) { threads.pop(); line = pack.steward.workspaceRow({ name, tags, threads }); }
-    if (line.length > limits.lineChars) line = line.slice(0, limits.lineChars - 1) + '…';
+    if (line.length > limits.lineChars) line = sessionTextPrefix(line, limits.lineChars - 1) + '…';
     if (used + line.length + 1 > limits.totalChars) { folded += 1; continue; }
     lines.push(line);
     used += line.length + 1;
@@ -95040,7 +95343,11 @@ async function stewardSelfServeInbox(events, session, config) {
 // 前端点按钮用的,人话化会把它们变成点不开的字符串。
 async function stewardDisplayTitleOf(sessionId) {
   const head = await stewardReadSessionHead(sessionId).catch(() => null);
-  return head && head.id ? String(sessionDisplayTitle(head) || '') : '';
+  if (!head || !head.id) return '';
+  // 1B2 复审：收件箱事件行、notes、路由提示等都经这里进管家模型；会话头没有正文，sessionLegacyAutoTitle 不触发，
+  // 修前满额的自动标题在这里过旧数据兜底（用户自起的标题不动）。
+  const title = String(sessionDisplayTitle(head) || '');
+  return head.titleSource === 'user' ? title : PrivacyGateway.legacyLabelGuard(title, SESSION_AUTO_TITLE_CHARS);
 }
 // say/why 的人话化。先把文本里出现过的会话 id 逐个查成显示名(最多 8 个,一次到访里模型不会提更多),
 // 再交给 06i 的纯函数做替换与标点收尾。查不到名字的 id 原样保留 —— 宁可露一个 id,也不能张冠李戴。
@@ -95550,7 +95857,7 @@ function stewardDelegationReceiptLabel(result, title) {
   const labels = (result && result.exemptDelegation && Array.isArray(result.exemptDelegation.labels))
     ? result.exemptDelegation.labels.map(stewardSanitizeText).filter(Boolean) : [];
   const kinds = labels.length ? `「${labels.join('」「')}」` : '';
-  const where = title ? ` · 线程「${stewardSanitizeText(title).slice(0, 24)}」` : '';
+  const where = title ? ` · 线程「${sessionTextPrefix(stewardSanitizeText(title), 24)}」` : '';   // 150 P1:落进管家历史,截断不切开敏感值
   return `代批${kinds}${where}`;
 }
 function stewardMergeDelegationReceipts(executedRows, delegationToolCalls, titleOf) {
@@ -97328,7 +97635,7 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const missionId = String(sessionMissionId(head) || sid);
     const frame = {
       sessionId: sid,
-      title: sessionDisplayTitle(head),
+      title: await PrivacyGateway.displayText(sid, sessionDisplayTitle(head)),   // 150 P6:与列表同一套显示还原
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
       updatedAt: String(head.updatedAt || ''),
@@ -97431,10 +97738,10 @@ RUYI_EVENTS.subscribe((name, payload) => {
   }
   if (name === 'thread.done') {
     if (eventStreamIsStewardSession(data.sessionId)) return;
-    eventStreamPublish('thread.done', {
-      sessionId: String(data.sessionId || ''),
-      summary: String(data.summary || '').slice(0, EVENT_STREAM_SUMMARY_MAX),
-    });
+    // 150 P6:summary 是显示副本 —— 截断不切开代号,带代号时在本线程 scope 里还原后再推(无代号的同步直推,字节不变)。
+    const summary = sessionTextPrefix(String(data.summary || ''), EVENT_STREAM_SUMMARY_MAX), doneSid = String(data.sessionId || '');
+    if (!summary.includes('[[RUYI_PVT:')) eventStreamPublish('thread.done', { sessionId: doneSid, summary });
+    else void PrivacyGateway.displayText(doneSid, summary).catch(() => '').then(shown => eventStreamPublish('thread.done', { sessionId: doneSid, summary: shown }));
     // 收工之后五态也变了(「在跑」→「已收工」/「已停工」),顺手现算一次 —— 指标 b 要的是两件事
     // 同时到:药丸与「它最后说」。
     void eventStreamEmitThreadState(data.sessionId);
@@ -99545,7 +99852,7 @@ async function schedulerOnReminderDue(schedRow) {
   // 正文由下单方写死:安静卡「稍后」建的那条把「来自你 N 分钟前按的『稍后』」整句写进 payload.text
   // (i18n 在客户端做,服务端不拼第二份文案)。这里只清洗与截断。
   const text = stewardClipSummary(stewardSanitizeText(raw.text || '')).slice(0, SCHEDULER_INBOX_TEXT_MAX);
-  const title = stewardSanitizeText(raw.title || '').slice(0, 120);
+  const title = sessionTextPrefix(stewardSanitizeText(raw.title || ''), 120);   // 150 审查 2
   const summary = text || title;
   return schedulerInboxAppend({
     sessionId: sourceRef ? sourceRef.sessionId : '',
@@ -99580,7 +99887,7 @@ async function schedulerOnSchedulerNotice(schedRow) {
   const kind = String(raw.kind || '');
   const make = SCHEDULER_NOTICE_TEXT[kind];
   if (!make) return null;
-  const title = stewardSanitizeText(raw.title || '').slice(0, 60) || '(未命名)';
+  const title = sessionTextPrefix(stewardSanitizeText(raw.title || ''), 60) || '(未命名)';   // 150 审查 2
   const summary = stewardClipSummary(make(title));
   return schedulerInboxAppend({
     sessionId: String(raw.sessionId || ''),

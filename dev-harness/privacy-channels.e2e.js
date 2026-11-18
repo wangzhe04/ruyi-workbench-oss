@@ -223,7 +223,11 @@ async function main() {
       t.ok(result.ok === true, 'F0 real same-directory source thread completes a protected model turn');
       sourceThreads.push(await app.loadSession(session.id));
     }
-    t.ok(sourceThreads[0].summary.includes(sourceAliases[0]) && sourceThreads[1].summary.includes('[[RUYI_PVT:') && !sourceThreads[1].summary.includes(sourceAliases[1]), 'F1 real settled thread heads include both complete and pre-truncated source-scope aliases');
+    // 150 P6:修后产品自己不再落半截代号(摘要截在代号边界上)。半截代号仍是存量数据的真实形状,所以照修前产品的
+    // 输出(138 个 p + 代号头 22 字)写进第二条线程的头,F2–F7 照旧拿「完整 + 半截」两种代号考管家投影。
+    t.ok(sourceThreads[0].summary.includes(sourceAliases[0]) && sourceThreads[1].summary === 'p'.repeat(138), 'F1 real settled thread heads include a complete alias and never cut one in half');
+    { const legacy = await app.loadSession(sourceThreads[1].id); legacy.summary = 'p'.repeat(138) + sourceAliases[1].slice(0, 22); await app.saveSession(legacy); sourceThreads[1] = await app.loadSession(legacy.id); }
+    t.ok(sourceThreads[1].summary.includes('[[RUYI_PVT:') && !sourceThreads[1].summary.includes(sourceAliases[1]), 'F1 legacy head with a pre-truncated source-scope alias is in place for the steward projection checks');
     const originals = sourceThreads.map(session => fs.readFileSync(path.join(data, 'sessions', session.id + '.messages.ndjson'), 'utf8'));
     const originalHeads = sourceThreads.map(session => fs.readFileSync(path.join(data, 'sessions', session.id + '.json'), 'utf8'));
     await app.mutateConfig(current => { current.stewardEnabledV1 = true; return {}; });

@@ -888,7 +888,9 @@ async function stewardImplMissions(args, ctx, config) {
   const missions = aggregate.rows.map(row => {
     const mission = {
       missionId: row.missionId,
-      title: stewardSanitizeText(row.title),
+      // 未归类事项的 title 取自线程标题（threads[0]），同样过旧数据兜底（1B2 复审：覆盖缺口）；用户自起的不动。
+      title: stewardSanitizeText(row.derived && !(row.threads && row.threads[0] && row.threads[0].titleSource === 'user')
+        ? PrivacyGateway.legacyLabelGuard(String(row.title || ''), SESSION_AUTO_TITLE_CHARS) : row.title),
       workspace: stewardSanitizeText(nameOf(row.workspace && row.workspace.path)),
       goal: stewardSanitizeText(row.goal).slice(0, 400),
       aggregateState: row.aggregateState,
@@ -903,7 +905,7 @@ async function stewardImplMissions(args, ctx, config) {
       derived: row.derived,
       threads: row.threads.map(thread => ({
         sessionId: thread.sessionId,
-        title: thread.title,
+        title: thread.title && (thread.titleSource === 'user' ? thread.title : PrivacyGateway.legacyLabelGuard(thread.title, SESSION_AUTO_TITLE_CHARS)),   // 150 审查 3:修前落盘的标题可能截在值中间
         state: thread.state,
         stateLabel: thread.stateLabel,
         workspace: stewardSanitizeText(nameOf(thread.cwd)),   // W7:同上

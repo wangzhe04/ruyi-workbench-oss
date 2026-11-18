@@ -585,14 +585,23 @@ function residualFragment(output, value, offset, cut) {
   return output.includes(frag) ? { kept, frag: kept === value.length ? 'full' : 'partial' } : null;
 }
 async function runPrivacy() {
-  const api = loadServer(['PrivacyCore', 'sessionRecentUserRequest']);
+  // 150 P1 修复后三个引擎的标题/摘要共用 02 的 sessionAutoTitle / sessionAutoSummary(真函数可直调);修前的检出里
+  // 没有这两个名字,照旧用照抄的行内表达式 —— 同一把尺子量修前修后。网关按 enhanced 档配置(与产品同一个入口),
+  // 修前的检出里配置它不影响任何截断(修前截断不看策略)。
+  const productionCut = /\nfunction sessionAutoTitle\(/.test(fs.readFileSync(process.env.RUYI_TEST_SERVER_JS || path.join(REPO, 'ruyi-workbench', 'app', 'server.js'), 'utf8'));
+  const api = loadServer(['PrivacyCore', 'PrivacyGateway', 'sessionRecentUserRequest', ...(productionCut ? ['sessionAutoTitle', 'sessionAutoSummary'] : [])]);
   const core = api.PrivacyCore;
+  api.PrivacyGateway.configure({ privacyModeV1: 'enhanced', privacyTechnicalV1: false, privacyRulesV1: [], providers: [] });
   // 03a options(config) 在 enhanced 档的取值:personal:true、confidential:false、technical 用默认 false。
   const detectorOptions = { personal: true, confidential: false, technical: false, knownSecrets: [], rules: [] };
   const norm = text => text.replace(/\s+/g, ' ').trim();
   const sites = [
-    { site: 'thread-title', cut: 60, where: '09-workflow.js / 05-claude-engine.js / 05b-kimi-bridge.js: message.replace(/\\s+/g,\' \').trim().slice(0,60)', truncate: t => norm(t).slice(0, 60), from: 40, to: 66 },
-    { site: 'thread-summary', cut: 160, where: '09-workflow.js / 05 / 05b: (text).replace(/\\s+/g,\' \').trim().slice(0,160)', truncate: t => norm(t).slice(0, 160), from: 140, to: 166 },
+    productionCut
+      ? { site: 'thread-title', cut: 60, where: '02-session-store.js sessionAutoTitle (real function; 05 / 05b / 09 call it)', truncate: t => api.sessionAutoTitle(t), from: 40, to: 66 }
+      : { site: 'thread-title', cut: 60, where: '09-workflow.js / 05-claude-engine.js / 05b-kimi-bridge.js: message.replace(/\\s+/g,\' \').trim().slice(0,60)', truncate: t => norm(t).slice(0, 60), from: 40, to: 66 },
+    productionCut
+      ? { site: 'thread-summary', cut: 160, where: '02-session-store.js sessionAutoSummary (real function; 05 / 05b / 09 call it)', truncate: t => api.sessionAutoSummary(t), from: 140, to: 166 }
+      : { site: 'thread-summary', cut: 160, where: '09-workflow.js / 05 / 05b: (text).replace(/\\s+/g,\' \').trim().slice(0,160)', truncate: t => norm(t).slice(0, 160), from: 140, to: 166 },
     { site: 'recent-user-request', cut: 240, where: '02-session-store.js sessionRecentUserRequest (real function)', truncate: t => { const r = api.sessionRecentUserRequest({ messages: [{ role: 'user', content: t }] }); return r ? r.text : ''; }, from: 220, to: 246 },
   ];
   const out = { mode: 'privacy', detectorOptions: { personal: true, confidential: false, technical: false }, minFragmentChars: 4, sites: [] };

@@ -48,7 +48,9 @@ function fixture(overrides = {}) {
   });
   const guarded = sliceBlock(store, '// A guarded rewind owns admission', 'async function rewindSessionContents');
   assert.ok(guarded.includes('async function rewindSession('));
+  // 150 P6:撤回后的摘要经 02 的 sessionAutoSummary(隐私安全截断)重算;沙箱里没有 PrivacyCore,走裸 slice。
   vm.runInContext(functionBlock(read('src/00-boot.js'), 'runKeyedChain') + '\n' + guarded + '\n'
+    + constBlock(store, 'SESSION_AUTO_SUMMARY_CHARS') + '\n' + ['sessionTextPrefix', 'sessionAutoSummary'].map(name => functionBlock(store, name)).join('\n') + '\n'
     + ['withJournalWriteLock', 'withJournalArtifactOperation', 'rewindSessionContents', 'rewindSessionArtifactContents'].map(name => functionBlock(store, name)).join('\n') + '\nthis.rewind = rewindSession;', ctx);
   return { ctx, calls, session, rewind: ctx.rewind, blocked: () => ctx.SessionExecutionHooks.admissionBlocked('s') };
 }

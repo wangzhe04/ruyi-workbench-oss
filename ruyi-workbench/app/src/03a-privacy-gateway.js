@@ -1066,6 +1066,160 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     return { text: view.text.slice(offset(start), offset(end)), start, end };
   }
+  // 150 P1/P6: host-derived labels (thread title 60 / summary 160 / recent request 240 / brief
+  // 24·80 / steward excerpts) are budgets over a complete original, and they later reach a model
+  // in another scope (steward tools, thread lists). A raw prefix can split an identity, credential
+  // or reference into a fragment no detector recognizes. Identify the complete original first; a
+  // cut inside an identified span or reference moves back to the span start (shorter, never a
+  // fragment). The text itself stays the user's original for local display.
+  // OFF performs no detection: only a literal reference-boundary search (P6), no detector/scope.
+  const SAFE_PREFIX_LOOKAHEAD = 16 * 1024;
+  let safePrefixDetector = { signature: null, detector: null, regex: false };
+  // Custom regex rules execute only in the isolated worker; the synchronous host paths below
+  // scan every other rule and compensate (learned matches, run-boundary backoff, placeholders).
+  function labelDetector(policy) {
+    if (safePrefixDetector.signature !== policy.signature) {
+      const all = Array.isArray(policy.config?.privacyRulesV1) ? policy.config.privacyRulesV1 : [];
+      const rules = all.filter(rule => rule?.kind !== 'regex');
+      safePrefixDetector = { signature: policy.signature, detector: core.createDetector({ ...options(policy.config), rules }), regex: rules.length !== all.length };
+    }
+    return safePrefixDetector;
+  }
+  // 150 P1 review: an unexecuted custom rule may match any run, including CJK (`红星[一-鿿]{4}`).
+  // A cut inside a run moves to the run start: CJK runs end at a non-CJK character or punctuation,
+  // other runs at whitespace or CJK/full-width punctuation. assumeRun treats text end as mid-run
+  // (a legacy label stored at the old budget may itself end inside a value).
+  const LABEL_CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+  const labelBoundary = char => /\s/.test(char) || (char > '\x7f' && /\p{P}/u.test(char) && !LABEL_CJK.test(char));
+  function runBoundaryEnd(text, end, assumeRun = false) {
+    if (end <= 0 || (end >= text.length && !assumeRun)) return end;
+    const before = text[end - 1], cjk = LABEL_CJK.test(before);
+    // Whitespace, CJK/full-width punctuation or a CJK/non-CJK change already separates two runs.
+    if (labelBoundary(before) || (end < text.length && (labelBoundary(text[end]) || LABEL_CJK.test(text[end]) !== cjk))) return end;
+    while (end > 0 && !labelBoundary(text[end - 1]) && LABEL_CJK.test(text[end - 1]) === cjk) end--;
+    return end;
+  }
+  function referenceAlignedEnd(text, end) {
+    // Complete references are atomic; a malformed one spans to its "]]" or 128 characters,
+    // the same extent display restoration treats as one unavailable reference.
+    // Bounded: only a reference starting within 256 characters before the cut can cross it.
+    for (let moved = true; moved && end > 0;) {
+      moved = false;
+      const from = Math.max(0, end - 256), near = text.slice(from, Math.min(text.length, end + 132));
+      for (let at = near.indexOf(PREFIX); at >= 0 && from + at < end; at = near.indexOf(PREFIX, at + 1)) {
+        const close = near.indexOf(']]', at + PREFIX.length);
+        const finish = from + (close >= 0 && close - at <= 128 ? close + 2 : Math.min(near.length, at + 128));
+        if (finish > end) { end = from + at; moved = true; break; }
+      }
+    }
+    return end;
+  }
+  // opts.verify: also check a text that fits the budget (a label created from an original goes to
+  // another scope even when nothing is cut). Read-time copies of already checked labels omit it.
+  function safePrefixEnd(text, limit, opts = {}) {
+    if (typeof text !== 'string') return 0;
+    const requested = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, text.length) : 0;
+    if (requested >= text.length && opts.verify !== true) return text.length;   // nothing is cut: no fragment can arise
+    let end = referenceAlignedEnd(text, requested);
+    const policy = currentPolicy;
+    if (policy.mode === 'off' || end === 0) return end;
+    try {
+      const { detector, regex } = labelDetector(policy);
+      const windowText = text.slice(0, Math.min(text.length, requested + SAFE_PREFIX_LOOKAHEAD));
+      const found = detector.detect(windowText).slice();
+      const context = active();
+      if (context?.scope && context.policy === policy.signature) found.push(...context.scope.detectLearned(windowText));
+      // One fixed point: no span straddles the cut, every span kept inside the prefix is still
+      // recognized on the prefix alone by a fresh detector (another scope has not learned it),
+      // an unexecuted regex rule cannot be split, and no reference is split. end only decreases.
+      for (let previous = -1; end > 0 && end !== previous;) {
+        previous = end;
+        for (const span of found) if (span.start < end && span.end > end) end = span.start;
+        if (end > 0) {
+          const seen = detector.detect(text.slice(0, end));
+          const lost = found.filter(span => span.end <= end && !seen.some(row => row.start <= span.start && row.end >= span.end));
+          if (lost.length) end = Math.min(end, ...lost.map(span => span.start));
+        }
+        if (regex) end = runBoundaryEnd(text, end);
+        end = referenceAlignedEnd(text, end);
+      }
+    } catch { return 0; }   // local label only: an unscannable original yields no excerpt, never a raw prefix
+    if (end < requested) while (end > 0 && /\s/.test(text[end - 1])) end--;
+    return end;
+  }
+  function safePrefix(text, limit, opts) { return typeof text === 'string' ? text.slice(0, safePrefixEnd(text, limit, opts)) : ''; }
+  // 150 P1 review (legacy data): a label stored before this fix at exactly the old budget may end
+  // inside a value its original identified. With protection on, an exit copy drops that last run.
+  const LEGACY_LABEL_TAIL_MAX = 24;
+  function legacyLabelGuard(text, budget) {
+    if (typeof text !== 'string' || currentPolicy.mode === 'off' || text.length !== budget) return text;
+    let end = runBoundaryEnd(text, text.length, true);
+    // 一整段没有标点的中文会一路退到串首（1B2 复审：60 字标题被砍成空串）。中文尾段最多去掉 24 字——
+    // 足以覆盖汉字写的手机号、身份证与姓名；含 ASCII 字母数字的尾段整段去掉（其形状检测认得完整值）。
+    const tail = text.slice(end);
+    if (tail.length > LEGACY_LABEL_TAIL_MAX && !/[A-Za-z0-9]/.test(tail)) end = text.length - LEGACY_LABEL_TAIL_MAX;
+    end = referenceAlignedEnd(text, end);
+    while (end > 0 && /\s/.test(text[end - 1])) end--;
+    return text.slice(0, end);
+  }
+  // 150 P6 + review: a generated thread name (model output with references, or thread_title_update's
+  // restored arguments) is stored as text a list can display AND that another scope (the steward)
+  // still protects on its own. A value restored from this thread, or one this thread learned, keeps
+  // its original only when a fresh detector recognizes its complete span inside the label itself;
+  // a value identified only by context it no longer has (a labelled invalid-checksum ID, "a at b dot
+  // c", spelled-out digits, field/learned values) becomes a category word. Credentials and unknown or
+  // malformed references are never restored. OFF performs no detection: references become words.
+  const LABEL_WORDS = {
+    zh: { CREDENTIAL: '〔密钥〕', EMAIL: '〔邮箱〕', PHONE: '〔手机号〕', IDENTITY: '〔身份证〕', PAYMENT: '〔支付信息〕', INTERNAL: '〔内部信息〕', PATH: '〔路径〕', '': '〔隐私信息〕' },
+    en: { CREDENTIAL: '[secret]', EMAIL: '[email]', PHONE: '[phone]', IDENTITY: '[ID]', PAYMENT: '[payment]', INTERNAL: '[internal]', PATH: '[path]', '': '[private]' },
+  };
+  const labelWord = category => {
+    const words = LABEL_WORDS[String(currentPolicy.config?.locale || '').startsWith('en') ? 'en' : 'zh'];
+    return Object.hasOwn(words, category) ? words[category] : words[''];
+  };
+  const labelWordPattern = () => new RegExp([...Object.values(LABEL_WORDS.zh), ...Object.values(LABEL_WORDS.en)].map(word => word.replace(/[[\]]/g, '\\$&')).join('|'), 'g');
+  function safeLabel(text) {
+    if (typeof text !== 'string') return '';
+    const context = active(), policy = currentPolicy;
+    const scope = context?.scope && context.policy === policy.signature ? context.scope : null;
+    const sensitive = []; let out = '', from = 0;
+    const plain = piece => piece.replace(/\[\[RUYI_PVT[A-Za-z0-9:]*\]{0,2}/g, () => labelWord(''));
+    for (const match of text.matchAll(pattern())) {
+      out += plain(text.slice(from, match.index));
+      const category = match[0].slice(PREFIX.length).split(':')[0];
+      let value = null;
+      if (scope && category !== 'CREDENTIAL') {
+        try {
+          value = scope.restoreForTool(match[0], { scopeId: context.scopeId, tool: 'privacy_label', pointer: '/thread-brief',
+            destination: 'local-session-metadata', purpose: 'host-derived-label', authorize: grant => grant.category !== 'CREDENTIAL' });
+        } catch { value = null; }
+      }
+      if (value == null || policy.mode === 'off') out += labelWord(category);
+      else { sensitive.push({ start: out.length, end: out.length + value.length, category }); out += value; }
+      from = match.index + match[0].length;
+    }
+    out += plain(text.slice(from));
+    if (policy.mode !== 'off') {
+      try {
+        const { detector } = labelDetector(policy);
+        if (scope) for (const span of scope.detectLearned(out)) sensitive.push(span);
+        const seen = detector.detect(out);
+        // Merge overlapping sensitive spans; replace right to left so offsets stay valid.
+        const spans = sensitive.sort((a, b) => a.start - b.start).reduce((rows, span) => {
+          const last = rows[rows.length - 1];
+          if (last && span.start < last.end) { last.end = Math.max(last.end, span.end); return rows; }
+          rows.push({ ...span }); return rows;
+        }, []);
+        for (const span of spans.reverse()) {
+          if (seen.some(row => row.start <= span.start && row.end >= span.end)) continue;
+          out = out.slice(0, span.start) + labelWord(span.category) + out.slice(span.end);
+        }
+      } catch { return ''; }   // an unscannable label is not stored
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }
+  // Characters of a label that are not category words or whitespace (a name of only words is no name).
+  const labelSubstance = text => String(text || '').replace(labelWordPattern(), '').replace(/\s+/g, '').length;
   function sourcePointer(value, pointer) {
     if (typeof pointer !== 'string' || !pointer.startsWith('/') || /~(?![01])/.test(pointer)) fail('source_proof_invalid');
     for (const part of pointer.slice(1).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~'))) {
@@ -1284,13 +1438,83 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     }
     return changed ? result : segments;
   }
+  // 150 P6: session/list metadata (names, summaries, recent request) is a display copy too.
+  // Legacy rows may carry references or a reference cut in half; never show either raw.
+  const LABEL_FIELDS = ['title', 'displayTitle', 'summary', 'lastSay', 'missionTitle'];
+  const LABEL_OBJECTS = { brief: ['title', 'gist'], threadBrief: ['title', 'gist'], recentUserRequest: ['text'] };
+  const labelCandidate = row => !!row && typeof row === 'object' && (LABEL_FIELDS.some(key => typeof row[key] === 'string' && row[key].includes(PREFIX))
+    || Object.entries(LABEL_OBJECTS).some(([key, fields]) => row[key] && typeof row[key] === 'object' && fields.some(field => typeof row[key][field] === 'string' && row[key][field].includes(PREFIX))));
+  async function displayLabelCopy(context, row) {
+    if (!labelCandidate(row)) return row;
+    let next = row;
+    const set = (key, value) => { if (value !== row[key]) { if (next === row) next = { ...row }; next[key] = value; } };
+    for (const key of LABEL_FIELDS) if (typeof row[key] === 'string') set(key, await context.text(row[key]));
+    for (const [key, fields] of Object.entries(LABEL_OBJECTS)) {
+      const item = row[key]; if (!item || typeof item !== 'object') continue;
+      let copy = item;
+      for (const field of fields) if (typeof item[field] === 'string') {
+        const value = await context.text(item[field]); if (value !== item[field]) { if (copy === item) copy = { ...item }; copy[field] = value; }
+      }
+      set(key, copy);
+    }
+    return next;
+  }
+  // Each row is restored only in its own session's scope; rows without references are untouched.
+  // 150 review: a list re-reads the same few labels on every poll. Restored copies are cached by
+  // (mapping identity: in-memory revision or file stamp, policy epoch/signature, original text) for a
+  // bounded time; any mapping write, import, revocation or policy change misses. The combined stamp
+  // lets a list keep an ETag that changes whenever any restored copy could change.
+  const labelDisplayCache = new Map(), LABEL_CACHE_MAX = 4096, LABEL_CACHE_MS = 60 * 1000;
+  const entrySerials = new WeakMap(); let entrySerial = 0;
+  async function labelStamp(id) {
+    if (typeof id !== 'string' || !id || id.length > 160) return '';
+    const key = keyOf(id), cached = loaded.get(key);
+    if (cached?.value) {
+      let serial = entrySerials.get(cached); if (!serial) entrySerials.set(cached, serial = ++entrySerial);
+      return 'm' + serial + ':' + cached.value.scope.revision();
+    }
+    try { const stat = await fileApi.lstat(pathApi.join(host.data, 'privacy-scopes', key + '.json')); return 'f' + stat.size + ':' + stat.mtimeMs + ':' + stat.ino; }
+    catch (error) { return error.code === 'ENOENT' ? 'none' : ''; }
+  }
+  async function displayLabelsStamped(rows, idOf = row => row?.id) {
+    if (!Array.isArray(rows) || !rows.some(labelCandidate)) return { rows, stamp: '' };
+    const result = [], stamps = [];
+    for (const row of rows) {
+      if (!labelCandidate(row)) { result.push(row); continue; }
+      const id = String(idOf(row) || ''), mapping = await labelStamp(id);
+      const stamp = mapping && policyEpoch + ':' + currentPolicy.signature + ':' + mapping;
+      stamps.push(id + '=' + (stamp || Date.now()));
+      let context = null;
+      const text = async value => {
+        if (!value.includes(PREFIX)) return (context ||= displayContext(id)).text(value);
+        const key = stamp && stamp + '|' + keyOf(id) + '|' + value, hit = key && labelDisplayCache.get(key);
+        if (hit && Date.now() - hit.at < LABEL_CACHE_MS) { labelDisplayCache.delete(key); labelDisplayCache.set(key, hit); return hit.text; }
+        context ||= displayContext(id);
+        const shown = await context.text(value);
+        if (key && !context.limited) {
+          labelDisplayCache.set(key, { text: shown, at: Date.now() });
+          while (labelDisplayCache.size > LABEL_CACHE_MAX) labelDisplayCache.delete(labelDisplayCache.keys().next().value);
+        }
+        return shown;
+      };
+      try { result.push(await displayLabelCopy({ text }, row)); } finally { context?.close(); }
+    }
+    return { rows: result, stamp: cryptoApi.createHash('sha256').update(stamps.join('\n')).digest('hex').slice(0, 16) };
+  }
+  async function displayLabels(rows, idOf) { return (await displayLabelsStamped(rows, idOf)).rows; }
   async function displayEnvelopeCopy(context, envelope) {
     if (!envelope || typeof envelope !== 'object') return envelope;
     let next = envelope;
     const set = (key, value) => { if (value !== envelope[key]) { if (next === envelope) next = { ...envelope }; next[key] = value; } };
+    if (typeof envelope.displayTitle === 'string') set('displayTitle', await context.text(envelope.displayTitle));
     if (envelope.session && typeof envelope.session === 'object') {
+      const head = await displayLabelCopy(context, envelope.session);
       const messages = await displayMessageCopies(context, envelope.session.messages);
-      if (messages !== envelope.session.messages) set('session', { ...envelope.session, messages });
+      if (head !== envelope.session || messages !== envelope.session.messages) {
+        const copy = head === envelope.session ? { ...envelope.session } : head;
+        if (messages !== envelope.session.messages) copy.messages = messages;
+        set('session', copy);
+      }
     }
     if (envelope.liveTail && typeof envelope.liveTail === 'object') {
       let tail = envelope.liveTail;
@@ -1704,8 +1928,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       } });
     return snapshot;
   }
-  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
 PrivacyCore.configHooks.markPrivacyUnavailable = PrivacyGateway.markUnavailable;
+// 150 P1/P6: 02 (session store) cuts host-derived labels before this module is concatenated.
+PrivacyCore.configHooks.safeTextEnd = PrivacyGateway.safePrefixEnd;

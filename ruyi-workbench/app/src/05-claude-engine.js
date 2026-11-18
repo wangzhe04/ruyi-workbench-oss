@@ -1212,9 +1212,9 @@ async function runClaudeTurn({
   // 50-fix(标题卡死):前端曾把本地化占位名(新会话)当标题落库,旧的 `=== 'New session'` 判定永不
   // 匹配 → 所有会话标题卡死。未命名判定拓宽为中英占位集,历史会话下一轮自动补名。
   if (isUntitledSessionTitle(session.title)) {
-    session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
+    session.title = sessionAutoTitle(message) || 'Session';   // 150 P1:截断边界不切开敏感值(02 sessionTextPrefix)
   }
-  session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  session.summary = sessionAutoSummary(finalText) || session.summary || '';
   // v0.8-S3 cross-process reconcile: todo_write in the MCP child looped back to /api/todo, which wrote
   // session.todos to DISK. Our in-memory `session` predates that write; re-read the persisted todos before
   // the final save so we don't clobber them (the child never writes session files itself — double-write

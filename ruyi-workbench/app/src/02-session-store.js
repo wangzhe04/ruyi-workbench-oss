@@ -1553,6 +1553,26 @@ function sessionMissionId(o) {
 // 上限一旦调整,存量数据仍是按当时上限存的,显示层再截一次只会掩盖这件事。
 const SESSION_BRIEF_TITLE_CHARS = 24;
 const SESSION_BRIEF_GIST_CHARS = 80;
+// 150 P1/P6:宿主从原文派生的短文本(自动标题 60 / 摘要 160 / 最近请求 240 / 起名 24·80 / 管家侧摘录)
+// 一律经这里截。隐私开着时先对【完整原文】识别,截断点落进某个敏感值或代号里就退到它开头(宁短勿泄);
+// 隐私关着时与裸 slice 逐字相同、零扫描(只做一次代号边界的字面量查找)。返回的仍是原文 —— 本机显示用的是
+// 用户自己的数据,出口(管家工具、线程清单)照旧经网关投影;这里只保证截断边界不切开敏感值。
+// 实现在 03a(PrivacyGateway.safePrefixEnd);本模块拼在 03a 之前,经 01h 的 configHooks 取。
+// opts.verify(审查):从原文【新生成】的标签即使装得下也要复核 —— 它会进别的 scope,本线程靠上下文/学来才认得出的
+// 值在那边就是明文;读时再截一次已存标签的调用方不带它(存的时候已经复核过)。
+function sessionTextPrefix(text, limit, opts) {
+  const s = String(text == null ? '' : text);
+  const verify = !!(opts && opts.verify === true);
+  if (s.length <= limit && !verify) return s;
+  const hook = typeof PrivacyCore !== 'undefined' && typeof PrivacyCore.configHooks.safeTextEnd === 'function' ? PrivacyCore.configHooks.safeTextEnd : null;
+  return s.slice(0, hook ? hook(s, limit, verify ? { verify: true } : undefined) : limit);
+}
+const SESSION_AUTO_TITLE_CHARS = 60;
+const SESSION_AUTO_SUMMARY_CHARS = 160;
+const SESSION_RECENT_REQUEST_CHARS = 240;
+// 三个引擎(05 / 05b / 09)收尾时的本地标题与摘要:同一个表达式,只在这里写一次。
+function sessionAutoTitle(message) { return sessionTextPrefix(String(message == null ? '' : message).replace(/\s+/g, ' ').trim(), SESSION_AUTO_TITLE_CHARS, { verify: true }); }
+function sessionAutoSummary(text) { return sessionTextPrefix(String(text == null ? '' : text).replace(/\s+/g, ' ').trim(), SESSION_AUTO_SUMMARY_CHARS, { verify: true }); }
 // 117l-A1-fix (2)(27 号文 §11.9;用户真机天天看见):占位标题不是名字,它是「还没有名字」。
 // 未命名线程在第一回合结束、摘要(threadBrief)生成之前,raw 逐字就是后端占位符 'New session'
 // (createSession 写的),于是收件箱事件行写成「线程「New session」(sess_x)」、routeHint 块与
@@ -1573,7 +1593,8 @@ function sessionFirstUserExcerpt(o) {
     const text = m.content.replace(/\s+/g, ' ').trim();   // 标题是一行:换行折成空格
     if (!text) continue;
     const chars = [...text];   // 按字符切,不按 UTF-16 码元(别把一个 emoji 劈成两半)
-    return chars.length > SESSION_BRIEF_TITLE_CHARS ? chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('') + '…' : text;
+    // 150 P1:这一档摘录同样会进管家模型,截断边界走 sessionTextPrefix(按字符数折成码元上限)。
+    return chars.length > SESSION_BRIEF_TITLE_CHARS ? sessionTextPrefix(text, chars.slice(0, SESSION_BRIEF_TITLE_CHARS).join('').length) + '…' : text;
   }
   return '';
 }
@@ -1599,8 +1620,17 @@ function applySessionTitleOverride(session) {
   return session;
 }
 
+// 150 P1 审查 3:修前落盘的自动标题是首条用户消息裸截 60 字,可能停在敏感值中间,而标题只在未命名时生成、以后不重算。
+// 手上有正文时判据可靠:非用户起的标题逐字等于「首条用户消息规范化后的前 60 字」且原话更长 —— 读时按 sessionAutoTitle
+// 重算(隐私关时两者相同,零扫描)。只有会话头没有正文的调用面判不了,交给管家出口侧的兜底(03a legacyLabelGuard)。
+function sessionLegacyAutoTitle(o, raw) {
+  if (!o || o.titleSource === 'user' || raw.length !== SESSION_AUTO_TITLE_CHARS || !Array.isArray(o.messages)) return raw;
+  const first = o.messages.find(m => m && m.role === 'user' && typeof m.content === 'string');
+  const text = first ? first.content.replace(/\s+/g, ' ').trim() : '';
+  return text.length > SESSION_AUTO_TITLE_CHARS && text.slice(0, SESSION_AUTO_TITLE_CHARS) === raw ? (sessionAutoTitle(text) || raw) : raw;
+}
 function sessionDisplayTitle(o) {
-  const raw = String((o && o.title) || '');
+  const raw = sessionLegacyAutoTitle(o, String((o && o.title) || ''));
   if (!o || o.titleSource === 'user') return raw;
   const brief = (o.threadBrief && typeof o.threadBrief === 'object') ? o.threadBrief : ((o.brief && typeof o.brief === 'object') ? o.brief : null);
   const generated = String((brief && brief.title) || '').trim();
@@ -1619,7 +1649,7 @@ function sessionRecentUserRequest(o) {
   const recent = messages ? messages.findLast(message => message && message.role === 'user' && !(message.meta && message.meta.origin === 'agent_wake')) : (o && o.recentUserRequest);
   if (!recent) return null;
   const content = recent.content == null ? recent.text : recent.content;
-  const text = (Array.isArray(content) ? content.map(part => typeof part === 'string' ? part : part && part.text || '').join('\n') : String(content || '')).replace(/\s+/g, ' ').trim().slice(0, 240);
+  const text = sessionTextPrefix((Array.isArray(content) ? content.map(part => typeof part === 'string' ? part : part && part.text || '').join('\n') : String(content || '')).replace(/\s+/g, ' ').trim(), SESSION_RECENT_REQUEST_CHARS, messages ? { verify: true } : undefined);
   if (!text) return null;
   return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
 }
@@ -2189,8 +2219,8 @@ function applySessionMetaPatch(session, patch, options = {}) {
     const stage = String(b.stage || '');
     session.threadBrief = {
       schema: 1,
-      title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_TITLE_CHARS),
-      gist: String(b.gist || '').replace(/\s+/g, ' ').trim().slice(0, SESSION_BRIEF_GIST_CHARS),
+      title: sessionTextPrefix(String(b.title || '').replace(/\s+/g, ' ').trim(), SESSION_BRIEF_TITLE_CHARS),
+      gist: sessionTextPrefix(String(b.gist || '').replace(/\s+/g, ' ').trim(), SESSION_BRIEF_GIST_CHARS),
       at: String(b.at || ''),
       model: String(b.model || '').slice(0, 160),
       stage: (stage === 'first_turn' || stage === 'settled') ? stage : 'first_turn',
@@ -6425,7 +6455,7 @@ async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackF
   session.claudeSessionId = null; // stale --resume context must not splice removed history back in
   // Refresh the derived summary/title tail off the surviving messages (best-effort).
   const lastAssistant = [...session.messages].reverse().find(m => m && m.role === 'assistant');
-  session.summary = lastAssistant ? String(lastAssistant.content || '').replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  session.summary = lastAssistant ? sessionAutoSummary(lastAssistant.content || '') : '';
   // 107-F7b:这一存抬撤回代数(见函数开头那段注与 sessionRewindGenHighWater 头注)。之后任何拿着撤回【之前】
   // 那份对象来写的人都会被 saveSession 的代数闸丢掉。它自己被丢只有两种可能,都是两次撤回交错:① 在它入链
   // 之后、执行之前又来了一次更新的撤回;② 它截断用的这份副本本身读在另一次已经抬了代数的撤回之前(照它截

@@ -380,7 +380,7 @@ function stewardNormalizeThreadAdopted(record) {
   const kind = stewardKindFor('threadAdopted', 'thread_adopted', r);
   if (!kind) return null;
   const at = stewardIsoAt(r.at);
-  const title = stewardSanitizeText(r.title || '').slice(0, 120);
+  const title = sessionTextPrefix(stewardSanitizeText(r.title || ''), 120);   // 150 P1:标题是用户原话,截断不切开敏感值
   const note = stewardSanitizeText(r.note || '').slice(0, 200);
   // 121-K6a:委托一句缝进人话里——管家下一回合读收件箱摘要时,「盯着」与「盯什么」在同一句里,
   // 不必再去查第二个字段。没带就是老行为(一字不变)。

@@ -383,17 +383,21 @@ function threadRelatedThreads(head, metas) {
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
+// 150 P1 审查 3:修前落盘的标签可能停在敏感值中间。会话头上判不出是不是修前的,于是管家出口对【恰好等于旧预算】
+// 的自动标签去掉末尾那一段连续字符(03a legacyLabelGuard;隐私关时原样)。修后新截的标签若正好满额也会少一段,宁短勿泄。
 function stewardRecentUserRequest(o) {
   const request = sessionMeta(o).recentUserRequest;
-  return request ? { ...request, text: stewardSanitizeText(redact(request.text), true) } : null;
+  return request ? { ...request, text: stewardSanitizeText(redact(PrivacyGateway.legacyLabelGuard(request.text, SESSION_RECENT_REQUEST_CHARS)), true) } : null;
 }
 function stewardThreadDisplayTitle(head, config) {
   let title = sessionDisplayTitle(head);
   if (head?.titleSource !== 'user' && isUntitledSessionTitle(title)) {
     const request = stewardRecentUserRequest(head);
-    title = request?.text ? [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('')
+    // 150 P1:这一档摘录直接进管家模型,截断边界走 02 sessionTextPrefix(按字符数折成码元上限)。
+    title = request?.text ? sessionTextPrefix(request.text, [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('').length)
       : /^en/i.test(String(config?.locale || '')) ? 'Unnamed thread' : '未命名线程';
   }
+  if (head?.titleSource !== 'user') title = PrivacyGateway.legacyLabelGuard(String(title || ''), SESSION_AUTO_TITLE_CHARS);
   return stewardSanitizeText(redact(String(title || '')), true);
 }
 async function stewardImplThreadsSearch(args, ctx, config) {
@@ -484,7 +488,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
-      lastAssistantText: stewardClipSay(publicMeta.summary || ''),
+      lastAssistantText: stewardClipSay(PrivacyGateway.legacyLabelGuard(publicMeta.summary || '', SESSION_AUTO_SUMMARY_CHARS)),
       ...(recentUserRequest ? { recentUserRequest } : {}),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
       score: Number(row.score) || 0,...(matches.get(row.id)?.reference?{reference:matches.get(row.id).reference,snippet:matches.get(row.id).snippet}:{}),
@@ -592,7 +596,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     usage: usage ? { inTok: usage.inTok, outTok: usage.outTok, cachedInTok: usage.cachedInTok, turns: usage.turns, costsByCurrency: usage.costsByCurrency } : null,
     turnSeq: Math.max(0, Number(head.turnSeq) || 0),
     updatedAt: String(head.updatedAt || ''),
-    lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
+    lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : PrivacyGateway.legacyLabelGuard(head.summary || '', SESSION_AUTO_SUMMARY_CHARS)),
     recentUserRequest: stewardRecentUserRequest(session || head),
   });
 }
@@ -932,7 +936,7 @@ async function stewardImplThreadNew(args, ctx, config) {
   if (!cwdPick.ok) return cwdPick.fail;
 
   const session = await createSession({
-    title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
+    title: args.title ? sessionTextPrefix(String(args.title), STEWARD_TITLE_MAX) : undefined,   // 150 审查 2
     cwd: cwdPick.cwd,
     // 121-K3(§4.1 来源三值):出身在 createSession 那一次写死。与下面的 createdBy 是两个字段、
     // 一个事实的两面 —— createdBy 是权限判据(桌面权限只开给管家自己开的线程),origin 是展示与
@@ -1365,7 +1369,7 @@ async function stewardImplThreadRename(args, ctx, config) {
   // 第二轮工具走查(F8):title:{a:1} 修前被 String() 成 "[object Object]" 写进会话头(门控壳现在也会拦对象/数组,
   // 这里再收紧到「必须是字符串」—— 标题是给人看的名字,数字、布尔当标题都是模型传串了位)。
   if (args.title != null && typeof args.title !== 'string') return stewardFail('invalid_request', 'title must be a string');
-  const title = String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim().slice(0, STEWARD_TITLE_MAX);
+  const title = sessionTextPrefix(String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim(), STEWARD_TITLE_MAX);   // 150 审查 2
   if (!title) return stewardFail('invalid_request', 'title is required');
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
@@ -1654,7 +1658,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
-    title: stewardSanitizeText(question).slice(0, STEWARD_TITLE_MAX),
+    title: sessionTextPrefix(stewardSanitizeText(question), STEWARD_TITLE_MAX),   // 150 审查 2:速问原话可上千字
     cwd: quickCwdPick.cwd,
     origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });

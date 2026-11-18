@@ -1487,6 +1487,22 @@ async function reassertThreadBrief(sessionId) {
 }
 
 // The current main agent supplies a title only after an explicit change of objective; no extra model call.
+// 150 P1/P6 + 审查:自动名字(模型起名 / thread_title_update)存成【管家 scope 自己也护得住】的文本。网关的 safeLabel 把
+// 代号还原成原文,但只留新 scope 单看名字本身就认得出完整区间的值;只靠上下文才认得出的(带标签但校验位不对的
+// 证件号、「a at b dot c」、中文数字手机号、字段规则/学来的值)换成类别词(〔身份证〕等)。截断再对齐值与代号边界。
+// 除去类别词后不足 4 个字的名字不算名字:不存,线程照旧显示原话标题。
+const THREAD_BRIEF_MIN_SUBSTANCE = 4;
+function threadBriefLabels(title, gist) {
+  const gateway = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway : null;
+  const label = value => gateway ? gateway.safeLabel(String(value || '')) : String(value || '');
+  const rawTitle = String(title || ''), labeledTitle = label(rawTitle);
+  const out = { title: sessionTextPrefix(labeledTitle, SESSION_BRIEF_TITLE_CHARS), gist: sessionTextPrefix(label(gist), SESSION_BRIEF_GIST_CHARS) };
+  // 最少字数只管「safeLabel 真替换过」的名字(换成类别词后可能只剩「给」)；隐私关或没碰到敏感值的名字
+  // （周报、Bug）照修前原样存（1B2 复审：v2 曾把所有短名字都丢掉）。
+  if (labeledTitle === rawTitle) return out;
+  const substance = gateway ? gateway.labelSubstance(out.title) : out.title.replace(/\s+/g, '').length;
+  return substance >= THREAD_BRIEF_MIN_SUBSTANCE ? out : null;
+}
 async function updateAutomaticThreadTitle(input) {
   const o = input || {}, sid = safeSessionId(o.sessionId);
   if (!sid) return { ok: false, error: 'session_required' };
@@ -1496,7 +1512,10 @@ async function updateAutomaticThreadTitle(input) {
   if (typeof o.title !== 'string') return { ok: false, error: 'title_required' };
   const parsed = parseThreadBrief(JSON.stringify({ title: o.title, gist: o.gist ?? '' }));
   if (!parsed) return { ok: false, error: 'title_required' };
-  const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: 'agent', stage: 'settled' };
+  // 150 P1/P6:工具参数已在网关还原成原文 —— 与模型起名同一口径(threadBriefLabels)。
+  const labels = threadBriefLabels(parsed.title, parsed.gist);
+  if (!labels) return { ok: true, updated: false, reason: 'privacy_label' };
+  const brief = { schema: 1, title: labels.title, gist: labels.gist, at: nowIso(), model: 'agent', stage: 'settled' };
   const rewindGen = Number(head.rewindGen) || 0;
   if (sessionTitleOverrides.get(sid)?.titleSource === 'user') return { ok: true, updated: false, reason: 'user_title' };
   sessionTitleOverrides.set(sid, { threadBrief: brief, rewindGen });
@@ -1566,10 +1585,14 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         }
       } catch { /* accounting must never break the brief */ }
       const parsed = (sc && sc.ok) ? parseThreadBrief(sc.content) : null;
+      // 150 P6:模型看到的是代号,起出来的名字也带代号。修前原样存模型输出、按 24 字硬截,侧栏出现
+      // 「给[[RUYI_PVT:EMAIL:09c9f2」。现在经 threadBriefLabels(见其头注);名字护不住就放弃这一份 brief(不重试)。
+      const labels = parsed ? threadBriefLabels(parsed.title, parsed.gist) : null;
+      if (parsed && !labels) return null;
       if (parsed) {
         // 走 updateSessionMeta:首回合那次发起时回合还在跑,这条通道会延后到 settle 之后在
         // 【重新装载的副本】上重放,绝不会用陈旧正文盖掉回合刚写的消息(116-2a 的既有防护)。
-        const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
+        const brief = { schema: 1, title: labels.title, gist: labels.gist, at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
         const current = await loadSession(sid).catch(() => null);
         if (!current || current.titleSource === 'user' || (Number(current.rewindGen) || 0) !== (Number(head.rewindGen) || 0)
             || String(current.threadBrief?.at || '') !== String(head.threadBrief?.at || '')) return null;

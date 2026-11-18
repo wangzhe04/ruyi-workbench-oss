@@ -333,9 +333,12 @@ function stewardOverviewBlock(rows, pack) {
     // 117l D5:总览行的名字用【显示名】。修前这里是原话 title —— 用户机器上十几条还没起名的线程
     // 于是被管家一律叫成「New session」。**digest.title 本身不动**:preroute 的词法打分吃的就是它
     // (见 stewardPrerouteIndexRows 处的原注释),把索引里的原话换掉等于把用户当时打的词抹了。
-    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: row.displayTitle || row.digest.title }));
+    // 150 P1 审查 3:修前落盘的满额标题/摘要可能停在敏感值中间(03a legacyLabelGuard)。
+    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: PrivacyGateway.legacyLabelGuard(row.displayTitle || row.digest.title, SESSION_AUTO_TITLE_CHARS),
+      ...(typeof row.digest.lastSay === 'string' ? { lastSay: PrivacyGateway.legacyLabelGuard(row.digest.lastSay, SESSION_AUTO_SUMMARY_CHARS) } : {}) }));
     const request = row.digest && row.digest.recentUserRequest;
-    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text), true).slice(0, 80) : '';
+    // 150 P1:用户原话的摘录进管家提示词,截断边界不切开敏感值(02 sessionTextPrefix)。
+    const activity = request ? ' · ' + pack.steward.activityRequest + sessionTextPrefix(stewardSanitizeText(redact(request.text), true), 80) : '';
     // Related IDs are executable read targets: admit whole entries or omit them, never slice one.
     const clueBudget = Math.floor(STEWARD_DIGEST_LIMITS.lineChars / 2);
     const relatedEntries = [];
@@ -431,9 +434,10 @@ async function stewardKnownWorkspaceRows(config) {
 function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
   const limits = STEWARD_KNOWN_WORKSPACE_LIMITS;
+  // 150 P1:标题/原话/回复的摘录进管家提示词,截断边界不切开敏感值(02 sessionTextPrefix)。
   const clip = (value, max) => {
     const s = stewardSanitizeText(String(value == null ? '' : value), true).trim();
-    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+    return s.length > max ? sessionTextPrefix(s, max - 1) + '…' : s;
   };
   const lines = [];
   let used = 0;
@@ -455,7 +459,7 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
     // 一行太长就先少带几条线程(话题砍整条,不砍半句);连一条都不带还超,才截名字之外的尾巴。
     let line = pack.steward.workspaceRow({ name, tags, threads });
     while (line.length > limits.lineChars && threads.length) { threads.pop(); line = pack.steward.workspaceRow({ name, tags, threads }); }
-    if (line.length > limits.lineChars) line = line.slice(0, limits.lineChars - 1) + '…';
+    if (line.length > limits.lineChars) line = sessionTextPrefix(line, limits.lineChars - 1) + '…';
     if (used + line.length + 1 > limits.totalChars) { folded += 1; continue; }
     lines.push(line);
     used += line.length + 1;

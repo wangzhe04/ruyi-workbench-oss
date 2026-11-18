@@ -4,7 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), vm = require('node:vm');
-const { functionBlock } = require('../lib/source-slice');
+const { functionBlock, constBlock } = require('../lib/source-slice');
 const { backgroundLedgerFixture } = require('../lib/background-ledger-fixture');
 const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/02-session-store.js'), 'utf8');
 const functions = ['withJournalWriteLock', 'journalRollback', 'journalRollbackContents', 'rewindSessionArtifactContents'];
@@ -58,7 +58,8 @@ function fixture(t, transform = value => value) {
     SessionExecutionHooks: {}, turnSettlers: new Map(), journalRevertLogRead: async () => [], journalAssertWritable: async () => {},
     journalRevertLogPrune: async () => {}, cancelModelRunsOfDiscardedTurns: () => {}, bumpMissionChangeSeq: async () => {},
   });
-  const code = transform(functions.map(name => functionBlock(source, name)).join('\n'));
+  // 150 P6:撤回后的摘要经 02 的 sessionAutoSummary 重算;沙箱里没有 PrivacyCore,走裸 slice。
+  const code = transform(constBlock(source, 'SESSION_AUTO_SUMMARY_CHARS') + '\n' + [...functions, 'sessionTextPrefix', 'sessionAutoSummary'].map(name => functionBlock(source, name)).join('\n'));
   const api = vm.runInContext(code + '\n({journalRollback,rewindSessionArtifactContents});', f.context);
   return { f, session, api, loadEntered, resumeLoad, rewindQueued, journalChains,
     state: () => ({ saved, index, loads, fileEffects }) };

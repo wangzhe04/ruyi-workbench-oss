@@ -152,7 +152,8 @@ async function importedSessionCwdAllowed(cwd, config) {
 
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
-    return send(res, json({ ok: true, sessions: await listSessions() }));
+    // 150 P6:列表与 GET 单会话走同一套 display 还原(各行在自己那条会话的 scope 里还原;无代号的行原样)。
+    return send(res, json({ ok: true, sessions: await PrivacyGateway.displayLabels(await listSessions()) }));
   }
   // 113b: 会话内容搜索。GET /api/sessions/search?q=&limit=
   // 必须排在下面那条 pathname.startsWith('/api/sessions/') 的通配分支【之前】，
@@ -766,13 +767,15 @@ async function buildMissionAggregateRows(options = {}) {
       // 116-5b:同 buildMissionCard —— title 仍是原话,显示名另给一个键(steward_missions 的线程清单、
       // 抽屉页签、看板行都读它)。meta 是索引条目形态(brief/titleSource),sessionDisplayTitle 两形态都认。
       displayTitle: stewardSanitizeText(sessionDisplayTitle(meta)),
+      // 1B2 复审：用户自起的标题不受旧数据兜底（legacyLabelGuard）影响；看板不读 threads[]，主列表字节不变。
+      ...(meta.titleSource === 'user' ? { titleSource: 'user' } : {}),
       ...(sessionBriefOf(meta) ? { brief: sessionBriefOf(meta) } : {}),
       kind: meta.kind || 'quick_ask',
       state: derived.state,
       stateLabel: derived.label,
       permissionMode: meta.permissionMode || null,
-      // 150 号文 §4 P8:先投影外线程代号再截 120 字(与 13k 的管家视图同口径),截断不会留下半个代号。
-      lastAssistantText: stewardSanitizeText(meta.summary || '', true).slice(0, 120),
+      // 150 号文 §4 P8 + P1/P6:先投影外线程代号(foreign),再按安全前缀截 120 字(不切开敏感值与代号)。
+      lastAssistantText: sessionTextPrefix(stewardSanitizeText(meta.summary || '', true), 120),
       updatedAt: String(meta.updatedAt || ''),
       cwd: String(meta.cwd || ''),   // W7:这条线程开在哪个目录(事项的 workspace 从这里派生)
       workspace: workspaceOf(meta.cwd),
@@ -1023,12 +1026,18 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         const groupRow = aggregate.rowBySessionId.get(sid);
         if (card) picked.push(overlayMissionAggregateFields(card, groupRow && !groupRow.derived ? groupRow : undefined));
       }
-      return send(res, json({ ok: true, missions: picked, projectionRevision: index.missionsRevision }));
+      // 1B2:与主列表同一套显示还原(每行用自己会话的 scope)。
+      return send(res, json({ ok: true, missions: await PrivacyGateway.displayLabels(picked, row => row.sessionId), projectionRevision: index.missionsRevision }));
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
+    // 150 P6:左栏行(名字/概括/末句)是显示副本,在各自会话的 scope 里还原。还原结果取决于映射,所以真还原过的
+    // 一页把「映射戳」(内存修订号或映射文件戳 + 策略代数)拼进 ETag 的末段:映射一变标签就变,不变照旧 304;
+    // 普通行(无代号)一个字节不变、标签也不变。
+    const displayed = await PrivacyGateway.displayLabelsStamped(paged.items, row => row.sessionId);
     // 用量修订号挂在【最后】一段:前面三段(修订号 - 在场覆盖 - 行指纹)的段位有测试按位读(steward-thread-order ⑪)。
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || ''), paged.page);
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || '') + (displayed.stamp ? '-d' + displayed.stamp : ''), paged.page);
+    paged.items = displayed.rows;
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
@@ -1242,9 +1251,7 @@ const runs = await listAgentRuns(sessionId).catch(error => { if (String(error &&
     };
     const pendingCounts = await missionPendingCounts(sessionId, runs, indexed && indexed.interventions);
 
-    return send(res, json({
-      ok: true,
-      snapshot: {
+    const snapshot = {
         sessionId, missionId: sessionMissionId(session), kind: sessionKind(session), title: session.title || '', summary: session.summary || '',
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
@@ -1274,9 +1281,14 @@ const runs = await listAgentRuns(sessionId).catch(error => { if (String(error &&
           liveOverlay: activeChildren.has(sessionId) || runs.some(r => activeAgentRuns.has(r.id)),
           overlayAt: nowIso(),
         },
-      },
+      };
+    // 150 P6:详情的 title/summary 与列表同一套显示还原;真还原过的一份不发 ETag(还原取决于映射,不在上面的标签里)。
+    const shown = await PrivacyGateway.displayLabelsStamped([snapshot], () => sessionId);
+    return send(res, json({
+      ok: true,
+      snapshot: shown.rows[0],
       index: pretenderIndexMeta(index),
-    }, 200, etag ? { etag } : {}));
+    }, 200, shown.stamp ? { 'cache-control': 'no-store' } : (etag ? { etag } : {})));
   }
   return false;
 }
@@ -1858,7 +1870,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // (mission-index-scale 收件箱热 P95 闸 250 ms 红);标题从不进 ETag,挪到分页之后响应不变。
     const pageSids = [...new Set(paged.items.map(p => p.sessionId))];
     const heads = await Promise.all(pageSids.map(sid => readSessionHeadResilient(sid).catch(() => null)));
-    const titleOf = new Map(pageSids.map((sid, i) => [sid, String((heads[i] && heads[i].title) || '').slice(0, 120)]));
+    const titleOf = new Map(pageSids.map((sid, i) => [sid, sessionTextPrefix(String((heads[i] && heads[i].title) || ''), 120)]));   // 150 P1:用户起的标题可到 200 字
     for (const p of paged.items) p.title = titleOf.get(p.sessionId) || '';
     if (stewardView) {
       const ids = [...new Set(paged.items.map(p => p.missionId).filter(id => !pageSids.includes(id)))];
@@ -1876,6 +1888,8 @@ async function handleInterventionApiRoutes(req, res, pathname) {
         p.detailsComplete = !!detail && text.length <= 32000;
       }
     }
+    // 150 P6:弹窗的「来自哪条线程」与列表同一套显示还原(标题本来就不进 ETag,见上)。
+    paged.items = await PrivacyGateway.displayLabels(paged.items, p => p.sessionId);
     return send(res, json({
       ok: true,
       pending: paged.items,

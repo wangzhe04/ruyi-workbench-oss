@@ -187,7 +187,7 @@ function stewardDelegationReceiptLabel(result, title) {
   const labels = (result && result.exemptDelegation && Array.isArray(result.exemptDelegation.labels))
     ? result.exemptDelegation.labels.map(stewardSanitizeText).filter(Boolean) : [];
   const kinds = labels.length ? `「${labels.join('」「')}」` : '';
-  const where = title ? ` · 线程「${stewardSanitizeText(title).slice(0, 24)}」` : '';
+  const where = title ? ` · 线程「${sessionTextPrefix(stewardSanitizeText(title), 24)}」` : '';   // 150 P1:落进管家历史,截断不切开敏感值
   return `代批${kinds}${where}`;
 }
 function stewardMergeDelegationReceipts(executedRows, delegationToolCalls, titleOf) {

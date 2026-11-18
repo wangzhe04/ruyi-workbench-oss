@@ -353,7 +353,7 @@ async function schedulerOnReminderDue(schedRow) {
   // 正文由下单方写死:安静卡「稍后」建的那条把「来自你 N 分钟前按的『稍后』」整句写进 payload.text
   // (i18n 在客户端做,服务端不拼第二份文案)。这里只清洗与截断。
   const text = stewardClipSummary(stewardSanitizeText(raw.text || '')).slice(0, SCHEDULER_INBOX_TEXT_MAX);
-  const title = stewardSanitizeText(raw.title || '').slice(0, 120);
+  const title = sessionTextPrefix(stewardSanitizeText(raw.title || ''), 120);   // 150 审查 2
   const summary = text || title;
   return schedulerInboxAppend({
     sessionId: sourceRef ? sourceRef.sessionId : '',
@@ -388,7 +388,7 @@ async function schedulerOnSchedulerNotice(schedRow) {
   const kind = String(raw.kind || '');
   const make = SCHEDULER_NOTICE_TEXT[kind];
   if (!make) return null;
-  const title = stewardSanitizeText(raw.title || '').slice(0, 60) || '(未命名)';
+  const title = sessionTextPrefix(stewardSanitizeText(raw.title || ''), 60) || '(未命名)';   // 150 审查 2
   const summary = stewardClipSummary(make(title));
   return schedulerInboxAppend({
     sessionId: String(raw.sessionId || ''),

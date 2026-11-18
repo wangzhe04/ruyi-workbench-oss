@@ -144,7 +144,7 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const missionId = String(sessionMissionId(head) || sid);
     const frame = {
       sessionId: sid,
-      title: sessionDisplayTitle(head),
+      title: await PrivacyGateway.displayText(sid, sessionDisplayTitle(head)),   // 150 P6:与列表同一套显示还原
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
       updatedAt: String(head.updatedAt || ''),
@@ -247,10 +247,10 @@ RUYI_EVENTS.subscribe((name, payload) => {
   }
   if (name === 'thread.done') {
     if (eventStreamIsStewardSession(data.sessionId)) return;
-    eventStreamPublish('thread.done', {
-      sessionId: String(data.sessionId || ''),
-      summary: String(data.summary || '').slice(0, EVENT_STREAM_SUMMARY_MAX),
-    });
+    // 150 P6:summary 是显示副本 —— 截断不切开代号,带代号时在本线程 scope 里还原后再推(无代号的同步直推,字节不变)。
+    const summary = sessionTextPrefix(String(data.summary || ''), EVENT_STREAM_SUMMARY_MAX), doneSid = String(data.sessionId || '');
+    if (!summary.includes('[[RUYI_PVT:')) eventStreamPublish('thread.done', { sessionId: doneSid, summary });
+    else void PrivacyGateway.displayText(doneSid, summary).catch(() => '').then(shown => eventStreamPublish('thread.done', { sessionId: doneSid, summary: shown }));
     // 收工之后五态也变了(「在跑」→「已收工」/「已停工」),顺手现算一次 —— 指标 b 要的是两件事
     // 同时到:药丸与「它最后说」。
     void eventStreamEmitThreadState(data.sessionId);

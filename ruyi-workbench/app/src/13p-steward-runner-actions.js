@@ -591,7 +591,11 @@ async function stewardSelfServeInbox(events, session, config) {
 // 前端点按钮用的,人话化会把它们变成点不开的字符串。
 async function stewardDisplayTitleOf(sessionId) {
   const head = await stewardReadSessionHead(sessionId).catch(() => null);
-  return head && head.id ? String(sessionDisplayTitle(head) || '') : '';
+  if (!head || !head.id) return '';
+  // 1B2 复审：收件箱事件行、notes、路由提示等都经这里进管家模型；会话头没有正文，sessionLegacyAutoTitle 不触发，
+  // 修前满额的自动标题在这里过旧数据兜底（用户自起的标题不动）。
+  const title = String(sessionDisplayTitle(head) || '');
+  return head.titleSource === 'user' ? title : PrivacyGateway.legacyLabelGuard(title, SESSION_AUTO_TITLE_CHARS);
 }
 // say/why 的人话化。先把文本里出现过的会话 id 逐个查成显示名(最多 8 个,一次到访里模型不会提更多),
 // 再交给 06i 的纯函数做替换与标点收尾。查不到名字的 id 原样保留 —— 宁可露一个 id,也不能张冠李戴。

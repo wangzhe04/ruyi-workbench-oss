@@ -4025,11 +4025,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   });
   session.providerHistoryCursor = session.messages.length;
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
-    session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
+    session.title = sessionAutoTitle(message) || 'Session';   // 150 P1:先对完整原文识别再截(02 sessionTextPrefix)
   }
   // 摘要取【最后一个有文字的迭代】的开头(= 最终答复的首段,answerShape 要求它是结论),不取整段正文的前 160 字:多迭代回合里整段正文
   // 以第一轮的开场白起头(「我先看一下文件」)。回合没有任何迭代文字(整回合只有失败 / 提示)时才回落整段正文。
-  session.summary = (String(lastIterationText || finalText).replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  session.summary = sessionAutoSummary(lastIterationText || finalText) || session.summary || '';   // 150 P6:不截半个代号
   // P2-3: a mid-turn POST /api/session/skills wrote the new enable set to DISK (and updated reg.session in place);
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,

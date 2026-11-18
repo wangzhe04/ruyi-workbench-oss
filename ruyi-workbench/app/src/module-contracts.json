@@ -1955,6 +1955,8 @@
         "MISSION_MAX_TEXT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
+        "SESSION_AUTO_SUMMARY_CHARS",
+        "SESSION_AUTO_TITLE_CHARS",
         "SESSION_BODY_LINE_CACHE_CHARS",
         "SESSION_BODY_READ_TRANSIENT",
         "SESSION_BODY_STATE_MAX_ENTRIES",
@@ -1973,6 +1975,7 @@
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
+        "SESSION_RECENT_REQUEST_CHARS",
         "SESSION_SCRATCHPAD_LIMITS",
         "SESSION_SCRATCHPAD_SCHEMA",
         "SESSION_STORAGE_VERSION",
@@ -2233,6 +2236,8 @@
         "sessionArtifactStamp",
         "sessionArtifactStore",
         "sessionAssociatedSaveIsTombstoned",
+        "sessionAutoSummary",
+        "sessionAutoTitle",
         "sessionBodyCodec",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
@@ -2280,6 +2285,7 @@
         "sessionJournalRecordCandidate",
         "sessionJournalStamp",
         "sessionKind",
+        "sessionLegacyAutoTitle",
         "sessionLegacyRewinds",
         "sessionLineHash",
         "sessionMessageStampLine",
@@ -2306,6 +2312,7 @@
         "sessionScratchpadPath",
         "sessionScratchpadStore",
         "sessionStampSchedulerTurn",
+        "sessionTextPrefix",
         "sessionTitleOverrides",
         "sessionTodosSignature",
         "sessionV1BackupPath",
@@ -2594,6 +2601,13 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -4972,6 +4986,20 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoSummary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
           "kinds": [
@@ -6064,6 +6092,20 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoSummary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "buildOpenSpawn",
           "kinds": [
@@ -6531,6 +6573,7 @@
         "STORAGE_TREND_MIN_GAP_MS",
         "THREAD_BRIEF_FIRST_TURN_TRIES",
         "THREAD_BRIEF_INPUT_CHARS",
+        "THREAD_BRIEF_MIN_SUBSTANCE",
         "THREAD_BRIEF_PER_MINUTE",
         "THREAD_BRIEF_REPLY_CHARS",
         "THREAD_BRIEF_RETRY_BACKOFF_MS",
@@ -6643,6 +6686,7 @@
         "threadBriefDone",
         "threadBriefEnabled",
         "threadBriefInflight",
+        "threadBriefLabels",
         "threadBriefOnce",
         "threadBriefProvider",
         "threadBriefRateLimited",
@@ -6909,6 +6953,13 @@
           "symbol": "SESSION_INDEX_FILE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10966,6 +11017,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoSummary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionAutoTitle",
           "kinds": [
             "call"
           ]
@@ -19003,6 +19068,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "transitionInterventionState",
           "kinds": [
             "call"
@@ -20069,6 +20141,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -20978,7 +21057,28 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_SUMMARY_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "SESSION_BRIEF_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_RECENT_REQUEST_CHARS",
           "kinds": [
             "read"
           ]
@@ -21007,6 +21107,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
           "kinds": [
             "call"
           ]
@@ -21058,6 +21165,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -21871,6 +21985,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "pathWithinRoot",
           "kinds": [
@@ -21882,6 +22003,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -23641,6 +23769,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_SUMMARY_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -23668,10 +23810,24 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02d-session-overrides.js",
           "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24190,6 +24346,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "SESSION_AUTO_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "SESSION_LOAD_OMIT_PROVIDER",
           "kinds": [
             "read"
@@ -24207,6 +24370,13 @@
           "symbol": "sessionTodosSignature",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24729,6 +24899,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
           "kinds": [
             "call"
           ]
@@ -25730,6 +25907,20 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -26233,6 +26424,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTextPrefix",
           "kinds": [
             "call"
           ]
