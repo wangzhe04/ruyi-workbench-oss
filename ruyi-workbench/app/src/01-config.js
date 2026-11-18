@@ -288,6 +288,7 @@ function defaultConfig() {
     // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
     sessionSearchIndexV1: true,
     sessionSearchIndexPausedV1: false,
+    semanticRetrievalV1: true,
     // M3-2: 工作数据加密（默认关）。开启后新写入的受管记录写成 WorkDataCrypto v2 容器；关闭时
     // 落盘字节与既有实现完全一致。该开关目前只从配置文件读——启用/迁移 UI、首次迁移与恢复属于
     // M3-3，M3-2 不提供任何界面入口。
@@ -1061,7 +1062,7 @@ function normalizeConfig(raw, opts = {}) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -2194,6 +2195,7 @@ function configEmitWritten(config) {
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
 async function writeConfig(next, before = null, options = {}) {
+  const semanticBefore = before || lastGoodConfig;
   await ensureDirs();
   if (configDegraded) {
     // 读失败/JSON 损坏期间拿到的「当前配置」是默认值：在它上面合并再落盘 = 把用户配置冲成默认。拒绝。
@@ -2205,6 +2207,7 @@ async function writeConfig(next, before = null, options = {}) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2), options);
     configEmitWritten(config);
+    if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.configChanged === 'function') await SemanticRuntimeHooks.configChanged(semanticBefore, config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -2219,6 +2222,7 @@ async function writeConfig(next, before = null, options = {}) {
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), options);
   configEmitWritten(config);
+  if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.configChanged === 'function') await SemanticRuntimeHooks.configChanged(semanticBefore, config);
   return config;
 }
 

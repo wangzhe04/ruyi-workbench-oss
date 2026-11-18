@@ -2,6 +2,16 @@
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+const WorkDataOwnedRestoreUnknown=(()=>{
+'use strict';
+// Research helper: only inspect data descriptors; proxies/getters/cycles are
+// uncertain. Preserve the original thrown value as the existing cause.
+const {types}=require('node:util');
+function isUnknown(value){const active=new Set(),done=new Set();let visited=0;function visit(item,depth){if(item===null||item===undefined||typeof item!=='object'&&typeof item!=='function')return false;if(++visited>1024||depth>=32||types.isProxy(item)||active.has(item))return true;if(done.has(item))return false;active.add(item);try{for(let p=item,level=0;p!==null;p=Object.getPrototypeOf(p),level++){if(level>=16||types.isProxy(p))return true;for(const key of ['helperMayStillRun','ownershipRetained','cause','errors']){const d=Object.getOwnPropertyDescriptor(p,key);if(!d)continue;if(!Object.hasOwn(d,'value'))return true;if(key==='helperMayStillRun'||key==='ownershipRetained'){if(d.value!==undefined&&d.value!==false)return true;}else if(key==='cause'){if(visit(d.value,depth+1))return true;}else{const a=d.value;if(!Array.isArray(a)||types.isProxy(a))return true;const length=Object.getOwnPropertyDescriptor(a,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>1024)return true;for(let i=0;i<length.value;i++){const entry=Object.getOwnPropertyDescriptor(a,String(i));if(!entry||!Object.hasOwn(entry,'value')||visit(entry.value,depth+1))return true;}}}}done.add(item);return false;}finally{active.delete(item);}}try{return visit(value,0);}catch{return true;}}
+function flags(value){return isUnknown(value)?{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true}:{};}
+return Object.freeze({isUnknown,flags});
+
+})();
   const Hooks = {}; // The later control owner installs its immutable private-proof validator.
   const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_full.' + suffix), {
     code: 'work_data_full.' + suffix, apiCode: 'work_data_full.' + suffix, statusCode: 409, ...details,
@@ -52,12 +62,13 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
       cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
   }
-  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, readCapturedAuthority, preservedRead, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, readCapturedAuthority, preservedRead, ownedRestoreFlush, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
         || typeof externalOwner !== 'function') fail('host_invalid');
+    if(ownedRestoreFlush!==undefined&&typeof ownedRestoreFlush!=='function')fail('host_invalid');
     base = p.resolve(base);
     const controlProfile=Hooks.controlRecoveryProfile;
     if(controlRecoveryProof!==undefined&&(!controlProfile||typeof controlProfile.accepts!=='function'||typeof controlProfile.verify!=='function'
@@ -395,14 +406,15 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         const namespace=Object.freeze({directories,files});
         const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
-        await targetAdmission();await absent();let created=false;
+        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false;
         try{
-          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);
-          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
+          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
+          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
           for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
           }
           if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
+          if(needsRestoreFlush){await targetAdmission();try{await ownedRestoreFlush({target,source:base,ownership:targetOwnership,records:createdDirectories});}catch(cause){restoreBarrierUncertain=WorkDataOwnedRestoreUnknown.isUnknown(cause);throw cause;}await targetAdmission();}
           const verified=await readTree(targetOwnership).capture(target);disposable.push(verified);assertRestoredNamespace(verified,namespace);
           const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
           if(nativeStage)nativeProof(await analyzed.nativePlan.owner.verifyPortableInstalled(nativeStage));
@@ -411,7 +423,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           if(restoredTreeFor!==undefined){const initial=await restoredFingerprint(target,targetOwnership,assertExclusive,namespace);await targetAdmission();
             restoredProofs.set(result,Object.freeze({target,initial,namespace,packageSha256:hash(Buffer.from(serialized,'utf8')),packageBytes:Buffer.byteLength(serialized,'utf8'),manifestSha256:opened.manifestSha256}));}
           return result;
-        }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
+        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
       });
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});

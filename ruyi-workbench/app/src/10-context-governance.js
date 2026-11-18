@@ -869,6 +869,232 @@ async function writeHistorySnapshot(sessionId, turnSeq, history, stableRef = fal
   } catch { return ''; /* safety net, never fatal */ }
 }
 
+// Only a trusted main-session compaction may publish a persistent owner proof.
+// Unregistered legacy/child snapshots are never inferred from their names.
+const observationSnapshotOwners = new WeakMap();
+async function rememberObservationSnapshot(session, history, prefix, authorityGuard=null) {
+  if (!session || session.providerHistory !== history || !/^history:\d+:[a-f0-9]{16}$/.test(String(prefix || '')) || sessionObjectIsStale(session)) return;
+  try {
+    const source=createSessionFullTextSource(),selected=await source.inspect(session.id),generation=Number(session.rewindGen)||0;
+    if(!selected||typeof selected.head.createdAt!=='string'||!selected.head.createdAt||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation||Number(prefix.split(':')[1])>(Number(selected.head.turnSeq)||0))return;
+    const anchor=crypto.createHash('sha256').update(JSON.stringify([session.id,selected.head.createdAt])).digest('hex');
+    const guard=async()=>{if(authorityGuard)await authorityGuard();if(sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||session.providerHistory!==history||await source.epoch(session.id)!==selected.epoch||source.sequence(session.id)!==selected.sequence)throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});if(authorityGuard)await authorityGuard();};
+    const config=await readConfig(),digest=crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex');await guard();
+    const committed=config.workDataEncryptionV1===true&&await journalObservationSnapshotCommitted(session.id,selected.head,digest);await guard();
+    if(committed){const commitGuard=async()=>{await guard();if(!await journalObservationSnapshotCommitted(session.id,selected.head,digest))throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});await guard();};await journalRegisterObservationOwner(session.id,anchor,generation,prefix,commitGuard);}
+    else{
+      const parts=prefix.split(':'),verified=await journalReadHistory(session.id,`history-${parts[1]}-${parts[2]}.json.gz`,null,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024}),actual=crypto.createHash('sha256').update(JSON.stringify(verified)).digest('hex');
+      if(actual!==digest||!digest.startsWith(parts[2]))throw Error('observation_recall.owner_mismatch');await guard();
+      const prior=observationSnapshotOwners.get(session),items=prior&&prior.anchor===anchor&&prior.rewindGen===generation?prior.items.filter(row=>row.prefix!==prefix):[];
+      items.push({prefix,digest});if(items.length>16)items.shift();observationSnapshotOwners.set(session,{anchor,rewindGen:generation,items});
+    }
+  } catch(error) { if(error?.observationPrecompactGuardFailure)throw error;if(authorityGuard&&!['ENOSPC','EIO','EMFILE','ENFILE','EBUSY'].includes(error?.code))throw Object.assign(Error('observation_recall.precompact_owner',{cause:error}),{code:error?.code||'observation_recall.precompact_owner',observationPrecompactGuardFailure:true});try { logEvent({kind:'observation_owner_registration_failed',sessionId:session.id,error:String(error?.code||'registration_failed')}); } catch {} }
+}
+
+// A saved pre-compaction history is an independent committed fact, not proof
+// that the enclosing turn completed. The later owner still authenticates the
+// exact saved body and snapshot, and every read applies current authority.
+async function observationCommitBeforeCompact(session,history,config,executionOwner,signal,saveOptions={}) {
+  if(!executionOwner||!session||session.providerHistory!==history||config.workDataEncryptionV1!==true||!observationRecallEnabled(config))return null;
+  const id=session.id,anchor=session.createdAt,generation=Number(session.rewindGen)||0,turn=session.turnSeq,configGeneration=configReadGeneration;
+  const serialized=JSON.stringify(history);if(Buffer.byteLength(serialized)>16*1024*1024)return null;const digest=crypto.createHash('sha256').update(serialized).digest('hex');
+  const guardedError=cause=>Object.assign(Error('observation_recall.precompact_authority',{cause}),{code:cause?.code||'observation_recall.precompact_authority',observationPrecompactGuardFailure:true});
+  const guard=async()=>{try{if(signal?.aborted||executionOwner.cancelRequested||sessionObjectIsStale(session)||session.id!==id||session.createdAt!==anchor||(Number(session.rewindGen)||0)!==generation||session.turnSeq!==turn||session.providerHistory!==history||configReadGeneration!==configGeneration||crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==digest)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});assertSessionExecutionOwner(id,executionOwner);await revalidateSessionExecutionPermission(id,executionOwner);assertSessionExecutionOwner(id,executionOwner);if(signal?.aborted||executionOwner.cancelRequested||sessionObjectIsStale(session)||session.id!==id||session.createdAt!==anchor||session.providerHistory!==history||(Number(session.rewindGen)||0)!==generation||session.turnSeq!==turn||configReadGeneration!==configGeneration||crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==digest)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});}catch(error){throw guardedError(error);}};
+  try{await guard();const source=createSessionFullTextSource(),before=await source.inspect(id);await guard();if(!before||before.head.createdAt!==anchor||(Number(before.head.rewindGen)||0)!==generation)return null;
+  if(!await journalObservationSnapshotCommitted(id,before.head,digest)){
+    const sequence=sessionDiskWriteSeqOf(id);await guard();
+    try{await saveSession(session,{...saveOptions,executionOwner,throwIfTurnSuperseded:true,throwIfStale:true,ifUnwrittenSince:sequence,writer:'observation-before-compact'});}
+    catch(error){if(['ENOSPC','EIO','EMFILE','ENFILE','EBUSY'].includes(error?.code)){try{logEvent({kind:'observation_precompact_save_unavailable',sessionId:id,error:error.code});}catch{}return null;}throw guardedError(error);}
+  }
+  await guard();const after=await source.inspect(id);await guard();if(!after||after.head.createdAt!==anchor||(Number(after.head.rewindGen)||0)!==generation||!await journalObservationSnapshotCommitted(id,after.head,digest))return null;await guard();return guard;}catch(error){if(error?.observationPrecompactGuardFailure)throw error;throw guardedError(error);}
+}
+
+let observationSemanticRetrieval=null;
+async function observationWindowAdmission(query,fragments,{scopeId,signal,deadline,poolComplete,check,fieldText,identity,coordinates,order,identities,geometry='raw-original-v1'}) {
+  const request=SemanticOriginalWindows.createRequest({query,scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}),policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms}),fields=new Map(),rows=[],sources=[],keys=[],lexical=[],phrase=query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+  const codecEpoch=typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof.lifecycle():null,assertCurrent=()=>{if(codecEpoch&&SemanticRuntimeTransportProof.lifecycle()!==codecEpoch)throw Error('observation_recall.semantic_changed');};
+  const guard=async()=>{if(signal?.aborted)throw signal.reason===undefined?Error('observation_recall.aborted'):signal.reason;await check();if(signal?.aborted)throw signal.reason===undefined?Error('observation_recall.aborted'):signal.reason;assertCurrent();};
+  await guard();
+  for(let n=0;n<fragments.length;n++){const fragment=fragments[n],full=fieldText(fragment),id=identity(fragment),key=JSON.stringify(id);let field=fields.get(key);if(!field){const token=request.captureField(id,full,geometry);field={token,key:request.weakKey(token),text:full};fields.set(key,field);}else if(field.text!==full)throw Error('observation_recall.source_changed');const [start,end]=coordinates(fragment),source=request.rawWindow(field.token,start,end);if(source.text!==fragment.text)throw Error('observation_recall.source_changed');rows.push(request.row(source,order(fragment),identities[n]));sources.push({source,field});keys.push(field.key);const text=fragment.text.normalize('NFKC').toLowerCase(),matches=terms.filter(term=>text.includes(term)).length;if(text.includes(phrase)||matches>=Math.max(1,Math.ceil(terms.length/2)))lexical.push({key:field.key,index:n});}
+  const scored=await observationSemanticRetrieval.score(query,fragments.map(row=>row.text),{scopeId,signal,deadline,identities,maxEncodeDocuments:128,beforeEncode:guard,policyContext:request});await guard();const issued=SemanticRetrieval.hasScoreEvidence(scored);if(!issued&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
+  const decision=await policy.evaluate({query,scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows,lexical,scoreEntries:rows.map((_,index)=>issued?{result:scored,index}:null),poolComplete,context:request.context,windowContext:request,signal,deadline,beforeVerify:guard,resolve:async(index,whole)=>{await guard();const item=sources[index];const current=identity(fragments[index]);if(fieldText(fragments[index])!==item.field.text||['sourceId','field','revision','epoch','sourceRevision'].some(k=>current[k]!==item.source.identity[k]))throw Error('observation_recall.source_changed');return whole?request.wholeSource(item.field.token):item.source;}});
+  try{const d=policy.decisions(decision,request.context);return {scored:{...scored,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted:d.semanticAccepted},coverage:{...scored.coverage,complete:decision.complete}},complete:decision.complete,assertCurrent,keys,weak:d.weakAccepted,windows:d.weakWindowIndices};}finally{policy.dispose(decision,request.context);}
+}
+const observationResultChecks=new WeakMap(),observationResultFinal=new WeakMap(),observationResultMark=new WeakMap(),observationCandidateKey=new WeakMap();
+function observationMainReadAllowed(ctx) {
+  if(ctx?.mainTurn===true)return true;
+  if(typeof InternalMcpHooks!=='undefined'&&InternalMcpHooks.isContext(ctx))return InternalMcpHooks.assertObservationRead(ctx)===true;
+  return false;
+}
+function observationProjectedSpans(text) {return [...text.matchAll(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g)].map(match=>[match.index,match.index+match[0].length]);}
+function observationProjectedRange(text,start,end,spans=observationProjectedSpans(text)) {
+  let low=0,high=spans.length;while(low<high){const mid=(low+high)>>>1;if(spans[mid][1]<=start)low=mid+1;else high=mid;}
+  for(let index=low;index<spans.length;index++){const [left,right]=spans[index];if(left>=end&&left>=start)break;
+    if(start>left&&start<right)start=left;
+    if(end>left&&end<right)end=left>start?left:right;
+  }
+  return {start,end};
+}
+async function searchObservationSnapshots(session, query, ctx, maxChars) {
+  if(ctx.signal?.aborted||sessionObjectIsStale(session))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+  let semanticFeatureEnabled=true;
+  const generation=Number(session.rewindGen)||0,id=session.id;
+  const coverage={source:'tool-snapshots',persistence:'journal-owner',complete:false,reason:'registered-main-session-snapshots-only'};
+  const guard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+  const source=createSessionFullTextSource(),selected=await source.inspect(id),sequence=sessionFullTextSequence(id),epoch=selected?.epoch,turn=providerTurnQuotaKey(session),configGeneration=configReadGeneration;
+  if(!epoch||typeof selected.head.createdAt!=='string'||!selected.head.createdAt||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation)throw Object.assign(Error('observation_recall.source_unavailable'),{code:'observation_recall.source_unavailable'});
+  const createdAt=selected.head.createdAt,anchor=crypto.createHash('sha256').update(JSON.stringify([id,createdAt])).digest('hex'),owner=await journalReadObservationOwners(id),local=observationSnapshotOwners.get(session);
+  const owned=owner&&owner.anchor===anchor&&owner.rewindGen===generation?owner.items:[],temporary=local&&local.anchor===anchor&&local.rewindGen===generation?local.items:[];
+  if(!owned.length&&!temporary.length)return {mode:'search',candidates:[],coverage:{...coverage,reason:'no-owned-snapshots'},semantic:{status:'unavailable'}};
+  if(temporary.length)coverage.persistence=owned.length?'mixed':'process-local';
+  const unique=new Map([...owned,...temporary].map(row=>[row.prefix,row])),ownerHash=crypto.createHash('sha256').update(JSON.stringify(owner)).digest('hex'),refs=[...unique.values()].filter(row=>Number(row.prefix.split(':')[1])<=Math.min(Number(session.turnSeq)||0,Number(selected.head.turnSeq)||0)).slice(-8).reverse();
+  const check=async()=>{
+    if(ctx.session!==session||session.id!==id||session.createdAt!==createdAt||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||!observationMainReadAllowed(ctx)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||sessionFullTextSequence(id)!==sequence||observationSnapshotOwners.get(session)!==local||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+    guard();const config=await readConfig();guard();semanticFeatureEnabled=config.semanticRetrievalV1!==false;
+    if(!observationRecallEnabled(config)||nativeToolDisabledByPolicy('observation_recall',config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read','observation_recall',{})!=='allow')throw Object.assign(Error('observation_recall.tool_denied'),{code:'observation_recall.tool_denied'});
+    if(typeof InternalMcpHooks!=='undefined'&&InternalMcpHooks.isContext(ctx))InternalMcpHooks.assertTool(ctx,'observation_recall');
+    if(ctx.executionOwner?.authority)await revalidateSessionExecutionPermission(id,ctx.executionOwner);
+    if(await source.epoch(id)!==epoch||sessionFullTextSequence(id)!==sequence||ctx.signal?.aborted||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});
+    const current=await journalReadObservationOwners(id);if(crypto.createHash('sha256').update(JSON.stringify(current)).digest('hex')!==ownerHash)throw Object.assign(Error('observation_recall.owner_changed'),{code:'observation_recall.owner_changed'});guard();if(ctx.session!==session||session.id!==id||session.createdAt!==createdAt||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||sessionFullTextSequence(id)!==sequence||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+  };
+  const samePath=(a,b)=>process.platform==='win32'?path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase():path.resolve(a)===path.resolve(b);
+  const read=async proof=>{
+    const prefix=proof.prefix,m=/^history:(\d+):([a-f0-9]{16})$/.exec(prefix);if(!m)throw Error('observation_recall.invalid_owner');
+    const dir=journalDir(id),file=path.join(dir,`history-${m[1]}-${m[2]}.json.gz`);
+    try{for(const target of [dir,file]){const st=await fsp.lstat(target);if(st.isSymbolicLink()||target===dir&&!st.isDirectory()||target===file&&(!st.isFile()||st.nlink!==1)||!samePath(await fsp.realpath(target),target))throw Object.assign(Error('observation_recall.owner_changed'),{code:'observation_recall.owner_changed'});}const history=await journalReadHistory(id,path.basename(file),null,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024});if(crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==proof.digest)throw Object.assign(Error('observation_recall.owner_mismatch'),{code:'observation_recall.owner_mismatch'});return history;}
+    catch(error){if(error.code==='ENOENT')return null;throw error;}
+  };
+  await check();const fragments=[],seen=new Set();let chars=0,truncated=unique.size>refs.length,missing=0;
+  for(const proof of refs){await check();const prefix=proof.prefix,history=await read(proof);if(!history){missing++;continue;}
+    for(let index=0;index<history.length;index++){const item=history[index];if(item?.role!=='tool'||typeof item.content!=='string')continue;
+      const hash=crypto.createHash('sha256').update(item.content).digest('hex').slice(0,16),dedup=hash+'\0'+item.content.length;if(seen.has(dedup))continue;seen.add(dedup);
+      const rawRef=prefix+':'+index+':'+hash;
+      for(let at=0;at<item.content.length;){if(fragments.length>=256||chars>=1024*1024){truncated=true;break;}
+        let end=Math.min(item.content.length,at+96);if(end<item.content.length&&item.content.charCodeAt(end)>=0xdc00&&item.content.charCodeAt(end)<=0xdfff)end--;
+        const text=item.content.slice(at,end);chars+=text.length;fragments.push({text,rawRef,offset:at,fieldText:item.content,snapshotRevision:proof.digest,toolCallId:String(item.tool_call_id||'').slice(0,256)});
+        if(end===item.content.length)break;at=end-16;if(item.content.charCodeAt(at)>=0xdc00&&item.content.charCodeAt(at)<=0xdfff)at--;
+      }
+    }
+  }
+  await check();const phrase=query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+  let semantic={status:'unavailable',scores:[]},windowAdmission=null;
+  if(fragments.length&&typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'){
+    if(!observationSemanticRetrieval)observationSemanticRetrieval=SemanticRetrieval.create(SemanticRuntimeHooks);
+    if(typeof SemanticWindowPolicy!=='undefined'&&semanticFeatureEnabled&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null){windowAdmission=await observationWindowAdmission(query,fragments,{scopeId:'observation:'+id,signal:ctx.signal,deadline:Date.now()+1000,poolComplete:!truncated&&!missing,check,fieldText:row=>row.fieldText,identity:row=>({sourceId:JSON.stringify([id,row.rawRef]),field:'tool.content',revision:row.snapshotRevision,epoch,sourceRevision:ownerHash}),coordinates:row=>[row.offset,row.offset+row.text.length],order:row=>[row.rawRef],identities:fragments.map(row=>[row.rawRef,row.offset])});semantic=windowAdmission.scored;}
+    else semantic=await observationSemanticRetrieval.score(query,fragments.map(row=>row.text),{scopeId:'observation:'+id,signal:ctx.signal,identities:fragments.map(row=>[row.rawRef,row.offset]),maxEncodeDocuments:128,beforeEncode:check});await check();
+  }
+  const minScore=semantic.minScore??0.85;
+  const ranked=fragments.map((row,n)=>{const text=row.text.normalize('NFKC').toLowerCase(),exact=text.includes(phrase),matches=terms.filter(term=>text.includes(term)).length;let lexical=exact?30+matches:matches>=Math.max(1,Math.ceil(terms.length/2))?matches:0,chosen=n;if(windowAdmission&&lexical){const key=windowAdmission.keys[n];if(windowAdmission.weak.get(key)!==true)lexical=0;else chosen=windowAdmission.windows.get(key)??n;}const score=semantic.scores[chosen];return {...fragments[chosen],lexical,semanticScore:score,semanticAccepted:!semantic.admission||semantic.admission.accepted?.[chosen]===true,rankScore:lexical?100+lexical:score};})
+    .filter(row=>row.lexical>0||row.semanticAccepted&&typeof row.semanticScore==='number'&&Number.isFinite(row.semanticScore)&&row.semanticScore>=minScore)
+    .sort((a,b)=>b.rankScore-a.rankScore||a.rawRef.localeCompare(b.rawRef)||a.offset-b.offset);
+  const chosen=[],used=new Set();for(const row of ranked){if(used.has(row.rawRef))continue;used.add(row.rawRef);chosen.push(row);if(chosen.length>=Math.min(8,Math.max(1,Math.floor(maxChars/320))))break;}
+  const verified=new Map(),candidates=[];
+  for(const row of chosen){const prefix=row.rawRef.split(':').slice(0,3).join(':');if(!verified.has(prefix))verified.set(prefix,await read(refs.find(proof=>proof.prefix===prefix)));const history=verified.get(prefix),parts=row.rawRef.split(':'),item=history?.[Number(parts[3])];
+    if(!item||item.role!=='tool'||typeof item.content!=='string'||crypto.createHash('sha256').update(item.content).digest('hex').slice(0,16)!==parts[4]||item.content.slice(row.offset,row.offset+row.text.length)!==row.text)continue;
+    const opaqueRef=await observationSealRawRef(id,row.rawRef);await check();candidates.push({rawRef:opaqueRef,offset:row.offset,snippet:row.text,toolCallId:row.toolCallId,rankScore:row.rankScore,...(row.lexical?{lexicalScore:row.lexical}:{semanticScore:row.semanticScore})});
+  }
+  await check();windowAdmission?.assertCurrent();const result={mode:'search',candidates,coverage:{...coverage,snapshots:refs.length,missing,truncated,...(windowAdmission?{complete:windowAdmission.complete}: {})},semantic:{status:semantic.status,minScore,answerability:'not-assessed',...(semantic.admission?{admissionPolicy:semantic.admission.policyId}:{})}};observationResultChecks.set(result,async()=>{await check();windowAdmission?.assertCurrent();});return result;
+}
+
+// New tool-snapshot references hide the legacy source and content digests. Old
+// references remain readable; their historical publication cannot be undone.
+async function observationSealRawRef(id, rawRef) {
+  const sealed=await PrivacyCore.configHooks.sealLocal(rawRef,'observation-raw-ref-v2',id),e=sealed.envelope,enc=x=>Buffer.from(x,'base64').toString('base64url');
+  return 'history:v2:'+sealed.instanceId+'.'+enc(e.nonce)+'.'+enc(e.ciphertext)+'.'+enc(e.tag);
+}
+async function observationOpenRawRef(id, token) {
+  const parts=token.slice('history:v2:'.length).split('.');
+  if(parts.length!==4||!/^[a-f0-9]{32}$/.test(parts[0])||parts.slice(1).some(x=>!x||!/^[A-Za-z0-9_-]+$/.test(x)||Buffer.from(x,'base64url').toString('base64url')!==x))throw Object.assign(Error('invalid rawRef'),{code:'observation_recall.invalid_ref'});
+  const dec=x=>Buffer.from(x,'base64url').toString('base64');
+  try{return await PrivacyCore.configHooks.openLocal({version:1,instanceId:parts[0],envelope:{version:1,algorithm:'A256GCM',keyId:'master-v1',nonce:dec(parts[1]),ciphertext:dec(parts[2]),tag:dec(parts[3])}},'observation-raw-ref-v2',id);}
+  catch(error){if(['credential_vault.decrypt_failed','credential_vault.binding_mismatch'].includes(error?.code))throw Object.assign(Error('invalid rawRef'),{code:'observation_recall.invalid_ref'});throw error;}
+}
+
+// Prepare capabilities outside the synchronous compactor; never fall back to
+// publishing a raw digest if a capability was not prepared for these bytes.
+async function observationPrepareRefLookup(id, history, prefix, cache) {
+  const refs=new Set();
+  for(const [i,m] of (Array.isArray(history)?history:[]).entries()){
+    if(m?.role==='tool'&&typeof m.content==='string'&&/^history:\d+:[a-f0-9]{16}$/.test(prefix||''))refs.add(prefix+':'+i+':'+crypto.createHash('sha256').update(m.content).digest('hex').slice(0,16));
+    if(typeof m?.content==='string'&&((m.role==='tool'&&(isReducedObservationView(m.content)||m.content.startsWith(READ_DEDUP_PREFIX)))||(m.role==='user'&&m.content.includes(COMPACTION_TOOL_INDEX_HEADER))))for(const match of m.content.matchAll(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g))refs.add(match[0]);
+  }
+  const lookup=new Map();for(const ref of refs){const key=id+'\0'+ref;let value=cache instanceof Map?cache.get(key):null;if(typeof value!=='string'||!value.startsWith('history:v2:')){value=await observationSealRawRef(id,ref);if(cache instanceof Map){if(cache.size>=1024)cache.delete(cache.keys().next().value);cache.set(key,value);}}lookup.set(ref,value);}return lookup;
+}
+// The caller supplies only trusted runtime sidecar text, never arbitrary user
+// prose. Copies are independent from persistent host history.
+async function sealObservationRuntimeText(id,text,cache) {
+  const value=String(text||''),refs=[...new Set(value.match(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g)||[])],lookup=new Map();
+  for(const ref of refs){const key=id+'\0'+ref;let sealed=id&&cache instanceof Map?cache.get(key):null;if(id&&(!sealed||!sealed.startsWith('history:v2:'))){sealed=await observationSealRawRef(id,ref);if(cache instanceof Map){if(cache.size>=1024)cache.delete(cache.keys().next().value);cache.set(key,sealed);}}lookup.set(ref,sealed||'[reference unavailable]');}
+  return value.replace(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g,ref=>lookup.get(ref));
+}
+Object.assign(ObservationRecoveryHooks,{sealRuntimeText:sealObservationRuntimeText});
+async function sealObservationHistoryReferences(id, history, cache) {
+  const list=Array.isArray(history)?history:[],recallIds=new Set(),legacy=/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+  for(const m of list)if(m?.role==='assistant'&&Array.isArray(m.tool_calls))for(const call of m.tool_calls)if(call?.function?.name==='observation_recall'&&call.id)recallIds.add(String(call.id));
+  const field=async text=>{let value;try{value=JSON.parse(text);}catch{if(legacy.test(text))throw Object.assign(Error('observation_recall.invalid_historical_ref'),{code:'observation_recall.invalid_historical_ref'});return text;}if(!value||typeof value!=='object'||Array.isArray(value)||typeof value.rawRef!=='string'||!legacy.test(value.rawRef))return text;value.rawRef=await sealObservationRuntimeText(id,value.rawRef,cache);return JSON.stringify(value);};
+  const out=[];for(const m of list){
+    if(m?.role==='assistant'&&Array.isArray(m.tool_calls)){
+      let changed=false;const calls=[];for(const call of m.tool_calls){if(call?.function?.name!=='observation_recall'||typeof call.function.arguments!=='string'){calls.push(call);continue;}const args=await field(call.function.arguments);changed ||= args!==call.function.arguments;calls.push(args===call.function.arguments?call:{...call,function:{...call.function,arguments:args}});}out.push(changed?{...m,tool_calls:calls}:m);continue;
+    }
+    if(typeof m?.content!=='string'){out.push(m);continue;}
+    const ownedTool=m.role==='tool'&&recallIds.has(String(m.tool_call_id||''));
+    const marker=(m.role==='tool'&&(isReducedObservationView(m.content)||m.content.startsWith(READ_DEDUP_PREFIX)))||(m.role==='user'&&m.content.includes(COMPACTION_TOOL_INDEX_HEADER));
+    if(!ownedTool&&!marker){out.push(m);continue;}
+    const content=ownedTool?await field(m.content):await sealObservationRuntimeText(id,m.content,cache);out.push(content===m.content?m:{...m,content});
+  }return out;
+}
+
+// Display messages have an independent committed owner. References contain no
+// authority: every use scans only the calling session and revalidates it.
+async function observationCommittedMessages(session,ctx,request) {
+  const fail=code=>Object.assign(Error('observation_recall.'+code),{code:'observation_recall.'+code});
+  if(!session||!observationMainReadAllowed(ctx)||safeSessionId(session.id)!==session.id)throw fail('scope_changed');
+  let semanticFeatureEnabled=true;
+  const id=session.id,source=createSessionFullTextSource(),selected=await source.inspect(id),generation=Number(session.rewindGen)||0,turn=providerTurnQuotaKey(session),configGeneration=configReadGeneration;
+  if(!selected||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation)throw fail('source_unavailable');
+  const anchor=selected.head.createdAt;
+  const guard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+  const sync=()=>{guard();if(ctx.session!==session||session.id!==id||session.createdAt!==anchor||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||!observationMainReadAllowed(ctx)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||configReadGeneration!==configGeneration||source.sequence(id)!==selected.sequence)throw fail('scope_changed');};
+  const check=async()=>{sync();const config=await readConfig();sync();semanticFeatureEnabled=config.semanticRetrievalV1!==false;if(!observationRecallEnabled(config)||nativeToolDisabledByPolicy('observation_recall',config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read','observation_recall',{})!=='allow')throw fail('tool_denied');if(ctx.executionOwner?.authority)await revalidateSessionExecutionPermission(id,ctx.executionOwner);if(await source.epoch(id)!==selected.epoch)throw fail('source_changed');sync();};
+  const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
+  let wanted=null;if(request.messageRef){
+    const parts=String(request.messageRef).split(':');if(parts.length!==3||parts[0]!=='message'||parts[1]!=='v2'||!/^[A-Za-z0-9_.-]{1,2048}$/.test(parts[2]))throw fail('invalid_ref');
+    const fields=parts[2].split('.');if(fields.length!==4||!/^[a-f0-9]{32}$/.test(fields[0])||fields.slice(1).some(x=>!x||!/^[A-Za-z0-9_-]+$/.test(x)||Buffer.from(x,'base64url').toString('base64url')!==x))throw fail('invalid_ref');
+    const b64=x=>Buffer.from(x,'base64url').toString('base64');
+    let serialized;try{serialized=await PrivacyCore.configHooks.openLocal({version:1,instanceId:fields[0],envelope:{version:1,algorithm:'A256GCM',keyId:'master-v1',nonce:b64(fields[1]),ciphertext:b64(fields[2]),tag:b64(fields[3])}},'observation-message-ref-v2',id);}catch(error){if(['credential_vault.decrypt_failed','credential_vault.binding_mismatch'].includes(error?.code))throw fail('invalid_ref');throw error;}
+    sync();try{const a=JSON.parse(serialized),hex=x=>Buffer.from(x,'base64url').toString('hex');if(!Array.isArray(a)||a.length!==13)throw Error();wanted={v:1,generation:a[0],epoch:hex(a[1]),revision:hex(a[2]),ordinal:a[3],role:a[4],identity:hex(a[5]),raw:hex(a[6]),rawStart:0,rawEnd:a[7],projected:hex(a[8]),projectedStart:a[9],projectedEnd:a[10],anchor:hex(a[12])};if(a[11]!==1)throw Error();if(!wanted||wanted.v!==1||!Number.isSafeInteger(wanted.ordinal)||wanted.ordinal<0||!['user','assistant'].includes(wanted.role)||wanted.rawStart!==0||!Number.isSafeInteger(wanted.rawEnd)||wanted.rawEnd<0||!Number.isSafeInteger(wanted.projectedStart)||!Number.isSafeInteger(wanted.projectedEnd)||wanted.projectedStart<0||wanted.projectedEnd<=wanted.projectedStart||![wanted.epoch,wanted.revision,wanted.identity,wanted.raw,wanted.projected].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x))||wanted.generation!==generation||wanted.anchor!==digest(JSON.stringify([id,anchor])))throw Error();}catch{throw fail('invalid_ref');}}
+  if(request.ordinal!==undefined&&(!Number.isSafeInteger(request.ordinal)||request.ordinal<0))throw fail('invalid_ref');
+  const rows=[];let eligible=0,omitted=0,bytes=0;
+  await check();const proof=await source.scan(id,async(row,ordinal)=>{sync();if(!row||!['user','assistant'].includes(row.role)||row.role==='user'&&row.meta?.origin==='agent_wake')return;eligible++;
+    if(wanted&&ordinal!==wanted.ordinal||!wanted&&request.ordinal!==undefined&&ordinal!==request.ordinal)return;
+    if(typeof row.content!=='string'||Buffer.byteLength(row.content)>1024*1024){omitted++;return;}
+    const item={ordinal,role:row.role,identity:digest(JSON.stringify([ordinal,row.id??null,row.turnSeq??null,row.role])),raw:digest(row.content),content:row.content};rows.push(item);bytes+=Buffer.byteLength(item.content);
+    while(!wanted&&request.ordinal===undefined&&(rows.length>64||bytes>4*1024*1024)){bytes-=Buffer.byteLength(rows.shift().content);omitted++;}
+  },{signal:ctx.signal,check:sync});
+  if(!proof||proof.epoch!==selected.epoch)throw fail('source_changed');await check();
+  if(wanted&&(rows.length!==1||rows[0].identity!==wanted.identity||rows[0].raw!==wanted.raw||rows[0].content.length!==wanted.rawEnd||rows[0].role!==wanted.role))throw fail('source_changed');
+  const work=async()=>{const fragments=[],focused=[];let totalFragments=0;
+    for(const row of rows){sync();const redacted=redact(row.content),view=typeof PrivacyGateway!=='undefined'?await PrivacyGateway.projectSource(redacted,true):null,text=view?view.text:redacted;sync();row.projected=digest(text);row.text=text;row.view=view;row.redactedLength=redacted.length;const spans=observationProjectedSpans(text);
+      if(wanted){if(wanted.projected!==row.projected||wanted.projectedEnd>text.length)throw fail('source_changed');continue;}
+      for(let at=0;at<text.length;){let end=Math.min(text.length,at+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;const range=observationProjectedRange(text,at,end,spans);at=range.start;end=range.end;totalFragments++;const fragment={row,start:at,end,text:text.slice(at,end)};fragments.push(fragment);if(fragments.length>256)fragments.shift();if(request.ordinal!==undefined&&focused.length<32&&fragment.text.normalize('NFKC').toLowerCase().includes(request.query.normalize('NFKC').toLowerCase()))focused.push(fragment);if(end===text.length)break;let next=end-16;const adjusted=observationProjectedRange(text,next,end,spans);next=adjusted.start;if(next<=at)next=end;at=next;if(text.charCodeAt(at)>=0xdc00&&text.charCodeAt(at)<=0xdfff)at--;}
+    }
+    if(focused.length){const keep=new Set(focused.map(row=>row.start));fragments.splice(0,fragments.length,...focused,...fragments.filter(row=>!keep.has(row.start)).slice(-(256-focused.length)));}
+    const verifyViews=()=>{for(const row of rows)if(row.view&&PrivacyGateway.sliceSource(row.view,0,row.redactedLength).text!==row.text)throw fail('source_changed');};
+    await check();verifyViews();
+    if(wanted){const result={text:rows[0].text,role:rows[0].role};observationResultChecks.set(result,()=>typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,async()=>{await check();verifyViews();}):check());observationResultFinal.set(result,()=>{sync();verifyViews();});if(rows[0].view)observationResultMark.set(result,page=>{sync();verifyViews();PrivacyGateway.markSourceView(page,['/content'],rows[0].view);});return result;}
+    let semantic={status:'unavailable',scores:[]},windowAdmission=null;if(fragments.length&&typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'){
+      if(!observationSemanticRetrieval)observationSemanticRetrieval=SemanticRetrieval.create(SemanticRuntimeHooks);
+      if(typeof SemanticWindowPolicy!=='undefined'&&semanticFeatureEnabled&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null){windowAdmission=await observationWindowAdmission(request.query,fragments,{scopeId:'observation-message:'+id,signal:ctx.signal,deadline:Date.now()+1000,poolComplete:omitted===0&&totalFragments<=256,check:async()=>{await check();verifyViews();},geometry:'privacy-projected-v1',fieldText:row=>row.row.text,identity:row=>({sourceId:JSON.stringify([id,row.row.ordinal]),field:'message.projected-content',revision:row.row.projected,epoch:proof.epoch,sourceRevision:JSON.stringify([proof.revision,row.row.identity,row.row.raw])}),coordinates:row=>[row.start,row.end],order:row=>[id,row.row.ordinal,'content'],identities:fragments.map(row=>[proof.epoch,proof.revision,row.row.identity,row.row.raw,row.row.projected,row.start,row.end])});semantic=windowAdmission.scored;}
+      else semantic=await observationSemanticRetrieval.score(request.query,fragments.map(row=>row.text),{scopeId:'observation-message:'+id,signal:ctx.signal,identities:fragments.map(row=>[proof.epoch,proof.revision,row.row.identity,row.row.raw,row.row.projected,row.start,row.end]),maxEncodeDocuments:128,beforeEncode:async()=>{await check();verifyViews();}});await check();verifyViews();
+    }
+    const phrase=request.query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(request.query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+    const ranked=fragments.map((row,n)=>{const text=row.text.normalize('NFKC').toLowerCase(),exact=text.includes(phrase),matches=terms.filter(term=>text.includes(term)).length;let lexical=exact?30+matches:matches>=Math.max(1,Math.ceil(terms.length/2))?matches:0,chosen=n;if(windowAdmission&&lexical){const key=windowAdmission.keys[n];if(windowAdmission.weak.get(key)!==true)lexical=0;else chosen=windowAdmission.windows.get(key)??n;}const score=semantic.scores[chosen],accepted=!semantic.admission||semantic.admission.accepted?.[chosen]===true;return {...fragments[chosen],lexical,score,rankScore:lexical?100+lexical:score,accepted};}).filter(row=>row.lexical>0||row.accepted&&Number.isFinite(row.score)&&row.score>=(semantic.minScore??0.85)).sort((a,b)=>b.rankScore-a.rankScore||b.row.ordinal-a.row.ordinal||a.start-b.start);
+    const candidates=[],seen=new Set();for(const hit of ranked){if(seen.has(hit.row.ordinal))continue;seen.add(hit.row.ordinal);const ref={v:1,generation,epoch:proof.epoch,revision:proof.revision,ordinal:hit.row.ordinal,role:hit.row.role,identity:hit.row.identity,raw:hit.row.raw,rawStart:0,rawEnd:hit.row.content.length,projected:hit.row.projected,projectedStart:hit.start,projectedEnd:hit.end};const compact=[generation,...[ref.epoch,ref.revision].map(x=>Buffer.from(x,'hex').toString('base64url')),ref.ordinal,ref.role,...[ref.identity,ref.raw].map(x=>Buffer.from(x,'hex').toString('base64url')),ref.rawEnd,Buffer.from(ref.projected,'hex').toString('base64url'),ref.projectedStart,ref.projectedEnd,1,Buffer.from(digest(JSON.stringify([id,anchor])),'hex').toString('base64url')];const sealed=await PrivacyCore.configHooks.sealLocal(JSON.stringify(compact),'observation-message-ref-v2',id);sync();const env=sealed.envelope,toUrl=x=>Buffer.from(x,'base64').toString('base64url');const messageRef='message:v2:'+sealed.instanceId+'.'+toUrl(env.nonce)+'.'+toUrl(env.ciphertext)+'.'+toUrl(env.tag);const candidate={kind:'message',messageRef,role:hit.row.role,offset:hit.start,coordinate:'privacy-projected-utf16',snippet:hit.text,rankScore:hit.rankScore,...(hit.lexical?{lexicalScore:hit.lexical}:{semanticScore:hit.score})};if(hit.row.view)PrivacyGateway.markSourceView(candidate,['/snippet'],hit.row.view);observationCandidateKey.set(candidate,JSON.stringify([id,generation,proof.epoch,proof.revision,hit.row.ordinal,hit.row.identity,hit.start,hit.end]));candidates.push(candidate);if(candidates.length>=Math.min(8,Math.max(1,Math.floor(request.maxChars/320))))break;}
+    await check();verifyViews();windowAdmission?.assertCurrent();const result={candidates,coverage:{source:'committed-display-messages',complete:omitted===0&&totalFragments<=256&&(!windowAdmission||windowAdmission.complete),selection:'most-recent',eligibleMessages:eligible,scannedMessages:rows.length,omittedMessages:omitted,retainedMessageFragments:totalFragments,scannedFragments:fragments.length,truncated:omitted>0||totalFragments>256},semantic:{status:semantic.status,answerability:'not-assessed'}};observationResultChecks.set(result,()=>typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,async()=>{await check();verifyViews();windowAdmission?.assertCurrent();}):check());observationResultFinal.set(result,()=>{sync();verifyViews();windowAdmission?.assertCurrent();});return result;
+  };
+  return typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,work):work();
+}
+
 const OBSERVATION_REDUCE_MIN = 1200;
 const OBSERVATION_TEXT_HEAD = 900;
 const OBSERVATION_TEXT_TAIL = 500;
@@ -976,7 +1202,7 @@ function buildObservationRecallPrompt(history, config) {
   if (!observationRecallEnabled(config) || !Array.isArray(history)) return '';
   const refs = [];
   const seen = new Set();
-  const refPattern = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g;
+  const refPattern = /history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
   for (const message of history) {
     if (!message || typeof message.content !== 'string') continue;
     let content = message.content;
@@ -997,6 +1223,7 @@ function buildObservationRecallPrompt(history, config) {
   const omitted = refs.length - visible.length;
   return '[Ruyi recovery index — runtime context, not user-authored]\n'
     + 'The reduced historical tool views below are incomplete but recoverable. If the request may depend on an exact omitted historical value or detail, call observation_recall with the relevant rawRef before answering or claiming that it is absent.\n'
+    + 'If a reference is unknown, call observation_recall({query}) for current-session evidence, then read the returned rawRef or messageRef. Partial coverage or an empty search does not prove absence; use thread_read to page older current-session messages.\n'
     + visible.map(ref => `- rawRef=${ref}`).join('\n')
     + (omitted > 0 ? `\n- ${omitted} older recoverable reference(s) omitted from this bounded index` : '');
 }
@@ -1223,7 +1450,7 @@ function fileReadDedupKey(raw) {
 // 从 from 起(= L1 的边界,也就是受保护的尾部起点)扫一遍:同一把键的**最新一次留全文**,
 // 较早那几次换成指针。指针里带后文那一条的 tool_call_id(模型在历史里看得见它)与 rawRef
 // (有快照前缀时),所以「要原文」这条路一直通着 —— 换掉的是重复,不是信息。
-function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix) {
+function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix, rawRefLookup) {
   const newest = new Map();
   for (let i = Math.max(0, from); i < history.length; i++) {
     const m = history[i];
@@ -1242,7 +1469,8 @@ function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix) {
     if (!key || newest.get(key) === i) continue; // 最新那一次留全文
     const laterId = String(history[newest.get(key)].tool_call_id || '');
     const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-    const ref = rawRefPrefix ? `,原件 rawRef=${rawRefPrefix}:${i}:${contentHash}` : '';
+    const capability = rawRefLookup?.get(`${rawRefPrefix}:${i}:${contentHash}`);
+    const ref = capability ? `,原件 rawRef=${capability}` : '';
     m.content = `${READ_DEDUP_PREFIX}这次读到的内容与后文那次完全相同(tool_call_id=${laterId}),全文见那一条${ref}]`;
     count++;
   }
@@ -1289,7 +1517,9 @@ function evaporateHistory(history, opts) {
     if (protectedReason) continue;
     if (useReducer) {
       const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
+      const capability = opts.rawRefLookup?.get(`${opts.rawRefPrefix}:${i}:${contentHash}`);
+      if (!capability) continue;
+      const reduced = reduceObservationContent(toolName, m.content, capability, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
       if (!reduced.reduced) continue;
       m.content = reduced.content; count++;
       if (typeof opts.onReduced === 'function') {
@@ -1305,7 +1535,7 @@ function evaporateHistory(history, opts) {
   // 126-111e:上面那一趟只动 boundary 之前(冷区,已经缩过)。重复读取真正还在占位置的地方是
   // 【受保护的尾部】—— 从 boundary 起再扫一遍。返回值把两者加在一起:它的语义是「L1 这一趟
   // 一共缩了几条观测」,调用方拿它判「L1 做没做事」,两种缩法都算数。
-  if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix);
+  if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix, opts && opts.rawRefLookup);
   return count;
 }
 
@@ -1423,6 +1653,9 @@ function measureObservationReductionShadow(history) {
   const candidateReducedCount = evaporateHistory(candidateHistory, {
     config: { runtimeObservationReducerV1: true },
     rawRefPrefix: 'history:0:0000000000000000',
+    // Shadow never publishes capabilities: approximate the encrypted reference's
+    // size without accessing keys or embedding source-derived bytes.
+    rawRefLookup: { get: () => 'history:v2:'+'S'.repeat(160) },
   });
   const toolNames = observationToolNames(history);
   let originalChars = 0, baselineVisibleChars = 0, candidateVisibleChars = 0, protectedCount = 0;
@@ -2520,6 +2753,8 @@ async function providerSummaryCall(provider, history, opts) {
       throw error;
     }
   }
+  history=await sealObservationHistoryReferences(opts?.privacyHistoryOwner?.id||opts?.auxCtx?.sessionId||'',history);
+  if(summaryStopSignal(opts)?.aborted)return summaryStoppedResult();
   const sc = await providerSummaryCallCore(provider, history, opts);
   // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
   // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
@@ -2996,7 +3231,7 @@ const COMPACTION_TOOL_INDEX_MAX_CHARS = 4000;
 const COMPACTION_TOOL_INDEX_SKIP = new Set(['todo_write', 'scratchpad_write', 'tool_search', 'tool_load', 'list_tools', 'observation_recall', 'checkpoint_list']);
 // 事后重跑复现不了的那一类:联网、命令/脚本、子代理、桌面/浏览器操作;桥接的外部 MCP 工具(名字带 __)一律算。
 const COMPACTION_TOOL_INDEX_ONESHOT = /__|^(web_fetch|web_search|http_request|http_download|powershell_run|script_run|shell_start|shell_poll|shell_send|orchestrate_agents|agent_result|wait_agents)$|^(desktop|browser)_/;
-const COMPACTION_RAWREF_PATTERN = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+const COMPACTION_RAWREF_PATTERN = /history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
 // keepTail:路径类参数掐中间、留尾巴 —— 文件名在尾部,Windows 的临时目录/工作区前缀一长,从尾部截就只剩盘符和用户目录。
 function compactionIndexText(value, max, keepTail = false) {
   const flat = String(value == null ? '' : value).replace(/\s+/g, ' ').replace(/</g, '＜').replace(/>/g, '＞').trim();
@@ -3054,10 +3289,13 @@ function buildCompactionToolIndex(history, opts = {}) {
     for (const line of lines) {
       if (!line.trim()) continue;
       if (!line.startsWith('- ')) break;
-      const ref = (line.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+      const foundRef = (line.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+      const ref = foundRef.startsWith('history:v2:') ? foundRef : (opts.rawRefLookup?.get(foundRef)||'');
+      if (foundRef && !ref) continue;
+      const safeLine = foundRef ? line.replace(foundRef,ref) : line;
       if (ref && seenRefs.has(ref)) continue;
       if (ref) seenRefs.add(ref);
-      entries.push({ line, oneShot: true, ref });
+      entries.push({ line: safeLine, oneShot: true, ref });
     }
   }
   for (let i = 0; i < upto; i++) {
@@ -3077,6 +3315,7 @@ function buildCompactionToolIndex(history, opts = {}) {
       if (canRecall && content) {
         ref = (content.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
         if (!ref && !content.startsWith(EVAPORATED_PREFIX)) ref = `${refPrefix}:${at}:${crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)}`;
+        if(ref && !ref.startsWith('history:v2:'))ref=opts.rawRefLookup?.get(ref)||'';
       }
       if (ref && seenRefs.has(ref)) continue;
       if (ref) seenRefs.add(ref);
@@ -3098,6 +3337,7 @@ function buildCompactionToolIndex(history, opts = {}) {
     anyRef
       ? '需要某条的确切原文时,调用 observation_recall({rawRef}) 取回当时的原始输出(只读);没有 rawRef 的已不可回捞,要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。'
       : '这些调用的原文已不可回捞;要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。',
+    canRecall ? '缺少引用时可先调用 observation_recall({query}) 定位当前会话证据,再用返回的 rawRef 或 messageRef 回读;覆盖不全或未命中时可用 thread_read 分页本会话旧消息。' : '',
     opts.scratchpadHint ? '之后还要原样用到的数字、链接、ID、rawRef,可以用 scratchpad_write 记下 —— 草稿本跨压缩保留。' : '',
   ].filter(Boolean).join('\n');
   return COMPACTION_TOOL_INDEX_HEADER + '\n' + entries.map(e => e.line).join('\n') + '\n' + footer;
@@ -3235,12 +3475,16 @@ async function runAutoCompaction(ctx) {
 
   // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+  if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
+  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  if(ctx.precompactGuard?.())await ctx.precompactGuard()();
+  if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
 
   let compacted = false;
   let lowWaterEscalation = false, sufficient = 0, l1After = 0;
   // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
   const evaporated = evaporateHistory(history, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
     dedupeReads: historyReadDedupEnabled(config), // 126-111e:同上,开关在调用点把门
     onReduced: meta => {
@@ -3325,7 +3569,7 @@ async function runAutoCompaction(ctx) {
   compactionSummaryFailures.delete(summaryKey);
   // 被摘要掉那段里的工具调用索引(见 buildCompactionToolIndex)。管家会话的摘要是另一套口径(promptOverride),不附。
   const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
-  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: scratchpadHint === true });
   const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
   if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
   // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
@@ -3365,8 +3609,12 @@ async function runForcedOverflowCompaction(ctx) {
   // 强压同样要等一次摘要调用:先报 started;level 1/2 由调用方重试前发 completed(带 afterTokens),零成果在这里发 failed。
   onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+  if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
+  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  if(ctx.precompactGuard?.())await ctx.precompactGuard()();
+  if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const evaporated = evaporateHistory(history, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     onReduced: meta => {
       onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...eventFields, ...meta });
       logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
@@ -3382,7 +3630,7 @@ async function runForcedOverflowCompaction(ctx) {
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
-    const toolIndex = buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+    const toolIndex = buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: scratchpadHint === true });
     const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
     if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
     return { level: 2, evaporated, reseeded, sc };
@@ -3496,11 +3744,14 @@ async function runProviderCompact(sessionId, opts = {}) {
   const work = hostHistory.map(m => (m && typeof m === 'object' ? { ...m } : m));
   const rawRefPrefix = sessionObjectIsStale(session) ? ''
     : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true).catch(() => '');
+  await rememberObservationSnapshot(session,history,rawRefPrefix);
+  const rawRefLookup=rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(session.id,history,rawRefPrefix):new Map();
+  if(sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==baseGen||history.length!==baseLength)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const model = String(provider.model || '');
   const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'manual', history: work, provider, model, config, conversationWindow: true });
   const beforeTokens = estimateHistoryTokens(work);
   const evaporated = evaporateHistory(work, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budgetPlan.budget : 0,
     dedupeReads: historyReadDedupEnabled(config),
   });
@@ -3579,7 +3830,7 @@ async function runProviderCompact(sessionId, opts = {}) {
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
   const indexHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, work) : work;
-  const toolIndex = buildCompactionToolIndex(indexHistory, { upto: work.length, rawRefPrefix, config, scratchpadHint: session.kind !== 'steward' });
+  const toolIndex = buildCompactionToolIndex(indexHistory, { upto: work.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: session.kind !== 'steward' });
 
   let afterTokens = 0;
   const saved = await persist(fresh => {
@@ -3609,7 +3860,7 @@ async function runProviderCompact(sessionId, opts = {}) {
 // 🗜 system row into session.messages (upsertCompactMarker; repeated levels merge into the same open row). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
-async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal) {
+async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal, ownerOptions=null) {
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
@@ -3623,10 +3874,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       try { stewardBudget = Number(StewardHooks.contextBudget(session, config, window)) || 0; } catch { stewardBudget = 0; }
     }
     const budget = stewardBudget > 0 ? stewardBudget : budgetPlan.budget;
-    const r = await runAutoCompaction({
+    let precompactGuard=null;const r = await runAutoCompaction({
       history, privacyHistoryOwner: session, scope: 'main', provider, model, sys, tools, config, budget, window, watermark: session.autoCompactWatermark,
       // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
-      snapshot: () => (sessionObjectIsStale(session) ? '' : writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true)),
+      snapshot: async()=>{if(sessionObjectIsStale(session))return '';if(ownerOptions?.executionOwner)precompactGuard=await observationCommitBeforeCompact(session,history,config,ownerOptions.executionOwner,signal,ownerOptions.saveOptions);const prefix=await writeHistorySnapshot(session.id,session.turnSeq,history,config.runtimeObservationReducerV1===true);if(precompactGuard)await precompactGuard();return prefix;},precompactGuard:()=>precompactGuard,
       onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
       onLevel1: ({ evaporated, before, after }) => upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', evaporated, saved: before - after, beforeTokens: before, afterTokens: after }),
       summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
@@ -3650,6 +3901,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
+    if(e?.observationPrecompactGuardFailure)throw e;
     // Compaction is best-effort; a failure must never break the turn.
     try { logEvent({ kind: 'auto_compact', sessionId: session && session.id, ok: false, error: (e && e.message) || String(e) }); } catch { /* ignore */ }
     return false;
@@ -3932,7 +4184,7 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = {
     promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
-    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false,
+    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false, signal: executionAbort.signal,
     turnSeqAtStart: Number(session.turnSeq) || 0,
     authority: source === 'scheduler' && typeof body.executionAuthority?.assertCurrent === 'function' && typeof body.executionAuthority?.revalidate === 'function' ? body.executionAuthority : null,
     cancel(reason = 'stopped') {
@@ -4470,3 +4722,5 @@ async function streamChat(req, res) {
     }
   }
 }
+
+if(typeof SemanticPolicyConsumers!=='undefined'){SemanticPolicyConsumers.add('observation-snapshot');SemanticPolicyConsumers.add('observation-message');}

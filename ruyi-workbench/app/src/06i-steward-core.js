@@ -1668,7 +1668,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'runtimeSummaryFactTableV1', 'summaryFactTableMaxSamplesV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'budgetGuardWarnRatioV1',
   'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'toolTimeBudgetWarnMsV1', 'toolTimeBudgetHardMsV1', 'toolByteBudgetShadowBytesV1',
   'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'execResultCacheMaxEntriesV1',
-  'runtimeMemoryVectorRecallV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
+  'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
   'toolEconomicsShadowV1', 'boundedReadSchedulerV1', 'boundedReadConcurrencyV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'toolLoadingMode',
   'autoCompactThreshold', 'contextWindowOverrides', 'thinkingBudget', 'claudeThinkingEffort', 'betaInterleavedThinking', 'maxTurns', 'openaiMaxToolIterations',
   // 136:管家压缩触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」那一类;管家只能递按钮。
@@ -1800,6 +1800,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['runtimeExecResultCacheV1', '命令结果缓存', 'Cache exec results'],
   ['execResultCacheMaxEntriesV1', '命令结果缓存最多多少条', 'Max exec cache entries'],
   ['runtimeMemoryVectorRecallV1', '记忆向量召回', 'Vector recall for memory'],
+  ['semanticRetrievalV1', '本地语义检索与记忆重排', 'Local semantic retrieval and memory reranking'],
   ['coreMemoryMaxItemsV1', '核心记忆最多多少条', 'Max core memory items'],
   ['coreMemoryCharBudgetV1', '核心记忆总字数预算', 'Core memory character budget'],
   ['memoryRelevanceMaxV1', '每轮按相关性带几条记忆', 'Memories recalled by relevance per turn'],

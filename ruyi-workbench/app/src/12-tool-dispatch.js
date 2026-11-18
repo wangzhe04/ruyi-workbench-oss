@@ -549,17 +549,46 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      const hasQuery=typeof args?.query==='string'&&args.query.trim()!=='';
+      if(args?.query!==undefined&&!hasQuery)return {ok:false,error:'invalid_query',message:'query must contain 2–256 characters'};
+      if(hasQuery){
+        if(args.rawRef!==undefined||args.messageRef!==undefined||args.offset!==undefined||args.sessionId!==undefined||!session||!observationMainReadAllowed(ctx)||safeSessionId(sessionId)!==sessionId)return {ok:false,error:'invalid_query',message:'query requires the current main session and cannot be combined with a reference, offset, or sessionId'};
+        const query=args.query.trim();if(query.length<2||query.length>256)return {ok:false,error:'invalid_query',message:'query must contain 2–256 characters'};
+        const turnKey=providerTurnQuotaKey(session);if(!observationRecallQuotaTake(sessionId,turnKey))return {ok:false,error:'quota_exceeded',message:`observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA})`};
+        const raw=Number(args.maxChars),maxChars=Number.isFinite(raw)?Math.min(8000,Math.max(1000,Math.round(raw))):4000;
+        const result=await searchObservationSnapshots(session,query,ctx,maxChars),messages=await observationCommittedMessages(session,ctx,{query,maxChars});
+        const indexed=await SessionFullTextHooks.withObservation(ctx,()=>SessionFullTextHooks.search(query,1)),reference=indexed.results.find(hit=>hit.reference?.session?.id===sessionId&&hit.reference?.source==='content'&&Number.isSafeInteger(hit.reference?.messageOrdinal))?.reference;
+        const indexedMessage=reference?await observationCommittedMessages(session,ctx,{query,maxChars,ordinal:reference.messageOrdinal}):null,used=_recallQuota.get(sessionId)?.get(turnKey)||0;
+        const candidates=[],seen=new Set();let candidateChars=2,budgetTruncated=false;for(const candidate of [...result.candidates,...messages.candidates,...(indexedMessage?.candidates||[])].sort((a,b)=>b.rankScore-a.rankScore)){const key=observationCandidateKey.get(candidate)||candidate.messageRef||candidate.rawRef;if(seen.has(key))continue;seen.add(key);const size=JSON.stringify(candidate).length+(candidates.length?1:0);if(candidates.length>=8||candidateChars+size>maxChars){budgetTruncated=true;continue;}candidates.push(candidate);candidateChars+=size;}
+        if(indexedMessage&&observationResultChecks.has(indexedMessage))await observationResultChecks.get(indexedMessage)();if(observationResultChecks.has(messages))await observationResultChecks.get(messages)();if(observationResultChecks.has(result))await observationResultChecks.get(result)();if(observationResultFinal.has(indexedMessage))observationResultFinal.get(indexedMessage)();if(observationResultFinal.has(messages))observationResultFinal.get(messages)();
+        return {ok:true,...result,candidates,messageCoverage:messages.coverage,messageSemantic:messages.semantic,messageIndexCoverage:{...indexed.coverage,semantic:indexed.semantic?.coverage||'partial',selection:'one-session-one-citation',complete:false,reason:indexed.reason==='deadline'?'deadline':indexed.coverage?.phase==='disabled'?'index-disabled':indexed.coverage?.pendingSessions?'index-pending':'one-citation-limit'},budget:{callsRemaining:Math.max(0,OBSERVATION_RECALL_QUOTA-used),maxChars,candidateChars,truncated:budgetTruncated}};
+      }
+      if(args?.messageRef!==undefined){
+        if(args.rawRef!==undefined||args.query!==undefined||args.sessionId!==undefined||!session||!observationMainReadAllowed(ctx)||safeSessionId(sessionId)!==sessionId)return {ok:false,error:'invalid_ref',message:'messageRef requires the current main session and excludes query, rawRef, and sessionId'};
+        const messageRef=String(args.messageRef||'');if(!/^message:v2:[A-Za-z0-9_.-]{1,2048}$/.test(messageRef))return {ok:false,error:'invalid_ref',message:'invalid messageRef'};
+        const turnKey=providerTurnQuotaKey(session);if(!observationRecallQuotaTake(sessionId,turnKey))return {ok:false,error:'quota_exceeded',message:`observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA})`};
+        const result=await observationCommittedMessages(session,ctx,{messageRef}),raw=Number(args.maxChars),maxChars=Number.isFinite(raw)?Math.min(OBSERVATION_RECALL_MAX_CHARS.max,Math.max(OBSERVATION_RECALL_MAX_CHARS.min,Math.round(raw))):OBSERVATION_RECALL_MAX_CHARS.dflt;
+        await observationResultChecks.get(result)();observationResultFinal.get(result)();
+        const spans=observationProjectedSpans(result.text),requested=Math.min(result.text.length,Math.max(0,Math.floor(Number(args.offset)||0))),start=observationProjectedRange(result.text,requested,requested,spans).start;
+        const page=boundedReadPage(result.text,start,maxChars,(_content,end,offset)=>{const range=observationProjectedRange(result.text,offset,end,spans);return {ok:true,content:result.text.slice(range.start,range.end),messageRef,role:result.role,coordinate:'privacy-projected-utf16',totalChars:result.text.length,offset:range.start,truncated:range.end<result.text.length,...(range.end<result.text.length?{nextOffset:range.end}:{})};});if(observationResultMark.has(result))observationResultMark.get(result)(page);return page;
+      }
       // 精简视图里印的是 `rawRef=history:…`,模型常连前缀、引号、换行一起抄回来:先剥掉再认。形状不对的直接回
       // invalid_ref,【不】扣本回合配额(修前先扣后判,8 次抄错之后正确的 ref 也只能拿到 quota_exceeded)。
       const rawRef = String(args && args.rawRef || '').trim().replace(/^["'`]+|["'`]+$/g, '').replace(/^rawRef\s*[=:]\s*/i, '').trim();
-      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef)) {
+      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef) && !/^history:v2:[A-Za-z0-9_.-]{1,2048}$/.test(rawRef)) {
         return { ok: false, error: 'invalid_ref', message: 'rawRef must look like history:<turn>:<hash16>:<index>:<hash16> (copy it exactly from the reduced observation, without the "rawRef=" label)' };
       }
       const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }
-      const result = await rehydrateObservation(sessionId, rawRef);
+      let rawGeneration=configReadGeneration;const rawConfigSnapshot=JSON.stringify(config),rawAnchor=session?.createdAt,rawRewind=Number(session?.rewindGen)||0,rawGuard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+      const rawCheck=(checkGeneration=true)=>{rawGuard();if(ctx?.signal?.aborted||ctx?.executionOwner?.cancelRequested||checkGeneration&&configReadGeneration!==rawGeneration||session&&(ctx.session!==session||session.id!==sessionId||session.createdAt!==rawAnchor||(Number(session.rewindGen)||0)!==rawRewind||sessionObjectIsStale(session)||providerTurnQuotaKey(session)!==turnKey)||(ctx?.sessionId!==undefined&&ctx.sessionId!==sessionId))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});};
+      const resolvedRef=rawRef.startsWith('history:v2:')?await observationOpenRawRef(sessionId,rawRef):rawRef;
+      const publicRef=rawRef.startsWith('history:v2:')?rawRef:await observationSealRawRef(sessionId,rawRef);rawCheck();
+      if(ctx?.executionOwner?.authority){assertSessionExecutionOwner(sessionId,ctx.executionOwner);await revalidateSessionExecutionPermission(sessionId,ctx.executionOwner);assertSessionExecutionOwner(sessionId,ctx.executionOwner);}rawCheck();
+      const currentConfig=await readConfig();rawCheck(false);if(JSON.stringify(currentConfig)!==rawConfigSnapshot)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});rawGeneration=configReadGeneration;if(!observationRecallEnabled(currentConfig)||nativeToolDisabledByPolicy('observation_recall',currentConfig,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config:currentConfig}),'read','observation_recall',{})!=='allow')throw Object.assign(Error('observation_recall.tool_denied'),{code:'observation_recall.tool_denied'});rawCheck();
+      const result=await rehydrateObservation(sessionId,resolvedRef);rawCheck();
       if (!result.ok) {
         const code = observationRecallError(result.error);
         // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
@@ -573,7 +602,7 @@ const CORE_TOOL_HANDLERS = {
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
       const original = String(result.content || '');
       return boundedReadPage(original, args && args.offset, maxChars, (content, end, offset) => ({
-        ok: true, content, toolCallId: result.toolCallId, rawRef: result.rawRef,
+        ok: true, content, toolCallId: result.toolCallId, rawRef:publicRef,
         originalChars: original.length, totalChars: original.length, offset, truncated: end < original.length,
         ...(end < original.length ? { nextOffset: end } : {}),
       }));

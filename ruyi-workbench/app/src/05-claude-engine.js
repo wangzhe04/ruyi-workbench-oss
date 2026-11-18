@@ -218,6 +218,15 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 // 未登记的类型同 selectedAgentCli(01) 口径归到 claude(01f normalizeAgentCliType)。
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
+// Optional memory failures may fall back to an empty preflight. Authority,
+// privacy, cancellation and semantic safety failures must reach the turn owner.
+function memoryPreflightMustPropagate(error) {
+  const code=String(error?.code||''),message=String(error?.message||'');
+  return error?.memorySemanticGuardFailure===true||error?.name==='AbortError'
+    ||/^(?:work_data|privacy[._]|memory_semantic[._]|semantic[._]|SESSION_EXECUTION|STEWARD_TURN_CANCELLED|ABORT_ERR)/.test(code)
+    ||/^(?:memory_semantic|semantic)\./.test(message);
+}
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta, executionOwner,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -298,13 +307,16 @@ async function runClaudeTurn({
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
   const agentRecoverySummary = String(session.agentRecoverySummary || '').trim();
-  const recoveryHistory = kimiNativeSlashCommand
+  const recoveryHistorySource = kimiNativeSlashCommand
     ? ''
     : (typeof _recoveryHistoryOverride === 'string'
       ? _recoveryHistoryOverride
       : (agentRecoverySummary
         ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
         : (!slashCommand ? buildClaudeRecoveryHistory(recoverySource) : '')));
+  const recoveryHistory = recoveryHistorySource
+    ? await ObservationRecoveryHooks.sealRuntimeText(session.id, recoveryHistorySource)
+    : '';
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -386,8 +398,8 @@ async function runClaudeTurn({
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-    { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
-  ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+    { cliType: agentCliType, signal: executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
+  ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   // 本条消息的记忆检索结果:回执,稍后(记忆段)再把相关记忆索引接在它后面 —— 都随每条消息变化,所以走每回合信封(turnMemoryEnvelope),
   // 不进按 hash 去重的稳定索引(#10)。用 let 并沿用这个名字,是因为 kimi-prompt-parts 把下面那段信封装配抽出来单独执行,只认这个变量。
   let memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);

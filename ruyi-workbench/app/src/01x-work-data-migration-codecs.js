@@ -40,6 +40,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('session-head', 'session', new RegExp('^sessions/' + shortId + '\\.json$'), 'sessions', m => m[1], { schema: 2, sessionId: true });
   text('journal-index', 'session', new RegExp('^checkpoints/' + shortId + '/index\\.json$'), m => m[1], 'journal-index', { chunked: true, shape: 'array', sessionId: true });
   text('journal-reverts', 'session', new RegExp('^checkpoints/' + shortId + '/reverts\\.json$'), m => m[1], 'journal-reverts', { chunked: true, sessionId: true });
+  text('journal-observation-owners', 'session', new RegExp('^checkpoints/' + shortId + '/observation-owners-v1\\.json$'), m => m[1], 'journal-observation-owners-v1', { chunked: true, sessionId: true, maxPlaintextBytes: 65536 });
   define('journal-history', 'gzip', 'session', new RegExp('^checkpoints/' + shortId + '/(\\d+-\\d+\\.gz|history-\\d+(?:-[a-f0-9]{16})?\\.json\\.gz)$'),
     m => ({ scopeId: m[1], recordId: m[2] }), { sessionId: true });
   text('mission-container', 'task', new RegExp('^missions/' + shortId + '\\.json$'), m => m[1], 'mission-container', { chunked: true });
