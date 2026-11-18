@@ -50,6 +50,9 @@ Thumbs.db
 /%SystemDrive%/
 # Unresolved Windows-generated state from isolated probes; never publish it.
 /dev-harness/Microsoft/
+# Same PowerShell ModuleAnalysisCache fallback (LOCALAPPDATA missing in some probe's env, cwd = repo root);
+# first seen 2026-11-18, origin not yet identified (151 phase 0). Ignored, not deleted.
+/Microsoft/
 # Unconsumed independent holdouts stay local until the frozen one-shot review.
 /dev-harness/semantic/acceptance-v7*
 /dev-harness/semantic/acceptance-zh-v1*

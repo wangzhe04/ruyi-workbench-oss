@@ -1800,7 +1800,7 @@ async function decideMemoryProposal(sessionId, proposalId, decision) {
 // /api/memory/proposal/apply(UI)调用,模型够不着。某条写失败:已存的那几条记成 saved、失败的留 pending、整张卡
 // 不 settle,回 ok:false —— 用户再点一次只重试还没存上的,不会把存过的再存一遍。
 // overrides:{ "<下标>": { scope?:'global'|'project', core?:boolean } } —— 用户在卡上对某一条改了作用域 / 取消了「加入核心」。
-// 只认这两个字段、只对勾上的条目生效;没给的条目按提议原值(scope 取 proposal 上的最终 scope;core 沿用弹窗默认:偏好/惯例进核心)。
+// 只认这两个字段、只对勾上的条目生效;没给的条目按提议原值(scope 取 proposal 上的最终 scope;core 沿用弹窗默认:不进核心)。
 async function applyMemoryBatchProposal(sid, proposalId, cwd, accept, overrides) {
   const state = await readMemoryProposalState(sid);
   if (!state.current || state.current.id !== proposalId || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
@@ -1814,11 +1814,12 @@ async function applyMemoryBatchProposal(sid, proposalId, cwd, accept, overrides)
   for (let index = 0; index < items.length; index++) {
     const item = items[index];
     if (!item || item.status !== 'pending' || !picked.has(index)) continue;
-    // 与单条卡「查看并保存」弹窗的默认值一致:偏好/惯例默认进核心(弹窗里那个勾默认勾上),其余不进;用户事后可在工具箱改。
-    // 卡上每条都有作用域下拉与「加入核心」勾选(overrides),用户改了就以用户为准。
+    // 与单条卡「查看并保存」弹窗及批量卡上的默认值一致:默认不进核心,只有用户在卡上打开(overrides.core=true)才进;
+    // 修前偏好/惯例默认进核心 = 每条新记忆默认每轮注入(150 号文 U13,用户确认非有意)。用户事后可在工具箱改。
+    // 卡上每条都有作用域下拉与「加入核心」开关(overrides),前端只在用户改过时才传,所以这里的兜底必须与卡上画的默认相同。
     const o = ov[index] && typeof ov[index] === 'object' ? ov[index] : {};
     const scope = o.scope === 'global' || o.scope === 'project' ? o.scope : (item.scope === 'global' ? 'global' : 'project');
-    const core = typeof o.core === 'boolean' ? o.core : (item.type === 'preference' || item.type === 'convention');
+    const core = typeof o.core === 'boolean' ? o.core : false;
     const r = await saveMemory({ name: item.name, description: item.description, type: item.type, body: item.body,
       scope, core, sourceSessionId: p.sourceSessionId || sid }, cwd);
     if (r && r.ok) { item.status = 'saved'; item.memoryId = r.memory.id; item.memoryScope = r.memory.scope; item.savedCore = core; item.decidedAt = nowIso(); }

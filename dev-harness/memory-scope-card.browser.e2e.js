@@ -149,8 +149,9 @@ const providerScript = async ctx => {
     const s4 = await wait(batchInfo, 1200);
     ok(s4 && s4.cards === 1 && s4.scopes.join() === 'project,project,project' && /AI 建议：全局/.test(s4.notes[0]) && s4.notes[1] === '' && s4.notes[2] === '',
       `S4 批量卡每一条都有作用域下拉;被降级的第 0 条有「AI 建议:全局」说明(got ${JSON.stringify(s4 && { scopes: s4.scopes, notes: s4.notes })})`);
-    ok(s4 && s4.core.join() === 'true,false,true' && /将加入核心/.test(s4.coreText[0]) && /不加入核心/.test(s4.coreText[1]),
-      `S4b 每条显示「将加入核心(每轮注入)」开关,默认与单条弹窗一致(偏好/惯例开、教训关)(got ${JSON.stringify(s4 && s4.coreText)})`);
+    // 150 号文 U13:新建记忆默认不进核心(用户确认修前「偏好/惯例默认开」非有意),批量卡与单条弹窗同口径。
+    ok(s4 && s4.core.join() === 'false,false,false' && s4.coreText.every(x => /不加入核心/.test(x)),
+      `S4b 每条显示「加入核心」开关,默认与单条弹窗一致(一律关,只由用户打开)(got ${JSON.stringify(s4 && { core: s4.core, coreText: s4.coreText })})`);
     ok(s4 && s4.body.every((x, i) => x.includes(String(BATCH[i].body.length))) && s4.checks.length === 3 && s4.checks.every(Boolean), `S4c 正文折叠标题带字数;默认仍全勾(got ${JSON.stringify(s4 && s4.body)})`);
     await ev(`location.reload()`);
     await sleep(600);
@@ -159,18 +160,18 @@ const providerScript = async ctx => {
     await ev(`(() => {
       const rows = [...document.querySelectorAll('#messages .memory-proposal-batch .memory-proposal-item')];
       const sel = rows[0].querySelector('select.memory-proposal-scope'); sel.value = 'global'; sel.dispatchEvent(new Event('change', { bubbles: true }));
-      rows[2].querySelector('button.memory-proposal-core').click();
+      rows[0].querySelector('button.memory-proposal-core').click();
       rows[1].querySelector('input[type="checkbox"]').click();
       return true;
     })()`);
     const s4e = await ev(batchInfo);
-    ok(s4e && s4e.scopes[0] === 'global' && /已按你的选择使用全局/.test(s4e.notes[0]) && s4e.core[2] === 'false' && s4e.checks.join() === 'true,false,true', `S4e 改了第 0 条的范围、关了第 2 条的核心、取消了第 1 条(got ${JSON.stringify(s4e && { scopes: s4e.scopes, core: s4e.core, checks: s4e.checks })})`);
+    ok(s4e && s4e.scopes[0] === 'global' && /已按你的选择使用全局/.test(s4e.notes[0]) && s4e.core[0] === 'true' && /将加入核心/.test(s4e.coreText[0]) && s4e.core[2] === 'false' && s4e.checks.join() === 'true,false,true', `S4e 改了第 0 条的范围并打开它的核心、第 2 条保持默认不进核心、取消了第 1 条(got ${JSON.stringify(s4e && { scopes: s4e.scopes, core: s4e.core, checks: s4e.checks })})`);
     await ev(`(() => { document.querySelector('#messages .memory-proposal-batch .memory-proposal-actions button.primary').click(); return true; })()`);
     await wait(`(() => document.querySelector('#messages .memory-proposal-card') ? null : 1)()`, 400);
     const f0 = listMd(gdir).find(f => /kqbc1vale/.test(readText(f)));
     const f2 = listMd(pdir).find(f => /kqbc3vale/.test(readText(f)));
     ok(Boolean(f0) && fmField(f0, 'core') === 'true' && Boolean(f2) && fmField(f2, 'core') === 'false' && !listMd(gdir).concat(listMd(pdir)).some(f => /kqbc2vale/.test(readText(f))),
-      `S4f 落盘如用户所选:第 0 条在全局且进核心,第 2 条在项目且不进核心,第 1 条(取消)没写(f0=${Boolean(f0)} f2=${Boolean(f2)})`);
+      `S4f 落盘如用户所选:第 0 条在全局且进核心(用户打开),第 2 条在项目且不进核心(默认),第 1 条(取消)没写(f0=${Boolean(f0)} f2=${Boolean(f2)})`);
     void sidB;
 
     // S5 revise 全局记忆:标签读 targetScope
@@ -290,8 +291,12 @@ const providerScript = async ctx => {
     ok(Boolean(e2Proposal) && e2en === e2Proposal, 'E2b 换回英文重画后，同一张卡仍在、界面文字全英文');
     await esend('write these three down [BATCH]');
     const e3 = await ewait(`(() => { const c = document.querySelector('#messages .memory-proposal-batch'); if (!c) return null; const t = ${chromeTexts}; return t.length ? t : null; })()`, 1200);
-    ok(Array.isArray(e3) && e3.every(x => !cjk(x)) && e3.some(x => x === 'Will join core (injected every turn)') && e3.some(x => x === 'Not added to core') && e3.some(x => /^Body \(\d+ chars\)$/.test(x)),
+    ok(Array.isArray(e3) && e3.every(x => !cjk(x)) && e3.some(x => x === 'Not added to core') && e3.some(x => /^Body \(\d+ chars\)$/.test(x)),
       `E3 英文界面批量卡:「加入核心」开关、正文字数、作用域下拉都是英文(got ${JSON.stringify(e3)})`);
+    // 默认一律不进核心(150 号文 U13),「将加入核心」的英文要点开一个开关才看得到。
+    await eev(`(() => { document.querySelector('#messages .memory-proposal-batch button.memory-proposal-core').click(); return true; })()`);
+    const e3on = await ewait(`(() => { const t = ${chromeTexts}; return t.some(x => x === 'Will join core (injected every turn)') ? t : null; })()`, 400);
+    ok(Array.isArray(e3on) && e3on.every(x => !cjk(x)), `E3b 英文界面批量卡打开「加入核心」后显示英文「Will join core (injected every turn)」(got ${JSON.stringify(e3on)})`);
     // 过期的修订:提议之后记忆被改过 → 报错按稳定码本地化成英文
     await esend('please revise memory seed-stale [REVSTALE]');
     // 只接受这次 seed-stale 的修订卡，旧批量卡也有 kicker，不能把它当作修订已到达。

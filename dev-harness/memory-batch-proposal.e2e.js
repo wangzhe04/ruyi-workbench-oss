@@ -90,8 +90,9 @@ try {
   const texts = files.map(f => fs.readFileSync(f, 'utf8'));
   ok(files.length === 2 && texts.some(x => x.includes(item(1).body)) && texts.some(x => x.includes(item(3).body)) && !texts.some(x => x.includes(item(2).body)),
     `A2c 落库正好 2 条(1、3),被拒的那条没写(实得 ${files.length} 个 .md)`);
-  ok(texts.every(x => x.includes('sourceSessionId: ' + S1)) && texts.every(x => /\ncore: true\n/.test(x)),
-    'A2d 落库的记忆带来源会话;convention 默认进核心(与单条卡编辑弹窗的默认勾选一致)');
+  // 150 号文 U13:新建记忆默认不进核心(用户确认修前「偏好/惯例默认进核心」非有意);没有 overrides 时按默认落 core:false。
+  ok(texts.every(x => x.includes('sourceSessionId: ' + S1)) && texts.every(x => /\ncore: false\n/.test(x)),
+    'A2d 落库的记忆带来源会话;没在卡上打开「加入核心」就不进核心(与单条卡编辑弹窗的默认一致)');
   const st2 = stateOf(HOME_A, S1);
   const its = st2 && st2.current && st2.current.proposal && st2.current.proposal.items || [];
   ok(st2.current.status === 'saved' && its.map(x => x.status).join() === 'saved,dismissed,saved' && its[0].memoryId === ap.saved[0].id,

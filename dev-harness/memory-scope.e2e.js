@@ -162,6 +162,7 @@ try {
   const ap8 = await srv.applyMemoryRelationProposal(S8, b8.proposalId, PROJ, { accept: [0, 1], overrides: { 0: { scope: 'global', core: false }, 1: { scope: 'project', core: true }, 2: { scope: 'global' } } });
   const f40 = globalFiles(HOME_A).find(f => /kqs40vale/.test(readText(f)));
   const f41 = projectFiles(HOME_A).find(f => /kqs41vale/.test(readText(f)));
+  // 0:{core:false} 现与默认值相同(150 号文 U13),这里只钉 override 的 scope 与第 1 条 core:true 被尊重。
   ok(ap8.ok && ap8.saved.length === 2 && f40 && fmField(f40, 'core') === 'false' && f41 && fmField(f41, 'core') === 'true',
     `A8 批量 apply 的 overrides:第 0 条改成全局且不加入核心、第 1 条(lesson)改成加入核心(got ${JSON.stringify({ saved: ap8.saved, f40: Boolean(f40), f41: Boolean(f41) })})`);
   ok(!globalFiles(HOME_A).concat(projectFiles(HOME_A)).some(f => /kqs42vale/.test(readText(f))), 'A8b 没勾上的第 2 条即使带了 override 也不写');
@@ -170,7 +171,8 @@ try {
   const S8n = b8n.proposal.sourceSessionId;
   const ap8n = await srv.applyMemoryRelationProposal(S8n, b8n.proposalId, PROJ, { accept: [0, 1] });
   const f43 = projectFiles(HOME_A).find(f => /kqs43vale/.test(readText(f))), f44 = projectFiles(HOME_A).find(f => /kqs44vale/.test(readText(f)));
-  ok(ap8n.ok && f43 && fmField(f43, 'core') === 'true' && f44 && fmField(f44, 'core') === 'true', 'A8d 不带 overrides 时与修前一致:偏好/惯例默认进核心');
+  // 150 号文 U13:新建记忆默认不进核心(用户确认修前「偏好/惯例默认进核心」非有意);用户打开核心的 override 由上面 A8 钉住。
+  ok(ap8n.ok && f43 && fmField(f43, 'core') === 'false' && f44 && fmField(f44, 'core') === 'false', 'A8d 不带 overrides 时默认不进核心(与单条弹窗、批量卡的默认一致)');
 
   /* ───────────────────────── [H] 真服务 + 假 provider ───────────────────────── */
   const HOME_H = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-mem-scope-h-'));

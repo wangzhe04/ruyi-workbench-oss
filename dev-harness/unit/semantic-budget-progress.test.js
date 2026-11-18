@@ -8,11 +8,28 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const prepared = { available: true, modelId: 'budget-fixture', modelFingerprint: 'budget-v1', retrievalThresholds: { search: .34, automatic: null } };
 const vector = n => { const length = Math.hypot(1, n + 1); return [1 / length, (n + 1) / length]; };
 
+// The first test charges its fixture costs (source resolve 75 ms, authority guard 15 ms, encode 1 ms) to a
+// virtual clock instead of sleeping on the wall clock. 06ha reads time only through Date.now(), so a sandbox
+// Date whose now() is virtual makes the budget arithmetic exact and the test pins the batching algorithm for
+// these costs. The wall-clock version left 200 - (15 + 75 + 15) - 64 = 31 ms of slack per batch; Windows rounds
+// every setTimeout up to ~15.6 ms (delay(1) measured 16 ms, delay(15) 16-34 ms under 4-way test concurrency),
+// so whole attempts encoded nothing and 10 attempts sometimes did not finish. Real guard I/O growing under load
+// until it eats a fixed budget is the product issue tracked as 150 §S8; this test does not measure it.
+function virtualClock(start = 1e6) {
+  let now = start;
+  class VirtualDate extends Date { static now() { return now; } }
+  return { Date: VirtualDate, now: () => now, delay: async ms => { now += ms; await new Promise(resolve => setImmediate(resolve)); } };
+}
+
 test('delayed source resolve and final guard shrink batches and make cache progress with correct identities', async () => {
+  const clock = virtualClock();
+  // Any real timer in 06ha would silently escape the virtual clock: fail loudly instead.
+  const realTimer = () => { throw Error('06ha started a real timer; this test assumes Date.now() is its only clock'); };
+  const virtualApi = vm.runInNewContext(source + '\nSemanticRetrieval;', { require, Buffer, Date: clock.Date, setTimeout: realTimer, clearTimeout: realTimer });
   const encoded = [], batches = []; let guards = 0, resolves = 0;
-  const semantic = api.create({ prepare: async () => prepared, encode: async (texts, opts) => {
-    if (opts.deadline - Date.now() < opts.minimumBudgetMs) return { ok: false, reason: 'timeout' };
-    await delay(1);
+  const semantic = virtualApi.create({ prepare: async () => prepared, encode: async (texts, opts) => {
+    if (opts.deadline - clock.now() < opts.minimumBudgetMs) return { ok: false, reason: 'timeout' };
+    await clock.delay(1);
     if (opts.role === 'query') return { ok: true, modelFingerprint: prepared.modelFingerprint, vectors: [[1, 0]] };
     const ids = texts.map(text => Number(/^payload:(\d+)$/.exec(text)[1]));
     batches.push(ids); encoded.push(...ids);
@@ -22,8 +39,8 @@ test('delayed source resolve and final guard shrink batches and make cache progr
   const progress = []; let result;
   for (let attempt = 0; attempt < 10; attempt++) {
     result = await semantic.score('query', docs, { scopeId: 'scope', identities, deadlineMs: 200,
-      beforeEncode: async () => { guards++; await delay(15); },
-      resolveTexts: async indices => { resolves++; await delay(75); return indices.map(n => 'payload:' + n); } });
+      beforeEncode: async () => { guards++; await clock.delay(15); },
+      resolveTexts: async indices => { resolves++; await clock.delay(75); return indices.map(n => 'payload:' + n); } });
     progress.push(result.coverage.cached); if (result.coverage.complete) break;
   }
   assert.ok(progress.some(count => count > 0), 'late source work must not produce a permanent zero-progress fixed point');

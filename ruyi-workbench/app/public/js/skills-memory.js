@@ -1228,9 +1228,10 @@ function buildMemoryBatchProposalCard(sessionId, result) {
     scopeSel.onchange = () => { note.textContent = memoryScopeNoteText(item, scopeSel.value); note.hidden = !note.textContent; };
     row.appendChild(note);
     if (item.reason) row.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: item.reason })));
-    // 「加入核心」= 这条的 description 会成为每轮注入的核心摘要:默认与单条弹窗一致(偏好/惯例开,其余关),卡上可见可改。
+    // 「加入核心」= 这条的 description 会成为每轮注入的核心摘要:默认关(与单条弹窗一致,只由用户在卡上打开),卡上可见可改。
+    // 修前偏好/惯例默认开,新建记忆于是默认进每轮提示词(150 号文 U13,用户确认非有意);后端 applyMemoryBatchProposal 的兜底同口径。
     // 用 aria-pressed 的开关按钮而不是复选框:这一行里的 input[type=checkbox] 只留「保存这条」那一个。
-    let coreOn = item.type === 'preference' || item.type === 'convention';
+    let coreOn = false;
     const coreBtn = el('button', 'memory-proposal-core');
     coreBtn.type = 'button';
     const paintCore = () => { coreBtn.setAttribute('aria-pressed', coreOn ? 'true' : 'false'); coreBtn.textContent = coreOn ? t('memory.proposal.coreOn') : t('memory.proposal.coreOff'); };
@@ -1338,14 +1339,12 @@ async function openMemoryEditModal(m) {
   const corePanel = el('div', 'memory-edit-core');
   const coreLabel = el('label', 'check memory-core-check');
   const coreCheck = el('input'); coreCheck.type = 'checkbox';
-  const hasCoreChoice = !!(full && Object.prototype.hasOwnProperty.call(full, 'core'));
-  coreCheck.checked = hasCoreChoice ? full.core === true : ['preference', 'convention'].includes(typeSel.value);
+  // 核心摘要每轮都进基础提示词，只能由用户（或带明确 core 的草稿/提案）选择加入。修前没有 core 时按类型
+  // 自动勾选，而类型下拉默认第一项就是 preference，于是每条新建记忆都默认进了核心（150 号文 U13，用户确认非有意）。
+  coreCheck.checked = !!(full && full.core === true);
   coreLabel.append(coreCheck, el('span', '', t('memory.edit.core')));
   corePanel.append(coreLabel, el('p', 'field-help muted', t('memory.edit.coreHint')));
   body.appendChild(corePanel);
-  let coreTouched = hasCoreChoice;
-  coreCheck.onchange = () => { coreTouched = true; };
-  typeSel.onchange = () => { if (!coreTouched) coreCheck.checked = ['preference', 'convention'].includes(typeSel.value); };
   const coreSummaryEl = mkField(t('memory.edit.coreSummary'), full ? full.coreSummary : '', 3);
   coreSummaryEl.maxLength = 520;
   // 核心摘要每轮注入,说明改了摘要却还停在旧文字就是在注入旧内容。摘要还只是「说明的副本」(没单独写过)时,说明一改它就跟着改;

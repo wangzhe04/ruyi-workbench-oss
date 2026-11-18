@@ -8,7 +8,8 @@
 //   [U2] 暂停后恢复要按「此刻」重算 nextFireAt(HTTP PATCH 与管家 resume 两条路):修前停在暂停时的旧时点上,恢复后第一拍补跑
 //        暂停期间的时点或记一条没人错过的 skipped。
 //   [U3] 无人值守等批准不被超时吃掉:批准窗口与回合超时同量级时,修前超时计时器先到、记 failed/timeout,needs_you 走不到;
-//        现在待批的区间不计进超时 → needs_you。真超时(慢回合)照旧 failed/timeout。
+//        现在待批的区间不计进超时 → needs_you。真超时(慢回合)照旧 failed/timeout。窗口不写死:按同进程标定的
+//        一发普通回合耗时自适应(批准窗口 = 回合超时,判别力不随窗口大小变,见用例头注)。
 //   [U4] 回合在 13n 仲裁器里排队超过超时:修前 stopSession 拿不到活回合、计时器作废,回合排到后照跑却记 failed/timeout;
 //        现在计时器把它撤出队列、记 skipped/queue_timeout(不计连败、什么都没跑)。
 //   [U5] 两条定时任务同刻指向同一条既有线程:修前后一个把前一个顶掉(同源不算忙),前一个消息丢了仍记 succeeded;
@@ -50,6 +51,11 @@ let gateRelease = null;
 let gate = null;
 function armGate() { gate = new Promise(r => { gateRelease = r; }); }
 armGate();
+// [U3] 慢回合对照:provider 对 SLOWTURN 睡多久(U3 按标定出的回合超时放大),以及那一发的下场
+// ('pending' 还在睡 / 'cut' 答复之前被工作台掐断 / 'answered' 睡满了才答)。
+let slowTurnMs = 4000;
+let slowState = 'idle';
+const arrivals = [];   // 每一发 provider 请求到达的墙钟 { text, tool, at }(U3 用来核对批准窗口真的等满了)
 let fake = null;
 let server = null;
 let base = '';
@@ -84,8 +90,17 @@ test('setup', async () => {
   fake = await startFakeProvider({
     async handler(rq) {
       const text = userTextOf(rq);
+      arrivals.push({ text, tool: rq.messages.some(m => m.role === 'tool'), at: Date.now() });
       if (text.includes('GATED')) await gate;
-      if (text.includes('SLOWTURN')) await sleep(4000);
+      if (text.includes('SLOWTURN')) {
+        // 睡 slowTurnMs;工作台先掐断这一发(回合被叫停)就提前醒。计时器 unref:被掐断后不替这一发把进程吊着。
+        slowState = 'pending';
+        slowState = await new Promise(resolve => {
+          const timer = setTimeout(() => resolve('answered'), slowTurnMs);
+          if (timer.unref) timer.unref();
+          rq.res.once('close', () => { clearTimeout(timer); resolve('cut'); });
+        });
+      }
       // 要批准的那一类:default 档下 file_write 判 ask(目标线程的工作目录就是 root,绝对路径在工作区内)。
       if (text.includes('TOOLCALL') && !rq.messages.some(m => m.role === 'tool')) return toolCallFrames('file_write', { path: path.join(root, 'ask.txt'), content: 'x' }, 'call_ask');
       return textFrames('ok');
@@ -192,10 +207,34 @@ test('[U2] 暂停后恢复:nextFireAt 按此刻重算(HTTP PATCH 与管家 resum
 });
 
 /* ═══════════════ [U3] 等批准不被回合超时吃掉 ═══════════════ */
+// 标定:同一进程、同一条路径(建任务 → run-now → 既有线程 → 一来一回 provider)跑一发普通定时回合,量 run-now 的墙钟。
+// 它是本进程第一个回合,冷启动落在它身上;还含不计进回合超时的调度前奏 —— 只会把超时估大(更稳、更慢),不会估小。
+async function calibrateTurnMs() {
+  const s = await srv.createSession({ title: 'calibrate holder', cwd: root });
+  await srv.saveSession(s);
+  const c = await api('POST', '/api/scheduler/tasks', {
+    title: 'calibrate', schedule: { kind: 'daily', at: '05:30' }, payload: { kind: 'prompt', text: 'CALIBRATE 量一发普通回合' },
+    target: { mode: 'existing-session', sessionId: s.id },
+  });
+  assert.equal(c.status, 200, JSON.stringify(c.json));
+  const t0 = Date.now();
+  const ran = await Promise.race([api('POST', '/api/scheduler/tasks/' + c.json.task.id + '/run-now', {}), deadline(60000)]);
+  const ms = Date.now() - t0;
+  assert.ok(ran && ran.status === 200 && ran.json.outcome === 'succeeded', '前提:标定回合跑通了 ' + JSON.stringify(ran && ran.json).slice(0, 200));
+  await api('DELETE', '/api/scheduler/tasks/' + c.json.task.id);
+  return ms;
+}
+
 test('[U3] 无人值守等批准:批准窗口与回合超时同量级时仍记 needs_you,不是 failed/timeout;慢回合照旧超时', async () => {
   setClock(new Date(2026, 4, 4, 8, 0, 0).getTime());
-  // 批准窗口 1500ms、回合超时 1500ms:批准在回合起手后才发起,窗口必然晚于超时到期 —— 修前超时先到。
-  const restore = withEnv({ WCW_SCHEDULER_ASK_WAIT_MS: 1500, WCW_SCHEDULER_TIMEOUT_MS: 1500 });
+  // 判别力只靠一条与机器快慢无关的不等式:批准窗口 = 回合超时 = T,而批准只能在回合起手之后才发起 ——
+  // 修前(超时不扣待批区间)的计时器必在批准有结果之前到期 → failed/timeout,本件必红。
+  // 修后要绿,只需回合【除去等批准】的真实工作 W < T。W 是墙钟量:单跑约 0.4 s(冷回合),但 4 路并发 / CPU 打满时
+  // 冷回合从起手到第一发 provider 请求就超过 1.5 s,超时在批准发起之前到期 —— 那时 failed/timeout 是对的产品行为,
+  // 是写死的 1.5 s 窗口太紧。所以 T 按此刻实测的一发普通定时回合 W0 自适应:T = clamp(3·W0, 1500, 12000)。
+  const W0 = await calibrateTurnMs();
+  const T = Math.min(12000, Math.max(1500, 3 * W0));
+  const restore = withEnv({ WCW_SCHEDULER_ASK_WAIT_MS: T, WCW_SCHEDULER_TIMEOUT_MS: T });
   try {
     const holder = await srv.createSession({ title: 'ask holder', cwd: root });
     await srv.saveSession(holder);
@@ -205,24 +244,33 @@ test('[U3] 无人值守等批准:批准窗口与回合超时同量级时仍记 n
     });
     assert.equal(c.status, 200, JSON.stringify(c.json));
     const id = c.json.task.id;
-    const ran = await Promise.race([api('POST', '/api/scheduler/tasks/' + id + '/run-now', {}), deadline(15000)]);
+    const t0 = Date.now();
+    const ran = await Promise.race([api('POST', '/api/scheduler/tasks/' + id + '/run-now', {}), deadline(2 * T + 20000)]);
     assert.ok(ran && ran.status === 200, '前提:run-now 返回了');
+    const asks = arrivals.filter(a => a.at >= t0 && a.text.includes('TOOLCALL'));
+    const seen = `标定 W0=${W0}ms、T=${T}ms;provider 到达(相对 run-now)${asks.map(a => (a.tool ? '工具结果' : '首发') + '@' + (a.at - t0)).join('、') || '无'}`;
     const row = reconciledOf(id)[0];
     assert.ok(row, '有 reconciled 行');
-    assert.equal(row.outcome, 'needs_you', `等批准到时被拒 → needs_you(修前 failed/timeout);实得 ${row.outcome}/${row.error}`);
+    assert.equal(row.outcome, 'needs_you', `等批准到时被拒 → needs_you(修前 failed/timeout);实得 ${row.outcome}/${row.error};${seen}`);
     assert.equal(row.error, 'permission_denied');
+    // 前提:批准窗口真的等满了 T,回合超时到点的那一刻落在等批准的区间里(修前正是在这里被超时叫停)。
+    const first = asks.find(a => !a.tool), back = asks.find(a => a.tool);
+    assert.ok(first && back && back.at - first.at >= T - 50, `批准窗口等满了 T 才拒(不是当场就拒);${seen}`);
     assert.ok(!fs.existsSync(path.join(root, 'ask.txt')), '到时是拒,文件没被写出来');
     const t = await taskOf(id);
     assert.equal(t.state.consecutiveFailures, 0, '不计连败(修前三次就熔断停用)');
     await api('DELETE', '/api/scheduler/tasks/' + id);
 
-    // 对照:回合真的慢(provider 睡 4 秒),超时照旧叫停 → failed/timeout。
+    // 对照:回合真的慢(provider 睡 T + 20 s),超时照旧叫停 → failed/timeout。「叫停」按因果判:run-now 回来时
+    // provider 那一发还没答(在睡或已被掐断),不再用「比 4 秒快」的墙钟界 —— 那个界在负载下量的是调度前奏与收尾的噪声。
+    slowTurnMs = T + 20000;
     const slow = await api('POST', '/api/scheduler/tasks', { title: 'really-slow', schedule: { kind: 'daily', at: '07:00' }, payload: { kind: 'prompt', text: 'SLOWTURN 慢慢来' } });
     const sid = slow.json.task.id;
-    const t0 = Date.now();
-    const slowRan = await Promise.race([api('POST', '/api/scheduler/tasks/' + sid + '/run-now', {}), deadline(15000)]);
+    const s0 = Date.now();
+    const slowRan = await Promise.race([api('POST', '/api/scheduler/tasks/' + sid + '/run-now', {}), deadline(slowTurnMs + 20000)]);
     assert.ok(slowRan && slowRan.status === 200);
-    assert.ok(Date.now() - t0 < 3800, `超时把回合叫停了,没有等满 provider 的 4 秒(实测 ${Date.now() - t0}ms)`);
+    assert.notEqual(slowState, 'answered',
+      `超时把回合叫停了,没有等 provider 睡满 ${slowTurnMs}ms 再答(实得 ${slowState},run-now 用了 ${Date.now() - s0}ms,T=${T}ms)`);
     const slowRow = reconciledOf(sid)[0];
     assert.equal(slowRow.outcome, 'failed');
     assert.equal(slowRow.error, 'timeout', '活回合超时仍记 failed/timeout');

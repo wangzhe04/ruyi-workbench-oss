@@ -1,0 +1,2437 @@
+{
+  "tool": "dev-harness/experience-gates.js",
+  "schema": 1,
+  "mode": "full",
+  "startedAt": "2026-11-18T12:27:14.636Z",
+  "durationS": 378.1,
+  "environment": {
+    "node": "v24.14.0",
+    "platform": "win32 10.0.26200 x64",
+    "cpu": "AMD Ryzen 5 5500                               ",
+    "logicalCpus": 12,
+    "memoryGiB": 31.9,
+    "cpuBusyBeforeStart": {
+      "samples": 5,
+      "avgBusyPct": 58.6,
+      "maxBusyPct": 63.8
+    },
+    "concurrency": "工作进程逐个串行(本量具同一时刻只跑一个);本机其他负载不受控,见各 job 的 cpuBusy",
+    "semanticRuntime": "本检出未安装语义运行时资产(worker.cjs 启动即 RUNTIME_UNAVAILABLE),产品侧表现为 semantic.owner_identity / state=failed",
+    "repo": {
+      "commit": "ce9b329d",
+      "branch": "codex/3.1-completion-plan",
+      "uncommittedPaths": 32
+    },
+    "isolation": "releaseEnvironment 临时家与数据根 + WCW_TEST_NO_NET_ANCHORS=1 + WCW_NO_BROWSER=1;假 provider 与占位密钥;宿主与工作进程双重核验"
+  },
+  "summary": {
+    "gates": 28,
+    "measured": 21,
+    "passed": 2,
+    "failed": 19,
+    "notImplemented": 7,
+    "skipped": 0,
+    "errors": 0
+  },
+  "gates": [
+    {
+      "id": "G-codes",
+      "title": "已知失败码有中英文案(静态)",
+      "condition": "A 级(apiFailure/apiCode 字面量,HTTP 必达)+ B 级(隐私族 fail()/字面量);对照 api-error-i18n 与 privacy-failure 的运行时表、两份 locale、public/ 里的字面量",
+      "status": "measured",
+      "unit": "codes",
+      "samples": 219,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 146,
+      "target": {
+        "op": "<=",
+        "value": 0
+      },
+      "pass": false,
+      "details": {
+        "byTier": {
+          "A": {
+            "total": 122,
+            "covered": 20,
+            "mentionedOnly": 6,
+            "missing": 102
+          },
+          "B": {
+            "total": 97,
+            "covered": 53,
+            "mentionedOnly": 5,
+            "missing": 44
+          },
+          "C": {
+            "total": 124,
+            "covered": 15,
+            "mentionedOnly": 4,
+            "missing": 109
+          }
+        },
+        "familyMissingTierC": 109,
+        "missingByNamespace": {
+          "privacy": {
+            "tier": "B",
+            "count": 61
+          },
+          "semantic": {
+            "tier": "C",
+            "count": 31
+          },
+          "credential_vault": {
+            "tier": "A",
+            "count": 26
+          },
+          "asr": {
+            "tier": "A",
+            "count": 14
+          },
+          "work_data_backup": {
+            "tier": "A",
+            "count": 14
+          },
+          "work_data_setup": {
+            "tier": "A",
+            "count": 13
+          },
+          "work_data": {
+            "tier": "A",
+            "count": 10
+          },
+          "work_data_store": {
+            "tier": "A",
+            "count": 9
+          },
+          "credential_recovery": {
+            "tier": "B",
+            "count": 8
+          },
+          "work_data_attachment_catalogs": {
+            "tier": "C",
+            "count": 6
+          },
+          "scheduler": {
+            "tier": "A",
+            "count": 5
+          },
+          "session": {
+            "tier": "A",
+            "count": 5
+          },
+          "upload": {
+            "tier": "A",
+            "count": 5
+          },
+          "work_data_journal": {
+            "tier": "A",
+            "count": 5
+          },
+          "work_data_adapter": {
+            "tier": "C",
+            "count": 5
+          },
+          "voice": {
+            "tier": "A",
+            "count": 4
+          },
+          "api": {
+            "tier": "A",
+            "count": 3
+          },
+          "work_data_audit": {
+            "tier": "C",
+            "count": 3
+          },
+          "delivery": {
+            "tier": "A",
+            "count": 2
+          },
+          "editor": {
+            "tier": "A",
+            "count": 2
+          },
+          "file": {
+            "tier": "A",
+            "count": 2
+          },
+          "projection": {
+            "tier": "A",
+            "count": 2
+          },
+          "work_data_record": {
+            "tier": "C",
+            "count": 2
+          },
+          "auth": {
+            "tier": "A",
+            "count": 1
+          },
+          "config": {
+            "tier": "A",
+            "count": 1
+          },
+          "events": {
+            "tier": "A",
+            "count": 1
+          },
+          "help": {
+            "tier": "A",
+            "count": 1
+          },
+          "local_crypto": {
+            "tier": "A",
+            "count": 1
+          },
+          "permission": {
+            "tier": "A",
+            "count": 1
+          },
+          "project": {
+            "tier": "A",
+            "count": 1
+          },
+          "question": {
+            "tier": "A",
+            "count": 1
+          },
+          "session_search": {
+            "tier": "A",
+            "count": 1
+          },
+          "steward": {
+            "tier": "A",
+            "count": 1
+          },
+          "tool": {
+            "tier": "A",
+            "count": 1
+          },
+          "work_data_key": {
+            "tier": "A",
+            "count": 1
+          },
+          "work_data_tree": {
+            "tier": "A",
+            "count": 1
+          },
+          "work_data_attachment_runtime": {
+            "tier": "C",
+            "count": 1
+          },
+          "work_data_blob": {
+            "tier": "C",
+            "count": 1
+          },
+          "work_data_migration_host": {
+            "tier": "C",
+            "count": 1
+          },
+          "work_data_recovery": {
+            "tier": "C",
+            "count": 1
+          },
+          "work_data_root": {
+            "tier": "C",
+            "count": 1
+          }
+        },
+        "missing": [
+          "A api.bad_json",
+          "A api.body_invalid",
+          "A api.body_too_large",
+          "A asr.content_type",
+          "A asr.empty",
+          "A asr.fix_audio_too_large",
+          "A asr.fix_bad_request",
+          "A asr.fix_disabled",
+          "A asr.fix_failed",
+          "A asr.fix_not_configured",
+          "A asr.stream_bad_request",
+          "A asr.stream_busy",
+          "A asr.stream_chunk_too_large",
+          "A asr.stream_session_missing",
+          "A asr.stream_unreachable",
+          "A asr.stream_upstream",
+          "A asr.warmup_failed",
+          "A auth.remote_denied",
+          "A config.first_provider_intent_invalid",
+          "A credential_vault.backup_authentication",
+          "A credential_vault.backup_capacity",
+          "A credential_vault.backup_integrity",
+          "A credential_vault.backup_invalid",
+          "A credential_vault.backup_no_credentials",
+          "A credential_vault.backup_password",
+          "A credential_vault.backup_unavailable",
+          "A credential_vault.binding_mismatch",
+          "A credential_vault.capacity",
+          "A credential_vault.config_invalid",
+          "A credential_vault.decrypt_failed",
+          "A credential_vault.disable_requires_migration",
+          "A credential_vault.integrity_failed",
+          "A credential_vault.key_missing",
+          "A credential_vault.recovery_changed",
+          "A credential_vault.recovery_key_invalid",
+          "A credential_vault.recovery_record_invalid",
+          "A credential_vault.recovery_roundtrip_failed",
+          "A credential_vault.recovery_state_invalid",
+          "A credential_vault.reference_collision",
+          "A credential_vault.reference_invalid",
+          "A credential_vault.reference_missing",
+          "A credential_vault.slots_limit",
+          "A credential_vault.storage_unavailable",
+          "A credential_vault.unlock_failed",
+          "A credential_vault.value_limit",
+          "A delivery.file_changed",
+          "A delivery.invalid_source",
+          "A editor.open_failed",
+          "A editor.platform_unsupported",
+          "A events.too_many_clients",
+          "A file.internal_data",
+          "A file.not_in_workspace",
+          "A help.doc_unknown",
+          "A local_crypto.unsupported",
+          "A permission.confirm_required",
+          "A project.cwd_not_directory",
+          "A projection.invalid_cursor",
+          "A projection.snapshot_changed",
+          "A question.no_active_turn",
+          "A scheduler.busy",
+          "A scheduler.capacity_exceeded",
+          "A scheduler.disabled",
+          "A scheduler.not_found",
+          "A scheduler.unavailable",
+          "A session_search.disabled",
+          "A session.import_cwd_not_allowed",
+          "A session.invalid_permission_mode",
+          "A session.metadata_internal",
+          "A session.scratchpad_unreadable",
+          "A session.turn_busy_elsewhere",
+          "A steward.forbidden",
+          "A tool.failed",
+          "A upload.empty",
+          "A upload.id_invalid",
+          "A upload.name_invalid",
+          "A upload.not_found",
+          "A upload.sealed_unavailable",
+          "A voice.lexicon_bad_request",
+          "A voice.lexicon_unreadable",
+          "A voice.observe_bad_request",
+          "A voice.observe_too_large",
+          "A work_data_backup.native_helper_uncertain",
+          "A work_data_backup.portable_create_uncertain",
+          "A work_data_backup.portable_install_uncertain",
+          "A work_data_backup.portable_stage_failed",
+          "A work_data_journal.archive_mismatch",
+          "A work_data_journal.downgrade_refused",
+          "A work_data_journal.shape",
+          "A work_data_journal.source_changed",
+          "A work_data_key.changed",
+          "A work_data_setup.path_invalid",
+          "A work_data_setup.rehearsal_changed",
+          "A work_data_store.binding",
+          "A work_data_store.downgrade_refused",
+          "A work_data_store.physical_check_unproven",
+          "A work_data_store.snapshot_release",
+          "A work_data_store.storage_unavailable",
+          "A work_data_store.switch_unavailable",
+          "A work_data_store.validate",
+          "A work_data_tree.captured_file_owner_uncertain",
+          "A work_data.encryption_requires_setup",
+          "A work_data.maintenance_busy",
+          "B credential_recovery.busy",
+          "B credential_recovery.capacity",
+          "B credential_recovery.configuration_changed",
+          "B credential_recovery.empty",
+          "B credential_recovery.journal_invalid",
+          "B credential_recovery.journal_unreadable",
+          "B credential_recovery.recovery_required",
+          "B credential_recovery.ticket_expired",
+          "B privacy.arguments_invalid",
+          "B privacy.body_limit",
+          "B privacy.connection_busy",
+          "B privacy.connection_closed",
+          "B privacy.dedicated_settings_required",
+          "B privacy.disclosure_invalid",
+          "B privacy.export_busy",
+          "B privacy.export_expired",
+          "B privacy.export_invalid",
+          "B privacy.export_source_limit",
+          "B privacy.history_projection_invalid",
+          "B privacy.image_cleanup_failed",
+          "B privacy.image_processor_close_unknown",
+          "B privacy.image_recognition_invalid",
+          "B privacy.image_render_invalid",
+          "B privacy.image_request_failed",
+          "B privacy.image_source_cleanup_unknown",
+          "B privacy.key_collision",
+          "B privacy.learning_not_stable",
+          "B privacy.mcp_native_turn_required",
+          "B privacy.media_route_unavailable",
+          "B privacy.provider_invalid",
+          "B privacy.reference_structure",
+          "B privacy.regex_scan_required",
+          "B privacy.request_failed",
+          "B privacy.rule_tests_required",
+          "B privacy.scope_capacity",
+          "B privacy.scope_invalid",
+          "B privacy.settings_invalid",
+          "B privacy.source_access_denied",
+          "B privacy.source_changed",
+          "B privacy.source_limit",
+          "B privacy.source_scan_failed",
+          "B privacy.source_snapshot_missing",
+          "B privacy.turn_required",
+          "B privacy.update_pending",
+          "C privacy.binding_invalid",
+          "C privacy.category_invalid",
+          "C privacy.decrypt_failed",
+          "C privacy.detector_required",
+          "C privacy.envelope_invalid",
+          "C privacy.field_invalid",
+          "C privacy.identity_invalid",
+          "C privacy.key_invalid",
+          "C privacy.policy_required",
+          "C privacy.regex_aborted",
+          "C privacy.regex_result_invalid",
+          "C privacy.regex_worker_failed",
+          "C privacy.regex_worker_required",
+          "C privacy.restore_denied",
+          "C privacy.rule_duplicate",
+          "C privacy.rule_empty",
+          "C privacy.rule_override_invalid",
+          "C privacy.rules_limit",
+          "C privacy.scan_budget_invalid",
+          "C privacy.scope_mismatch",
+          "C privacy.state_invalid",
+          "C privacy.text_required",
+          "C privacy.ttl_invalid",
+          "C privacy.unicode_invalid",
+          "C privacy.whitespace_sensitive",
+          "C semantic.aborted",
+          "C semantic.authority_missing",
+          "C semantic.codec_transport_contract",
+          "C semantic.encode_failed",
+          "C semantic.field_invalid",
+          "C semantic.host_already_installed",
+          "C semantic.host_not_installed",
+          "C semantic.invalid_budget_hint",
+          "C semantic.invalid_model",
+          "C semantic.invalid_source",
+          "C semantic.invalid_vectors",
+          "C semantic.policy_aborted",
+          "C semantic.policy_context_invalid",
+          "C semantic.prepare_failed",
+          "C semantic.provider_already_started",
+          "C semantic.provider_changed",
+          "C semantic.provider_contract",
+          "C semantic.provider_require_contract",
+          "C semantic.provider_selection",
+          "C semantic.provider_source_integrity",
+          "C semantic.provider_source_untrusted",
+          "C semantic.request_already_evaluated",
+          "C semantic.request_disposed",
+          "C semantic.request_limit_invalid",
+          "C semantic.request_not_evaluated",
+          "C semantic.score_evidence_invalid",
+          "C semantic.source_changed",
+          "C semantic.startup_failed",
+          "C semantic.untrusted_codec_result",
+          "C semantic.weak_field_invalid",
+          "C semantic.window_invalid",
+          "C work_data_adapter.authority_cleanup_failed",
+          "C work_data_adapter.migration_factory_cleanup",
+          "C work_data_adapter.rehearsal_cleanup",
+          "C work_data_adapter.source_keeper_cleanup",
+          "C work_data_adapter.verifier_cleanup_failed",
+          "C work_data_attachment_catalogs.disabled",
+          "C work_data_attachment_catalogs.enabled",
+          "C work_data_attachment_catalogs.face",
+          "C work_data_attachment_catalogs.keys",
+          "C work_data_attachment_catalogs.root",
+          "C work_data_attachment_catalogs.unsealed",
+          "C work_data_attachment_runtime.id_missing",
+          "C work_data_audit.scope_invalid",
+          "C work_data_audit.switch_unavailable",
+          "C work_data_audit.write_failed",
+          "C work_data_backup.candidate_audit_unverified",
+          "C work_data_backup.candidate_close_unverified",
+          "C work_data_backup.captured_cleanup_uncertain",
+          "C work_data_backup.generation_changed",
+          "C work_data_backup.portable_create_close_unproven",
+          "C work_data_backup.portable_durability_host",
+          "C work_data_backup.portable_durability_uncertain",
+          "C work_data_backup.portable_retire_uncertain",
+          "C work_data_backup.portable_target_owner_uncertain",
+          "C work_data_backup.portable_target_read_cleanup_uncertain",
+          "C work_data_blob.cleanup",
+          "C work_data_journal.sealed_tail_uncommitted",
+          "C work_data_migration_host.publish_failed",
+          "C work_data_record.corrupt",
+          "C work_data_record.text_limit",
+          "C work_data_recovery.kdf_failed",
+          "C work_data_root.config_invalid",
+          "C work_data_setup.authority_changed",
+          "C work_data_setup.config_unavailable",
+          "C work_data_setup.native_helper_uncertain",
+          "C work_data_setup.package_not_found",
+          "C work_data_setup.private_command_invalid",
+          "C work_data_setup.root_unavailable",
+          "C work_data_setup.runtime_already_configured",
+          "C work_data_setup.status_unavailable",
+          "C work_data_setup.successor_input_invalid",
+          "C work_data_setup.worker_failed",
+          "C work_data_setup.worker_failed_after_handoff",
+          "C work_data_store.encoding_unsupported",
+          "C work_data_store.not_initialised",
+          "C work_data.authenticate_failed",
+          "C work_data.body_locked",
+          "C work_data.body_target_invalid",
+          "C work_data.journal_retention_unproven",
+          "C work_data.maintenance_infrastructure_unavailable",
+          "C work_data.maintenance_infrastructure_uncertain",
+          "C work_data.maintenance_not_idle",
+          "C work_data.memory_target_invalid"
+        ],
+        "mentionedOnly": [
+          {
+            "code": "asr.too_large",
+            "tier": "A",
+            "where": "js/composer-voice.js"
+          },
+          {
+            "code": "config.masked_secret_vector_changed",
+            "tier": "A",
+            "where": "js/provider-settings.js"
+          },
+          {
+            "code": "credential_vault.unsupported",
+            "tier": "A",
+            "where": "js/privacy-settings.js"
+          },
+          {
+            "code": "external_channel.storage_unavailable",
+            "tier": "A",
+            "where": "js/external-bots.js"
+          },
+          {
+            "code": "voice.lexicon_too_large",
+            "tier": "A",
+            "where": "js/provider-settings.js"
+          },
+          {
+            "code": "voice.lexicon_too_many",
+            "tier": "A",
+            "where": "js/provider-settings.js"
+          },
+          {
+            "code": "privacy.export_media_unsupported",
+            "tier": "B",
+            "where": "js/privacy-export.js"
+          },
+          {
+            "code": "privacy.export_source_changed",
+            "tier": "B",
+            "where": "js/disclosure-source.js"
+          },
+          {
+            "code": "privacy.export_source_missing",
+            "tier": "B",
+            "where": "js/mermaid-runtime.js"
+          },
+          {
+            "code": "privacy.plaintext_confirmation_required",
+            "tier": "B",
+            "where": "js/privacy-settings.js"
+          },
+          {
+            "code": "privacy.preview_input_limit",
+            "tier": "B",
+            "where": "js/privacy-settings.js"
+          },
+          {
+            "code": "privacy.regex_rules_limit",
+            "tier": "C",
+            "where": "js/privacy-settings.js"
+          },
+          {
+            "code": "privacy.regex_startup_timeout",
+            "tier": "C",
+            "where": "js/privacy-settings.js"
+          },
+          {
+            "code": "work_data_setup.package_unavailable",
+            "tier": "C",
+            "where": "js/work-data-settings.js"
+          },
+          {
+            "code": "work_data_setup.worker_unavailable",
+            "tier": "C",
+            "where": "js/work-data-settings.js"
+          }
+        ],
+        "localeKeys": {
+          "zh": 4767,
+          "en": 4767
+        }
+      }
+    },
+    {
+      "id": "G-privacy-trunc",
+      "title": "截断边界语料 0 残片外发",
+      "condition": "身份证/邮箱/sk- 密钥/手机号 × 带标签/不带标签 × 起点逐字扫过截断点;生产顺序(先截断再识别),新 scope 与已学过全文的 scope 取更坏者;标题 60 / 摘要 160 / 最近请求 240 三处求和",
+      "status": "measured",
+      "unit": "fragments",
+      "samples": 648,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 270,
+      "target": {
+        "op": "<=",
+        "value": 0
+      },
+      "pass": false,
+      "details": {
+        "minFragmentChars": 4,
+        "detectorOptions": {
+          "personal": true,
+          "confidential": false,
+          "technical": false
+        },
+        "sites": [
+          {
+            "site": "thread-title",
+            "cut": 60,
+            "where": "09-workflow.js / 05-claude-engine.js / 05b-kimi-bridge.js: message.replace(/\\s+/g,' ').trim().slice(0,60)",
+            "offsets": [
+              40,
+              66
+            ],
+            "cases": 216,
+            "straddling": 134,
+            "controlMissed": 0,
+            "truncateThenDetect": {
+              "fresh": 90,
+              "learned": 90,
+              "worst": 90,
+              "keptAtLeast8": 62
+            },
+            "detectThenTruncate": 0,
+            "byKind": {
+              "cn_id/labelled": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 13,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_id/plain": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 14,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 0,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 15,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/labelled": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/plain": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              }
+            },
+            "examples": [
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 43,
+                "keptChars": 17,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 44,
+                "keptChars": 16,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 46,
+                "keptChars": 14,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 47,
+                "keptChars": 13,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 48,
+                "keptChars": 12,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 49,
+                "keptChars": 11,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 50,
+                "keptChars": 10,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 51,
+                "keptChars": 9,
+                "of": 18
+              }
+            ]
+          },
+          {
+            "site": "thread-summary",
+            "cut": 160,
+            "where": "09-workflow.js / 05 / 05b: (text).replace(/\\s+/g,' ').trim().slice(0,160)",
+            "offsets": [
+              140,
+              166
+            ],
+            "cases": 216,
+            "straddling": 134,
+            "controlMissed": 0,
+            "truncateThenDetect": {
+              "fresh": 90,
+              "learned": 90,
+              "worst": 90,
+              "keptAtLeast8": 62
+            },
+            "detectThenTruncate": 0,
+            "byKind": {
+              "cn_id/labelled": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 13,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_id/plain": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 14,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 0,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 15,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/labelled": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/plain": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              }
+            },
+            "examples": [
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 143,
+                "keptChars": 17,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 144,
+                "keptChars": 16,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 146,
+                "keptChars": 14,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 147,
+                "keptChars": 13,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 148,
+                "keptChars": 12,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 149,
+                "keptChars": 11,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 150,
+                "keptChars": 10,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 151,
+                "keptChars": 9,
+                "of": 18
+              }
+            ]
+          },
+          {
+            "site": "recent-user-request",
+            "cut": 240,
+            "where": "02-session-store.js sessionRecentUserRequest (real function)",
+            "offsets": [
+              220,
+              246
+            ],
+            "cases": 216,
+            "straddling": 134,
+            "controlMissed": 0,
+            "truncateThenDetect": {
+              "fresh": 90,
+              "learned": 90,
+              "worst": 90,
+              "keptAtLeast8": 62
+            },
+            "detectThenTruncate": 0,
+            "byKind": {
+              "cn_id/labelled": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 13,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_id/plain": {
+                "cases": 27,
+                "straddling": 17,
+                "truncateThenDetect": 14,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "email/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 17,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/labelled": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 0,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "sk_key/plain": {
+                "cases": 27,
+                "straddling": 20,
+                "truncateThenDetect": 15,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/labelled": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              },
+              "cn_mobile/plain": {
+                "cases": 27,
+                "straddling": 10,
+                "truncateThenDetect": 7,
+                "detectThenTruncate": 0,
+                "controlMissed": 0
+              }
+            },
+            "examples": [
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 223,
+                "keptChars": 17,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 224,
+                "keptChars": 16,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 226,
+                "keptChars": 14,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 227,
+                "keptChars": 13,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 228,
+                "keptChars": 12,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 229,
+                "keptChars": 11,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 230,
+                "keptChars": 10,
+                "of": 18
+              },
+              {
+                "kind": "cn_id",
+                "context": "labelled",
+                "offset": 231,
+                "keptChars": 9,
+                "of": 18
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-send/N=0/semantic=on",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;0 条项目记忆;语义检索开;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 197.2,
+      "p95": 232.1,
+      "max": 232.1,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 100,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 455.8,
+        "semanticStatus": {
+          "not-needed": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 0,
+          "matches": 0,
+          "core": 0,
+          "mode": "default"
+        },
+        "resultMsP50": 241.7
+      }
+    },
+    {
+      "id": "G-send/N=0/semantic=off",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;0 条项目记忆;语义检索关;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 221.9,
+      "p95": 344.4,
+      "max": 344.4,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 100,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 391.5,
+        "semanticStatus": {
+          "disabled": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 0,
+          "matches": 0,
+          "core": 0,
+          "mode": "default"
+        },
+        "resultMsP50": 273.2
+      }
+    },
+    {
+      "id": "G-send/N=200/semantic=off",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;200 条项目记忆;语义检索关;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 334.4,
+      "p95": 412.7,
+      "max": 412.7,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 400,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 703.5,
+        "semanticStatus": {
+          "disabled": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 200,
+          "matches": 8,
+          "core": 5,
+          "mode": "default"
+        },
+        "resultMsP50": 364.3
+      }
+    },
+    {
+      "id": "G-send/N=200/semantic=on",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;200 条项目记忆;语义检索开;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 342.4,
+      "p95": 368.1,
+      "max": 368.1,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 400,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": true,
+      "details": {
+        "warmupMs": 576.9,
+        "semanticStatus": {
+          "budget": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 200,
+          "matches": 8,
+          "core": 5,
+          "mode": "default"
+        },
+        "resultMsP50": 374.1
+      }
+    },
+    {
+      "id": "G-send/N=1000/semantic=on",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;1000 条项目记忆;语义检索开;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 1075,
+      "p95": 1228.4,
+      "max": 1228.4,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 600,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 1924.6,
+        "semanticStatus": {
+          "budget": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 1000,
+          "matches": 8,
+          "core": 5,
+          "mode": "default"
+        },
+        "resultMsP50": 1109.4
+      }
+    },
+    {
+      "id": "G-send/N=1000/semantic=off",
+      "title": "发消息到请求发出(热态)",
+      "condition": "provider 引擎热态;1000 条项目记忆;语义检索关;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 5,
+      "p50": 944.2,
+      "p95": 1274.6,
+      "max": 1274.6,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 600,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 1180.1,
+        "semanticStatus": {
+          "disabled": 5
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 1000,
+          "matches": 8,
+          "core": 5,
+          "mode": "default"
+        },
+        "resultMsP50": 971.8
+      }
+    },
+    {
+      "id": "G-send/encrypted/N=200/semantic=off",
+      "title": "发消息到请求发出(加密记忆,热态)",
+      "condition": "provider 引擎热态;200 条项目记忆(工作数据加密已开,盘上已核封印);语义检索关;每条件新会话、首回合预热后计数",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 3,
+      "p50": 4849.4,
+      "p95": 4920.3,
+      "max": 4920.3,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 800,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "warmupMs": 5401.8,
+        "semanticStatus": {
+          "disabled": 3
+        },
+        "semanticRuntime": {
+          "state": "failed",
+          "available": false,
+          "diagnosticCode": "semantic.owner_identity"
+        },
+        "memoryMatches": {
+          "candidates": 200,
+          "matches": 8,
+          "core": 5,
+          "mode": "default"
+        },
+        "resultMsP50": 4900.7,
+        "sealedVerified": true
+      }
+    },
+    {
+      "id": "G-bigtext-loop-block",
+      "title": "大文本不阻塞事件循环超过 50 ms",
+      "condition": "30 条普通会话 + 1 条 1024 KiB(349525 字)中文消息;语义关;搜索/建索引期间",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 3,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 1798.3,
+      "target": {
+        "op": "<=",
+        "value": 50
+      },
+      "pass": false,
+      "details": {
+        "histogram": {
+          "maxMs": 1798.3,
+          "p99Ms": 276.8,
+          "p50Ms": 5.1,
+          "meanMs": 18.6,
+          "timerLagMaxMs": 1782.5,
+          "windowMs": 15398.5
+        },
+        "bootMaxBlockMs": 42.3,
+        "indexComplete": true,
+        "requests": [
+          {
+            "preview": true,
+            "ms": 157.9,
+            "status": 200,
+            "phase": "idle",
+            "indexed": 0,
+            "pending": 31,
+            "failure": null
+          },
+          {
+            "preview": false,
+            "ms": 11057,
+            "status": 200,
+            "phase": "idle",
+            "indexed": 16,
+            "pending": 15,
+            "failure": null
+          },
+          {
+            "preview": false,
+            "ms": 2024.2,
+            "status": 200,
+            "phase": "idle",
+            "indexed": 31,
+            "pending": 0,
+            "failure": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-bigtext-others-indexed",
+      "title": "大文本不挡其他会话建索引",
+      "condition": "30 条普通会话 + 1 条 1024 KiB(349525 字)中文消息;语义关;搜索/建索引期间;结束时只在小会话里才有的词能搜到几条",
+      "status": "measured",
+      "unit": "sessions",
+      "samples": 30,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 0,
+      "target": {
+        "op": "<=",
+        "value": 0
+      },
+      "pass": true,
+      "details": {
+        "othersSearchable": {
+          "hits": 30,
+          "of": 30,
+          "ms": 1144.2
+        },
+        "indexComplete": true,
+        "lastCoverage": {
+          "sessions": 31,
+          "indexedSessions": 31,
+          "pendingSessions": 0,
+          "complete": true
+        }
+      }
+    },
+    {
+      "id": "G-semantic-down/chat",
+      "title": "语义运行时不可用时对话照常",
+      "condition": "3 条命中记忆;① 本检出运行时真起不来(自然);② prepare/encode 抛 semantic.owner_identity(注入,同 06hb startingFailure);命中/不命中各若干条",
+      "status": "measured",
+      "unit": "ratio",
+      "samples": 6,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 0.3,
+      "target": {
+        "op": ">=",
+        "value": 1
+      },
+      "pass": false,
+      "details": {
+        "natural": {
+          "runtime": {
+            "state": "failed",
+            "available": false,
+            "diagnosticCode": "semantic.owner_identity"
+          },
+          "reached": 1,
+          "of": 3,
+          "errors": [
+            "semantic.owner_identity"
+          ]
+        },
+        "injected": {
+          "reached": 1,
+          "of": 3,
+          "errors": [
+            "semantic.owner_identity"
+          ]
+        }
+      }
+    },
+    {
+      "id": "G-semantic-down/search",
+      "title": "语义运行时不可用时线程搜索照常",
+      "condition": "同一进程(运行时起不来),默认配置下两发非 preview 搜索",
+      "status": "measured",
+      "unit": "ratio",
+      "samples": 3,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 0,
+      "target": {
+        "op": ">=",
+        "value": 1
+      },
+      "pass": false,
+      "details": {
+        "search": [
+          {
+            "word": "deploy pipeline",
+            "ms": 218.4,
+            "status": 500,
+            "ok": false,
+            "failure": {
+              "status": 500,
+              "code": "api.internal_error",
+              "message": "semantic.owner_identity"
+            }
+          },
+          {
+            "word": "天气",
+            "ms": 20.7,
+            "status": 500,
+            "ok": false,
+            "failure": {
+              "status": 500,
+              "code": "api.internal_error",
+              "message": "semantic.owner_identity"
+            }
+          },
+          {
+            "word": "release workflow",
+            "ms": 17.3,
+            "status": 500,
+            "ok": false,
+            "failure": {
+              "status": 500,
+              "code": "api.internal_error",
+              "message": "semantic.owner_identity"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-first/baseline",
+      "title": "开机首条消息到请求发出(不含模型)",
+      "condition": "serve 就绪后立刻发第一条;无故障;每个样本一个新进程",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 2,
+      "p50": 7136.3,
+      "p95": 8143.8,
+      "max": 8143.8,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 2000,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "secondTurnAfter1500ms": {
+          "samples": 2,
+          "p50": 59.7,
+          "p95": 252.7,
+          "max": 252.7
+        },
+        "afterCapabilityCacheExpiry": {
+          "samples": 2,
+          "p50": 155.3,
+          "p95": 208.5,
+          "max": 208.5
+        },
+        "serveMs": {
+          "samples": 2,
+          "p50": 2512.8,
+          "p95": 3278.7,
+          "max": 3278.7
+        }
+      }
+    },
+    {
+      "id": "G-first/anchor-hang",
+      "title": "开机首条消息到请求发出(不含模型)",
+      "condition": "serve 就绪后立刻发第一条;能力探测锚点不应答;每个样本一个新进程",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 2,
+      "p50": 10690.6,
+      "p95": 10701,
+      "max": 10701,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 2000,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "secondTurnAfter1500ms": {
+          "samples": 2,
+          "p50": 57.7,
+          "p95": 75.9,
+          "max": 75.9
+        },
+        "afterCapabilityCacheExpiry": {
+          "samples": 2,
+          "p50": 3157.9,
+          "p95": 3174.9,
+          "max": 3174.9
+        },
+        "serveMs": {
+          "samples": 2,
+          "p50": 2583.9,
+          "p95": 2973.7,
+          "max": 2973.7
+        }
+      }
+    },
+    {
+      "id": "G-first/mcp-hang",
+      "title": "开机首条消息到请求发出(不含模型)",
+      "condition": "serve 就绪后立刻发第一条;某 MCP 未就绪(initialize 永不应答);每个样本一个新进程",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 2,
+      "p50": 7561.5,
+      "p95": 8037.8,
+      "max": 8037.8,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 2000,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "secondTurnAfter1500ms": {
+          "samples": 2,
+          "p50": 2625.4,
+          "p95": 2737.1,
+          "max": 2737.1
+        },
+        "afterCapabilityCacheExpiry": {
+          "samples": 2,
+          "p50": 150.5,
+          "p95": 222.5,
+          "max": 222.5
+        },
+        "serveMs": {
+          "samples": 2,
+          "p50": 2722.7,
+          "p95": 3570,
+          "max": 3570
+        }
+      }
+    },
+    {
+      "id": "G-first-extra-wait/anchor-hang",
+      "title": "故障条件不增加等待(相对无故障的增量)",
+      "condition": "anchor-hang 相对 baseline,首条 / 1.5 s 后第二条 / 能力缓存过期后,各取 p50 之差的最大值",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 2,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 3554.3,
+      "target": {
+        "op": "<=",
+        "value": 250
+      },
+      "pass": false,
+      "details": {
+        "deltasMs": {
+          "first": 3554.3,
+          "second": -2,
+          "afterCapExpiry": 3002.6
+        }
+      }
+    },
+    {
+      "id": "G-first-extra-wait/mcp-hang",
+      "title": "故障条件不增加等待(相对无故障的增量)",
+      "condition": "mcp-hang 相对 baseline,首条 / 1.5 s 后第二条 / 能力缓存过期后,各取 p50 之差的最大值",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 2,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 2565.7,
+      "target": {
+        "op": "<=",
+        "value": 250
+      },
+      "pass": false,
+      "details": {
+        "deltasMs": {
+          "first": 425.2,
+          "second": 2565.7,
+          "afterCapExpiry": -4.8
+        }
+      }
+    },
+    {
+      "id": "G-search-first-screen",
+      "title": "线程搜索关键词首屏(API 层)",
+      "condition": "200 条会话(10 条今天,其余较早);GET /api/sessions/search?limit=30&preview=1;冷 1 发 + 新词 + 重复词;默认配置",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 11,
+      "p50": 1006.9,
+      "p95": 1204.7,
+      "max": 1204.7,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 500,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "coldMs": 1006.9,
+        "perQuery": [
+          {
+            "label": "cold",
+            "ms": 1006.9,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 1079.5,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 944.1,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 1204.7,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 1175.4,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 1036.1,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 929.8,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 789,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 911.2,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 978.3,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 1028.7,
+            "results": 25,
+            "lexicalPreview": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-search-drawn-ratio",
+      "title": "后端命中 N 条,左栏可画 N 条(U1 机制)",
+      "condition": "命中里能从 /api/missions 主列表页 ∪ ?sessionIds= 补取拿到行的比例;标题词「灰度发布」(多数命中是较早线程)",
+      "status": "measured",
+      "unit": "ratio",
+      "samples": 25,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 0.16,
+      "target": {
+        "op": ">=",
+        "value": 1
+      },
+      "pass": false,
+      "details": {
+        "preview": {
+          "label": "preview",
+          "hits": 25,
+          "mainPageRows": 30,
+          "missingFromPage": 21,
+          "sessionIdsReturned": 0,
+          "drawn": 4,
+          "ratio": 0.16,
+          "missionsMs": 22,
+          "sessionIdsMs": 15.9
+        },
+        "continue": {
+          "label": "continue",
+          "hits": 0,
+          "mainPageRows": 30,
+          "missingFromPage": 0,
+          "sessionIdsReturned": 0,
+          "drawn": 0,
+          "ratio": null,
+          "missionsMs": 51.8,
+          "sessionIdsMs": 0,
+          "searchMs": 1143.6,
+          "searchStatus": 500,
+          "failure": {
+            "status": 500,
+            "code": "api.internal_error",
+            "message": "semantic.owner_identity"
+          },
+          "coverage": null
+        }
+      }
+    },
+    {
+      "id": "G-search-index",
+      "title": "400 会话后台索引建完",
+      "condition": "400 条会话,语义关;按前端节奏连发非 preview 搜索直到 coverage.complete;上限 90 s(未完成记为上限值)",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 1,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 90000,
+      "target": {
+        "op": "<=",
+        "value": 60000
+      },
+      "pass": false,
+      "details": {
+        "complete": false,
+        "polls": 16,
+        "last": {
+          "atMs": 97194.8,
+          "ms": 7417.2,
+          "status": 200,
+          "results": 30,
+          "phase": "idle",
+          "complete": false,
+          "indexed": 240,
+          "pending": 160,
+          "failure": null
+        },
+        "trace": [
+          {
+            "atMs": 2401.8,
+            "ms": 2400.8,
+            "status": 200,
+            "results": 0,
+            "phase": "idle",
+            "complete": false,
+            "indexed": 0,
+            "pending": 400,
+            "failure": null
+          },
+          {
+            "atMs": 27712.8,
+            "ms": 6229.5,
+            "status": 200,
+            "results": 20,
+            "phase": "idle",
+            "complete": false,
+            "indexed": 80,
+            "pending": 320,
+            "failure": null
+          },
+          {
+            "atMs": 61202.8,
+            "ms": 4847.9,
+            "status": 200,
+            "results": 30,
+            "phase": "idle",
+            "complete": false,
+            "indexed": 160,
+            "pending": 240,
+            "failure": null
+          },
+          {
+            "atMs": 97194.8,
+            "ms": 7417.2,
+            "status": 200,
+            "results": 30,
+            "phase": "idle",
+            "complete": false,
+            "indexed": 240,
+            "pending": 160,
+            "failure": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-search-ui-timeout-keeps-results",
+      "title": "线程搜索超时不清空已有结果",
+      "condition": "前端左栏",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "这是前端状态机(session-experience.js 把超时的空结果直接覆盖进 sessionSearchState)的行为,API 层量不到。",
+      "plan": "无头 Edge(lib/browser-fixture.js)开工作台,假会话 200 条;用 page 内桩让第一发 preview 正常回结果、第二发「继续搜索」回 coverage.phase=timeout 的空结果;量第二发回来后左栏行数是否仍为第一发的行数(期望不变)。"
+    },
+    {
+      "id": "G-search-ui-drawn",
+      "title": "后端命中 N 条则左栏画 N 条(DOM 层)",
+      "condition": "前端左栏",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "API 层的同一机制已由 G-search-drawn-ratio 量;DOM 层(renderRail 真画出的行数)需要浏览器。",
+      "plan": "同上夹具,搜标题词,读 #sessionList 下的行数与 /api/sessions/search 返回条数之比。"
+    },
+    {
+      "id": "G-fail-ui-no-raw",
+      "title": "界面不出现原始码或 JSON",
+      "condition": "前端各失败面",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "需要在浏览器里逐个失败面触发并读屏;静态侧已由 G-codes 覆盖「有没有文案」那一半。",
+      "plan": "无头 Edge + 假 provider 注入一组失败(provider 429/500、隐私 control_field_sensitive、维护期 busy、work_data_* 失败);抓气泡/toast/设置页可见文本,断言不匹配 /^[a-z_]+\\.[a-z_.]+$/ 与以 { 开头的 JSON。"
+    },
+    {
+      "id": "G-encrypt-recover",
+      "title": "加密任何一步失败后无需隐藏 CLI 即可回到可用状态",
+      "condition": "工作数据加密",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "要逐步注入失败(verify-backup / flush / verifier 超时 / 交接 uncertain)并观察冷进程 hold 与重启后的 handoff_pending,需要真实维护进程与 DPAPI,单件就要数分钟,超出本量具 10 分钟预算。",
+      "plan": "复用 work-data-production-host-fixture 的维护进程夹具:每个注入点一个样本,量「从失败到 /api/status 正常 + 面板可操作」是否不经 doctor --recover-work-data-source 达成,记成功占比。"
+    },
+    {
+      "id": "G-encrypt-backup-no-plaintext",
+      "title": "加密失败后备份目录不留明文",
+      "condition": "工作数据加密",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "同上,需要真实演练/备份流程(150 W7)。",
+      "plan": "在上面每个失败样本后扫备份目录,按种子明文的特征串计数命中文件(期望 0)。"
+    },
+    {
+      "id": "G-privacy-short-learned",
+      "title": "短学习值不致整轮失败",
+      "condition": "隐私网关",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "要走 enhanced 档的完整网关与映射落盘(150 P4:token: on 让 on 成为凭据、命中协议键名时整次请求 control_field_sensitive),本轮未接。",
+      "plan": "本量具的 send 夹具加 privacyModeV1:enhanced:第一条消息「token: on」,第二条普通消息;量第二条是否到达 provider(期望到达)与受影响回合数。"
+    },
+    {
+      "id": "G-load-semantic-3x",
+      "title": "4 路并发下语义相关 e2e 连续 3 轮通过",
+      "condition": "回归负载",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "这是回归门而非单点测量,一轮就超出本量具 10 分钟预算。",
+      "plan": "node dev-harness/run-all.js --parallel 4 只跑 memory-semantic / memory-explicit-semantic / semantic-retrieval / memory-recall-injection 等语义件,连跑 3 轮,记每轮通过数与 CPU 忙闲;另在本量具里加一个「后台并发压测」选项复用 G-send 量语义预算被吃掉的比例。"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "privacy",
+      "mode": "privacy",
+      "reason": "done",
+      "wallS": 2.6,
+      "cpuBusy": {
+        "samples": 0,
+        "avgBusyPct": null,
+        "maxBusyPct": null
+      },
+      "processes": [
+        {
+          "pid": 38648,
+          "name": "node.exe"
+        },
+        {
+          "pid": 26556,
+          "name": "conhost.exe"
+        }
+      ],
+      "killed": [
+        38648
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "send-plain",
+      "mode": "send",
+      "reason": "done",
+      "wallS": 48,
+      "cpuBusy": {
+        "samples": 44,
+        "avgBusyPct": 84.5,
+        "maxBusyPct": 98.2
+      },
+      "processes": [
+        {
+          "pid": 33624,
+          "name": "node.exe"
+        },
+        {
+          "pid": 10088,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 37772,
+          "name": "python.exe"
+        },
+        {
+          "pid": 33640,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 38148,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        33624
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "send-encrypted",
+      "mode": "send",
+      "reason": "done",
+      "wallS": 44,
+      "cpuBusy": {
+        "samples": 40,
+        "avgBusyPct": 90.3,
+        "maxBusyPct": 97.9
+      },
+      "processes": [
+        {
+          "pid": 33152,
+          "name": "node.exe"
+        },
+        {
+          "pid": 28564,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 38164,
+          "name": "python3.13.exe"
+        },
+        {
+          "pid": 35740,
+          "name": "conhost.exe"
+        }
+      ],
+      "killed": [
+        33152
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-baseline-1",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 16.6,
+      "cpuBusy": {
+        "samples": 14,
+        "avgBusyPct": 88.9,
+        "maxBusyPct": 97.7
+      },
+      "processes": [
+        {
+          "pid": 20320,
+          "name": "node.exe"
+        },
+        {
+          "pid": 21336,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 27256,
+          "name": "python.exe"
+        },
+        {
+          "pid": 12772,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 22308,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        20320
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-anchor-hang-1",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 21.2,
+      "cpuBusy": {
+        "samples": 18,
+        "avgBusyPct": 75.9,
+        "maxBusyPct": 91
+      },
+      "processes": [
+        {
+          "pid": 36748,
+          "name": "node.exe"
+        },
+        {
+          "pid": 17600,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 24032,
+          "name": "python.exe"
+        },
+        {
+          "pid": 1620,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 34428,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        36748
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-mcp-hang-1",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 19,
+      "cpuBusy": {
+        "samples": 16,
+        "avgBusyPct": 82.2,
+        "maxBusyPct": 100
+      },
+      "processes": [
+        {
+          "pid": 35812,
+          "name": "node.exe"
+        },
+        {
+          "pid": 32480,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 10352,
+          "name": "python.exe"
+        },
+        {
+          "pid": 18540,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 21140,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        35812
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "search",
+      "mode": "search",
+      "reason": "done",
+      "wallS": 19.1,
+      "cpuBusy": {
+        "samples": 16,
+        "avgBusyPct": 83.2,
+        "maxBusyPct": 95.4
+      },
+      "processes": [
+        {
+          "pid": 37216,
+          "name": "node.exe"
+        },
+        {
+          "pid": 24028,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 18484,
+          "name": "python.exe"
+        },
+        {
+          "pid": 35072,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 26584,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        37216
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "bigtext",
+      "mode": "bigtext",
+      "reason": "done",
+      "wallS": 24.9,
+      "cpuBusy": {
+        "samples": 22,
+        "avgBusyPct": 81.1,
+        "maxBusyPct": 89.8
+      },
+      "processes": [
+        {
+          "pid": 33904,
+          "name": "node.exe"
+        },
+        {
+          "pid": 30236,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 13380,
+          "name": "python.exe"
+        },
+        {
+          "pid": 34852,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 33392,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        33904
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "semdown",
+      "mode": "semdown",
+      "reason": "done",
+      "wallS": 15.2,
+      "cpuBusy": {
+        "samples": 12,
+        "avgBusyPct": 76.4,
+        "maxBusyPct": 93.1
+      },
+      "processes": [
+        {
+          "pid": 12280,
+          "name": "node.exe"
+        },
+        {
+          "pid": 24896,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 9700,
+          "name": "python.exe"
+        },
+        {
+          "pid": 5376,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 18404,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        12280
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-baseline-2",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 14.1,
+      "cpuBusy": {
+        "samples": 11,
+        "avgBusyPct": 77,
+        "maxBusyPct": 95.7
+      },
+      "processes": [
+        {
+          "pid": 25684,
+          "name": "node.exe"
+        },
+        {
+          "pid": 36796,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 24436,
+          "name": "python.exe"
+        },
+        {
+          "pid": 36036,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 11028,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        25684
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-anchor-hang-2",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 21,
+      "cpuBusy": {
+        "samples": 18,
+        "avgBusyPct": 82.1,
+        "maxBusyPct": 93.8
+      },
+      "processes": [
+        {
+          "pid": 31412,
+          "name": "node.exe"
+        },
+        {
+          "pid": 13104,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 38012,
+          "name": "python.exe"
+        },
+        {
+          "pid": 20932,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 25572,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        31412
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "first-mcp-hang-2",
+      "mode": "first",
+      "reason": "done",
+      "wallS": 17.4,
+      "cpuBusy": {
+        "samples": 15,
+        "avgBusyPct": 74.8,
+        "maxBusyPct": 91.7
+      },
+      "processes": [
+        {
+          "pid": 16264,
+          "name": "node.exe"
+        },
+        {
+          "pid": 37672,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 28220,
+          "name": "python.exe"
+        },
+        {
+          "pid": 18400,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 28360,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        16264
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "search-index",
+      "mode": "search",
+      "reason": "done",
+      "wallS": 105.2,
+      "cpuBusy": {
+        "samples": 101,
+        "avgBusyPct": 81.5,
+        "maxBusyPct": 100
+      },
+      "processes": [
+        {
+          "pid": 3684,
+          "name": "node.exe"
+        },
+        {
+          "pid": 35776,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 30600,
+          "name": "python.exe"
+        },
+        {
+          "pid": 33896,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 28052,
+          "name": "python.exe"
+        }
+      ],
+      "killed": [
+        3684
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    }
+  ],
+  "processCheck": {
+    "checked": true,
+    "tracked": 61,
+    "alive": []
+  }
+}
