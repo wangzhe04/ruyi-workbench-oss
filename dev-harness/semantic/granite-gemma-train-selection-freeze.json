@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "status": "FROZEN_TRAIN_ONLY_GRID_NO_LATER_READ",
+  "protocolSha256": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f",
+  "collectionFreezeSha256": "b7f1317f036d5df9322604bf2c05d0029c5fb97d6a46a0ad9e853d8541735457",
+  "paritySha256": "3648bc92bb44ff27ca2591a06a265b1d068882f8e2a2f71efda0a401704156f8",
+  "runtimeInventorySha256": "34c44dfe5a716d29a50921a8fd9c1668ace43674ce7c992cebb3a021b1cfb8a8",
+  "trainInput": "output/granite-gemma-train-input-v1.json",
+  "bindings": {
+    "dev-harness/semantic/granite-gemma-train-extract.cjs": "f6440ea3fa67de0965c7124f9a4771f9feed19bcc31652f6b7448feceacd27e5",
+    "dev-harness/semantic/granite-gemma-train-policy.cjs": "ca03a57445438c73c89ee4ac7a1afb3707bbc19d5da322c440c2ef14078d8518",
+    "dev-harness/semantic/granite-gemma-train-policy-test.cjs": "8b1b0f7ee5c8779be994a428f0a7ec0024ac45a3a2549631dce04761bfcba67b",
+    "dev-harness/semantic/granite-gemma-train-select.cjs": "19cfe081cc380a1c233620d82dc639f56ff6ded693ac9f2dca574308d7148e0a",
+    "dev-harness/semantic/calibration-policy.cjs": "9e55c62f537b87aaa3d4ba31aa43e5666e47184f2d1047f4a59a12ca6c1f8350",
+    "dev-harness/lib/source-slice.js": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+    "dev-harness/semantic/granite-gemma-development-protocol.json": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f",
+    "dev-harness/semantic/granite-gemma-collection-freeze-v2.json": "b7f1317f036d5df9322604bf2c05d0029c5fb97d6a46a0ad9e853d8541735457",
+    "output/granite-gemma-train-input-v1.json": "5f64dc132afe55fc4904868f22f5f6897973450c5f24602b6b227814f670cc1b",
+    "ruyi-workbench/app/src/06ha-semantic-retrieval.js": "a0e846f4e4ec0199a6384172d7d6c67c9c8c4852258e130a0b7e660db1b9c8d1",
+    "ruyi-workbench/app/src/06h-retrieval-index.js": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+    "ruyi-workbench/app/src/13ap-session-fulltext-index.js": "90a0191d29307ba1f5582f4073bb7a01dc311f5a72481bbc06b01ee3a084a15f"
+  },
+  "models": {
+    "97m": {
+      "trainVectors": "output/granite-gemma-development-v1/97m/train-vectors.json",
+      "trainSha256": "ec90944b51fa61bc86d825d926ff84b7bcdac094bc4669897cb1d1031961dbd8",
+      "fingerprint": "sha256:e95682d0683c42b668b45c09b59f4e66c86e4715c7632c82c2d216c4bcbd0fc5",
+      "dimensions": 384
+    },
+    "gemma": {
+      "trainVectors": "output/granite-gemma-development-v1/gemma/train-vectors.json",
+      "trainSha256": "e7364b6f9e2cfe1a0d538f2369b39543a886fcd9b75d80fe927b03dd2dbbedb8",
+      "fingerprint": "sha256:de26ece8903942355d5934ae90630e3a3c826a180d04845c62fcafd0682f57e2",
+      "dimensions": 768
+    },
+    "311m": {
+      "trainVectors": "output/granite-gemma-development-v1/311m/train-vectors.json",
+      "trainSha256": "62c207dcd9d34cb1e3fdf05b071b18e92da05cc3f8f7f378aac542fcd7131d24",
+      "fingerprint": "sha256:1a0c41fb29080987543db8f01cc1c34bb9964f006fad08d5ca8824e1ec6ae8a4",
+      "dimensions": 768
+    }
+  },
+  "grid": "K1/K4 \u00d7 i/100 i=-100..100; source validated 90a, fields independently cosine gated",
+  "isolation": "Selector opens only train input and train vectors, never calibration/mixed vectors or fixture module; per-model selected point must freeze before later evaluation.",
+  "labels": "Root reviewed ID suffix/primary-document Han-derived train labels, train exact/correction each18; no check or acceptance content."
+}

@@ -1,0 +1,10 @@
+{
+  "profile": "qwen3-gcc-b11146-pooled-only-research",
+  "scope": "fixed LAST embedding and two-class RANK, no sampling or dynamic modes; not production",
+  "runtime": { "path": "C:/r31-gcc-rank-research/build/bin/llama-server.exe", "sha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f", "bytes": 22605545 },
+  "embedding": { "sha256": "23d234bb57a42528a22a13e7beb8b57d8844b2b9cc741b4c27a8ff132abf0dfd", "threads": 2 },
+  "rank": { "sha256": "9787224d2920d37838ed8dcf88dc6f2b92d1629192627655c32b06aef04becc7", "threads": 6 },
+  "context": 1024, "hostTokens": 512, "physicalBatch": 1, "gpuLayers": 0,
+  "sourceReceiptSha256": "ac97b212e1b9e8280b809bfbaf095233c3984cfb3c0420ff93f9fd5803bad587",
+  "restrictions": "Windows 10+ x64 AVX2; research only; not equivalent to prior MSVC profile"
+}

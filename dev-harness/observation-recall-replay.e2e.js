@@ -215,7 +215,7 @@ function postStream(port, payload, timeoutMs) {
     if (recallCall) {
       const rc = recallCall.tool_calls.find(tc => tc.function.name === 'observation_recall');
       let args = {}; try { args = JSON.parse(rc.function.arguments || '{}'); } catch { }
-      ok(/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(args.rawRef || ''), 'R6 recall 参数携带合法 rawRef(' + (args.rawRef || '无') + ')');
+      ok(/^history:v2:[A-Za-z0-9_.-]+$/.test(args.rawRef || ''), 'R6 recall 参数携带合法 rawRef(' + (args.rawRef || '无') + ')');
       const toolIds = new Set(ph.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
       const recallMsg = ph.find(m => m && m.role === 'tool' && m.tool_call_id === rc.id);
       let rr = null; try { rr = JSON.parse(recallMsg && recallMsg.content || 'null'); } catch { }

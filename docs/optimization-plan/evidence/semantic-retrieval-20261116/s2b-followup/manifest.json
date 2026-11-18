@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "status": "PROGRESS_ONLY_QUALITY_RED",
+  "createdAt": "2026-11-16T13:41:16.304900+00:00",
+  "scope": "resource-trim-cold-browser-s3c-storage-and-development-model-comparison",
+  "files": [
+    {
+      "path": "semantic-s2b-resources-native.json.gz",
+      "source": "output/semantic-s2b-resources-native.json",
+      "bytes": 833,
+      "sha256": "b34aa5b98db0b80d25f3f4bda6f5092f3e70022984a92ee853dea2ea154b0f3f",
+      "decodedBytes": 2047,
+      "decodedSha256": "b3bdc3c5d8ba075101579d1769eb3e544f1354fd89030520d61b3dffa5792254"
+    },
+    {
+      "path": "semantic-s2b-ui-refresh-unit.log.gz",
+      "source": "output/semantic-s2b-ui-refresh-unit.log",
+      "bytes": 349,
+      "sha256": "b45603fd834e1424e4244ac12510f54bb1adfaaf7093587c5be8c36d3777ace6",
+      "decodedBytes": 555,
+      "decodedSha256": "1f61a1b619ff3f6c0eebc9d9b2d3467d364b2a09e015fd80ed90534e238257ec"
+    },
+    {
+      "path": "semantic-s2b-rail-browser.log.gz",
+      "source": "output/semantic-s2b-rail-browser.log",
+      "bytes": 596,
+      "sha256": "c0d1f377f740123a59fbaa98fa3e9c0d7bdb0de9c6321583ddfbd245dbd563aa",
+      "decodedBytes": 863,
+      "decodedSha256": "3ef153dbd545d9163b1593ce3091276d576d32f45be318f07fdce35b5bc1b947"
+    },
+    {
+      "path": "semantic-s2b-rail-browser-diagnostic.log.gz",
+      "source": "output/semantic-s2b-rail-browser-diagnostic.log",
+      "bytes": 779,
+      "sha256": "ae9928b41bfb806e9b9ca156d9ff3c5400bf1c999fce55146105a2f2ec7ae11d",
+      "decodedBytes": 1151,
+      "decodedSha256": "171e3387d112cc6877d3c9c328f75c1cc1993cbad0092c79b37022d0a10ab990"
+    },
+    {
+      "path": "semantic-s2b-rail-browser-r2.log.gz",
+      "source": "output/semantic-s2b-rail-browser-r2.log",
+      "bytes": 799,
+      "sha256": "7fe388c1f196b18be53c0be830aa713a0e3d7bb279d0b26ca1b67f8cf7654619",
+      "decodedBytes": 2227,
+      "decodedSha256": "051ebd01a1c516d35c3e1dad3a988e353004b09056da2127263348af5daecd01"
+    },
+    {
+      "path": "semantic-s2b-rail-browser-r3.log.gz",
+      "source": "output/semantic-s2b-rail-browser-r3.log",
+      "bytes": 967,
+      "sha256": "0405c74643c769c0c8156f519b678fe70165a2d85816aee6f6bc88f8a159dea5",
+      "decodedBytes": 2150,
+      "decodedSha256": "83a7f38b5bd3b846485978d3daab96d18ac3768e24da371502858575e1d4c8d2"
+    },
+    {
+      "path": "semantic-s2b-real-varied-progress.json.gz",
+      "source": "output/semantic-s2b-real-varied-progress.json",
+      "bytes": 5301,
+      "sha256": "f2266b59f1799aa92a478d358df87076a1477d4931bbdf65b77a4d1658d21315",
+      "decodedBytes": 38209,
+      "decodedSha256": "3223a1c88ae4070022e6e302b3da419449628d51a8861ccacfddc44393bef825"
+    },
+    {
+      "path": "semantic-calibration-model-comparison-v1.json.gz",
+      "source": "output/semantic-calibration-model-comparison-v1.json",
+      "bytes": 2163,
+      "sha256": "2b9ab158b61c3418c01524dda798e4b911d6e37dc8f77fa814362cfbe44986c9",
+      "decodedBytes": 26699,
+      "decodedSha256": "51cc3c588b18b61fac140a78cbd19b05312eb9376142938bc5242b5b6dc09c84"
+    },
+    {
+      "path": "semantic-calibration-token-types-equivalence.json.gz",
+      "source": "output/semantic-calibration-token-types-equivalence.json",
+      "bytes": 237,
+      "sha256": "911cfebc76db5ddbf22a9c4dceadf5fd579c8cdf8db4f5036eee1c58af906105",
+      "decodedBytes": 326,
+      "decodedSha256": "09d55e2e4099bcb7f344bcf75970985bb4c31d74d9f0b4999d00fd3fab5775df"
+    },
+    {
+      "path": "semantic-calibration-e5-diagnostic-v1.json.gz",
+      "source": "output/semantic-calibration-e5-diagnostic-v1.json",
+      "bytes": 2607,
+      "sha256": "47b01b78fd8a07e1632c9a13482cf855a85983341d31e7a69a71124a71ce9cdb",
+      "decodedBytes": 13090,
+      "decodedSha256": "e1829de7173d1672b5b62c80ea9ccd0b1bd6652d1d3e58db8f50b4d4a339df85"
+    },
+    {
+      "path": "storage-acceptance.json.gz",
+      "source": "output/s3c-storage/storage-acceptance.json",
+      "bytes": 1507,
+      "sha256": "558e98a56c5fba4517160ae54799d4f540103031baefc0dee3c74b87f66dcf8f",
+      "decodedBytes": 3355,
+      "decodedSha256": "0373e207d33a9b622e29c4228b1ea17b3ad8953fa3794bbe32d61e7fb8a25b5c"
+    },
+    {
+      "path": "message-ref-cross-review.json.gz",
+      "source": "output/s3c-storage/message-ref-cross-review.json",
+      "bytes": 2533,
+      "sha256": "17943f6a8ecafde4aa5a325ad379d5c7e2c486d03b97a3956c28a4538f257a92",
+      "decodedBytes": 5468,
+      "decodedSha256": "7a3b37d76baebb7943d89f2261a0c31698fa2130d3f006adfa29d2a72251fa47"
+    }
+  ],
+  "limitations": [
+    "First failed browser attempts preserved; r3 is the scoped successful retry.",
+    "Model comparison is development evidence, not final quality acceptance.",
+    "No final tree regression or final package receipt is asserted."
+  ]
+}

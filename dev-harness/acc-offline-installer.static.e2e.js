@@ -129,7 +129,7 @@ ok(/:acc_notice[\s\S]{0,500}if not defined RUYI_ACC_FAILED exit \/b 0[\s\S]{0,40
   'the notice names acc-install-latest.log and keeps the window up (timeout, any key skips); a no-op when setup succeeded');
 // #22:被拷成 runtime\node\node.exe 的 node 要先验:Node >= 20(package.json engines),且不是 Volta/nvm/fnm 的小壳。
 ok(/process\.execPath/.test(packager) && /process\.version/.test(packager) && /\$Matches\[1\] -lt 20/.test(packager) && /-lt 20MB/.test(packager) &&
-   /Copy-Item \$nodeSource \(Join-Path \$stage "runtime\\node\\node\.exe"\)/.test(packager),
+   /& \$nodeSource \(Join-Path \$root "tools\\node-license-materials\.cjs"\) \$nodeSource \(Join-Path \$root "runtime\\node"\) \(Join-Path \$stage "runtime\\node"\)/.test(packager),
   'packager validates the node.exe it bundles (version >= 20, real binary rather than a version-manager shim) before copying it');
 ok(/"node": ">=20"/.test(read('ruyi-workbench/package.json')), 'package.json engines still says node >=20 (the version floor the packager enforces)');
 

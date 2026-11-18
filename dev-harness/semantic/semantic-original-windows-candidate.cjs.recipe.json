@@ -1,0 +1,23 @@
+{
+  "status": "EXACT_90A_WINDOW_GENERATOR_EXTRACTION",
+  "source": "ruyi-workbench/app/src/13ap-session-fulltext-index.js",
+  "sourceSha256": "90a0191d29307ba1f5582f4073bb7a01dc311f5a72481bbc06b01ee3a084a15f",
+  "functions": [
+    {
+      "name": "canonicalGroups",
+      "sha256": "471cffbfbb4943f585a9697c30ec36e6fc1294013c138201c2314cb2ade845bc"
+    },
+    {
+      "name": "canonicalPieces",
+      "sha256": "2fd44c29e1f39bbab380b0d7d90278461cfeb850eaa49d7fbbd0e7916e7ba63e"
+    },
+    {
+      "name": "rangeAt",
+      "sha256": "3cefda5bc8679f62cf6680ca656c39a0182fd301b809b7145b0e9ebc1454dbbf"
+    },
+    {
+      "name": "slices",
+      "sha256": "6935fd0f0be1a966b38ae6e8caf992a710c476c4eda52a1eb0a50c239ec3eb38"
+    }
+  ]
+}

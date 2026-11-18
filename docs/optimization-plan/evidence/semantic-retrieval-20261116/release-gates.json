@@ -1,0 +1,3359 @@
+{
+  "schema": 1,
+  "release": "3.1",
+  "scope": "local-semantic-retrieval-and-compaction-recovery",
+  "baseline": "2217fa90",
+  "status": "pending",
+  "gates": [
+    {
+      "id": "SR1",
+      "name": "model-runtime-provenance",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/slim-r5-semantic-smoke.json",
+          "sha256": "71dd7294b7d3b47ce39563df263fa325fc3c3839e36fb334211c07141109a165"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/r5-source-bindings.json",
+          "sha256": "4f78bd5eeb174ce40163d585953e4cfe47ceb633acd9de829e1a7c1a3e8bf444"
+        }
+      ],
+      "notes": "EmbeddingGemma2 text-only Q4 plus CPU-only ORT is the fixed main candidate. Final new offline package, provenance and applicable notices remain pending; original default is unchanged."
+    },
+    {
+      "id": "SR2",
+      "name": "real-model-quality-and-performance",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/reports-manifest.json",
+          "sha256": "ad242c5071149b140550384d1cf09aebb4956dcd377e8b8275e114bd3f5b7e6b"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-evaluation-holdout-once.json",
+          "sha256": "fd67781b894a1118c989413753e5380cf7f274bd3b144d34e6ae5c68fd1257a1"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-integration-final-guards.json",
+          "sha256": "21619cc8e0ec9ba22d61839d1b14d3784ad080cf4a59693e7de680d89757c945"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/manifest.json",
+          "sha256": "57afcb4166566001d9980f0dec209b9df256b22a4b7a092805993f06e6e209de"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/manifest.json",
+          "sha256": "7ffbc5bc541ed1839e7e9d1adf12c0a47c8661bb5da39c33ccb1f20de2d8d94c"
+        }
+      ],
+      "notes": "Development selection is fixed at full768 K1/.70, automatic:null. Real-model component work is scoped; independent unexposed V7R3 and complete1000-fragment source/privacy/search p95 remain pending. Earlier failed model/quality results remain historical."
+    },
+    {
+      "id": "SR3",
+      "name": "search-consumers-and-source-integrity",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-integration-final-guards.json",
+          "sha256": "21619cc8e0ec9ba22d61839d1b14d3784ad080cf4a59693e7de680d89757c945"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-s2-final.log.gz",
+          "sha256": "75b793922a8d03eb86d2d4a1f4fdcb6bbd497b148fa8c5ae528327d60b1b446c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/slim-r5-semantic-smoke.json",
+          "sha256": "71dd7294b7d3b47ce39563df263fa325fc3c3839e36fb334211c07141109a165"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-focused-final.log.gz",
+          "sha256": "1f17a12a2cad3a8076ee7c4b1a03652fecb74ef95eec66f615de41b7e2f841d1"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/manifest.json",
+          "sha256": "25853453d170cb932fff76f3966925e2c3565058fe4ef85f96420bb7ad8dbd09"
+        }
+      ],
+      "notes": "Root accepted acyclic core113 units+48 policy+6 existing E2E and genuine transport/scorer component cases on their own inputs. Final actual HTTP/UI/Agent consumers and complete source/privacy integration remain pending."
+    },
+    {
+      "id": "SR4",
+      "name": "same-session-compaction-recovery",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-s3-final.log.gz",
+          "sha256": "6f730722664fd019c9adf25057cb95a513934168708bf6ea7a11bbedafa3d48a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-focused-final.log.gz",
+          "sha256": "1f17a12a2cad3a8076ee7c4b1a03652fecb74ef95eec66f615de41b7e2f841d1"
+        }
+      ],
+      "notes": "Current committed user/assistant messageRef plus exact-session older-history indexing implemented; enhanced privacy tests pass scoped. Precompaction commit integration and final cross-engine boundaries still under acceptance."
+    },
+    {
+      "id": "SR5",
+      "name": "memory-recall-semantics",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/scoped-acceptance.json",
+          "sha256": "5b99b6d80a3ba62a4e2544ec04cf544c3acf329f20cdf6ca1c58194b72b0a8f2"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-focused-final.log.gz",
+          "sha256": "1f17a12a2cad3a8076ee7c4b1a03652fecb74ef95eec66f615de41b7e2f841d1"
+        }
+      ],
+      "notes": "Automatic memory remains lexical-candidate rerank only. Explicit memory_list(query) metadata semantic additions implemented with bounded partial coverage and admission; final independent regression and quality still pending."
+    },
+    {
+      "id": "SR6",
+      "name": "privacy-storage-and-process-lifecycle",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-s2-final.log.gz",
+          "sha256": "75b793922a8d03eb86d2d4a1f4fdcb6bbd497b148fa8c5ae528327d60b1b446c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-s3-final.log.gz",
+          "sha256": "6f730722664fd019c9adf25057cb95a513934168708bf6ea7a11bbedafa3d48a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/slim-r5-qualification.json",
+          "sha256": "67c3afbc31372f6c6ae1725d1fb013a0879a1cadccc7b212c7a9c5127d26f66a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-focused-final.log.gz",
+          "sha256": "1f17a12a2cad3a8076ee7c4b1a03652fecb74ef95eec66f615de41b7e2f841d1"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-target-capture-diagnostic-reviewed-r1/manifest.json",
+          "sha256": "1fa415cb7e70c03387af3d37acd79d34290af00ce64dd591045c32c244f28e4b"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-media-supplement-reviewed-20261118-r1/manifest.json",
+          "sha256": "0530e40bef3d85caa7cefec81a83a790844d438a7211edf2646dc8de9588494c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-and-publication-reviewed-20261118-r1/manifest.json",
+          "sha256": "89fe4fdb909fb43d3ec38be125d21b4291954090f35e082eb87315d44f738a71"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ordinary-enable-and-build-tools-reviewed-20261118-r1/manifest.json",
+          "sha256": "9b0de92e7a27d60969a53238cbb636d6743c18dda7e2b29f76eda30f7c4eb714"
+        }
+      ],
+      "notes": "Scoped resident65 and early Node-death preparation reclaim passed. Complete encrypted lifecycle fails at generation-root Access before export capture. Full Desktop-owner lifecycle, trusted home/ACL, all supported legacy/direct Node/fallback paths, privacy/keys and clean Windows remain pending."
+    },
+    {
+      "id": "SR7",
+      "name": "new-offline-slim-full-packages",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/slim-r5-semantic-smoke.json",
+          "sha256": "71dd7294b7d3b47ce39563df263fa325fc3c3839e36fb334211c07141109a165"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/slim-r5-qualification.json",
+          "sha256": "67c3afbc31372f6c6ae1725d1fb013a0879a1cadccc7b212c7a9c5127d26f66a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/full-blocker.json",
+          "sha256": "6f9b6491459d08430fb2668e1e088ebcdc94b7040f2717790c69c769ad740648"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-media-supplement-reviewed-20261118-r1/manifest.json",
+          "sha256": "0530e40bef3d85caa7cefec81a83a790844d438a7211edf2646dc8de9588494c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ordinary-enable-and-build-tools-reviewed-20261118-r1/manifest.json",
+          "sha256": "9b0de92e7a27d60969a53238cbb636d6743c18dda7e2b29f76eda30f7c4eb714"
+        }
+      ],
+      "notes": "Historical source/notice byte coverage is scoped. Final new Slim/Full/Full-local packages, current source/runtime/model/VC materials and installation/upgrade/recovery/rollback remain pending."
+    },
+    {
+      "id": "SR8",
+      "name": "final-tree-regression-and-independent-acceptance",
+      "status": "pending",
+      "evidence": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/fast-frozen.log.gz",
+          "sha256": "ea5b8a50ba23bbd148cf08323901a17868e1e436a89d574a98634ebfadabdd94"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/fast-frozen-unit.log.gz",
+          "sha256": "a43107f813db2b1a119330be4cf0bdc4cf9e010c94a32b941b4c6b0c07807044"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/fast-frozen-static.log.gz",
+          "sha256": "9941a97323cfaa7b19167dc889b4571d4e8535526c8d5b3aa450da00ceabb13c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/scoped-acceptance.json",
+          "sha256": "5b99b6d80a3ba62a4e2544ec04cf544c3acf329f20cdf6ca1c58194b72b0a8f2"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/r5-source-bindings.json",
+          "sha256": "4f78bd5eeb174ce40163d585953e4cfe47ceb633acd9de829e1a7c1a3e8bf444"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-focused-final.log.gz",
+          "sha256": "1f17a12a2cad3a8076ee7c4b1a03652fecb74ef95eec66f615de41b7e2f841d1"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/semantic-release-gates-expected-blocked.log.gz",
+          "sha256": "9d91a5e1500179e23039bb3ae9c4571326b0add9f6e33a6e4abc0864d3c265c2"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-target-capture-diagnostic-reviewed-r1/manifest.json",
+          "sha256": "1fa415cb7e70c03387af3d37acd79d34290af00ce64dd591045c32c244f28e4b"
+        }
+      ],
+      "notes": "Historical full-unit/static/package results do not qualify newer candidate source. Final frozen-tree authorized regression, independent quality, package bindings and review remain pending."
+    }
+  ],
+  "implementationStatus": "S3C_GEMMA2_CORE_AND_NATIVE_FREE_CONSUMERS_PASS_FULL_NATIVE_QUALITY_PERFORMANCE_PACKAGES_PENDING",
+  "updatedAt": "2026-11-18T02:47:33.116983+00:00",
+  "bindings": [
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "sha256": "44d00ca2566daf596368dac61a219bf44331f4475c177452ff72aaae986c4c25"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01b-route-auth.js",
+      "sha256": "c587587d7f3fbc37925682c221d5b5bba27812991418d28c3bd47577b93031d5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "sha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "sha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "sha256": "dda467aad735b29397d48ebd50c96dd074e444bef7992cbdeda208506a8d3a09"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "sha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "1ddacd949b75c44382b0d5138555f297cc36fa5e2017585299c20d206239c8cc"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "sha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "sha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "sha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01o-work-data-keys.js",
+      "sha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "sha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "c58d4e0ceaf89f72e168e3622ef8c0fc430283dff2578e20543afdde9a46b3ca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "sha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01s-work-data-journals.js",
+      "sha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01t-work-data-recovery.js",
+      "sha256": "fafdc1ccda316ccb4170683f912bf2737fd9a3ac61c2b86665fb7bd78d43aa8a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01u-work-data-transition.js",
+      "sha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01v-work-data-manifest.js",
+      "sha256": "058c46ea006a2913940777755aad13c9336d609f876846a0774a6ebccbd789a8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01w-work-data-native-publish.js",
+      "sha256": "b1f18f9053bd6499bbb859d99fde28476f77de6c6f70712a8dffdd6a6b5aed31"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+      "sha256": "1a204c67870f7327a677052f696e22dcf82b426c44d8acf620ad290be7249c75"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01z-work-data-root-authority.js",
+      "sha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01af-work-data-attachment-chunks.js",
+      "sha256": "9c38e5df0a9e8ea09691de049807a6a205ff7bad29c101eff8e847d0f8229f3f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ag-work-data-attachment-reader.js",
+      "sha256": "c39386384731d9d5f99bad50478f141ed40f7a7c1e9ff42ad5c178f02bd3d346"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ah-work-data-attachment-catalog.js",
+      "sha256": "adac5b0f706d4a49377d250125f106b81bfb582347684b39c3ae3c27ea1fae13"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ai-work-data-attachment-store.js",
+      "sha256": "f5ee9769a75e7491788b987130f42848712764b43ccf64835c319461f9374074"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01aj-work-data-attachment-catalogs.js",
+      "sha256": "c1dcffd161d45e41c6148b8b3650cf051de4acc8ea5c996d815ea2a7d5c29c85"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ak-work-data-attachment-runtime.js",
+      "sha256": "2ae31a11cfd9a5e58662b04350c3db86f2a6b12afdd011129f0e83a259a4d992"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01al-work-data-uploads-owner.js",
+      "sha256": "bd0e652ee441bb748ea9c64b6627ffce5366a4bbdc5dbf9acb9474b0bd75e8fb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01aa-work-data-tree.js",
+      "sha256": "b69510863256d445eb80a67be03fd2c89de77c808693d4e7aba8b25ff4f8da60"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js",
+      "sha256": "579a9459e0b1e0c619f828577cd1fc2fdf8c32e99e5f276b5915a97e61effed5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "sha256": "807293933b90c7c89ac46b7179924732887bfc4dde9b5256b560ba2b2fb51fd2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ad-work-data-migration-host.js",
+      "sha256": "ef7ce43603286b0682f15e449f7bdfa41b878879df2300850cdc50688283b8ab"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "sha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "sha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "3e868ab4b1d79c20e79b679f52ed0a52324abb773dcf278aff4d5cc3e01420e4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "61f01bdf4553a96e9d396a80125979126c8ffcd1769bfda4ee1c4eb3347402ca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "22059423a6b646f027a5dface1a8947f1ecb4c35e81af8c64d79c014c70fe3a3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03b-privacy-local-drive.js",
+      "sha256": "ebde94c416a7149b185da3e856e25242b27a03386f7c802bc9db0a9bf63c284b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "sha256": "639336bee0fba75c3113d2ff4070d9ff3e5f9e53134621383ae1c2f5fe98cb0b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03c-model-dispatch-context.js",
+      "sha256": "d98aaa12f853ac671409edcc89b9f3fb69d89e42aa959799fd8e1311fd38d29b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sha256": "a37d292d04cb632311d5a053158541b9f20ceb0d189f9cc4c723d5b36ab83450"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "sha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "sha256": "ecd1fc70e18dcec845c923da911000146f94273e98321dee0c9d4e16591b352f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "sha256": "1514fffc620760481e53ca9416cef5bf900ba9536d1bbfaaba0e1e5d3373d073"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "sha256": "bacb95867c4d72d4b2f17b66b63fe65dde927200618a048fd891ff5c2894dea5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "sha256": "507a660de50d0a5e99fd84d0eb49876bcd91166d9f66b8621fc5b92e6594150f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "73d2dade261931788fb1c56fd082bc6d31830381baf3bd0e885e08b0dbb5d1b8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "dc726820e5d00e905084829c179d53a10ed9ce91d999f9f743e3a3ea6e9123ff"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "sha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "67ec2ba64336972172fbd68f0e2083cd0f4d0f97d2c06438edb97f9053302d4e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "sha256": "20d900d5ec4ed9ae632bcac7bf6e1b948728ea61570bb40fd7fd098f074c3cb8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06hb-semantic-runtime.js",
+      "sha256": "cba95c73b3178b3ab35e0dbc51c4e3ddda2df61895b7e98b840fb5cdd18dbc03"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06i-steward-core.js",
+      "sha256": "fe6d5fd9ba4f6c128ab74ff1f956a858536fd3c28372086c7ab1335616ea5628"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "38e6f176c80d69c7aa1e60641229bf3d41ff8c90b2b453ebfd6af6db12fb47df"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06hc-memory-semantic.js",
+      "sha256": "298937d64e7e819821990fe719db61e26bb0fe4bed82787d0a2e92132ce3c6a9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "sha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "sha256": "4baa5b4df259155da8c955f98383541c1a2f67e07539f7445f45b84f1eb2cfe8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06k-config-patch.js",
+      "sha256": "7f7fd56526ed143216076a05afce68afd5c68df359f7db546e1c61e37e86cd1c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "5ddac0141bbbc73b76e6223b61bd6814c6661b4c300ab07dae2682de420b1124"
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "06b6a7535dbd5ecf20c80352761d3a24401b34f3a5aea1a3a56e66753cd17e72"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "fc685c657f7c1de0cdb5e69c221697db1f7a55fb4ad8d370d263a899017983f9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09c-thread-relay.js",
+      "sha256": "ac8c8fbd5f9c19b72a148a521eda956631c5aa9d14ffb8a10e90a68b54175d94"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "eeaabffbb0218fad9c08d7737356d1c825f02377f6f381bb63fd5a8297431ce8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "5798d0e52cb113c2db9383d957d676899a90c558ae3bf8cee1ad124216b3bc98"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "sha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "sha256": "95f14045a622c740c6ba3975dad54d50891e470a8e932826f250bbe64b9e7aa3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "sha256": "67e65e7002688a05460c9b3c3ceb6aac78032417fcc79052a5a7ea19dde15343"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "35a3711f4b796875d7cfd598f594edf60729942d9d6127e0f6a97a6d20d40164"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "ff5535f2650db425f4b09b55809cc9b34fe11bcd8cb1b778f37a2aebfa68be20"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "3a0aa71c5cbad02062c45d5bddfa93e9ec3eb455ecb0607bb8a5f9045245586d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "sha256": "145efa8b3ef41d377e6e31ca8020807a39f683782e805c961ddcf80e15361cc4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "sha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "c7b61832a7e8076bc816e5aeb462ea8d35dd5339ec9544be76203d9680779d7c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "3989bd3bac79662a571ee74d3a5cb03b6e4b7a3cef66f322d745f9aceb396967"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "5d0e55ca4c470fea0f077f72ab91469682109a9f4353c3706fcee4e50b9ae3a8"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "sha256": "9250168aec95a1a1ef80428d83d0ed3812cb4481c7879e4b1c276b87f51331f1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "sha256": "baf3eccd52355fcc202aa36b278b5b4f04c895d580c846fdacd28f898759acef"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13g-steward.js",
+      "sha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "sha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "sha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "sha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "sha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "sha256": "767a0d09a440ffd479894e3e08e574640e14f2b09e7c7f964e65b1fc38622767"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13r-event-stream.js",
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "333a372308196535ac4c34a8db02057c062e155fe58bed537ea17c0591981001"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "sha256": "e2f5c7dd30842acc30ccea8cf16cbea9b1c7b73bf4e99e4d6dfa09ed6e28b68b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13u-migration-center.js",
+      "sha256": "f99582fabd1a6ce8d695fda47d0233907a07d007cbde13f21f59d2673cab05d3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "fc8be61895159daa8b5ec219078b1c944f11fe3f3593c44a51473737348606d3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "sha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "3d55ac5bb0f0a92851323b4a8d208d419ee37ae9565da32a51f67f5246bec826"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w1-external-remote-views.js",
+      "sha256": "641c65d93c7037f4373947ded4704f9d77bd8d7875189c66a7992af0f1d91222"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ac-mcp-consumer.js",
+      "sha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "sha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ae-cli-business-services.js",
+      "sha256": "bb782375626acb0cd5459794da8a74dd7922bbf87920af8ed03fecb7c96910a6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13af-internal-mcp-relay.js",
+      "sha256": "b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+      "sha256": "682de965dda06d37625d667fde8dba35110e5964bce7b71b77b1efe3d6489a24"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13at-work-data-restore-uploads.js",
+      "sha256": "8f411b63b3656200f78a3013e2790a2c283f06da4fc310695a31634277e76c54"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "sha256": "a7007b1337aeef097743bce6b5ec09eeff9867fbe464ae93a5f67e63be884b43"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "sha256": "c9ac18212aed5f1da1c20fbe7af440ad1ff97ab7bd64e3c4d87dfd283246b5c9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "sha256": "f8d20ac66714481c9dc837fcd418ccd839a8900ced81f344ae675591a4034171"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aj-work-data-control.js",
+      "sha256": "90072a42519f653771769bb98865b25ba4f98b1f1725d6a1023c37273a96bffc"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13al-work-data-maintenance-http.js",
+      "sha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13an-work-data-disposable-tree.js",
+      "sha256": "d12fda0cb7853a831392dcff3da3b75d4ec233ae0c0756314069c3fbabc071eb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "sha256": "44eebfffa9cd98b07d91c5cd1b78ebd267d8660884cbd20f64945ef02d6db2b5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "sha256": "00b7acdf0f5156ad9941e63e54ca000b92b972b5eda5dbd70625fd09161e7041"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ap-session-fulltext-index.js",
+      "sha256": "879cbd5975fe3d06c22372c5a303ee15c767af9d192a2f41218ce4ce35bf4c4a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13as-session-fulltext-consumers.js",
+      "sha256": "aaa44faf29ffac31f7fcdec7bbe3f16a9a543f8945c9c46ee42f197e6f577eff"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ba-media-image-contract.js",
+      "sha256": "176363b156bcf832ed56e374e4caae3dcc7a63e7ecfc22aeffe82aa1c0b3e68f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13bb-media-derived-store.js",
+      "sha256": "7845016d17dd148ce3200914158d6476d6cb30d2a1bc93210c11af44370c3cc3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13bc-media-image-processor.js",
+      "sha256": "d75995d5ee92b04468afd8a47e0b1029eaf74f280c5ec6795cd17dae892d3c29"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13bd-media-image-service.js",
+      "sha256": "c20cd8f02875a75cbbd1f5a72f577336e257d16b088c462bdbf73562b1f658f9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13be-media-image-host.js",
+      "sha256": "f325e62f57b2e1e57ec89aef34635c18563905cf6a89956a35642332bf929a28"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "cc6f8c6c2bc256c1d7cb953bc3cc190ba1be22ee26078cf306f1272d70879789"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ar-work-data-verifier-entry.js",
+      "sha256": "e2dd690f9ff07da29c6be85f91a2de28f78a1f7b9b44f452f685d70d146c2955"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aw-work-data-root-preference.js",
+      "sha256": "8bc7d82aa814723d08399911e034e4c382fa8c3972f74e526c2b9082fba1fc5b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+      "sha256": "75e8044e5d96f224486660b585fc69a8555e1021bb439d263e52a90471f9000d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ax-work-data-attachment-upload.js",
+      "sha256": "30e9532c4d67fadb79eb05ce9794c72994f48153def6bfc221de35b28de3c42f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "sha256": "530ae7f6f1bf9af3c190f3aab355bdbc254caa85b82a23197992011c7fc5677a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/14-main.js",
+      "sha256": "1798abaf17c7d8a0e8f5e0ed52f0606624438aa7691994a9671814facbcead5c"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "c9f964d87e44b6a13a85752cb7d78883396091215e0a6fdbbce994c0107cc149"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "053ff2c728c7054c62cf1518de51a96a1a23579153fc9cab7d9a23d36d40e5fc"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "a62f4e3fdec662d9e69d64661a03f043300766bded8302019fa61bd6fbec6129"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/session-experience.js",
+      "sha256": "cf2b09386e674423f29cfbbddd598dd2afb34868e254dd4b19acf7389fc4b348"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/settings-catalog.js",
+      "sha256": "1059ca0d8669071fa8d701b5704669395a1ff0b824821b785522df8a85a97056"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "34ef3dc508d49fda20d70c56ae62deefa6355faae3861e9c7e73fcf0019c2949"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "366d9e750dfa77366083a8445edf5bbe8da18b874da31386b113faf754d4cf20"
+    },
+    {
+      "path": "ruyi-workbench/tools/package-offline.ps1",
+      "sha256": "94171dc2f97d6a5a316f1ebe58ea09667a6526fd8ff5698a4b4332f3ac6f24ea"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/bundle.cjs",
+      "sha256": "712a013d23120a66a2d86955eee039817cf1a7fbb41a34564994bf98c313ba10"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/install.cjs",
+      "sha256": "1106ca2de5f75d6e78721796695faa9782a0e2bae9e9be279d4d7ed019df8157"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/bge-MIT.txt",
+      "sha256": "587a673933425dbc36ec61268d3b954051b2d3ef3c9b322ede357976055ffdd5"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/e5-MIT.txt",
+      "sha256": "904dc4d8749877f1dba1cda48200d2462dccbeb7c134d5e4ef6fa75e0198c8fe"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/minilm-Apache-2.0.txt",
+      "sha256": "624b030fd62b8b989dd502d5bb6322cbc0dbb524ab9c9708f32efe33d7275735"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/NOTICE.md",
+      "sha256": "a0f035bcc4c88f1f868504deea02ca87a9e319cca3a4e3f5f3b4919546899d06"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/provenance.lock.json",
+      "sha256": "b2b62088d0c170f3203f56423e70fe1a52976ee1646119a2fde87c522ec6b883"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/licenses/transformers-js-Apache-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/models.lock.json",
+      "sha256": "42dc7628471c4e482b8cde0e34b9ee328a4f92e748b08c9306b7ca9d279b5168"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/package-lock.json",
+      "sha256": "7d2162ccf860001e3096f0be18c7a2e0d2ec1886c3438fea84fe05615263f229"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/package.json",
+      "sha256": "af17b21b0e75ea19f97c33b09d1f29af3df236a2297a573d990be2094576435a"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/protocol.cjs",
+      "sha256": "29bb6e178fe6a486f1cc608b60acce78b0f0b6f3e051ddf853d0bc5529c84ff2"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/README.md",
+      "sha256": "fb40e88eec4d1e2a00e9c1f926e9898f7ca67a1d3885fb065a39a3c102108240"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/runtime-assets.win32-x64.lock.json",
+      "sha256": "cbbe36c0fc7fa224722a127002bd5222cc81766f341325430955b271809f2d73"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/verify.cjs",
+      "sha256": "7de5806708065f60bc66f1400990196cef2b8f062d606df1eb11539d5570131e"
+    },
+    {
+      "path": "ruyi-workbench/semantic-runtime/worker.cjs",
+      "sha256": "954e326376ea813e24e08c3c4ce2acca04e394d87910baf2770c3835b2105b71"
+    }
+  ],
+  "currentWork": {
+    "scope": "S2b/S3c",
+    "previousBindings": "Prior r5 accepted source only; final current-source bindings will be regenerated after all acceptance.",
+    "progressEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s2b/manifest.json",
+      "sha256": "2aef6c2b854a67fa53b82ec6a160b8b52b0b35ea207088c725d84293c16cdefb"
+    },
+    "quality": {
+      "recallAt5": 1,
+      "mrr": 0.9583333333333334,
+      "noAnswerFalsePositiveRate": 0.25,
+      "gatePassed": false
+    },
+    "performance": {
+      "naturalQueries": 30,
+      "complete": 30,
+      "fragments": 1000,
+      "rootP95Ms": 389.8715999999986
+    },
+    "resources": {
+      "runtimeBytes": 40533717,
+      "modelBytes": 135392488,
+      "rootWorkerPeakWorkingSetBytes": 603447296
+    },
+    "followupEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s2b-followup/manifest.json",
+      "sha256": "78a6086cfc4e90c97adf50288af73e60c52a247d3ebc0099150791872ac0e149"
+    },
+    "frozenNextAcceptance": {
+      "path": "dev-harness/semantic/acceptance-v5-fixture.cjs",
+      "sha256": "5507d687719b72673c4a0b7aa267e6bc8f55e62318b5575915e596e53ae12c44",
+      "status": "EVALUATED_ONCE_V5_RED_NOT_FOR_TUNING"
+    },
+    "s3cProgressEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-progress/manifest.json",
+      "sha256": "21c88cb2b57e251f5ee481f16ff769fac7eb4e060f8edaca68d8e5d3767c998f"
+    },
+    "precompactRootEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-progress/precompact-root.json",
+      "sha256": "11b3ed10d8710c509ef2487ee79341e7fcba9827d3660d68bef5e3ffa3493c04"
+    },
+    "fullFastFirst": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-fast-first/manifest.json",
+      "sha256": "206918c588d045ffbf7e7e1eaee7afa832757eb7b49738088285ac7c8380156c",
+      "status": "FAIL_UNIT_GATE_STATIC_NOT_RUN"
+    },
+    "boundaryReviewEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-boundary-review/manifest.json",
+      "sha256": "5e2f9032ad92ab16217433832a8c045215de8d6f335dc890d7a0f0a9d194b18f"
+    },
+    "reviewedEvidence": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reviewed/manifest.json",
+      "sha256": "42b2f735eb2eda4bc328885a56f7159c33965f3fc844c5b9d547140eaef62d60"
+    },
+    "fastR2": {
+      "exitCode": 1,
+      "unit": {
+        "tests": 5484,
+        "pass": 5449,
+        "fail": 0,
+        "skip": 35,
+        "sourceFiles": 1553,
+        "sourceStable": true
+      },
+      "staticInitialFailure": "unregistered research prototype in shipped app/src",
+      "rehome": "docs/optimization-plan/evidence/semantic-retrieval-20261116/native-prototype-rehome.json",
+      "staticRetry": {
+        "passed": 100,
+        "failed": 0,
+        "flaky": 0,
+        "sourceStable": true
+      },
+      "movedPrototypeUnit": {
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "regressionProgress": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-regression-progress/manifest.json",
+      "sha256": "90315430302500ab7727f48a5242224b8adbe84f88e70fa269536935433d1596"
+    },
+    "latestChanges": [
+      "M3 export fails at first-native census / generation-root / time.access; full lifecycle FAIL, disable/delete unexecuted. 721-binding relative-open candidate is archived, not root-reviewed or executed.",
+      "M5 v9 precisely denies fixed WorkData flush PowerShell spawn; observer OpenProcess Win32 87 concerns previously observed conhost. Neither held-HANDLE retirement nor exact helper allowance is implemented.",
+      "Home v2 passed root 65 native-free checks and compile-only; normal/handoff r2 104 bindings each are prepared, unexecuted. Standalone NAPI is source-only.",
+      "Checkpoint source capsule and 977 mapped source inputs verified independently; preserve original raw bytes, old failures, unknown and all full-release gaps.",
+      "Regenerated stale app/server.js and manifest line ranges. Scoped checkpoint checks pass; forced release guard rejects eight pending gates and stale final bindings as expected."
+    ],
+    "referenceReviewR1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/manifest.json",
+      "sha256": "5eef02c5358b260ecd7eab6b96811794c00bbdbd450ad0d7090b348748a2aa38"
+    },
+    "precisionReviewR1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/manifest.json",
+      "sha256": "57afcb4166566001d9980f0dec209b9df256b22a4b7a092805993f06e6e209de"
+    },
+    "qwenResearchQuality": {
+      "v3": {
+        "recallAt5": 1,
+        "mrr": 1,
+        "noAnswerFalsePositiveRate": 0.075
+      },
+      "v4": {
+        "recallAt5": 1,
+        "mrr": 1,
+        "noAnswerFalsePositiveRate": 0.1
+      },
+      "gatePassed": false,
+      "registeredDefault": false
+    },
+    "cropCapReviewR1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/manifest.json",
+      "sha256": "25853453d170cb932fff76f3966925e2c3565058fe4ef85f96420bb7ad8dbd09"
+    },
+    "capFix": {
+      "sourceSha256": "3fc9087a24cc55fc914a37a0e91174577cc1e006d54acb80f5cfd61f276f2ae5",
+      "independentUnitPass": 55,
+      "metadataBoundaryPass": 8,
+      "functionalPass": 5,
+      "functionalFlaky": 0
+    },
+    "statelessOwnerV5R1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/manifest.json",
+      "sha256": "7ffbc5bc541ed1839e7e9d1adf12c0a47c8661bb5da39c33ccb1f20de2d8d94c"
+    },
+    "latestIndependentQuality": {
+      "fixture": "v5",
+      "fixtureSha256": "5507d687719b72673c4a0b7aa267e6bc8f55e62318b5575915e596e53ae12c44",
+      "positives": 80,
+      "recallAt5": 0.9875,
+      "mrr": 0.9458333333333334,
+      "oodCount": 80,
+      "oodFalsePositives": 21,
+      "oodFpr": 0.2625,
+      "positiveCompleteCoverage": false,
+      "qualityGatePassed": false,
+      "defaultChanged": false
+    },
+    "headlessCoreReviewedR1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-headless-core-reviewed-r1/manifest.json",
+      "sha256": "00897846800e7497d21e17ed604846ff929f37f48c6e4531674b0da941e7e79a"
+    },
+    "officialRerankerReviewedR1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/manifest.json",
+      "sha256": "86006a765f8cae0e9e8b807d8c2d75d9ff5e1705ea970eeaa76c9bc836e8d669",
+      "status": "PROVENANCE_AND_SCOPED_HTTP_PASS_NOT_RELEASE_ACCEPTANCE",
+      "rawRecords": 68
+    },
+    "rankRuntimeReviewedR2": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/review-index-r3.json",
+      "sha256": "81df4d3d698f29d992a81ad6ffce9b6b2f2d598c9a7895bdeebde6f39d76f6c1",
+      "status": "SCOPED_RESEARCH_RESOURCE_PASS_QUALITY_RED",
+      "additionalRawRecords": 20,
+      "pairedVariantScores": 44,
+      "crossThreadScores": 44,
+      "allScoreDifferences": 0,
+      "researchThreads": 6,
+      "historicalResearchSourceBoundary": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/research-source-boundary-corrected-r2.json",
+        "sha256": "0a8607ecd7c01cae15a7eaee6b971691ccb4a39a3538454dd8f6d2633e6ce51d"
+      }
+    },
+    "researchResourceConclusions": {
+      "weightQuantization": {
+        "f16Bytes": 1197634304,
+        "q4kmBytes": 396476288,
+        "classifierType": "Q4_K",
+        "lossy": true,
+        "numericallyEquivalentClaim": false
+      },
+      "priorEmbeddingRuntimePeaksMiB": [
+        1366.1,
+        962,
+        665.3
+      ],
+      "priorEmbeddingResourcesAreNotRerankerMeasurements": true,
+      "mrl512And256Adopted": false,
+      "mrlRejection": "fixed development OOD policy",
+      "noRepackNumericallyEquivalent": false,
+      "rerankerStockBaseline": {
+        "peakWorkingSetBytes": 1431289856,
+        "shortRequestMs": [
+          720,
+          729,
+          639,
+          626
+        ],
+        "long512SingleMs": 4091,
+        "controlledP95": false
+      },
+      "dedicatedRerankerRuntime": [
+        {
+          "kind": "rank-safe",
+          "threads": 2,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 669204480,
+          "peakWorkingSetBytes": 1009889280,
+          "peakMiB": 963.10546875,
+          "shortNativeP50Ms": 394.52040000000034,
+          "shortNativeP95Ms": 439.9115999999999,
+          "shortEraseAndNativeP95Ms": 440.77019999999993,
+          "mediumSingleNativeMs": 1240.5960999999988,
+          "long512SingleNativeMs": 2505.6990000000005
+        },
+        {
+          "kind": "rank-buffer",
+          "threads": 2,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 667512832,
+          "peakWorkingSetBytes": 698478592,
+          "peakMiB": 666.12109375,
+          "shortNativeP50Ms": 375.0849999999991,
+          "shortNativeP95Ms": 424.8227999999981,
+          "shortEraseAndNativeP95Ms": 425.53340000000026,
+          "mediumSingleNativeMs": 1150.5604999999996,
+          "long512SingleNativeMs": 2313.0967999999993
+        },
+        {
+          "kind": "rank-safe",
+          "threads": 4,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 669425664,
+          "peakWorkingSetBytes": 1010536448,
+          "peakMiB": 963.72265625,
+          "shortNativeP50Ms": 207.59660000000076,
+          "shortNativeP95Ms": 243.80050000000483,
+          "shortEraseAndNativeP95Ms": 244.56760000000213,
+          "mediumSingleNativeMs": 693.3015000000014,
+          "long512SingleNativeMs": 1337.9406000000017
+        },
+        {
+          "kind": "rank-buffer",
+          "threads": 4,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 667639808,
+          "peakWorkingSetBytes": 699777024,
+          "peakMiB": 667.359375,
+          "shortNativeP50Ms": 226.443299999999,
+          "shortNativeP95Ms": 258.84130000000005,
+          "shortEraseAndNativeP95Ms": 259.58570000000327,
+          "mediumSingleNativeMs": 623.9994999999981,
+          "long512SingleNativeMs": 1283.8510999999999
+        },
+        {
+          "kind": "rank-buffer",
+          "threads": 6,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 667717632,
+          "peakWorkingSetBytes": 699285504,
+          "peakMiB": 666.890625,
+          "shortNativeP50Ms": 174.47890000000007,
+          "shortNativeP95Ms": 187.38920000000053,
+          "shortEraseAndNativeP95Ms": 188.01300000000083,
+          "mediumSingleNativeMs": 516.4727999999996,
+          "long512SingleNativeMs": 1330.4125999999997
+        },
+        {
+          "kind": "rank-buffer",
+          "threads": 8,
+          "actualCtx": 1024,
+          "shortSamples": 20,
+          "readyWorkingSetBytes": 667979776,
+          "peakWorkingSetBytes": 698830848,
+          "peakMiB": 666.45703125,
+          "shortNativeP50Ms": 172.69580000000133,
+          "shortNativeP95Ms": 195.1219000000001,
+          "shortEraseAndNativeP95Ms": 195.9289000000008,
+          "mediumSingleNativeMs": 501.5566999999992,
+          "long512SingleNativeMs": 938.5548999999992
+        }
+      ],
+      "resourceScope": "Fresh dedicated fixed two-label RANK AVX2 context only.20short samples/profile; erase/native excludes tokenize/source/privacy.6/8long once. No generic API, whole desktop, quality or full-search p95 qualification.",
+      "warmQueryAuditSha256": "6a253755a804a533b50e8b9446649ccee422830b11ffd48b2207119ec2dd8dd5",
+      "old351msReportQualifiesCurrentSourceOrVerifier": false,
+      "independentStageP95MayBeAdded": false,
+      "qualityGatePassed": false,
+      "defaultChanged": false
+    },
+    "scalarVerifierNextBatch": {
+      "status": "DEVELOPMENT_SELECTED_INTEGRATION_PENDING_NOT_QUALIFIED",
+      "evidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-planning-r1/manifest.json",
+        "sha256": "305ef3b01c3be85936ed2ccc1f56c82872fe8a2d04766938376fbfb6c1b67f7c"
+      },
+      "researchChoice": "Q4 fixed weights; dedicated RANK-buffer runtime at6threads on research host; no layer/vocabulary pruning adopted",
+      "policies": 36,
+      "selectionData": "train/calibration only",
+      "entryPoints": [
+        "13ap fulltext",
+        "10 tool snapshots",
+        "10 committed messages",
+        "06hc explicit memory"
+      ],
+      "remaining": "First actual GCC248 chain complete as an experiment but RED:121complete/127partial,all80OOD unknown,TN0,FPR[0,1],2actualrank/128predictedrefusals. Preserve fixed offline development and fake proof scopes. Source/proof budget repair, small-coarse verifier tradeoff,full actual consumers,cold/idle/disable,total resources,1000-fragment timing,independent v6,new package/redistribution remain pending.",
+      "developmentEvidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/manifest.json",
+        "sha256": "d7cb176a7f6d360bb0a5eb579723cdc8f46a392050561a1185aa20a5f661850d"
+      }
+    },
+    "scalarVerifierDevelopmentR1": {
+      "status": "TRAIN_CAL_SELECTED_NOT_INDEPENDENT_OR_PRODUCTION_QUALIFIED",
+      "evidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/manifest.json",
+        "sha256": "d7cb176a7f6d360bb0a5eb579723cdc8f46a392050561a1185aa20a5f661850d"
+      },
+      "queries": 248,
+      "documents": 60,
+      "realUniqueScalarPairs": 850,
+      "refused": 0,
+      "maxJointTokens": 121,
+      "sourceGuardCalls": 4310,
+      "elapsedSeconds": 211.922,
+      "cleanup": "observed",
+      "predeclaredPolicies": 36,
+      "passingDevelopmentPolicies": 32,
+      "selected": {
+        "profile": "qwen-k1",
+        "scalarProbabilityThreshold": 0.95,
+        "positives": 96,
+        "recallAt5": 1,
+        "mrr": 1,
+        "pureOodCount": 80,
+        "pureOodFalsePositives": 0,
+        "idMismatchCount": 24,
+        "idMismatchFalsePositives": 0,
+        "strongLexicalEvidence": 96,
+        "weakLexicalEvidence": 7,
+        "requiredPairs": 128
+      },
+      "sourceRoles": {
+        "collector": "7506df2d651150f846e713d2a3ad1656188dae73a69840da5c409e4829e568fd",
+        "nativeAdapter": "a2c8254b539bbff26a625365f399d15a483246453ba2fe9f556160da2c36d706",
+        "evaluator": "49eddaab486442e409f186a3f40f47dd92b73fa96935c05bc844a40913eb5837"
+      },
+      "bridgePrototype": {
+        "sha256": "92ac1f16c9fe0adecfa0c6b9ae29145b77a70bd14a9a26dba140f7c76b11230a",
+        "fakeTests": 18,
+        "registered": false,
+        "nativeHookWired": false
+      },
+      "independentV6": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/v6-fixture-freeze.json",
+        "sha256": "8fe6750b51ecad603d92a1e1a14882a2d7b212e2ddf09279ad8a9166edcbd572",
+        "status": "FROZEN_PENDING_INTEGRATED_ACCEPTANCE",
+        "queriesOpenedByMaterialsAgent": false,
+        "decision": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/v6-candidate-decision.json",
+          "sha256": "59017695947b14f28e38f0dd2bf72b336d52044f784adab782daafaf539b1319"
+        }
+      },
+      "licenseScope": "Only metadata/paragraph references/deployment gaps archived. Complete Microsoft EULA originals stay ignored output; publisher-applicable redistribution grant not established and user entitlement not judged.",
+      "qualityGatePassed": false,
+      "defaultChanged": false,
+      "pending": [
+        "Four-entry native scalar bridge wiring",
+        "Real producer end-to-end replay and authority/privacy/source/cancel verification",
+        "Fresh independent v6 evaluation after fixed decision",
+        "1000-fragment fresh/repeat query performance with actual verifier counts",
+        "Two-model combined resources and lifecycle",
+        "New package/full regression and applicable redistribution grant"
+      ]
+    },
+    "scalarCompositeResearchR1": {
+      "status": "SCOPED_COMPOSITE_PUBLIC_FAKE_PASS_NOT_NATIVE_ALL_CONSUMERS_OR_RELEASE",
+      "evidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/review-index.json",
+        "sha256": "396662a7a7bb4cfba7b4ef44c89bc3d66a807849b8eaa9088dc3cb9cb6020e6f"
+      },
+      "composite": {
+        "bindingSha256": "cdbffe7fc413a33b0775f83847cb04b7bff55fb0b566a8e1610c3710517f28d8",
+        "fakeTests": 30,
+        "replay": {
+          "queries": 248,
+          "usesRecordedVectorsAndScalars": true,
+          "nativeStarts": 0,
+          "scalarWrites": 128
+        },
+        "nativeSanity": {
+          "pairs": 2,
+          "guardCalls": 22,
+          "transportGuardCalls": 12,
+          "cleanup": "observed"
+        },
+        "independentSha256": "584cd8a22c43bf9046c7ab37dd6fa76e096773f51c010dc2ce107890d8c835a0",
+        "privateDiagnostics": "WeakMap only; public result policy/status/counts, no raw-derived identities."
+      },
+      "publicConsumer": {
+        "receiptSha256": "95ad1d4b4863e3bd1892c109053638dc71e8504d53b506e599efacff3f3cb4a4",
+        "fakeTests": 8,
+        "nativeStarts": 0,
+        "status": "SEPARATE_PUBLIC_API_FAKE_NOT_NATIVE_OR_INDEPENDENT_QUALITY"
+      },
+      "finiteSourceRecipes": {
+        "compositeProducer": 18,
+        "compositeConsumer": 1,
+        "publicProducer": 21,
+        "publicConsumer": 3,
+        "textOnlyReproduction": true
+      },
+      "gcc": {
+        "binaryBytes": 22605545,
+        "binarySha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f",
+        "binaryArchived": false,
+        "sourceDeltas": 5,
+        "compiler": "MinGW-W64 x86_64-ucrt-posix-seh GCC13.2.0",
+        "staticOnly": true,
+        "osUcrtRequired": true,
+        "comparisonStatus": "RED_NUMERICAL",
+        "maxEmbeddingAbsolute": 0.01319030299782753,
+        "minEmbeddingCosine": 0.9978567850230692,
+        "maxRankDifference": 0.005041996017098427,
+        "allRankThresholdsAgree": false,
+        "rankOrderAgree": true,
+        "maxRepeatAbsolute": 0,
+        "rankShortSamples": 16,
+        "requestedRankShortSamples": 20,
+        "stderrRetained": false,
+        "diagnosticCauseAttribution": "none; config facts only",
+        "newContract": {
+          "path": "output/semantic-native-mingw-research/gcc-development-contract-v1.json",
+          "sha256": "f9aa955631196820d8ce4555ec2d6bfc04d3cdbffb78e257533475d64f06e506",
+          "status": "PENDING_SEPARATE_PROFILE_QUALIFICATION",
+          "newOutputsReadOrArchived": false
+        },
+        "separateCandidateStatus": "CONTRACT_ONLY_PENDING_REVIEW_IN_THIS_BATCH",
+        "newGccOutputRead": false
+      },
+      "pending": [
+        "Actual-model public consumer and remaining independent entry-point wiring",
+        "Real producer/native complete replay",
+        "Independent frozen v6",
+        "1000-fragment fresh/repeated full-chain latency",
+        "Two-model total resources/lifecycle",
+        "Fresh package/regression and applicable redistribution conditions"
+      ],
+      "qualityGatePassed": false,
+      "defaultChanged": false
+    },
+    "gccFixedDevelopment": {
+      "status": "FIXED_POLICY_DEVELOPMENT_PASS_NOT_EQUIVALENT_OR_RELEASE",
+      "evidence": [
+        {
+          "path": "output/semantic-native-mingw-research/gcc-development-receipt-v1.json",
+          "sha256": "f101577bd1b9d33e89b8b06b4d743a929fd0bec842d7f0dd84fa229276e2a055"
+        },
+        {
+          "path": "output/semantic-native-mingw-research/root-fixed-development-review-r1.json",
+          "sha256": "924d2a597ca8a475302adc4d1744cb01c2751cf08a4c8352497ebf1ad2ba70ad"
+        },
+        {
+          "path": "output/semantic-native-mingw-research/gcc-live-profile-smoke-v1.json",
+          "sha256": "4a05d360b5e478c825a45bbcc77d1259d215ab33f4d140e88aa2123a54c52456"
+        }
+      ],
+      "method": "Raw globalK1 plus scalar>=.95, same original sources and complete IDs, no new threshold/K fitting; new GCC measurements only",
+      "limits": "Compiler numerical equivalence remains RED; no v6, real full consumer, combined resource or package qualification."
+    },
+    "longFieldAndAppendResearch": {
+      "status": "CONFIRMED_GAPS_RESEARCH_FIXES_PENDING_ACCEPTANCE",
+      "evidence": [
+        {
+          "path": "output/semantic-scalar-long-field-repro-v2/receipt.json",
+          "sha256": "6f06b3163ef7217b4b86166e8e56948ebc2bb5434b973cd39ea327444499c7df"
+        },
+        {
+          "path": "output/semantic-message-append-cache-repro-v1.json",
+          "sha256": "d87dd3eff49ba5f0e1e2a5ddc45c09782801387c42fb9e8f5966710a2074f9d7"
+        },
+        {
+          "path": "output/semantic-message-append-cache-independent-v2.json",
+          "sha256": "f613502629394e87c43a8c514e1a15e1cd0a2d2b85b0fe1e7aaff1244f410fc7"
+        }
+      ],
+      "remaining": "Freeze window-v2 and stable ordinary-message representation identity; keep all fresh source/epoch/privacy checks; rerun developer/live and independent v6 before adoption.",
+      "releaseGatePassed": false
+    },
+    "gccWindowAppendReviewR1": {
+      "status": "FIXED_DEVELOPMENT_SMOKE_AND_NO_MODEL_WINDOW_APPEND_NOT_RELEASE",
+      "evidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/manifest.json",
+        "sha256": "0caede3fcdd140a901710b786931a56a1f44116e527b12b6448627ad055e5c5d"
+      },
+      "gccDevelopment": {
+        "documents": 60,
+        "queries": 248,
+        "newScalarPairs": 128,
+        "threshold": 0.95,
+        "rawK": 1,
+        "trainPositive": 72,
+        "calibrationPositive": 24,
+        "pureOod": 80,
+        "idMismatch": 24,
+        "developmentResults": {
+          "train": {
+            "quality": {
+              "count": 72,
+              "recallAt5": 1,
+              "mrr": 1
+            },
+            "directions": {
+              "zh-zh": {
+                "count": 9,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "zh-en": {
+                "count": 9,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "en-zh": {
+                "count": 9,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "en-en": {
+                "count": 9,
+                "recallAt5": 1,
+                "mrr": 1
+              }
+            },
+            "pureOod": {
+              "count": 60,
+              "anyResultFpr": 0
+            },
+            "entityMismatch": {
+              "count": 18,
+              "anyResultFpr": 0
+            }
+          },
+          "calibration": {
+            "quality": {
+              "count": 24,
+              "recallAt5": 1,
+              "mrr": 1
+            },
+            "directions": {
+              "zh-zh": {
+                "count": 3,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "zh-en": {
+                "count": 3,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "en-zh": {
+                "count": 3,
+                "recallAt5": 1,
+                "mrr": 1
+              },
+              "en-en": {
+                "count": 3,
+                "recallAt5": 1,
+                "mrr": 1
+              }
+            },
+            "pureOod": {
+              "count": 20,
+              "anyResultFpr": 0
+            },
+            "entityMismatch": {
+              "count": 6,
+              "anyResultFpr": 0
+            }
+          }
+        },
+        "compilerEquivalent": false
+      },
+      "factorySmoke": {
+        "encodes": 40,
+        "uniqueDocuments": 10,
+        "uniqueTrainQueries": 10,
+        "orders": 2,
+        "maxAbs": 0,
+        "scalarSmoke": true,
+        "finalCleanup": {
+          "coarse": {
+            "ok": true,
+            "state": "stopped",
+            "workerExited": true,
+            "cleanupStatus": "observed"
+          },
+          "scalar": {
+            "code": 0,
+            "signal": null,
+            "cleanupStatus": "observed",
+            "nativeSpawnRequested": true,
+            "workerExited": true
+          }
+        },
+        "bodyStatsAreNotFinalExitProof": true
+      },
+      "longField": {
+        "oldVerdictMisjudgmentPreserved": true,
+        "fullTokens": 1281,
+        "windowTokens": 115,
+        "oldFullfield": {
+          "resultsPerRun": [
+            0,
+            0
+          ],
+          "partial": true
+        },
+        "fixedWindow": {
+          "resultsPerRun": [
+            1,
+            1
+          ],
+          "complete": true,
+          "actualScalarInputs": 1,
+          "characters": 96,
+          "modelInference": false
+        }
+      },
+      "append": {
+        "tests": 16,
+        "rootGroups": [
+          16,
+          22
+        ],
+        "overlap": 6,
+        "notClaimed38Unique": true,
+        "scope": "Only ordinary-message encoding identity excludes session-wide authority changes; scope/model/purpose/normalizer/canonical text/row revision/window remain. Metadata/attachments retain old keys. Authority/citation validation remains every use."
+      },
+      "faultProof": {
+        "cases": 2,
+        "realWindowsJobAndHttp": true,
+        "syntheticNodeEndpoint": true,
+        "modelAssetValidation": false,
+        "actualGgufFaultTest": false,
+        "embeddingWrites": 0,
+        "cleanup": "observed"
+      },
+      "liveRunnerLayoutArchived": false,
+      "priorCompilerEquivalence": "RED retained",
+      "qualityGatePassed": false,
+      "defaultChanged": false,
+      "pending": [
+        "Complete fixed window+append live runtime integration",
+        "Actual-model public and other consumer paths",
+        "Cold/idle/disable and two-model total resources/lifecycle",
+        "1000-fragment fresh/repeat end-to-end performance",
+        "Independent frozen v6 after final contract fixed",
+        "New package/regression and redistribution qualification"
+      ],
+      "actualLiveFollowup": {
+        "status": "ACTUAL_CHAIN_RED_BUDGET_STARVATION",
+        "receiptSha256": "2eae8bacf390eb08cf15ed61731c63b7bb070f2c49c401d4fd877c398a5ebcb2",
+        "supersedesOfflinePass": false,
+        "completeConsumerQualification": false
+      }
+    },
+    "actualScalarChainR1": {
+      "status": "ACTUAL_CHAIN_RED_BUDGET_STARVATION",
+      "evidence": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/review-index.json",
+        "sha256": "c656f2eff64c029276cf140a81d59dca5e1d1f5916111eaaf5209761eca5b140"
+      },
+      "actualChain": {
+        "receiptSha256": "2eae8bacf390eb08cf15ed61731c63b7bb070f2c49c401d4fd877c398a5ebcb2",
+        "queries": 248,
+        "complete": 121,
+        "partial": 127,
+        "rawStatus": "PARTIAL_LIVE_DEVELOPMENT_NOT_ACCEPTANCE",
+        "pureOod": {
+          "count": 80,
+          "partialNoResultUnknown": 80,
+          "trueNegatives": 0,
+          "fpr": null,
+          "fprBounds": [
+            0,
+            1
+          ]
+        },
+        "actualCoarseEmbeddingWrites": 286,
+        "actualRankWrites": 2,
+        "predictedScalarBudgetRefusals": 128,
+        "positiveResults": {
+          "train": {
+            "count": 72,
+            "recallAt5": 0.5138888888888888,
+            "mrr": 0.5138888888888888,
+            "partial": 35
+          },
+          "calibration": {
+            "count": 24,
+            "recallAt5": 0.5,
+            "mrr": 0.5,
+            "partial": 12
+          }
+        },
+        "finalCleanup": {
+          "coarse": {
+            "ok": true,
+            "state": "research-stop",
+            "workerExited": true,
+            "cleanupStatus": "observed"
+          },
+          "scalar": {
+            "code": 0,
+            "signal": null,
+            "cleanupStatus": "observed",
+            "nativeSpawnRequested": true,
+            "workerExited": true
+          }
+        },
+        "resources": {
+          "pairedOsBatchSamples": 18,
+          "observedPairedMaxWorkingSetBytes": 1341620224,
+          "observedPairedMaxPrivateBytes": 935395328,
+          "separateNodeMaxSampledRssBytes": 221966336,
+          "independentPeaksAdded": false,
+          "exclusiveDesktopDelta": false,
+          "trueProcessPeakClaimed": false,
+          "workingSetMayDoubleCountSharedPages": true
+        },
+        "timing": {
+          "prescribedQueryCount": 248,
+          "p95NearestRankMs": 1201.0735999999742,
+          "sourceFields": 60,
+          "formal1000FragmentQualification": false
+        }
+      },
+      "diagnostics": {
+        "nativeBudget": {
+          "syntheticQueries": 6,
+          "completed": 4,
+          "predictedRefused": 2,
+          "rankRequestTotalMsRange": [
+            178.29589999999735,
+            192.50220000000263
+          ],
+          "hostMsRange": [
+            207.08719999999812,
+            222.5697
+          ],
+          "refused": [
+            {
+              "remainingAtHostMs": 228,
+              "estimateMs": 318,
+              "httpWrites": 0
+            },
+            {
+              "remainingAtHostMs": 246,
+              "estimateMs": 318,
+              "httpWrites": 0
+            }
+          ],
+          "finalCleanup": {
+            "coarse": {
+              "ok": true,
+              "state": "diagnostic-stop",
+              "workerExited": true,
+              "cleanupStatus": "observed"
+            },
+            "scalar": {
+              "code": 0,
+              "signal": null,
+              "cleanupStatus": "observed",
+              "nativeSpawnRequested": true,
+              "workerExited": true
+            }
+          },
+          "scope": "Actual native synthetic diagnostic, not quality or1000-fragment qualification; nested timings must not be added."
+        },
+        "uiCost": {
+          "nativeStarts": 0,
+          "scope": "Synthetic immediate models, actual UI/source calls; no checks removed.",
+          "crossLanguageWarm": {
+            "elapsedMs": 966.3222000000005,
+            "scan": {
+              "calls": 121,
+              "cumulativeMs": 1294.082599999998,
+              "unionWallMs": 366.7581999999993
+            },
+            "inspect": {
+              "calls": 77,
+              "cumulativeMs": 216.38810000000103,
+              "unionWallMs": 87.56770000000142
+            },
+            "finalEpoch": {
+              "calls": 60,
+              "cumulativeMs": 176.7761000000046,
+              "unionWallMs": 47.68790000000081
+            }
+          },
+          "strongId": {
+            "elapsedMs": 902.8165999999992,
+            "scan": {
+              "calls": 121,
+              "cumulativeMs": 1246.5431000000053,
+              "unionWallMs": 357.00990000000274
+            }
+          },
+          "intervalsNestedDoNotAdd": true
+        }
+      },
+      "currentScope": "First completed actual GCC window/append chain is RED. Source/proof-budget optimizations in progress are not qualified by these diagnostics.",
+      "releaseGatePassed": false,
+      "v6Consumed": false,
+      "formal1000WorkloadStarted": false
+    },
+    "modelSizeBenefitTradeoffR1": {
+      "status": "HISTORICAL_MSVC_FIXED_DEVELOPMENT_TRADEOFF_NOT_LIVE_GCC_OR_INDEPENDENT_ACCEPTANCE",
+      "selection": {
+        "file": "output/semantic-qwen-reranker-official-v1/development-selection-v1.json",
+        "sha256": "d39c6a3e9f3e0ee716c18d71322470c93add734e6ed685c8ba65075fc1c8a0c4",
+        "durableArchive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/008-development-selection-v1.json.gz",
+        "archiveSha256": "51b545194a5c02dfb35ea4bdefe4417bbae31ab5bcd2e200e7184f4ca81af4d4"
+      },
+      "profiles": [
+        {
+          "profile": "minilm-k4",
+          "threshold": 0.95,
+          "train": {
+            "count": 72,
+            "recallAt5": 0.9861111111111112,
+            "mrr": 0.9861111111111112
+          },
+          "calibration": {
+            "count": 24,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "positiveTotal": 96,
+          "recalled": 95,
+          "recallAt5": 0.9895833333333334,
+          "requiredPairs": {
+            "train": 384,
+            "calibration": 128,
+            "total": 512
+          },
+          "pureOod": {
+            "train": {
+              "count": 60,
+              "anyResultFpr": 0,
+              "verifiedCandidateResultFpr": 0,
+              "semanticOnlyAdmissionFpr": 0,
+              "weakLexicalResultFpr": 0,
+              "strongEvidenceResultFpr": 0
+            },
+            "calibration": {
+              "count": 20,
+              "anyResultFpr": 0,
+              "verifiedCandidateResultFpr": 0,
+              "semanticOnlyAdmissionFpr": 0,
+              "weakLexicalResultFpr": 0,
+              "strongEvidenceResultFpr": 0
+            }
+          }
+        },
+        {
+          "profile": "qwen-k1",
+          "threshold": 0.95,
+          "train": {
+            "count": 72,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "calibration": {
+            "count": 24,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "positiveTotal": 96,
+          "recalled": 96,
+          "recallAt5": 1,
+          "requiredPairs": {
+            "train": 96,
+            "calibration": 32,
+            "total": 128
+          },
+          "pureOod": {
+            "train": {
+              "count": 60,
+              "anyResultFpr": 0,
+              "verifiedCandidateResultFpr": 0,
+              "semanticOnlyAdmissionFpr": 0,
+              "weakLexicalResultFpr": 0,
+              "strongEvidenceResultFpr": 0
+            },
+            "calibration": {
+              "count": 20,
+              "anyResultFpr": 0,
+              "verifiedCandidateResultFpr": 0,
+              "semanticOnlyAdmissionFpr": 0,
+              "weakLexicalResultFpr": 0,
+              "strongEvidenceResultFpr": 0
+            }
+          }
+        }
+      ],
+      "recallAbsoluteGainPercentagePoints": 1.041666666666663,
+      "assetAccounting": {
+        "method": "Sum fixed lock/producer metadata only; no model or binary read. This is selected payload asset accounting, not actual installer size, clean-machine runtime closure or total RSS.",
+        "mini": {
+          "modelFilesBytes": 135392488,
+          "dependencyFilesBytes": 40533717,
+          "totalBytes": 175926205
+        },
+        "dualQwen": {
+          "embeddingBytes": 396474560,
+          "rankBytes": 396476288,
+          "singleSharedGccExecutableBytes": 22605545,
+          "totalBytes": 815556393,
+          "extraBytes": 639630188,
+          "ratio": 4.635786880072812
+        },
+        "miniPlusGccRank": {
+          "estimatedSelectedAssetBytes": 595008038,
+          "actualPackage": false
+        },
+        "metadataSources": [
+          {
+            "file": "ruyi-workbench/semantic-runtime/models.lock.json",
+            "sha256": "cec30d0f6ee26ac65170c2cfac03534d533686c52b5b1015e570298224536c43"
+          },
+          {
+            "file": "ruyi-workbench/semantic-runtime/runtime-assets.win32-x64.lock.json",
+            "sha256": "34c44dfe5a716d29a50921a8fd9c1668ace43674ce7c992cebb3a021b1cfb8a8"
+          },
+          {
+            "file": "output/semantic-qwen3-q4-research-v1/research.lock.json",
+            "sha256": "2c28aa645cce67b5fb52fba20995e437bbf658a028ea04facbc695b18680ab6f"
+          },
+          {
+            "file": "output/semantic-qwen-reranker-official-v1/artifact-inventory.json",
+            "sha256": "3f442df23bb4e4eb5e14da9f59a3ee5d9770dfc6fd266deb44e2d22060abe204"
+          },
+          {
+            "file": "output/semantic-native-mingw-research/static-receipt.json",
+            "sha256": "ac97b212e1b9e8280b809bfbaf095233c3984cfb3c0420ff93f9fd5803bad587"
+          }
+        ]
+      },
+      "decision": "Dual Qwen remains a research comparator, not a default upgrade. Prioritize small coarse plus verifier total quality/latency/size evaluation; automatic and production default unchanged.",
+      "limits": [
+        "Historical MSVC measured train/cal development evaluator only; not a new GCC complete actual-chain independent acceptance.",
+        "Both profiles have pure OOD0/80 in this complete offline evaluation. This does not replace the separate actual-chain80partial unknown[0,1] result.",
+        "MiniK4 requires512scalar pairs versus QwenK1 128 on the fixed development corpus. This pair-cost difference is not a measured end-to-end latency or memory result.",
+        "Asset sums compare different selected runtime stacks and exclude package/compression/common application files and unconfirmed deployment materials. Mini plus rank is an estimate, not a built bundle."
+      ]
+    },
+    "compactMiniLmMatrixAndSourceStatsR1": {
+      "status": "LIMITED_RESEARCH_PROGRESS_NOT_QUALIFIED",
+      "formalGatePassed": false,
+      "defaultChanged": false,
+      "v6Consumed": false,
+      "protocol": {
+        "path": "dev-harness/semantic/minilm-family-matrix-protocol.json",
+        "sha256": "3642ddb334a58b5249aa85c9c2cdceb6aa2a9bd9ebb1bdfe8e3aac56f077a1f1"
+      },
+      "compactPoint": {
+        "path": "output/semantic-minilm-existing-cutoff-review-r1.json",
+        "sha256": "a0485b78ac99a29a3876910efd302fa4c44537448d57a9d67c6d969efcd666f8",
+        "recall": "95/96 unchanged on historical MSVC development data",
+        "pairsBefore": 512,
+        "pairsAfter": 270,
+        "pureOod": "0/80 development only"
+      },
+      "sourceStats": {
+        "tests": "18/18 independently rerun by root; synthetic models",
+        "finalSourceCheckProbe": {
+          "path": "output/semantic-scan-stat-final-await-root-r3.json",
+          "sha256": "da196e602c292e683746731193de34e0e907ce9b6e68f0c70e5a9f55407ae008"
+        },
+        "nativeSmallBatch": {
+          "path": "output/semantic-scan-stat-native-probe-v1/receipt.json",
+          "sha256": "e3a8088e10baeca56e9d93a00ab47bc1d6669da3f16de2a652804ac4ecfb0de6",
+          "queries": 3,
+          "complete": 3,
+          "elapsedMs": [
+            1146.8735,
+            1124.8085,
+            813.9792
+          ],
+          "formalP95": false
+        },
+        "limits": [
+          "First late-await failure, invalid diagnostic and slower fake observations retained.",
+          "Current full248 result remains RED; three fixed queries are not independent quality or1000-fragment qualification.",
+          "Progress outputs are not yet a durable formal acceptance archive."
+        ]
+      },
+      "familyStatus": "Official L6/L12 assets and collectors being prepared; no new model quality winner."
+    },
+    "miniLmFamilyMatrixReviewedR1": {
+      "status": "DEVELOPMENT_RED_NOT_ADOPTED",
+      "manifest": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-minilm-family-matrix-reviewed-r1/manifest.json",
+        "sha256": "69062e07ef539a55b660feae65b87f3761fa328b40bbfb074cc9c2d72e8472b1"
+      },
+      "candidates": 792,
+      "passing": 0,
+      "independentlyRecomputed": true,
+      "formalGatePassed": false
+    },
+    "chineseSmallModelResearchR1": {
+      "status": "DEVELOPMENT_RESEARCH_NOT_DEFAULT_OR_FULL_LANGUAGE_QUALIFICATION",
+      "bgeVectors": {
+        "path": "output/semantic-bge-cn-coarse-v2/coarse-vectors.json",
+        "sha256": "8da7e08d8db2c5749069cbb281bc06fb47042b3e99f4e89c116bea9208c84dac"
+      },
+      "bgeModelAndTextDependencyBytes": 64984892,
+      "bceEvaluation": {
+        "path": "output/semantic-bce-reranker-v1/joint-development-selection-sol-r2.json",
+        "sha256": "79977e0e53fa455a4a485845cfb4472eb7d1a132897b11ec725c2857dc65ca6a",
+        "fullPassing": 0,
+        "chinesePassing": 0,
+        "chineseOodDenominators": [
+          30,
+          10
+        ],
+        "priorWrongLanguageLabelSuperseded": true
+      },
+      "singleModelProtocol": {
+        "path": "dev-harness/semantic/bge-chinese-only-development-protocol.json",
+        "sha256": "4eec51a7de65c469cd0f780d904e8dd0a3ccf7d6f305fa7dc5579f12ca60cb8b",
+        "cosineMinimum": 0.53,
+        "independentQuality": false
+      },
+      "allFormalGatesPending": true,
+      "defaultChanged": false,
+      "v6Consumed": false
+    },
+    "languageRoutedSmallModelsR1": {
+      "status": "MIXED_DUAL_REJECTED_BASELINE_RETAINED_NOT_RELEASE_QUALIFIED",
+      "protocol": {
+        "path": "dev-harness/semantic/bge-minilm-language-route-protocol.json",
+        "sha256": "1a7f0eaafef2f9c1ca82db32dd0e3b927f2340cb4a19e2d9679c6bc98a172375"
+      },
+      "thresholds": {
+        "bgeChineseCosine": 0.53,
+        "miniLmL6EnglishCosine": 0.46,
+        "englishSelection": "Single frozen train midpoint rule; no grid"
+      },
+      "development": {
+        "report": "output/bge-minilm-language-route-development-v4.json",
+        "sha256": "ba0ec158d0c44b3578642cc477bacc035c7c4c966fe0340f01799b248eddf018",
+        "rootReview": "output/bge-minilm-language-route-root-review-r1.json",
+        "rootReviewSha256": "cebfb5cc0ebbe335c8aab21ec74ff5b33de922cb16161ab61ac3ea46c67b3a3b",
+        "comparedRows": 496,
+        "sameLanguageRecall": "zh12/12,en12/12; retrospective development only",
+        "crossLanguageRecall": "zh-en0/12,en-zh0/12; RED",
+        "chineseOodOriginalLanguageAxis": "train1/30,cal0/10; includes mixed route; no denominator dilution",
+        "mixedCoverage": "0 positives,1 OOD,1 false result; insufficient quality evidence",
+        "alwaysBoth": "RED; Han OOD30/30+10/10"
+      },
+      "resources": {
+        "receipt": "output/bge-minilm-paired-resource-r1.json",
+        "receiptSha256": "96f7bfef147b7e13c29d41ac3cf8216cc0706d81feb2bfd99f3f05b318059359",
+        "assetsBytes": 88730510,
+        "sameBatchSamples": 5,
+        "maximumSampledWorkingSetSumBytes": 296550400,
+        "maximumSampledPrivateSumBytes": 367001600,
+        "queryOnlySequentialPairDistinctP95Ms": 12.2994,
+        "queryOnlySequentialPairRepeatP95Ms": 13.2093,
+        "limits": "Runtime probe only, source/UI not exercised; native same-batch samples are not whole-desktop incremental RAM or true peaks; normal unload/restart/disable does not prove all lifecycle paths."
+      },
+      "mixedDevelopmentInput": {
+        "path": "dev-harness/semantic/bge-minilm-mixed-development-fixture.json",
+        "sha256": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+        "positive": 16,
+        "pureOod": 16,
+        "status": "COMPLETE_FIXED32_NOT_INDEPENDENT_ACCEPTANCE"
+      },
+      "baseline": "The user-linked paraphrase-multilingual-MiniLM-L12-v2 is the existing default reference; original independent48/48 positives and OOD10/40 RED remain unchanged.",
+      "formalIndependentQuality": false,
+      "plannedConsumersQualified": false,
+      "finalPackageQualified": false,
+      "notes": "Durable reviewed development archive only. All SR gates remain pending; original cross-language floors,default,version and automatic:null unchanged.",
+      "archive": {
+        "path": "docs\\optimization-plan\\evidence\\semantic-retrieval-20261116\\s3c-language-route-mixed-reviewed-r1\\manifest.json",
+        "sha256": "00b811c12c257504f4bf0bebe9df28babd30399eeb3f8d544c8c81229ef34ba3",
+        "records": 51,
+        "postwalk": "PASS"
+      },
+      "mixedDevelopmentResults": {
+        "dual": {
+          "positive": 16,
+          "hit": 10,
+          "mrr": 0.625,
+          "ood": 16,
+          "falsePositive": 8,
+          "fpr": 0.5
+        },
+        "multilingualL12K1AndK5": {
+          "positive": 16,
+          "hit": 15,
+          "mrr": 0.9375,
+          "ood": 16,
+          "falsePositive": 5,
+          "fpr": 0.3125
+        },
+        "rootComparedRows": 96,
+        "decision": "Reject simple mixed dual OR substitution. Both OOD RED; default reference retained."
+      }
+    },
+    "quantizedGraniteGemmaR1": {
+      "status": "GEMMA1_AND_GRANITE311_DEVELOPMENT_NUMERICALLY_GREEN_READ_DEVIATION_NO_ACCEPTANCE",
+      "developmentArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/manifest.json",
+        "sha256": "67b6f09599406d3954fee2f0b2970d00a88a8e6dc90d5241a1a295469dd05926",
+        "records": 40,
+        "reconstructiblePartitions": 6,
+        "rootNumericalTrainPoints": 1206,
+        "rootNumericalLaterRows": 188
+      },
+      "readDeviation": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/granite-gemma-development-read-deviation.json",
+        "sha256": "1b0db32a48763fb300a200c1ffc718a770fec2a583cdef0dd1bef8c7b614f174",
+        "strictLaterReadIsolation": false
+      },
+      "archive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/manifest.json",
+        "sha256": "0f5071c0838a9524b3dde291cb675623954cf42ef057913c0e416ac8a2303563",
+        "records": 31,
+        "postwalk": "PASS"
+      },
+      "protocol": {
+        "path": "dev-harness/semantic/granite-gemma-development-protocol.json",
+        "sha256": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f"
+      },
+      "models": [
+        {
+          "name": "Granite97M multilingual-r2 official Q8",
+          "assetBytes": 123586186,
+          "withSharedDependencyBytes": 164119903,
+          "syntheticWorkerPeakRssBytes": 516292608
+        },
+        {
+          "name": "Granite311M multilingual-r2 official Q8",
+          "assetBytes": 347986541,
+          "withSharedDependencyBytes": 388520258,
+          "syntheticWorkerPeakRssBytes": 968286208
+        },
+        {
+          "name": "EmbeddingGemma FIRST GENERATION 300M community full ONNX Q4",
+          "assetBytes": 218746407,
+          "withSharedDependencyBytes": 259280124,
+          "syntheticWorkerPeakRssBytes": 488386560
+        }
+      ],
+      "limits": "Four synthetic originals per model; current ORT1.21 CPU compatible, not retrieval quality, FP32 parity,1000-fragment latency or whole desktop incremental RAM. Asset counts exclude Node/scripts/notices/package/index. Gemma full ONNX PTQ is distinct from QAT GGUF lacking projection heads. License redistribution materials pending.",
+      "exploratoryDevelopment": {
+        "granite97": "No train point; later quality not evaluated with original62/32 denominators.",
+        "gemmaFIRSTGEN": {
+          "k": 1,
+          "cutoff": 0.4,
+          "calibrationPositive": "24/24",
+          "calibrationOod": "0/20",
+          "mixedPositive": "16/16",
+          "mixedOod": "0/16"
+        },
+        "granite311": {
+          "k": 4,
+          "cutoff": 0.85,
+          "calibrationPositive": "24/24",
+          "calibrationOod": "0/20",
+          "mixedPositive": "16/16",
+          "mixedOod": "0/16"
+        }
+      },
+      "next": "Real-source single-model consumer research, independently test Gemma2 text-only; final selected method needs new full-language holdout. Prior read deviation prevents strict-isolation or independent-acceptance claims.",
+      "formalIndependentQuality": false,
+      "plannedConsumersQualified": false,
+      "finalPackageQualified": false
+    },
+    "embeddingGemma2TextOnlyCandidate": {
+      "status": "ROOT_REPRODUCED_SEQUENTIAL_DEVELOPMENT_GREEN_MAIN_IMPLEMENTATION_CANDIDATE_NOT_ACCEPTANCE",
+      "reviewedArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/manifest.json",
+        "sha256": "1ebf26ffdef1b015c5d07c3c9c78654f1e80d3da07082a3a9f2458288968d799",
+        "records": 121
+      },
+      "implementationCandidate": {
+        "k": 1,
+        "minimumCosine": 0.7,
+        "dimensions": 768,
+        "automatic": null,
+        "extraVerifier": null,
+        "defaultChanged": false,
+        "additionalModelSweeps": false
+      },
+      "rootVerifiedDevelopment": {
+        "trainGridPoints": 402,
+        "passingTrainPoints": 8,
+        "rawVectors": 340,
+        "laterRows": 94,
+        "trainPositive": "72/72",
+        "trainPureOod": "0/60",
+        "calibrationPositive": "24/24",
+        "calibrationPureOod": "0/20",
+        "mixedPositive": "16/16",
+        "mixedPureOod": "0/16",
+        "unknown": 0,
+        "independentAcceptance": false
+      },
+      "cpuOnlyVerified": {
+        "files": 586,
+        "selectedNodeModuleBytes": 30700545,
+        "removedExactGpuDllBytes": 38022608,
+        "modelAndDependencyPayloadBytes": 237425947,
+        "fourSyntheticRawVectorMaxAbsVsOriginal": 0,
+        "noRemovedDllLoadedOrBorrowedInProbe": true,
+        "cleanWindowsDeploymentQualified": false
+      },
+      "officialModel": "google/embeddinggemma-2",
+      "communityOnnx": "onnx-community/embeddinggemma-2-ONNX",
+      "fullMultimodalParameters": 740000000,
+      "textOnlyParameters": 270000000,
+      "officialContextTokens": 8192,
+      "officialLicense": "Apache-2.0",
+      "communityRevision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "verifiedTextPayloadBytes": 206725402,
+      "initialOrt130DependenciesBytes": 68723153,
+      "initialDependenciesIncludeUnneededGpuDllBytes": 38022608,
+      "cpuOnlyTrimStatus": "EXACT_THREE_DLL_VARIANT_STATIC_AND_NATIVE4_COMPAT_ROOT_VERIFIED_NOT_FINAL_PACKAGE",
+      "compatibility": {
+        "originalOrt121": "ACTUAL_LOAD_FAIL_UNRECOGNIZED_GATHERBLOCKQUANTIZED_BITS",
+        "newProfile": "ORT1.30.0 plus tokenizers0.2.0",
+        "syntheticOriginals": 4,
+        "tokenizerParity": "4/4 Rust0.22.2 fullIDs/mask",
+        "output": "full768 incl projection/maskmean/L2",
+        "reverseMaxAbs": 0,
+        "independentMaskMeanL2MaxAbs": 1.76e-07,
+        "nativeAndOracleObservedExited": true,
+        "qualityEvaluated": false
+      },
+      "sequentialQualityProtocol": {
+        "path": "dev-harness/semantic/embeddinggemma2-development-protocol.json",
+        "sha256": "6d1cdbdd62492a5deab7b6cdaf5ada68d0540e4bb31cbfa2b564311824f6b4f4",
+        "phases": "Collect246 train first,freeze selected point,only then collect94 later; vector-free resource reporting."
+      },
+      "notes": "All earlier EmbeddingGemma300M bytes, vectors, timings and Gemma-license statements concern FIRST GENERATION, not2. Exact text-only asset selection, no unused vision/audio packaged weights,512-to768 projection,tokenizer/current runtime compatibility and quantized quality require a separate frozen run.",
+      "formalIndependentQuality": false,
+      "plannedConsumersQualified": false,
+      "finalPackageQualified": false,
+      "liveCodec340": {
+        "status": "ROOT_REVIEWED_CODEC_EXACT_NOT_FINAL_ACCEPTANCE",
+        "receipt": {
+          "path": "output/embeddinggemma2-live-codec-340-v1/receipt.json",
+          "sha256": "a3ae103182345f10e6232f189597024c1499b553680560c1d395bba6eb3c6c02"
+        },
+        "rootReview": {
+          "path": "output/embeddinggemma2-live-root-review-r1.json",
+          "sha256": "d450bc7c765c055a025db3898da311c74111d2321373d27107583715d0ac19ac"
+        },
+        "rows": 340,
+        "fullOutputMaxAbs": 0,
+        "guardCalls": 680,
+        "workerLifetimePeakBytes": 553078784,
+        "prepareMs": 3782.0002,
+        "hostQueryP95Ms": {
+          "train": 115.192,
+          "calibration": 117.1952,
+          "mixed": 119.4559
+        },
+        "fakeTestsRoot": {
+          "pass": 20,
+          "fail": 0,
+          "skip": 0
+        },
+        "limits": [
+          "Already consumed development corpus, not fresh quality.",
+          "Parent host encode includes IPC/host guards, excludes source/privacy/search/UI.",
+          "Peak is worker lifetime, not app incremental/total resident memory.",
+          "Research host idle60/single-start does not prove user-required resident policy.",
+          "Progress files await durable archive; all formal gates remain pending."
+        ],
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gemma2-codec-and-bootstrap-reviewed-r1/manifest.json",
+          "sha256": "e878e322a92c121e402d7db8f5b1258bd9595bd46b786d89064e63c2e49d8125",
+          "records": 205,
+          "rawBytes": 28733335,
+          "gzipBytes": 9259885,
+          "rootPostwalk": "All205 stored gzip length/hash/roundtrip checked"
+        }
+      }
+    },
+    "compactMiniLMAndSourceResearchR1": {
+      "status": "SCOPED_RESEARCH_NOT_ADOPTED_FULL_SCOPE_RED",
+      "compactProfileAndSharedDependencyAndLockBytes": 131849800,
+      "original340VectorsExactlyEqual": 340,
+      "unsupportedTokenPolicy": "Check full original IDs before truncation; entire request unknown on removed token, never UNK replacement. Original language coverage not claimed.",
+      "bgeLiveDevelopment": {
+        "queries": 248,
+        "complete": 248,
+        "sameLanguageChineseHit": 12,
+        "sameLanguageChinesePositive": 12,
+        "chineseOodFalsePositive": 0,
+        "chineseOod": 40,
+        "zhEnHit": 0,
+        "enZhHit": 0,
+        "sourceFields": 60,
+        "queryP95Ms": 666.2546,
+        "fullScopeStatus": "RED"
+      },
+      "sequenceMemoRootTests": {
+        "pass": 29,
+        "fail": 0
+      },
+      "uiTentativeCoverageRootTests": {
+        "pass": 38,
+        "fail": 0,
+        "scope": "UI research only; public index/model/observation remain fresh, no timing qualification or sequence memo combination."
+      },
+      "uiSourceOnlyCost": {
+        "rootVerifiedRows": 40,
+        "rootVerifiedBindings": 271,
+        "sourceFields": 60,
+        "manifestReadAttemptsBefore": 240,
+        "manifestReadAttemptsAfter": 120,
+        "firstMeanBeforeMs": 769.29427,
+        "firstMeanAfterMs": 716.56748,
+        "repeatMeanBeforeMs": 751.87691,
+        "repeatMeanAfterMs": 723.92605,
+        "nativeStarts": 0,
+        "formal1000Fragment500msQualified": false
+      },
+      "uiArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ui-tentative-reviewed-r1/manifest.json",
+        "sha256": "3a30d76898dd52221ef95743ca8854e33a01ddd2660e509b334911ae878c9c9f",
+        "records": 36,
+        "postwalk": "PASS"
+      },
+      "fixtureLexicalOwnerCorrection": {
+        "scope": "Same live4maps captured as production const plus same2helper bodies lexical; no production optimization, cache or removed checks.",
+        "rootSourceUiTestsPass": 38,
+        "rootReviewedRows": 40,
+        "rootReviewedBindings": 272,
+        "baselineFirstMeanMs": 635.24305,
+        "stagedFirstMeanMs": 583.54415,
+        "baselineRepeatMeanMs": 613.06622,
+        "stagedRepeatMeanMs": 600.53565,
+        "formal1000Fragment500msQualified": false
+      },
+      "gemmaFirstGenerationActualUi": {
+        "queries": 280,
+        "complete": 280,
+        "positive": "112/112",
+        "pureOod": "0/96",
+        "missingFactRelatedResults": 48,
+        "rootSourceReferences": 160,
+        "rootFrozenBindings": 1004,
+        "actualEncodedVectorComparisons": 316,
+        "comparisonMaxAbs": 0,
+        "all280Above500ms": true,
+        "formalFullDesktopOrAllConsumersQualified": false
+      },
+      "formalIndependentQuality": false,
+      "plannedConsumersQualified": false,
+      "finalPackageQualified": false
+    },
+    "holdoutIntegrity": {
+      "status": "V7_R3_STATIC_QA_PASS_UNCONSUMED_FINAL_IMPLEMENTATION_AND_EXECUTION_FREEZE_PENDING",
+      "register": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/holdout-exposure-register.json",
+        "sha256": "5b5794247bc1085bab1746ce99a8e4eb1e99c4d1422d43a74fe2cf01c2582b04"
+      },
+      "v6Executed": false,
+      "v6BlindFinalQualificationAllowed": false,
+      "v7": {
+        "fixtureSha256": "cc25f548da432088079185144881ba51343d8fc0c848ce69c27f13c27c330244",
+        "publicFreezeSha256": "4639d7b7ca511cde64b99857f65ff6e0f71a894ab9d6660bc16f64cd1409d9b3",
+        "documents": 96,
+        "queries": 268,
+        "executed": false,
+        "bodyDisplayedToRoot": false,
+        "qaPending": true,
+        "finalExecutionFreezePending": true
+      },
+      "next": "Freeze final production/resident implementation and source/model/executable contract before any independent execution; no score-based revision.",
+      "v7R3": {
+        "fixture": "dev-harness/semantic/acceptance-v7-r3-fixture.cjs",
+        "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+        "publicFreeze": "dev-harness/semantic/acceptance-v7-r3-freeze.json",
+        "publicFreezeSha256": "f6ccfdfb58c9309b073f890fca0767abc186b4fc079af69aca6d1159308b993e",
+        "state": "UNCONSUMED",
+        "documents": 96,
+        "queries": 268,
+        "independentAuthorNoOldDataOrScores": true,
+        "bodyDisplayedToRoot": false,
+        "modelExecuted": false,
+        "tokenizerExecuted": false,
+        "independentGroundTruthQa": {
+          "status": "STATIC_QA_PASS_NOT_MODEL_ACCEPTANCE",
+          "review": "dev-harness/semantic/acceptance-v7-r3-review.json",
+          "reviewSha256": "4259aaa829b0ece7d6dd1bd44fb88f3f6bb2a2d954dbe86b8c4201c4c836d00d",
+          "priorFullReview": "dev-harness/semantic/acceptance-v7-r2-review.json",
+          "priorFullReviewSha256": "ba771ce604dcd6763b6ed3b92c22427b0762cf46aa24ca771403da9301a7b877",
+          "newIssues": 0,
+          "scope": "R2 full96/268 independent QA plus sole R3 query change verified; unchanged documents and group denominators."
+        },
+        "finalExecutionFreeze": "PENDING_FINAL_IMPLEMENTATION_AND_RESIDENT_RUNTIME_FREEZE",
+        "blindFinalQualificationAllowed": false,
+        "disposition": "Keep body confidential; root inspected public freeze/hash metadata only. No ordinary source inventory/search/archive or scoring. Static QA does not authorize model execution; final implementation/execution contract still required."
+      }
+    },
+    "runtimeLifecycleRequirement": {
+      "status": "GENUINE_SHARED_HOOK_RESIDENT_SCOPED_PASS_FULL_APPLICATION_HARD_EXIT_PENDING",
+      "policy": "startup-resident-v1",
+      "requestedAt": "2026-11-17",
+      "startup": "Nonblocking automatic preparation during Ruyi startup; loading/ready/unavailable visible; basic search available while loading.",
+      "resident": "One shared hot model across all sessions and planned consumers for the Ruyi process lifetime; no idle unload timer.",
+      "stop": "Await observed worker exit on explicit disable, Ruyi shutdown, effective model configuration changes or unrecoverable failure; unknown ownership blocks new provider spawns.",
+      "supersedes": "Historical on-demand startup and idle60 unload qualification; old receipts remain historical.",
+      "requiredChecks": [
+        "startupInitialization",
+        "idleResident",
+        "crossSessionWarm",
+        "shutdownRelease",
+        "hardParentExit",
+        "disableRelease"
+      ],
+      "nativeQualification": false,
+      "appTotalResidentMemoryQualification": false,
+      "idle45ResourceProbe": {
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gemma2-idle45-reviewed-r1/manifest.json",
+          "sha256": "5a1d96dfee5c16928b81e2792c5bff21e53eb5598831fefa924e07e9ac7917e3"
+        },
+        "idle45WorkingSetBytes": 310980608,
+        "idle45PrivateBytes": 296247296,
+        "coldPrepareMs": 3985.3453,
+        "throughFirstWarmQueryMs": 4077.0018000000005,
+        "workerLifetimePeakBytes": 561377280,
+        "scope": "One synthetic text; idle15/45s samples. Not application total, large-history cache or prolonged resident lifecycle qualification."
+      },
+      "productionPhase1": {
+        "status": "SCOPED_TESTS_PASS_OPEN_REVIEW_FINDINGS",
+        "sourceBindingsSha256": "b579eff93467694387a72e8048bab2929a04b35d501e9b6098cfcf7f8c16fa26",
+        "rootReviewSha256": "55dcd72b45094f89a7540f792b8c7c563046bd41d9df1a112ac176d8f6b69a71",
+        "rootBindingsVerified": 150,
+        "rootTests": {
+          "pass": 36,
+          "fail": 0,
+          "skip": 0,
+          "scope": "Resident/client/provider fakes, actual Node bridge, cache epoch, config/desktop/startup control-flow. Not genuine Gemma2 long residency/hard exit/full consumers."
+        },
+        "openFindings": [
+          "Complete parent Gemma2 profile/asset/implementation/Node pin validation",
+          "Unified cleanup of settings homes when no child is spawned"
+        ],
+        "cacheEpochInvalidationImplemented": true,
+        "startupWarmImplemented": true,
+        "noIdleTimer": true,
+        "awaitShutdownImplemented": true,
+        "gemma2ConsumerPolicyRegistered": false,
+        "defaultModelChanged": false,
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-startup-resident-phase1-reviewed-r1/manifest.json",
+          "sha256": "1e2dcd9898272cfc6d236c1d96ac699991163352c5f3109c474790e3fdd933e0",
+          "records": 202,
+          "rawBytes": 28469915,
+          "gzipBytes": 9233590,
+          "rootPostwalk": "All202 stored gzip bytes/hash/decompressed roundtrips independently verified"
+        }
+      },
+      "productionPhase1R2": {
+        "sourceBindingsSha256": "74b62bd5f2e71bb9f76af9a5c015686788ab4f4475d7cb2785b0980767884914",
+        "rootReview": {
+          "path": "output/semantic-resident-production-phase1-r2/root-review.json",
+          "sha256": "5ab360a3a49f830d5b73f5fc2f8f4010365cc3af3cb6d04e8b80ecb7208dab24"
+        },
+        "rootBindingsVerified": 151,
+        "rootTests": {
+          "pass": 26,
+          "fail": 0,
+          "skip": 0,
+          "groups": {
+            "profileValidation": 6,
+            "residentClient": 14,
+            "admissionAndCacheEpoch": 6
+          }
+        },
+        "previousTwoFindings": "FIXED_AND_SCOPED_ROOT_REVIEWED",
+        "genuineResidentQualified": false,
+        "hardParentExitQualified": false,
+        "gemma2ConsumerPolicyReady": false,
+        "durableArchive": "PENDING_NEXT_EXECUTION_BATCH",
+        "genuineSharedHookSmokePassed": true
+      },
+      "genuineSharedHookResident": {
+        "status": "ROOT_REVIEWED_SCOPED_PASS",
+        "scope": "Actual production06hb/strict provider/full genuine Gemma2 worker; synthetic config/VM globals, no HTTP/DPAPI/user source.",
+        "sourceBindings": 151,
+        "executionFreezeSha256": "bea6facd39b1f1e3cc7f39794331d87f65253a74bef719339abef10e1a356d5a",
+        "receiptSha256": "924dff2a388bdb3e3fb0ab3e32661f642c5b1609ee3e38ed1fabf9b1c90d42df",
+        "rootReviewSha256": "d15c03f755a762bef2b609e10c12a29234c10c94a7468f5ecd114d54ce043a7a",
+        "startupInvocationMs": 0.3459,
+        "startupThroughPublicWarmMs": 4054.7368,
+        "idle65SameIdentity": true,
+        "idle65WorkerWorkingSetBytes": 311033856,
+        "idle65WorkerPrivateBytes": 299261952,
+        "afterIdlePublicQueryHostMs": 54.3897,
+        "disableObserved": true,
+        "reenableNewIdentityAndPublicWarm": true,
+        "normalShutdownObserved": true,
+        "homesEmpty": true,
+        "sourceGuards": 6,
+        "cacheInvalidations": 3,
+        "outerJobActive": 0,
+        "outerJobMembers": [],
+        "outerJobTerminationRequested": false,
+        "productHardParentExitQualified": false,
+        "wholeHttpApplicationQualified": false,
+        "allConsumersQualified": false,
+        "qualityOrLatencyP95Qualified": false,
+        "minorFinding": "stats.state loading while actual descriptor.state ready; reporting fix pending",
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gemma2-production-resident-reviewed-r1/manifest.json",
+          "sha256": "d085e603766a8e81b6a02b602eb7cbecf00cddb5b4d1d8a102841ee5cc455204",
+          "records": 179,
+          "rawBytes": 18327659,
+          "gzipBytes": 6100261,
+          "rootPostwalk": "All179 hash/bytes/roundtrip independently verified"
+        }
+      },
+      "genuineTransportScorer": {
+        "status": "ROOT_REVIEWED_GENUINE_COMPONENT_PASS",
+        "scope": "Actual production runtime/scorer/strict model; synthetic VM config/consumer registration labels. Not actual consumers.",
+        "cases": 6,
+        "disableInvalidatesIssuedProofs": true,
+        "workerObservedAbsent": true,
+        "homesEmpty": true,
+        "outerJobActive": 0,
+        "outerJobTerminationRequested": false,
+        "rootReviewSha256": "b8a974326c6a23c7643e285863b6687fdc1fdb3cd9cbc8baf81db11180ba890c",
+        "sameFiveCoreFilesAsPolicyV3": true,
+        "rootCoreLinkReviewSha256": "028f9374cd3e244235f827a2e75dc524d1241b58375bae04d57643bd63c6fa02",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-production-transport-proof-reviewed-r1/manifest.json",
+          "sha256": "f86679ac9e0a566bacb28f40d6a4759f4e7eee723b14f923ab515cc0244b5d3c",
+          "records": 15,
+          "rawBytes": 236619,
+          "gzipBytes": 71224,
+          "independentPostwalk": true
+        },
+        "acyclicV2": {
+          "status": "ROOT_ACTUAL_CORE_HOST_GENUINE_COMPONENT_6_CASES_PASS",
+          "rootReview": {
+            "path": "output/gemma2-production-transport-proof-smoke-v2/root-review.json",
+            "sha256": "4a8e17cd912a09f453dae96a9d1fe90ad9e3b9bdf442286cf52d9340ee58dda5"
+          },
+          "archive": {
+            "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+            "sha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5"
+          },
+          "fullConsumers": false,
+          "hardExit": false
+        }
+      },
+      "fileLeaseWin32V1": {
+        "status": "ROOT_FILE_LEASE_ONLY_7_CASES_PASS",
+        "rootReview": {
+          "path": "output/semantic-resident-proxy-file-lease-smoke-v1/root-review.json",
+          "sha256": "a3162e93bf591d0a6d2622f489a0075dbd11015bf94fb4bd3290c458b0a4a2ab"
+        },
+        "acquiredHandles": 11,
+        "releasedHandlesRemaining": 0,
+        "outerJobActive": 0,
+        "terminationRequested": false,
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+          "sha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5"
+        },
+        "helperWorkerExecuted": false,
+        "remaining": [
+          "Actual double Job helper/parent kill, startup races and output backpressure qualification.",
+          "C# background output thread and JS exit-before-stdout-end can truncate final frames; fix and genuine bounded drain test pending.",
+          "Machine-specific PowerShell pin does not qualify portable Windows bootstrap trust.",
+          "Wire accepted helper into actual startup resident runtime, then full application lifecycle and memory measurement."
+        ]
+      },
+      "actualProxyTransport": {
+        "status": "ROOT_REAL_SYNTHETIC_ECHO_TAIL_AND_STALLED_UNKNOWN_FENCE_SCOPED_PASS",
+        "firstFailure": {
+          "review": {
+            "path": "output/semantic-resident-proxy-win32-echo-v1/root-review.json",
+            "sha256": "19a27e32424ce2858a3d519318a9285ae5341b8e9c9373601a52875429325119"
+          },
+          "error": "ECHO_REPLY_TIMEOUT",
+          "readyBytesOnly": 52
+        },
+        "helper": {
+          "bytes": 20992,
+          "sha256": "4d31df6c574c2815faa16cb10547f4ae32356dd7d28ed1e2f476a3848e4d0901"
+        },
+        "fix": "C# synchronous FileStream input pump flushes each raw chunk; bounded C#/JS output drain and exact signed output-byte comparison retained.",
+        "echo": {
+          "review": {
+            "path": "output/semantic-resident-proxy-win32-echo-v2/root-review.json",
+            "sha256": "9632d08cb7d8693b954da787509406131ee79cb586a552375f2149f530505ed8"
+          },
+          "bytes": 97,
+          "originalDeadlineMs": 2000
+        },
+        "tail": {
+          "review": {
+            "path": "output/semantic-resident-proxy-win32-tail-v2/root-review.json",
+            "sha256": "5dc410a0b4c5132b1a567455fa93c03aa9d3cac11d6073e5cd70723035c94e13"
+          },
+          "bytes": 300089,
+          "readPauseMs": 250
+        },
+        "stalled": {
+          "review": {
+            "path": "output/semantic-resident-proxy-win32-stalled-v1/root-review.json",
+            "sha256": "c7de5593bbc83489eb596d290815ef294ce448b7daea8d36b937fbb701a77f42"
+          },
+          "cleanupStatus": "unknown",
+          "drained": false,
+          "replacementRejected": "SEM_PROXY_OWNER_UNCERTAIN",
+          "separateOsAbsenceDoesNotUpgradeVerdict": true
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-recovery-candidate-and-proxy-transport-reviewed-r1/manifest.json",
+          "sha256": "31978a4c4c212cbc857161c906184da1cdb1ec55a527827b3856ccfdcf635989"
+        },
+        "hardParentExitQualified": false,
+        "productRuntimeWired": false,
+        "remaining": [
+          "Real parent/helper kill, startup races, nested Job failures and simultaneous profile bounds.",
+          "Portable Windows bootstrap trust and fixed helper/worker execution authority.",
+          "Actual product startup prewarm/resident model integration and all lifecycle/privacy consumers."
+        ]
+      },
+      "actualHardDeathPrimitives": {
+        "status": "ROOT_REAL_SYNTHETIC_PARENT_AND_HELPER_HARD_DEATH_SCOPED_PASS",
+        "parent": {
+          "path": "output/semantic-resident-proxy-parent-death-v2/root-review.json",
+          "sha256": "57d555f615ba8d5be3de8f85c81944951007d5c9ef0dbf5b6b0d6921dce18d4d"
+        },
+        "helper": {
+          "path": "output/semantic-resident-proxy-helper-death-v2/root-review.json",
+          "sha256": "e4dbd9fa401eb63871d07953606fe8fdbec820e2f59e634d0daa5a7212e74f63"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-candidate-directory-and-hard-death-reviewed-r1/manifest.json",
+          "sha256": "d7510f32f284b6b5ddf62fec06f7694712b3112933519be46e8c3befa60d70b5"
+        },
+        "parentCase": "Native held-handle termination of actual parent; independent observer saw parent/helper/busy synthetic worker absent before external cleanup.",
+        "helperCase": "Native held-handle termination of actual helper; worker absent, actual parent still alive. Parent retains unknown and rejects replacement.",
+        "outerTerminationRequested": false,
+        "productRuntimeWired": false,
+        "fullApplicationQualified": false,
+        "remaining": [
+          "OS canonical UTF-8 bootstrap, input backpressure, concurrent profiles, bootstrap-parent exit and nested-Job failures.",
+          "Production provider integration, genuine model lifecycle, all consumers and total application resource measurements."
+        ]
+      },
+      "actualWindowsBootstrap": {
+        "status": "ROOT_CANONICAL_OS_UTF8_SCOPED_PASS",
+        "review": {
+          "path": "output/semantic-resident-os-alias-utf8-v2/root-review.json",
+          "sha256": "08f13f765ccbe08527ef689914046183691e90be216ee178a03cf716547e8a2d"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        "rootFakes": 11,
+        "actualCases": 3,
+        "limits": [
+          "Local OS canonical path identity/bytes, Chinese-space paths, UTF8 and clean environment only.",
+          "Protected OS/GAC integrity is a platform premise; not supported Windows/WOW64 matrix or actual product lease qualification."
+        ],
+        "oldFixedAliasSpawnFailureRetained": true
+      },
+      "actualInputAndConcurrency": {
+        "status": "ROOT_REAL_SYNTHETIC_INPUT_STALLED_AND_CONCURRENT_SCOPED_PASS",
+        "input": {
+          "path": "output/semantic-resident-proxy-input-stalled-v1/root-review.json",
+          "sha256": "f165ef1ed5e2b00c5ffd59f68d05cb8c000687f667345f556942272ae5787ddb"
+        },
+        "concurrent": {
+          "path": "output/semantic-resident-proxy-concurrent-v1/root-review.json",
+          "sha256": "7aa173d14b0578ed79b8559902ba5c710ab08ea1c170a11b2c7cbb2fc6e8eac5"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        "actualInputQueuedBytes": 458752,
+        "writeReturned": false,
+        "writeCallbackPendingAt250ms": true,
+        "survivorSameIdentityAfterOtherGroupClosed": true,
+        "outerFallbackUsed": false,
+        "productQualified": false
+      },
+      "actualPrebootstrapParentExit": {
+        "status": "ROOT_REAL_PREBOOTSTRAP_PARENT_DEATH_SCOPED_PASS",
+        "review": {
+          "path": "output/semantic-resident-proxy-startup-parent-v3/root-review.json",
+          "sha256": "8f17962830d097c73b799cdb0f1ea49ee8657c1569c9577d763388121c5651cf"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        "killCompletedAfterHelperSpawnMs": 1665,
+        "helperAbsentObservedAfterSpawnMs": 2208,
+        "watchdogMs": 10000,
+        "strictObservationDeadlineMs": 9000,
+        "forwardedBootstrapBytes": 0,
+        "oldV1NotExecuted": true,
+        "oldV2TestTransportFailureRetained": true,
+        "fullLifecycleQualified": false
+      },
+      "remainingProductLifecycle": [
+        "Review frozen production proxy/provider integration and run actual genuine model/consumer lifecycle.",
+        "Earlier transient lease-preparation broker parent-death is outside the later helper watcher; JS strong retention alone cannot protect a dead parent.",
+        "Candidate Gemma-only transport does not qualify selectable legacy/default direct-spawn providers; all supported provider paths and global unknown/fallback fencing need qualification.",
+        "Nested Job restriction fixture compiled only; no Begin/Finish or actual product nested failure run yet.",
+        "Clean Windows matrix, disable/config/fault/cancel, cross-session hot reuse and total parent/helper/worker memory/cold/performance remain pending."
+      ],
+      "nestedFailureFixture": {
+        "status": "ROOT_COMPILED_NOT_EXECUTED",
+        "review": {
+          "path": "output/semantic-resident-restricted-job-build-v1/root-review.json",
+          "sha256": "399254512038e6e48b54f3847a2b16b2f31a20a786cafc440c4c0f304af1c509"
+        },
+        "dllBytes": 8192,
+        "dllSha256": "94f839275635662d8ad882cf1710964014d847c8b6fcd150dcb4d2b2ffc7777c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        }
+      },
+      "productionProxyCandidateReview": {
+        "status": "V4_ROOT51_AND_ACTUAL_GEMMA2_RESIDENT65_SCOPED_PASS",
+        "genuineReceipt": {
+          "path": "output/semantic-gemma2-proxy-resident-smoke-v2/root-review.json",
+          "sha256": "e827a2d203cc7bf09ef1c7444b81e2f0a54cea13fb3666e662cfd96b5a95efc0"
+        },
+        "nativePathReceipt": {
+          "path": "output/semantic-gemma2-proxy-cn-lease-smoke-v2/root-review.json",
+          "sha256": "5cefda7e31f0d946722cef4406b8dc2f79c19f9aba17fbc9828cae8f2d4c73dd"
+        },
+        "desktopCompileOnly": {
+          "path": "output/semantic-desktop-job-list-build-v1/root-review.json",
+          "sha256": "1aafe9678deb1660c2837439fb01cf807020035daea7e751f266353604a66e51"
+        },
+        "liveDefaultUnchanged": true,
+        "wholeLifecycleQualified": false
+      }
+    },
+    "realCommonJsBootstrap": {
+      "status": "RESTORE_REHEARSAL_COLD_VERIFY_CROSSED_ENABLE_CANDIDATE_ACCESS_REJECTED",
+      "initialFailure": "work_data_setup.preparation_failed",
+      "primitiveCause": "work_data_tree.source_changed inside full.seal; exact tree branch/object not yet identified",
+      "primitiveNoBackup": true,
+      "sourceChangedInvariantPreserved": true,
+      "outerJob": {
+        "status": "PASS_PRIMITIVE_OBSERVED_JOB_RECLAIMED",
+        "active": 0,
+        "members": [],
+        "historicalTotalProcesses": 81,
+        "notes": "Job cleanup PASS is not enable success or native full identity inventory"
+      },
+      "reviewedArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gemma2-codec-and-bootstrap-reviewed-r1/manifest.json",
+        "sha256": "e878e322a92c121e402d7db8f5b1258bd9595bd46b786d89064e63c2e49d8125",
+        "records": 205,
+        "rawBytes": 28733335,
+        "gzipBytes": 9259885,
+        "rootPostwalk": "All205 stored gzip length/hash/roundtrip checked"
+      },
+      "remaining": "Fix rehearsal root Access mismatch in real restore without weakening Basic/source guards; then real encrypted bootstrap and complete candidate service search.",
+      "exactDifference": {
+        "branch": "native-census-diff",
+        "relativePath": "",
+        "fields": [
+          "time.access"
+        ],
+        "meaning": "Root directory access time differs between paired native captures; exact reader cause still being verified. All original equality/refusal retained."
+      },
+      "latestTreeDiagnostic": {
+        "contractSha256": "a3fa2637ea6beca546e565b160e5927dd308c974d1e94ff5d6690564cc980fee",
+        "bindings": 185,
+        "rootFakeTests": 13,
+        "semanticOff": true,
+        "bootstrapReceiptSha256": "fc9bf7246070bc2f1b5a8a000b869b66d1d2e6b65a8c8c2939cc6eaec632f4f7",
+        "outerJobReceiptSha256": "17b634537d9c0d97d9486d59f2571d0d71e174941443fdb3466a27a502f2e447",
+        "jobActive": 0,
+        "jobMembers": [],
+        "historicalJobTotal": 81,
+        "qualifiedEncryptedEnable": false,
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-startup-resident-phase1-reviewed-r1/manifest.json",
+          "sha256": "1e2dcd9898272cfc6d236c1d96ac699991163352c5f3109c474790e3fdd933e0",
+          "records": 202,
+          "rawBytes": 28469915,
+          "gzipBytes": 9233590,
+          "rootPostwalk": "All202 stored gzip bytes/hash/decompressed roundtrips independently verified"
+        }
+      },
+      "capturePreservedFix": {
+        "status": "PRODUCTION_READ_ONLY_VERIFY_INSTEAD_OF_UNCONDITIONAL_WRITEBACK_SCOPED_REVIEW_PASS",
+        "allFourTimesAndAttributesCompared": true,
+        "externalMutationRejected": true,
+        "primaryErrorPreserved": true,
+        "mutatingRestoreBasicPathsUnchanged": true,
+        "agentReportedUnitPass": 91,
+        "agentReportedNativeNtfsPass": 5,
+        "rawTestStdoutSaved": false,
+        "rootIndependentDiffAndRecipesReviewed": true
+      },
+      "postfixActualEnable": {
+        "contractSha256": "c32ee87a917137ac6ed0404714bf0508e1a8ee1b8c7e23deb56a64ccb61fa94c",
+        "stage": "verify-backup",
+        "status": "FAIL_PREPARATION_FAILED",
+        "backupBytes": 13837,
+        "encryptedAuthorityPublished": false,
+        "rootReviewSha256": "3661cdf058f801d007a8d5b67ae87d30a3ee49729b3c95ae79b975ac1eb04078",
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-preserved-capture-fix-reviewed-r1/manifest.json",
+          "sha256": "709590dcb81a6736ac31495fbb274b56ed4b8fefbafe5b9733db0342099793b0",
+          "records": 217,
+          "rawBytes": 28542357,
+          "gzipBytes": 9223947,
+          "rootPostwalk": "All217 hashes/lengths/decompressed contents independently verified"
+        }
+      },
+      "latestBackupRestoreDiagnostic": {
+        "status": "DIAGNOSTIC_COMPLETE_ACTUAL_RESTORE_FAIL",
+        "contracts": [
+          "eff07069a1ef8c23d055c34b41d5fe657db56383272f45136b8fed02f5d9bab5",
+          "2e0104d40bde7ed970101c46d1fcadcc7ac23cc52be368450a75584629384118"
+        ],
+        "bindings": [
+          180,
+          186
+        ],
+        "rootSyntheticTests": 9,
+        "restoreError": [
+          "work_data_full.restore_failed",
+          "work_data_backup.metadata_changed"
+        ],
+        "mismatch": {
+          "branch": "held-basic",
+          "scope": "rehearsal",
+          "relativePath": "",
+          "fields": [
+            "time.access"
+          ]
+        },
+        "causeOrFixProven": false,
+        "allOriginalRefusalsRetained": true,
+        "semanticOff": true,
+        "rootReviewSha256": "4c56a590c286f256e72f887149911337594e219d4c1c847de74f11a8d4a16b8c",
+        "outerJob": {
+          "active": 0,
+          "members": [],
+          "historicalTotalProcesses": 89,
+          "terminationRequested": true
+        },
+        "localOwnershipUnknownRetained": true,
+        "reviewedArchive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-backup-basic-diagnostic-reviewed-r1/manifest.json",
+          "sha256": "55d8061b8a1e66d22e979c129bb8a08a122e8df1f55edf5b52f28278bac3c15a",
+          "records": 200,
+          "logicalRawBytes": 37500732,
+          "storedGzipBytes": 5950781,
+          "contentReferences": 170,
+          "rootPostwalk": "All200 aliases, pinned cross-archive and local gzip SHA/length/roundtrips independently verified"
+        }
+      },
+      "ownedTargetFlushResearch": {
+        "status": "PRODUCTION_PATCH_WIRED_SCOPED_TESTS_PASS_ACTUAL_SOURCE_SEAL_REJECT_BEFORE_TARGET",
+        "rootCandidateFakePass": 5,
+        "scope": "New target nested directory shape; unflushed and diagnostic delay fail, deep-to-shallow child-directory flush controls pass. No time writeback/relaxed comparison; complete enable not rerun.",
+        "remaining": "Identity-bound native study and replacement refusal observed by implementer; root stable-source/native review and actual01ab-13aq-13ak wrappedunknown qualification pending before full enable."
+      },
+      "latestProductionNativeProbe": {
+        "contractSha256": "4115df2e034c5e3583d1ad45e5db14876bd9fc202e26536147c76a8646103747",
+        "bindings": 152,
+        "status": "FAIL",
+        "dpapiRoundtrip": true,
+        "source": "plain synthetic",
+        "seal": false,
+        "restore": false,
+        "error": "work_data_backup.metadata_changed",
+        "ownershipUnknown": false,
+        "ownerDisposition": "released after failure",
+        "outerJobActive": 0,
+        "outerJobMembers": [],
+        "outerJobTerminationRequested": true
+      },
+      "latestSourceTrace": {
+        "contractSha256": "ed1bbb932ef3788e84ec0184c4789b430b66d0f2d5318dec637dab1d90baa6db",
+        "bindings": 153,
+        "status": "DIAGNOSTIC_COMPLETE_ORIGINAL_SOURCE_REJECT_RETAINED",
+        "mismatch": {
+          "branch": "held-basic",
+          "scope": "other",
+          "relativePath": "",
+          "fields": [
+            "time.access"
+          ]
+        },
+        "scopeNote": "Source-seal-only controller; reporter coarse naming calls this other.",
+        "actorProven": false,
+        "originalRefusalPreserved": true,
+        "outerJobActive": 0,
+        "outerJobMembers": [],
+        "outerJobTerminationRequested": false
+      },
+      "nextControlledSourceExperiment": {
+        "status": "ORDINARY_ENABLE_PUBLISHED_VERIFIED_SUCCESSOR_SCOPED_PASS",
+        "receipt": {
+          "path": "output/semantic-target-binding-captured-read-v1/root-review.json",
+          "sha256": "e920a3918f2d80d4b21f23cd22a77a78167b7a2505ac6e9e371c4bacf66f2c13"
+        },
+        "next": "Review integrated private consumer and real source/index/export/disable matrix; restore/recovery and special paths remain separate."
+      },
+      "suppressionPairV2": {
+        "status": "BOTH_MODES_NO_CHANGED_FIELDS_NOT_A_PRODUCT_FIX",
+        "rootReview": {
+          "path": "output/semantic-owned-root-suppression-pair-v2/root-review.json",
+          "sha256": "c861790951e9bfda2e3bd45b625990074ec7da45cec589c311a5b19c06b23a5f"
+        },
+        "bindings": 303,
+        "arms": [
+          "all-three",
+          "access-only"
+        ],
+        "entryCountEach": 3,
+        "scope": "One held-root directory enumeration with -1/0 suppression markers, no timestamp value restore; does not qualify full capture or exclude earlier pending updates.",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+          "sha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5"
+        }
+      },
+      "currentRealEnableV3": {
+        "status": "ROOT_REAL_REHEARSAL_AND_COLD_VERIFY_CROSSED_ENABLE_PREPARE_FAILED",
+        "freeze": {
+          "path": "output/semantic-owned-current-real-enable-v3/contract.json",
+          "sha256": "a3cfe010ceee1a7dfde528b32084157127ad60f28d2f4ba7ebed6a0541de8693"
+        },
+        "preflight": {
+          "path": "output/semantic-owned-current-real-enable-v3/root-preflight.json",
+          "sha256": "f4f63d50c72e31db202d726b5361d9b5408affb5e3f582e3ae2f4c218d733d49"
+        },
+        "review": {
+          "path": "output/semantic-owned-current-real-enable-v3/root-review.json",
+          "sha256": "aa3fbde6f1070e9c5e7c94a24c8d2ae6d4ba74cb05bfb08b22c32c1daa3ca869"
+        },
+        "bindings": 306,
+        "baselineCopies": 291,
+        "sourceScope": "Actual unchanged source-owned full CommonJS, synthetic fixture, real DPAPI, backup/rehearsal/cold verifier; model disabled.",
+        "observedProgress": "Passed source seal, saved backup, restore rehearsal and independent cold/native recheck; prepare-generation became uncertain transition_requires_recovery, encrypted authority not published. Controller terminal1 retains ownershipUnknown; research outer Job forced reclaim active0/members[] total174. Inner cause diagnosis pending; not enable success."
+      },
+      "latestPrepareDiagnostic": {
+        "v4": {
+          "review": {
+            "path": "output/semantic-owned-prepare-cause-diagnostic-v4/root-review.json",
+            "sha256": "dc8967c758e557590426843bb31b24e106ab5c21207b91e26e7a1776af2a2adb"
+          },
+          "bindings": 310,
+          "stage": "before-transform",
+          "cause": "work_data_backup.metadata_changed"
+        },
+        "v5": {
+          "review": {
+            "path": "output/semantic-owned-codec-native-cause-diagnostic-v5/root-review.json",
+            "sha256": "3c58a50138526fef07affeddfe9ddb2d26673e66c13f179503c6fcca5cbc3686"
+          },
+          "bindings": 314,
+          "stage": "codec-before-capture",
+          "branch": "held-basic",
+          "pathClass": "current private candidate generation root, exactly matched intent",
+          "fields": [
+            "time.access"
+          ],
+          "outerForcedReclaim": true,
+          "outerActive": 0,
+          "totalProcesses": 228
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-recovery-candidate-and-proxy-transport-reviewed-r1/manifest.json",
+          "sha256": "31978a4c4c212cbc857161c906184da1cdb1ec55a527827b3856ccfdcf635989"
+        },
+        "sourceGuardWeakened": false,
+        "enablePassed": false
+      },
+      "priorRelativeSourceExperiment": {
+        "contract": "output/semantic-owned-relative-source-counterfactual-v2/contract.json",
+        "sha256": "40cbc177d378b5202345540f110354a3445949de1ee7a3006a7c9e94c09789b3",
+        "status": "FROZEN_NOT_ROOT_REVIEWED_OR_EXECUTED",
+        "bindings": 304,
+        "scope": "Same fresh-source initialization and production log barrier; compare unchanged full-path capture with research held-relative-child opens. No sleep/source flush/time rewrite; extra classification handle and permissions are research limitations."
+      },
+      "latestOrdinaryBoundaryV3": {
+        "status": "ROOT_REAL_ENABLE_FAILED_AFTER_INDIVIDUAL_ALLOCATOR_SUCCESS",
+        "review": {
+          "path": "output/semantic-candidate-boundary-real-enable-v3/root-review.json",
+          "sha256": "ce5ecccf488cfbf3ec36614b4b8af04dbec0d275a12a0902e9373988689e03d6"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        "sourceBindings": 328,
+        "rootNativeFreeTests": 66,
+        "allocatorCloseAndSameIdentityAbsenceVerified": true,
+        "enablePassed": false
+      },
+      "latestTargetCaptureDiagnostic": {
+        "status": "ROOT_TARGET_CAPTURE_HELD_ACCESS_DIAGNOSED_ENABLE_FAILED",
+        "review": {
+          "path": "output/semantic-candidate-boundary-diagnostic-v5/root-review.json",
+          "sha256": "9f388e863c74c94315cc1230411862e3f4e2e725ccb56fdde8b0cc05f19858fd"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-target-capture-diagnostic-reviewed-r1/manifest.json",
+          "sha256": "1fa415cb7e70c03387af3d37acd79d34290af00ce64dd591045c32c244f28e4b"
+        },
+        "sourceBindings": 333,
+        "rootNativeFreeControls": 8,
+        "stage": "before-target-capture",
+        "branch": "held-basic",
+        "fields": [
+          "time.access"
+        ],
+        "objectCategory": "NOT_OBSERVED",
+        "guardWeakened": false,
+        "outerForcedReclaim": true,
+        "outerActive": 0,
+        "enablePassed": false
+      },
+      "rejectedDiagnosticV4": {
+        "status": "ROOT_REJECTED_BEFORE_NATIVE_EXISTING_ADS_GUARD_REMOVED",
+        "review": {
+          "path": "output/semantic-candidate-boundary-diagnostic-v4/root-rejection.json",
+          "sha256": "f5b9890f261e8964b5be9e00d435f1083b0b49d4da74a8c2592201128eaea2b5"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+          "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+        },
+        "lesson": "Exact inverse and sanitization tests do not prove retained guards. V5 restored the original guard and tested its actual rejection behavior."
+      }
+    },
+    "officialVcRuntimeCandidateR1": {
+      "status": "SOURCE_SIGNATURES_VERIFIED_NOT_DISTRIBUTION_OR_PACKAGE_QUALIFIED",
+      "version": "14.52.37029.0",
+      "officialInstallerBytes": 18863624,
+      "officialInstallerSha256": "9c02c9ed120f671b900e6b9471d890e3b2414117a7e53f4ae2e855466fa2b7c9",
+      "signature": "Valid Microsoft",
+      "installerOrMsiExecuted": false,
+      "system32Copied": false,
+      "selectedDlls": 5,
+      "selectedDllBytes": 973600,
+      "sourceReceiptSha256": "9927db6b1ceea60234ca41b1a9b5846c99a7296f4ab458ec1618ebbe76e92da0",
+      "selectedDllSignatures": "All5 Valid Microsoft",
+      "appLocalModulePathsQualified": false,
+      "cleanWindowsQualified": false,
+      "redistributionRightsReview": "Runtime use license alone does not establish separate developer binary redistribution permission.",
+      "reviewedArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-startup-resident-phase1-reviewed-r1/manifest.json",
+        "sha256": "1e2dcd9898272cfc6d236c1d96ac699991163352c5f3109c474790e3fdd933e0",
+        "records": 202,
+        "rawBytes": 28469915,
+        "gzipBytes": 9233590,
+        "rootPostwalk": "All202 stored gzip bytes/hash/decompressed roundtrips independently verified"
+      }
+    },
+    "productionGemma2PolicyReview": {
+      "status": "ROOT_INDEPENDENT_NATIVE_FREE_V3_PASS_PRIOR_FINDINGS_SCOPED_CLOSED",
+      "findings": [
+        "Public score-evidence issuer permits forged evidence",
+        "Mutable canonical window witness ranges/text",
+        "Cache document text does not alone bind actual raw/projected encoded input",
+        "Public scorer.create accepts arbitrary injected runtime; approved FP plus synthetic768 vectors can receive production private score seal"
+      ],
+      "reportedFixes": [
+        "06ha private registry/seal; only read/has public; production reader fixed",
+        "Deep frozen canonical slices/ranges plus private full snapshots",
+        "Doc vector cache and seal bind actual encoded text plus canonical cache text and identity"
+      ],
+      "rootFinalQualified": false,
+      "allConsumersQualified": false,
+      "blindFixtureConsumed": false,
+      "hardParentExitQualified": false,
+      "rootRuntimeAuthorityFinding": {
+        "path": "output/semantic-gemma2-root-runtime-authority-finding-r1/finding.json",
+        "sourceSha256": "ff66e25cf3b5d776d07047f4c806fd13e1b0ca03eb70faaff7bd78e520652df3",
+        "modelLoaded": false,
+        "proofAccepted": true,
+        "scope": "Pure synthetic isolated VM with unmodified production scorer; no external route demonstrated"
+      },
+      "runtimeAuthorityFindingArchive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-authority-finding-r1/manifest.json",
+        "sha256": "0350a8cc7ebd3e9e387a6e6861824bb7b0dfafc3d07af96dcf3022a69a22bb33",
+        "records": 3,
+        "rawBytes": 17303,
+        "gzipBytes": 6360,
+        "roundtripVerified": true
+      },
+      "remainingIndependentReviewFindings": [
+        "Whole CommonJS/DPAPI/genuine-model consumers and final current-source bindings",
+        "1000-fragment full source/privacy p95 and final unconsumed quality evaluation",
+        "Product hard-parent-exit proxy and new offline packaging/profile lifecycle"
+      ],
+      "reportedNextImplementation": "Frozen v3 scoped root/native-free review passed; native source-seal Access actor and hard-parent-exit proxy remain separate active batches.",
+      "additionalIntegrationChecks": [
+        "Gemma2 selected with no decision/loading/unavailable must retain method selection and partial weak withholding, not fall through legacy",
+        "Metadata field256/257 and window caps propagate to producer poolComplete, not only lexicalPartial",
+        "Construct-time missing/corrupt profile lock returns explicit unavailable/basic strong fallback without spawning or bypassing unknown provider ownership",
+        "Final offline profile must operate from read-only asset installation with trusted writable worker home"
+      ],
+      "v3": {
+        "freezeSha256": "6ffe238eb4b903eaf452113842798f4c35d029f53949d0627542fdb4c6a9be4f",
+        "sources": 290,
+        "rootUnitPass": 110,
+        "rootCandidatePass": 48,
+        "rootE2ePass": 6,
+        "rootReviewSha256": "8c0a59e01ce4db4505f0677b96e8ba7f004b7c12cfe6f00e82709390738a7e45",
+        "rootReceiptSha256": "7161599a63e980dd2d83838e08db767dbfb28ab6e855cb93933313ed427a4842",
+        "byteExactManifestModules": 145,
+        "rootServerConcatenationVerified": true,
+        "independentStaticReview": "Prior evidence/window/transport/method/metadata/indexoff findings closed for frozen v3 scope",
+        "firstFailureRetained": "v1 direct-messageRef TDZ; v2 source-only unexecuted",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-policy-production-v3-reviewed-r1/manifest.json",
+          "sha256": "45c9a118a9c27a9a4ab05da10988d99fe7d58cb9d386f09ac275cb590c2c9337",
+          "sourceAliases": 442,
+          "members": 317,
+          "logicalRawBytes": 39662089,
+          "storedRawBytes": 28877433,
+          "gzipBytes": 9574234,
+          "independentPostwalk": true
+        }
+      },
+      "resolvedIndependentReviewFindings": [
+        "Transport private snapshot must bind vectors plus token/truncation fields and prevent post-verification alias mutation",
+        "Gemma2 metadata strong fields must not be removed before globalK; preserve field-level existing lexical eligibility and explicit256 partial bound",
+        "Unadmitted summary/gist must not reappear via UI metadata/reference.session or 13k raw-head spread"
+      ],
+      "acyclicCoreV2": {
+        "status": "ROOT_NATIVE_FREE_SCOPED_PASS",
+        "bindings": 291,
+        "unit": 113,
+        "candidate": 48,
+        "e2e": 6,
+        "rootReview": {
+          "path": "output/semantic-core-scc-root-v2/root-review.json",
+          "sha256": "96ce96683f16489ee1fea6e09752c73b4038e129587394a4c038a18e750e2f63"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+          "sha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5"
+        }
+      }
+    },
+    "architectureDependencyReview": {
+      "previousReview": {
+        "status": "LEXICAL_SCOPE_SCANNER_FIX_ROOT34_PASS_GENERATED_CONTRACTS_EXACT_POLICY_REVIEW_PENDING",
+        "falseEdgesRemoved": [
+          "06h9-semantic-policy.js->00-boot.js",
+          "06h9-semantic-policy.js->10-context-governance.js"
+        ],
+        "trueAuthorityForwardEdgesRetained": [
+          "06h9-semantic-policy.js->06ha-semantic-retrieval.js",
+          "06ha-semantic-retrieval.js->06hb-semantic-runtime.js"
+        ],
+        "rootAsyncExpressionScopeRegressionFoundAndFixed": true,
+        "globalDependencyPolicyBootstrapped": false
+      },
+      "status": "ROOT_ACYCLIC_CORE_291_BINDINGS_113_UNIT_48_POLICY_6_E2E_STATIC_PASS",
+      "originalPolicySha256": "0e05a9356822d031e7c0126f35dec2b9f76bdbc604e079a29d28f507fb147a9f",
+      "modules": 145,
+      "sccSize": 31,
+      "capRaised": false,
+      "newCycleEdges": [],
+      "newForwardEdges": [],
+      "coreOrder": [
+        "06h9-semantic-policy.js",
+        "06hb-semantic-runtime.js",
+        "06ha-semantic-retrieval.js"
+      ],
+      "rootReview": {
+        "path": "output/semantic-core-scc-root-v2/root-review.json",
+        "sha256": "96ce96683f16489ee1fea6e09752c73b4038e129587394a4c038a18e750e2f63"
+      },
+      "archive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "sha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5"
+      }
+    },
+    "complete31RequirementsAudit": {
+      "status": "INCOMPLETE_NOT_RELEASE_APPROVAL",
+      "audit": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-remaining-requirements-audit-20261117.json",
+        "sha256": "2c8278d1b5db8e4144a0a759033c7d2f13587a07611aecb8cbfdd04fa7525ef7"
+      },
+      "scope": "All remaining 3.1 supported features, privacy, recovery, lifecycle, quality/performance, real platforms, packages and distribution; explicitly deferred/cancelled and prohibited tests retained."
+    },
+    "fullLocalSourceMaterials20261117": {
+      "status": "ROOT_SOURCE_NOTICE_BYTES_VERIFIED_NOT_PUBLIC_DISTRIBUTION_APPROVAL",
+      "historicalMissingZipCorrected": {
+        "bytes": 107865207,
+        "sha256": "57a854ff5a73fed60f12903bdbdd189b7660f024b6724e5a4b804b81ef810a23",
+        "members": 82,
+        "derivedNotices": 25
+      },
+      "officialMetadata": {
+        "bindings": 35,
+        "exactWheelMatches": 21
+      },
+      "sourceIntake": {
+        "bindings": 92,
+        "archives": 21,
+        "bytes": 198466197,
+        "members": 26580,
+        "allWheelsRead": 21
+      },
+      "noticeCopies": {
+        "bindings": 69,
+        "originalWheelPaths": 69,
+        "uniqueOriginalContents": 62,
+        "classification": "draft; ten permissive package-level material candidates plus component-specific native/font review"
+      },
+      "archive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-m4-source-and-license-materials-reviewed-r1/manifest.json",
+        "sha256": "ba2179452a43450cafab64d537578133f4cf2cccdfc5ac716f0d6994cb90e791"
+      },
+      "redistributionAdmitted": false,
+      "remaining": [
+        "Final package must carry applicable license/copyright/NOTICE and any required source/relink delivery.",
+        "Review native/transitive and font obligations per actual component; reproducible source-to-wheel proof is not a universal permissive-license legal condition.",
+        "Exact FFmpeg/plugin correspondence or new frozen-build candidate, supported media regression and release/source delivery remain open."
+      ],
+      "historicalPackageNoticeCoverage": {
+        "status": "ROOT_HISTORICAL_FULL_LOCAL_NOTICE_AND_FONT_BYTES_SCOPED_PASS",
+        "review": {
+          "path": "output/m4-notice-delivery-coverage-20261117-r1/root-review.json",
+          "sha256": "6dffe7fb8edb29d3fb882b83deef32182c1165b70173f93ae220399c6893ddee"
+        },
+        "archive": {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-candidate-directory-and-hard-death-reviewed-r1/manifest.json",
+          "sha256": "d7510f32f284b6b5ddf62fec06f7694712b3112933519be46e8c3befa60d70b5"
+        },
+        "runtimeArtifacts": 4987,
+        "noticePaths": 69,
+        "locations": 4,
+        "darkGardenSourceFiles": 7,
+        "newPackageQualified": false,
+        "redistributionAdmitted": false
+      }
+    },
+    "releaseReadiness20261117R2": {
+      "status": "PRE_RC_IMPLEMENTATION_AND_INTEGRATION_ACCEPTANCE",
+      "batches": [
+        "Close M3 complete encryption enable/restore/disable and resident runtime production lifecycle.",
+        "Qualify real-model search, compaction recovery and memory consumers; frozen independent quality and complete 1000-fragment performance.",
+        "Close M4 distribution/source obligations and M5 platform and workflow qualification.",
+        "Freeze final source and assets; build new offline packages; complete authorized regression, installation, upgrade, recovery and rollback."
+      ],
+      "externalDependencies": [
+        "Real platform credentials, callback environment and explicit controlled-message authorization when real M5 tests are ready.",
+        "Supported clean Windows and required cross-machine/account verification; applicable upstream distribution evidence."
+      ],
+      "percentageClaimed": false,
+      "releaseDateCommitted": false,
+      "version": "3.0.1",
+      "defaultModelChanged": false,
+      "publicReleaseAuthorized": false
+    },
+    "m5CurrentLocalRegression20261117R2": {
+      "status": "ROOT_CURRENT_M5_79_NATIVE_FREE_TESTS_SCOPED_PASS",
+      "review": {
+        "path": "output/m5-root-local-regression-20261117-r2/root-review.json",
+        "sha256": "f72d59a80030848a729227e7ee4300db496b029866399ef0aea7e1dbaf4365ab"
+      },
+      "archive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-canonical-matrix-and-candidate-reviewed-r1/manifest.json",
+        "sha256": "032a7e17a33bf593bd9be7b5e087823242619f0ae39e62cfc91ab330934ec27a"
+      },
+      "bindings": 266,
+      "files": 7,
+      "tests": 79,
+      "synchronousAudienceGuardIndependentlyReviewed": true,
+      "generatedServerQualification": false,
+      "realPlatformQualified": false,
+      "groupContinuousRevisionProviderQualified": false
+    },
+    "latestReleaseGuardCheck": {
+      "status": "EXPECTED_RELEASE_REJECTION_EIGHT_PENDING_NOT_PRODUCT_PASS",
+      "receipt": {
+        "path": "output/release-guard-20261118-r2/receipt.json",
+        "sha256": "f8740fe35c37a8a3363792d6f32f5069d1748dd044077b0a3bf86ad55362b2f2"
+      }
+    },
+    "latestProgressReview20261118R1": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r1.json",
+      "sha256": "58f32b00ec0a2daf4c688ab7f2c2272f1486a65d2e18e349c19dbd96af0ed697"
+    },
+    "latestProgressReview20261118R2": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r2.json",
+      "sha256": "63512b983df98463dee24f85f64ec361a2b6c3d76bbb646c8ea661107f52c32b"
+    },
+    "mediaSourceSupplement20261118R2": {
+      "status": "PREPARATION_TOOLS_INTEGRATED_NOT_DISTRIBUTION_APPROVAL",
+      "sourcePreparation": {
+        "path": "output/m4-source-preparation-root-20261118-r2/root-integration.json",
+        "sha256": "dbc533a2e9e1d4355ebc22d78e19ca2d6970574a32869732724ad62798ce2afa"
+      },
+      "offlineBuilder": {
+        "path": "output/m4-openh264-repro-root-20261118-r1/root-live-integration.json",
+        "sha256": "39b6dc91df94cc612216c1d28b5baa120c0c98051fb41eb08d4f0ae9cfaa574c"
+      },
+      "sourceCustody": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-media-supplement-reviewed-20261118-r1/manifest.json",
+          "sha256": "0530e40bef3d85caa7cefec81a83a790844d438a7211edf2646dc8de9588494c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-and-publication-reviewed-20261118-r1/manifest.json",
+          "sha256": "89fe4fdb909fb43d3ec38be125d21b4291954090f35e082eb87315d44f738a71"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ordinary-enable-and-build-tools-reviewed-20261118-r1/manifest.json",
+          "sha256": "9b0de92e7a27d60969a53238cbb636d6743c18dda7e2b29f76eda30f7c4eb714"
+        }
+      ]
+    },
+    "latestProgressReview20261118R3": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r3.json",
+      "sha256": "f9e642600fb6ea6c4d947a789169fea35fe20811fc6711a44071ef48bca09e69"
+    },
+    "earlyLeaseAndEncryptedLifecycle20261118R3": {
+      "progress": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r3.json",
+        "sha256": "f9e642600fb6ea6c4d947a789169fea35fe20811fc6711a44071ef48bca09e69"
+      },
+      "archive": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-early-lease-and-encrypted-lifecycle-reviewed-20261118-r1/manifest.json",
+        "sha256": "41976a37293d6411c2ab2da086cc491d673c9d6802d2e72d9e7034c29373c332"
+      },
+      "desktopEarlyNodeDeath": {
+        "path": "output/semantic-desktop-early-lease-actual-run-v2/root-review.json",
+        "sha256": "449de4e3bcbb009592ec0f9b24b3ffda58669876551c85375137f3c9ccf69f63"
+      },
+      "encryptedLifecycleFail": {
+        "path": "output/semantic-encrypted-lifecycle-v3/root-review.json",
+        "sha256": "dbe0830c6b417b850b204aace4fe157c98fb60a90af12a3830c132d33fd1a5bb"
+      },
+      "exportDirectoryAccessDiagnosticFail": {
+        "path": "output/semantic-export-snapshot-cause-v1/root-review.json",
+        "sha256": "e717dbcf348707b017a87137d10ee223b64172cd96b49ce39f63a9d116d42600"
+      },
+      "wholeLifecycleQualified": false,
+      "allEightGatesRemainPending": true
+    },
+    "latestProgressReview20261118R4": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r4.json",
+      "sha256": "7e56d1bb34cf3eef2b874848212446d1fe3d42f9a0abc427d5e6ff677ff8ece2"
+    },
+    "generationAndM5Failures20261118R4": {
+      "progress": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r4.json",
+        "sha256": "7e56d1bb34cf3eef2b874848212446d1fe3d42f9a0abc427d5e6ff677ff8ece2"
+      },
+      "generationRootAccessFail": {
+        "path": "output/semantic-export-generation-category-v1/root-review.json",
+        "sha256": "ef48fca68f9c12c51b154fa65f27b3acdfaaff9a1d5a6c8328272bb6aa126570"
+      },
+      "m5ObserverFail": {
+        "path": "output/m5-http-fixed-harness-candidate-20261118-r1/actualrun-group-v6/case-output/root-review.json",
+        "sha256": "a28324cbf1eed012b6d3789b7db5fef09e64d8964165fd9af6b35aa100d286b4"
+      },
+      "m5HealthFail": {
+        "path": "output/m5-http-fixed-harness-candidate-20261118-r1/actualrun-group-v8/case-output/root-review.json",
+        "sha256": "50bf4d39edd576f7874e7d825a2f893c0c8156d0a34862ba6e0b1421b5014b4f"
+      },
+      "sourceCapsules": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-export-directory-reviewed-20261118-r1/manifest.json",
+          "sha256": "93fb0c3dbbe36862f634a77b0ca69634e470bbb5369fdd3d73ee0c1ccfca271d"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-export-generation-reviewed-20261118-r1/manifest.json",
+          "sha256": "6e2072fbca86bd2b10ccbfd148a86683d3d9a22b9b36fbad0f676b3d54e9b6a4"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-m5-fixed-http-reviewed-20261118-r1/manifest.json",
+          "sha256": "a9040873eb0180c5027d05198725af070fc2b357ea703e71f23cab4ea0e8bf5e"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-m5-health-diagnostic-reviewed-20261118-r1/manifest.json",
+          "sha256": "7d6295188080a81360c252e783fe060940300eb188ab4766416b61d382ee5e85"
+        }
+      ],
+      "wholeIntegrationQualified": false
+    },
+    "latestProgress": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r5.json",
+      "sha256": "743ceb30ef85445a79098b591d0a96b4fa910f6308da86fed220038f28c7ae2b"
+    },
+    "latestProgressReview20261118R5": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r5.json",
+      "sha256": "743ceb30ef85445a79098b591d0a96b4fa910f6308da86fed220038f28c7ae2b"
+    },
+    "latestRequirementsAudit": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-remaining-requirements-audit-20261117.json",
+      "sha256": "a93fd75d92555b549d5eb3047529e3fc942062671f2add126f9001d24c22471c"
+    },
+    "checkpointSourceHandoff": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-source-handoff-20261118.json",
+      "sha256": "c764654b8fd1acfe0bbe1c9928d8bba928f56e3ab9c3f75174dd7fc46f88c611"
+    },
+    "checkpointValidation": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/receipt.json",
+      "sha256": "3cd2ff109b2b5024071eb4a2de7acf4b46e7315320fde17114c7af88a034e37c"
+    },
+    "checkpoint20261118": {
+      "progress": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r5.json",
+        "sha256": "743ceb30ef85445a79098b591d0a96b4fa910f6308da86fed220038f28c7ae2b"
+      },
+      "sourceCapsules": [
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-export-census-phase-reviewed-20261118-r1/manifest.json",
+          "sha256": "54ef215f17717942fe4a29721e18a6c36831777e0a9337ae498b6a42dbb2f417"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-m5-flush-denial-reviewed-20261118-r1/manifest.json",
+          "sha256": "64a24b93da28d38c5f149394270800aebb171af5ff6e48b340dea3b7ebace7ba"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-home-checkpoint-reviewed-20261118-r1/manifest.json",
+          "sha256": "cf1cd47ef41dccede8bb367edb7f0a7fe13da9cdffae600ad15d0c08a1ded3f9"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-checkpoint-source-handoff-20261118-r1/manifest.json",
+          "sha256": "01ff82dede697bbb4b1dd3a9b9acc0644cf9b18c7d6df4f27e0e84650dc83f75"
+        }
+      ],
+      "wholeReleaseQualified": false,
+      "currentSourceFinalBindingsUnchanged": true
+    }
+  },
+  "currentStatus": "PRE_RC_CHECKPOINT_M3_EXPORT_M5_HELPER_AND_OBSERVER_BLOCKERS"
+}

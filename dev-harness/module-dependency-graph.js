@@ -231,7 +231,76 @@ function declarationInfo(tokens) {
     else if (token.value === '}') braces = Math.max(0, braces - 1);
   }
   collectArrowParamLocals(tokens, declarationTokenIndexes);
+  collectNestedLocals(tokens, declarationTokenIndexes);
   return { provides, declarationTokenIndexes };
+}
+
+// Record only bindings inside their enclosing lexical block. In particular,
+// generator parameters and IIFE-local declarations must not resolve to a
+// same-named module global. This deliberately leaves top-level provides alone.
+function collectNestedLocals(tokens, marked) {
+  const pairs = new Map(), stack = [], enclosing = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const v = tokens[i].value;
+    enclosing[i] = stack.length ? stack[stack.length - 1] : null;
+    if (v === '{') stack.push(i);
+    else if (v === '}' && stack.length) { const start = stack.pop(); pairs.set(start, i); }
+  }
+  const markBody = (names, start, end) => {
+    for (let i = start; i <= end; i++) if (tokens[i].type === 'id' && names.has(tokens[i].value) && !isMemberAccessSkip(tokens, i)) marked.add(i);
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].value === 'function') {
+      let j = i + 1;
+      if (tokens[j]?.value === '*') j++;
+      const name = tokens[j]?.type === 'id' ? j++ : null;
+      const previous = tokens[i - 1]?.value;
+      const beforeAsync = previous === 'async' ? tokens[i - 2]?.value : previous;
+      const declaration = beforeAsync === '{' || beforeAsync === '}' || beforeAsync === ';';
+      if (name !== null && declaration && enclosing[i] !== null) {
+        const end = pairs.get(enclosing[i]);
+        if (end !== undefined) markBody(new Set([tokens[name].value]), enclosing[i] + 1, end - 1);
+      }
+      if (tokens[j]?.value !== '(') continue;
+      let depth = 1, close = j + 1;
+      for (; close < tokens.length && depth; close++) { if (tokens[close].value === '(') depth++; else if (tokens[close].value === ')') depth--; }
+      if (depth || tokens[close]?.value !== '{') continue;
+      const end = pairs.get(close); if (end === undefined) continue;
+      if (name !== null && !declaration) { marked.add(name); markBody(new Set([tokens[name].value]), close + 1, end - 1); }
+      const names = collectParamNames(tokens, j, close - 1);
+      markBody(names, close + 1, end - 1);
+      // Parameter identifiers themselves are bindings; default expressions must
+      // stay visible, so only mark names before their own top-level '='.
+      let nesting = 0, inDefault = false; const bound = new Set();
+      for (let k = j + 1; k < close - 1; k++) {
+        const v = tokens[k].value;
+        if (v === '=' && nesting === 0) inDefault = true;
+        else if (v === ',' && nesting === 0) inDefault = false;
+        else if (v === '{' || v === '[' || v === '(') nesting++;
+        else if (v === '}' || v === ']' || v === ')') nesting--;
+        if (tokens[k].type === 'id' && names.has(v) && !isMemberAccessSkip(tokens, k)) {
+          if (!inDefault) { marked.add(k); bound.add(v); }
+          else if (bound.has(v)) marked.add(k);
+        }
+      }
+    }
+    if (!['const', 'let', 'var'].includes(tokens[i].value) || enclosing[i] === null || tokens[i - 1]?.value === '(') continue;
+    // Destructuring declarations need full pattern scopes; conservatively leave
+    // them visible rather than misclassifying a property key as a binding.
+    if (tokens[i + 1]?.value === '{' || tokens[i + 1]?.value === '[') continue;
+    const block = enclosing[i], end = pairs.get(block);
+    if (end === undefined) continue;
+    let j = i + 1, nesting = 0, expect = true;
+    for (; j < end; j++) {
+      const v = tokens[j].value;
+      if (nesting === 0 && (v === ';' || v === 'of' || v === 'in' || v === ')')) break;
+      if (expect && (v === '{' || v === '[')) break;
+      if (expect && tokens[j].type === 'id' && !KEYWORDS.has(v)) { markBody(new Set([v]), block + 1, end - 1); expect = false; }
+      if (v === '(' || v === '[' || v === '{') nesting++;
+      else if (v === ')' || v === ']' || v === '}') nesting--;
+      else if (v === ',' && nesting === 0) expect = true;
+    }
+  }
 }
 
 // 110-h1: arrow-function parameters are local bindings and must not be resolved against another module's

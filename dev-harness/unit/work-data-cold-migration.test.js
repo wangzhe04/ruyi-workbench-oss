@@ -85,6 +85,7 @@ test('one cold enable authenticates, backs up and transforms every ordinary requ
  for(const [family,file] of records)seed.set(file,Buffer.from(makeText(family)));
  seed.set('sessions/sess_one.messages.ndjson.prevbody',Buffer.from(makeText('previous-session-messages')));
  seed.set('checkpoints/sess_one/history-1.json.gz',gzipSync(makeText('journal-history'),{level:0}));
+ seed.set('checkpoints/sess_one/observation-owners-v1.json',Buffer.from(JSON.stringify({schema:1,sessionId:'sess_one',anchor:'a'.repeat(64),rewindGen:0,items:[],mac:'b'.repeat(64)})));
  seed.set('agent-runs/sess_one/run_one.events.ndjson.gz',gzipSync(makeText('archive-agent-run-events'),{level:0}));
  const image=imageFixture(),token=await image.pipeline.prepare(),preview=image.pipeline.borrow(token);
  const scope='b'.repeat(32),id='mimg_'+'c'.repeat(32);

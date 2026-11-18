@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T16:59:59.828Z",
+  "status": "AVAILABILITY_RETRY_SAME_FROZEN_MODEL_POLICY",
+  "previousAbort": "output/semantic-qwen3-v3-runtime-abort.json",
+  "previousAbortSha256": "053ca255fad4f08c23f00a9c24886a0a8fa32148106bfceb6d6d9561f279e383",
+  "modelPolicy": "Qwen Q4 cosine .44 and original structured-ID admission; no quality tuning",
+  "referenceFingerprint": "sha256:4145039138abb861752943e8df98b4d9324c23b32b430b0452b58f1d72924734",
+  "adapterSha256": "04cb87842d77c8b0d55a323f87bbfe57d3da3fb8a40aa48f1c950b7a0dfb517e",
+  "fixtureSha256": "32421b607bb5a7584a4d6c8a9c217ce291212229e05a07aded9c96e9a8f204c8",
+  "runnerSha256": "f7fd98692ab13f9bd9aea3692ba5c10b3c87cd5d0a4c7914f73d611eeff0d637",
+  "change": "Role-separated cost estimates, single cold/loading startup owner, and label-independent complete-corpus prewarm measured separately before quality. No model, prefix, pooling, ID, threshold or per-request budget change.",
+  "qualityResultsUsedForChanges": false
+}

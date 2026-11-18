@@ -1,0 +1,69 @@
+{
+  "status": "REVIEW_PLAN_NOT_PRODUCT_QUALIFICATION",
+  "methodUnchanged": {
+    "model": "embeddinggemma-2-text-q4",
+    "modelFingerprint": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "dimensions": 768,
+    "globalK": 1,
+    "cosine": 0.7,
+    "physicalBatch": 1,
+    "searchBudgetMs": 1000,
+    "consumerBudgetMs": 2500,
+    "idleUnload": false,
+    "defaultModelChange": false
+  },
+  "acceptedPrimitives": [
+    {"case": "held-image-file-leases", "rootDirectory": "output/semantic-resident-proxy-file-lease-smoke-v1", "scope": "Root actual seven lease cases. No helper or worker was executed by that case."},
+    {"case": "small-echo-flush", "rootDirectory": "output/semantic-resident-proxy-win32-echo-v2", "scope": "Actual 97 exact public bytes and observed cleanup. Original echo-v1 timeout remains a FAIL."},
+    {"case": "large-final-frame", "rootDirectory": "output/semantic-resident-proxy-win32-tail-v2", "scope": "Actual 300089 exact bytes, delayed consumer, drain/count equality, observed cleanup."},
+    {"case": "stalled-stdout-unknown", "rootDirectory": "output/semantic-resident-proxy-win32-stalled-v1", "scope": "Actual bounded unknown and same-root no-respawn. Independent OS absence never upgrades unknown."},
+    {"case": "parent-hard-death", "rootDirectory": "output/semantic-resident-proxy-parent-death-v2", "scope": "Same retained native HANDLE identity/Terminate199/Wait, helper and worker gone before outer reclaim. Original v1 witness failure remains a FAIL."},
+    {"case": "helper-hard-death", "rootDirectory": "output/semantic-resident-proxy-helper-death-v2", "scope": "Same native HANDLE; worker gone while parent still alive. Missing normal ACK remains unknown/fenced."}
+  ],
+  "preparedNotExecutedByAuthor": [
+    {"case": "canonical-OS-bootstrap-Chinese-UTF8", "freeze": "output/semantic-resident-os-alias-utf8-v2/freeze.json", "sha256": "6b444ac8f12e09ec5eb4705f36eb0126070d17f371254f32f8d0687924ee84fb", "bindings": 7},
+    {"case": "stdin-backpressure-independent-stop", "freeze": "output/semantic-resident-proxy-input-stalled-v1/freeze.json", "sha256": "13fdc1301eff33b00f1e7b73b2a935306b7a6211d39a6101faa22aca3bfe220f", "bindings": 19},
+    {"case": "concurrent-two-group-isolation", "freeze": "output/semantic-resident-proxy-concurrent-v1/freeze.json", "sha256": "6e5c1fa01a948053a05ff22211883f420d5a03102189534342c3a69a0913bc82", "bindings": 25},
+    {"case": "parent-death-before-bootstrap", "freeze": "output/semantic-resident-proxy-startup-parent-v1/freeze.json", "sha256": "b233f2e4200a991719a3dcd847661485d507a9073794bc17ea7f5e204ce8d240", "bindings": 24},
+    {"case": "nested-active-limit-test-DLL-compile-only", "freeze": "output/semantic-resident-restricted-job-compile-v1/freeze.json", "sha256": "ae69da65b7ee64c882dc40bc1aa521f4008c6b602e97d871b52bbb23940d09dd", "bindings": 10}
+  ],
+  "osTrust": {
+    "alias": "\\\\?\\GLOBALROOT\\SystemRoot",
+    "resolution": "Fixed kernel alias through fs.realpathSync.native; compare alias/canonical root dev+ino and exe dev+ino/full bytes. Only the derived canonical executable/root feeds CreateProcess and OS environment.",
+    "premise": "Protected Object Manager/system OS installation, loader and machine GAC integrity. Administrator/OS compromise is outside the application promise.",
+    "fixedPayload": "Helper EXE, source, lease DLL and source retain fixed approved byte pins and held-image leases. OS binary SHA is local inventory, never a universal cross-Windows pin.",
+    "bootstrap": "Transient OS PowerShell; fixed command/script; no profiles or module auto-loading; OS strong-name GAC serializer; UTF8 before Console input/output. No runtime C# compiler, new binary or caller env/path.",
+    "remaining": "Actual canonical-v2 result, actual Chinese-path image lease and product helper/worker, supported Windows versions and WOW64 qualification.",
+    "firstFailures": ["OS alias-v1 spawn EINVAL with no child", "Observer missing catch separator found by static Parser; old v1 never executed that script"]
+  },
+  "nestedCase": {
+    "phase": "TEST_DLL_COMPILE_PENDING_AND_RUNTIME_CONTROLLER_PENDING",
+    "establishment": "Actor holds first bootstrap write in private memory. Independent broker validates held actor/helper native process identities and assigns both to an external ActiveProcessLimit=2 test Job, before any product worker can start.",
+    "exercise": "After broker confirms two live members, release exactly the original bootstrap bytes. Product worker CreateProcess must fail under inherited restriction; no direct-spawn or BREAKAWAY fallback.",
+    "observation": "Retain test Job only, never a product Job handle. Test Job has neither kill-on-close nor termination API, so it cannot cause a false product-cleanup PASS. Finish requires active0 and both original process handles signaled.",
+    "outcome": "No worker ready/encode; observe helper and actor cleanup. Unknown remains unknown and requires same-root fence. An incompatible setup is a failed/unsupported test setup, not product PASS.",
+    "boundaries": "Each setup/line/control wait needs a finite deadline; errors, missing ACK and outer containment termination cannot promote observed. Broker DLL and scripts get exact new pins after compile."
+  },
+  "productionPatch": {
+    "ownedFiles": ["ruyi-workbench/app/src/06hb-semantic-runtime.js", "ruyi-workbench/semantic-runtime/gemma2-provider.cjs", "new fixed resident proxy/lease module variants"],
+    "rootOwnedBuild": ["ruyi-workbench/app/src/manifest.json", "ruyi-workbench/app/src/module-contracts.json", "ruyi-workbench/app/server.js"],
+    "noWorkerChanges": "Keep the four approved Gemma2 codec implementation sources and model contract byte pins unchanged. Execution topology/profile fingerprint changes separately.",
+    "strictFactory": "Fixed source-verified provider loads fixed proxy modules; no request-supplied factory, spawn/connect, observer, script, executable or proof issuer. Test VM injection cannot mint production vector frames.",
+    "prepare": "Register owner before any helper can start. Verify model/runtime first, then bounded image-lease prepare, followed by cancellation/generation recheck and synchronous owned spawn. All never-spawned branches cancelPreparation and await lease release before home removal.",
+    "publish": "Listen for worker NDJSON immediately, but do not publish ready before trusted proxy ownershipReady fixes worker PID+creation and current owner/generation. Public startup warm is real encode and must finish before ready.",
+    "close": "Helper close is insufficient. Await the exact trusted facade's private cleanup outcome: authenticated inner0, worker signaled, full stdout drained/count matched, helper+worker original OS identities absent, and image leases released. Only then clear owner/remove home/restart.",
+    "unknown": "Unknown, timeout, failed observer or missing ACK retains strong owner/home and forbids new instance/provider fallback. Independent OS absence never upgrades that outcome.",
+    "errors": "Preserve the original source/permission/privacy/falsy cancellation error identity when cleanup also fails. Prewrite ordinary source rejection keeps a healthy resident. Disable/config/shutdown invalidates private transport/cache lifecycle before stopping.",
+    "resident": "No idle timer. Nonblocking startup prewarm, cross-session one instance, observed disable/config/shutdown. Normal observed stop may explicitly restart; unknown may not.",
+    "legacy": "Direct legacy backend remains available under its original model/default selection; adding strict topology does not make a failed Gemma2 silently fall back around its unknown owner.",
+    "resources": "Re-measure same-instant helper+worker idle/peak and new cold public-warm latency. Do not reuse old direct-worker 297MiB/4.05s, sum independent peaks, or call codec timing full search p95."
+  },
+  "laterProductQualification": [
+    "Root source freeze and graph/SCC cap31 remain unchanged; no core-to-host back edge.",
+    "Native-free regression of real shared strict provider, falsy errors, transport brands, lifecycle epoch, and all consumer same-field admission.",
+    "Actual genuine Gemma2 product shared runtime startup/publicwarm, idle across sessions, disable/reenable, normal shutdown; helper+worker original identity absence.",
+    "Actual product parent hard death with model resident/request pending, independent observer outside parent, no external product Job handle and no outer fallback counted as success.",
+    "Actual unknown cleanup retains registry/home and blocks new create, including config/provider transitions.",
+    "Complete consumer/source/privacy/function/quality and 1000-fragment resource/p95 gates remain pending; none of the synthetic proxy cases alone closes SR6 or all3.1."
+  ]
+}

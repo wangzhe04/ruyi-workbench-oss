@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T19:38:10.731Z",
+  "reason": "Unqualified unregistered research backend was rejected by the existing shipped-source overlay inventory. Rehome it, keeping the static gate and production manifest unchanged.",
+  "oldPath": "ruyi-workbench/app/src/06hba-semantic-native.js",
+  "newPath": "dev-harness/semantic/native-host-prototype.cjs",
+  "sha256": "9c98eb4a635a7748a51973a2c6789accc63a1cb2357309d470b16711506e4f21",
+  "oldExpectedSha256": "9c98eb4a635a7748a51973a2c6789accc63a1cb2357309d470b16711506e4f21",
+  "byteForByteUnchanged": true,
+  "productServerChangedByMove": false,
+  "updatedTestAndToolReadPaths": [
+    "dev-harness/unit/semantic-native.test.js",
+    "dev-harness/semantic-native-host.e2e.js",
+    "dev-harness/semantic/native-job-real-smoke.cjs",
+    "dev-harness/semantic/native-owner-independent-audit.cjs"
+  ],
+  "targetedUnit": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  "static": {
+    "passed": 100,
+    "failed": 0,
+    "flaky": 0,
+    "sourceStable": true
+  },
+  "limits": [
+    "Fullfast R2 remains exit1 due to the original static inventory failure; separate current static pass is not a rewritten fullfast success.",
+    "No native backend/default/profile is registered or shipped."
+  ]
+}

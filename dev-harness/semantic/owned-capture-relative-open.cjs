@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path');
+function transform(source){const fragment=fs.readFileSync(path.join(__dirname,'owned-capture-relative-open.csfrag'),'utf8');const edits=[
+ ['  static void Walk(string path, string rel, List<object> entries, bool capture) {',fragment+'\n  static void Walk(string path, string rel, List<object> entries, bool capture, SafeFileHandle captureParent=null, string captureName=null) {'],
+ ['    Node node = new Node(); node.Handle = Open(path, out node.Writable);','    Node node = new Node(); node.Handle = RelativeReadCapture?CaptureOpen(captureParent,captureName,path,false,out node.Writable):Open(path, out node.Writable);'],
+ ['SafeFileHandle handle = name == "" ? node.Handle : Open(PathOf(node.Handle) + name, out writable, true);','SafeFileHandle handle = name == "" ? node.Handle : RelativeReadCapture?CaptureOpen(captureParent,captureParent==null?null:captureName+name,PathOf(node.Handle)+name,true,out writable):Open(PathOf(node.Handle) + name, out writable, true);'],
+ ['if(!BoundaryChild(node,child,childRel))Walk(child,childRel,entries,capture);','if(!BoundaryChild(node,child,childRel))Walk(child,childRel,entries,capture,node.Handle,System.IO.Path.GetFileName(child));'],
+ ['    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;\n    Exception primary=null;\n    try {BoundaryInit(args);return Capture(args);}', '    bool previous=PreserveTimeHandles,previousRelative=RelativeReadCapture;PreserveTimeHandles=true;RelativeReadCapture=true;\n    Exception primary=null;\n    try {BoundaryInit(args);return Capture(args);}'],
+ ['finally {PreserveTimeHandles=previous;}}\n    }\n  }\n  static object ReadPreservedControl', 'finally {RelativeReadCapture=previousRelative;PreserveTimeHandles=previous;}}\n    }\n  }\n  static object ReadPreservedControl']];let out=source;for(const[a,b]of edits){if(out.split(a).length!==2)throw Error('capture relative boundary '+a.slice(0,70));out=out.replace(a,b);}return{source:out,edits};}
+module.exports={transform};

@@ -838,7 +838,7 @@ const server = http.createServer((req, res) => {
           if (step.argsFromLastRawRef) {
             let found = '';
             // 两种模型可见形态都要认:文本视图的 rawRef=history:... 与 JSON meta 的 "rawRef":"history:..."。
-            const re = /rawRef["']?\s*[:=]\s*["']?(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/g;
+            const re = /rawRef["']?\s*[:=]\s*["']?(history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/g;
             for (const m of msgs || []) {
               const c = m && typeof m.content === 'string' ? m.content : '';
               let mm; while ((mm = re.exec(c))) found = mm[1];

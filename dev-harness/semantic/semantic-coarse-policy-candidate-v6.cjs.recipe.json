@@ -1,0 +1,86 @@
+{
+  "status": "EXTRACTED_UNREGISTERED_GEMMA2_WINDOW_POLICY_NO_MODEL_OR_FIXTURE",
+  "baseSha256": "cd7b52943b834269e989b084cef23a486d605390a7c09589fd0a27a718e4bf6c",
+  "auditedWindowSha256": "e6e88d5cedd7cf58910eda7a6e584c13b223ce179094d739f0200be43482318d",
+  "auditedCoarseSha256": "f155a218f31aa152a22c4e17c3d0e3360dbe389ec03351ade4ce8f797287de56",
+  "recipe": [
+    {
+      "before": "id: 'bge-zh-original-window-global-k1-cos053-v1', topK: 1, threshold: .53",
+      "after": "id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70"
+    },
+    {
+      "before": "const crypto = require('node:crypto');",
+      "after": "const crypto = require('node:crypto'),Windowing=require('./semantic-original-windows-candidate.cjs');"
+    },
+    {
+      "before": "function createCompositePolicy({ identify, normalize, terms }) {",
+      "after": "function createSemanticCoarsePolicy({ identify, normalize, terms }) {\n  const issuedDecisions = new WeakMap();"
+    },
+    {
+      "before": "async function evaluate({ query, rows, lexical, scores, complete, scopeId, signal, deadline, resolve, beforeVerify }) {",
+      "after": "async function evaluate({ query, rows, lexical, scores, poolComplete, context, windowContext, modelFingerprint, scopeId, signal, deadline, resolve, beforeVerify }) {"
+    },
+    {
+      "before": "|| typeof resolve !== 'function' || typeof beforeVerify !== 'function' || !Number.isFinite(deadline))",
+      "after": "|| typeof poolComplete !== 'boolean' || !Windowing.isRequest(windowContext,context) || modelFingerprint!==CONTRACT.modelFingerprint || rows.length > 4096 || rows.some(row=>typeof row.fieldKey!=='string'||typeof row.order!=='string') || typeof resolve !== 'function' || typeof beforeVerify !== 'function' || !Number.isFinite(deadline))"
+    },
+    {
+      "before": "const accepted = rows.map(() => false),",
+      "after": "const accepted = rows.map(() => null),"
+    },
+    {
+      "before": "    const required = identify(query), phrase = normalize(query),",
+      "after": "    if(typeof query!=='string'||!query.trim()||!normalize(query).trim()||typeof scopeId!=='string'||!scopeId)throw TypeError('semantic.policy_query_invalid');\n    const required = identify(query), phrase = normalize(query),"
+    },
+    {
+      "before": "    const required = identify(query),",
+      "after": "    const abort=()=>{if(signal?.aborted)throw signal.reason===undefined?Object.assign(Error('semantic.policy_aborted'),{code:'ABORT_ERR'}):signal.reason;};\n    const verify=async event=>{abort();await beforeVerify(event);abort();};\n    await verify({phase:'start',index:null,source:null});\n    windowContext.begin(context,query,scopeId,modelFingerprint,rows);\n    const required = identify(query),"
+    },
+    {
+      "before": "    async function resolved(index, wholeField) {\n      if (Date.now()",
+      "after": "    async function resolved(index, wholeField) {\n      abort();\n      if (Date.now()"
+    },
+    {
+      "before": "      await beforeVerify({ phase: 'resolved', index, source });",
+      "after": "      await verify({ phase: 'resolved', index, source });\n      if(source)windowContext.assertSource(source,wholeField,context,rows[index]);"
+    },
+    {
+      "before": "const globalComplete = complete === true",
+      "after": "const globalComplete = poolComplete === true"
+    },
+    {
+      "before": "    const order = globalComplete ?",
+      "after": "    for(let i=0;i<eligible.length;i++)if(eligible[i]===false)accepted[i]=false;\n    if(globalComplete)accepted.fill(false);\n    const order = globalComplete ?"
+    },
+    {
+      "before": "if (!source) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); return; }",
+      "after": "if (!source) { sourceUnknown = true;if(role==='semantic')accepted[index]=null; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if(rows[index].metadata)metadataDecisions.set(rows[index].fieldKey,null); return; }"
+    },
+    {
+      "before": "      if (!lexicalDecisions.has(item.key)) await evidence",
+      "after": "      windowContext.assertWeak(item.key,rows[item.index]);\n      if (!lexicalDecisions.has(item.key)) await evidence"
+    },
+    {
+      "before": "    await beforeVerify({ phase: 'finish', index: null, source: null });",
+      "after": "    await verify({ phase: 'finish', index: null, source: null });"
+    },
+    {
+      "before": "    return { accepted, lexical: lexicalDecisions, metadata: metadataDecisions, lexicalWindowIndices, metadataWindowIndices, complete: finished,\n      report: { contract: CONTRACT, policyFingerprint: 'sha256:' + hash(CONTRACT), globalCoarseComplete: globalComplete,\n        globalSelectedIndices: selected, globalCandidateCount: rows.length, eligibleCandidateCount: eligible.filter(value => value === true).length,\n        excludedIdentifierRows: eligible.filter(value => value === false).length, scalarPairs:0, coarseAdmissionWindows:items.length, requiredWork, strongEvidence, weakWindowSelection: 'fixed-best-raw-per-original-field; same-identity-coordinates-dedup',\n        verification: { status: verified.status, coverage: verified.coverage, ...(verified.reason ? { reason: verified.reason } : {}) },\n        complete: finished, partial: !finished, scores: verified.results.map((result, index) => ({ identity: items[index].source.identity, accepted: result.accepted, score: result.score, cached: result.cached === true })) } };",
+      "after": "    const decision=Object.freeze({policyId:CONTRACT.id,purpose:'search-relevance',answerability:'not-assessed',complete:finished,status:finished?'evaluated':'partial',\n      counts:Object.freeze({candidates:rows.length,eligible:eligible.filter(x=>x===true).length,excludedIdentifiers:eligible.filter(x=>x===false).length,selected:selected.length,weakWindows:lexicalWindowIndices.size,metadataWindows:metadataWindowIndices.size})});\n    issuedDecisions.set(decision,{context,semanticAccepted:accepted.slice(),weakAccepted:new Map(lexicalDecisions),metadataAccepted:new Map(metadataDecisions),\n      weakWindowIndices:new Map(lexicalWindowIndices),metadataWindowIndices:new Map(metadataWindowIndices),globalSelectedIndices:selected.slice(),globalCoarseComplete:globalComplete});\n    return decision;"
+    },
+    {
+      "before": "  return Object.freeze({ evaluate, contract: CONTRACT });",
+      "after": "  const lookup=(decision,context)=>{const stored=issuedDecisions.get(decision);if(!stored||stored.context!==context)throw Error('semantic.policy_context_invalid');return stored;};\n  return Object.freeze({ evaluate,contract:CONTRACT,dispose:(decision,context)=>{lookup(decision,context);issuedDecisions.delete(decision);},decisions:(decision,context)=>{const stored=lookup(decision,context);return {semanticAccepted:stored.semanticAccepted.slice(),weakAccepted:new Map(stored.weakAccepted),metadataAccepted:new Map(stored.metadataAccepted),weakWindowIndices:new Map(stored.weakWindowIndices),metadataWindowIndices:new Map(stored.metadataWindowIndices),globalSelectedIndices:stored.globalSelectedIndices.slice(),globalCoarseComplete:stored.globalCoarseComplete};} });"
+    },
+    {
+      "before": "module.exports = { createCompositePolicy, CONTRACT };",
+      "after": "module.exports = { createSemanticCoarsePolicy, CONTRACT };"
+    }
+  ],
+  "derivedSha256": "104dedb784bc08f09765a0840dc983b19653f9e17e80971661f4efd7c9e0a52d",
+  "limits": [
+    "No source authority is invented: resolve and beforeVerify are trusted consumer closures.",
+    "poolComplete means actual enumerated source/eligible pool proof, not merely scorer.cacheComplete. IDs proven excluded require no vector.",
+    "Only opaque decision identity can retrieve private per-field maps. Public decision/JSON has no source identity or text digest."
+  ]
+}

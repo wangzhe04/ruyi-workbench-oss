@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "FROZEN_MULTILINGUAL_BASELINE_EXECUTION",
+  "bindings": {
+    "dev-harness/semantic/bge-minilm-mixed-baseline-protocol.json": "9158cdbc097c2ad1d3d1712070d7d821a0edc5d47ae98ab865f3e39635501bd0",
+    "dev-harness/semantic/bge-minilm-mixed-baseline-collect.cjs": "9ad6c14b977855af8879af6f70cf02fa923eddd24c2be972384784a5370a327c",
+    "dev-harness/semantic/bge-minilm-language-router.cjs": "716f03b862c09360ebd1a66623461dea6993ad53544239cb0c69ccf22cb643b2"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-11-18T02:47:33.116983+00:00",
+  "status": "PRE_RC_CHECKPOINT_M3_EXPORT_M5_HELPER_AND_OBSERVER_BLOCKERS",
+  "handoff": "docs/optimization-plan/148-3.1-checkpoint-handoff-20261118.md",
+  "previousProgress": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r4.json",
+    "sha256": "7e56d1bb34cf3eef2b874848212446d1fe3d42f9a0abc427d5e6ff677ff8ece2"
+  },
+  "version": "3.0.1",
+  "defaultChanged": false,
+  "releaseQualified": false,
+  "allEightGatesRemainPending": true,
+  "runningRootNativeScenes": 0,
+  "runningSubagents": 0,
+  "latestChanges": [
+    "M3 export fails at first-native census / generation-root / time.access; full lifecycle FAIL, disable/delete unexecuted. 721-binding relative-open candidate is archived, not root-reviewed or executed.",
+    "M5 v9 precisely denies fixed WorkData flush PowerShell spawn; observer OpenProcess Win32 87 concerns previously observed conhost. Neither held-HANDLE retirement nor exact helper allowance is implemented.",
+    "Home v2 passed root 65 native-free checks and compile-only; normal/handoff r2 104 bindings each are prepared, unexecuted. Standalone NAPI is source-only.",
+    "Checkpoint source capsule and 977 mapped source inputs verified independently; preserve original raw bytes, old failures, unknown and all full-release gaps.",
+    "Regenerated stale app/server.js and manifest line ranges. Scoped checkpoint checks pass; forced release guard rejects eight pending gates and stale final bindings as expected."
+  ],
+  "rootEvidence": [
+    {
+      "path": "output/semantic-export-census-phase-v2/root-review.json",
+      "sha256": "afa5f6c9b65aa74559f11e9380123446e98db9d4f376ae19b4351c856f3a5595"
+    },
+    {
+      "path": "output/m5-http-fixed-harness-candidate-20261118-r1/actualrun-group-v9/case-output/root-review.json",
+      "sha256": "8cf154e55253acbbdf8025021d1a338701577117d786e41480698b4d105c1e54"
+    },
+    {
+      "path": "output/m5-http-fixed-harness-candidate-20261118-r1/actualrun-group-v9/case-output/root-flush-plan-match.json",
+      "sha256": "47ec638983db170b6ff0616b7dee868a25d47429c3f019c190a450fad08d2087"
+    },
+    {
+      "path": "output/semantic-resident-home-service-root-v2/root-review.json",
+      "sha256": "a2e6640453bc1c30a99301b3ff2e53eb738c48db4e548403c1842e8e260c78b1"
+    },
+    {
+      "path": "output/semantic-resident-home-service-build-v2/root-review.json",
+      "sha256": "47a2fb7af85a2c00f5dc95dc17da091a96f840a8769e285aefee117f48e53683"
+    },
+    {
+      "path": "output/semantic-resident-home-service-root-v2/root-knownfolder-probe.json",
+      "sha256": "a48841751b96e04363cafd31b55f9a02ae24f54941fa7e30f1f26d79da7efcbc"
+    }
+  ],
+  "sourceCapsules": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-export-census-phase-reviewed-20261118-r1/manifest.json",
+      "sha256": "54ef215f17717942fe4a29721e18a6c36831777e0a9337ae498b6a42dbb2f417"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-m5-flush-denial-reviewed-20261118-r1/manifest.json",
+      "sha256": "64a24b93da28d38c5f149394270800aebb171af5ff6e48b340dea3b7ebace7ba"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-home-checkpoint-reviewed-20261118-r1/manifest.json",
+      "sha256": "cf1cd47ef41dccede8bb367edb7f0a7fe13da9cdffae600ad15d0c08a1ded3f9"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-checkpoint-source-handoff-20261118-r1/manifest.json",
+      "sha256": "01ff82dede697bbb4b1dd3a9b9acc0644cf9b18c7d6df4f27e0e84650dc83f75"
+    }
+  ],
+  "sourceHandoff": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-source-handoff-20261118.json",
+    "sha256": "c764654b8fd1acfe0bbe1c9928d8bba928f56e3ab9c3f75174dd7fc46f88c611"
+  },
+  "checkpointValidation": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/receipt.json",
+    "sha256": "3cd2ff109b2b5024071eb4a2de7acf4b46e7315320fde17114c7af88a034e37c"
+  },
+  "nextBatches": [
+    "Review/compile M3 relative-open and freeze one fresh full lifecycle trial.",
+    "Implement independently reviewable M5 held-HANDLE and exact immutable flush-plan allowance; preserve all nine human cases.",
+    "Review each home normal/handoff candidate separately; finish all lifecycle/real-consumer/quality/privacy/resource/provider matrices.",
+    "Complete M4 provenance/build/relink, M5 real-platform/replay and M6 final-source regression/new packages/cross-environment qualification."
+  ],
+  "limits": [
+    "No final current-source bindings regenerated; no gate promoted.",
+    "No new native scene/full regression/GUI/platform messages/public release during checkpoint.",
+    "Historical manifest source alias drift after generated rebuild is explicit; source capsule bytes remain valid.",
+    "Unconsumed holdouts, weights/native binaries, private roots and unresolved system-generated directories remain local and ignored."
+  ]
+}

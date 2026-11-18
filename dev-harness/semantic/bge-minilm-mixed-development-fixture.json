@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "status": "DEVELOPMENT_CODE_SWITCH_STRESS_NOT_INDEPENDENT_ACCEPTANCE",
+  "author": "root; manually paraphrased from fixed development facts before collecting any new query vectors",
+  "protocolSha256": "1a7f0eaafef2f9c1ca82db32dd0e3b927f2340cb4a19e2d9679c6bc98a172375",
+  "sourceInputSha256": "239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c",
+  "documentsSha256": "5932624446b999b48c376c6ba96c5a4dd2e456c0c9453db8ae0b933f1d46e229",
+  "queries": [
+    {
+      "id": "mixed-dev-pos-01",
+      "text": "检查 beehive 应选一天中的哪个时段，暴雨时还开箱吗？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "apiary"
+      ],
+      "annotatorEvidence": {
+        "docId": "apiary",
+        "start": 0,
+        "end": 31,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-02",
+      "text": "陶社取件时，kiln door 要等温度降到什么范围才能打开？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "kiln"
+      ],
+      "annotatorEvidence": {
+        "docId": "kiln",
+        "start": 0,
+        "end": 32,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-03",
+      "text": "潮位站在什么时机做 water-level reading，读数保存在哪？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "tide"
+      ],
+      "annotatorEvidence": {
+        "docId": "tide",
+        "start": 0,
+        "end": 36,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-04",
+      "text": "印坊换 ink colour 时，滚筒处理和试印的先后顺序是什么？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "ink"
+      ],
+      "annotatorEvidence": {
+        "docId": "ink",
+        "start": 0,
+        "end": 31,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-05",
+      "text": "声学室录音的 sampling rate 是多少，正式录制前留几秒底噪？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "acoustics"
+      ],
+      "annotatorEvidence": {
+        "docId": "acoustics",
+        "start": 0,
+        "end": 35,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-06",
+      "text": "昆虫房的 leftover feed 和饮水海绵分别多久处理一次？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "cricket"
+      ],
+      "annotatorEvidence": {
+        "docId": "cricket",
+        "start": 0,
+        "end": 32,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-07",
+      "text": "调过闸门以后，downstream flow 的读数要隔多久再取？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "aqueduct"
+      ],
+      "annotatorEvidence": {
+        "docId": "aqueduct",
+        "start": 0,
+        "end": 32,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-08",
+      "text": "What should the 织房 do first when a warp thread snaps，接好后还要检查什么？",
+      "kind": "positive",
+      "group": "mixed-to-zh",
+      "relevant": [
+        "weaving"
+      ],
+      "annotatorEvidence": {
+        "docId": "weaving",
+        "start": 0,
+        "end": 32,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-09",
+      "text": "合唱团唱歌前的 warm-up 持续多久，要发哪一类声音？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "choir"
+      ],
+      "annotatorEvidence": {
+        "docId": "choir",
+        "start": 0,
+        "end": 81,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-10",
+      "text": "气象 balloon 的传感器电池在飞行累计多久后更换？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "balloon"
+      ],
+      "annotatorEvidence": {
+        "docId": "balloon",
+        "start": 0,
+        "end": 77,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-11",
+      "text": "在 planetarium，走道灯要等观众处于什么状态才调暗？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "planetarium"
+      ],
+      "annotatorEvidence": {
+        "docId": "planetarium",
+        "start": 0,
+        "end": 76,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-12",
+      "text": "种子库里的 duplicate accession labels 应放在样本信封的什么位置？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "seedbank"
+      ],
+      "annotatorEvidence": {
+        "docId": "seedbank",
+        "start": 0,
+        "end": 81,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-13",
+      "text": "木偶团演出结束后，string marionettes 以什么姿态收纳？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "puppet"
+      ],
+      "annotatorEvidence": {
+        "docId": "puppet",
+        "start": 0,
+        "end": 80,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-14",
+      "text": "How should collected 地衣 specimens be dried，哪种光照要避免？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "lichen"
+      ],
+      "annotatorEvidence": {
+        "docId": "lichen",
+        "start": 0,
+        "end": 83,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-15",
+      "text": "玻璃马赛克拼贴时，adjacent tiles 之间要预留多宽的缝？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "mosaic"
+      ],
+      "annotatorEvidence": {
+        "docId": "mosaic",
+        "start": 0,
+        "end": 78,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-pos-16",
+      "text": "During a long 休息，where should the ensemble put its cellos？",
+      "kind": "positive",
+      "group": "mixed-to-en",
+      "relevant": [
+        "cello"
+      ],
+      "annotatorEvidence": {
+        "docId": "cello",
+        "start": 0,
+        "end": 82,
+        "reason": "所问操作、条件或数值均由该原字段明示；混合语言改写不添加新事实。"
+      }
+    },
+    {
+      "id": "mixed-dev-ood-01",
+      "text": "数据库事务的 isolation level 应怎样选择才能避免幻读？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-02",
+      "text": "浏览器的 SameSite cookie 如何影响跨站登录？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-03",
+      "text": "How does 垃圾回收 distinguish a live object from an unreachable one?",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-04",
+      "text": "二叉搜索树执行 rotation 后怎样维持节点次序？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-05",
+      "text": "如何在 Git rebase 时只保留某一个提交的改动？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-06",
+      "text": "Which DNS record tells a mail server where to投递邮件？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-07",
+      "text": "连续函数在 compact interval 上为什么能取到最大值？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-08",
+      "text": "国际象棋 castling 时哪些格子不能受到攻击？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-09",
+      "text": "How can a language learner practice 西班牙语 past-tense agreement?",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-10",
+      "text": "机械键盘的 hot-swap socket 是否支持直接拔换轴体？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-11",
+      "text": "数字照片的 white balance 如何补偿室内暖色灯光？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-12",
+      "text": "电脑从 sleep 恢复后为何丢失外接显示器的排列设置？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-13",
+      "text": "什么情况下应该给软件依赖使用 semantic versioning 的主版本号？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-14",
+      "text": "How do I calculate a mortgage 的等额本息月供？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-15",
+      "text": "咖啡 espresso 萃取不足时应先怎样调整研磨粗细？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    },
+    {
+      "id": "mixed-dev-ood-16",
+      "text": "订阅服务的 refund policy 怎样规定按比例退款？",
+      "kind": "ood",
+      "group": "mixed-ood",
+      "relevant": []
+    }
+  ],
+  "limits": [
+    "16 positive and16 unrelated mixed-language development queries; no independent quality claim.",
+    "All original60 documents retained; annotation is evaluator metadata, never inserted in model inputs or source bodies.",
+    "Thresholds and routing/fusion were frozen before these query vectors are collected; no tuning on these results."
+  ]
+}

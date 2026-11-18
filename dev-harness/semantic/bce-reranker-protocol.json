@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "bce-reranker-bilingual-development-v1",
+  "status": "PREDECLARED_RESEARCH_ONLY",
+  "scope": "Fixed 60 synthetic documents and 248 train/calibration queries; no check or acceptance-v6 fitting, execution or selection.",
+  "model": {"repository":"maidalun1020/bce-reranker-base_v1","revision":"eb7650fca1d81e2856fbd0d522488844aa502735","license":"Apache-2.0","architecture":"XLM-R 12-layer hidden768, vocab250002, scalar classification","language":"English, Chinese, Japanese, Korean per model card","source":"Official original checkpoint; repository has no ONNX. ONNX export and Q8 quantization are local research conversions with pinned tools and artifacts, not official model files."},
+  "score": {"formula":"sigmoid(raw scalar logit)","rawLogitRetained":true,"probabilityInterpretation":"model relevance score, not calibrated correctness or answerability probability","fixedThresholds":[0.05,0.1,0.2,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.7,0.8,0.9,0.95],"reference":"https://github.com/netease-youdao/BCEmbedding/issues/15","referenceCaveat":"Maintainer reports 0.35/0.4 in own use as context-dependent references, not universal gates."},
+  "pairs":"Same authenticated original 96 UTF-16 character window with overlap16; union of raw top5 each BGE-small-zh and existing multilingual MiniLM L12 plus all current 90a weak lexical fields; deduplicate exact query+original field/span; retain ranks and roles.",
+  "producer":"TopK 1/3/4/5 before strong exemption, no refill; coarseMinimum multilingual MiniLM null/0.34 and BGE-small-zh null/0.48 only as inherited per-model comparators, no assumed common calibration. Weak lexical work independent of coarse threshold.",
+  "tokenizer":"official pinned query/document pair template, physical batch1, joint limit512 including special tokens; no truncation, over-budget unknown/partial. Verify JS against separate official tokenizer.json implementation.",
+  "metrics":"Full-language gate, reported separately from Chinese-only descriptive axis: both train/cal zh-zh R@5>=.90, zh-en/en-zh R@5>=.85, MRR>=.75, pure OOD FPR<=.05, entity mismatch FPR<=.05 and exact ID preservation; full denominator, unknown not true negative; report en-en and missing-field/number separately.",
+  "numerics":"Compare local FP32/Q8 on a fixed stratified sample, raw logits and sigmoid scores, ranking and source-checkpoint reference. No assumption of parity; keep paired inputs and token IDs.",
+  "resources":"Sequential sole-model processes, actual process exit, cold and warm single-pair timing, graph/model/tokenizer bytes and peak process RSS; separate simultaneous coarse+verifier measurement required for total.",
+  "limits":"Development comparison only; no production default, package, acceptance threshold, or model manifest edits; no check or v6. No automatic memory authority."
+}
+

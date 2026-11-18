@@ -2,6 +2,15 @@
 node_modules/
 dist/
 runtime/
+# Keep only reviewed license/source metadata for the independent bundled Node.
+!/ruyi-workbench/runtime/
+/ruyi-workbench/runtime/*
+!/ruyi-workbench/runtime/node/
+/ruyi-workbench/runtime/node/*
+!/ruyi-workbench/runtime/node/LICENSE
+!/ruyi-workbench/runtime/node/NOTICE.md
+!/ruyi-workbench/runtime/node/SHASUMS256.txt
+!/ruyi-workbench/runtime/node/provenance.lock.json
 
 # Python
 __pycache__/
@@ -37,6 +46,13 @@ offline_wheels/
 # OS cruft
 .DS_Store
 Thumbs.db
+# Isolated Windows probes must not publish unresolved system-data fallbacks.
+/%SystemDrive%/
+# Unresolved Windows-generated state from isolated probes; never publish it.
+/dev-harness/Microsoft/
+# Unconsumed independent holdouts stay local until the frozen one-shot review.
+/dev-harness/semantic/acceptance-v7*
+/dev-harness/semantic/acceptance-zh-v1*
 
 # 第29波监控冒烟测试隔离工作区(不入库)
 /.wave29-livetest/

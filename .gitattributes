@@ -15,9 +15,17 @@
 *.gz binary
 # The cross-machine source handoff is a binary ZIP; preserve its verified bytes.
 docs/optimization-plan/evidence/source-handoff-20261025.zip binary
+# Preserve the official Node distribution's complete license bytes, including CRLF.
+ruyi-workbench/runtime/node/LICENSE binary
 # 第43波(43e 对抗轮·高):构建期拼接要求 src/ 与产物全 LF —— autocrlf=true 的 checkout
 # 会把文件转 CRLF,build 的 join('\n') 在拼接点留裸 \n → 混合 EOL 产物 + CI freshness 假阳性。
 # 钉死 eol=lf,checkout 层面根除(模板字面量内换行 \n→\r\n 会静默改运行时字符串值)。
 *.js text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+# Frozen evidence and runtime certificates hash raw bytes, including line endings.
+# Preserve them exactly across checkout; do not rewrite their historical hashes.
+/docs/optimization-plan/evidence/semantic-retrieval-20261116/** -text whitespace=cr-at-eol
+/dev-harness/semantic/** -text whitespace=cr-at-eol
+/ruyi-workbench/semantic-runtime/** -text whitespace=cr-at-eol
+/ruyi-workbench/runtime/node/** -text whitespace=cr-at-eol

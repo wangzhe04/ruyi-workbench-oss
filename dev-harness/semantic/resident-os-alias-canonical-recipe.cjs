@@ -1,0 +1,24 @@
+'use strict';
+// Deterministic new variant; never changes the failed v1 sources or snapshots.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),ROOT=path.resolve(__dirname,'../..'),H=b=>crypto.createHash('sha256').update(b).digest('hex');
+function read(file,pin){const b=fs.readFileSync(path.join(ROOT,file));if(H(b)!==pin)throw Error('canonical variant base drift: '+file);return b.toString('utf8');}
+function once(source,from,to){if(source.split(from).length!==2)throw Error('canonical recipe match not unique: '+from);return source.replace(from,to);}
+const original='ruyi-workbench/semantic-runtime/windows-os-bootstrap-candidate.cjs',source=read(original,'70a11c8dc992f1cf6fee4cf518dd9d7ab23f78ffa67b99b5d501acea7b36e5a8'),target='ruyi-workbench/semantic-runtime/windows-os-bootstrap-canonical-candidate.cjs';
+const resolver="function canonicalOs(){const root=fs.realpathSync.native(OS_ROOT),executable=fs.realpathSync.native(OS_PS);if(!path.isAbsolute(root)||!path.isAbsolute(executable)||root.startsWith(slash+slash)||executable.toLowerCase()!==path.join(root,'System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase())throw Error('os_bootstrap.native_path_contract');const aliasRoot=fs.statSync(OS_ROOT,{bigint:true}),canonicalRoot=fs.statSync(root,{bigint:true}),aliasExe=fs.statSync(OS_PS,{bigint:true}),canonicalExe=fs.statSync(executable,{bigint:true}),aliasBytes=fs.readFileSync(OS_PS),canonicalBytes=fs.readFileSync(executable);if(!aliasRoot.isDirectory()||!canonicalRoot.isDirectory()||aliasRoot.dev!==canonicalRoot.dev||aliasRoot.ino!==canonicalRoot.ino||!aliasExe.isFile()||!canonicalExe.isFile()||aliasExe.dev!==canonicalExe.dev||aliasExe.ino!==canonicalExe.ino||!aliasBytes.equals(canonicalBytes))throw Error('os_bootstrap.native_alias_identity');return Object.freeze({root,executable,rootDev:String(aliasRoot.dev),rootIno:String(aliasRoot.ino),exeDev:String(aliasExe.dev),exeIno:String(aliasExe.ino),exeBytes:aliasBytes.length,exeSha256:H(aliasBytes)});}\n";
+let result=once(source,'function descriptor(){return Object.freeze({status:',resolver+'function descriptor(){const os=canonicalOs();return Object.freeze({status:');
+result=once(result,"executable:OS_PS,systemRoot:OS_ROOT,architecture:","executable:os.executable,systemRoot:os.root,aliasExecutable:OS_PS,aliasSystemRoot:OS_ROOT,osInventory:os,architecture:");
+result=once(result,'const {home}=validateOptions(options);return Object.freeze({request:', 'const {home}=validateOptions(options),os=canonicalOs();return Object.freeze({request:');
+result=once(result,'command:OS_PS,args:', 'command:os.executable,args:');
+result=once(result,"SystemRoot:OS_ROOT,WINDIR:OS_ROOT,PATH:OS_ROOT+slash+'System32'", "SystemRoot:os.root,WINDIR:os.root,PATH:os.root+slash+'System32'");
+result=once(result,'requestedExecutable:OS_PS,alias:', 'requestedExecutable:plan.command,canonicalOsRoot:plan.options.env.SystemRoot,alias:');
+result=once(result,"value.receivedSystemRoot!==OS_ROOT||value.receivedPath!==OS_ROOT+slash+'System32'",'value.receivedSystemRoot!==plan.options.env.SystemRoot||value.receivedPath!==plan.options.env.PATH');
+result=once(result,'requested=OS_PS.toLowerCase()', 'requested=plan.command.toLowerCase()');
+// Static PowerShell Parser found the old observer catch token lacked spacing.
+// v1 never executed that script (spawn EINVAL); retain its exact failed bytes.
+result=once(result,'catch[ArgumentException]','catch [ArgumentException]');
+result=once(result,'if($null-ne$t)','if($null -ne $t)');
+const controllerFile='dev-harness/semantic/resident-os-alias-controller.cjs',controller=read(controllerFile,'a52df735e7071091a88d61a0698a57eedce17ef13358ceb73840a0c9ff7801db'),newController='dev-harness/semantic/resident-os-alias-canonical-controller.cjs';
+let ctrl=controller.replaceAll('windows-os-bootstrap-candidate.cjs','windows-os-bootstrap-canonical-candidate.cjs').replaceAll('resident-os-alias-keeper.ps1','resident-os-alias-canonical-keeper.ps1');
+const keeper='dev-harness/semantic/resident-os-alias-keeper.ps1',keep=read(keeper,'fc7591d5908e51112ae1adb14a0f0ff1b36aea282f66dcff21b72b2c456870ed'),newKeeper='dev-harness/semantic/resident-os-alias-canonical-keeper.ps1';
+for(const [file,contents]of[[target,result],[newController,ctrl],[newKeeper,keep]]){const absolute=path.join(ROOT,file);if(fs.existsSync(absolute)&&fs.readFileSync(absolute,'utf8')!==contents)throw Error('canonical output already differs: '+file);fs.writeFileSync(absolute,contents);}
+console.log(JSON.stringify({status:'GENERATED_NOT_EXECUTED',base:{file:original,sha256:H(Buffer.from(source))},outputs:[[target,result],[newController,ctrl],[newKeeper,keep]].map(([file,b])=>({file,bytes:Buffer.byteLength(b),sha256:H(Buffer.from(b))})),changes:'Fixed kernel alias -> native realpath -> alias/canonical root+exe identity and bytes; launch+OS env derive only from that canonical root. Existing UTF8/GAC/NoAutoload/poison/sample/budgets unchanged.'}));

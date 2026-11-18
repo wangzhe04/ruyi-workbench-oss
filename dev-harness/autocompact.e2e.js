@@ -197,23 +197,22 @@ function postStream(port, payload) {
     const ckDir = path.join(HOME, 'checkpoints', sid);
     const snaps = fs.existsSync(ckDir) ? fs.readdirSync(ckDir).filter(f => /^history-\d+-[a-f0-9]{16}\.json\.gz$/.test(f)) : [];
     ok(snaps.length > 0, 'checkpoints/<sid>/history-*.json.gz snapshot exists (' + snaps.join(',') + ')');
-    let snapOk = false, rawRefOk = false;
-    const ref = reducedEvents[0] && /^history:(\d+):([a-f0-9]{16}):(\d+):([a-f0-9]{16})$/.exec(reducedEvents[0].rawRef || '');
-    const refFile = ref ? `history-${ref[1]}-${ref[2]}.json.gz` : '';
+    let snapOk = false, rawRefOk = false, rehydrated = null;
+    const Module=require('node:module'),appFile=path.join(WB,'app','server.js'),privateMod=new Module(appFile,module);privateMod.filename=appFile;privateMod.paths=Module._nodeModulePaths(path.dirname(appFile));privateMod._compile(fs.readFileSync(appFile,'utf8')+'\nmodule.exports.__openObservationRef=observationOpenRawRef;',appFile);
+    const publicRef=reducedEvents[0]?.rawRef||'';let legacy='';
+    try { legacy=await privateMod.exports.__openObservationRef(sid,publicRef); } catch {}
+    const ref=/^history:(\d+):([a-f0-9]{16}):(\d+):([a-f0-9]{16})$/.exec(legacy),refFile=ref?`history-${ref[1]}-${ref[2]}.json.gz`:'';
     if (ref && snaps.includes(refFile)) {
       try {
-        const raw = zlib.gunzipSync(fs.readFileSync(path.join(ckDir, refFile)));
-        const parsed = JSON.parse(raw.toString('utf8'));
-        snapOk = Array.isArray(parsed);
-        const item = parsed[Number(ref[3])];
-        const actual = item && typeof item.content === 'string' ? require('crypto').createHash('sha256').update(item.content).digest('hex').slice(0, 16) : '';
-        rawRefOk = actual === ref[4];
-      } catch { snapOk = false; }
+        const raw=zlib.gunzipSync(fs.readFileSync(path.join(ckDir,refFile))),parsed=JSON.parse(raw.toString('utf8'));
+        snapOk=Array.isArray(parsed);const item=parsed[Number(ref[3])];
+        const actual=item&&typeof item.content==='string'?require('crypto').createHash('sha256').update(item.content).digest('hex').slice(0,16):'';
+        rawRefOk=actual===ref[4];rehydrated=await mod.rehydrateObservation(sid,legacy);
+      } catch { snapOk=false; }
     }
-    ok(snapOk, 'snapshot gunzips to a valid JSON array');
-    ok(rawRefOk, '20-C1 rawRef resolves to canonical snapshot observation with matching hash');
-    const rehydrated = ref ? await mod.rehydrateObservation(sid, reducedEvents[0].rawRef) : null;
-    ok(rehydrated && rehydrated.ok && typeof rehydrated.content === 'string' && rehydrated.content.length === reducedEvents[0].originalChars, '20-C1 exported internal rehydrate primitive returns the canonical bytes');
+    ok(snapOk,'snapshot gunzips to a valid JSON array');
+    ok(/^history:v2:/.test(publicRef)&&rawRefOk,'sealed rawRef resolves to canonical snapshot observation with matching hash');
+    ok(rehydrated&&rehydrated.ok&&typeof rehydrated.content==='string'&&rehydrated.content.length===reducedEvents[0].originalChars,'legacy rehydrate primitive returns canonical bytes');
 
     // (e) 🗜 system message present.
     const msgs = (s1 && s1.session && s1.session.messages) || [];

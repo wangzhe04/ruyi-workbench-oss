@@ -25,7 +25,12 @@ test('allocation zeroing and native Length share one checked size and exact hist
  // The full-native baseline also includes later preserved census/control reads
  // and container-alias handling; their bytes are independent of this ABI fix.
  assert.equal(sha(original),'580077d9bab370584c1192e0e1de5e4efa80207c01d02409f2202f4e0d95cc6d');
- assert.equal(sha(native.replace(rename,original)),'bab7d89c7d28acdb7e99e18646a395da1b3845de40fabee47863f9941fb185aa');
+ // Restore both later reviewed deltas before checking the original full-native pin.
+ const inverse=require('../lib/owned-restore-historical-inverse-fixture');let historical=native;
+ for(const [before,after] of [...inverse.edits].reverse()){assert.equal(historical.split(after).length,2);historical=historical.replace(after,before);}
+ assert.equal(historical.split(inverse.guardNew).length,2);historical=historical.replace(inverse.guardNew,inverse.guardOld);
+ assert.equal(sha(historical.replace(rename,original)),'bab7d89c7d28acdb7e99e18646a395da1b3845de40fabee47863f9941fb185aa');
+ assert.equal(sha(native.replace(rename,original)),'afb1606049938471e10eb5615bee4cbef93f75638d18490fb45c6d3c7d571013');
 });
 test('original namespace guard, parent handle, native error translation and both frees remain in Rename',()=>{
  assert.ok(rename.includes('String.Equals(current, fullTarget, StringComparison.OrdinalIgnoreCase)'));assert.ok(rename.includes('parent.DangerousGetHandle()'));assert.ok(rename.includes('if (status < 0) throw new Win32Exception((int)RtlNtStatusToDosError(status))'));assert.ok(rename.includes('finally { Marshal.FreeHGlobal(iosb); }'));assert.ok(rename.includes('finally { Marshal.FreeHGlobal(value); }'));
@@ -56,7 +61,7 @@ function transport({late=false,holdClose=false}={}){
  const clockApi={setTimeout(fn,ms){const token={fn,ms};timers.set(token,token);return token},clearTimeout(token){timers.delete(token)}};
  const archiveLimit=vm.runInNewContext(constBlock(source,'MIGRATION_CAPSULE_ARCHIVE_LIMIT')+';MIGRATION_CAPSULE_ARCHIVE_LIMIT',{});
  const ctx={Buffer,Promise:P,process:{platform:'win32',env:{},hrtime:{bigint:()=>0n}},migrationCapsuleFail(code){throw Error(code)},MIGRATION_CAPSULE_ARCHIVE_LIMIT:archiveLimit,MIGRATION_SKILL_CAPSULE_NATIVE:native,crypto,require:name=>name==='node:child_process'?cp:name==='node:timers'?clockApi:require(name)};vm.createContext(ctx);
- vm.runInContext(constBlock(source,'migrationCapsuleCode')+'\n'+functionBlock(source,'migrationCapsuleBroker')+'\n'+functionBlock(source,'migrationCapsuleShape')+'\n'+functionBlock(source,'migrationCapsuleCapturePreserved')+'\nglobalThis.api={__eval:code=>eval(code),original:migrationCapsuleBroker,capture:migrationCapsuleCapturePreserved};',ctx,{timeout:1000});
+ vm.runInContext(constBlock(source,'migrationCapsuleCode')+'\n'+constBlock(source,'migrationCapsuleIssuedChildren')+'\n'+functionBlock(source,'migrationCapsuleBroker')+'\n'+functionBlock(source,'migrationCapsuleShape')+'\n'+functionBlock(source,'migrationCapsuleCapturePreserved')+'\nglobalThis.api={__eval:code=>eval(code),original:migrationCapsuleBroker,capture:migrationCapsuleCapturePreserved};',ctx,{timeout:1000});
  let broker;const options={admit:()=>state.admit(),latch:e=>state.retain(e),afterFactory(value){assert.equal(Object.isFrozen(value),true);assert.equal(children.length,1);broker=value;}};return{state,ctx,promises,commands,timers,children,options,get broker(){return broker},get spawned(){return spawned},get closed(){return closed},get killed(){return killed},setNow(n){clock=n}};
 }
 test('test seam runs original factory and hidden preserved API with original command/close Promise identities and exact restoration',async()=>{

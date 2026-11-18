@@ -8,7 +8,7 @@
 //   ① 01-config.js 源码正则锁:11 个键的默认值字面量、stewardEnabledV1 严格布尔归一、
 //      stewardConversationRetention 枚举、各数字键的 clamp 上下限字面量。不写绝对行号,
 //      走「read(path.join(SRC,'01-config.js')) + 正则」的既有静态锁写法(ENGINEERING-SPEC §6)。
-//   ② manifest.json:06i-steward-core.js 紧跟在 06h-retrieval-index.js 之后。
+//   ② manifest.json:06h 的共享检索原语与隔离runtime在06i之前，06d紧跟06i。
 //   ③ 06i-steward-core.js 源码:StewardHooks / STEWARD_EVENT_KINDS 五类 / stewardMayAct /
 //      buildStewardDigestLine 存在,且模块零 require(引擎层纯函数不得反向拉传输/工具层)。
 //   ④ 一处真实回环(非静态):临时 HOME 下 require server.js,对含全部非法值的 config 跑一次
@@ -164,8 +164,10 @@ const files = manifest.modules.map(m => (typeof m === 'string' ? m : m.file));
 const idxH = files.indexOf('06h-retrieval-index.js');
 const idxI = files.indexOf('06i-steward-core.js');
 const idxD = files.indexOf('06d-memory-domain.js');
-ok(idxH >= 0 && idxI === idxH + 1, '06i-steward-core.js 紧跟在 06h-retrieval-index.js 之后');
+ok(idxH >= 0 && idxI === idxH + 3 && files[idxH + 1] === '06ha-semantic-retrieval.js' && files[idxH + 2] === '06hb-semantic-runtime.js',
+  '共享检索06h/06ha和隔离运行时06hb依次位于06i之前');
 ok(idxD >= 0 && idxD === idxI + 1, '06d-memory-domain.js 紧跟在 06i-steward-core.js 之后(06i 插在两者之间)');
+ok(files[idxD + 1] === '06hc-memory-semantic.js', '记忆语义hook在06d定义后绑定');
 
 /* ═══════════════════════ ③ 06i-steward-core.js 源码契约 ═══════════════════════ */
 

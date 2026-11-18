@@ -1,0 +1,3 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{transform}=require('./owned-volume-parity-research.cjs');const s=fs.readFileSync('output/semantic-owned-restore-flush-production-native-v2/source-input/ruyi-workbench/app/src/13u-migration-center.js','utf8');
+test('separate parity command is reversible and compares all requested properties',()=>{const x=transform(s);let z=x.source;for(const [a,b] of [...x.edits].reverse()){assert.equal(z.split(b).length,2);z=z.replace(b,a);}assert.equal(z,s);for(const k of ['ntSerial==winSerial','ntComponent==winComponent','ntFlags==winFlags','String.Equals(ntName,winName.ToString(),StringComparison.Ordinal)'])assert.ok(x.source.includes(k));});

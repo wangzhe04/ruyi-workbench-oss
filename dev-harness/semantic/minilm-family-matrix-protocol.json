@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "status": "PREDECLARED_RESEARCH_NOT_PRODUCTION_SELECTION",
+  "trigger": "User requested MiniLM L6 and L12 tested separately as coarse retrieval and verification, with model size and runtime cost included in the decision.",
+  "coarseModels": [
+    "sentence-transformers/all-MiniLM-L6-v2",
+    "sentence-transformers/all-MiniLM-L12-v2",
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  ],
+  "verificationModels": [
+    "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "cross-encoder/ms-marco-MiniLM-L12-v2",
+    "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+  ],
+  "roles": {
+    "coarse": "Official sentence-transformer mask mean pooling and L2 normalization; exact pinned tokenizer, dimensionality and sequence length; no reranker CLS substitution.",
+    "verification": "Official query-document tokenizer pair and classification logit; do not reuse the Qwen .95 probability threshold or assume a score is answerability.",
+    "language": "The all-MiniLM and English MS MARCO variants are English-labelled checkpoints. Chinese and both cross-language directions remain mandatory empirical groups, not assumed supported. Existing multilingual L12 variants are separate reference models."
+  },
+  "data": {
+    "fixture": "dev-harness/semantic/calibration-fixture.cjs",
+    "fixtureSha256": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
+    "documents": 60,
+    "splits": ["train", "calibration"],
+    "queries": 248,
+    "holdouts": "No check query, consumed acceptance result or acceptance-v6 fixture is used for fitting or selection.",
+    "source": "Original case-preserving same-field text,96 UTF16-character windows with16 overlap, current90a source lexical capture and complete structured-ID eligibility."
+  },
+  "collection": {
+    "physicalBatch": 1,
+    "coarse": "Collect all60 document vectors and248 query vectors per model; keep token counts, complete/truncated status, EOS/special-token contract, model/runtime/tokenizer fingerprints.",
+    "pairUnion": "Union of raw top5 per query across all three coarse models after complete structured-ID eligibility, plus every actual current-source weak lexical field. Deduplicate only exact query/source/field/revision/window identities.",
+    "verificationJointTokenLimit": 512,
+    "overLimit": "Do not truncate to make a result; record unknown and incomplete coverage.",
+    "quantization": "Use pinned official ONNX AVX2 quantized artifacts where available; FP32 versus Q8 token/logit/vector samples recorded as lossy comparison, not assumed equivalent.",
+    "execution": "One model computation workload at a time. Capture real process identity and observed exit; run resource/latency qualification separately without concurrent model workloads."
+  },
+  "developmentMatrix": {
+    "core": "L6 coarse/L6 verifier, L6/L12, L12/L6, L12/L12; multilingual references extend the same matrix rather than replacing failed English variants.",
+    "coarseTopK": [1, 3, 4, 5],
+    "coarseMinimums": [null, 0.34],
+    "verificationLogitMinimums": [-12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8],
+    "note": "The .34 point is the existing small-model setting, an explicit comparison rather than an assumed calibration shared by all checkpoints. Coarse cutoffs never remove independently required weak-lexical verification work.",
+    "strongEvidence": "Preserve authenticated same-field exact phrase, complete effective terms and complete IDs; choose K before strong exemption and never refill K.",
+    "ranking": "Preserve the coarse order and actual lexical/semantic RRF after admission, before final limit; all unknown and partial results stay in prescribed denominators.",
+    "selection": "Require both train/calibration Chinese R@5>=.90, both cross-language R@5>=.85, MRR>=.75, pure unrelated OOD FPR<=.05, exact-ID preservation and complete prescribed pair coverage. Compare byte cost, actual warm new-query/repeated-query latency, paired memory and lifecycle only among qualified candidates; do not assume the largest model wins."
+  },
+  "reporting": {
+    "quality": "Separate Chinese, English, both cross-language directions, pure unrelated OOD, identifier mismatch and related missing-fact diagnostics.",
+    "resources": "Model/tokenizer/dependency bytes and final ZIP measured separately; cold/index/prewarm separate from warm new queries/repeats; actual process RSS/private samples and total paired memory reported without adding independent peaks.",
+    "boundaries": "Development matrix and model microbenchmarks cannot close3.1 gates. Fresh independent quality, current producer/all planned consumers, privacy/lifecycle,1000-fragment p95 and new packages remain required. Default, production model manifest, release version and automatic:null are unchanged."
+  }
+}

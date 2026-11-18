@@ -1,0 +1,27 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const {fixture,root}=require('./lib/fulltext-owned-producer-fixture');
+const {createRunner}=require('./lib/harness');
+const {ok,done}=createRunner('SEMANTIC RETRIEVAL');
+(async()=>{const f=await fixture();try{
+  const source=fs.readFileSync(path.join(root,'ruyi-workbench/app/src/06ha-semantic-retrieval.js'),'utf8');
+  const primitive=vm.runInNewContext(source+'\nSemanticRetrieval;',{require,Date});const observedTexts=[];let calls=0,enabled=true,mutate=false,model='fake-v1';
+  const runtime={prepare:async()=>enabled?{available:true,modelFingerprint:model}:{available:false,reason:'disabled'},encode:async(texts,{role})=>{calls++;if(role==='document')observedTexts.push(...texts);if(mutate){mutate=false;f.allowed.set('A',false);}return {ok:true,modelFingerprint:model,vectors:texts.map(t=>role==='query'?[1,0]:t.includes('TARGET')?[1,0]:t.includes('LOW')?[0.7,0.714]:[0,1])};}};
+  const index=vm.runInNewContext('SessionFullTextIndex',f.hookContext).create({...f.host,resultUnit:'sessions',semantic:primitive.create(runtime)});
+  await f.put('A',[{role:'user',id:'m',content:'x'.repeat(3000)+' TARGET'}]);await f.put('B',[{role:'user',id:'n',content:'literal needle'}]);await f.put('D',[{role:'user',id:'low',content:'LOW'}]);await f.put('E',[{role:'user',id:'boundary',content:'x'.repeat(93)+'TARGET'}]);await index.step(16);
+  const first=await index.search('needle',null,10);ok(first.results[0].reference.sessionId==='B','lexical result retains priority');ok(first.results.some(x=>x.reference.sessionId==='A'&&x.reference.matchKind==='semantic'&&x.semanticScore>0.9&&x.reference.snippetStart>2700&&x.snippet.includes('TARGET')),'semantic fragment beyond first 512 tokens is cited');ok(first.semantic.coverage==='complete','bounded coverage is explicit');ok(!first.results.some(x=>x.reference.sessionId==='D'),'similarity below threshold is excluded');ok(first.results.some(x=>x.reference.sessionId==='E'&&x.snippet.includes('TARGET')),'overlap retains a phrase across fragment boundary');
+  ok(observedTexts.includes('literal needle')&&!observedTexts.includes('LITERAL NEEDLE'),'model receives original spelling rather than uppercase lexical text');
+  const prior=calls;await index.search('needle',null,10);ok(calls===prior,'warm cache avoids re-encoding');
+  model='fake-v2';await index.search('needle',null,10);ok(calls>prior,'model fingerprint isolates cached vectors');
+  enabled=false;const fallback=await index.search('needle',null,10);ok(fallback.results.length===1&&fallback.results[0].reference.sessionId==='B'&&fallback.semantic.status==='disabled','disabled runtime falls back to lexical');
+  enabled=true;await index.invalidate('A');await index.step(16);mutate=true;let revoked=null,sourceDenied=false;try{revoked=await index.search('needle',null,10);}catch(error){if(error.code!=='session_fulltext.source_denied')throw error;sourceDenied=true;}ok(sourceDenied||!revoked.results.some(x=>x.reference.sessionId==='A'),'revoked source cannot be disclosed');
+  const bad=primitive.create({prepare:async()=>({available:true,modelFingerprint:'x'}),encode:async()=>{throw Object.assign(Error('denied'),{code:'privacy.denied'});}});let denied=false;try{await bad.score('q',['d'],{scopeId:'x'});}catch(e){denied=e.code==='privacy.denied';}ok(denied,'security errors propagate');
+  let batches=0;const interrupted=primitive.create({prepare:async()=>({available:true,modelFingerprint:'x'}),encode:async(texts,{role})=>role==='document'&&++batches>1?{ok:false,reason:'timeout'}:{ok:true,modelFingerprint:'x',vectors:texts.map(()=>[1,0])}});
+  const partial=await interrupted.score('q',['a','b','c','d','e'],{scopeId:'x'});ok(partial.status==='timeout'&&partial.coverage.cached===4&&partial.scores[0]===1&&partial.scores[4]===null,'timeout preserves completed batch scores');
+  f.allowed.set('A',true);await f.put('C',[{role:'user',id:'long',content:'x'.repeat(12000)+' TARGET'}]);await index.step(16);
+  const page1=await index.search('unrelated',null,10),page2=await index.search('unrelated',null,10),page3=await index.search('unrelated',null,10);ok(!page1.results.some(x=>x.reference.sessionId==='C')&&page2.results.some(x=>x.reference.sessionId==='C'),'incremental encoding reaches later authorized fragments');ok(page1.results.some(x=>x.reference.sessionId==='A')&&page2.results.some(x=>x.reference.sessionId==='A'),'earlier cached hits remain ranked as coverage grows');ok(JSON.stringify(page2.results.map(x=>x.reference.sessionId))===JSON.stringify(page3.results.map(x=>x.reference.sessionId)),'warm results are stable');
+  let sent=0,blocked=false;
+  const later=vm.runInNewContext('SessionFullTextIndex',f.hookContext).create({...f.host,resultUnit:'sessions',semantic:primitive.create({prepare:async()=>({available:true,modelFingerprint:'fake-guard'}),encode:async(texts,options)=>{if(options.role==='document')f.allowed.set('A',false);await options.beforeEncode?.();if(options.role==='document')sent++;return {ok:true,modelFingerprint:'fake-guard',vectors:texts.map(()=>[1,0])};}})});
+  try{await later.search('independent lookup',null,10);}catch(error){blocked=['session_fulltext.source_denied','session_fulltext.disclosure_changed'].includes(error.code);}ok(blocked&&sent===0,'runtime sink rechecks authorization after asynchronous preparation');
+}finally{await f.close();}done();})().catch(e=>{console.error(e);process.exit(1);});
+

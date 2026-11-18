@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:25:02.040Z",
+  "status": "SHARED_COST_ESTIMATE_REPAIR_SAME_FROZEN_MODEL_POLICY",
+  "previousPrewarmSha256": "659aa0b20e6259e1e3e95977238068e222df2a98e146508457147e39c82db98e",
+  "previousQualityQueries": 0,
+  "modelPolicy": "Fixed Qwen Q4 cosine .44 plus structured IDs, unchanged weights/prefix/pooling/512/physical1/L2",
+  "semanticSourceSha256": "a0e846f4e4ec0199a6384172d7d6c67c9c8c4852258e130a0b7e660db1b9c8d1",
+  "adapterSha256": "fb2b86d3646374d80a5481bf14b3ff88e16451444d5ed52a76f40383da74f89f",
+  "developerSlowColdCompleteSha256": "85961314d85abc9eb2199a1f8c553e117ad39c7276600b4fc378699ae650c427",
+  "fixtureSha256": "32421b607bb5a7584a4d6c8a9c217ce291212229e05a07aded9c96e9a8f204c8",
+  "qualityUsedForChanges": false,
+  "change": "Validated optional synchronous runtime whole-batch cost estimate; shared predictor drives native admission and host prefix sizing after source guards. Deadlines and authority proofs retained."
+}

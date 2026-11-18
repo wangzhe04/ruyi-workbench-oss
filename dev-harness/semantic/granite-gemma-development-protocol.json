@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "FROZEN_NEW_QUANTIZED_EMBEDDING_DEVELOPMENT_NOT_INDEPENDENT_OR_RELEASE",
+  "models": [
+    {"id": "ibm-granite/granite-embedding-97m-multilingual-r2", "revision": "835ad14087e140460703cf0fae09f97d469d65c2", "quantization": "official onnx/model_quint8_avx2.onnx", "dimensions": 384, "pooling": "CLS then L2", "queryPrefix": "", "documentPrefix": "", "officialMaxTokens": 32768},
+    {"id": "onnx-community/embeddinggemma-300m-ONNX", "revision": "5090578d9565bb06545b4552f76e6bc2c93e4a66", "quantization": "community post-training onnx/model_q4.onnx plus exact model_q4.onnx_data", "dimensions": 768, "pooling": "full sentence_embedding output, including mask-mean pooling, both Dense projections and normalization; never substitute last_hidden_state", "queryPrefix": "task: search result | query: ", "documentPrefix": "title: none | text: ", "officialMaxTokens": 2048},
+    {"id": "ibm-granite/granite-embedding-311m-multilingual-r2", "revision": "44399559930365213510b1ee2eb15ded83374f0e", "quantization": "official onnx/model_quint8_avx2.onnx", "dimensions": 768, "pooling": "CLS then L2", "queryPrefix": "", "documentPrefix": "", "officialMaxTokens": 32768}
+  ],
+  "inputBindings": {
+    "dev-harness/semantic/calibration-fixture.cjs": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
+    "output/semantic-minilm-family-coarse-v1/train-cal-inputs.json": "239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c",
+    "dev-harness/semantic/bge-minilm-mixed-development-fixture.json": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+    "output/semantic-qwen-reranker-official-v1/current90a-lexical-capture-v2.json": "f8ef1681cf6c20351b72daea34424da67dbec78f04e4d4e7432b4db84aaef52e",
+    "output/bge-minilm-mixed-capture-v2.json": "3e2964353007e861dd8e8cb07d62e658c5b42be56b2af1b722699eb5f410941d",
+    "output/granite-multilingual-r2-assets-v1/asset-lock.json": "c558a0080c21f40733f4f88b79d7614e2fcca2263fb9469bbd8a22f54832fe86"
+  },
+  "data": {
+    "collection": "Exactly60 original document fields,248 train/cal queries and32 already frozen mixed development queries. No check scoring and no acceptance file import/read/search. Labels/IDs/annotator evidence are never prefixed to source text. Input case is preserved.",
+    "tokenizer": "Before native collection compare full IDs and attention against Rust tokenizers0.22.2 for all340 prefixed originals, using explicit UTF8 IPC. Persist hashes and direct comparison counts. Source tokenizer files are model-specific; do not share or swap them.",
+    "encoding": "Current locked text dependencies, Node24.14, ORT1.21 CPU intra2/inter1, arena default. Effective collection token cap512, no truncation; count full original prefixed tokens first, above512 is unknown. Official long-context maxima remain metadata, not a tested promise. Physical batch1; one model worker at a time, no vector prefills. Reverse first5 docs/first5 queries for order stability.",
+    "identity": "Freeze collector/native worker/helper/tokenizer/model/data/runtime hashes before collection; strict per-model fingerprint and384/768 dimensions. Validate finite L2 vectors, original text hashes/ordinals/tokens; record starts, cold/index/new-query and repeats separately. PID+creation observed exit/OS absence and unknown fence; no restart on observation timeout."
+  },
+  "developmentSelection": {
+    "fitSplit": "train only; calibration/mixed are read only after a selected train point is frozen",
+    "topK": [1,4],
+    "minimumCosines": "Fixed201-point grid -1.00 through1.00 inclusive, step.01. This calibrates each previously untested model; no gap/z/background/learned-head grid.",
+    "perField": "Filter complete structured IDs before global eligibleK; chooseK before strong exemption/cutoff, no refill. Preserve authenticated same-field phrase/all effective terms/all complete IDs. Each weak lexical/metadata field independently uses its own fixed highest original96/16 coarse window and the same selected cosine cutoff, no sibling borrowing or alternate-window retry. No extra verifier.",
+    "fixedCorpusReplay": "Require original90a complete captures and source-before/after bindings. Only60 original fields<=96 and <=1 lexical hit/query for248 replay; mixed capture is32 complete with0 hits. Preserve original lexical/semantic ordering and90a RRF before limit; never count unknown as true negative.",
+    "trainFloors": "Complete coverage, Chinese/English same-language Recall@5>=.90, both cross-language directions>=.85, overall positive MRR>=.75, pureOOD conservative any-result FPR<=.05 in each original query language bucket separately, exact/correction IDs preserved. Missing facts are separate diagnostics, not unrelated negatives.",
+    "select": "Among passing train points chooseK1 first (fewer source projections); then lowest worst-language OOD upper bound, highest overall train MRR, highest train Recall@5, then lowest cutoff. If none pass, RED_NO_TRAIN_POINT; no fallback threshold or alternate method. Freeze the single selected point per model before calibration/mixed evaluation; do not change it after failure.",
+    "validate": "Apply the frozen point unchanged to62 calibration records and32 mixed development records. Calibration retains the same train floors and original Chinese/English OOD denominators. Mixed: Recall@5>=.90 overall, each document-language group>=.85, MRR>=.75, pureOOD upper bound<=.05, complete coverage. If no train point, later splits explicitly NOT_EVALUATED with original denominators."
+  },
+  "reporting": {
+    "quality": "Raw top1/4/5 by direction, selected admitted quality, lexical/semantic/weak/strong roles, unsupported diagnostics, original language denominators including mixed queries with Han, unknown and partials, logical projection counts. Existing development is not independent evidence.",
+    "resources": "Raw graph/external weights/tokenizer/config/dependencies/scripts/Node/package are separate. Current worker RSS and lifetime peak are not whole-desktop incremental RAM or causally paired comparisons. NoMRL dimensions are chosen in this batch; output shortening would not shrink weights.",
+    "provenance": "IBM model card Apache2 does not silently resolve311M Gemma-derived tokenizer terms. EmbeddingGemma community export inherits Gemma terms and is distinct from Google QAT. Original ggml-org QAT Q4_0 GGUF lacking both Dense heads is excluded from full-pipeline quality evaluation.",
+    "fullGoal": "No production/default/version/automatic change or gate closure. Full independent quality must use a newly authored full-language holdout after final method freeze; v6 is not executed but partially exposed and cannot be blind final evidence. Actual search/recovery/explicit-memory consumers,1000-fragment500ms, lifecycle/privacy/CLI/UI207 and new packages remain required before commit/push."
+  }
+}

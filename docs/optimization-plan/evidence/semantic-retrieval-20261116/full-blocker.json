@@ -1,0 +1,13 @@
+{
+  "status": "BLOCKED",
+  "code": "media.component_missing",
+  "causeCode": "ENOENT",
+  "missingPath": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\media-sources",
+  "requiredSource": [
+    {
+      "path": "opencv-windows-ffmpeg-source-sidecar.zip",
+      "bytes": 19922194,
+      "sha256": "09b13acc951b1ca1ed5f0971a51564599daad1bf733d2bf1f02c29d5c124f0d7"
+    }
+  ]
+}

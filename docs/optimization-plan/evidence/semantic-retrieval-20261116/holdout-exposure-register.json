@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "status": "V7_R3_STATIC_QA_PASS_UNCONSUMED_FINAL_IMPLEMENTATION_AND_EXECUTION_FREEZE_PENDING",
+  "newHoldout": {
+    "fixture": "dev-harness/semantic/acceptance-v7-r3-fixture.cjs",
+    "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+    "publicFreeze": "dev-harness/semantic/acceptance-v7-r3-freeze.json",
+    "publicFreezeSha256": "f6ccfdfb58c9309b073f890fca0767abc186b4fc079af69aca6d1159308b993e",
+    "state": "UNCONSUMED",
+    "documents": 96,
+    "queries": 268,
+    "independentAuthorNoOldDataOrScores": true,
+    "bodyDisplayedToRoot": false,
+    "modelExecuted": false,
+    "tokenizerExecuted": false,
+    "independentGroundTruthQa": {
+      "status": "STATIC_QA_PASS_NOT_MODEL_ACCEPTANCE",
+      "review": "dev-harness/semantic/acceptance-v7-r3-review.json",
+      "reviewSha256": "4259aaa829b0ece7d6dd1bd44fb88f3f6bb2a2d954dbe86b8c4201c4c836d00d",
+      "priorFullReview": "dev-harness/semantic/acceptance-v7-r2-review.json",
+      "priorFullReviewSha256": "ba771ce604dcd6763b6ed3b92c22427b0762cf46aa24ca771403da9301a7b877",
+      "newIssues": 0,
+      "scope": "R2 full96/268 independent QA plus sole R3 query change verified; unchanged documents and group denominators."
+    },
+    "finalExecutionFreeze": "PENDING_FINAL_IMPLEMENTATION_AND_RESIDENT_RUNTIME_FREEZE",
+    "blindFinalQualificationAllowed": false,
+    "disposition": "Keep body confidential; root inspected public freeze/hash metadata only. No ordinary source inventory/search/archive or scoring. Static QA does not authorize model execution; final implementation/execution contract still required."
+  },
+  "events": [
+    {
+      "date": "2026-11-17",
+      "fixture": "dev-harness/semantic/acceptance-v6-fixture.cjs",
+      "fixtureSha256": "b1a48d749af8977cc0fc655197aa1bcfb4e4c26c09e0637ab3361ecc55f447df",
+      "kind": "ACCIDENTAL_ROOT_TEXT_SEARCH_RESULT",
+      "sourceLine": 1426,
+      "exposedRecords": 1,
+      "exposedCategory": "unrelated English negative query",
+      "cause": "A broad model-name search for granite/embeddinggemma/gemma included acceptance fixtures and displayed one matching line.",
+      "executed": false,
+      "oneShotMarkerCreated": false,
+      "blindFinalQualificationAllowed": false,
+      "disposition": "Preserve original fixture/freeze/decision unchanged. V6 is not a valid blind final test after this exposure, even though it was never executed. Freeze a new independent full-language fixture after selecting the final method; no substitution of old labels or threshold tuning on the exposed material."
+    }
+  ],
+  "prevention": "dev-harness/semantic/.rgignore excludes acceptance sources/directories from default rg searches. Inclusive command-line -g globs override ignore files, so every broad semantic search using -g must append explicit negative acceptance*.cjs and acceptance-*/** globs. Do not archive or inspect still-blind fixture bodies during progress work.",
+  "otherHoldouts": "No independent Chinese fixture body was displayed or used in model selection. Its eventual scope and eligibility require separate execution review; it cannot substitute for the original full-language requirement.",
+  "release": "All formal SR gates remain pending. This register is a provenance correction, not an evaluation result.",
+  "previousUnconsumedV7": {
+    "fixture": "dev-harness/semantic/acceptance-v7-fixture.cjs",
+    "fixtureSha256": "cc25f548da432088079185144881ba51343d8fc0c848ce69c27f13c27c330244",
+    "publicFreeze": "dev-harness/semantic/acceptance-v7-freeze.json",
+    "publicFreezeSha256": "4639d7b7ca511cde64b99857f65ff6e0f71a894ab9d6660bc16f64cd1409d9b3",
+    "state": "UNCONSUMED",
+    "documents": 96,
+    "queries": 268,
+    "independentAuthorNoOldDataOrScores": true,
+    "bodyDisplayedToRoot": false,
+    "modelExecuted": false,
+    "tokenizerExecuted": false,
+    "independentGroundTruthQa": "PENDING_SEPARATE_FORK_NONE_AUTHOR",
+    "finalExecutionFreeze": "PENDING",
+    "blindFinalQualificationAllowed": false,
+    "disposition": "Original retained unchanged; static QA required revisions; no model/tokenizer execution. Superseded as a proposed fixture by R3."
+  },
+  "staticQaHistory": [
+    {
+      "revision": 1,
+      "issues": 19,
+      "reportSha256": "da5c6788a9a00cc6bcde561d5c95212ea154e30c7eccc544da101dc3b7b7e3cd"
+    },
+    {
+      "revision": 2,
+      "previousIssuesResolved": 19,
+      "newIssues": 1,
+      "reportSha256": "ba771ce604dcd6763b6ed3b92c22427b0762cf46aa24ca771403da9301a7b877"
+    },
+    {
+      "revision": 3,
+      "previousIssuesResolved": 1,
+      "newIssues": 0,
+      "reportSha256": "4259aaa829b0ece7d6dd1bd44fb88f3f6bb2a2d954dbe86b8c4201c4c836d00d"
+    }
+  ]
+}

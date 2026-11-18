@@ -1,0 +1,15 @@
+  // Research proof issuance: no bytes leave this extra private attestation.
+  static object ResearchCandidateIssueProof(Dictionary<string,object> args) {
+    ResearchCandidateAuth(args);object[] files=args["files"] as object[];if(files==null||files.Length>10000)Reject("research_candidate_proof_shape");
+    var expected=new Dictionary<string,Dictionary<string,object>>(StringComparer.OrdinalIgnoreCase);
+    foreach(object raw in files){var row=Dict(raw);if(row.Count!=3||!row.ContainsKey("relative")||!row.ContainsKey("id")||!row.ContainsKey("hash"))Reject("research_candidate_proof_shape");string rel=Str(row["relative"]),id=Str(row["id"]),hash=Str(row["hash"]);if(String.IsNullOrEmpty(rel)||!System.Text.RegularExpressions.Regex.IsMatch(id,"^[a-f0-9]{24}$")||!System.Text.RegularExpressions.Regex.IsMatch(hash,"^[a-f0-9]{64}$"))Reject("research_candidate_proof_shape");foreach(string part in rel.Split('/'))if(!ResearchPart(part))Reject("research_candidate_proof_shape");if(expected.ContainsKey(rel))Reject("research_candidate_proof_namespace");expected.Add(rel,row);}
+    var request=new Dictionary<string,object>{{"root",ResearchCandidateRoot},{"revision",RandomName()}};var first=Dict(CapturePreservedCensusFirst(request)),snapshot=Dict(first["snapshot"]);var entries=new List<object>();var seenDirs=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var seenFiles=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    foreach(object raw in (IEnumerable)snapshot["entries"]){var row=Dict(raw);string rel=Str(row["rel"]),id=Str(row["id"]);bool directory=(bool)row["dir"];var streams=new List<object>();int count=0;
+      foreach(object streamRaw in (IEnumerable)row["streams"]){var stream=Dict(streamRaw);string name=Str(stream["name"]);count++;if(directory||name!="")Reject("research_candidate_proof_streams");streams.Add(new Dictionary<string,object>{{"name",name},{"size",stream["size"]},{"hash",stream["hash"]}});}
+      if(directory){string known;if(count!=0||!ResearchCandidateIds.TryGetValue(rel,out known)||known!=id||!seenDirs.Add(rel))Reject("research_candidate_proof_namespace");}
+      else{Dictionary<string,object> known;if(count!=1||!expected.TryGetValue(rel,out known)||Str(known["id"])!=id||Str(known["hash"])!=Str(Dict(streams[0])["hash"])||!seenFiles.Add(rel))Reject("research_candidate_proof_identity");}
+      entries.Add(new Dictionary<string,object>{{"rel",rel},{"id",id},{"dir",directory},{"attrs",row["attrs"]},{"shortName",row["shortName"]},{"times",row["times"]},{"streams",streams}});
+    }
+    if(seenDirs.Count!=ResearchCandidateIds.Count||seenFiles.Count!=expected.Count)Reject("research_candidate_proof_namespace");
+    return new Dictionary<string,object>{{"rootRel",".work-data/generations/"+System.IO.Path.GetFileName(ResearchCandidateRoot)},{"rootId",ResearchCandidateIds[""]},{"entries",entries}};
+  }

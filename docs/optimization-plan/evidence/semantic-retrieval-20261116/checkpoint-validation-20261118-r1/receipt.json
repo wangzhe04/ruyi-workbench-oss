@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "status": "CHECKPOINT_SCOPED_VALIDATION_PASS_NOT_RELEASE_ACCEPTANCE",
+  "initialFailure": "build --check reported stale app/server.js; regenerated 120280 lines and 29 manifest line ranges, then checked again.",
+  "historicalOriginalDrift": "Candidate freezes preserve their own manifest bytes; current generated manifest differs after rebuild. Archive/source-map integrity passes; do not reuse historical absolute paths as a current freeze.",
+  "unitTemp": "output/checkpoint-unit-temp-20261118-r1",
+  "checks": [
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/build-check.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "name": "server-syntax",
+      "command": [
+        "node",
+        "--check",
+        "ruyi-workbench/app/server.js"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/server-syntax.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "dependency-graph",
+      "command": [
+        "node",
+        "dev-harness/module-dependency-graph.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/dependency-graph.log",
+      "sha256": "dcdfe3dc5212756981ac5db85bf85a732c8b6ac297ae791ee247d2ea4ed2097e"
+    },
+    {
+      "name": "release-gate-unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/semantic-release-gates.test.js"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/release-gate-unit.log",
+      "sha256": "26aafbf7500581a5ed857802c3109261a6535f320009e7c2a9333c72d2c88fce"
+    },
+    {
+      "name": "forced-release-guard",
+      "command": [
+        "node",
+        "dev-harness/lib/semantic-release-gates.cjs",
+        "--require-pass"
+      ],
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/forced-release-guard.log",
+      "sha256": "a2572fe2eaaf95ac1614792e6c650c3a92939c2d006100b8873dbb070592360c"
+    },
+    {
+      "name": "checkpoint-capsule",
+      "command": [
+        "python",
+        "dev-harness/semantic/checkpoint-handoff.py"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/checkpoint-capsule.log",
+      "sha256": "e918604bb495e82d421e2bc58c8dca2f9c5b1dc1ad8ad9dcf47d8c6b4da850fd"
+    },
+    {
+      "name": "historical-original-drift",
+      "command": [
+        "python",
+        "dev-harness/semantic/checkpoint-handoff.py",
+        "--verify-originals"
+      ],
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "log": "docs/optimization-plan/evidence/semantic-retrieval-20261116/checkpoint-validation-20261118-r1/historical-original-drift.log",
+      "sha256": "ae1f13bfe5e90ae096401c91ab459f179b66af0d8457c6c09caf42e392caa383"
+    }
+  ],
+  "fullRegressionRun": false,
+  "nativeActorsStarted": false,
+  "releaseQualified": false
+}

@@ -32,7 +32,7 @@ async function fixture(options={}){
   const scope=()=>({scopeId:'destination',revision:crypto.createHash('sha256').update(String(scopeRevision)).digest('hex')});
   const host={root:()=>sessions,enabled:async()=>enabled,writeJson:fx.atomicWriteJson,keys,validSessionId:api.safeSessionId,
     catalog:async()=>{if(catalogHook)await catalogHook();return [...catalog];},epoch:api.source.epoch,
-    scan:async(id,visit)=>api.source.scan(id,async(row,n)=>{if(scanHook)await scanHook(id,row,n);await visit(row,n);}),sourceSequence:api.source.sequence,
+    scan:async(id,visit,options)=>api.source.scan(id,async(row,n)=>{if(scanHook)await scanHook(id,row,n);await visit(row,n);},options),sourceSequence:api.source.sequence,
     scope:async()=>scope(),assertScope:(_,proof)=>proof.revision===scope().revision,
     authorize:async id=>allowed.get(id)!==false,assertAuthorized:id=>allowed.get(id)!==false,
     project:async input=>{if(projectHook)await projectHook(input);return {reference:input.reference,snippet:target.protectRaw(input.text).text};},noise:api.noise,terms:api.terms};

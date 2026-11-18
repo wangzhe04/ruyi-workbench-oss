@@ -1,5 +1,17 @@
 # 优化方案索引
 
+> 2026-11-18 提交交接：当前进度保存为 pre-RC 快照；M3导出首次native census的generation根Access仍FAIL，M5精确flush放行与同HANDLE观察器修复尚未实现。可信home v2仅无原生检查及编译通过，场景候选已归档、未执行。最新状态与接续顺序见 [148交接](148-3.1-checkpoint-handoff-20261118.md)。SR1–SR8全pending，版本3.0.1、原默认不变。以下旧批次“未commit/push”为当时历史状态。
+
+> 2026-11-18 最新进度：早期Node退出回收限定实测通过；完整加密生命周期在export的generation根Access校验失败，触发路径仍待定位。M5真实本地group测试也保留FAIL：身份观察器首红及后续serve-health/native helper启动断点，尚未进入业务验收。详见 [147 §10.36](147-3.1-semantic-retrieval-and-recovery.md#1036-导出-generation-根断点与固定-http-实测首红)。3.1未达到RC，全部SR门仍pending。
+
+> **2026-11-17 本批接续：** 中文路径／UTF8、真实输入背压停止、并发隔离与helper收到bootstrap前父强杀已由root限定验收通过；更早lease准备、legacy provider与生产接线仍待。普通加密66项回归及allocator单独清理通过，但完整启用仍在target capture的held Basic Access拒绝，具体对象类别尚未证实。M5当前源码79项合成回归通过，不代表真实平台。详见[147 §10.32](147-3.1-semantic-retrieval-and-recovery.md#1032-中文路径输入背压并发与启动竞态实测目标捕获断点)。SR1–SR8全pending，3.1未到RC，版本3.0.1，未commit/push/发布。
+
+> **2026-11-17 当前批次：** EmbeddingGemma 2文本Q4＋CPU-only ORT1.30、768维K1／.70的真实runtime／scorer组件已通过来源凭证、缓存和禁用失效验证；固定290源的消费者方法回归由root独跑110单测＋48策略＋六组既有e2e全过，旧TDZ首红保留。启动后台预热／生命周期常驻要求继续执行，闲置约297MiB仅模型进程测量。新真实DPAPI往返通过，但合成源首次seal仍在根Access元数据守卫拒绝，目标恢复未获通过；硬父退出代理、完整真实模型消费者、千片段性能、新盲测与新包待验。详见[147 §10.28](147-3.1-semantic-retrieval-and-recovery.md#1028-真实transport组件与冻结消费者回归通过)。SR1–SR8全pending，默认与版本3.0.1不变，未commit/push。
+
+> **2026-11-17 接续验收：** [147 §10.8](147-3.1-semantic-retrieval-and-recovery.md#108-stateless独立v5结果与下一片准入)记录stateless Qwen独立v5：R@5 .9875/MRR .9458，纯OOD21/80=26.25%，质量仍RED，不换默认、不调已消耗集合。候选截断/重复引用/ID覆盖状态已分批修复；新完整unit5484项中5449 PASS/0 FAIL/35 SKIP，静态首红为研究原型目录问题；原字节归位后另轮100静态PASS/0 flaky、10项owner unit通过，原fullfast红保留。按需模型与MRL裁剪结论、原生退出证明及headless资源研究均须保留各自范围。[原始收据](evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/manifest.json)可追溯，最终精确验证层/性能/新包仍待，SR1–SR8 pending，版本3.0.1，未commit/push。
+
+> **2026-11-16 首批限定验收：** [147 · 本地语义检索、模型选型与压缩后证据恢复](147-3.1-semantic-retrieval-and-recovery.md)，按用户要求纳入3.1发布门。Sol/Terra实施、主代理集成复验：fast单测5341通过、0失败、35跳过，静态100通过；新Slim r5语义46项及通用资格8项通过。SR1–SR8仍pending，误召回、性能、完整恢复及Full/发行材料等条件尚未关闭；旧包和旧回归不覆盖本批。版本仍3.0.1，3.1未发布。
+
 > **2026-11-16 新包验收：** [146 · 新包构建与包级验收](146-3.1-package-acceptance-20261116.md)：新 Slim / 普通 Full 资格检查通过；修复测试夹具初次导航停留空白文档的问题后，完整命令行包验收 701 条检查通过，两包各 19 核心流程无 flaky，混合输入、合成旧备份恢复及 Full 隔离安装/MCP 检查通过。包源码 `c0ab478b`、验收夹具 `6cea256b` 分开绑定；r3 包级 RED、准备失败与 UNKNOWN 均保留。Full-local、真实桌面/平台及跨机等仍未关闭，版本 3.0.1，3.1 未发布。
 
 > **2026-11-15 完整限定回归：** [145 · 631 项命令行回归](145-3.1-commandline-acceptance-20261115.md)：原清单和预算下 629 PASS / 2 FAIL / 1 FLAKY（含在 PASS），随后仓库卫生、固定 CfT 的启用与加密恢复单件均通过。原完整 RED 不改写；最终夹具未再执行完整 631，四项用户排除用例未执行。47 项原始证据已归档并独立回读。

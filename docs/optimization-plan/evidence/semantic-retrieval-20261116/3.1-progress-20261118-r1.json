@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-11-17T17:07:32.038475+00:00",
+  "status": "PRE_RC_NOT_RELEASE_READY",
+  "method": "Root reread existing independently executed source-bound receipts. No model, native test, blind corpus or platform send executed for this status update.",
+  "rootReceipts": [
+    {
+      "path": "output/semantic-resident-proxy-production-candidate-v4/root-v4-unit-review.json",
+      "sha256": "3250d35174ca8a75034179354f68c4ae9ee1b0595fc8402a36202def4eb07831"
+    },
+    {
+      "path": "output/semantic-proxy-global-fence-window-root-r2/receipt.json",
+      "sha256": "eebb1db0ea783f53d55306dc354a386441c6c4002df378dc0fea83ebb0916a2c"
+    },
+    {
+      "path": "output/semantic-candidate-root-settlement-real-enable-v2/root-review.json",
+      "sha256": "e901402112c51442f701d85038b9369be87314486d3ea6d64ec45549a5c47c1d"
+    },
+    {
+      "path": "output/m5-http-guard-research-20261118-r1/root-review.json",
+      "sha256": "03158b398958146f094cceab78a8583fab0223e80dfa423af6372533d466df0a"
+    }
+  ],
+  "runtime": {
+    "scopedUnitPass": 51,
+    "crossLayerUnknownWindowDenied": true,
+    "genuineNewTopologyLifecycle": "NOT_EXECUTED",
+    "nextControllers": "Agent reports two v2 controllers frozen after explicit module-loading correction; root preflight and execution pending.",
+    "open": [
+      "lease-preparation parent hard exit",
+      "legacy provider proxy integration",
+      "nested restricted Job runtime",
+      "genuine resident idle/disable/shutdown and total process resources"
+    ]
+  },
+  "migration": {
+    "targetPreparationCrossed": true,
+    "encryptedPointerCommitted": true,
+    "wholeEnable": "FAILED_POSTPUBLICATION_UNCERTAIN",
+    "open": [
+      "post-publication cause and recovery",
+      "complete enable/restore/disable",
+      "special ADS/uploads/portable routes",
+      "production dependency integration"
+    ]
+  },
+  "mediaSources": {
+    "rootObservedHeaderArchiveBytes": 32,
+    "headerArchiveSha256": "0040f94d11d0039505328a90b2ff48968db873e9e7967307631bf40ef5679275",
+    "xzDecompressedBytes": 0,
+    "sourceComplete": false,
+    "upstreamRecipeAndSupplement": "Agent-frozen candidate; independent root verification and delivery correction pending"
+  },
+  "m5": {
+    "localSyntheticRootPass": 79,
+    "actualFullHttpQualified": false,
+    "actualPlatformsQualified": false,
+    "researchDeviation": "Retained: unintended TCP attempt in research test; no application writes reported, historical process identity unavailable. Not qualification evidence."
+  },
+  "remainingBatches": [
+    "Close migration and supported-provider resident lifecycle blockers.",
+    "Qualify real-model product consumers, both compaction recovery paths and memory; complete source/privacy 1000-fragment performance and independent frozen quality.",
+    "Close current media/source distribution and platform/workflow requirements; retain external controlled-platform and clean-Windows dependencies.",
+    "Freeze final inputs, build new offline packages and complete authorized installation/upgrade/recovery/rollback and final regression."
+  ],
+  "allEightSemanticGates": "pending",
+  "version": "3.0.1",
+  "defaultModelChanged": false,
+  "committedOrPushed": false,
+  "percentageClaimed": false,
+  "releaseDateCommitted": false,
+  "agentPreparedCandidates": [
+    {
+      "path": "output/semantic-gemma2-proxy-cn-lease-smoke-v2/freeze.json",
+      "sha256": "acfd8541f0e42f55b06e8b6d94efe23a50a399ccefc61db01ee663b397190746"
+    },
+    {
+      "path": "output/semantic-gemma2-proxy-resident-smoke-v2/freeze.json",
+      "sha256": "938e15fc20ae39443e5828cb4d6a31702f5531810387bee342650dee7aab1280"
+    },
+    {
+      "path": "output/m4-openh264-header-supplement-20261118-r1/freeze.json",
+      "sha256": "f8bbb80062949818e3164f66f3b4d326322c117a2000ca5a57ba45ad525630b6"
+    }
+  ]
+}

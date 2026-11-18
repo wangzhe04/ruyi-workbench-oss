@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "scope": "s2b-partial-progress-not-release-approval",
+  "createdAt": "2026-11-16T13:17:32.943009+00:00",
+  "status": "PERFORMANCE_PASS_QUALITY_RED",
+  "files": [
+    {
+      "path": "semantic-s2b-runtime-variants.json.gz",
+      "source": "output/semantic-s2b-runtime-variants.json",
+      "bytes": 2378,
+      "sha256": "42fdf2889e4dff1142fc9893183541d3980bb8a7c39409f1c30ae7126f1fb3c6",
+      "decodedBytes": 10602,
+      "decodedSha256": "f8cfa031c43848ad348c011d6160b91ba7e7f8d2d9c2ab6457f68494e6b89a35"
+    },
+    {
+      "path": "semantic-s2b-runtime-gc.json.gz",
+      "source": "output/semantic-s2b-runtime-gc.json",
+      "bytes": 2095,
+      "sha256": "69375142f08f794adfe3899fd89b088c34a542dc4dc010e98f301f478a31bf18",
+      "decodedBytes": 8547,
+      "decodedSha256": "64fb7b781602d417085d0c2d5736f1384f8056a1156300f4675ec1009a51368d"
+    },
+    {
+      "path": "semantic-s2b-runtime-text-only.json.gz",
+      "source": "output/semantic-s2b-runtime-text-only.json",
+      "bytes": 2066,
+      "sha256": "1c5e942698a68bbbc4d1f343950bf2c026e5c7fb70cb358e2026ae716f2769e7",
+      "decodedBytes": 8557,
+      "decodedSha256": "40f69ae3287c85354fa6e7dee4787b20d2e75b24fcf5a9492885d9d40f961817"
+    },
+    {
+      "path": "semantic-s2b-runtime-direct-ort.json.gz",
+      "source": "output/semantic-s2b-runtime-direct-ort.json",
+      "bytes": 2021,
+      "sha256": "b0c14097abe9b0f973b1e7980242eac0a5c4445794f9c092c91eac4266c3d07a",
+      "decodedBytes": 8560,
+      "decodedSha256": "9f944dbf37b67abee5ca33266b9fbdf74aa7bdd47d0a50974212c7907d0af058"
+    },
+    {
+      "path": "semantic-s2b-resources.json.gz",
+      "source": "output/semantic-s2b-resources.json",
+      "bytes": 829,
+      "sha256": "d9f384e082c8ed96569001f5df969cc0387ec49f7e8847a5441b14e445988a78",
+      "decodedBytes": 2045,
+      "decodedSha256": "493513e4af5360fff2a1c21853f10a8bb65545f2202e6642adcf08bb55c0cf98"
+    },
+    {
+      "path": "semantic-s2b-package-size.json.gz",
+      "source": "output/semantic-s2b-package-size.json",
+      "bytes": 497,
+      "sha256": "2ad594eb11a5f96ca0cbf8c346429004b0c7a15de9725de3555102d385c7b4c7",
+      "decodedBytes": 987,
+      "decodedSha256": "3d97d0cf4ce4c2ffef968dfe10f6e4a3af62e2969b3ad1e3d88b390e82642262"
+    },
+    {
+      "path": "semantic-s2b-runtime-final.log.gz",
+      "source": "output/semantic-s2b-runtime-final.log",
+      "bytes": 395,
+      "sha256": "2dcf32b4d3ee3197ae643bde374ce1c7f43e988499e59528a61ea7fedb719ba2",
+      "decodedBytes": 625,
+      "decodedSha256": "8e977e431c23c507007ce10c4babca6131b42ffb62db28fdbf2ed214865816de"
+    },
+    {
+      "path": "semantic-calibration-v1-selection.json.gz",
+      "source": "output/semantic-calibration-v1-selection.json",
+      "bytes": 134034,
+      "sha256": "663df22c2a1ebec7ebabc0d367b9ffc7302dbafbe3b895a27f17ccf9cfe1e418",
+      "decodedBytes": 4809089,
+      "decodedSha256": "05e75ffa2cdb4de7d292425dc6f7bb24f89850423b0c564dccc58d5a67ebd87f"
+    },
+    {
+      "path": "semantic-calibration-v1-pareto.json.gz",
+      "source": "output/semantic-calibration-v1-pareto.json",
+      "bytes": 127205,
+      "sha256": "31829d47bb95f7b5a9ab6dea8906087674073653355ef202ef279bcd85678b8b",
+      "decodedBytes": 4752114,
+      "decodedSha256": "71e395223d9d8ebd44d349743d4e9a83e4c3623cd79ead113d9038a09fa8887a"
+    },
+    {
+      "path": "semantic-calibration-v2-vectors.json.gz",
+      "source": "output/semantic-calibration-v2-vectors.json",
+      "bytes": 1309335,
+      "sha256": "4dc19d603796316161bb544d9ee9e6ae2d10d9c9b84b32324c5d7fb8e2148185",
+      "decodedBytes": 2996056,
+      "decodedSha256": "ef0fe58dc429e84f88b358329af6c3185ff449d26da9c19d1f70b0a2a3c0eced"
+    },
+    {
+      "path": "semantic-calibration-v2-equivalence.json.gz",
+      "source": "output/semantic-calibration-v2-equivalence.json",
+      "bytes": 343,
+      "sha256": "7fac7062303b7fcda2b0d077262f31f4d3d5f0b2eabc40c0e5f5e197de151e71",
+      "decodedBytes": 651,
+      "decodedSha256": "91865ca7595a7cb1dbc90797a193875055d330e0801a32a0d9b7cd307c9459f8"
+    },
+    {
+      "path": "semantic-calibration-v2-pareto.json.gz",
+      "source": "output/semantic-calibration-v2-pareto.json",
+      "bytes": 127204,
+      "sha256": "30ad8fe990ea7c8c35f36c7b1fff4b738290ef79c207e76084368c8d91856bfe",
+      "decodedBytes": 4752114,
+      "decodedSha256": "be935e06b3dfc310850aa8fe33bc280a23c909e09b50b308dc08bbef5fcd6dbe"
+    },
+    {
+      "path": "semantic-calibration-centered-v1.json.gz",
+      "source": "output/semantic-calibration-centered-v1.json",
+      "bytes": 34478,
+      "sha256": "05b3690da32495be1aefe74e75d1ef0757fc166ea7609ab8bb6fcc8dbe3a81fe",
+      "decodedBytes": 1626350,
+      "decodedSha256": "b4fdaca0ad14b92c3c77f64fc646ba3d97dc67777af7cac3c1d7ea29a62b0e72"
+    },
+    {
+      "path": "semantic-calibration-production-v1.json.gz",
+      "source": "output/semantic-calibration-production-v1.json",
+      "bytes": 28812,
+      "sha256": "e20303ebd26dcc6b08b0ebc1fbeac7cea0a8e203135b797f238ce4637c319378",
+      "decodedBytes": 449835,
+      "decodedSha256": "b2a57bb35b87c2350ae391c3ab339eee1c8e37b8461ad5356365c12aa34aed7e"
+    },
+    {
+      "path": "semantic-s2b-fake-baseline.json.gz",
+      "source": "output/semantic-s2b-fake-baseline.json",
+      "bytes": 1365,
+      "sha256": "83829843c3d968e18b87e26fab6eb8dc0d77f7c61c75333aa367e601b0bbeed6",
+      "decodedBytes": 10255,
+      "decodedSha256": "080b1b11db9db983b16c8a41225386ff81d6b19ec18bb9a63ddd3a94e92072c9"
+    },
+    {
+      "path": "semantic-s2b-real-fixed.json.gz",
+      "source": "output/semantic-s2b-real-fixed.json",
+      "bytes": 4306,
+      "sha256": "37b8aa013c210e092acab80d144b89fca305d08cd9538d50ed06b9c9de8c0a05",
+      "decodedBytes": 33453,
+      "decodedSha256": "dc7f1b06732df510b2a79fe141662b392ff454b7a189857f05c4d9cfcc35196b"
+    },
+    {
+      "path": "semantic-s2b-real-varied.json.gz",
+      "source": "output/semantic-s2b-real-varied.json",
+      "bytes": 7397,
+      "sha256": "264846d03cc9f6b9775006862078ccc3cc95ce2101ffaeda12769817f4a30b5e",
+      "decodedBytes": 69758,
+      "decodedSha256": "85763421d49d149cd858ba0af22ae8f6ccdaa1a024c26eb3e249ffd77157f430"
+    },
+    {
+      "path": "semantic-s2b-real-varied.status.txt.gz",
+      "source": "output/semantic-s2b-real-varied.status.txt",
+      "bytes": 132,
+      "sha256": "d29ed52b6a46a13a237b52c49bbe4819fc98968769d96f3c16c5d6445445b778",
+      "decodedBytes": 143,
+      "decodedSha256": "0241449a470ff8280b321770a951e6ca0d21898e43f48c014d543995e558c0d1"
+    },
+    {
+      "path": "semantic-s2b-real-varied-r2.json.gz",
+      "source": "output/semantic-s2b-real-varied-r2.json",
+      "bytes": 5284,
+      "sha256": "98cc6def32e58e8c92aa9bf88d5fc4a214388eb954c1f9a8c2b6d7eccfe706a4",
+      "decodedBytes": 38204,
+      "decodedSha256": "ba17835cabcb000abb17d5cd87ff153496e42a43115f312aa4f21af24d67ac34"
+    },
+    {
+      "path": "semantic-s2b-root-varied.json.gz",
+      "source": "output/semantic-s2b-root-varied.json",
+      "bytes": 5319,
+      "sha256": "027235f48f28d186cd038bc08d81edff511612bbaffc7c8b21b4dc138777f072",
+      "decodedBytes": 38201,
+      "decodedSha256": "355bcbc5907bea36fd2f5e25e30c9aad8e934a5dc64ead5ecd4b54761bb320d4"
+    },
+    {
+      "path": "semantic-s2b-root-varied.log.gz",
+      "source": "output/semantic-s2b-root-varied.log",
+      "bytes": 346,
+      "sha256": "47f37063679de50d07ecfdcef5d912770c33df592ced137b218b68ba6b6f8802",
+      "decodedBytes": 1556,
+      "decodedSha256": "efca930fa9f91b9b42dd2a9dae103a007d1b3cafff78bb62e413b504ba873183"
+    },
+    {
+      "path": "semantic-s2b-acceptance-v2.json.gz",
+      "source": "output/semantic-s2b-acceptance-v2.json",
+      "bytes": 11684,
+      "sha256": "e657a222f1f32fec6977257dfae875d7b1e88d7d2e66174d58b6021826f5c410",
+      "decodedBytes": 126216,
+      "decodedSha256": "e4c0007f55e0eda45a9457f1387a6461f007c387b2a963423e11b239b6430c86"
+    },
+    {
+      "path": "semantic-s2b-acceptance-v2.log.gz",
+      "source": "output/semantic-s2b-acceptance-v2.log",
+      "bytes": 401,
+      "sha256": "d67fa45e165ad90e0eded4641fa3b251d97007c54b1bc8111db8ec3030299091",
+      "decodedBytes": 853,
+      "decodedSha256": "8ac05e4bc4d3edd7c9d1750321330e5e27e3ef5059e2560152dc324a60e804e5"
+    },
+    {
+      "path": "semantic-s2b-fulltext-final.log.gz",
+      "source": "output/semantic-s2b-fulltext-final.log",
+      "bytes": 7305,
+      "sha256": "c9b9d09e94d9a71a1fe773a27b4368c55ac2c5a42a05120ded3c4fe31b486751",
+      "decodedBytes": 23483,
+      "decodedSha256": "1a6febdd3f119551ad9eb139fe5750d2c0ed2caf78e06b2eb0cc0340417d6bba"
+    },
+    {
+      "path": "semantic-s2b-targeted-final.log.gz",
+      "source": "output/semantic-s2b-targeted-final.log",
+      "bytes": 3283,
+      "sha256": "d8d7910995d5a6f5781fd2a90aa8b930669a60c5f075fb8c5047239593ee5d75",
+      "decodedBytes": 8447,
+      "decodedSha256": "cb77bebede295bcc62b610d5ea0d3a2cb7c6343c008bfb980b468271fe2d2f14"
+    },
+    {
+      "path": "semantic-s2b-observation-admission.log.gz",
+      "source": "output/semantic-s2b-observation-admission.log",
+      "bytes": 572,
+      "sha256": "81dbd78f2c5a0695d6a694a8e6cba547590a9d4a398229ee9e9e80eafccca6d8",
+      "decodedBytes": 1102,
+      "decodedSha256": "ebafd9580ee4c9088ef41cc9f79118fd2afc682f3695899c3661a634550fca41"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T16:22:43.856630+00:00",
+  "status": "SELECTED_FOR_ONCE_ONLY_INDEPENDENT_RESEARCH_NOT_PRODUCTION",
+  "candidateContractSha256": "606edee2e6b8eed0899819d701e2aa9b56028590a60b18f6d9333014c011887a",
+  "candidate": "qwen3-embedding-0.6b-openmycel-q4km-research",
+  "minScore": 0.44,
+  "structuredIdentifierGuard": true,
+  "selectionBasis": "Sole candidate among 45 fixed policies meeting all train/cal recall, MRR and pure OOD gates. No threshold, model or label change after development check.",
+  "developmentCheck": "RED: Chinese2/3 and en-to-zh2/3 at frozen .44; raw unthresholded24/24. This uncertainty remains reported, not tuned away.",
+  "frozenIndependentFixtureSha256": "32421b607bb5a7584a4d6c8a9c217ce291212229e05a07aded9c96e9a8f204c8",
+  "independentFixtureEvaluated": false,
+  "independentRule": "Evaluate v3 once using fixed .44 and actual production index/source proof with actual local native inference. Do not tune against v3; result alone cannot approve an unimplemented production runtime or unmeasured final packages.",
+  "resources": {
+    "modelBytes": 396474560,
+    "runtimeBytes": 47188765,
+    "researchPeakNativeBytes": 778838016
+  },
+  "remainingProductionRequirements": [
+    "independent quality",
+    "production runtime/source binding",
+    "1000-fragment warm latency and cold progress",
+    "package size and full-app resources",
+    "all applicable R1-R13 acceptance"
+  ]
+}

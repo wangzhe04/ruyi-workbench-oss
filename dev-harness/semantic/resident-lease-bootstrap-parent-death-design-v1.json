@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "status": "DESIGN_ONLY_NOT_COMPILED_NOT_EXECUTED_NOT_QUALIFIED",
+  "scope": "Earlier file-lease preparation parent hard-exit. Existing helper/worker Job results do not cover the transient OS PowerShell before product helper ownership.",
+  "currentTopology": [
+    "Node parent starts canonical Windows PowerShell with fixed script and private stdin",
+    "PowerShell waits for EOF and deserializes JSON; only then loads the pinned lease DLL from request bytes",
+    "DLL Run authenticates actual OS parent and checks the held parent handle before each operation",
+    "DLL locks/hashes local files, duplicates leases into parent; returns; PowerShell serializes response and exits",
+    "Only after acquisition does Node start the product double-Job helper"
+  ],
+  "actualGaps": [
+    {
+      "id": "P0",
+      "interval": "CreateProcess(PowerShell) through first executable script instruction",
+      "protection": "Only OS scheduling/startup and the external research containment Job in prior probes. No current product Job or watcher.",
+      "closed": false
+    },
+    {
+      "id": "P1",
+      "interval": "Console.ReadToEnd, JSON/GAC assembly load and lease-DLL load before Run",
+      "protection": "No independent parent watcher. EOF or eventual Run Alive is not independent termination.",
+      "closed": false
+    },
+    {
+      "id": "P2",
+      "interval": "Run while file open, hashing, duplication or response serialization is blocked",
+      "protection": "Only stepwise Alive(parent), cannot interrupt an in-progress blocking operation.",
+      "closed": false
+    }
+  ],
+  "candidateArmOnly": {
+    "status": "NARROW_PARTIAL_DESIGN_NOT_FULL_CLOSURE",
+    "implementation": "New separately pinned DLL and fixed PS script may load bounded verified DLL bytes first, then Arm against actual OS parent PID+creation while holding one process HANDLE, then read stdin and perform Run. Independent background native wait kills only its current PowerShell process for parent signaled or any unexpected wait result; retain guard until actual PowerShell exit, not just Run return.",
+    "benefit": [
+      "Closes P2 after Arm and can move ReadToEnd behind Arm",
+      "Does not use PID-only kill or depend on stdin/stdout/hash progress"
+    ],
+    "residual": "P0 and DLL read/hash/Assembly.Load before Arm remain unprotected. Must never qualify whole bootstrap hard-exit from an Arm-after-load test.",
+    "noCircularProof": "Cannot use this same unguarded PowerShell to acquire the initial lease required to launch its own guardian."
+  },
+  "recommendedWholeTopology": {
+    "status": "PROPOSAL_REQUIRES_ROOT_SCOPE_AND_DISTRIBUTION_REVIEW",
+    "name": "Native application-entry Job owner, before Node is created",
+    "flow": [
+      "A small fixed native launcher is the installed/user-invoked Ruyi entrypoint, rather than a child binary authenticated later by Node through the unguarded PowerShell",
+      "Launcher creates a non-inheritable unnamed KILL_ON_JOB_CLOSE Job; sole Job handle stays in launcher",
+      "Create the application Node process suspended with explicit stdio handle whitelist and no BREAKAWAY; assign it to the Job; only then resume. Assign failure terminates and waits the suspended child, fail closed",
+      "Every future lease PowerShell/helper/worker spawned by Node automatically inherits this Job before it can execute, including the current pre-DLL and pre-Arm windows",
+      "Launcher independently waits a held Node process handle; Node exit closes/terminates the Job and observes active0. Launcher hard-death closes the sole handle and kernel reaps descendants",
+      "Normal shutdown evidence still uses product proxy private ACK, observed worker/helper and lease cleanup. The new outer application Job cannot upgrade an inner unknown to observed"
+    ],
+    "authority": {
+      "root": "The launch entrypoint belongs to the same external installation/package trust root as the current user-invoked Ruyi executable. It is not a JS runtime factory authorized from caller-supplied hashes or env.",
+      "required": [
+        "Reviewed reproducible build/source/binary pins in package manifest and signed/reviewed delivery",
+        "Explicit support policy for protected install versus portable launch paths; package/update transaction must preserve initial executable authority",
+        "Canonical relative bundled Node/application path and fixed approved bytes; no caller-supplied executable or script",
+        "Windows nested-Job compatibility must be tested under actual desktop outer Jobs and restrictions"
+      ],
+      "unresolved": "A new helper dynamically cp.spawned from arbitrary user-writable paths after a JS hash check recreates the image TOCTOU and is not the proposed trust root. Existing file-lease PS cannot be its circular authority. Initial entrypoint delivery/portable authority must be accepted explicitly; fixed local PowerShell SHA is not a cross-Windows answer."
+    },
+    "scopeCosts": [
+      "Moves or adds the initial application executable role and packaging/startup integration; not a tiny 06hb-only patch",
+      "All Node descendants inherit the application Job; effects on user tool/terminal processes that may intentionally survive application closure require product review",
+      "No ActiveProcessLimit=2 at application root: ordinary app children and nested product Jobs must remain functional",
+      "Must not retain product Job handle in independent observers or child processes",
+      "Normal UI/HTTP readiness remains nonblocking and real resident warm semantics unchanged"
+    ],
+    "notYetEvidence": "No new source, binary, native compilation or experiment in this design; existing approved flush helper/DLL remain immutable."
+  },
+  "alternativeEarlyClrWatcher": {
+    "status": "NOT_SELECTED_OR_IMPLEMENTED",
+    "idea": "An inbox .NET compiled expression EventHandler could monitor a held claimed-parent Process handle before reading the DLL, without a new executable. It removes DLL I/O from the unchecked region but still has PowerShell startup/guard registration window, needs actual OS parent authentication and runtime-thread tests; not equivalent to inheriting a Job at CreateProcess.",
+    "reasonNotClaimed": "Does not close P0 and adds another asynchronous guard implementation. Do not silently treat it as whole-topology proof."
+  },
+  "proposedNativeBatches": [
+    {
+      "id": "LEASE_ARM_ONLY",
+      "claim": "Only post-Arm interval, not whole bootstrap",
+      "trigger": "Actual fixed new broker emits a bounded typed watcher-ready witness then its stdin is withheld by transparent test transport. External coordinator validates held parent PID/creation/image and kills through the same native HANDLE.",
+      "mustObserve": [
+        "Broker exact identity absent before a deadline excluding its own watchdog",
+        "No product helper/worker was spawned",
+        "Independent coordinator remains alive; no outer containment kill",
+        "Local file leases are not retained after both owning processes exit"
+      ],
+      "pending": "Separate DLL compile/source authority and root decision first"
+    },
+    {
+      "id": "ENTRY_PARENT_DEATH_BEFORE_BROKER_INPUT",
+      "claim": "Whole topology before DLL/input if entry Job approved",
+      "trigger": "Actual application-entry launcher starts actual Node inside Job. Node starts broker with first stdin bytes withheld. Same-HANDLE kill Node after independent broker identity evidence.",
+      "mustObserve": [
+        "Broker/helper/worker exact identities absent while coordinator is alive",
+        "Launcher held Node exit observed and actual app Job active0 before research fallback",
+        "Record timings from broker CreateProcess to parent kill and broker OS absence; do not accept natural JS/PS watchdog exit",
+        "No replacement; no fallback cleanup contributes to PASS"
+      ]
+    },
+    {
+      "id": "ENTRY_OWNER_DEATH",
+      "trigger": "Same-HANDLE kill the actual sole-Job-handle launcher while Node and broker live.",
+      "mustObserve": [
+        "Node and broker disappear by product kernel close-on-job mechanism before external fallback",
+        "No independent observer holds or duplicates product Job handle",
+        "Normal inner ACK absence stays unknown even when all OS processes are absent"
+      ]
+    },
+    {
+      "id": "ENTRY_STALL_AND_NESTED",
+      "trigger": "Blocked stdin/stdout and restrictive enclosing Job tests, separately frozen.",
+      "mustObserve": [
+        "Parent monitoring independent of every I/O pump",
+        "Nested assign incompatibility fails closed before child resume",
+        "Two instances cannot terminate or clear each other; do not use global process-name kills"
+      ]
+    }
+  ],
+  "forbiddenClaims": [
+    "External research Job active0 is not product hard-parent-exit PASS",
+    "Eventual Alive failure is not an independent watcher",
+    "Post-Arm death PASS does not close pre-Arm gap",
+    "Old 297MiB/4.05s figures do not describe a new launcher or integrated topology",
+    "OS canonical alias is a platform naming root, not a user-provided provider issuer or universal binary hash"
+  ],
+  "bindings": [
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\semantic-runtime\\resident-proxy-file-lease.cs",
+      "bytes": 6811,
+      "sha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-resident-proxy-production-candidate-v4\\candidate\\semantic-runtime\\resident-proxy-file-lease-candidate.cjs",
+      "bytes": 11049,
+      "sha256": "857af74b0a95cf299a02a0ba81ba395c1129283914adcb6367777349798a0d0b"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-resident-proxy-production-candidate-v4\\candidate\\semantic-runtime\\resident-proxy-transport-candidate.cjs",
+      "bytes": 5901,
+      "sha256": "1dbe88c8f0b1b6099a694761f842bd79139710011f1c436e0cc6fa5c239c2ced"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-resident-proxy-production-candidate-v4\\candidate\\semantic-runtime\\resident-proxy-host.cs",
+      "bytes": 19329,
+      "sha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-resident-proxy-production-candidate-v4\\freeze.json",
+      "bytes": 21364,
+      "sha256": "cc59ad81a6299f9237628c5bbad3d466be3838772bc8aa33bacac22dd52d4595"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-gemma2-proxy-cn-lease-smoke-v2\\freeze.json",
+      "bytes": 233135,
+      "sha256": "acfd8541f0e42f55b06e8b6d94efe23a50a399ccefc61db01ee663b397190746"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-gemma2-proxy-resident-smoke-v2\\freeze.json",
+      "bytes": 233243,
+      "sha256": "938e15fc20ae39443e5828cb4d6a31702f5531810387bee342650dee7aab1280"
+    }
+  ]
+}

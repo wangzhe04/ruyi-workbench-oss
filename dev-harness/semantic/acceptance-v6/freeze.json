@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "fixture": "acceptance-v6-fixture.cjs",
+  "sourceSha256": "b1a48d749af8977cc0fc655197aa1bcfb4e4c26c09e0637ab3361ecc55f447df",
+  "frozenAt": "2026-11-16T21:26:01.127439+00:00",
+  "author": "Sol independent acceptance corpus author",
+  "isolation": "Read only v5 runner interface code and frozen v6 candidate decision metadata. Never read v2-v5 fixture queries/results, calibration or selection actual data; no model/service invocation or retrieval trials. Corpus authored for natural source-supported questions, not candidate policy fitting.",
+  "counts": {
+    "documents": 80,
+    "primary": 40,
+    "nearNeighbors": 40,
+    "documentLanguages": {
+      "zh": 40,
+      "en": 40
+    },
+    "positives": 80,
+    "groups": {
+      "zh-zh": 20,
+      "en-zh": 20,
+      "zh-en": 20,
+      "en-en": 20
+    },
+    "pureOOD": 80,
+    "oodLanguages": {
+      "zh": 40,
+      "en": 40
+    },
+    "relatedMissingFact": 16,
+    "exact": 8,
+    "completeStructuredIdentifiers": 6,
+    "keywords": 2
+  },
+  "definitions": {
+    "synthetic": true,
+    "independent": true,
+    "frozenBeforeEvaluation": true,
+    "positiveDefinition": "Source explicitly states answer evidence, including reasonable paraphrase and translation.",
+    "noAnswerDefinition": "Pure unrelated topics outside all corpus event records; no required-document mismatches.",
+    "unsupportedDefinition": "Related event named, requested attribute absent; diagnostic only and excluded from OOD denominator.",
+    "evaluation": "No model calls, trial retrieval, or post-result fitting by author."
+  },
+  "review": [
+    "Every positive manually checked against its primary source; forty distinct activities and relationships, bilingual paraphrases.",
+    "Near neighbors are separate activity types, stages, dates or objects and do not assert conflicting primary evidence.",
+    "All eighty OOD items concern general knowledge unrelated to fictional activity records; no relevant-ID mismatch denominator dilution.",
+    "Sixteen related missing-attribute questions separately label related source and missing field.",
+    "Exact structured IDs appear verbatim in designated source; keyword relevant IDs explicitly listed.",
+    "No prior fixture or model result consulted; frozen before any evaluation."
+  ]
+}

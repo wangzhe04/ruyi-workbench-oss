@@ -1,0 +1,240 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-11-17T18:55:21.890413+00:00",
+  "status": "PRE_RC_EARLY_LEASE_PASS_ENCRYPTED_EXPORT_BLOCKED",
+  "rootEvidence": [
+    {
+      "path": "output/semantic-gemma2-proxy-cn-lease-smoke-v2/root-review.json",
+      "sha256": "5cefda7e31f0d946722cef4406b8dc2f79c19f9aba17fbc9828cae8f2d4c73dd"
+    },
+    {
+      "path": "output/semantic-gemma2-proxy-resident-smoke-v2/root-review.json",
+      "sha256": "e827a2d203cc7bf09ef1c7444b81e2f0a54cea13fb3666e662cfd96b5a95efc0"
+    },
+    {
+      "path": "output/semantic-target-binding-captured-read-v1/root-review.json",
+      "sha256": "e920a3918f2d80d4b21f23cd22a77a78167b7a2505ac6e9e371c4bacf66f2c13"
+    },
+    {
+      "path": "output/m4-source-preparation-root-20261118-r2/root-integration.json",
+      "sha256": "dbc533a2e9e1d4355ebc22d78e19ca2d6970574a32869732724ad62798ce2afa"
+    },
+    {
+      "path": "output/m4-openh264-repro-root-20261118-r1/root-live-integration.json",
+      "sha256": "39b6dc91df94cc612216c1d28b5baa120c0c98051fb41eb08d4f0ae9cfaa574c"
+    },
+    {
+      "path": "output/semantic-desktop-job-list-build-v1/root-review.json",
+      "sha256": "1aafe9678deb1660c2837439fb01cf807020035daea7e751f266353604a66e51"
+    },
+    {
+      "path": "output/semantic-desktop-early-lease-actual-run-v2/root-review.json",
+      "sha256": "449de4e3bcbb009592ec0f9b24b3ffda58669876551c85375137f3c9ccf69f63"
+    },
+    {
+      "path": "output/semantic-encrypted-lifecycle-v3/root-review.json",
+      "sha256": "dbe0830c6b417b850b204aace4fe157c98fb60a90af12a3830c132d33fd1a5bb"
+    },
+    {
+      "path": "output/semantic-export-snapshot-cause-v1/root-review.json",
+      "sha256": "e717dbcf348707b017a87137d10ee223b64172cd96b49ce39f63a9d116d42600"
+    },
+    {
+      "path": "output/semantic-candidate-integrated-v1/root-preflight.json",
+      "sha256": "cbe099992d6299ed1aa647c1daf08db6d28db9bb785cc32ece15098d3a70f4e3"
+    },
+    {
+      "path": "output/semantic-export-snapshot-cause-v1/root-capsule-postwalk.json",
+      "sha256": "3cf71d8ebdc10ed5e596a4ef96c45085b63a2361ddd5ad383fce17ce238428eb"
+    }
+  ],
+  "immutableSourceCapsules": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-media-supplement-reviewed-20261118-r1/manifest.json",
+      "sha256": "0530e40bef3d85caa7cefec81a83a790844d438a7211edf2646dc8de9588494c"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-and-publication-reviewed-20261118-r1/manifest.json",
+      "sha256": "89fe4fdb909fb43d3ec38be125d21b4291954090f35e082eb87315d44f738a71"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ordinary-enable-and-build-tools-reviewed-20261118-r1/manifest.json",
+      "sha256": "9b0de92e7a27d60969a53238cbb636d6743c18dda7e2b29f76eda30f7c4eb714"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-early-lease-and-encrypted-lifecycle-reviewed-20261118-r1/manifest.json",
+      "sha256": "41976a37293d6411c2ab2da086cc491d673c9d6802d2e72d9e7034c29373c332"
+    }
+  ],
+  "runtime": {
+    "status": "ACTUAL_V4_GEMMA2_RESIDENT65_SCOPED_PASS",
+    "measurements": {
+      "startupCallReturnedMs": 0.34950000000003456,
+      "bootstrapToPublicWarmMs": 4696.9352,
+      "reenablePublicWarmMs": 4607.937600000005,
+      "idleMs": 65009,
+      "twoQueryMs": [
+        57.82659999999942,
+        91.2271000000037
+      ],
+      "idleRowsMiB": [
+        {
+          "role": "parent",
+          "workingSetMiB": 67.4375,
+          "privateMiB": 79.11328125
+        },
+        {
+          "role": "helper",
+          "workingSetMiB": 27.5390625,
+          "privateMiB": 20.0
+        },
+        {
+          "role": "worker",
+          "workingSetMiB": 298.59765625,
+          "privateMiB": 293.84375
+        }
+      ],
+      "idleHelperWorkerWorkingSetMiB": 326.13671875,
+      "idleHelperWorkerPrivateMiB": 313.84375,
+      "idleThreeProcessWorkingSetMiB": 393.57421875,
+      "idleThreeProcessPrivateMiB": 392.95703125,
+      "researchJobPeakCommitMiB": 648.95703125,
+      "cacheEvicted": false,
+      "p95Claimed": false,
+      "desktopIncrementalFootprintClaimed": false
+    },
+    "scope": "Actual frozen core/provider and router host prefix with genuine pinned model, synthetic VM configuration/consumer labels. Not full HTTP/UI or incremental desktop footprint.",
+    "cases": [
+      "Chinese/space canonical lease/helper UTF8 echo and observed cleanup",
+      "nonblocking prewarm call and actual public inference before available",
+      "65009ms resident same helper/worker across two synthetic sessions",
+      "disable observed cleanup and empty homes",
+      "reenable new owned helper/worker with public warm",
+      "normal shutdown observed cleanup and naturally empty outer Job"
+    ],
+    "open": [
+      "Full desktop-owner death/handoff/nested/two-instance/normal-close integration; only early Node-death lease reclamation newly passed.",
+      "Trusted resident home/ACL and v5 SystemDrive environment chain remain candidate-only, not native qualified.",
+      "All supported legacy/direct Node/fallback paths, full product source/privacy/consumer/quality/performance and clean Windows qualification."
+    ]
+  },
+  "ordinaryEncryption": {
+    "status": "ACTUAL_ENABLE_PUBLISHED_VERIFIED_SUCCESSOR_SCOPED_PASS",
+    "rootPreflightPass": 73,
+    "bindings": 641,
+    "outerForcedReclaim": false,
+    "rootCauseEvidence": "Earlier first published target comparison kept tree SHA but changed native file time.access. Candidate routes selected binding reads through actual target capture owner grant; original Basic4, fixed proof, namespace, identity and hash checks retained.",
+    "scope": "One ordinary synthetic config/session enable, semantic disabled. New successor observed and deliberately closed by the declared inner test Job; outer drained naturally.",
+    "open": [
+      "Full export/disable/delete lifecycle remains failed at export; no restore/recovery qualification.",
+      "Special ADS/uploads/portable and independent fresh-source Access remain open."
+    ]
+  },
+  "media": {
+    "status": "SOURCE_PREPARATION_AND_OFFLINE_REPRO_BUILDER_INTEGRATED",
+    "sourceSupplementBytes": 15592,
+    "sourceSupplementSha256": "4b2544085f7b545997c77c411948fbed921107b6eedb6c7c83bec66be7cab7c3",
+    "rootSourcePreparationPass": true,
+    "rootValidatorUnitPass": 8,
+    "rootReproBuilderUnitPass": 5,
+    "legacySourceZipAndLockUnchanged": true,
+    "firstFailuresRetained": [
+      "PowerShell document dispatch without PATHEXT; original async Python identity not captured and historical closure not proven.",
+      "Root wrapper test accidentally omitted SystemRoot; managed PowerShell failed before script execution; explicit SystemRoot correction passed without source change."
+    ],
+    "open": [
+      "actual new package source delivery coverage",
+      "actual binary corresponding source/build/relink and applicable distribution obligations"
+    ]
+  },
+  "desktop": {
+    "status": "ROOT_ACTUAL_DESKTOP_EARLY_LEASE_NODE_DEATH_SCOPED_PASS",
+    "bindings": 48,
+    "sourceAndCoordinatorUnitPass": 25,
+    "actualProductHostCodeExecuted": true,
+    "entryPoint": "console probe; no GUI entry point",
+    "liveDesktopModified": false,
+    "independentAbsenceMsAfterKillInvocationStart": 709.1517999999999,
+    "naturalPostEofHoldMs": 30000,
+    "actorAndCoordinatorAliveAtAbsence": true,
+    "actualProductJobClosedObserved": true,
+    "outerForcedReclaim": false,
+    "productArchitecture": "C# WinForms/WebView2 shell plus Node.",
+    "scope": "Same held HANDLE kill of early Node; actual fixed Desktop Host code reclaims preparation PowerShell while console host remains alive. No visible desktop execution.",
+    "firstPreexecutionRejections": [
+      "PS marker/flush outside protected try",
+      "Windows CRLF rejected by coordinator"
+    ],
+    "open": [
+      "actual desktop-owner death, handoff, nested Job, two-instance and normal-close matrix",
+      "trusted resident-home/ACL/lease channel and readonly installation",
+      "supported direct Node/legacy/fallback paths and clean supported Windows"
+    ]
+  },
+  "checks": {
+    "allEightSemanticGates": "pending",
+    "previousReleaseGuardReceipt": {
+      "path": "output/release-guard-20261118-r2/receipt.json",
+      "sha256": "f8740fe35c37a8a3363792d6f32f5069d1748dd044077b0a3bf86ad55362b2f2"
+    },
+    "thisRecordClaimsNewFullRegression": false
+  },
+  "version": "3.0.1",
+  "defaultModelChanged": false,
+  "commitPushOrPublicRelease": false,
+  "whole31Complete": false,
+  "blindFinalCorpusConsumed": false,
+  "migrationIntegration": {
+    "status": "ROOT_INTEGRATED_MIGRATION_75_SCOPED_AND_ORIGINAL_DEPENDENCY_POLICY_PASS",
+    "bindings": 654,
+    "unitPass": 75,
+    "originalDependencyPolicyRetained": true,
+    "scope": "Private injected consumer and original WeakMap issuer; no new reverse dependency or policy-baseline expansion. Native-free qualification only."
+  },
+  "encryptedLifecycle": {
+    "status": "FAIL_RETAIN_AND_FENCE_EXPORT_BEFORE_CAPTURE",
+    "firstRunBindings": 675,
+    "firstRunRootPreflightPass": 81,
+    "diagnosticRunBindings": 687,
+    "diagnosticRootPreflightPass": 10,
+    "observedPrefix": [
+      "enable-published",
+      "actual loopback turn committed",
+      "original three-field readback",
+      "two complete index coverage reports"
+    ],
+    "displayMessages": 2,
+    "originalSourceFields": 3,
+    "diagnostic": {
+      "stage": "before-capture",
+      "code": "work_data_backup.metadata_changed",
+      "branch": "held-basic",
+      "objectClass": "directory",
+      "fields": [
+        "time.access"
+      ],
+      "exactDirectoryOrActorIdentified": false
+    },
+    "wholeLifecycleQualified": false,
+    "exportQualified": false,
+    "disableExecuted": false,
+    "deleteExecuted": false,
+    "semanticModelEnabled": false,
+    "protocolUnknownRetained": true,
+    "outerForcedReclaim": true,
+    "outerActiveAfterReclaim": 0,
+    "failedRootsRetainedWithoutRetryOrRollback": true
+  },
+  "m5": {
+    "status": "FIXED_HTTP_HARNESS_UNDER_ROOT_REVIEW_NOT_EXECUTED",
+    "humanScope": "Five types, nine actions, each fresh fixture and server; do not reduce to one global server.",
+    "knownPreexecutionFindings": [
+      "v4 global single-server rule invalid for full human suite",
+      "keeper compiled before environment cleanup",
+      "query rights and lifecycle identity pairing required review"
+    ],
+    "prior79TestScopeUnchanged": true,
+    "realPlatformQualified": false,
+    "groupContinuousRevisionProviderQualified": false
+  }
+}

@@ -1,0 +1,4 @@
+'use strict';
+// Death-qualification worker only. Always acknowledge entering the busy section
+// before occupying its thread; the native Job must reap it before 20 seconds.
+const fs=require('node:fs');if(process.argv[2]!=='busy')throw Error('death worker mode');fs.writeSync(1,JSON.stringify({type:'ready',pid:process.pid,hasIPC:typeof process.send==='function'})+'\n');setInterval(()=>{},1000);let input='';process.stdin.on('data',bytes=>{input+=bytes.toString('utf8');if(input.length>4096)throw Error('synthetic input bound');if(!input.includes('\n'))return;if(input!=='GO\n')throw Error('bootstrap reached worker or wrong command');process.stdin.removeAllListeners('data');fs.writeSync(1,JSON.stringify({type:'busy-entered',pid:process.pid,at:Date.now()})+'\n');const end=Date.now()+20000;while(Date.now()<end){}});

@@ -1,0 +1,3 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),{closeKeeper}=require('./gemma-q4-diagnostic-keeper-cleanup.cjs');
+test('missing close event at deadline remains unknown, even if absence would succeed',async()=>{let killed=0,absenceCalled=0;const identity={pid:7,created:'10'};const r=await closeKeeper({child:{pid:7,exitCode:null,signalCode:null,kill:()=>{killed++;return true;}},identity,closed:new Promise(()=>{}),observe:async()=>identity,absent:async()=>{absenceCalled++;return true;},timeoutMs:5});assert.equal(killed,1);assert.equal(absenceCalled,0);assert.equal(r.unknown,true);assert.equal(r.closeObserved,false);});

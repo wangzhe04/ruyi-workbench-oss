@@ -1,0 +1,3 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+for(const name of ['ui-tentative-coverage.test.cjs','ui-tentative-coverage-owner-regression.test.cjs']){const file=path.join(__dirname,name),source=fs.readFileSync(file,'utf8'),before='./ui-tentative-coverage-fixture.cjs',after='./owner-lexical-ui-fixture.cjs';if(source.split(before).length!==2)throw Error('One fixture substitution required');const compiled=new Module(file,module);compiled.filename=file;compiled.paths=Module._nodeModulePaths(__dirname);compiled._compile(source.replace(before,after),file);}

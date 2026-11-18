@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "status": "PRE_RC_SOURCE_CHECKPOINT_NOT_RELEASE",
+  "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-checkpoint-source-handoff-20261118-r1/manifest.json",
+  "manifestSha256": "01ff82dede697bbb4b1dd3a9b9acc0644cf9b18c7d6df4f27e0e84650dc83f75",
+  "sourceMap": "output/precommit-source-handoff-20261118-r1/source-input-map.json",
+  "candidates": [
+    {
+      "id": "m3-relative",
+      "contract": "output/semantic-preserved-relative-open-v1/contract.json",
+      "contractSha256": "81cc61e41394f0f95a1f7081c1338595935c140b2158f873930ac6c4b5fc7c0e",
+      "bindings": 721,
+      "sourceInputs": 719
+    },
+    {
+      "id": "home-v2",
+      "contract": "output/semantic-resident-home-service-candidate-v2/freeze.json",
+      "contractSha256": "1c56c2072752e06be34fb9253675b72d4ed38e866b8a1a9c2cc72df8629627ad",
+      "bindings": 61,
+      "sourceInputs": 50
+    },
+    {
+      "id": "home-normal-r2",
+      "contract": "output/home-normal-r2/freeze.json",
+      "contractSha256": "15b99d4c87b3e16d83787c397a4cc8806b42a8b965b9380aad381b9a6ab4762e",
+      "bindings": 104,
+      "sourceInputs": 87
+    },
+    {
+      "id": "home-handoff-r2",
+      "contract": "output/home-handoff-r2/freeze.json",
+      "contractSha256": "459287e1e8c2dfa8ecb60f100dfcf3335be6de2d5debee1663a9af7007476851",
+      "bindings": 104,
+      "sourceInputs": 87
+    },
+    {
+      "id": "standalone-napi",
+      "contract": "output/semantic-standalone-napi-guard-candidate-v1/freeze.json",
+      "contractSha256": "de668a12790c2bd3e2ecd8318f6f1ee18c810af908959fa992980697c59b3e2b",
+      "bindings": 46,
+      "sourceInputs": 28
+    },
+    {
+      "id": "m5-helper-plan",
+      "contract": "output/m5-http-fixed-harness-candidate-20261118-r1/v9-work/helper-plan-freeze.json",
+      "contractSha256": "73e43d3fab6490f97d7eceb7c67d849405ef5395eae8231a4ef8b5240a730740",
+      "bindings": 6,
+      "sourceInputs": 6
+    }
+  ]
+}

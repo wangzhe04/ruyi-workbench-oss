@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "status": "DEVELOPMENT_NUMERICS_ONLY_NOT_STRICT_LATER_READ_ISOLATION_OR_INDEPENDENT_ACCEPTANCE",
+  "protocol": {
+    "path": "dev-harness/semantic/granite-gemma-development-protocol.json",
+    "sha256": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f"
+  },
+  "deviation": "Before train point freeze, Terra parsed complete native vector JSON to summarize timing/RSS; root also parsed complete vectors for provenance, token/vector integrity and process review. Calibration and mixed vector values consequently entered memory before selected-point freeze. They were not scored or used for threshold selection in those reviews, but this does not satisfy a literal prohibition on reading later vectors.",
+  "selectionImplementation": "The frozen selector itself opens train-only vectors and train-only labels. Separate selected-point files preceded later quality calculation. These facts do not erase the earlier complete-vector reads.",
+  "permittedClaim": "Report reproducible retrospective development numbers with the deviation. Do not call the batch strictly isolated, independent, blind, release-qualified or production-ready.",
+  "firstGenerationOnly": "The measured EmbeddingGemma candidate is onnx-community/embeddinggemma-300m-ONNX, not google/embeddinggemma-2. No second-generation timings, RAM or quality were measured in this batch.",
+  "nextIndependentEvidence": "After final method freeze, author a new full-language independent holdout, keep raw later vectors inaccessible to resource/provenance reporters until one-shot quality is recorded, and separately report resource metadata.",
+  "formalGatesClosed": false
+}
