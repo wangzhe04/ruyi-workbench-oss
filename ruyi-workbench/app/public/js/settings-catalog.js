@@ -159,6 +159,7 @@ export const SETTINGS_CATALOG = Object.freeze([
       { key: 'sessionSearchIndexV1', type: 'toggle', fallback: true },
       { key: 'sessionSearchIndexPausedV1', type: 'toggle', fallback: false, dependsOn: { key: 'sessionSearchIndexV1', equals: true } },
       { key: 'runtimeMemoryVectorRecallV1', type: 'toggle', fallback: true },
+      { key: 'semanticRetrievalV1', type: 'toggle', fallback: true },
     ],
   },
   {

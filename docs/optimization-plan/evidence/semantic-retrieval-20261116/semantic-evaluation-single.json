@@ -1,0 +1,3589 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-16T10:48:25.863Z",
+  "fixture": {
+    "name": "ruyi-semantic-development-pilot-v1",
+    "sha256": "51a1d10d87b2adc22cad0e8e2934809b19521436bad0ab8cfedb5ad5a06c8938",
+    "documents": 40,
+    "queries": 40,
+    "releaseHoldout": false
+  },
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.14.0",
+    "cpu": "AMD Ryzen 5 5500                               ",
+    "logicalCpus": 12,
+    "threads": {
+      "intraOp": 2,
+      "interOp": 1
+    }
+  },
+  "limitations": [
+    "Synthetic development pilot only; does not satisfy frozen holdout release quality gate.",
+    "Short snippets only; no 1000-chunk retrieval latency or long-document quality claim.",
+    "No calibrated no-answer rejection threshold; no automatic injection approval."
+  ],
+  "models": [
+    {
+      "modelId": "bge-small-zh-v1.5",
+      "modelFingerprint": "sha256:8098f81208bf094c70d5f952b756a9132b1b454f71e38a6c9823f74426998f1d",
+      "coldReadyMs": 395.5467,
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 4.298099999999977,
+        "p95Ms": 5.5625,
+        "maxMs": 6.148000000000025,
+        "samplesMs": [
+          6.148000000000025,
+          3.55499999999995,
+          4.804200000000037,
+          4.732699999999909,
+          5.449899999999957,
+          4.600699999999961,
+          5.5625,
+          4.733799999999974,
+          4.298099999999977,
+          4.259300000000053,
+          4.610400000000027,
+          4.2712999999999965,
+          4.272800000000075,
+          4.352800000000002,
+          4.003600000000006,
+          4.037000000000035,
+          4.038999999999987,
+          4.217700000000036,
+          4.052300000000059,
+          4.0212999999999965,
+          4.082700000000045,
+          4.303500000000099,
+          4.711999999999989,
+          4.381199999999922,
+          4.5009000000000015,
+          4.366999999999962,
+          4.3537000000000035,
+          4.023799999999937,
+          4.013400000000047,
+          3.93080000000009
+        ]
+      },
+      "modelBytes": 24451175,
+      "onnxBytes": 24010842,
+      "quality": {
+        "all": {
+          "count": 40,
+          "recallAt1": 0.375,
+          "recallAt5": 0.6,
+          "mrr": 0.48983579959043516
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 10,
+            "recallAt1": 0.8,
+            "recallAt5": 0.9,
+            "mrr": 0.8576923076923076
+          },
+          "en-zh": {
+            "count": 10,
+            "recallAt1": 0,
+            "recallAt5": 0.1,
+            "mrr": 0.07653434055288275
+          },
+          "zh-en": {
+            "count": 10,
+            "recallAt1": 0.1,
+            "recallAt5": 0.5,
+            "mrr": 0.2667832167832168
+          },
+          "en-en": {
+            "count": 10,
+            "recallAt1": 0.6,
+            "recallAt5": 0.9,
+            "mrr": 0.7583333333333334
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 6,
+        "topCosineScores": [
+          0.3960648635015891,
+          0.3243314483998549,
+          0.35362614371340434,
+          0.45445432460994123,
+          0.4292455709175705,
+          0.3494729051738977
+        ],
+        "falsePositiveRate": null,
+        "reason": "No rejection threshold calibrated; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "backup-zh",
+          "group": "zh-zh",
+          "rank": 13,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.4871765197463152
+            },
+            {
+              "id": "compression",
+              "score": 0.48530481148631044
+            },
+            {
+              "id": "port-negative",
+              "score": 0.4479086904639959
+            },
+            {
+              "id": "delete",
+              "score": 0.4289204670386854
+            },
+            {
+              "id": "encrypt",
+              "score": 0.4282209883921187
+            }
+          ]
+        },
+        {
+          "id": "backup-en",
+          "group": "en-zh",
+          "rank": 34,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.5827719938432552
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.5127466835574821
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5031427811199352
+            },
+            {
+              "id": "offline",
+              "score": 0.5030722382308987
+            },
+            {
+              "id": "queue",
+              "score": 0.5029469325679312
+            }
+          ]
+        },
+        {
+          "id": "invoice-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.45147881737598
+            },
+            {
+              "id": "leave",
+              "score": 0.42615906764024
+            },
+            {
+              "id": "port",
+              "score": 0.4215367605176348
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.4131164878755903
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.4059246370250051
+            }
+          ]
+        },
+        {
+          "id": "invoice-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.5835759468940531
+            },
+            {
+              "id": "leave",
+              "score": 0.5469315357049904
+            },
+            {
+              "id": "timeout-negative",
+              "score": 0.5322759530645526
+            },
+            {
+              "id": "meeting-negative",
+              "score": 0.5073226855978656
+            },
+            {
+              "id": "queue",
+              "score": 0.49520410731177683
+            }
+          ]
+        },
+        {
+          "id": "password-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.5871617429008082
+            },
+            {
+              "id": "password-negative",
+              "score": 0.5732700721748167
+            },
+            {
+              "id": "encrypt",
+              "score": 0.516646794358144
+            },
+            {
+              "id": "delete",
+              "score": 0.48614245722730404
+            },
+            {
+              "id": "permission",
+              "score": 0.4797943267886443
+            }
+          ]
+        },
+        {
+          "id": "password-en",
+          "group": "en-zh",
+          "rank": 22,
+          "top": [
+            {
+              "id": "leave-negative",
+              "score": 0.593058501185163
+            },
+            {
+              "id": "restore",
+              "score": 0.545967746050305
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.545350373582947
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.5434656801424744
+            },
+            {
+              "id": "meeting",
+              "score": 0.5422327097655983
+            }
+          ]
+        },
+        {
+          "id": "offline-zh",
+          "group": "zh-en",
+          "rank": 12,
+          "top": [
+            {
+              "id": "compression-negative",
+              "score": 0.4905395008661006
+            },
+            {
+              "id": "expiry",
+              "score": 0.48002098181039743
+            },
+            {
+              "id": "source",
+              "score": 0.4759580041595275
+            },
+            {
+              "id": "delete",
+              "score": 0.46439924216985057
+            },
+            {
+              "id": "port-negative",
+              "score": 0.4615975287465571
+            }
+          ]
+        },
+        {
+          "id": "offline-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "offline",
+              "score": 0.512601124075317
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.5062176573632599
+            },
+            {
+              "id": "cancel",
+              "score": 0.5028861090415602
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.5003015953403604
+            },
+            {
+              "id": "restore",
+              "score": 0.49708088047392807
+            }
+          ]
+        },
+        {
+          "id": "delete-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.5780304809072365
+            },
+            {
+              "id": "compression",
+              "score": 0.4927732549567789
+            },
+            {
+              "id": "permission",
+              "score": 0.49088932488962683
+            },
+            {
+              "id": "source",
+              "score": 0.4789504543113755
+            },
+            {
+              "id": "port",
+              "score": 0.45730804077021703
+            }
+          ]
+        },
+        {
+          "id": "delete-en",
+          "group": "en-zh",
+          "rank": 22,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.5320469725430732
+            },
+            {
+              "id": "queue",
+              "score": 0.5004784902942552
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.4936063669038405
+            },
+            {
+              "id": "source",
+              "score": 0.4914498421851214
+            },
+            {
+              "id": "meeting",
+              "score": 0.4910715189643365
+            }
+          ]
+        },
+        {
+          "id": "timeout-zh",
+          "group": "zh-en",
+          "rank": 8,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.5155611028209174
+            },
+            {
+              "id": "stock",
+              "score": 0.5023217999447701
+            },
+            {
+              "id": "compression",
+              "score": 0.4843405464305467
+            },
+            {
+              "id": "memory",
+              "score": 0.47077304736204156
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.4591980987905244
+            }
+          ]
+        },
+        {
+          "id": "timeout-en",
+          "group": "en-en",
+          "rank": 12,
+          "top": [
+            {
+              "id": "cancel",
+              "score": 0.5750953475122562
+            },
+            {
+              "id": "restore",
+              "score": 0.5644895123570196
+            },
+            {
+              "id": "leave",
+              "score": 0.5615827332668204
+            },
+            {
+              "id": "queue",
+              "score": 0.5569536862776574
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5503997717378409
+            }
+          ]
+        },
+        {
+          "id": "encrypt-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "encrypt",
+              "score": 0.6428024123120668
+            },
+            {
+              "id": "permission",
+              "score": 0.5293322773316351
+            },
+            {
+              "id": "source",
+              "score": 0.49867153100331346
+            },
+            {
+              "id": "compression",
+              "score": 0.4939596340007199
+            },
+            {
+              "id": "delete",
+              "score": 0.4351507988276509
+            }
+          ]
+        },
+        {
+          "id": "encrypt-en",
+          "group": "en-zh",
+          "rank": 20,
+          "top": [
+            {
+              "id": "expiry-negative",
+              "score": 0.5177400471233659
+            },
+            {
+              "id": "restore",
+              "score": 0.5145347466229625
+            },
+            {
+              "id": "queue",
+              "score": 0.512699933102484
+            },
+            {
+              "id": "permission-negative",
+              "score": 0.511516639737633
+            },
+            {
+              "id": "source-negative",
+              "score": 0.4996838706805979
+            }
+          ]
+        },
+        {
+          "id": "restore-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.5334796486386025
+            },
+            {
+              "id": "compression",
+              "score": 0.508663359681136
+            },
+            {
+              "id": "restore",
+              "score": 0.5017334640042036
+            },
+            {
+              "id": "timeout",
+              "score": 0.5001054073475466
+            },
+            {
+              "id": "permission",
+              "score": 0.49181903496669305
+            }
+          ]
+        },
+        {
+          "id": "restore-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.4645279572697142
+            },
+            {
+              "id": "leave",
+              "score": 0.4622980119676981
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.45764518371297447
+            },
+            {
+              "id": "queue",
+              "score": 0.456329619394424
+            },
+            {
+              "id": "permission-negative",
+              "score": 0.45517793697930775
+            }
+          ]
+        },
+        {
+          "id": "port-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.5629485032065482
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.5304756377758273
+            },
+            {
+              "id": "permission",
+              "score": 0.475969651349107
+            },
+            {
+              "id": "restore",
+              "score": 0.4678559756449719
+            },
+            {
+              "id": "compression",
+              "score": 0.4593217152577746
+            }
+          ]
+        },
+        {
+          "id": "port-en",
+          "group": "en-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "offline",
+              "score": 0.5534879848067722
+            },
+            {
+              "id": "timeout",
+              "score": 0.5425776792000819
+            },
+            {
+              "id": "port",
+              "score": 0.5398566853809913
+            },
+            {
+              "id": "restore",
+              "score": 0.5396919325123459
+            },
+            {
+              "id": "leave",
+              "score": 0.5320689510913245
+            }
+          ]
+        },
+        {
+          "id": "meeting-zh",
+          "group": "zh-en",
+          "rank": 4,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.4376549639198281
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.4375556793593145
+            },
+            {
+              "id": "queue",
+              "score": 0.4306142716318505
+            },
+            {
+              "id": "meeting",
+              "score": 0.42924234278793855
+            },
+            {
+              "id": "compression",
+              "score": 0.41213989985040766
+            }
+          ]
+        },
+        {
+          "id": "meeting-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "meeting",
+              "score": 0.6096374684373791
+            },
+            {
+              "id": "restore",
+              "score": 0.6024366504533193
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5759403939882084
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.5653424337418772
+            },
+            {
+              "id": "leave",
+              "score": 0.5605795737479752
+            }
+          ]
+        },
+        {
+          "id": "memory-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.520569734826574
+            },
+            {
+              "id": "memory",
+              "score": 0.5190620262664285
+            },
+            {
+              "id": "permission",
+              "score": 0.4759612544623008
+            },
+            {
+              "id": "delete",
+              "score": 0.46137138087568014
+            },
+            {
+              "id": "source",
+              "score": 0.4534375763625473
+            }
+          ]
+        },
+        {
+          "id": "memory-en",
+          "group": "en-zh",
+          "rank": 30,
+          "top": [
+            {
+              "id": "restore-negative",
+              "score": 0.5031145139943549
+            },
+            {
+              "id": "source-negative",
+              "score": 0.5019822415310763
+            },
+            {
+              "id": "restore",
+              "score": 0.49925412757252396
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.4761776869553044
+            },
+            {
+              "id": "meeting",
+              "score": 0.4717631334599771
+            }
+          ]
+        },
+        {
+          "id": "cancel-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.4670107593597997
+            },
+            {
+              "id": "delete",
+              "score": 0.46683269704379055
+            },
+            {
+              "id": "cancel",
+              "score": 0.44530631715726515
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.44515256662843905
+            },
+            {
+              "id": "memory",
+              "score": 0.43920335575039726
+            }
+          ]
+        },
+        {
+          "id": "cancel-en",
+          "group": "en-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "timeout-negative",
+              "score": 0.6071385070140719
+            },
+            {
+              "id": "cancel",
+              "score": 0.5914986314155761
+            },
+            {
+              "id": "leave",
+              "score": 0.5647601071137783
+            },
+            {
+              "id": "queue",
+              "score": 0.5489284742576013
+            },
+            {
+              "id": "offline",
+              "score": 0.5332191496151144
+            }
+          ]
+        },
+        {
+          "id": "source-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.5022580780594035
+            },
+            {
+              "id": "compression",
+              "score": 0.4695216255203142
+            },
+            {
+              "id": "delete",
+              "score": 0.4684734653351242
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.4665782135631688
+            },
+            {
+              "id": "restore",
+              "score": 0.4568210969990817
+            }
+          ]
+        },
+        {
+          "id": "source-en",
+          "group": "en-zh",
+          "rank": 22,
+          "top": [
+            {
+              "id": "leave-negative",
+              "score": 0.5613880655824509
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5268808853091589
+            },
+            {
+              "id": "leave",
+              "score": 0.5069145453776945
+            },
+            {
+              "id": "restore",
+              "score": 0.5058071459803344
+            },
+            {
+              "id": "permission-negative",
+              "score": 0.5052235377942697
+            }
+          ]
+        },
+        {
+          "id": "attachment-zh",
+          "group": "zh-en",
+          "rank": 13,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.5372476057345136
+            },
+            {
+              "id": "compression",
+              "score": 0.52137880463337
+            },
+            {
+              "id": "permission",
+              "score": 0.4952803747369993
+            },
+            {
+              "id": "delete",
+              "score": 0.47604952977130877
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.46262954303279397
+            }
+          ]
+        },
+        {
+          "id": "attachment-en",
+          "group": "en-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "expiry-negative",
+              "score": 0.5702369127968565
+            },
+            {
+              "id": "attachment",
+              "score": 0.5626344840811786
+            },
+            {
+              "id": "queue",
+              "score": 0.5457683633947603
+            },
+            {
+              "id": "meeting",
+              "score": 0.527692474704343
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.491979221701907
+            }
+          ]
+        },
+        {
+          "id": "permission-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.6025254419934424
+            },
+            {
+              "id": "source",
+              "score": 0.5155496769036222
+            },
+            {
+              "id": "delete",
+              "score": 0.49834310260702824
+            },
+            {
+              "id": "encrypt",
+              "score": 0.48228604303265227
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.4699572132989003
+            }
+          ]
+        },
+        {
+          "id": "permission-en",
+          "group": "en-zh",
+          "rank": 13,
+          "top": [
+            {
+              "id": "expiry",
+              "score": 0.6280250499238816
+            },
+            {
+              "id": "restore",
+              "score": 0.6256638586261006
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.6203743485580092
+            },
+            {
+              "id": "leave",
+              "score": 0.5874915908715626
+            },
+            {
+              "id": "queue",
+              "score": 0.574452859236694
+            }
+          ]
+        },
+        {
+          "id": "queue-zh",
+          "group": "zh-en",
+          "rank": 11,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.5119024222666818
+            },
+            {
+              "id": "delete",
+              "score": 0.46760074453983486
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.4415765301855316
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.4408430369812568
+            },
+            {
+              "id": "compression",
+              "score": 0.44011585182260315
+            }
+          ]
+        },
+        {
+          "id": "queue-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "queue",
+              "score": 0.6516459977604876
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.6361854067694778
+            },
+            {
+              "id": "leave",
+              "score": 0.6316330433445344
+            },
+            {
+              "id": "restore",
+              "score": 0.6143640531910616
+            },
+            {
+              "id": "cancel",
+              "score": 0.589069421113023
+            }
+          ]
+        },
+        {
+          "id": "stock-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.546772258601619
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.4400539642451009
+            },
+            {
+              "id": "compression",
+              "score": 0.4366134922224039
+            },
+            {
+              "id": "invoice-negative",
+              "score": 0.4176755285256213
+            },
+            {
+              "id": "port",
+              "score": 0.4142040442881975
+            }
+          ]
+        },
+        {
+          "id": "stock-en",
+          "group": "en-zh",
+          "rank": 23,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.5390577995290127
+            },
+            {
+              "id": "queue",
+              "score": 0.5336428472188841
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.533497974666405
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5291062030846171
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.5205914507676354
+            }
+          ]
+        },
+        {
+          "id": "leave-zh",
+          "group": "zh-en",
+          "rank": 4,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.4482504399548744
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.4437813142048335
+            },
+            {
+              "id": "compression",
+              "score": 0.440218279992701
+            },
+            {
+              "id": "leave",
+              "score": 0.43601943672136
+            },
+            {
+              "id": "permission",
+              "score": 0.43503982702380073
+            }
+          ]
+        },
+        {
+          "id": "leave-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "leave",
+              "score": 0.6169113238889877
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.592504903961559
+            },
+            {
+              "id": "queue",
+              "score": 0.576667156685299
+            },
+            {
+              "id": "cancel",
+              "score": 0.5757638875436518
+            },
+            {
+              "id": "restore",
+              "score": 0.5701666663592105
+            }
+          ]
+        },
+        {
+          "id": "compression-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.6294362726608738
+            },
+            {
+              "id": "delete",
+              "score": 0.5100546926491399
+            },
+            {
+              "id": "memory",
+              "score": 0.4912979557347367
+            },
+            {
+              "id": "source",
+              "score": 0.482313253853756
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.4665121830167956
+            }
+          ]
+        },
+        {
+          "id": "compression-en",
+          "group": "en-zh",
+          "rank": 16,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.6240285553778135
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.5544557978132284
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.5438938278208195
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.5363193933751438
+            },
+            {
+              "id": "cancel",
+              "score": 0.5327256624352806
+            }
+          ]
+        },
+        {
+          "id": "expiry-zh",
+          "group": "zh-en",
+          "rank": 8,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.5211626113064114
+            },
+            {
+              "id": "compression",
+              "score": 0.5017128086489812
+            },
+            {
+              "id": "delete",
+              "score": 0.49775509357497955
+            },
+            {
+              "id": "backup",
+              "score": 0.4934394254335257
+            },
+            {
+              "id": "source",
+              "score": 0.4831627732123069
+            }
+          ]
+        },
+        {
+          "id": "expiry-en",
+          "group": "en-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.6108379192055964
+            },
+            {
+              "id": "expiry",
+              "score": 0.606436746533847
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.5991506913084195
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.5810721099565993
+            },
+            {
+              "id": "leave",
+              "score": 0.5756731530625036
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "modelId": "multilingual-e5-small",
+      "modelFingerprint": "sha256:4366a209e5a4b0c4a19d2c4d469ef3fa6222d90d3f96e339b1b301e45e7c0e49",
+      "coldReadyMs": 1215.3132999999998,
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 5.59940000000006,
+        "p95Ms": 7.207899999999881,
+        "maxMs": 7.291700000000219,
+        "samplesMs": [
+          4.849199999999655,
+          5.553899999999885,
+          4.88839999999982,
+          4.55600000000004,
+          6.775899999999638,
+          6.0145000000002256,
+          6.387400000000071,
+          6.98739999999998,
+          5.895100000000184,
+          7.044400000000223,
+          5.611100000000079,
+          5.20010000000002,
+          5.59940000000006,
+          6.462600000000293,
+          7.291700000000219,
+          4.660899999999856,
+          4.854900000000271,
+          5.065099999999802,
+          7.207899999999881,
+          5.319600000000264,
+          6.540999999999713,
+          5.423900000000231,
+          6.4572000000002845,
+          5.1865999999999985,
+          5.033699999999953,
+          6.993999999999687,
+          6.197100000000319,
+          5.58199999999988,
+          5.1262000000001535,
+          5.707499999999982
+        ]
+      },
+      "modelBytes": 135392183,
+      "onnxBytes": 118308185,
+      "quality": {
+        "all": {
+          "count": 40,
+          "recallAt1": 0.5,
+          "recallAt5": 0.675,
+          "mrr": 0.5889006194669812
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 10,
+            "recallAt1": 0.8,
+            "recallAt5": 1,
+            "mrr": 0.8833333333333334
+          },
+          "en-zh": {
+            "count": 10,
+            "recallAt1": 0.2,
+            "recallAt5": 0.7,
+            "mrr": 0.4207575757575758
+          },
+          "zh-en": {
+            "count": 10,
+            "recallAt1": 0,
+            "recallAt5": 0,
+            "mrr": 0.051511568777014995
+          },
+          "en-en": {
+            "count": 10,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 6,
+        "topCosineScores": [
+          0.8316812490505717,
+          0.8050847565787722,
+          0.8346264621908503,
+          0.7307512666983481,
+          0.7579094898634777,
+          0.8310285456706773
+        ],
+        "falsePositiveRate": null,
+        "reason": "No rejection threshold calibrated; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "backup-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.8812419573621049
+            },
+            {
+              "id": "backup",
+              "score": 0.8721451829949527
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8690824941688711
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.8690772941944295
+            },
+            {
+              "id": "compression",
+              "score": 0.8616330182643284
+            }
+          ]
+        },
+        {
+          "id": "backup-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.8524551318296971
+            },
+            {
+              "id": "backup",
+              "score": 0.7987083111272959
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.7974287405403638
+            },
+            {
+              "id": "expiry",
+              "score": 0.7964047611923228
+            },
+            {
+              "id": "attachment",
+              "score": 0.7946895934891363
+            }
+          ]
+        },
+        {
+          "id": "invoice-zh",
+          "group": "zh-en",
+          "rank": 19,
+          "top": [
+            {
+              "id": "stock-negative",
+              "score": 0.8548388008984688
+            },
+            {
+              "id": "stock",
+              "score": 0.8533190557857135
+            },
+            {
+              "id": "backup",
+              "score": 0.845686346024679
+            },
+            {
+              "id": "memory",
+              "score": 0.8436215560845844
+            },
+            {
+              "id": "password",
+              "score": 0.8389939713903674
+            }
+          ]
+        },
+        {
+          "id": "invoice-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.843225955934665
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.807897697457028
+            },
+            {
+              "id": "leave",
+              "score": 0.797340250011701
+            },
+            {
+              "id": "restore",
+              "score": 0.7874582031796691
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.7846562079673681
+            }
+          ]
+        },
+        {
+          "id": "password-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.9059712105289706
+            },
+            {
+              "id": "password-negative",
+              "score": 0.8886556290227964
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8838319484154736
+            },
+            {
+              "id": "permission",
+              "score": 0.880438223726448
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.8793380049619307
+            }
+          ]
+        },
+        {
+          "id": "password-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.8370127433205738
+            },
+            {
+              "id": "password-negative",
+              "score": 0.8228142021041751
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.812763239362793
+            },
+            {
+              "id": "memory",
+              "score": 0.8122477062576343
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8063644067714304
+            }
+          ]
+        },
+        {
+          "id": "offline-zh",
+          "group": "zh-en",
+          "rank": 23,
+          "top": [
+            {
+              "id": "backup",
+              "score": 0.8814155972159705
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.8730827029526059
+            },
+            {
+              "id": "delete",
+              "score": 0.8666924653890881
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8662084356212751
+            },
+            {
+              "id": "port-negative",
+              "score": 0.8651000826428562
+            }
+          ]
+        },
+        {
+          "id": "offline-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "offline",
+              "score": 0.8077925499573954
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.7943996760133699
+            },
+            {
+              "id": "attachment",
+              "score": 0.7830232071200364
+            },
+            {
+              "id": "source-negative",
+              "score": 0.7818191053784493
+            },
+            {
+              "id": "attachment-negative",
+              "score": 0.7802891088940664
+            }
+          ]
+        },
+        {
+          "id": "delete-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.8948684463813221
+            },
+            {
+              "id": "source",
+              "score": 0.8723193913841593
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8711456375222951
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.8545894200185618
+            },
+            {
+              "id": "memory",
+              "score": 0.8530853534257362
+            }
+          ]
+        },
+        {
+          "id": "delete-en",
+          "group": "en-zh",
+          "rank": 6,
+          "top": [
+            {
+              "id": "attachment",
+              "score": 0.8335840017122187
+            },
+            {
+              "id": "expiry",
+              "score": 0.8311612860840936
+            },
+            {
+              "id": "cancel",
+              "score": 0.830419299871451
+            },
+            {
+              "id": "timeout",
+              "score": 0.8274060512072513
+            },
+            {
+              "id": "restore",
+              "score": 0.8184461128315277
+            }
+          ]
+        },
+        {
+          "id": "timeout-zh",
+          "group": "zh-en",
+          "rank": 19,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.8716080225535671
+            },
+            {
+              "id": "port-negative",
+              "score": 0.8696144895179396
+            },
+            {
+              "id": "delete",
+              "score": 0.8657223860115115
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8644964253209905
+            },
+            {
+              "id": "password",
+              "score": 0.8618896001897592
+            }
+          ]
+        },
+        {
+          "id": "timeout-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "timeout",
+              "score": 0.8293429778590112
+            },
+            {
+              "id": "cancel",
+              "score": 0.8184708876389701
+            },
+            {
+              "id": "leave",
+              "score": 0.7792490631072235
+            },
+            {
+              "id": "port-negative",
+              "score": 0.7754378959345205
+            },
+            {
+              "id": "expiry",
+              "score": 0.7644532072818994
+            }
+          ]
+        },
+        {
+          "id": "encrypt-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "encrypt",
+              "score": 0.8940775602075012
+            },
+            {
+              "id": "permission",
+              "score": 0.8789156064707148
+            },
+            {
+              "id": "delete",
+              "score": 0.876714525155922
+            },
+            {
+              "id": "compression",
+              "score": 0.871051047557759
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8684423305932896
+            }
+          ]
+        },
+        {
+          "id": "encrypt-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "encrypt",
+              "score": 0.8159268064521766
+            },
+            {
+              "id": "timeout",
+              "score": 0.804598113226033
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.8013161285659018
+            },
+            {
+              "id": "source",
+              "score": 0.8002160823050924
+            },
+            {
+              "id": "restore",
+              "score": 0.7986121915832225
+            }
+          ]
+        },
+        {
+          "id": "restore-zh",
+          "group": "zh-en",
+          "rank": 18,
+          "top": [
+            {
+              "id": "compression-negative",
+              "score": 0.8747852783636886
+            },
+            {
+              "id": "delete",
+              "score": 0.8718909389700533
+            },
+            {
+              "id": "compression",
+              "score": 0.8711773462181455
+            },
+            {
+              "id": "password",
+              "score": 0.8667685193448931
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.8658751057849219
+            }
+          ]
+        },
+        {
+          "id": "restore-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.833649847983385
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.8016692247667513
+            },
+            {
+              "id": "attachment",
+              "score": 0.8001240845703387
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.7967346926928418
+            },
+            {
+              "id": "expiry",
+              "score": 0.7958607327933668
+            }
+          ]
+        },
+        {
+          "id": "port-zh",
+          "group": "zh-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "delete-negative",
+              "score": 0.8642213582609366
+            },
+            {
+              "id": "delete",
+              "score": 0.8623021112010484
+            },
+            {
+              "id": "port",
+              "score": 0.8617131214617623
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8562878085634438
+            },
+            {
+              "id": "permission",
+              "score": 0.8553057573332249
+            }
+          ]
+        },
+        {
+          "id": "port-en",
+          "group": "en-zh",
+          "rank": 11,
+          "top": [
+            {
+              "id": "compression-negative",
+              "score": 0.804796805350164
+            },
+            {
+              "id": "delete",
+              "score": 0.8040997232915458
+            },
+            {
+              "id": "timeout",
+              "score": 0.8033029623918523
+            },
+            {
+              "id": "restore",
+              "score": 0.7997436451374028
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.7962518924068089
+            }
+          ]
+        },
+        {
+          "id": "meeting-zh",
+          "group": "zh-en",
+          "rank": 19,
+          "top": [
+            {
+              "id": "memory",
+              "score": 0.8413197975879272
+            },
+            {
+              "id": "backup",
+              "score": 0.8396100029253734
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.8373300461314565
+            },
+            {
+              "id": "delete",
+              "score": 0.8346760977299963
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.8343498101779101
+            }
+          ]
+        },
+        {
+          "id": "meeting-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "meeting",
+              "score": 0.8300028642605236
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.8019424817575538
+            },
+            {
+              "id": "restore",
+              "score": 0.7629315818450901
+            },
+            {
+              "id": "offline-negative",
+              "score": 0.7623301147431542
+            },
+            {
+              "id": "leave",
+              "score": 0.7568553870237569
+            }
+          ]
+        },
+        {
+          "id": "memory-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "memory",
+              "score": 0.8757785741366413
+            },
+            {
+              "id": "compression",
+              "score": 0.8754985323499441
+            },
+            {
+              "id": "delete",
+              "score": 0.8676507154561448
+            },
+            {
+              "id": "stock",
+              "score": 0.8652905324285557
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8617679815240267
+            }
+          ]
+        },
+        {
+          "id": "memory-en",
+          "group": "en-zh",
+          "rank": 12,
+          "top": [
+            {
+              "id": "attachment",
+              "score": 0.8072224992076591
+            },
+            {
+              "id": "restore",
+              "score": 0.8045422410398549
+            },
+            {
+              "id": "timeout",
+              "score": 0.7947833970653009
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.7943162460192579
+            },
+            {
+              "id": "expiry",
+              "score": 0.7899988039727434
+            }
+          ]
+        },
+        {
+          "id": "cancel-zh",
+          "group": "zh-en",
+          "rank": 20,
+          "top": [
+            {
+              "id": "memory",
+              "score": 0.8829129340099995
+            },
+            {
+              "id": "delete",
+              "score": 0.8726464779766835
+            },
+            {
+              "id": "stock",
+              "score": 0.8663812832617617
+            },
+            {
+              "id": "port",
+              "score": 0.8646714994659005
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8641878560509819
+            }
+          ]
+        },
+        {
+          "id": "cancel-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cancel",
+              "score": 0.8289726595923449
+            },
+            {
+              "id": "invoice",
+              "score": 0.8045873028178131
+            },
+            {
+              "id": "timeout",
+              "score": 0.8015069706592147
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.7933239315674103
+            },
+            {
+              "id": "expiry",
+              "score": 0.7932286255822922
+            }
+          ]
+        },
+        {
+          "id": "source-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.876607537106045
+            },
+            {
+              "id": "compression",
+              "score": 0.8665618235642295
+            },
+            {
+              "id": "permission",
+              "score": 0.8654298552410188
+            },
+            {
+              "id": "delete",
+              "score": 0.8639924400832398
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.8584097460116614
+            }
+          ]
+        },
+        {
+          "id": "source-en",
+          "group": "en-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.835487055594861
+            },
+            {
+              "id": "attachment",
+              "score": 0.8001225485372667
+            },
+            {
+              "id": "source",
+              "score": 0.7921239215383991
+            },
+            {
+              "id": "timeout",
+              "score": 0.7792978238751043
+            },
+            {
+              "id": "compression",
+              "score": 0.7791955541530885
+            }
+          ]
+        },
+        {
+          "id": "attachment-zh",
+          "group": "zh-en",
+          "rank": 20,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.8793828345417575
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.8737646850957117
+            },
+            {
+              "id": "permission",
+              "score": 0.8729056620005401
+            },
+            {
+              "id": "source",
+              "score": 0.8700179606202049
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8695948473472583
+            }
+          ]
+        },
+        {
+          "id": "attachment-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "attachment",
+              "score": 0.8644330061170936
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.78675539516071
+            },
+            {
+              "id": "queue",
+              "score": 0.7803765342559738
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.7747542404029342
+            },
+            {
+              "id": "offline",
+              "score": 0.7691245498044356
+            }
+          ]
+        },
+        {
+          "id": "permission-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.8975174976885179
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8780675168742303
+            },
+            {
+              "id": "delete",
+              "score": 0.8747917320441659
+            },
+            {
+              "id": "password-negative",
+              "score": 0.8664535173419539
+            },
+            {
+              "id": "source",
+              "score": 0.8637796498511278
+            }
+          ]
+        },
+        {
+          "id": "permission-en",
+          "group": "en-zh",
+          "rank": 5,
+          "top": [
+            {
+              "id": "expiry",
+              "score": 0.8060643776957608
+            },
+            {
+              "id": "timeout",
+              "score": 0.8029389216138563
+            },
+            {
+              "id": "restore",
+              "score": 0.7945334811261211
+            },
+            {
+              "id": "permission-negative",
+              "score": 0.7857675385322526
+            },
+            {
+              "id": "permission",
+              "score": 0.7849029910269876
+            }
+          ]
+        },
+        {
+          "id": "queue-zh",
+          "group": "zh-en",
+          "rank": 20,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.8669330434597801
+            },
+            {
+              "id": "source",
+              "score": 0.8634334399699813
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.8530720983621524
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8493401394823414
+            },
+            {
+              "id": "password-negative",
+              "score": 0.847680518314269
+            }
+          ]
+        },
+        {
+          "id": "queue-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "queue",
+              "score": 0.8436320902669048
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.804270684228816
+            },
+            {
+              "id": "invoice",
+              "score": 0.7863004471631301
+            },
+            {
+              "id": "restore",
+              "score": 0.7836095042066018
+            },
+            {
+              "id": "attachment",
+              "score": 0.7728751578981518
+            }
+          ]
+        },
+        {
+          "id": "stock-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.8930944020491928
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.8553720002985198
+            },
+            {
+              "id": "source",
+              "score": 0.8511140736975353
+            },
+            {
+              "id": "permission",
+              "score": 0.8403461949922454
+            },
+            {
+              "id": "delete",
+              "score": 0.8387301263788342
+            }
+          ]
+        },
+        {
+          "id": "stock-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.7861143788723263
+            },
+            {
+              "id": "stock",
+              "score": 0.779774512555906
+            },
+            {
+              "id": "leave",
+              "score": 0.7643767628996048
+            },
+            {
+              "id": "attachment-negative",
+              "score": 0.7629372457734356
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.7623697949253072
+            }
+          ]
+        },
+        {
+          "id": "leave-zh",
+          "group": "zh-en",
+          "rank": 18,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.8628276866813988
+            },
+            {
+              "id": "backup",
+              "score": 0.8538619867686866
+            },
+            {
+              "id": "password-negative",
+              "score": 0.8490169589190647
+            },
+            {
+              "id": "memory",
+              "score": 0.8457158808136169
+            },
+            {
+              "id": "password",
+              "score": 0.8428487242089002
+            }
+          ]
+        },
+        {
+          "id": "leave-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "leave",
+              "score": 0.8537874499985372
+            },
+            {
+              "id": "invoice",
+              "score": 0.817122947384262
+            },
+            {
+              "id": "meeting",
+              "score": 0.7919604855574682
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.7907712559639968
+            },
+            {
+              "id": "timeout",
+              "score": 0.7861964563985901
+            }
+          ]
+        },
+        {
+          "id": "compression-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.8898647404908356
+            },
+            {
+              "id": "delete",
+              "score": 0.8877246198504127
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.8711545367910387
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.8668833852162455
+            },
+            {
+              "id": "memory",
+              "score": 0.8624869387576183
+            }
+          ]
+        },
+        {
+          "id": "compression-en",
+          "group": "en-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.8124884952931288
+            },
+            {
+              "id": "attachment",
+              "score": 0.7916482221879678
+            },
+            {
+              "id": "compression",
+              "score": 0.7897074149583748
+            },
+            {
+              "id": "timeout",
+              "score": 0.7830801529334315
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.7802827393440525
+            }
+          ]
+        },
+        {
+          "id": "expiry-zh",
+          "group": "zh-en",
+          "rank": 19,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.8791165140254206
+            },
+            {
+              "id": "encrypt",
+              "score": 0.8689843476744437
+            },
+            {
+              "id": "backup",
+              "score": 0.8688716220864066
+            },
+            {
+              "id": "password",
+              "score": 0.8674541374324537
+            },
+            {
+              "id": "stock",
+              "score": 0.8640440699585678
+            }
+          ]
+        },
+        {
+          "id": "expiry-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "expiry",
+              "score": 0.8768781494474993
+            },
+            {
+              "id": "restore",
+              "score": 0.8490917096418441
+            },
+            {
+              "id": "timeout",
+              "score": 0.8472290986645822
+            },
+            {
+              "id": "cancel",
+              "score": 0.8018177410288798
+            },
+            {
+              "id": "backup",
+              "score": 0.7995449083538894
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "modelId": "paraphrase-multilingual-MiniLM-L12-v2",
+      "modelFingerprint": "sha256:498bb96f522b8157ce0cf7fab5d50ae5728aefb3740eee98046f37260ba37316",
+      "coldReadyMs": 1277.2937000000002,
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 4.250799999999799,
+        "p95Ms": 5.677699999999277,
+        "maxMs": 6.51969999999983,
+        "samplesMs": [
+          3.8698999999996886,
+          4.203599999999824,
+          3.7006000000001222,
+          4.523700000000645,
+          4.537500000000364,
+          4.060699999999997,
+          4.927099999999882,
+          4.935999999999694,
+          4.301000000000386,
+          4.277200000000448,
+          4.022899999999936,
+          5.677699999999277,
+          4.179900000000089,
+          4.189100000000508,
+          4.146499999999833,
+          3.790799999999763,
+          3.8091000000003987,
+          5.039899999999761,
+          3.9335000000000946,
+          4.250799999999799,
+          4.62920000000031,
+          4.533199999999852,
+          6.51969999999983,
+          4.519000000000233,
+          4.195700000000215,
+          4.636600000000726,
+          4.371799999999894,
+          3.6581999999998516,
+          4.470400000000154,
+          4.056599999999889
+        ]
+      },
+      "modelBytes": 135392488,
+      "onnxBytes": 118308126,
+      "quality": {
+        "all": {
+          "count": 40,
+          "recallAt1": 0.725,
+          "recallAt5": 0.9,
+          "mrr": 0.804286616161616
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 10,
+            "recallAt1": 0.8,
+            "recallAt5": 0.8,
+            "mrr": 0.8291666666666668
+          },
+          "en-zh": {
+            "count": 10,
+            "recallAt1": 0.8,
+            "recallAt5": 1,
+            "mrr": 0.8699999999999999
+          },
+          "zh-en": {
+            "count": 10,
+            "recallAt1": 0.6,
+            "recallAt5": 0.9,
+            "mrr": 0.7424242424242424
+          },
+          "en-en": {
+            "count": 10,
+            "recallAt1": 0.7,
+            "recallAt5": 0.9,
+            "mrr": 0.7755555555555556
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 6,
+        "topCosineScores": [
+          0.15416480857477455,
+          0.14141316785977712,
+          0.09947532222009509,
+          0.1039815667057738,
+          0.08637468779978967,
+          0.2030991764690273
+        ],
+        "falsePositiveRate": null,
+        "reason": "No rejection threshold calibrated; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "backup-zh",
+          "group": "zh-zh",
+          "rank": 6,
+          "top": [
+            {
+              "id": "port-negative",
+              "score": 0.43464514965983736
+            },
+            {
+              "id": "restore",
+              "score": 0.40871793578864785
+            },
+            {
+              "id": "compression",
+              "score": 0.3842399195182553
+            },
+            {
+              "id": "source",
+              "score": 0.3557637765332085
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.2912862582155586
+            }
+          ]
+        },
+        {
+          "id": "backup-en",
+          "group": "en-zh",
+          "rank": 5,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.32873947147190996
+            },
+            {
+              "id": "compression",
+              "score": 0.28006100743277174
+            },
+            {
+              "id": "port-negative",
+              "score": 0.26850867958993735
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.24907028841406448
+            },
+            {
+              "id": "backup",
+              "score": 0.19310043982376704
+            }
+          ]
+        },
+        {
+          "id": "invoice-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.5199228059197122
+            },
+            {
+              "id": "leave",
+              "score": 0.26590886588304125
+            },
+            {
+              "id": "timeout-negative",
+              "score": 0.22291045534518153
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.21860000900327065
+            },
+            {
+              "id": "stock",
+              "score": 0.20703269818627046
+            }
+          ]
+        },
+        {
+          "id": "invoice-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "invoice",
+              "score": 0.5629777574518326
+            },
+            {
+              "id": "invoice-negative",
+              "score": 0.245838100514321
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.23454885495585104
+            },
+            {
+              "id": "leave",
+              "score": 0.22605684047955166
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.1700610940841702
+            }
+          ]
+        },
+        {
+          "id": "password-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.7044137278223596
+            },
+            {
+              "id": "password-negative",
+              "score": 0.5758323217994157
+            },
+            {
+              "id": "encrypt",
+              "score": 0.5473795252253719
+            },
+            {
+              "id": "permission",
+              "score": 0.2909351185847645
+            },
+            {
+              "id": "port-negative",
+              "score": 0.2619018230461775
+            }
+          ]
+        },
+        {
+          "id": "password-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.48141189329855927
+            },
+            {
+              "id": "password-negative",
+              "score": 0.3593549031204621
+            },
+            {
+              "id": "encrypt",
+              "score": 0.33701619705169833
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.3080507383839912
+            },
+            {
+              "id": "invoice-negative",
+              "score": 0.24773902784655502
+            }
+          ]
+        },
+        {
+          "id": "offline-zh",
+          "group": "zh-en",
+          "rank": 11,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.4204143443597398
+            },
+            {
+              "id": "port-negative",
+              "score": 0.3757794723769605
+            },
+            {
+              "id": "expiry",
+              "score": 0.30428601439200637
+            },
+            {
+              "id": "delete",
+              "score": 0.2957203727283221
+            },
+            {
+              "id": "timeout",
+              "score": 0.28975718873968476
+            }
+          ]
+        },
+        {
+          "id": "offline-en",
+          "group": "en-en",
+          "rank": 18,
+          "top": [
+            {
+              "id": "compression-negative",
+              "score": 0.5022596761598295
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.48408524392585156
+            },
+            {
+              "id": "source-negative",
+              "score": 0.34197588726346867
+            },
+            {
+              "id": "compression",
+              "score": 0.2886826651253195
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.26173760636857674
+            }
+          ]
+        },
+        {
+          "id": "delete-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.6374599484044834
+            },
+            {
+              "id": "cancel",
+              "score": 0.4480321588504011
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.4042808118953989
+            },
+            {
+              "id": "permission",
+              "score": 0.37579882040454415
+            },
+            {
+              "id": "source",
+              "score": 0.3691118550346238
+            }
+          ]
+        },
+        {
+          "id": "delete-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delete",
+              "score": 0.7274248031931504
+            },
+            {
+              "id": "compression",
+              "score": 0.4822037253073559
+            },
+            {
+              "id": "restore",
+              "score": 0.43335891013806255
+            },
+            {
+              "id": "expiry",
+              "score": 0.4189532102359849
+            },
+            {
+              "id": "timeout",
+              "score": 0.405686903560396
+            }
+          ]
+        },
+        {
+          "id": "timeout-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "timeout",
+              "score": 0.6421955250786259
+            },
+            {
+              "id": "port",
+              "score": 0.493868184041662
+            },
+            {
+              "id": "stock",
+              "score": 0.4585721379742612
+            },
+            {
+              "id": "cancel",
+              "score": 0.4475412950663
+            },
+            {
+              "id": "expiry",
+              "score": 0.38742115083156903
+            }
+          ]
+        },
+        {
+          "id": "timeout-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "timeout",
+              "score": 0.6091804246748389
+            },
+            {
+              "id": "stock",
+              "score": 0.5232625664717131
+            },
+            {
+              "id": "cancel",
+              "score": 0.4097806363916689
+            },
+            {
+              "id": "meeting-negative",
+              "score": 0.3494545108630589
+            },
+            {
+              "id": "expiry",
+              "score": 0.3475395058911035
+            }
+          ]
+        },
+        {
+          "id": "encrypt-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "encrypt",
+              "score": 0.551590005352385
+            },
+            {
+              "id": "permission",
+              "score": 0.5247451153744346
+            },
+            {
+              "id": "compression",
+              "score": 0.3719047177437058
+            },
+            {
+              "id": "delete",
+              "score": 0.3598474483993642
+            },
+            {
+              "id": "password",
+              "score": 0.35403047259686254
+            }
+          ]
+        },
+        {
+          "id": "encrypt-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "encrypt",
+              "score": 0.6942599645380488
+            },
+            {
+              "id": "password",
+              "score": 0.48823615121992747
+            },
+            {
+              "id": "restore",
+              "score": 0.4076236815692419
+            },
+            {
+              "id": "permission",
+              "score": 0.398358458269377
+            },
+            {
+              "id": "source",
+              "score": 0.35996119883147953
+            }
+          ]
+        },
+        {
+          "id": "restore-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "restore",
+              "score": 0.4614527246654562
+            },
+            {
+              "id": "memory",
+              "score": 0.3905375706157847
+            },
+            {
+              "id": "compression",
+              "score": 0.3672010616679978
+            },
+            {
+              "id": "password",
+              "score": 0.3436265483596816
+            },
+            {
+              "id": "timeout",
+              "score": 0.32820411573766234
+            }
+          ]
+        },
+        {
+          "id": "restore-en",
+          "group": "en-en",
+          "rank": 5,
+          "top": [
+            {
+              "id": "backup-negative",
+              "score": 0.39033405791182235
+            },
+            {
+              "id": "compression",
+              "score": 0.33510574396165344
+            },
+            {
+              "id": "password",
+              "score": 0.33376001110804493
+            },
+            {
+              "id": "meeting",
+              "score": 0.32313427741867035
+            },
+            {
+              "id": "restore",
+              "score": 0.3167738282430878
+            }
+          ]
+        },
+        {
+          "id": "port-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.4408649404478984
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.3919394348464496
+            },
+            {
+              "id": "password",
+              "score": 0.3827353059587512
+            },
+            {
+              "id": "port-negative",
+              "score": 0.362717819027239
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.33537092240046834
+            }
+          ]
+        },
+        {
+          "id": "port-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "port",
+              "score": 0.44580091819073414
+            },
+            {
+              "id": "password",
+              "score": 0.2731480667070802
+            },
+            {
+              "id": "timeout",
+              "score": 0.2501682156209467
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.24111218346090538
+            },
+            {
+              "id": "permission",
+              "score": 0.22831000646664706
+            }
+          ]
+        },
+        {
+          "id": "meeting-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "meeting",
+              "score": 0.6692613468623431
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.35846559613388573
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.33405449767892803
+            },
+            {
+              "id": "restore",
+              "score": 0.3153368249013009
+            },
+            {
+              "id": "queue",
+              "score": 0.3061666156694835
+            }
+          ]
+        },
+        {
+          "id": "meeting-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "meeting",
+              "score": 0.6241299097642231
+            },
+            {
+              "id": "restore-negative",
+              "score": 0.43402304871450315
+            },
+            {
+              "id": "leave",
+              "score": 0.35200515873983584
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.3350925573818704
+            },
+            {
+              "id": "backup",
+              "score": 0.2907886417317411
+            }
+          ]
+        },
+        {
+          "id": "memory-zh",
+          "group": "zh-zh",
+          "rank": 8,
+          "top": [
+            {
+              "id": "queue-negative",
+              "score": 0.4075210435675955
+            },
+            {
+              "id": "source",
+              "score": 0.4075002788041842
+            },
+            {
+              "id": "compression",
+              "score": 0.4012760657537166
+            },
+            {
+              "id": "timeout",
+              "score": 0.3772368481325166
+            },
+            {
+              "id": "encrypt",
+              "score": 0.3738940847830274
+            }
+          ]
+        },
+        {
+          "id": "memory-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.5149817150582398
+            },
+            {
+              "id": "memory",
+              "score": 0.4679029347414113
+            },
+            {
+              "id": "source",
+              "score": 0.46231274648973647
+            },
+            {
+              "id": "permission",
+              "score": 0.3759758478550818
+            },
+            {
+              "id": "delete",
+              "score": 0.37528121641672113
+            }
+          ]
+        },
+        {
+          "id": "cancel-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "timeout",
+              "score": 0.5063972257169755
+            },
+            {
+              "id": "cancel",
+              "score": 0.469801381830225
+            },
+            {
+              "id": "stock",
+              "score": 0.44926113808034057
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.3942314390375427
+            },
+            {
+              "id": "memory",
+              "score": 0.38563283955662747
+            }
+          ]
+        },
+        {
+          "id": "cancel-en",
+          "group": "en-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "leave",
+              "score": 0.5083554462847405
+            },
+            {
+              "id": "cancel",
+              "score": 0.4701496119880506
+            },
+            {
+              "id": "timeout-negative",
+              "score": 0.38639427389260955
+            },
+            {
+              "id": "invoice",
+              "score": 0.3858418403185246
+            },
+            {
+              "id": "stock",
+              "score": 0.38575567002929334
+            }
+          ]
+        },
+        {
+          "id": "source-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.47654077721604626
+            },
+            {
+              "id": "compression",
+              "score": 0.4325792671386232
+            },
+            {
+              "id": "restore",
+              "score": 0.37724915771802925
+            },
+            {
+              "id": "encrypt-negative",
+              "score": 0.36138741252752565
+            },
+            {
+              "id": "source-negative",
+              "score": 0.35579830983092164
+            }
+          ]
+        },
+        {
+          "id": "source-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "source",
+              "score": 0.5448343003101255
+            },
+            {
+              "id": "restore",
+              "score": 0.4945621812021484
+            },
+            {
+              "id": "compression",
+              "score": 0.4448838086449831
+            },
+            {
+              "id": "encrypt",
+              "score": 0.32997961151374255
+            },
+            {
+              "id": "permission",
+              "score": 0.29726434199360585
+            }
+          ]
+        },
+        {
+          "id": "attachment-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.6107523836018016
+            },
+            {
+              "id": "source",
+              "score": 0.48826461505559976
+            },
+            {
+              "id": "attachment",
+              "score": 0.4127611326735661
+            },
+            {
+              "id": "delete",
+              "score": 0.3685729715279292
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.3246910153828452
+            }
+          ]
+        },
+        {
+          "id": "attachment-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "attachment",
+              "score": 0.7091255535086481
+            },
+            {
+              "id": "expiry-negative",
+              "score": 0.4754508765987767
+            },
+            {
+              "id": "compression",
+              "score": 0.4059150253083461
+            },
+            {
+              "id": "source",
+              "score": 0.2611675129116192
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.2582848942629994
+            }
+          ]
+        },
+        {
+          "id": "permission-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.5728479367958977
+            },
+            {
+              "id": "password",
+              "score": 0.4307211294509717
+            },
+            {
+              "id": "delete",
+              "score": 0.4000815690193586
+            },
+            {
+              "id": "encrypt",
+              "score": 0.38137269971478654
+            },
+            {
+              "id": "compression",
+              "score": 0.3751406559148311
+            }
+          ]
+        },
+        {
+          "id": "permission-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "permission",
+              "score": 0.6289112298505926
+            },
+            {
+              "id": "password",
+              "score": 0.42972756664951567
+            },
+            {
+              "id": "delete",
+              "score": 0.4224198535149763
+            },
+            {
+              "id": "port",
+              "score": 0.3973166856407562
+            },
+            {
+              "id": "cancel",
+              "score": 0.3879789781972212
+            }
+          ]
+        },
+        {
+          "id": "queue-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "queue",
+              "score": 0.5727862529887962
+            },
+            {
+              "id": "delete",
+              "score": 0.43921314628988045
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.42616751498535493
+            },
+            {
+              "id": "source",
+              "score": 0.34864850358969735
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.3466354035599833
+            }
+          ]
+        },
+        {
+          "id": "queue-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "queue",
+              "score": 0.644657853550996
+            },
+            {
+              "id": "queue-negative",
+              "score": 0.5399134367246323
+            },
+            {
+              "id": "timeout-negative",
+              "score": 0.36693886629734984
+            },
+            {
+              "id": "leave",
+              "score": 0.3306882797702948
+            },
+            {
+              "id": "cancel-negative",
+              "score": 0.30689086897304896
+            }
+          ]
+        },
+        {
+          "id": "stock-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.5521799369784731
+            },
+            {
+              "id": "queue",
+              "score": 0.44007014145668943
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.43530290437412283
+            },
+            {
+              "id": "meeting-negative",
+              "score": 0.391650600313389
+            },
+            {
+              "id": "leave",
+              "score": 0.31379897811698804
+            }
+          ]
+        },
+        {
+          "id": "stock-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "stock",
+              "score": 0.5356729325959412
+            },
+            {
+              "id": "invoice",
+              "score": 0.38573596894393397
+            },
+            {
+              "id": "leave",
+              "score": 0.34161459199477445
+            },
+            {
+              "id": "stock-negative",
+              "score": 0.30371781941531556
+            },
+            {
+              "id": "queue",
+              "score": 0.2541791483845245
+            }
+          ]
+        },
+        {
+          "id": "leave-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "leave",
+              "score": 0.62787781943478
+            },
+            {
+              "id": "invoice",
+              "score": 0.5304995172202936
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.5088015869274873
+            },
+            {
+              "id": "stock",
+              "score": 0.4043530391297768
+            },
+            {
+              "id": "backup",
+              "score": 0.38989499290451696
+            }
+          ]
+        },
+        {
+          "id": "leave-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "leave",
+              "score": 0.5101874208050741
+            },
+            {
+              "id": "invoice",
+              "score": 0.4792219412823241
+            },
+            {
+              "id": "leave-negative",
+              "score": 0.36612979123067274
+            },
+            {
+              "id": "meeting",
+              "score": 0.3555096910817999
+            },
+            {
+              "id": "stock",
+              "score": 0.32005279307045026
+            }
+          ]
+        },
+        {
+          "id": "compression-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.598676904626732
+            },
+            {
+              "id": "source",
+              "score": 0.3908006126882384
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.3650636211954782
+            },
+            {
+              "id": "memory",
+              "score": 0.36105945289899133
+            },
+            {
+              "id": "delete",
+              "score": 0.3543543432035263
+            }
+          ]
+        },
+        {
+          "id": "compression-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "compression",
+              "score": 0.5885841604774882
+            },
+            {
+              "id": "delete",
+              "score": 0.4313808825846057
+            },
+            {
+              "id": "compression-negative",
+              "score": 0.3627136318083006
+            },
+            {
+              "id": "delete-negative",
+              "score": 0.3463620688683023
+            },
+            {
+              "id": "source",
+              "score": 0.3397354009898733
+            }
+          ]
+        },
+        {
+          "id": "expiry-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "password",
+              "score": 0.5637086527049026
+            },
+            {
+              "id": "expiry",
+              "score": 0.4643996587997976
+            },
+            {
+              "id": "port-negative",
+              "score": 0.4042892119718505
+            },
+            {
+              "id": "port",
+              "score": 0.3769857392209925
+            },
+            {
+              "id": "timeout",
+              "score": 0.34685331376872847
+            }
+          ]
+        },
+        {
+          "id": "expiry-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "expiry",
+              "score": 0.6627334797867684
+            },
+            {
+              "id": "backup-negative",
+              "score": 0.3362480365368726
+            },
+            {
+              "id": "restore",
+              "score": 0.327097294369436
+            },
+            {
+              "id": "port-negative",
+              "score": 0.3247817998755629
+            },
+            {
+              "id": "delete",
+              "score": 0.31625154671511835
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "lexicalBaseline": {
+    "method": "Unicode normalized character bigram cosine (independent pilot baseline, not product lexical engine)",
+    "all": {
+      "count": 40,
+      "recallAt1": 0.275,
+      "recallAt5": 0.425,
+      "mrr": 0.3645920313391738
+    },
+    "groups": {
+      "zh-zh": {
+        "count": 10,
+        "recallAt1": 0.6,
+        "recallAt5": 0.8,
+        "mrr": 0.6920952380952381
+      },
+      "en-zh": {
+        "count": 10,
+        "recallAt1": 0,
+        "recallAt5": 0,
+        "mrr": 0.033493539385593366
+      },
+      "zh-en": {
+        "count": 10,
+        "recallAt1": 0,
+        "recallAt5": 0.1,
+        "mrr": 0.08342037351688934
+      },
+      "en-en": {
+        "count": 10,
+        "recallAt1": 0.5,
+        "recallAt5": 0.8,
+        "mrr": 0.6493589743589744
+      }
+    }
+  }
+}

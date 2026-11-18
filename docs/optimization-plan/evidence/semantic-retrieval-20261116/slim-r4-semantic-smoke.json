@@ -1,0 +1,567 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-11-16T11:36:25.498Z",
+  "stage": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\dist\\semantic-20261116-r4\\Ruyi-slim",
+  "status": "PASS",
+  "hashes": {
+    "Ruyi.exe": "c16455ead41b92f0639c49bd0e777821f9f457e0b8551e4bafe5e2ac55b8a4ac",
+    "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+    "app/server.js": "932f73284caf84054c5e40f41b0dd0195e258d52c75a97a5000b8f5a4604ee7d",
+    "semantic-runtime/worker.cjs": "954e326376ea813e24e08c3c4ce2acca04e394d87910baf2770c3835b2105b71",
+    "semantic-runtime/models.lock.json": "42dc7628471c4e482b8cde0e34b9ee328a4f92e748b08c9306b7ca9d279b5168",
+    "semantic-runtime/models/paraphrase-multilingual-MiniLM-L12-v2/config.json": "05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7",
+    "semantic-runtime/models/paraphrase-multilingual-MiniLM-L12-v2/tokenizer.json": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441",
+    "semantic-runtime/models/paraphrase-multilingual-MiniLM-L12-v2/tokenizer_config.json": "3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2",
+    "semantic-runtime/models/paraphrase-multilingual-MiniLM-L12-v2/special_tokens_map.json": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f",
+    "semantic-runtime/models/paraphrase-multilingual-MiniLM-L12-v2/onnx/model_quantized.onnx": "66fc00f5f29afcaff34092e1bdd20008ca3918265a82fb9695a551e510cc4ebc"
+  },
+  "checks": [
+    {
+      "label": "bundled Node verifies actual package model and full dependency inventory",
+      "passed": true
+    },
+    {
+      "label": "primary: actual EXE owns isolated data and status",
+      "passed": true
+    },
+    {
+      "label": "primary: unauthenticated search is refused",
+      "passed": true
+    },
+    {
+      "label": "primary: bootstrap matches exact owned runtime token",
+      "passed": true
+    },
+    {
+      "label": "primary: all synthetic message bodies are re-read through authenticated HTTP after seeding",
+      "passed": true
+    },
+    {
+      "label": "primary: semantic target heat is found",
+      "passed": true
+    },
+    {
+      "label": "primary: target heat carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "primary: semantic target travel is found",
+      "passed": true
+    },
+    {
+      "label": "primary: target travel carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "primary: semantic target password is found",
+      "passed": true
+    },
+    {
+      "label": "primary: target password carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "primary: exactly one bundled Node worker is observed",
+      "passed": true
+    },
+    {
+      "label": "first actual search exposes cold loading before warm readiness",
+      "passed": true
+    },
+    {
+      "label": "model disable retains lexical search",
+      "passed": true
+    },
+    {
+      "label": "model disable reaps the exact observed worker",
+      "passed": true
+    },
+    {
+      "label": "reenabled: semantic target heat is found",
+      "passed": true
+    },
+    {
+      "label": "reenabled: target heat carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "reenabled: semantic target travel is found",
+      "passed": true
+    },
+    {
+      "label": "reenabled: target travel carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "reenabled: semantic target password is found",
+      "passed": true
+    },
+    {
+      "label": "reenabled: target password carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "reenabled: exactly one bundled Node worker is observed",
+      "passed": true
+    },
+    {
+      "label": "re-enable creates a distinct owned worker",
+      "passed": true
+    },
+    {
+      "label": "test-owned server cleanup leaves no observed worker",
+      "passed": true
+    },
+    {
+      "label": "restarted: actual EXE owns isolated data and status",
+      "passed": true
+    },
+    {
+      "label": "restarted: unauthenticated search is refused",
+      "passed": true
+    },
+    {
+      "label": "restarted: bootstrap matches exact owned runtime token",
+      "passed": true
+    },
+    {
+      "label": "restarted: semantic target heat is found",
+      "passed": true
+    },
+    {
+      "label": "restarted: target heat carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "restarted: semantic target travel is found",
+      "passed": true
+    },
+    {
+      "label": "restarted: target travel carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "restarted: semantic target password is found",
+      "passed": true
+    },
+    {
+      "label": "restarted: target password carries a verified original excerpt",
+      "passed": true
+    },
+    {
+      "label": "restarted: exactly one bundled Node worker is observed",
+      "passed": true
+    },
+    {
+      "label": "fresh EXE restart searches preserved sources and releases its observed worker",
+      "passed": true
+    },
+    {
+      "label": "missing: actual EXE owns isolated data and status",
+      "passed": true
+    },
+    {
+      "label": "missing: unauthenticated search is refused",
+      "passed": true
+    },
+    {
+      "label": "missing: bootstrap matches exact owned runtime token",
+      "passed": true
+    },
+    {
+      "label": "missing: all synthetic message bodies are re-read through authenticated HTTP after seeding",
+      "passed": true
+    },
+    {
+      "label": "missing: damaged local asset preserves authenticated lexical search",
+      "passed": true
+    },
+    {
+      "label": "corrupt: actual EXE owns isolated data and status",
+      "passed": true
+    },
+    {
+      "label": "corrupt: unauthenticated search is refused",
+      "passed": true
+    },
+    {
+      "label": "corrupt: bootstrap matches exact owned runtime token",
+      "passed": true
+    },
+    {
+      "label": "corrupt: all synthetic message bodies are re-read through authenticated HTTP after seeding",
+      "passed": true
+    },
+    {
+      "label": "corrupt: damaged local asset preserves authenticated lexical search",
+      "passed": true
+    },
+    {
+      "label": "original stage binaries, code, locks and model assets remain unchanged",
+      "passed": true
+    }
+  ],
+  "scenarios": [
+    {
+      "label": "primary",
+      "pid": 26836,
+      "port": 51429,
+      "overlayId": "b86980cea317",
+      "states": [
+        "loading",
+        "loading",
+        "loading",
+        "ready",
+        "ready",
+        "ready",
+        "disabled",
+        "loading",
+        "loading",
+        "loading",
+        "ready",
+        "ready",
+        "ready"
+      ],
+      "results": [
+        {
+          "id": "heat",
+          "semanticScore": 0.7053735051292256,
+          "reference": {
+            "sessionId": "sess_4fc805355199b016",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "b52dc042bbb49fe1dc34970aaa3baae62f4849a079c095f4ef87037318dd8e14",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 31,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 31,
+            "session": {
+              "id": "sess_4fc805355199b016",
+              "missionId": "sess_4fc805355199b016",
+              "title": "Fixture heat",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "设备发生高温报警时应切断电源，等待机壳完全冷却后检查散热风扇。"
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.053Z",
+              "updatedAt": "2026-11-16T11:36:31.056Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "设备发生高温报警时应切断电源，等待机壳完全冷却后检查散热风扇。"
+        },
+        {
+          "id": "travel",
+          "semanticScore": 0.5199228059197122,
+          "reference": {
+            "sessionId": "sess_651a0316b181779f",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "4e0371f40b6ed5e5da3ee9c76f8056d33e8bc0d3298ef834bf79a9ae9427c5c3",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 92,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 92,
+            "session": {
+              "id": "sess_651a0316b181779f",
+              "missionId": "sess_651a0316b181779f",
+              "title": "Fixture travel",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "Employees submit travel receipts to finance before Friday; reimbursement arrives next month."
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.278Z",
+              "updatedAt": "2026-11-16T11:36:31.308Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "Employees submit travel receipts to finance before Friday; reimbursement arrives next month."
+        },
+        {
+          "id": "password",
+          "semanticScore": 0.4814118932985593,
+          "reference": {
+            "sessionId": "sess_d4635f2ae4f388fe",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "99dcae78871c1999f2e5ba80c98d6673a739b4b44110d969f3b90bb2a876e1ee",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 23,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 23,
+            "session": {
+              "id": "sess_d4635f2ae4f388fe",
+              "missionId": "sess_d4635f2ae4f388fe",
+              "title": "Fixture password",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "忘记口令时使用已绑定邮箱的验证码重设登录密码。"
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.543Z",
+              "updatedAt": "2026-11-16T11:36:31.547Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "忘记口令时使用已绑定邮箱的验证码重设登录密码。"
+        }
+      ],
+      "worker": {
+        "pid": 29476,
+        "created": "134393025989233870"
+      },
+      "loadingObserved": true
+    },
+    {
+      "label": "restarted",
+      "pid": 19120,
+      "port": 61721,
+      "overlayId": "57bb515651d0",
+      "states": [
+        "loading",
+        "loading",
+        "loading",
+        "ready",
+        "ready",
+        "ready"
+      ],
+      "results": [
+        {
+          "id": "heat",
+          "semanticScore": 0.7053735051292256,
+          "reference": {
+            "sessionId": "sess_4fc805355199b016",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "b52dc042bbb49fe1dc34970aaa3baae62f4849a079c095f4ef87037318dd8e14",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 31,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 31,
+            "session": {
+              "id": "sess_4fc805355199b016",
+              "missionId": "sess_4fc805355199b016",
+              "title": "Fixture heat",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "设备发生高温报警时应切断电源，等待机壳完全冷却后检查散热风扇。"
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.053Z",
+              "updatedAt": "2026-11-16T11:36:31.056Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "设备发生高温报警时应切断电源，等待机壳完全冷却后检查散热风扇。"
+        },
+        {
+          "id": "travel",
+          "semanticScore": 0.5199228059197122,
+          "reference": {
+            "sessionId": "sess_651a0316b181779f",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "4e0371f40b6ed5e5da3ee9c76f8056d33e8bc0d3298ef834bf79a9ae9427c5c3",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 92,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 92,
+            "session": {
+              "id": "sess_651a0316b181779f",
+              "missionId": "sess_651a0316b181779f",
+              "title": "Fixture travel",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "Employees submit travel receipts to finance before Friday; reimbursement arrives next month."
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.278Z",
+              "updatedAt": "2026-11-16T11:36:31.308Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "Employees submit travel receipts to finance before Friday; reimbursement arrives next month."
+        },
+        {
+          "id": "password",
+          "semanticScore": 0.4814118932985593,
+          "reference": {
+            "sessionId": "sess_d4635f2ae4f388fe",
+            "turnSeq": 1,
+            "turnSeqBasis": "legacy-inferred",
+            "messageId": "message-1",
+            "messageIdBasis": "intrinsic",
+            "contentRevision": "99dcae78871c1999f2e5ba80c98d6673a739b4b44110d969f3b90bb2a876e1ee",
+            "chunkOrdinal": 0,
+            "messageOrdinal": 0,
+            "source": "content",
+            "coordinate": "utf16",
+            "start": 0,
+            "end": 23,
+            "matchKind": "semantic",
+            "snippetStart": 0,
+            "snippetEnd": 23,
+            "session": {
+              "id": "sess_d4635f2ae4f388fe",
+              "missionId": "sess_d4635f2ae4f388fe",
+              "title": "Fixture password",
+              "summary": "",
+              "recentUserRequest": {
+                "text": "忘记口令时使用已绑定邮箱的验证码重设登录密码。"
+              },
+              "cwd": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-smoke-r4\\workspace",
+              "pinned": false,
+              "createdAt": "2026-11-16T11:36:31.543Z",
+              "updatedAt": "2026-11-16T11:36:31.547Z",
+              "messageCount": 1,
+              "promptPack": "2026-w138-3",
+              "kind": "quick_ask",
+              "permissionMode": null,
+              "titleSource": "user"
+            }
+          },
+          "snippet": "忘记口令时使用已绑定邮箱的验证码重设登录密码。"
+        }
+      ],
+      "worker": {
+        "pid": 28580,
+        "created": "134393026069087450"
+      }
+    },
+    {
+      "label": "missing",
+      "pid": 24288,
+      "port": 63224,
+      "overlayId": "15ce27ae4862",
+      "states": [
+        "unavailable"
+      ]
+    },
+    {
+      "label": "corrupt",
+      "pid": 23168,
+      "port": 53144,
+      "overlayId": "4b559e239aef",
+      "states": [
+        "unavailable"
+      ]
+    }
+  ],
+  "bounds": [
+    "Real packaged EXE, bundled Node and authenticated HTTP; no Desktop GUI or installer/upgrade claim.",
+    "Only synthetic isolated plaintext data; not the encrypted migration qualification.",
+    "Runtime model loading is network-disabled and invalid proxy/offline environment is supplied; no OS firewall or OS air-gap assertion.",
+    "Server termination uses test-owned process-tree cleanup; model-disable worker exit is separately observed.",
+    "Embedded-source binding additionally relies on the packager build receipt; matching staged server.js alone does not prove embedded provenance."
+  ],
+  "cleanup": [
+    {
+      "label": "corrupt",
+      "code": 1,
+      "signal": null,
+      "cleanup": {
+        "killed": [
+          23168
+        ]
+      }
+    },
+    {
+      "label": "missing",
+      "code": 1,
+      "signal": null,
+      "cleanup": {
+        "killed": [
+          24288
+        ]
+      }
+    },
+    {
+      "label": "restarted",
+      "code": 1,
+      "signal": null,
+      "cleanup": {
+        "killed": [
+          19120
+        ]
+      }
+    },
+    {
+      "label": "primary",
+      "code": 1,
+      "signal": null,
+      "cleanup": {
+        "killed": [
+          26836
+        ]
+      }
+    },
+    {
+      "label": "bundled-node-verify",
+      "code": 0,
+      "signal": null
+    }
+  ],
+  "finishedAt": "2026-11-16T11:37:04.364Z"
+}

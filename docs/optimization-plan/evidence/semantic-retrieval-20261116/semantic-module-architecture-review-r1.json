@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "status": "ROOT_REVIEWED_EXACT_SEMANTIC_DEPENDENCY_INCREMENT",
+  "policyBeforeSha256": "0e05a9356822d031e7c0126f35dec2b9f76bdbc604e079a29d28f507fb147a9f",
+  "policyAfterSha256": "2bddcf90530cb1f37989a90d770988b7229d53b2d245314b51136b68126ab56f",
+  "scannerSha256": "c5535b5d88c4e5586fe7df530d9d3fd0b25e15509add2ba201b08e98084285cc",
+  "testSha256": "4331b581839e72007451d172f4e223c7d4d7b99fe98ea217ffe6336ee55fad2a",
+  "rootLexicalParamsSpreadTests": 34,
+  "addedCycleEdges": [
+    "06h9-semantic-policy.js->06ha-semantic-retrieval.js",
+    "06ha-semantic-retrieval.js->06h9-semantic-policy.js",
+    "06ha-semantic-retrieval.js->06hb-semantic-runtime.js",
+    "06hb-semantic-runtime.js->00-boot.js",
+    "06hb-semantic-runtime.js->01-config.js",
+    "06hb-semantic-runtime.js->06h9-semantic-policy.js",
+    "10-context-governance.js->06h9-semantic-policy.js",
+    "10-context-governance.js->06ha-semantic-retrieval.js",
+    "10-context-governance.js->06hb-semantic-runtime.js"
+  ],
+  "addedForwardEdges": [
+    "06h9-semantic-policy.js->06ha-semantic-retrieval.js",
+    "06ha-semantic-retrieval.js->06hb-semantic-runtime.js"
+  ],
+  "falseEdgesNotAdmitted": [
+    "06h9-semantic-policy.js->00-boot.js",
+    "06h9-semantic-policy.js->10-context-governance.js"
+  ],
+  "graph": {
+    "modules": 145,
+    "providedSymbols": 4398,
+    "requiredSymbols": 4337,
+    "edges": 957,
+    "forwardEdges": 69,
+    "duplicateProvides": 0,
+    "stronglyConnectedComponents": 1
+  },
+  "reasons": [
+    "Policy accesses the fixed scorer reader inside a lazy callback after all declarations exist; scorer accesses runtime proof only at consumer construction. Private authority is not weakened for graph order.",
+    "Runtime needs actual config, host process/spawn/path and policy readiness; context governance is an actual consumer of policy/scorer/transport. Existing application SCC remains1.",
+    "Scanner local function/generator/IIFE shadow fixes were independently reviewed; root found and fixed async named-expression leakage. Real delayed authority references remain in graph.",
+    "Only reviewed exact new keys added; no bootstrap-policy or removal of existing ceilings. Generated contracts and final whole-source checks remain independently required."
+  ]
+}

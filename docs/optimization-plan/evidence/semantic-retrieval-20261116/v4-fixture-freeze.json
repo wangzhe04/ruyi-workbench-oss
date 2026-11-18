@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:31:09.923Z",
+  "status": "FROZEN_BEFORE_WEAK_LEXICAL_ADMISSION_IMPLEMENTATION",
+  "path": "dev-harness/semantic/acceptance-v4-fixture.cjs",
+  "sha256": "e0b6333f334c263a34cd490eb06a78e063a785e12d95060a9dc9fe43e629a7fe",
+  "counts": {
+    "documents": 40,
+    "queries": 40,
+    "ood": 40,
+    "missingFactDiagnostics": 12,
+    "exact": 4
+  },
+  "floors": {
+    "chineseRecallAt5": 0.9,
+    "crossLanguageRecallAt5": 0.85,
+    "mrr": 0.75,
+    "anyResultOodFpr": 0.05
+  },
+  "selectionRule": "Implementation agents must not read this fixture. Keep Qwen .44 and model encoding fixed. Develop generic weak-lexical admission only on prior developer data; evaluate this holdout after that selection, no tuning on results."
+}

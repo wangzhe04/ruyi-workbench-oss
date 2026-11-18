@@ -1,0 +1,5869 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-16T10:55:26.514Z",
+  "fixture": {
+    "name": "ruyi-semantic-acceptance-v1",
+    "sha256": "026bc01001f1e4c4dbd5614eff08e8a4b1de76bffafd01abf286f252b05adf25",
+    "documents": 48,
+    "queries": 48,
+    "releaseHoldout": true
+  },
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.14.0",
+    "cpu": "AMD Ryzen 5 5500                               ",
+    "logicalCpus": 12,
+    "threads": {
+      "intraOp": 2,
+      "interOp": 1
+    },
+    "batchSize": 8
+  },
+  "limitations": [
+    "Synthetic fixture only; small counts do not establish production generalization.",
+    "Short snippets only; no 1000-chunk retrieval latency or long-document quality claim.",
+    "No calibrated automatic rejection threshold; no automatic injection approval."
+  ],
+  "models": [
+    {
+      "modelId": "bge-small-zh-v1.5",
+      "modelFingerprint": "sha256:e723a88e79510591a37a88dfd01cea0c15b6d4ccc91d7110f9296fa77fdedb15",
+      "retrievalThresholds": {
+        "search": 0.48,
+        "automatic": null
+      },
+      "coldReadyMs": 1337.7875,
+      "peakRssBytes": 214351872,
+      "tokenLengths": {
+        "count": 146,
+        "min": 14,
+        "max": 49,
+        "p95": 44
+      },
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 5.027900000000045,
+        "p95Ms": 7.164299999999912,
+        "maxMs": 10.885099999999966,
+        "samplesMs": [
+          4.910000000000082,
+          5.150300000000016,
+          6.468200000000024,
+          6.164800000000014,
+          5.905099999999948,
+          4.850999999999885,
+          4.742000000000189,
+          4.957899999999881,
+          5.161599999999908,
+          5.705199999999877,
+          4.813900000000103,
+          5.027900000000045,
+          4.562400000000025,
+          4.835399999999936,
+          7.129899999999907,
+          4.513500000000022,
+          5.963900000000194,
+          5.9090000000001055,
+          4.464099999999917,
+          4.946100000000115,
+          7.164299999999912,
+          10.885099999999966,
+          4.633100000000013,
+          5.066700000000083,
+          5.053300000000036,
+          5.227499999999964,
+          4.626800000000003,
+          4.705600000000004,
+          4.7047999999999774,
+          5.670499999999947
+        ]
+      },
+      "modelBytes": 24451175,
+      "onnxBytes": 24010842,
+      "quality": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.6041666666666666,
+          "recallAt5": 0.7291666666666666,
+          "mrr": 0.6707117191841198
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.08333333333333333,
+            "recallAt5": 0.08333333333333333,
+            "mrr": 0.13413998018475518
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0.3333333333333333,
+            "recallAt5": 0.8333333333333334,
+            "mrr": 0.5487068965517241
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "thresholdedSearch": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.5208333333333334,
+          "recallAt5": 0.5416666666666666,
+          "mrr": 0.5277777777777778
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.08333333333333333,
+            "recallAt5": 0.08333333333333333,
+            "mrr": 0.08333333333333333
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0.08333333333333333,
+            "mrr": 0.027777777777777776
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 20,
+        "topCosineScores": [
+          0.36590277263782517,
+          0.448922270699961,
+          0.39507210902416284,
+          0.3791971101302193,
+          0.3415564694844931,
+          0.41869301252968405,
+          0.3499962006671551,
+          0.40420440096233934,
+          0.5029594718025794,
+          0.5136755878085221,
+          0.46293824520574944,
+          0.5344189533273312,
+          0.47446924828284176,
+          0.4741296662156788,
+          0.5379469650124767,
+          0.5053393017432775,
+          0.36930341521287985,
+          0.48158001494857744,
+          0.5108367728368757,
+          0.5328931124734039
+        ],
+        "searchFalsePositiveRate": 0.4,
+        "automaticFalsePositiveRate": null,
+        "reason": "Automatic threshold unapproved; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "delivery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.5581905189937818
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.45265370601890814
+            },
+            {
+              "id": "seal",
+              "score": 0.4387877565464709
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.4132019190928456
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.39600639814890193
+            }
+          ]
+        },
+        {
+          "id": "delivery-en",
+          "group": "en-zh",
+          "rank": 21,
+          "top": [
+            {
+              "id": "travel-distractor",
+              "score": 0.5435700508857655
+            },
+            {
+              "id": "travel",
+              "score": 0.5289932856865995
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.5229283712129912
+            },
+            {
+              "id": "archive",
+              "score": 0.5149022444813542
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.5014478958622803
+            }
+          ]
+        },
+        {
+          "id": "diet-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.4347990133014693
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.39136954100399174
+            },
+            {
+              "id": "calibration",
+              "score": 0.38903450354268465
+            },
+            {
+              "id": "ventilation",
+              "score": 0.38719959027917794
+            },
+            {
+              "id": "printer",
+              "score": 0.3743978292990943
+            }
+          ]
+        },
+        {
+          "id": "diet-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.5892906056362525
+            },
+            {
+              "id": "diet-distractor",
+              "score": 0.5094062739666265
+            },
+            {
+              "id": "ventilation",
+              "score": 0.4816621090451842
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.480805825842999
+            },
+            {
+              "id": "printer",
+              "score": 0.47979295111129083
+            }
+          ]
+        },
+        {
+          "id": "lease-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.6768472622770608
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.462935216868611
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.43663800923975055
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.42028010356494744
+            },
+            {
+              "id": "delivery",
+              "score": 0.4145016041122318
+            }
+          ]
+        },
+        {
+          "id": "lease-en",
+          "group": "en-zh",
+          "rank": 35,
+          "top": [
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5576180991522148
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.529376724344637
+            },
+            {
+              "id": "archive",
+              "score": 0.5244247750212978
+            },
+            {
+              "id": "travel",
+              "score": 0.5154381527047447
+            },
+            {
+              "id": "calibration",
+              "score": 0.5097405535389236
+            }
+          ]
+        },
+        {
+          "id": "printer-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "recovery",
+              "score": 0.46131043796092114
+            },
+            {
+              "id": "printer",
+              "score": 0.46037789627411235
+            },
+            {
+              "id": "seal",
+              "score": 0.4602812859424038
+            },
+            {
+              "id": "migration",
+              "score": 0.4379460060471637
+            },
+            {
+              "id": "quota",
+              "score": 0.435178437956821
+            }
+          ]
+        },
+        {
+          "id": "printer-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.5547078568880844
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5337582873870008
+            },
+            {
+              "id": "battery",
+              "score": 0.52163417833145
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.5195944452652281
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.5075322884477665
+            }
+          ]
+        },
+        {
+          "id": "merge-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.564263344554119
+            },
+            {
+              "id": "identity",
+              "score": 0.48934525029625864
+            },
+            {
+              "id": "recovery",
+              "score": 0.4769803746966786
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.44770848221152226
+            },
+            {
+              "id": "migration",
+              "score": 0.4419384389918025
+            }
+          ]
+        },
+        {
+          "id": "merge-en",
+          "group": "en-zh",
+          "rank": 31,
+          "top": [
+            {
+              "id": "calibration",
+              "score": 0.5090899903632579
+            },
+            {
+              "id": "printer",
+              "score": 0.4908689317905336
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.4854289157298392
+            },
+            {
+              "id": "archive",
+              "score": 0.4843631061837134
+            },
+            {
+              "id": "swimming",
+              "score": 0.4838715196603128
+            }
+          ]
+        },
+        {
+          "id": "travel-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "delivery-distractor",
+              "score": 0.4637601899249775
+            },
+            {
+              "id": "travel",
+              "score": 0.4590476525691058
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.44907302109960323
+            },
+            {
+              "id": "delivery",
+              "score": 0.4449077430103851
+            },
+            {
+              "id": "artifact",
+              "score": 0.4149078632205385
+            }
+          ]
+        },
+        {
+          "id": "travel-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.6296259842659996
+            },
+            {
+              "id": "calibration",
+              "score": 0.5631051615475293
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.5494982759235021
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.5166731764582421
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5061856468849248
+            }
+          ]
+        },
+        {
+          "id": "seal-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.5802513869374195
+            },
+            {
+              "id": "retry",
+              "score": 0.49357573975619273
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.4885402632000114
+            },
+            {
+              "id": "migration",
+              "score": 0.4299377225659017
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.4277683140926539
+            }
+          ]
+        },
+        {
+          "id": "seal-en",
+          "group": "en-zh",
+          "rank": 32,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.5477259670016865
+            },
+            {
+              "id": "elevator",
+              "score": 0.546372523990646
+            },
+            {
+              "id": "swimming",
+              "score": 0.5404819221799905
+            },
+            {
+              "id": "calibration",
+              "score": 0.5379729152442909
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5332193506689465
+            }
+          ]
+        },
+        {
+          "id": "cooling-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "identity-distractor",
+              "score": 0.4991988528107581
+            },
+            {
+              "id": "identity",
+              "score": 0.49382627746945806
+            },
+            {
+              "id": "cooling",
+              "score": 0.47571174223320356
+            },
+            {
+              "id": "recovery",
+              "score": 0.47347889775776486
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.47336949334947065
+            }
+          ]
+        },
+        {
+          "id": "cooling-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.562903230103382
+            },
+            {
+              "id": "battery",
+              "score": 0.5464070973672411
+            },
+            {
+              "id": "calibration",
+              "score": 0.5306208724767215
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.5232418032775854
+            },
+            {
+              "id": "travel",
+              "score": 0.5231813987401964
+            }
+          ]
+        },
+        {
+          "id": "quota-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.625715275585004
+            },
+            {
+              "id": "recovery",
+              "score": 0.4660829551952421
+            },
+            {
+              "id": "migration",
+              "score": 0.4633521948762903
+            },
+            {
+              "id": "identity",
+              "score": 0.4633431696442872
+            },
+            {
+              "id": "quota-distractor",
+              "score": 0.4354927290899676
+            }
+          ]
+        },
+        {
+          "id": "quota-en",
+          "group": "en-zh",
+          "rank": 9,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.5573178264988442
+            },
+            {
+              "id": "elevator",
+              "score": 0.55242822714677
+            },
+            {
+              "id": "archive",
+              "score": 0.5452870273597445
+            },
+            {
+              "id": "calibration",
+              "score": 0.522933752862689
+            },
+            {
+              "id": "archive-distractor",
+              "score": 0.5187548333401497
+            }
+          ]
+        },
+        {
+          "id": "garden-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.4680252823056517
+            },
+            {
+              "id": "recovery",
+              "score": 0.3953752648553513
+            },
+            {
+              "id": "garden",
+              "score": 0.3922300164690527
+            },
+            {
+              "id": "printer",
+              "score": 0.39120078453836177
+            },
+            {
+              "id": "cooling",
+              "score": 0.38588441237610877
+            }
+          ]
+        },
+        {
+          "id": "garden-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "garden",
+              "score": 0.597344323296774
+            },
+            {
+              "id": "cooling",
+              "score": 0.5383496634863834
+            },
+            {
+              "id": "swimming",
+              "score": 0.5296131431690807
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5007546035888534
+            },
+            {
+              "id": "elevator",
+              "score": 0.49875684492399297
+            }
+          ]
+        },
+        {
+          "id": "migration-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.6247666079342782
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.5794902520972659
+            },
+            {
+              "id": "recovery",
+              "score": 0.567806080064727
+            },
+            {
+              "id": "decision",
+              "score": 0.5495528768323368
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.5437446900089
+            }
+          ]
+        },
+        {
+          "id": "migration-en",
+          "group": "en-zh",
+          "rank": 11,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.5736341402477002
+            },
+            {
+              "id": "calibration",
+              "score": 0.5721034130783015
+            },
+            {
+              "id": "quota",
+              "score": 0.5417044246411478
+            },
+            {
+              "id": "recovery",
+              "score": 0.5330691165181497
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.5285098145406056
+            }
+          ]
+        },
+        {
+          "id": "battery-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.44211480201699793
+            },
+            {
+              "id": "identity",
+              "score": 0.4174253325095008
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.4132714824904196
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.4065811926465754
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.40628324175328795
+            }
+          ]
+        },
+        {
+          "id": "battery-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.6139573384074031
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.5115957865179949
+            },
+            {
+              "id": "calibration",
+              "score": 0.510976817212862
+            },
+            {
+              "id": "elevator",
+              "score": 0.4965645067045133
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.45596947795104115
+            }
+          ]
+        },
+        {
+          "id": "retry-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.5384420380670358
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.47551317509517255
+            },
+            {
+              "id": "artifact",
+              "score": 0.46274729739844395
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.4561053086159856
+            },
+            {
+              "id": "travel",
+              "score": 0.4350201643871294
+            }
+          ]
+        },
+        {
+          "id": "retry-en",
+          "group": "en-zh",
+          "rank": 25,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.546218595233933
+            },
+            {
+              "id": "archive",
+              "score": 0.5449781736268321
+            },
+            {
+              "id": "calibration",
+              "score": 0.5401206142682
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5395759521999239
+            },
+            {
+              "id": "travel",
+              "score": 0.5387297340842633
+            }
+          ]
+        },
+        {
+          "id": "archive-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.5003872295182072
+            },
+            {
+              "id": "archive",
+              "score": 0.47553312834879313
+            },
+            {
+              "id": "artifact",
+              "score": 0.47072633031843125
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.4571959128044753
+            },
+            {
+              "id": "quota",
+              "score": 0.45499778572423494
+            }
+          ]
+        },
+        {
+          "id": "archive-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.6617505778428356
+            },
+            {
+              "id": "calibration",
+              "score": 0.550530103901007
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.532680743254313
+            },
+            {
+              "id": "printer",
+              "score": 0.5236340865984804
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.5174680650109467
+            }
+          ]
+        },
+        {
+          "id": "decision-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "decision",
+              "score": 0.6540669015522109
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.6298744314557264
+            },
+            {
+              "id": "recovery",
+              "score": 0.46790768401119687
+            },
+            {
+              "id": "migration",
+              "score": 0.4675591018253186
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.44576634828877243
+            }
+          ]
+        },
+        {
+          "id": "decision-en",
+          "group": "en-zh",
+          "rank": 23,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.5142261173987275
+            },
+            {
+              "id": "swimming",
+              "score": 0.48902002130235167
+            },
+            {
+              "id": "battery",
+              "score": 0.48583320891258347
+            },
+            {
+              "id": "cooling",
+              "score": 0.4756803064854394
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.4755192228650736
+            }
+          ]
+        },
+        {
+          "id": "calibration-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.5045545375985949
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.4909788900361842
+            },
+            {
+              "id": "calibration",
+              "score": 0.4899717939441128
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.4792216405617335
+            },
+            {
+              "id": "delivery",
+              "score": 0.45961034002310097
+            }
+          ]
+        },
+        {
+          "id": "calibration-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "calibration",
+              "score": 0.6440299650093746
+            },
+            {
+              "id": "battery",
+              "score": 0.5569977056980293
+            },
+            {
+              "id": "travel",
+              "score": 0.544437568661783
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.5419495517822803
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.5248187433873325
+            }
+          ]
+        },
+        {
+          "id": "identity-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.5489081931038161
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.4778010667585419
+            },
+            {
+              "id": "quota",
+              "score": 0.46417781464149205
+            },
+            {
+              "id": "recovery",
+              "score": 0.4292673565237684
+            },
+            {
+              "id": "migration",
+              "score": 0.3919166540496534
+            }
+          ]
+        },
+        {
+          "id": "identity-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.4936419848706741
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.45342425063066993
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.4168194293179492
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.4011715580464881
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.39965932403840004
+            }
+          ]
+        },
+        {
+          "id": "swimming-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.3839004415136498
+            },
+            {
+              "id": "travel",
+              "score": 0.3675189203153469
+            },
+            {
+              "id": "garden",
+              "score": 0.35549823812619685
+            },
+            {
+              "id": "calibration",
+              "score": 0.3495247866931707
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.347092844896038
+            }
+          ]
+        },
+        {
+          "id": "swimming-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.7317391166206252
+            },
+            {
+              "id": "archive",
+              "score": 0.546022583421845
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5402065899561322
+            },
+            {
+              "id": "elevator",
+              "score": 0.5354943860008882
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.5267712793449433
+            }
+          ]
+        },
+        {
+          "id": "scope-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "scope",
+              "score": 0.6073992824784976
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.5478011726898145
+            },
+            {
+              "id": "merge",
+              "score": 0.4928964680687251
+            },
+            {
+              "id": "scope-distractor",
+              "score": 0.48950688494471756
+            },
+            {
+              "id": "quota",
+              "score": 0.46524368961062396
+            }
+          ]
+        },
+        {
+          "id": "scope-en",
+          "group": "en-zh",
+          "rank": 29,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.5516517028299431
+            },
+            {
+              "id": "swimming",
+              "score": 0.5388737265835581
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.5360889469574864
+            },
+            {
+              "id": "battery",
+              "score": 0.5169109908014702
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.5111615153361879
+            }
+          ]
+        },
+        {
+          "id": "ventilation-zh",
+          "group": "zh-en",
+          "rank": 20,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.4239463907339985
+            },
+            {
+              "id": "lease",
+              "score": 0.37054466157369104
+            },
+            {
+              "id": "cooling",
+              "score": 0.36703187825563527
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.34918268959145776
+            },
+            {
+              "id": "quota",
+              "score": 0.3491482368660562
+            }
+          ]
+        },
+        {
+          "id": "ventilation-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "ventilation",
+              "score": 0.6314545963799919
+            },
+            {
+              "id": "printer",
+              "score": 0.5995921855866704
+            },
+            {
+              "id": "battery",
+              "score": 0.5972574538057243
+            },
+            {
+              "id": "cooling",
+              "score": 0.5876637440444079
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5666247832615222
+            }
+          ]
+        },
+        {
+          "id": "artifact-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.5552300959964677
+            },
+            {
+              "id": "retry",
+              "score": 0.48473214088827193
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.4837181123807867
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.4793663587017774
+            },
+            {
+              "id": "quota",
+              "score": 0.4386859745446837
+            }
+          ]
+        },
+        {
+          "id": "artifact-en",
+          "group": "en-zh",
+          "rank": 15,
+          "top": [
+            {
+              "id": "swimming-distractor",
+              "score": 0.5325029069572597
+            },
+            {
+              "id": "calibration",
+              "score": 0.5306252059246814
+            },
+            {
+              "id": "swimming",
+              "score": 0.520823578546479
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.5199897992353951
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.5161177363071691
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-zh",
+          "group": "zh-en",
+          "rank": 29,
+          "top": [
+            {
+              "id": "seal-distractor",
+              "score": 0.4541455480244166
+            },
+            {
+              "id": "battery",
+              "score": 0.42225732818460926
+            },
+            {
+              "id": "seal",
+              "score": 0.42000757452302406
+            },
+            {
+              "id": "ventilation",
+              "score": 0.40526822719202277
+            },
+            {
+              "id": "cooling",
+              "score": 0.4045568648050868
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.5921728349657651
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.47786159411665696
+            },
+            {
+              "id": "swimming",
+              "score": 0.47116579077892895
+            },
+            {
+              "id": "battery",
+              "score": 0.4708877370874891
+            },
+            {
+              "id": "calibration",
+              "score": 0.45703565921678013
+            }
+          ]
+        },
+        {
+          "id": "recovery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "recovery",
+              "score": 0.6418323626453166
+            },
+            {
+              "id": "quota",
+              "score": 0.6040557150547866
+            },
+            {
+              "id": "migration",
+              "score": 0.5542956169601279
+            },
+            {
+              "id": "identity",
+              "score": 0.5186536497460086
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.4771278929756515
+            }
+          ]
+        },
+        {
+          "id": "recovery-en",
+          "group": "en-zh",
+          "rank": 12,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.5642191483067022
+            },
+            {
+              "id": "calibration",
+              "score": 0.527014070388538
+            },
+            {
+              "id": "swimming",
+              "score": 0.5153388106228152
+            },
+            {
+              "id": "battery",
+              "score": 0.5143051229561214
+            },
+            {
+              "id": "elevator",
+              "score": 0.5011963696984542
+            }
+          ]
+        },
+        {
+          "id": "elevator-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.38925326461538506
+            },
+            {
+              "id": "delivery",
+              "score": 0.3888451331505144
+            },
+            {
+              "id": "travel",
+              "score": 0.3848605463017998
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.36919938643487477
+            },
+            {
+              "id": "calibration",
+              "score": 0.36006175155258635
+            }
+          ]
+        },
+        {
+          "id": "elevator-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.6626057430111422
+            },
+            {
+              "id": "cooling",
+              "score": 0.5334244029652473
+            },
+            {
+              "id": "battery",
+              "score": 0.5319974972834766
+            },
+            {
+              "id": "printer",
+              "score": 0.5150252375919749
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.5128737633729642
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "modelId": "multilingual-e5-small",
+      "modelFingerprint": "sha256:6b0722a61e467482024124b03845b32f5c3b9eb2ce3dbc9b8d5ea46ae046f03d",
+      "retrievalThresholds": {
+        "search": 0.86,
+        "automatic": null
+      },
+      "coldReadyMs": 2351.5879999999997,
+      "peakRssBytes": 761548800,
+      "tokenLengths": {
+        "count": 146,
+        "min": 11,
+        "max": 39,
+        "p95": 33
+      },
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 6.238500000000386,
+        "p95Ms": 7.818099999999504,
+        "maxMs": 7.8882000000003245,
+        "samplesMs": [
+          7.8882000000003245,
+          7.818099999999504,
+          7.144800000000032,
+          5.752800000000207,
+          6.39640000000054,
+          5.265699999999924,
+          5.565200000000004,
+          7.3148999999993976,
+          5.182499999999891,
+          6.100399999999354,
+          5.131399999999303,
+          7.61449999999968,
+          6.73280000000068,
+          7.1284999999998035,
+          7.653000000000247,
+          7.407600000000457,
+          6.306500000000597,
+          6.961599999999635,
+          6.654400000000351,
+          6.163899999999558,
+          5.036699999999655,
+          5.475199999999859,
+          5.9713999999994485,
+          7.157400000000052,
+          5.052599999999984,
+          7.332699999999932,
+          5.735999999999876,
+          6.238500000000386,
+          5.641700000000128,
+          5.5963999999994485
+        ]
+      },
+      "modelBytes": 135392183,
+      "onnxBytes": 118308185,
+      "quality": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.5416666666666666,
+          "recallAt5": 0.7083333333333334,
+          "mrr": 0.6323386363092244
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 1,
+            "mrr": 0.9166666666666666
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.3333333333333333,
+            "recallAt5": 0.75,
+            "mrr": 0.5357407407407407
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0.08333333333333333,
+            "mrr": 0.07694713782949078
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "thresholdedSearch": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.3958333333333333,
+          "recallAt5": 0.4375,
+          "mrr": 0.4166666666666667
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 1,
+            "mrr": 0.9166666666666666
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0,
+            "mrr": 0
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0,
+            "mrr": 0
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 0.75,
+            "recallAt5": 0.75,
+            "mrr": 0.75
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 20,
+        "topCosineScores": [
+          0.8278972617934426,
+          0.849361761284726,
+          0.8418115853390096,
+          0.8745514222565455,
+          0.8385257608360804,
+          0.8430209595411491,
+          0.8225840459276926,
+          0.829581335584181,
+          0.7363577226471913,
+          0.7620420988122862,
+          0.7853764440221771,
+          0.7886665259206155,
+          0.7645913025920519,
+          0.7380703530634791,
+          0.8055660198616538,
+          0.7084589055660249,
+          0.8541777844080879,
+          0.8578304981427297,
+          0.7760664957288667,
+          0.773055945427627
+        ],
+        "searchFalsePositiveRate": 0.05,
+        "automaticFalsePositiveRate": null,
+        "reason": "Automatic threshold unapproved; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "delivery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.8921863832641104
+            },
+            {
+              "id": "seal",
+              "score": 0.882695472290027
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.881089180382591
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8635063165722332
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8555203711678799
+            }
+          ]
+        },
+        {
+          "id": "delivery-en",
+          "group": "en-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.798251724107082
+            },
+            {
+              "id": "printer",
+              "score": 0.7910271337065092
+            },
+            {
+              "id": "delivery",
+              "score": 0.7905971545658766
+            },
+            {
+              "id": "battery",
+              "score": 0.7869338239975168
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7816566834379997
+            }
+          ]
+        },
+        {
+          "id": "diet-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "lease-distractor",
+              "score": 0.8446066186303272
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8396994295644294
+            },
+            {
+              "id": "delivery",
+              "score": 0.8386139247846586
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8367636873175932
+            },
+            {
+              "id": "seal",
+              "score": 0.835552380893256
+            }
+          ]
+        },
+        {
+          "id": "diet-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.8589324380656221
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.7708194108941597
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.7659162970959548
+            },
+            {
+              "id": "calibration",
+              "score": 0.7632284163314816
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.761167152301893
+            }
+          ]
+        },
+        {
+          "id": "lease-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.9141692633541977
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8792051014378399
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.869004802532853
+            },
+            {
+              "id": "migration",
+              "score": 0.8639131032094032
+            },
+            {
+              "id": "quota",
+              "score": 0.8556886519642192
+            }
+          ]
+        },
+        {
+          "id": "lease-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.7945748294557887
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.7923079001376985
+            },
+            {
+              "id": "calibration",
+              "score": 0.7711038248476614
+            },
+            {
+              "id": "archive",
+              "score": 0.7709257782841694
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.767967103746853
+            }
+          ]
+        },
+        {
+          "id": "printer-zh",
+          "group": "zh-en",
+          "rank": 13,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.8526496425337989
+            },
+            {
+              "id": "seal",
+              "score": 0.851423709503881
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8500208830189611
+            },
+            {
+              "id": "recovery",
+              "score": 0.844027701499955
+            },
+            {
+              "id": "identity",
+              "score": 0.8437265975291313
+            }
+          ]
+        },
+        {
+          "id": "printer-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.8580704649386878
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.790847979990857
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.7817800065357777
+            },
+            {
+              "id": "battery",
+              "score": 0.774196632883645
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.773061278322695
+            }
+          ]
+        },
+        {
+          "id": "merge-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.897318117177804
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8800591136380633
+            },
+            {
+              "id": "identity",
+              "score": 0.8790874367114667
+            },
+            {
+              "id": "recovery",
+              "score": 0.8747009386332574
+            },
+            {
+              "id": "migration",
+              "score": 0.8682530657517719
+            }
+          ]
+        },
+        {
+          "id": "merge-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.7415695963255812
+            },
+            {
+              "id": "printer",
+              "score": 0.7410562982005692
+            },
+            {
+              "id": "travel",
+              "score": 0.7385892046176802
+            },
+            {
+              "id": "archive",
+              "score": 0.7368263918299828
+            },
+            {
+              "id": "decision",
+              "score": 0.7329677909285206
+            }
+          ]
+        },
+        {
+          "id": "travel-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.8614972697568026
+            },
+            {
+              "id": "quota",
+              "score": 0.8581302351121084
+            },
+            {
+              "id": "delivery",
+              "score": 0.8581161039881243
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.852802331655247
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.850164086519152
+            }
+          ]
+        },
+        {
+          "id": "travel-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.8721554794079953
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.7899068674321938
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.771737039567695
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.766013888680795
+            },
+            {
+              "id": "archive",
+              "score": 0.7658029478575058
+            }
+          ]
+        },
+        {
+          "id": "seal-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.8781370796408627
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8508532170837602
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8502130804748117
+            },
+            {
+              "id": "migration",
+              "score": 0.8480504541974564
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8443161260883294
+            }
+          ]
+        },
+        {
+          "id": "seal-en",
+          "group": "en-zh",
+          "rank": 18,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.782895164165315
+            },
+            {
+              "id": "battery",
+              "score": 0.7762029295521041
+            },
+            {
+              "id": "elevator",
+              "score": 0.774340669484716
+            },
+            {
+              "id": "printer",
+              "score": 0.7705877910306893
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.7677991161616174
+            }
+          ]
+        },
+        {
+          "id": "cooling-zh",
+          "group": "zh-en",
+          "rank": 17,
+          "top": [
+            {
+              "id": "lease-distractor",
+              "score": 0.8692775595192783
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8679930067963363
+            },
+            {
+              "id": "identity",
+              "score": 0.8611410058177207
+            },
+            {
+              "id": "migration",
+              "score": 0.8584092324250687
+            },
+            {
+              "id": "retry",
+              "score": 0.8567835440546882
+            }
+          ]
+        },
+        {
+          "id": "cooling-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.8854685600304738
+            },
+            {
+              "id": "calibration",
+              "score": 0.8004488771884894
+            },
+            {
+              "id": "battery",
+              "score": 0.7984203173424891
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.798258502052363
+            },
+            {
+              "id": "printer",
+              "score": 0.7960639084774273
+            }
+          ]
+        },
+        {
+          "id": "quota-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "quota-distractor",
+              "score": 0.871152476312735
+            },
+            {
+              "id": "quota",
+              "score": 0.8646879268989026
+            },
+            {
+              "id": "recovery",
+              "score": 0.8530740864705446
+            },
+            {
+              "id": "artifact",
+              "score": 0.8459200162535373
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8441364676832583
+            }
+          ]
+        },
+        {
+          "id": "quota-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.7609193292408428
+            },
+            {
+              "id": "quota",
+              "score": 0.7492087894941671
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.7424343034069768
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7402439536034323
+            },
+            {
+              "id": "travel",
+              "score": 0.7368421551607492
+            }
+          ]
+        },
+        {
+          "id": "garden-zh",
+          "group": "zh-en",
+          "rank": 21,
+          "top": [
+            {
+              "id": "decision-distractor",
+              "score": 0.8633528146896483
+            },
+            {
+              "id": "decision",
+              "score": 0.8601898406071671
+            },
+            {
+              "id": "scope-distractor",
+              "score": 0.849865987545228
+            },
+            {
+              "id": "recovery",
+              "score": 0.8495025140053226
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8475971765768341
+            }
+          ]
+        },
+        {
+          "id": "garden-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "garden",
+              "score": 0.8728937128594082
+            },
+            {
+              "id": "cooling",
+              "score": 0.7713894506527516
+            },
+            {
+              "id": "calibration",
+              "score": 0.7616573081060363
+            },
+            {
+              "id": "archive",
+              "score": 0.7604029953997342
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.758725596248103
+            }
+          ]
+        },
+        {
+          "id": "migration-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.8872264879367877
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8668313345797655
+            },
+            {
+              "id": "recovery",
+              "score": 0.8574870094908664
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.8566842114946004
+            },
+            {
+              "id": "decision",
+              "score": 0.8501597961250027
+            }
+          ]
+        },
+        {
+          "id": "migration-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.8266845719391809
+            },
+            {
+              "id": "migration",
+              "score": 0.8118629381402841
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.7727570064572489
+            },
+            {
+              "id": "travel",
+              "score": 0.7722163116330497
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.768440184712681
+            }
+          ]
+        },
+        {
+          "id": "battery-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.8656489128593198
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8546318904731115
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8529991976643615
+            },
+            {
+              "id": "recovery",
+              "score": 0.8504296765077032
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8491354087293406
+            }
+          ]
+        },
+        {
+          "id": "battery-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.8943718178103837
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.7926070390562096
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7832030636936893
+            },
+            {
+              "id": "calibration",
+              "score": 0.7825811224921961
+            },
+            {
+              "id": "printer",
+              "score": 0.7787892412633776
+            }
+          ]
+        },
+        {
+          "id": "retry-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.8801729577168886
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8683355810225426
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8580591386401191
+            },
+            {
+              "id": "identity",
+              "score": 0.8536054035295725
+            },
+            {
+              "id": "quota",
+              "score": 0.8502829651450039
+            }
+          ]
+        },
+        {
+          "id": "retry-en",
+          "group": "en-zh",
+          "rank": 3,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.7835624429659136
+            },
+            {
+              "id": "battery",
+              "score": 0.7756256493612947
+            },
+            {
+              "id": "retry",
+              "score": 0.775487163772639
+            },
+            {
+              "id": "archive",
+              "score": 0.7744514117640422
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.7595772727964274
+            }
+          ]
+        },
+        {
+          "id": "archive-zh",
+          "group": "zh-en",
+          "rank": 8,
+          "top": [
+            {
+              "id": "recovery",
+              "score": 0.8582686414569934
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8518487678893516
+            },
+            {
+              "id": "merge",
+              "score": 0.8476639630475733
+            },
+            {
+              "id": "migration",
+              "score": 0.8473167910611776
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8470491822692503
+            }
+          ]
+        },
+        {
+          "id": "archive-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.9089004043606403
+            },
+            {
+              "id": "calibration",
+              "score": 0.7539973095709137
+            },
+            {
+              "id": "printer",
+              "score": 0.7529120151414926
+            },
+            {
+              "id": "travel",
+              "score": 0.7526000958173732
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.7510829252376499
+            }
+          ]
+        },
+        {
+          "id": "decision-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "decision-distractor",
+              "score": 0.9087271216980749
+            },
+            {
+              "id": "decision",
+              "score": 0.8928986832428097
+            },
+            {
+              "id": "migration",
+              "score": 0.870914828413069
+            },
+            {
+              "id": "merge",
+              "score": 0.8661169076358647
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8601624192756094
+            }
+          ]
+        },
+        {
+          "id": "decision-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.7955116396393318
+            },
+            {
+              "id": "decision",
+              "score": 0.7948072219627826
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.7897675742874797
+            },
+            {
+              "id": "archive",
+              "score": 0.7878566306261615
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7814758011543746
+            }
+          ]
+        },
+        {
+          "id": "calibration-zh",
+          "group": "zh-en",
+          "rank": 24,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.8697866111985387
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.866102025526318
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.862683587805597
+            },
+            {
+              "id": "migration",
+              "score": 0.8613936862322786
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8597567964812101
+            }
+          ]
+        },
+        {
+          "id": "calibration-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "calibration",
+              "score": 0.8836879326867112
+            },
+            {
+              "id": "battery",
+              "score": 0.8213062713849953
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.8056250712735434
+            },
+            {
+              "id": "printer",
+              "score": 0.7974591743126953
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7930990484925603
+            }
+          ]
+        },
+        {
+          "id": "identity-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.9057424522583167
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8744424114396376
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8739991446865202
+            },
+            {
+              "id": "decision",
+              "score": 0.8604473472908722
+            },
+            {
+              "id": "recovery",
+              "score": 0.8586540815638987
+            }
+          ]
+        },
+        {
+          "id": "identity-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.8136962003940815
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.7893483688345845
+            },
+            {
+              "id": "battery",
+              "score": 0.7696258810502647
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7561619028869576
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.7494143398695786
+            }
+          ]
+        },
+        {
+          "id": "swimming-zh",
+          "group": "zh-en",
+          "rank": 3,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.8462401022920991
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8410058657706782
+            },
+            {
+              "id": "swimming",
+              "score": 0.8355408590713393
+            },
+            {
+              "id": "scope",
+              "score": 0.8309702827064827
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8262681926808007
+            }
+          ]
+        },
+        {
+          "id": "swimming-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.8707595250825202
+            },
+            {
+              "id": "archive",
+              "score": 0.7661617206359032
+            },
+            {
+              "id": "battery",
+              "score": 0.7645896099412937
+            },
+            {
+              "id": "calibration",
+              "score": 0.7597409621302375
+            },
+            {
+              "id": "garden",
+              "score": 0.7580199943821726
+            }
+          ]
+        },
+        {
+          "id": "scope-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "scope",
+              "score": 0.8956711373809392
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8772622219655299
+            },
+            {
+              "id": "merge",
+              "score": 0.8700930620739569
+            },
+            {
+              "id": "identity",
+              "score": 0.8598934325563922
+            },
+            {
+              "id": "scope-distractor",
+              "score": 0.8595286548238503
+            }
+          ]
+        },
+        {
+          "id": "scope-en",
+          "group": "en-zh",
+          "rank": 6,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.79591362512552
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7900359268782612
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.784743066103204
+            },
+            {
+              "id": "printer",
+              "score": 0.782318757555651
+            },
+            {
+              "id": "calibration",
+              "score": 0.7783332203504649
+            }
+          ]
+        },
+        {
+          "id": "ventilation-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.8570447608875182
+            },
+            {
+              "id": "lease",
+              "score": 0.8541796555133794
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8523320277747921
+            },
+            {
+              "id": "seal",
+              "score": 0.8468697933907107
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.839895752212394
+            }
+          ]
+        },
+        {
+          "id": "ventilation-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "ventilation",
+              "score": 0.8591483219285708
+            },
+            {
+              "id": "archive",
+              "score": 0.7804854419643744
+            },
+            {
+              "id": "diet",
+              "score": 0.7727649215912068
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.7677356527981771
+            },
+            {
+              "id": "garden",
+              "score": 0.7665767157410581
+            }
+          ]
+        },
+        {
+          "id": "artifact-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.8920715267017341
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.8717816502252803
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8642835639878205
+            },
+            {
+              "id": "quota",
+              "score": 0.8627457365908647
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8589704271335983
+            }
+          ]
+        },
+        {
+          "id": "artifact-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.7987658507256095
+            },
+            {
+              "id": "archive",
+              "score": 0.7714534772794833
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7689766481434963
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.7633973822468485
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.7631203218598747
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "seal-distractor",
+              "score": 0.8769834445434219
+            },
+            {
+              "id": "seal",
+              "score": 0.8698788574369877
+            },
+            {
+              "id": "quota",
+              "score": 0.847853218302228
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.8432041836959745
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8423412458756868
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.8941503716195093
+            },
+            {
+              "id": "calibration",
+              "score": 0.8031305863479883
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.8030222995147959
+            },
+            {
+              "id": "printer",
+              "score": 0.8014318108170937
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.7981859616555935
+            }
+          ]
+        },
+        {
+          "id": "recovery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "recovery",
+              "score": 0.8954221804500925
+            },
+            {
+              "id": "quota",
+              "score": 0.8789802979443851
+            },
+            {
+              "id": "migration",
+              "score": 0.8670184064000833
+            },
+            {
+              "id": "identity",
+              "score": 0.861540197881801
+            },
+            {
+              "id": "retry",
+              "score": 0.8598943370956665
+            }
+          ]
+        },
+        {
+          "id": "recovery-en",
+          "group": "en-zh",
+          "rank": 25,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.8176926981809958
+            },
+            {
+              "id": "calibration",
+              "score": 0.7951388662607489
+            },
+            {
+              "id": "battery",
+              "score": 0.7791904390133464
+            },
+            {
+              "id": "printer",
+              "score": 0.7772364786789947
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.7720485341818204
+            }
+          ]
+        },
+        {
+          "id": "elevator-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.8629764227234522
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8574430555019975
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8484454216973103
+            },
+            {
+              "id": "delivery",
+              "score": 0.8481222885032788
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8455826808711483
+            }
+          ]
+        },
+        {
+          "id": "elevator-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.8939825083292542
+            },
+            {
+              "id": "battery",
+              "score": 0.805228117400355
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.8049137059078817
+            },
+            {
+              "id": "cooling",
+              "score": 0.7991532876006372
+            },
+            {
+              "id": "calibration",
+              "score": 0.7938920128056286
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "modelId": "paraphrase-multilingual-MiniLM-L12-v2",
+      "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d",
+      "retrievalThresholds": {
+        "search": 0.22,
+        "automatic": null
+      },
+      "coldReadyMs": 2178.5690999999997,
+      "peakRssBytes": 739028992,
+      "tokenLengths": {
+        "count": 146,
+        "min": 8,
+        "max": 37,
+        "p95": 31
+      },
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 5.123199999999997,
+        "p95Ms": 6.863699999999881,
+        "maxMs": 6.90769999999975,
+        "samplesMs": [
+          6.1723000000001775,
+          6.07760000000053,
+          5.266400000000431,
+          5.558100000000195,
+          6.90769999999975,
+          6.249200000000201,
+          4.936299999999392,
+          4.931800000000294,
+          4.825399999999718,
+          4.692200000001321,
+          4.690200000000914,
+          6.863699999999881,
+          4.076499999999214,
+          4.500799999999799,
+          4.940899999999601,
+          5.716500000000451,
+          6.775200000000041,
+          5.640999999999622,
+          4.8075000000008,
+          4.473599999999351,
+          4.934400000000096,
+          6.799299999998766,
+          4.491100000001097,
+          5.484599999999773,
+          4.6031999999995605,
+          4.496399999999994,
+          5.606899999998859,
+          5.314099999999598,
+          6.630600000000413,
+          5.123199999999997
+        ]
+      },
+      "modelBytes": 135392488,
+      "onnxBytes": 118308126,
+      "quality": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.8125,
+          "recallAt5": 0.9791666666666666,
+          "mrr": 0.8809027777777779
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.5,
+            "recallAt5": 0.9166666666666666,
+            "mrr": 0.6486111111111111
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 1,
+            "mrr": 0.9166666666666666
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0.9166666666666666,
+            "recallAt5": 1,
+            "mrr": 0.9583333333333334
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "thresholdedSearch": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.8125,
+          "recallAt5": 0.9791666666666666,
+          "mrr": 0.8791666666666668
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.5,
+            "recallAt5": 0.9166666666666666,
+            "mrr": 0.6416666666666667
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 1,
+            "mrr": 0.9166666666666666
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0.9166666666666666,
+            "recallAt5": 1,
+            "mrr": 0.9583333333333334
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 20,
+        "topCosineScores": [
+          0.2688663228522506,
+          0.31651542375067476,
+          0.32093097887881955,
+          0.24378831522576705,
+          0.2318200577922765,
+          0.2525073753243095,
+          0.19527105180601256,
+          0.2647220971658447,
+          0.13737749362765353,
+          0.16136712816216917,
+          0.28133423593498064,
+          0.298518317992828,
+          0.12644579129308392,
+          0.15832332091836201,
+          0.14252967614539583,
+          0.1726664990453627,
+          0.20673069972035132,
+          0.38589436938540184,
+          0.16438321706856787,
+          0.16062673859763377
+        ],
+        "searchFalsePositiveRate": 0.5,
+        "automaticFalsePositiveRate": null,
+        "reason": "Automatic threshold unapproved; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "delivery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.5968562915066454
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.4083062037515166
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.38492983070144154
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.32711669066505755
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.2942415672743192
+            }
+          ]
+        },
+        {
+          "id": "delivery-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.6393310510534678
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.3559787180541389
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.3442433477358366
+            },
+            {
+              "id": "migration",
+              "score": 0.3372075517067578
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.31308724410607763
+            }
+          ]
+        },
+        {
+          "id": "diet-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.6493426895502861
+            },
+            {
+              "id": "diet-distractor",
+              "score": 0.46980004831880134
+            },
+            {
+              "id": "lease",
+              "score": 0.2788732591105283
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.2771082652451142
+            },
+            {
+              "id": "ventilation",
+              "score": 0.25891913922014353
+            }
+          ]
+        },
+        {
+          "id": "diet-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.6143233151579739
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.34069851902800163
+            },
+            {
+              "id": "diet-distractor",
+              "score": 0.32516317613141105
+            },
+            {
+              "id": "calibration",
+              "score": 0.2610805919377561
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.24737305548472946
+            }
+          ]
+        },
+        {
+          "id": "lease-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.7891981451533533
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.45642940589203695
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.3437240704018319
+            },
+            {
+              "id": "ventilation",
+              "score": 0.33372946127761804
+            },
+            {
+              "id": "migration",
+              "score": 0.3247209810062472
+            }
+          ]
+        },
+        {
+          "id": "lease-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.5763534147591055
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.4499886113779663
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.34016443733434465
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.31378610701574206
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.31325454186875984
+            }
+          ]
+        },
+        {
+          "id": "printer-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.76338150261548
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.532489411576618
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.3894484900957832
+            },
+            {
+              "id": "battery",
+              "score": 0.32950931231699426
+            },
+            {
+              "id": "seal",
+              "score": 0.318742203815803
+            }
+          ]
+        },
+        {
+          "id": "printer-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.6766586244950792
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.45298755465660356
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.4305689636364117
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.3390418775019714
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.2815622667631306
+            }
+          ]
+        },
+        {
+          "id": "merge-zh",
+          "group": "zh-zh",
+          "rank": 12,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.41533758741677473
+            },
+            {
+              "id": "recovery",
+              "score": 0.36318706431539527
+            },
+            {
+              "id": "decision",
+              "score": 0.3230468773859487
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.29280887561003405
+            },
+            {
+              "id": "delivery",
+              "score": 0.2525433460635237
+            }
+          ]
+        },
+        {
+          "id": "merge-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "decision",
+              "score": 0.3883893944503045
+            },
+            {
+              "id": "merge",
+              "score": 0.34442969292875136
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.3398515259488144
+            },
+            {
+              "id": "identity",
+              "score": 0.3359631091711171
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.2908157817761902
+            }
+          ]
+        },
+        {
+          "id": "travel-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.7389195630809633
+            },
+            {
+              "id": "delivery",
+              "score": 0.5469586623411336
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.44539570602601986
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.4250200083196002
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.37210642402371336
+            }
+          ]
+        },
+        {
+          "id": "travel-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.7172015480010407
+            },
+            {
+              "id": "delivery",
+              "score": 0.47415998666290493
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.4279852206807495
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.37711951090473866
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.3706526070060134
+            }
+          ]
+        },
+        {
+          "id": "seal-zh",
+          "group": "zh-zh",
+          "rank": 4,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.45925233809728105
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.44024810756536764
+            },
+            {
+              "id": "retry",
+              "score": 0.38355844333134287
+            },
+            {
+              "id": "seal",
+              "score": 0.3819319791066171
+            },
+            {
+              "id": "delivery",
+              "score": 0.3477788892471021
+            }
+          ]
+        },
+        {
+          "id": "seal-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.3198713291599351
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.28679495357410817
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.24792722034231227
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.22957516747737214
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.22634655484819316
+            }
+          ]
+        },
+        {
+          "id": "cooling-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.5308912211566994
+            },
+            {
+              "id": "battery",
+              "score": 0.4075522753577926
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.4046615757052057
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.35013299319170776
+            },
+            {
+              "id": "printer",
+              "score": 0.33269661554175806
+            }
+          ]
+        },
+        {
+          "id": "cooling-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.7043296868643757
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.4187953405666989
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.4093601285153578
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.40183472854432645
+            },
+            {
+              "id": "garden",
+              "score": 0.3116517299508602
+            }
+          ]
+        },
+        {
+          "id": "quota-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.6231306413555285
+            },
+            {
+              "id": "quota-distractor",
+              "score": 0.44651990921081347
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.3949007555507822
+            },
+            {
+              "id": "migration",
+              "score": 0.36259387343198884
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.3293140628604172
+            }
+          ]
+        },
+        {
+          "id": "quota-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.5183617687109404
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.3664577680702047
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.28324892382765365
+            },
+            {
+              "id": "migration",
+              "score": 0.282735257077901
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.27533869099852454
+            }
+          ]
+        },
+        {
+          "id": "garden-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "garden",
+              "score": 0.6309671009347179
+            },
+            {
+              "id": "cooling",
+              "score": 0.34869068431055605
+            },
+            {
+              "id": "printer",
+              "score": 0.25987842560247687
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.18409899308616684
+            },
+            {
+              "id": "scope-distractor",
+              "score": 0.176632300891608
+            }
+          ]
+        },
+        {
+          "id": "garden-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "garden",
+              "score": 0.6996516089158346
+            },
+            {
+              "id": "cooling",
+              "score": 0.3270677467907201
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.24432944575107332
+            },
+            {
+              "id": "printer",
+              "score": 0.24373999951197203
+            },
+            {
+              "id": "swimming",
+              "score": 0.2237869925599768
+            }
+          ]
+        },
+        {
+          "id": "migration-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.7204940622573307
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.46166334418763133
+            },
+            {
+              "id": "archive",
+              "score": 0.4352355063369677
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.36576919001629926
+            },
+            {
+              "id": "quota",
+              "score": 0.35875419906384853
+            }
+          ]
+        },
+        {
+          "id": "migration-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.7077265447133263
+            },
+            {
+              "id": "archive",
+              "score": 0.38600507042783916
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.3680259259983245
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.3480994922727558
+            },
+            {
+              "id": "delivery",
+              "score": 0.3278676348845471
+            }
+          ]
+        },
+        {
+          "id": "battery-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.45916431351593995
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.3731894670424908
+            },
+            {
+              "id": "scope-distractor",
+              "score": 0.25847117745356607
+            },
+            {
+              "id": "printer",
+              "score": 0.2531747452163446
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.24597014860316604
+            }
+          ]
+        },
+        {
+          "id": "battery-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.7396410075750286
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.36111424285061877
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.3214522594496637
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.3073191862485837
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.25716907719926385
+            }
+          ]
+        },
+        {
+          "id": "retry-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.7114741445446748
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.5866202897461283
+            },
+            {
+              "id": "travel",
+              "score": 0.43651246671294325
+            },
+            {
+              "id": "artifact",
+              "score": 0.3724477402773219
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.36787511276362395
+            }
+          ]
+        },
+        {
+          "id": "retry-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.5759085467749515
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.4800877137573631
+            },
+            {
+              "id": "artifact",
+              "score": 0.42272790891785894
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.42110380180474133
+            },
+            {
+              "id": "travel",
+              "score": 0.3444295680206324
+            }
+          ]
+        },
+        {
+          "id": "archive-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.6132779217684569
+            },
+            {
+              "id": "quota",
+              "score": 0.49628666945846733
+            },
+            {
+              "id": "migration",
+              "score": 0.42807928479649276
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.4042500978778856
+            },
+            {
+              "id": "printer",
+              "score": 0.37364917749367255
+            }
+          ]
+        },
+        {
+          "id": "archive-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.7031440001895175
+            },
+            {
+              "id": "migration",
+              "score": 0.5331814380959184
+            },
+            {
+              "id": "quota",
+              "score": 0.4478739879238219
+            },
+            {
+              "id": "decision",
+              "score": 0.4012050894291376
+            },
+            {
+              "id": "identity",
+              "score": 0.3878237343077965
+            }
+          ]
+        },
+        {
+          "id": "decision-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "decision-distractor",
+              "score": 0.5534498224142084
+            },
+            {
+              "id": "decision",
+              "score": 0.4038486362072832
+            },
+            {
+              "id": "printer",
+              "score": 0.319415451345829
+            },
+            {
+              "id": "migration",
+              "score": 0.3105637000031965
+            },
+            {
+              "id": "quota",
+              "score": 0.29834190398404875
+            }
+          ]
+        },
+        {
+          "id": "decision-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "decision",
+              "score": 0.5240913580769212
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.3776470899032992
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.35263358532535827
+            },
+            {
+              "id": "retry",
+              "score": 0.340549232069627
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.2477813343941402
+            }
+          ]
+        },
+        {
+          "id": "calibration-zh",
+          "group": "zh-en",
+          "rank": 2,
+          "top": [
+            {
+              "id": "calibration-distractor",
+              "score": 0.5549777122748318
+            },
+            {
+              "id": "calibration",
+              "score": 0.47516965770546554
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.41108821046771893
+            },
+            {
+              "id": "battery",
+              "score": 0.41018122950924085
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.37464188479124216
+            }
+          ]
+        },
+        {
+          "id": "calibration-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "calibration",
+              "score": 0.5673524883174077
+            },
+            {
+              "id": "quota",
+              "score": 0.3566290187220672
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.31457147853715006
+            },
+            {
+              "id": "merge",
+              "score": 0.21551287679563141
+            },
+            {
+              "id": "garden",
+              "score": 0.20377299554915138
+            }
+          ]
+        },
+        {
+          "id": "identity-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.6427916068489077
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.6082205282743871
+            },
+            {
+              "id": "artifact",
+              "score": 0.285321274187584
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.2192834615563231
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.20830089823572248
+            }
+          ]
+        },
+        {
+          "id": "identity-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.6391593944003522
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.6259189982499129
+            },
+            {
+              "id": "decision",
+              "score": 0.2731908790998719
+            },
+            {
+              "id": "artifact",
+              "score": 0.2560432575943343
+            },
+            {
+              "id": "recovery",
+              "score": 0.220286695156362
+            }
+          ]
+        },
+        {
+          "id": "swimming-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.8155646451765547
+            },
+            {
+              "id": "garden",
+              "score": 0.16593126657651647
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.14404303084660947
+            },
+            {
+              "id": "diet",
+              "score": 0.14225137053104664
+            },
+            {
+              "id": "diet-distractor",
+              "score": 0.12744527653910814
+            }
+          ]
+        },
+        {
+          "id": "swimming-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.6772054160629375
+            },
+            {
+              "id": "recovery",
+              "score": 0.2341888147115541
+            },
+            {
+              "id": "scope",
+              "score": 0.23042115333629914
+            },
+            {
+              "id": "retry",
+              "score": 0.21243188355486584
+            },
+            {
+              "id": "merge",
+              "score": 0.203593278598149
+            }
+          ]
+        },
+        {
+          "id": "scope-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "merge-distractor",
+              "score": 0.428761368217837
+            },
+            {
+              "id": "scope",
+              "score": 0.42063895583687955
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.35513516395346945
+            },
+            {
+              "id": "merge",
+              "score": 0.3455258646343736
+            },
+            {
+              "id": "quota",
+              "score": 0.27918342190395873
+            }
+          ]
+        },
+        {
+          "id": "scope-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "scope",
+              "score": 0.4669872371926407
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.3546379521511295
+            },
+            {
+              "id": "merge",
+              "score": 0.31496097790968053
+            },
+            {
+              "id": "migration",
+              "score": 0.31228532137070086
+            },
+            {
+              "id": "retry",
+              "score": 0.3122494888060881
+            }
+          ]
+        },
+        {
+          "id": "ventilation-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "ventilation",
+              "score": 0.42672357052864834
+            },
+            {
+              "id": "printer",
+              "score": 0.4150362113777375
+            },
+            {
+              "id": "lease",
+              "score": 0.36352473600197543
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.34975972048667064
+            },
+            {
+              "id": "cooling",
+              "score": 0.3121665176469481
+            }
+          ]
+        },
+        {
+          "id": "ventilation-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "ventilation",
+              "score": 0.467599280778817
+            },
+            {
+              "id": "lease",
+              "score": 0.32040343070127675
+            },
+            {
+              "id": "printer",
+              "score": 0.302414087839132
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.2900291613993149
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.2656026251359833
+            }
+          ]
+        },
+        {
+          "id": "artifact-zh",
+          "group": "zh-zh",
+          "rank": 4,
+          "top": [
+            {
+              "id": "artifact-distractor",
+              "score": 0.4298244361037468
+            },
+            {
+              "id": "retry",
+              "score": 0.42961480443473565
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.41011341482992086
+            },
+            {
+              "id": "artifact",
+              "score": 0.40097864644104475
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.37319435761617736
+            }
+          ]
+        },
+        {
+          "id": "artifact-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.5204308131285449
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.3610591578258614
+            },
+            {
+              "id": "quota-distractor",
+              "score": 0.35681821568000993
+            },
+            {
+              "id": "quota",
+              "score": 0.3301853689659434
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.319593865277074
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.7103878108687529
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.4618350977275645
+            },
+            {
+              "id": "printer",
+              "score": 0.43294930694571176
+            },
+            {
+              "id": "seal",
+              "score": 0.38103144529744865
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.34828131577661625
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.731437329641032
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.48326162959184477
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.35847291945189635
+            },
+            {
+              "id": "seal",
+              "score": 0.31763936668906456
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.28846406485180986
+            }
+          ]
+        },
+        {
+          "id": "recovery-zh",
+          "group": "zh-zh",
+          "rank": 5,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.5829285424361644
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.38420499996097185
+            },
+            {
+              "id": "migration",
+              "score": 0.3827051200842214
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.3722191908453783
+            },
+            {
+              "id": "recovery",
+              "score": 0.3480006784708643
+            }
+          ]
+        },
+        {
+          "id": "recovery-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "quota",
+              "score": 0.37700554256495733
+            },
+            {
+              "id": "recovery",
+              "score": 0.372551391175857
+            },
+            {
+              "id": "retry",
+              "score": 0.3206037527539881
+            },
+            {
+              "id": "identity",
+              "score": 0.3194108779129813
+            },
+            {
+              "id": "migration",
+              "score": 0.30387761715049805
+            }
+          ]
+        },
+        {
+          "id": "elevator-zh",
+          "group": "zh-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.6288427132458108
+            },
+            {
+              "id": "cooling",
+              "score": 0.2416731160108262
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.16047053263629424
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.15724296105377583
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.13212489923940027
+            }
+          ]
+        },
+        {
+          "id": "elevator-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.6963855657775966
+            },
+            {
+              "id": "travel",
+              "score": 0.2981448531680963
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.29359897747101543
+            },
+            {
+              "id": "cooling",
+              "score": 0.2866580161775109
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.26155737794007966
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "modelId": "multilingual-e5-small-official-q8",
+      "modelFingerprint": "sha256:91738c62e037b9caecbbb43084efbf97ee7edd1b7446de523e9c784bf30945d2",
+      "retrievalThresholds": {
+        "search": 0.86,
+        "automatic": null
+      },
+      "coldReadyMs": 2277.913700000001,
+      "peakRssBytes": 781942784,
+      "tokenLengths": {
+        "count": 146,
+        "min": 11,
+        "max": 39,
+        "p95": 33
+      },
+      "warmQuery": {
+        "count": 30,
+        "p50Ms": 5.9768999999996595,
+        "p95Ms": 7.22229999999945,
+        "maxMs": 8.743500000000495,
+        "samplesMs": [
+          6.860000000000582,
+          8.743500000000495,
+          5.531199999999444,
+          5.797599999999875,
+          6.066800000000512,
+          6.936799999999494,
+          6.547200000000885,
+          6.23070000000007,
+          5.9768999999996595,
+          5.166299999998955,
+          5.2215999999989435,
+          6.6696999999985565,
+          6.3171000000002095,
+          5.5604000000003,
+          6.091500000000451,
+          6.2458000000005995,
+          6.166700000001583,
+          7.027199999998629,
+          5.563799999999901,
+          6.018000000000029,
+          7.22229999999945,
+          5.600899999999456,
+          5.949300000000221,
+          6.24750000000131,
+          5.43920000000071,
+          5.904299999998329,
+          5.837999999999738,
+          5.912500000000364,
+          5.488199999999779,
+          5.645399999999427
+        ]
+      },
+      "modelBytes": 135430819,
+      "onnxBytes": 118346824,
+      "quality": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.5625,
+          "recallAt5": 0.7291666666666666,
+          "mrr": 0.6439390449162121
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 1,
+            "mrr": 0.9166666666666666
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0.4166666666666667,
+            "recallAt5": 0.75,
+            "mrr": 0.5803571428571429
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0.16666666666666666,
+            "mrr": 0.07873237014103887
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 1,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        }
+      },
+      "thresholdedSearch": {
+        "all": {
+          "count": 48,
+          "recallAt1": 0.4166666666666667,
+          "recallAt5": 0.4375,
+          "mrr": 0.4270833333333333
+        },
+        "groups": {
+          "zh-zh": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 0.9166666666666666,
+            "mrr": 0.875
+          },
+          "en-zh": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0,
+            "mrr": 0
+          },
+          "zh-en": {
+            "count": 12,
+            "recallAt1": 0,
+            "recallAt5": 0,
+            "mrr": 0
+          },
+          "en-en": {
+            "count": 12,
+            "recallAt1": 0.8333333333333334,
+            "recallAt5": 0.8333333333333334,
+            "mrr": 0.8333333333333334
+          }
+        }
+      },
+      "noAnswer": {
+        "count": 20,
+        "topCosineScores": [
+          0.8208926767883731,
+          0.8475311763837168,
+          0.8447065738021278,
+          0.866517627103607,
+          0.8401173630590758,
+          0.8367477935378458,
+          0.817712268553052,
+          0.826730853008177,
+          0.7354681943556618,
+          0.7572631235434593,
+          0.7837456079694441,
+          0.7849576038723667,
+          0.7673601473692793,
+          0.7321337691102322,
+          0.8078878368627885,
+          0.7064171938654723,
+          0.851391169437155,
+          0.8541001707483082,
+          0.7823184224699051,
+          0.7762786375235261
+        ],
+        "searchFalsePositiveRate": 0.05,
+        "automaticFalsePositiveRate": null,
+        "reason": "Automatic threshold unapproved; automatic injection release gate remains pending."
+      },
+      "stderrBytes": 0,
+      "ranks": [
+        {
+          "id": "delivery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "delivery",
+              "score": 0.8930647547949186
+            },
+            {
+              "id": "seal",
+              "score": 0.8847734774233753
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8824769468829009
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.868077612775542
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8586558809407
+            }
+          ]
+        },
+        {
+          "id": "delivery-en",
+          "group": "en-zh",
+          "rank": 6,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.8026856354989044
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.8012944764523638
+            },
+            {
+              "id": "battery",
+              "score": 0.797726963921232
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.790719549196361
+            },
+            {
+              "id": "travel",
+              "score": 0.7880141056499919
+            }
+          ]
+        },
+        {
+          "id": "diet-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "lease-distractor",
+              "score": 0.8487031482493257
+            },
+            {
+              "id": "delivery",
+              "score": 0.8414732045506673
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8406853548659782
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8387620932112633
+            },
+            {
+              "id": "seal",
+              "score": 0.8380215076524459
+            }
+          ]
+        },
+        {
+          "id": "diet-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "diet",
+              "score": 0.8615788611841229
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.7721459788124994
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.7646540723591244
+            },
+            {
+              "id": "calibration",
+              "score": 0.7642954755996446
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7597538407527591
+            }
+          ]
+        },
+        {
+          "id": "lease-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.9034571050732421
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8778114930934011
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8682687764712023
+            },
+            {
+              "id": "migration",
+              "score": 0.8657314259431046
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.8547654905180779
+            }
+          ]
+        },
+        {
+          "id": "lease-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.7916882259097535
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.7843902650317993
+            },
+            {
+              "id": "archive",
+              "score": 0.7698359048796137
+            },
+            {
+              "id": "artifact",
+              "score": 0.7674224448926001
+            },
+            {
+              "id": "swimming-distractor",
+              "score": 0.7663834189665976
+            }
+          ]
+        },
+        {
+          "id": "printer-zh",
+          "group": "zh-en",
+          "rank": 4,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.8598813801594526
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.855967192351434
+            },
+            {
+              "id": "migration",
+              "score": 0.8529804164608831
+            },
+            {
+              "id": "printer",
+              "score": 0.8454160316661564
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8451580547150741
+            }
+          ]
+        },
+        {
+          "id": "printer-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "printer",
+              "score": 0.8523893181391143
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7941734382578253
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.7812643074726972
+            },
+            {
+              "id": "battery",
+              "score": 0.774513355819962
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.7738428491889872
+            }
+          ]
+        },
+        {
+          "id": "merge-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.8936377233553048
+            },
+            {
+              "id": "identity",
+              "score": 0.8784363039955447
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8758580466115233
+            },
+            {
+              "id": "recovery",
+              "score": 0.8703175812299325
+            },
+            {
+              "id": "migration",
+              "score": 0.8673561775151928
+            }
+          ]
+        },
+        {
+          "id": "merge-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "merge",
+              "score": 0.7497979109421495
+            },
+            {
+              "id": "decision",
+              "score": 0.7455474250295453
+            },
+            {
+              "id": "travel",
+              "score": 0.7452021838942294
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.7432231488796001
+            },
+            {
+              "id": "printer",
+              "score": 0.7405758230439612
+            }
+          ]
+        },
+        {
+          "id": "travel-zh",
+          "group": "zh-en",
+          "rank": 24,
+          "top": [
+            {
+              "id": "lease",
+              "score": 0.856143842999047
+            },
+            {
+              "id": "delivery",
+              "score": 0.85501015736437
+            },
+            {
+              "id": "quota",
+              "score": 0.8508640505135301
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8507758818825993
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.8503133231416027
+            }
+          ]
+        },
+        {
+          "id": "travel-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.8699127464725358
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.7994666581957398
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.775019869293139
+            },
+            {
+              "id": "archive",
+              "score": 0.771578695183214
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.7673027273561719
+            }
+          ]
+        },
+        {
+          "id": "seal-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.8824304167400517
+            },
+            {
+              "id": "migration",
+              "score": 0.8556294594388151
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8500010969086768
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8482246945396292
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8468115843897059
+            }
+          ]
+        },
+        {
+          "id": "seal-en",
+          "group": "en-zh",
+          "rank": 20,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.7876805759433146
+            },
+            {
+              "id": "battery",
+              "score": 0.7821063946955896
+            },
+            {
+              "id": "printer",
+              "score": 0.7767256638431711
+            },
+            {
+              "id": "shipping-label-distractor",
+              "score": 0.7741474948542767
+            },
+            {
+              "id": "elevator",
+              "score": 0.7731377785292826
+            }
+          ]
+        },
+        {
+          "id": "cooling-zh",
+          "group": "zh-en",
+          "rank": 17,
+          "top": [
+            {
+              "id": "identity-distractor",
+              "score": 0.8698220564769079
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8682723013409885
+            },
+            {
+              "id": "identity",
+              "score": 0.8633603606447571
+            },
+            {
+              "id": "migration",
+              "score": 0.8630956529253603
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8570739783198933
+            }
+          ]
+        },
+        {
+          "id": "cooling-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "cooling",
+              "score": 0.8806045465607041
+            },
+            {
+              "id": "printer",
+              "score": 0.7940752407856974
+            },
+            {
+              "id": "battery",
+              "score": 0.7923004490372214
+            },
+            {
+              "id": "calibration",
+              "score": 0.7864715002108383
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.7849283809733398
+            }
+          ]
+        },
+        {
+          "id": "quota-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "quota-distractor",
+              "score": 0.8700860102603725
+            },
+            {
+              "id": "quota",
+              "score": 0.8599964638905383
+            },
+            {
+              "id": "recovery",
+              "score": 0.8512962780283364
+            },
+            {
+              "id": "migration",
+              "score": 0.8488459804093461
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8463556772667726
+            }
+          ]
+        },
+        {
+          "id": "quota-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.7547379633410914
+            },
+            {
+              "id": "quota",
+              "score": 0.7481463414198964
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.744617037619391
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7381091653276644
+            },
+            {
+              "id": "travel",
+              "score": 0.7341721057008479
+            }
+          ]
+        },
+        {
+          "id": "garden-zh",
+          "group": "zh-en",
+          "rank": 20,
+          "top": [
+            {
+              "id": "decision-distractor",
+              "score": 0.8536137839486027
+            },
+            {
+              "id": "decision",
+              "score": 0.8488845894525237
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8451062485673427
+            },
+            {
+              "id": "migration",
+              "score": 0.8448113922232944
+            },
+            {
+              "id": "retry",
+              "score": 0.8423160118289019
+            }
+          ]
+        },
+        {
+          "id": "garden-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "garden",
+              "score": 0.8726033999665131
+            },
+            {
+              "id": "cooling",
+              "score": 0.7769393005284815
+            },
+            {
+              "id": "archive",
+              "score": 0.7601720851549788
+            },
+            {
+              "id": "cooling-distractor",
+              "score": 0.7559443746477018
+            },
+            {
+              "id": "battery",
+              "score": 0.7547418246928934
+            }
+          ]
+        },
+        {
+          "id": "migration-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.8902219692098395
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8690852468601731
+            },
+            {
+              "id": "recovery",
+              "score": 0.8521692292241645
+            },
+            {
+              "id": "seal",
+              "score": 0.8520137833007443
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.8516627308920184
+            }
+          ]
+        },
+        {
+          "id": "migration-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.828364520485654
+            },
+            {
+              "id": "migration",
+              "score": 0.8092960927713994
+            },
+            {
+              "id": "travel",
+              "score": 0.7778929762509897
+            },
+            {
+              "id": "cooling",
+              "score": 0.7756886433992967
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7728105389596851
+            }
+          ]
+        },
+        {
+          "id": "battery-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.8680529748201923
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8523929173530667
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8487657278010085
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.848160133924645
+            },
+            {
+              "id": "seal",
+              "score": 0.8449257557371225
+            }
+          ]
+        },
+        {
+          "id": "battery-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "battery",
+              "score": 0.8987684176450906
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.7866321298634712
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7766165682747473
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7735525397097072
+            },
+            {
+              "id": "calibration",
+              "score": 0.7725491796726232
+            }
+          ]
+        },
+        {
+          "id": "retry-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "retry",
+              "score": 0.8829181749380182
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8720832631570132
+            },
+            {
+              "id": "identity",
+              "score": 0.8592011461010902
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8552808414996864
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8524472780001958
+            }
+          ]
+        },
+        {
+          "id": "retry-en",
+          "group": "en-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "travel",
+              "score": 0.7871093728234514
+            },
+            {
+              "id": "retry",
+              "score": 0.7801699695688028
+            },
+            {
+              "id": "battery",
+              "score": 0.7782685048773132
+            },
+            {
+              "id": "archive",
+              "score": 0.7701901302172496
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7640301405622939
+            }
+          ]
+        },
+        {
+          "id": "archive-zh",
+          "group": "zh-en",
+          "rank": 19,
+          "top": [
+            {
+              "id": "migration",
+              "score": 0.8568083982026945
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8559040661219377
+            },
+            {
+              "id": "recovery",
+              "score": 0.8549895174337607
+            },
+            {
+              "id": "merge",
+              "score": 0.8539993518386086
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8524542626615241
+            }
+          ]
+        },
+        {
+          "id": "archive-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.9079147106649132
+            },
+            {
+              "id": "elevator-distractor",
+              "score": 0.7620794534695197
+            },
+            {
+              "id": "printer",
+              "score": 0.7587598298015563
+            },
+            {
+              "id": "travel",
+              "score": 0.7566870264992426
+            },
+            {
+              "id": "cooling",
+              "score": 0.7554670183197458
+            }
+          ]
+        },
+        {
+          "id": "decision-zh",
+          "group": "zh-zh",
+          "rank": 2,
+          "top": [
+            {
+              "id": "decision-distractor",
+              "score": 0.9050695932468816
+            },
+            {
+              "id": "decision",
+              "score": 0.8948536454630952
+            },
+            {
+              "id": "migration",
+              "score": 0.8683102153904779
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8624978477375882
+            },
+            {
+              "id": "merge",
+              "score": 0.8623934035339585
+            }
+          ]
+        },
+        {
+          "id": "decision-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "decision",
+              "score": 0.7993320175507517
+            },
+            {
+              "id": "cooling",
+              "score": 0.7976496943047804
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.7924408826963888
+            },
+            {
+              "id": "archive",
+              "score": 0.7747209737211865
+            },
+            {
+              "id": "battery",
+              "score": 0.7709481823815675
+            }
+          ]
+        },
+        {
+          "id": "calibration-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "seal-distractor",
+              "score": 0.8656187228551648
+            },
+            {
+              "id": "retry",
+              "score": 0.8633946708453776
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8617660748703357
+            },
+            {
+              "id": "migration",
+              "score": 0.8603331823636964
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8592272098060894
+            }
+          ]
+        },
+        {
+          "id": "calibration-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "calibration",
+              "score": 0.8709754295247074
+            },
+            {
+              "id": "battery",
+              "score": 0.8103025240683034
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7949572598734681
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7930305144540691
+            },
+            {
+              "id": "printer",
+              "score": 0.7922843550062731
+            }
+          ]
+        },
+        {
+          "id": "identity-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.9088602262449326
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.8738913591878914
+            },
+            {
+              "id": "decision-distractor",
+              "score": 0.8672840284644198
+            },
+            {
+              "id": "decision",
+              "score": 0.8549148902921371
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8532018504126073
+            }
+          ]
+        },
+        {
+          "id": "identity-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "identity",
+              "score": 0.815897816196498
+            },
+            {
+              "id": "identity-distractor",
+              "score": 0.789621667557009
+            },
+            {
+              "id": "battery",
+              "score": 0.7677152584573376
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.763415536419362
+            },
+            {
+              "id": "cooling",
+              "score": 0.7532180059094404
+            }
+          ]
+        },
+        {
+          "id": "swimming-zh",
+          "group": "zh-en",
+          "rank": 4,
+          "top": [
+            {
+              "id": "migration-distractor",
+              "score": 0.8508640009561512
+            },
+            {
+              "id": "quota",
+              "score": 0.8473809969228414
+            },
+            {
+              "id": "scope",
+              "score": 0.8356705477518769
+            },
+            {
+              "id": "swimming",
+              "score": 0.8330665390582679
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.8270593532345986
+            }
+          ]
+        },
+        {
+          "id": "swimming-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "swimming",
+              "score": 0.8726382827248771
+            },
+            {
+              "id": "archive",
+              "score": 0.7705087516546247
+            },
+            {
+              "id": "battery",
+              "score": 0.7645822533409466
+            },
+            {
+              "id": "battery-distractor",
+              "score": 0.7639377390333494
+            },
+            {
+              "id": "garden",
+              "score": 0.763907766863801
+            }
+          ]
+        },
+        {
+          "id": "scope-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "scope",
+              "score": 0.8933919106373196
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.8756328266422899
+            },
+            {
+              "id": "merge",
+              "score": 0.8744741860771216
+            },
+            {
+              "id": "identity",
+              "score": 0.8637665272671888
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8564112846163766
+            }
+          ]
+        },
+        {
+          "id": "scope-en",
+          "group": "en-zh",
+          "rank": 5,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.7978704372602473
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7946262346027972
+            },
+            {
+              "id": "merge-distractor",
+              "score": 0.7897900875815008
+            },
+            {
+              "id": "travel-distractor",
+              "score": 0.7861488087199244
+            },
+            {
+              "id": "scope",
+              "score": 0.7856364155995754
+            }
+          ]
+        },
+        {
+          "id": "ventilation-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "lease-distractor",
+              "score": 0.8616991728335988
+            },
+            {
+              "id": "delivery",
+              "score": 0.8598661745537669
+            },
+            {
+              "id": "lease",
+              "score": 0.8557664557931772
+            },
+            {
+              "id": "seal",
+              "score": 0.8475414208940877
+            },
+            {
+              "id": "migration",
+              "score": 0.8424612617869705
+            }
+          ]
+        },
+        {
+          "id": "ventilation-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "ventilation",
+              "score": 0.8531359321448105
+            },
+            {
+              "id": "archive",
+              "score": 0.7748184840908366
+            },
+            {
+              "id": "ventilation-distractor",
+              "score": 0.7671205096207773
+            },
+            {
+              "id": "diet",
+              "score": 0.762570160979379
+            },
+            {
+              "id": "garden",
+              "score": 0.7599414398652067
+            }
+          ]
+        },
+        {
+          "id": "artifact-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.8956616320567478
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.8788937580584077
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8717867443471514
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8662341748693111
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.8646298918719993
+            }
+          ]
+        },
+        {
+          "id": "artifact-en",
+          "group": "en-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "artifact",
+              "score": 0.8006458913747082
+            },
+            {
+              "id": "archive",
+              "score": 0.7654224758279917
+            },
+            {
+              "id": "calibration-distractor",
+              "score": 0.7599256650917908
+            },
+            {
+              "id": "retry-distractor",
+              "score": 0.7571427363394365
+            },
+            {
+              "id": "artifact-distractor",
+              "score": 0.7564160588204488
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-zh",
+          "group": "zh-en",
+          "rank": 24,
+          "top": [
+            {
+              "id": "seal-distractor",
+              "score": 0.8818588331621899
+            },
+            {
+              "id": "seal",
+              "score": 0.8783573673269471
+            },
+            {
+              "id": "quota",
+              "score": 0.8515840282125973
+            },
+            {
+              "id": "migration-distractor",
+              "score": 0.8512980160878015
+            },
+            {
+              "id": "recovery-distractor",
+              "score": 0.8476640321641956
+            }
+          ]
+        },
+        {
+          "id": "shipping-label-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "shipping-label",
+              "score": 0.8930994967541764
+            },
+            {
+              "id": "printer-distractor",
+              "score": 0.8028738988857708
+            },
+            {
+              "id": "printer",
+              "score": 0.8005721937050869
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.7954434698683457
+            },
+            {
+              "id": "battery",
+              "score": 0.7905712224288095
+            }
+          ]
+        },
+        {
+          "id": "recovery-zh",
+          "group": "zh-zh",
+          "rank": 1,
+          "top": [
+            {
+              "id": "recovery",
+              "score": 0.8970375067465416
+            },
+            {
+              "id": "migration",
+              "score": 0.8772631234552896
+            },
+            {
+              "id": "quota",
+              "score": 0.8768373754143354
+            },
+            {
+              "id": "identity",
+              "score": 0.8670944735336358
+            },
+            {
+              "id": "merge",
+              "score": 0.8653780345068004
+            }
+          ]
+        },
+        {
+          "id": "recovery-en",
+          "group": "en-zh",
+          "rank": 21,
+          "top": [
+            {
+              "id": "archive",
+              "score": 0.8149826666457267
+            },
+            {
+              "id": "calibration",
+              "score": 0.7792246900720337
+            },
+            {
+              "id": "battery",
+              "score": 0.7784325406537465
+            },
+            {
+              "id": "printer",
+              "score": 0.7724739911542701
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.7711794917344089
+            }
+          ]
+        },
+        {
+          "id": "elevator-zh",
+          "group": "zh-en",
+          "rank": 25,
+          "top": [
+            {
+              "id": "seal",
+              "score": 0.866008169440365
+            },
+            {
+              "id": "seal-distractor",
+              "score": 0.8594749361197417
+            },
+            {
+              "id": "delivery",
+              "score": 0.8460727257979074
+            },
+            {
+              "id": "delivery-distractor",
+              "score": 0.8454085236283655
+            },
+            {
+              "id": "lease-distractor",
+              "score": 0.8437085951865307
+            }
+          ]
+        },
+        {
+          "id": "elevator-en",
+          "group": "en-en",
+          "rank": 1,
+          "top": [
+            {
+              "id": "elevator",
+              "score": 0.8916715204076041
+            },
+            {
+              "id": "battery",
+              "score": 0.8053693634282788
+            },
+            {
+              "id": "shipping-label",
+              "score": 0.8021346110917185
+            },
+            {
+              "id": "cooling",
+              "score": 0.797630636927864
+            },
+            {
+              "id": "printer",
+              "score": 0.7844116727506817
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "lexicalBaseline": {
+    "method": "Unicode normalized character bigram cosine (independent pilot baseline, not product lexical engine)",
+    "all": {
+      "count": 48,
+      "recallAt1": 0.2708333333333333,
+      "recallAt5": 0.4166666666666667,
+      "mrr": 0.3570456394179023
+    },
+    "groups": {
+      "zh-zh": {
+        "count": 12,
+        "recallAt1": 0.3333333333333333,
+        "recallAt5": 0.5833333333333334,
+        "mrr": 0.4690987057737417
+      },
+      "en-zh": {
+        "count": 12,
+        "recallAt1": 0,
+        "recallAt5": 0,
+        "mrr": 0.03239513919195211
+      },
+      "zh-en": {
+        "count": 12,
+        "recallAt1": 0,
+        "recallAt5": 0.08333333333333333,
+        "mrr": 0.07252204603924876
+      },
+      "en-en": {
+        "count": 12,
+        "recallAt1": 0.75,
+        "recallAt5": 1,
+        "mrr": 0.8541666666666666
+      }
+    }
+  }
+}

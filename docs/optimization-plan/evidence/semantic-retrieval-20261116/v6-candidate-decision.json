@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "status": "DEVELOPMENT_CANDIDATE_FROZEN_FOR_NEW_INDEPENDENT_ACCEPTANCE_NOT_ADOPTED",
+  "createdAt": "2026-11-16T21:22:12.814Z",
+  "selectionData": "Existing train/calibration only;36 predeclared policies; independently recomputed before this decision.",
+  "policy": {
+    "id": "qwen-raw-top1-rank-p095-v1",
+    "coarseModel": "Qwen3-Embedding-0.6B Q4_K_M",
+    "coarseModelSha256": "23d234bb57a42528a22a13e7beb8b57d8844b2b9cc741b4c27a8ff132abf0dfd",
+    "queryPrefix": "Instruct: Given a user question, retrieve prior messages that contain evidence relevant to answering it\nQuery:",
+    "coarseRoleContract": "1024,last-unmasked-token,L2,physical1,max512,appendEOS,CPU2;slot erased before each inference",
+    "rawSemanticTopK": 1,
+    "extraCosineThreshold": null,
+    "verifierModel": "Official Qwen3-Reranker-0.6B locally converted and Q4_K_M quantized",
+    "verifierModelSha256": "9787224d2920d37838ed8dcf88dc6f2b92d1629192627655c32b06aef04becc7",
+    "verifierRuntime": "locked rank-buffer-t6,CPU6,physical1,RANK yes/no scalar",
+    "minimumVerifierScore": 0.95,
+    "instruction": "Pinned official GGUF web-search template; no instruction change.",
+    "weakLexical": "Every actual same-field weak lexical candidate also requires scalar verification; not limited to semantic top1.",
+    "strongEvidence": "Only current source-authenticated same-field phrase/all effective terms/all complete structured IDs can bypass scalar.",
+    "unknown": "While scalar mode is enabled, unverified semantic/weak candidates are not promoted; preserve null/partial/loading. Feature-off lexical search remains a separate explicit mode.",
+    "ranking": "Preserve original coarse order; recompute original lexical/semantic RRF only after field admission and before final limit/session cap.",
+    "automaticMemory": null
+  },
+  "evidence": [
+    {
+      "path": "output/semantic-qwen-reranker-official-v1/development-selection-v1.json",
+      "sha256": "d39c6a3e9f3e0ee716c18d71322470c93add734e6ed685c8ba65075fc1c8a0c4"
+    },
+    {
+      "path": "output/semantic-reranker-development-independent-r2.json",
+      "sha256": "b04d5a0a6ef7f407c7518b7f3413e7d17c25afc80c30d570dbfea80980d40dc5"
+    },
+    {
+      "path": "output/semantic-qwen-reranker-official-v1/development-scalars-v1.json",
+      "sha256": "1c4f876f3363c80e89cb9e36ca801bf39b56831d196e18d5039e78fc2021909a"
+    },
+    {
+      "path": "dev-harness/semantic/qwen-evidence-research-adapter.cjs",
+      "sha256": "7ecd5e33acaaa1a306f84cc32e1605f07bc5ec1eafa2b1b485f707198884374e"
+    },
+    {
+      "path": "dev-harness/semantic/qwen-reranker-native.cjs",
+      "sha256": "a2c8254b539bbff26a625365f399d15a483246453ba2fe9f556160da2c36d706"
+    },
+    {
+      "path": "output/semantic-qwen-reranker-official-v1/runtime/rank-buffer-t6.lock.json",
+      "sha256": "c703f828ce9ad6e423593c9baa44f5901dbce9a9776a8a3850f640e3f2799ee6"
+    }
+  ],
+  "acceptance": {
+    "fixture": "New independently authored v6, not yet authored/read/evaluated by selection.",
+    "rules": "No post-v6-result threshold/K/instruction fitting. Existing v2-v5 are consumed regression only. New fixture is frozen before evaluation; full all-query denominators and source coverage mandatory.",
+    "gates": "Keep existing Chinese/cross-language/MRR/OOD/source/privacy/complete coverage and1000-fragment p95 limits unchanged."
+  },
+  "remaining": [
+    "Actual producer/native compound pipeline and separate consumer integration",
+    "Fresh independent quality validation",
+    "Combined active/idle/disabled resource and cold/index/uncached-query/repeat-query performance",
+    "Final Windows runtime/redistribution/CPU qualification",
+    "New packages/full regression/final completion audit before commit and push"
+  ],
+  "limits": [
+    "Train/cal all-positive R@5/MRR1 and pure OOD0/80 do not establish unseen quality.",
+    "Two separate model checkpoints are involved; do not present one667MiB process as total desktop incremental memory.",
+    "No production default, model manifest, release version or formal gate is changed by this decision."
+  ]
+}

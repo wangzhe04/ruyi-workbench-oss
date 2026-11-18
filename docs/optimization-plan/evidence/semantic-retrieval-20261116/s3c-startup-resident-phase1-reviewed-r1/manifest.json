@@ -1,0 +1,1640 @@
+{
+  "schema": 1,
+  "status": "SCOPED_LIFECYCLE_PROGRESS_WITH_OPEN_FINDINGS_AND_REAL_TREE_ATIME_FAILURE_NOT_RELEASE_ACCEPTANCE",
+  "records": [
+    {
+      "source": "dev-harness/free-port.js",
+      "member": "0001.gz",
+      "rawBytes": 2370,
+      "rawSha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258",
+      "gzipBytes": 1380,
+      "gzipSha256": "cc77111ac83ddec192c34a5ee1021548eb07a56035f535dddae6b331c5eeeab8"
+    },
+    {
+      "source": "dev-harness/lib/fixture-home-guard.js",
+      "member": "0002.gz",
+      "rawBytes": 4557,
+      "rawSha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76",
+      "gzipBytes": 2369,
+      "gzipSha256": "6a29853b36812395f73615c92f5188678805b5cec239c1e761f912fcbb63f51c"
+    },
+    {
+      "source": "dev-harness/lib/fixture-home.js",
+      "member": "0003.gz",
+      "rawBytes": 7828,
+      "rawSha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "gzipBytes": 3858,
+      "gzipSha256": "252a66f463fc6681deb9320af246903fc76c76d0d029ac8b3a40f78b77199af6"
+    },
+    {
+      "source": "dev-harness/lib/harness.js",
+      "member": "0004.gz",
+      "rawBytes": 2520,
+      "rawSha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+      "gzipBytes": 1470,
+      "gzipSha256": "f23bbe39ed5a0e55895ed1f699fe6be389780ddc7b157a893ac327f4a445547b"
+    },
+    {
+      "source": "dev-harness/lib/kill-own-tree.js",
+      "member": "0005.gz",
+      "rawBytes": 7839,
+      "rawSha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+      "gzipBytes": 3909,
+      "gzipSha256": "d6b40286c61aee6d069064891864bf76c0ae841a03b9910ce2c82f42ea795cae"
+    },
+    {
+      "source": "dev-harness/lib/release-checks.js",
+      "member": "0006.gz",
+      "rawBytes": 2826,
+      "rawSha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172",
+      "gzipBytes": 1364,
+      "gzipSha256": "9485ea6172cbc92db1f2274f745286f9669bb90551b15e462673414f12adbb07"
+    },
+    {
+      "source": "dev-harness/lib/self-isolate-home.js",
+      "member": "0007.gz",
+      "rawBytes": 2772,
+      "rawSha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "gzipBytes": 1616,
+      "gzipSha256": "db9f1f601ee5b196a496736df046ae4841cb427fda312d489c67d07cfa037a4d"
+    },
+    {
+      "source": "dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "member": "0008.gz",
+      "rawBytes": 10235,
+      "rawSha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1",
+      "gzipBytes": 3344,
+      "gzipSha256": "54f7c47d3dbbbf5d6e2cbcb9a85b5350fe04c49a564bcca6cc6f5588b8a84a79"
+    },
+    {
+      "source": "dev-harness/lib/work-data-production-upload-core.js",
+      "member": "0009.gz",
+      "rawBytes": 18095,
+      "rawSha256": "d46f87d7b303c24fb0f0dc0c10c0d152f61419ec58b1fbc9ce243dbb48dec903",
+      "gzipBytes": 5613,
+      "gzipSha256": "85cbafe6f8f8d08051ecd23184af637fdd55eddd8354643e09fb9ecc8e8e1212"
+    },
+    {
+      "source": "dev-harness/lib/work-data-production-upload-process.js",
+      "member": "0010.gz",
+      "rawBytes": 22486,
+      "rawSha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988",
+      "gzipBytes": 7071,
+      "gzipSha256": "28d3c23be2eec38fe526b862e78664ec830caf2733a7b8909ac38ac8b3c4e2cb"
+    },
+    {
+      "source": "dev-harness/semantic/archive-startup-resident-phase1-evidence.cjs",
+      "member": "0011.gz",
+      "rawBytes": 3813,
+      "rawSha256": "6ed68e534a5abc5bb1a3d15162da6d478b00ae5eb923063dfaecda5d28b8bcf9",
+      "gzipBytes": 1874,
+      "gzipSha256": "96f9029a15e4e49491f3bec6b8767ebe2a672650ca6b58ce754e5381daea8c84"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-diagnostic-keeper-cleanup.cjs",
+      "member": "0012.gz",
+      "rawBytes": 1352,
+      "rawSha256": "3ad37615e7914a81dc273dd8cec7830f989ca39cd4df0a2ab04775b6fd1a734f",
+      "gzipBytes": 667,
+      "gzipSha256": "7ce21d571608242655c56dcce11213d7fa78f4e4debf55be96a26814ea6ac9b0"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-diagnostic-keeper-cleanup.test.cjs",
+      "member": "0013.gz",
+      "rawBytes": 1200,
+      "rawSha256": "e1bdb100ffd503170fc6838254500f066900532c2d6d19172e261b7504e7861a",
+      "gzipBytes": 495,
+      "gzipSha256": "fc2b71eba1675fca36823d482c481c99ff3806015ac0e44967a561d919a91482"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-diagnostic-keeper-timeout.test.cjs",
+      "member": "0014.gz",
+      "rawBytes": 662,
+      "rawSha256": "5e2bf71ee9b65cbc49fc0304c344b5950ce326ecfe5547a1333078199d6bc162",
+      "gzipBytes": 373,
+      "gzipSha256": "a3bd7e766ebdfdea2862526032e27da741b3fb12b1883afa0525c47ce820e308"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-diagnostic-semantic-off.cjs",
+      "member": "0015.gz",
+      "rawBytes": 938,
+      "rawSha256": "230565efa6631c4125fc4db93a27bdc0e1724bb8a9f5195ed85686efb0f94bae",
+      "gzipBytes": 551,
+      "gzipSha256": "be91ab4dfa338ea82cad8e0fad250e1ec7eaa7a05c0930efa2de15fde8fbf2f1"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-diagnostic-semantic-off.test.cjs",
+      "member": "0016.gz",
+      "rawBytes": 856,
+      "rawSha256": "305f1fe79a54e467bf73bd17b4793c8df2c5ca726013a4066c9fa0df8c71e366",
+      "gzipBytes": 479,
+      "gzipSha256": "9b43fe2100402f577f99a40a0d47b59e5ad734b25fd77fb7af1580c23c04a756"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-preserved-tree-diagnostic.cjs",
+      "member": "0017.gz",
+      "rawBytes": 3369,
+      "rawSha256": "698ca542aae06a01611571a6247473701dd0925864c9f592bb777a711112581e",
+      "gzipBytes": 1450,
+      "gzipSha256": "da510965db910570f4d899703d5362472697dc3f91920c948b6e9ef9106c982f"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-preserved-tree-diagnostic.test.cjs",
+      "member": "0018.gz",
+      "rawBytes": 2228,
+      "rawSha256": "8fa7f6d76e48bd6e75bd2a3fc45acebe4a9f39ea8e88b864b6ba90750a7943c9",
+      "gzipBytes": 1002,
+      "gzipSha256": "819ad535f651813c844c70962b5bebd162b56be76934d4c26d2fc91b525ea100"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-snapshot-diagnostic-controller-fake.cjs",
+      "member": "0019.gz",
+      "rawBytes": 693,
+      "rawSha256": "934308bea9ad180bffa8a1e5fc4f9b6bbfad62f45bb51a0381baf6cf6505df55",
+      "gzipBytes": 465,
+      "gzipSha256": "1a5b245b325698c9f960704ac026ae09368f70535434561def1a82152baf0785"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-snapshot-diagnostic-keeper-v4.ps1",
+      "member": "0020.gz",
+      "rawBytes": 9685,
+      "rawSha256": "64fc8d17b58b73e273d4b768328da504d17ecc3359c952a49f53dce904eb367d",
+      "gzipBytes": 3089,
+      "gzipSha256": "ab65ae361e0d28e7150c3d91bec7f2203178348f0550718bed37627437bc9b19"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-snapshot-diagnostic-v2.cjs",
+      "member": "0021.gz",
+      "rawBytes": 2959,
+      "rawSha256": "813da6b191ccf70eed7f6c031d11f7b5810ec0a6140a1a4eb90f441f7358d00c",
+      "gzipBytes": 1287,
+      "gzipSha256": "091befd353031b8883610d2cf756af5838f9f7071a3bbd8b92ae3aca275f0f85"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-snapshot-diagnostic-v2.test.cjs",
+      "member": "0022.gz",
+      "rawBytes": 2031,
+      "rawSha256": "cb40fd58ca04bf33c97b74a1818e6ec3a3455f838232704643cb80f8ccae8c0c",
+      "gzipBytes": 930,
+      "gzipSha256": "1305662280ddbe156f4232c91b5802ec6fb8a655a69d0290e300d8e9a5f36423"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-tree-diagnostic-controller.cjs",
+      "member": "0023.gz",
+      "rawBytes": 5112,
+      "rawSha256": "fefaf04f894a439133bfdfc86eaf5edae94a483831808e025665f80fb44aaf23",
+      "gzipBytes": 2272,
+      "gzipSha256": "d16932429204aaa0fe6237bb255ce43fda78bd71365a87bad5bb1d19b49042f4"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-tree-diagnostic-freeze-v3.cjs",
+      "member": "0024.gz",
+      "rawBytes": 6456,
+      "rawSha256": "ca6d6a229f05755710ccac345558104e1816acb0acb97c123e4807d15b837422",
+      "gzipBytes": 2438,
+      "gzipSha256": "cbbae0b62de1ec41106587f7c982ac18292d9f1b8713addd3a1c584732e81109"
+    },
+    {
+      "source": "dev-harness/semantic/semantic-runtime-provider-candidate.cjs",
+      "member": "0025.gz",
+      "rawBytes": 4223,
+      "rawSha256": "e4b3739ff5227a49e4b0c8d3c8471fb1c13b8e79092fb423b32085139b5c018a",
+      "gzipBytes": 1473,
+      "gzipSha256": "ad4344533f98704bab2c012889182039d2f55e164a9a6194a42e79b55bb66351"
+    },
+    {
+      "source": "dev-harness/semantic/semantic-runtime-provider-candidate.test.cjs",
+      "member": "0026.gz",
+      "rawBytes": 3631,
+      "rawSha256": "bb1631cdfd0b1694021fa81f7c508c0d918b3f4c9896c7467ee1c85a8e6ef9bd",
+      "gzipBytes": 1366,
+      "gzipSha256": "eda878b9ede6c83307a3d4276d37ffe9329bfd635e8df6d978c24f643bbcbb7b"
+    },
+    {
+      "source": "dev-harness/semantic/semantic-runtime-resident-client-candidate.cjs",
+      "member": "0027.gz",
+      "rawBytes": 17388,
+      "rawSha256": "fa6c6b95f27924e06f2bd6f1ee5d0f3c976d67cfdf7dc1fc9687635aff717f05",
+      "gzipBytes": 5279,
+      "gzipSha256": "772be9c475c59ac25de57d6316c9bfcfef77529dda45a0bfd979dbc43dc6827c"
+    },
+    {
+      "source": "dev-harness/semantic/semantic-runtime-resident-client-candidate.test.cjs",
+      "member": "0028.gz",
+      "rawBytes": 6910,
+      "rawSha256": "8188e3b026085bb2c77ebd445caafb4a7db52b30f3f32e0ce00e677305068a96",
+      "gzipBytes": 2318,
+      "gzipSha256": "13081ed881d43b634347e5493297f9f01712c841cbff1ad0fcec0ec35ab8eabf"
+    },
+    {
+      "source": "dev-harness/unit/semantic-bridge.test.js",
+      "member": "0029.gz",
+      "rawBytes": 6758,
+      "rawSha256": "75962c13ee4979f6aad28f64729da315c210191ddc62f882984b04ec730580ae",
+      "gzipBytes": 2243,
+      "gzipSha256": "7026fc500bef62ade4451af18e425de6d4c280c6f9a1b0962db46209a72d7ba5"
+    },
+    {
+      "source": "dev-harness/unit/semantic-resident-admission.test.js",
+      "member": "0030.gz",
+      "rawBytes": 4826,
+      "rawSha256": "5d213c8eea8e8c26da323bbe44ef64bb1526765a97a42d8d655e7eb3af1557a9",
+      "gzipBytes": 1555,
+      "gzipSha256": "3f0f72f5aa463bca10c49f9f3c637cf304702c56d7ab8453f58fba7ec8a5d5a2"
+    },
+    {
+      "source": "dev-harness/unit/semantic-resident-lifecycle.test.js",
+      "member": "0031.gz",
+      "rawBytes": 4543,
+      "rawSha256": "52ab86cc3b14da32929a9ff7facb0e8318964bfa4fce06ea15cd628ce9295f92",
+      "gzipBytes": 1615,
+      "gzipSha256": "bcc1d8167c37c357ee498fdb2977005c7dbcbb4c1cedd42771f5399df0e2f10d"
+    },
+    {
+      "source": "dev-harness/work-data-production-maintenance.e2e.js",
+      "member": "0032.gz",
+      "rawBytes": 79638,
+      "rawSha256": "b229514677521f25b8f7fcf4cb6be671f1aa61d03f56b8516eb3c8f9df470595",
+      "gzipBytes": 24333,
+      "gzipSha256": "f70d7be91783ed56d0519f5dffd0ce24438161a76569d5ddeb7e4724afb5191f"
+    },
+    {
+      "source": "dev-harness/work-data-production-restore.e2e.js",
+      "member": "0033.gz",
+      "rawBytes": 106237,
+      "rawSha256": "7d514c7b8f3807b50adda2e6298f1fbf701fb8aed4d9379ee4222f3dc52fd7cb",
+      "gzipBytes": 28033,
+      "gzipSha256": "560e3d4b7e92d4845cd924c4333e6a208ec289576103cdff8f601f9cb1345269"
+    },
+    {
+      "source": "dev-harness/work-data-production-upload.e2e.js",
+      "member": "0034.gz",
+      "rawBytes": 28954,
+      "rawSha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f",
+      "gzipBytes": 9726,
+      "gzipSha256": "92f6f252323ed08a7ca7939adff3309ba72391aae9e00cf0b92a560a159afec0"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/bootstrap-receipt.json",
+      "member": "0035.gz",
+      "rawBytes": 1609,
+      "rawSha256": "fc9bf7246070bc2f1b5a8a000b869b66d1d2e6b65a8c8c2939cc6eaec632f4f7",
+      "gzipBytes": 781,
+      "gzipSha256": "0562eef1b4dfbdb9f970a59975e3c7691d65c2d608e4568ec6b7041146483360"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/contract.json",
+      "member": "0036.gz",
+      "rawBytes": 81546,
+      "rawSha256": "a3fa2637ea6beca546e565b160e5927dd308c974d1e94ff5d6690564cc980fee",
+      "gzipBytes": 19021,
+      "gzipSha256": "4d8e4cb1c0c0a1f0c23bdfb68bad27c9a1b8770b25a00938a90025c8f234ff05"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/diagnostic-bundle.cjs",
+      "member": "0037.gz",
+      "rawBytes": 8980001,
+      "rawSha256": "fc7ba292db9b9bdeae1fcb157f7d79e53b810579f198a887e778ffdb0f96e6be",
+      "gzipBytes": 2936533,
+      "gzipSha256": "672cb237fb830e859b2678c6cf99275634256c8bb64f0ecd4d5c8992fe1ab01d"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/diagnostic-entry.cjs",
+      "member": "0038.gz",
+      "rawBytes": 1190,
+      "rawSha256": "d0398b9d11f8a30e8686d3733392a02e0f4db8650ee14dd6d82387b67eaf1b42",
+      "gzipBytes": 672,
+      "gzipSha256": "90f5848e4319f84f42f728bd8258a365bb565ff9301f0b88318ffb26f1067817"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/outer-job-receipt.json",
+      "member": "0039.gz",
+      "rawBytes": 896,
+      "rawSha256": "17b634537d9c0d97d9486d59f2571d0d71e174941443fdb3466a27a502f2e447",
+      "gzipBytes": 323,
+      "gzipSha256": "54ff2e8084c14f3e41071b390494b9e23cecf69bd6ba5c64166f350ba25098e6"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/root-preflight.json",
+      "member": "0040.gz",
+      "rawBytes": 816,
+      "rawSha256": "8349c7bc71cf2c5d59b0a79e385d8f058ba1d0fcbc2cb751767b0aeba98fe984",
+      "gzipBytes": 538,
+      "gzipSha256": "b685a902d173911e67b1cbd43ad2c0686e414333a1454535062348cc13879b08"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/snapshot-diagnostic.jsonl",
+      "member": "0041.gz",
+      "rawBytes": 144,
+      "rawSha256": "d06d9a3ba20c280432de327eb66e44c98ba1f1ce83b019db018243708ca0d79a",
+      "gzipBytes": 117,
+      "gzipSha256": "c20797bdd21766dfe1ffde731c6bd9aae9250bac34e70e517618751a6dd4f205"
+    },
+    {
+      "source": "output/semantic-gemma-q4-tree-primitive-v2/tree-diagnostic.jsonl",
+      "member": "0042.gz",
+      "rawBytes": 81,
+      "rawSha256": "8a70e693e2dd50c912fd60e9e38e82073e07dd260c68039cd45512dc6ea5f8a6",
+      "gzipBytes": 94,
+      "gzipSha256": "f59b1b4b9abeb09a6a7a3a9f02fc1d788b66e0387a82aa88dd553d53d442b294"
+    },
+    {
+      "source": "output/semantic-resident-production-phase1-r1/bindings.json",
+      "member": "0043.gz",
+      "rawBytes": 28847,
+      "rawSha256": "b579eff93467694387a72e8048bab2929a04b35d501e9b6098cfcf7f8c16fa26",
+      "gzipBytes": 8573,
+      "gzipSha256": "1dcb950d6046babfe9d63c848b5fa89e2d08d1d2e64673ad5b96eaa1300e6c6e"
+    },
+    {
+      "source": "output/semantic-resident-production-phase1-r1/root-review.json",
+      "member": "0044.gz",
+      "rawBytes": 996,
+      "rawSha256": "55dcd72b45094f89a7540f792b8c7c563046bd41d9df1a112ac176d8f6b69a71",
+      "gzipBytes": 641,
+      "gzipSha256": "3c8756bb2f556e02e1754b534739fa3ae8a4fe628c22a5dd7279a62140c9edbe"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/dll-dependencies.txt",
+      "member": "0045.gz",
+      "rawBytes": 3231,
+      "rawSha256": "8f7699a7735ba080ebbeed1a4d8019f0d3f000a030c494a3ddb523560f6216f5",
+      "gzipBytes": 542,
+      "gzipSha256": "291c5bae913371410393f3cebfcf9dc40933d3207c10f2283e3c3f500733edc3"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/LICENSE.vc-runtime.txt",
+      "member": "0046.gz",
+      "rawBytes": 11945,
+      "rawSha256": "c15f0776c632b97bc3b01dbc3090ae347bb406235ae7132601bbaba91624e4fc",
+      "gzipBytes": 4917,
+      "gzipSha256": "691d9343a0cf990ea3dfc6f5782ec28104e188cc48832524e4563cd6b22f4c77"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/selected-inventory.json",
+      "member": "0047.gz",
+      "rawBytes": 1716,
+      "rawSha256": "82da116258edb957524855eefaa4549f7468670d4e521e57268aec48099cecc8",
+      "gzipBytes": 492,
+      "gzipSha256": "eb5df7ef35b136e1f3bec9f4251a3e6899dfdb1925e744129377e6a76c3cbe16"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/source-receipt.json",
+      "member": "0048.gz",
+      "rawBytes": 5347,
+      "rawSha256": "9927db6b1ceea60234ca41b1a9b5846c99a7296f4ab458ec1618ebbe76e92da0",
+      "gzipBytes": 2059,
+      "gzipSha256": "f2f7c855f0a500299cb4fa0ec3ce9cce5574a4adb6bbccf9b0a71e4faf8677fc"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/ux/0",
+      "member": "0049.gz",
+      "rawBytes": 9259,
+      "rawSha256": "f736aff9c87c972e202ee8a0f5528f5fd4f4a072753b1f988b649da48e668b14",
+      "gzipBytes": 2729,
+      "gzipSha256": "54af7a38e299a3d07c9a2750ef001b64d1d094d975f78c67c9b116d19091d11c"
+    },
+    {
+      "source": "output/semantic-vc-runtime-v1/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "member": "0050.gz",
+      "rawBytes": 39553,
+      "rawSha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "gzipBytes": 33564,
+      "gzipSha256": "ee7c8d1ad1f8bf726c395f0e219e4d03980348be0df1b8c3442738510e256b83"
+    },
+    {
+      "source": "ruyi-workbench/app/build.js",
+      "member": "0051.gz",
+      "rawBytes": 7433,
+      "rawSha256": "37cac5c3933f2bc642966ec9d426b7517cfdc00d666d321f1e30193a97b6bc7b",
+      "gzipBytes": 3449,
+      "gzipSha256": "867716ea955735d4fb58a82c21ba426842264674581d0b6cee59ea243f796047"
+    },
+    {
+      "source": "ruyi-workbench/app/server.js",
+      "member": "0052.gz",
+      "rawBytes": 8979050,
+      "rawSha256": "aff2c463a030a12f8243856de4c4062bad1fd652fd60e58f7d9e2551f14f270d",
+      "gzipBytes": 2936247,
+      "gzipSha256": "14c61a2cea33c7f0348c854f5c60974fad4437892b286ee4971c20128fdd623d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/00-boot.js",
+      "member": "0053.gz",
+      "rawBytes": 108527,
+      "rawSha256": "720c7a756ee55017a88e3fbedf1bb9b2513a37b7e42ec270f9867a8a485ffdd4",
+      "gzipBytes": 42415,
+      "gzipSha256": "3599740578eef05fd7790cd8feadcd1315e0bc4e1a92ac0bf580b0e6e7d329a3"
+    },
+    {
+      "source": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "member": "0054.gz",
+      "rawBytes": 1282,
+      "rawSha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+      "gzipBytes": 862,
+      "gzipSha256": "60aaa320f95d77d13976420e447d509e9e5aaf8e792ba33b03c6ef5ed8032b91"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01-config.js",
+      "member": "0055.gz",
+      "rawBytes": 294040,
+      "rawSha256": "26d71c0317183972f1d2d10d5ad869e786d4855b6dac8730b018b38be586e58f",
+      "gzipBytes": 108362,
+      "gzipSha256": "f225453e88df5a592fbca21a547a0d8488cf16681144faa9633e7cdfcad1ed7a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01aa-work-data-tree.js",
+      "member": "0056.gz",
+      "rawBytes": 30747,
+      "rawSha256": "b69510863256d445eb80a67be03fd2c89de77c808693d4e7aba8b25ff4f8da60",
+      "gzipBytes": 8231,
+      "gzipSha256": "a948adbfc8f1709f2f06f9a085aa86a68118887a71fda72ff784bb8775cd0d12"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "member": "0057.gz",
+      "rawBytes": 43056,
+      "rawSha256": "807293933b90c7c89ac46b7179924732887bfc4dde9b5256b560ba2b2fb51fd2",
+      "gzipBytes": 12121,
+      "gzipSha256": "be21528ebd81f869022c9ab694a051884fc584407e98490a5faf654116eedb23"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ad-work-data-migration-host.js",
+      "member": "0058.gz",
+      "rawBytes": 53869,
+      "rawSha256": "ef7ce43603286b0682f15e449f7bdfa41b878879df2300850cdc50688283b8ab",
+      "gzipBytes": 13537,
+      "gzipSha256": "5d86b8f4b7b7abb8269a3ee3282411601c448914e385da8f0b79282c17f460a1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js",
+      "member": "0059.gz",
+      "rawBytes": 12315,
+      "rawSha256": "579a9459e0b1e0c619f828577cd1fc2fdf8c32e99e5f276b5915a97e61effed5",
+      "gzipBytes": 3881,
+      "gzipSha256": "b7427114b5ff3cbf2d1e273106be0da2dcb64870763afac09c17ddaafb72ab8e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01af-work-data-attachment-chunks.js",
+      "member": "0060.gz",
+      "rawBytes": 10076,
+      "rawSha256": "9c38e5df0a9e8ea09691de049807a6a205ff7bad29c101eff8e847d0f8229f3f",
+      "gzipBytes": 3540,
+      "gzipSha256": "c6674bfec47612999acb74054de9a052e159036323dc609837b0ba76d0e05ebc"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ag-work-data-attachment-reader.js",
+      "member": "0061.gz",
+      "rawBytes": 15192,
+      "rawSha256": "c39386384731d9d5f99bad50478f141ed40f7a7c1e9ff42ad5c178f02bd3d346",
+      "gzipBytes": 4236,
+      "gzipSha256": "b588c5241299d766ca0da6fa2051dbd228fbeb19e1c6b21e2489ef9aaf187fe0"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ah-work-data-attachment-catalog.js",
+      "member": "0062.gz",
+      "rawBytes": 8325,
+      "rawSha256": "adac5b0f706d4a49377d250125f106b81bfb582347684b39c3ae3c27ea1fae13",
+      "gzipBytes": 2656,
+      "gzipSha256": "a28977d29eb891c74e5ce33ed5009c4bef7a7ec3970dc1fcf43e8fb37a7a0581"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ai-work-data-attachment-store.js",
+      "member": "0063.gz",
+      "rawBytes": 4573,
+      "rawSha256": "f5ee9769a75e7491788b987130f42848712764b43ccf64835c319461f9374074",
+      "gzipBytes": 1680,
+      "gzipSha256": "215b02da6bc471fedc0d703b5873e8dd409cb00014bb130bfb129a5d5362691c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01aj-work-data-attachment-catalogs.js",
+      "member": "0064.gz",
+      "rawBytes": 3369,
+      "rawSha256": "c1dcffd161d45e41c6148b8b3650cf051de4acc8ea5c996d815ea2a7d5c29c85",
+      "gzipBytes": 1162,
+      "gzipSha256": "02cb370c9fe1e3f0d85d6e8ff7ba9601b7678496e6039312b5ea308bc0f07ada"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01ak-work-data-attachment-runtime.js",
+      "member": "0065.gz",
+      "rawBytes": 6975,
+      "rawSha256": "2ae31a11cfd9a5e58662b04350c3db86f2a6b12afdd011129f0e83a259a4d992",
+      "gzipBytes": 2404,
+      "gzipSha256": "5511280aae051eda31865eca5ad276eb69444a1451ee644df1a7ba14c48e16c0"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01al-work-data-uploads-owner.js",
+      "member": "0066.gz",
+      "rawBytes": 10524,
+      "rawSha256": "bd0e652ee441bb748ea9c64b6627ffce5366a4bbdc5dbf9acb9474b0bd75e8fb",
+      "gzipBytes": 2925,
+      "gzipSha256": "106df1ea3c8cf68df528c5a21209ec4e5ad235ad0271684895986ddd3e30687c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01b-route-auth.js",
+      "member": "0067.gz",
+      "rawBytes": 20308,
+      "rawSha256": "c587587d7f3fbc37925682c221d5b5bba27812991418d28c3bd47577b93031d5",
+      "gzipBytes": 6309,
+      "gzipSha256": "179edeed155d0da6471433a644acdf7b67e77e4ed1b1b79869a64025d8f44c52"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "member": "0068.gz",
+      "rawBytes": 11739,
+      "rawSha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+      "gzipBytes": 4431,
+      "gzipSha256": "3cc609f39576ccdd8ca487d664638e1de2aafc75cab2b879b1cfc13895ef8f34"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "member": "0069.gz",
+      "rawBytes": 7852,
+      "rawSha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8",
+      "gzipBytes": 4267,
+      "gzipSha256": "995ec4a24e81f2e6e2a4c0cd2c3e3aa7becd1914da2a6014191e07bd1c50b8f6"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "member": "0070.gz",
+      "rawBytes": 17867,
+      "rawSha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+      "gzipBytes": 7410,
+      "gzipSha256": "5537f97460add170e63abe938fc5e6a13599503aaaa92671f1e31d346ccffb7f"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "member": "0071.gz",
+      "rawBytes": 5030,
+      "rawSha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0",
+      "gzipBytes": 2740,
+      "gzipSha256": "0a1306fbca4708258cf28e83be1fd123ff5ee32b2aa8e998dd0d5229768bcb77"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "member": "0072.gz",
+      "rawBytes": 13398,
+      "rawSha256": "dda467aad735b29397d48ebd50c96dd074e444bef7992cbdeda208506a8d3a09",
+      "gzipBytes": 4435,
+      "gzipSha256": "971e30c727be39a2e55f3dcfac1270fe227d43d679d678d4b8b4cca26426da2f"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "member": "0073.gz",
+      "rawBytes": 48184,
+      "rawSha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+      "gzipBytes": 14087,
+      "gzipSha256": "125c0dad561130691bd15190621c6456cb7246c6d0974e1c2bd643c8628fb93f"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "member": "0074.gz",
+      "rawBytes": 26429,
+      "rawSha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+      "gzipBytes": 8869,
+      "gzipSha256": "d638dfab9dcc2c69965133238b70aba6b92e472036b760a9e0a1a502cf7db0a8"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "member": "0075.gz",
+      "rawBytes": 6489,
+      "rawSha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80",
+      "gzipBytes": 2495,
+      "gzipSha256": "9f69b9e0444484cf5ccb1e2a3e053311b794fe86f22f927134cd40a541501788"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "member": "0076.gz",
+      "rawBytes": 26857,
+      "rawSha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72",
+      "gzipBytes": 6915,
+      "gzipSha256": "615f63d4725cd1edc0be3b258dc91da12c19c41776d3173c04f448ef5d309c52"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "member": "0077.gz",
+      "rawBytes": 9234,
+      "rawSha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419",
+      "gzipBytes": 3623,
+      "gzipSha256": "2a7ffe08353d179695fae6e14be607392f98527c1012e74b90cf6b70e34df834"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "member": "0078.gz",
+      "rawBytes": 5889,
+      "rawSha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+      "gzipBytes": 2038,
+      "gzipSha256": "d303bb5dffbfc162fcd14028a43a4580b647ea04c4cc71d1b201a5b70459af66"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "member": "0079.gz",
+      "rawBytes": 5751,
+      "rawSha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+      "gzipBytes": 2179,
+      "gzipSha256": "e47eb3bde15a1cc5ce9d8d95cdbb6049aedcf8b7e1d7c8c2d3cf5bebcd36f6cc"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01o-work-data-keys.js",
+      "member": "0080.gz",
+      "rawBytes": 9404,
+      "rawSha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424",
+      "gzipBytes": 2884,
+      "gzipSha256": "f879f2d4192bc54ade1bb4967372a22de19ac5af978bef6616221c36cb53e4c6"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "member": "0081.gz",
+      "rawBytes": 42835,
+      "rawSha256": "c58d4e0ceaf89f72e168e3622ef8c0fc430283dff2578e20543afdde9a46b3ca",
+      "gzipBytes": 11583,
+      "gzipSha256": "c626173bc7080e35e8f62fd35946418927c8cc2c02d1c5387e968799ac67c582"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "member": "0082.gz",
+      "rawBytes": 12082,
+      "rawSha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0",
+      "gzipBytes": 3987,
+      "gzipSha256": "209b67c9883da102c4077a4b3b4d6e5dbfee20e8579f98c084aa0514a81c22c6"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "member": "0083.gz",
+      "rawBytes": 11594,
+      "rawSha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+      "gzipBytes": 3680,
+      "gzipSha256": "d216b7915fd64eeb2f0f7e78eccba35ac994365eb47a4bdcf4d1eada4aff7612"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01s-work-data-journals.js",
+      "member": "0084.gz",
+      "rawBytes": 22365,
+      "rawSha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f",
+      "gzipBytes": 5974,
+      "gzipSha256": "6280bc6b7da34209961b7b6e8a53e9b0e571459658f7637d1226804e5e22fb02"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01t-work-data-recovery.js",
+      "member": "0085.gz",
+      "rawBytes": 20988,
+      "rawSha256": "fafdc1ccda316ccb4170683f912bf2737fd9a3ac61c2b86665fb7bd78d43aa8a",
+      "gzipBytes": 6038,
+      "gzipSha256": "18b02865698ee7dcd3e3d777d5df827893a9924bcab859e8cad629e6c703cef1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01u-work-data-transition.js",
+      "member": "0086.gz",
+      "rawBytes": 4494,
+      "rawSha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+      "gzipBytes": 1625,
+      "gzipSha256": "fdb9f2a50bf8c6a9d0ca3db25801d1f98abea0a0cd10fb18e94b9c819515201d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01v-work-data-manifest.js",
+      "member": "0087.gz",
+      "rawBytes": 11894,
+      "rawSha256": "058c46ea006a2913940777755aad13c9336d609f876846a0774a6ebccbd789a8",
+      "gzipBytes": 3652,
+      "gzipSha256": "512adc907cfeb03721d5ae98ad53c55b1d0ead3e679111cda65015f6cea4f9b0"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01w-work-data-native-publish.js",
+      "member": "0088.gz",
+      "rawBytes": 26919,
+      "rawSha256": "b1f18f9053bd6499bbb859d99fde28476f77de6c6f70712a8dffdd6a6b5aed31",
+      "gzipBytes": 7445,
+      "gzipSha256": "5f31ce5e507461f41e264db1901875c9628245d9fe468bd9d3949e8f39b9ff51"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+      "member": "0089.gz",
+      "rawBytes": 31489,
+      "rawSha256": "1a204c67870f7327a677052f696e22dcf82b426c44d8acf620ad290be7249c75",
+      "gzipBytes": 8293,
+      "gzipSha256": "8f1f13be69fe23bb84558dd7b3ea2f1af7079807c8ba42518c8f18b4efced05a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/01z-work-data-root-authority.js",
+      "member": "0090.gz",
+      "rawBytes": 11202,
+      "rawSha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1",
+      "gzipBytes": 3387,
+      "gzipSha256": "9fafc80fc7ff6fddb559cddfaf4f7573327884d4ad6208e1df79f6db03c3e64c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02-session-store.js",
+      "member": "0091.gz",
+      "rawBytes": 507123,
+      "rawSha256": "233c2c11a493a96ad9576bf87c0888bd95f4a722b0503b16af362836d6c01573",
+      "gzipBytes": 176862,
+      "gzipSha256": "827350d25c9488addd642b9d6517c2bb91893586c80586d0d9a558a60ef33c4a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "member": "0092.gz",
+      "rawBytes": 19644,
+      "rawSha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf",
+      "gzipBytes": 7059,
+      "gzipSha256": "12cc223416a4713286132ac6c37a2982b8e0dc397747e24d8b2c4762903b1517"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "member": "0093.gz",
+      "rawBytes": 5740,
+      "rawSha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+      "gzipBytes": 2613,
+      "gzipSha256": "3d72e75e9e82aaa3de702531c52539be9151d54a8d667f7643508026deddc91b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "member": "0094.gz",
+      "rawBytes": 3042,
+      "rawSha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+      "gzipBytes": 1212,
+      "gzipSha256": "ad8758733a8eb4bc31c0144a5b3ab2126035d4050da60333b40ebac7053de724"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "member": "0095.gz",
+      "rawBytes": 11897,
+      "rawSha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23",
+      "gzipBytes": 5678,
+      "gzipSha256": "e4d17463df0166d8061ad799143136c947b96a46e5f57fa84c1b2042c5955ed4"
+    },
+    {
+      "source": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "member": "0096.gz",
+      "rawBytes": 126311,
+      "rawSha256": "61f01bdf4553a96e9d396a80125979126c8ffcd1769bfda4ee1c4eb3347402ca",
+      "gzipBytes": 47155,
+      "gzipSha256": "90ff8207ae6f5d74f6ebd98f6ac81c057a9641ea3a54909750b597cf04a69a9c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "member": "0097.gz",
+      "rawBytes": 113136,
+      "rawSha256": "22059423a6b646f027a5dface1a8947f1ecb4c35e81af8c64d79c014c70fe3a3",
+      "gzipBytes": 29460,
+      "gzipSha256": "41a6f4e5e57858858024cfe1c8887d48071337140c0dc2de4aeae696f1e69e1e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/03b-privacy-local-drive.js",
+      "member": "0098.gz",
+      "rawBytes": 5985,
+      "rawSha256": "ebde94c416a7149b185da3e856e25242b27a03386f7c802bc9db0a9bf63c284b",
+      "gzipBytes": 2254,
+      "gzipSha256": "3a98b0433e9f6c0781bba3c3e04ab4b923c0d4c165ca0c71d3346ac4b37b0bd0"
+    },
+    {
+      "source": "ruyi-workbench/app/src/03c-model-dispatch-context.js",
+      "member": "0099.gz",
+      "rawBytes": 660,
+      "rawSha256": "d98aaa12f853ac671409edcc89b9f3fb69d89e42aa959799fd8e1311fd38d29b",
+      "gzipBytes": 387,
+      "gzipSha256": "a776749f2b7bcfb907611046cf1b99b64d908987505ef72177f6499f61809896"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "member": "0100.gz",
+      "rawBytes": 37358,
+      "rawSha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2",
+      "gzipBytes": 14983,
+      "gzipSha256": "ce653dcd63cadb466f1f89f59c1891c641ed417d4ff6eda632391a735aaf4e28"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "member": "0101.gz",
+      "rawBytes": 227961,
+      "rawSha256": "a37d292d04cb632311d5a053158541b9f20ceb0d189f9cc4c723d5b36ab83450",
+      "gzipBytes": 79880,
+      "gzipSha256": "aa3d2c0d07164d048fb8b5b1e084855c33d7d76879a15e22bbc9e1b30b9731eb"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "member": "0102.gz",
+      "rawBytes": 15114,
+      "rawSha256": "639336bee0fba75c3113d2ff4070d9ff3e5f9e53134621383ae1c2f5fe98cb0b",
+      "gzipBytes": 6571,
+      "gzipSha256": "3e4908b6f6d51c7f7fa524a0a9dc636aa6aadf7228a4ec2f7887df86c69dd9dc"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "member": "0103.gz",
+      "rawBytes": 27325,
+      "rawSha256": "ecd1fc70e18dcec845c923da911000146f94273e98321dee0c9d4e16591b352f",
+      "gzipBytes": 10278,
+      "gzipSha256": "ad3cb284c36f07d698485d8277ccd5b6e2b875829322f21d85bc362ff436fa45"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04h-provider-http.js",
+      "member": "0104.gz",
+      "rawBytes": 20141,
+      "rawSha256": "1514fffc620760481e53ca9416cef5bf900ba9536d1bbfaaba0e1e5d3373d073",
+      "gzipBytes": 9251,
+      "gzipSha256": "7cb00536497eee8ac62977140ab0d09bf2d74d1803aefef37a705bca7c24e9b7"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "member": "0105.gz",
+      "rawBytes": 46110,
+      "rawSha256": "bacb95867c4d72d4b2f17b66b63fe65dde927200618a048fd891ff5c2894dea5",
+      "gzipBytes": 15636,
+      "gzipSha256": "193bb202756f47de4f704e74749923256ee8e8a1a71dc87cc751f8c09d6b8ec7"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "member": "0106.gz",
+      "rawBytes": 52116,
+      "rawSha256": "507a660de50d0a5e99fd84d0eb49876bcd91166d9f66b8621fc5b92e6594150f",
+      "gzipBytes": 18094,
+      "gzipSha256": "241b8722465ab2a0807f09935d771231e2b7798791a7ca19c65359d7cc48d694"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "member": "0107.gz",
+      "rawBytes": 53142,
+      "rawSha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+      "gzipBytes": 32991,
+      "gzipSha256": "77882c939d5f2a51747949f620822fd8e6c30a4f9c7d250a9138c2a9f8f7ba43"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "member": "0108.gz",
+      "rawBytes": 42013,
+      "rawSha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+      "gzipBytes": 15819,
+      "gzipSha256": "544052d4e498eb8b553f4274e1a53c0bd845cd6cb4ef87ede1f4da41699d126f"
+    },
+    {
+      "source": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "member": "0109.gz",
+      "rawBytes": 28768,
+      "rawSha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+      "gzipBytes": 13754,
+      "gzipSha256": "24bd5c41569119078352ea5189a114d97c36e941d1834c6c9b27a8603355176a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/05-claude-engine.js",
+      "member": "0110.gz",
+      "rawBytes": 187431,
+      "rawSha256": "8d6c031a86e00e72d17760df42e86341a0e8599e0962f86cc8d7025a8dada2fd",
+      "gzipBytes": 68080,
+      "gzipSha256": "f90a3ad1d8201738a4a1fa020a9d59f8b694e8bc1b73c6d5b365484c9a7852b4"
+    },
+    {
+      "source": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "member": "0111.gz",
+      "rawBytes": 174992,
+      "rawSha256": "dc726820e5d00e905084829c179d53a10ed9ce91d999f9f743e3a3ea6e9123ff",
+      "gzipBytes": 49027,
+      "gzipSha256": "c2e9b1c5f5a750170f778e505b243538c20a62491edeaf154fec11b1c759ec66"
+    },
+    {
+      "source": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "member": "0112.gz",
+      "rawBytes": 35743,
+      "rawSha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760",
+      "gzipBytes": 8884,
+      "gzipSha256": "23adb02c2ef3c0128825ffb0afec2ae86a0ad186467d9d759b06bb5410fded46"
+    },
+    {
+      "source": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "member": "0113.gz",
+      "rawBytes": 10916,
+      "rawSha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+      "gzipBytes": 3599,
+      "gzipSha256": "e0b6fff1a1a89256abee6d1954e8df3b1e876bcc2346aa1c0291e0653491c046"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06-provider-engine.js",
+      "member": "0114.gz",
+      "rawBytes": 168041,
+      "rawSha256": "67ec2ba64336972172fbd68f0e2083cd0f4d0f97d2c06438edb97f9053302d4e",
+      "gzipBytes": 64080,
+      "gzipSha256": "8b537b7728996e1b4452be1bc972e7cf3a914701be893563970116710cbaae00"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "member": "0115.gz",
+      "rawBytes": 123163,
+      "rawSha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5",
+      "gzipBytes": 53375,
+      "gzipSha256": "5f21a5b2c2f5f26c1cd1f6160f885410d8bd1263a1cd1b8f7d167321efc112cf"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "member": "0116.gz",
+      "rawBytes": 7061,
+      "rawSha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+      "gzipBytes": 3002,
+      "gzipSha256": "c151494ea5312c2e60135a930ef3fcd3899034c90c9cfc5f29c6b90b33c89470"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "member": "0117.gz",
+      "rawBytes": 207040,
+      "rawSha256": "beb52d51b13e5f196a15a22491f2f928730465ac2be8588283c0ec73b78d2545",
+      "gzipBytes": 68625,
+      "gzipSha256": "acbf204e2d6507afdf55144168ca5ce36503d5ea7ecff92ca0c149e456e44b4d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "member": "0118.gz",
+      "rawBytes": 10619,
+      "rawSha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+      "gzipBytes": 5021,
+      "gzipSha256": "a13a76ce5947fc52ef6a5c02f7c2fe463fe5d7109221550be379e1efa320a9c1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "member": "0119.gz",
+      "rawBytes": 21944,
+      "rawSha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+      "gzipBytes": 8941,
+      "gzipSha256": "796c963ca94eb905a5b77a90acdcf2817cae1618c3fb30af3fb5c4ef56c391d0"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "member": "0120.gz",
+      "rawBytes": 18206,
+      "rawSha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9",
+      "gzipBytes": 7296,
+      "gzipSha256": "76b169dbc4abecfc072253fc6b32e8d299693487e11b4384aa30e42231f6295b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "member": "0121.gz",
+      "rawBytes": 14952,
+      "rawSha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+      "gzipBytes": 6247,
+      "gzipSha256": "0b80c0eb85983dac150ded3922e89ea38641584aa12a499e97d1ebd33a7cd266"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "member": "0122.gz",
+      "rawBytes": 11129,
+      "rawSha256": "fb9f18f78b9afff1286e1c04e83033759c49dc3e79bb4db7d792276f0979c747",
+      "gzipBytes": 3946,
+      "gzipSha256": "ec2703b1606f7bd74e78c31923dfb121f442fe7ba4e62a284903ac33236e8ba1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06hb-semantic-runtime.js",
+      "member": "0123.gz",
+      "rawBytes": 26617,
+      "rawSha256": "7b383dd7ded9d6afd98dfdb6dcdd0debadc0c8bd92b10f097da0f7b5dbc0b14f",
+      "gzipBytes": 7548,
+      "gzipSha256": "5d0f84760dca4cf208c3012ef2e77fdcaf6317db7cb7bf3dc68924ba3d515161"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06hc-memory-semantic.js",
+      "member": "0124.gz",
+      "rawBytes": 8604,
+      "rawSha256": "f496f96a875f725151a6decb8db128b3ab46a68f474fb6b9912302b26f252ce1",
+      "gzipBytes": 2787,
+      "gzipSha256": "a99c09b9a0796a4e60408fcf3ccf691ac520cd44772b01981c9ceca0dae41fa1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06i-steward-core.js",
+      "member": "0125.gz",
+      "rawBytes": 193451,
+      "rawSha256": "fe6d5fd9ba4f6c128ab74ff1f956a858536fd3c28372086c7ab1335616ea5628",
+      "gzipBytes": 76395,
+      "gzipSha256": "162d2fa846806faef7abd416ddf25f0bb8fbe6adce2f8605954b26c155538ac3"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "member": "0126.gz",
+      "rawBytes": 43987,
+      "rawSha256": "4baa5b4df259155da8c955f98383541c1a2f67e07539f7445f45b84f1eb2cfe8",
+      "gzipBytes": 15969,
+      "gzipSha256": "2633f3d00aed0b2657dbf6e8be54c9305121d902d1cb9cd0269d07706faac356"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06k-config-patch.js",
+      "member": "0127.gz",
+      "rawBytes": 18148,
+      "rawSha256": "7f7fd56526ed143216076a05afce68afd5c68df359f7db546e1c61e37e86cd1c",
+      "gzipBytes": 8207,
+      "gzipSha256": "b4064390449a19f120cb0b80141b05b27c5a8bcf5c116748a4217bba91bc3934"
+    },
+    {
+      "source": "ruyi-workbench/app/src/07-autonomy.js",
+      "member": "0128.gz",
+      "rawBytes": 236552,
+      "rawSha256": "5ddac0141bbbc73b76e6223b61bd6814c6661b4c300ab07dae2682de420b1124",
+      "gzipBytes": 91016,
+      "gzipSha256": "cec8cd3394bd9b507c76b3a3791842e727006defb3a33063246136c96240e5c7"
+    },
+    {
+      "source": "ruyi-workbench/app/src/08-agent-runs.js",
+      "member": "0129.gz",
+      "rawBytes": 256564,
+      "rawSha256": "06b6a7535dbd5ecf20c80352761d3a24401b34f3a5aea1a3a56e66753cd17e72",
+      "gzipBytes": 91306,
+      "gzipSha256": "b3fb251495146840856418267dc68f3bd9d0a0d08d5c347804ad195cc30e4148"
+    },
+    {
+      "source": "ruyi-workbench/app/src/09-workflow.js",
+      "member": "0130.gz",
+      "rawBytes": 372071,
+      "rawSha256": "041cf8481210a40d4ad529cf7e656e2552e867feb21826192b8a87a9a392259a",
+      "gzipBytes": 132122,
+      "gzipSha256": "9f0d7001e628033d5ee2f65f54efa587f3f66b5d763ad4cf6de567d3c6e2f479"
+    },
+    {
+      "source": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "member": "0131.gz",
+      "rawBytes": 12031,
+      "rawSha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+      "gzipBytes": 4808,
+      "gzipSha256": "b3303b0c7a3fb8bac1b4cc756f06fe9c508cca5a46012762408310d98a4c53f1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/09c-thread-relay.js",
+      "member": "0132.gz",
+      "rawBytes": 35002,
+      "rawSha256": "ac8c8fbd5f9c19b72a148a521eda956631c5aa9d14ffb8a10e90a68b54175d94",
+      "gzipBytes": 9203,
+      "gzipSha256": "9a8747fa635e20f9f93a6ced3c55aacc706e93e3615c31e190dff0e3ac336a9b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "member": "0133.gz",
+      "rawBytes": 17595,
+      "rawSha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+      "gzipBytes": 8226,
+      "gzipSha256": "cf3066902b1012b6504078e3154d07c3a98537e573e9aa6581287d3eb3118707"
+    },
+    {
+      "source": "ruyi-workbench/app/src/10-context-governance.js",
+      "member": "0134.gz",
+      "rawBytes": 371149,
+      "rawSha256": "bda81ab41be06b3ff31a7812f9c81e56ce5c5493cd5e7a7dfea1337146d6c851",
+      "gzipBytes": 129024,
+      "gzipSha256": "61c59ce2c8795b5956cedc96a375de4706410b12d8874aa9f9efb09d1ad0886e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/11-native-tools.js",
+      "member": "0135.gz",
+      "rawBytes": 398588,
+      "rawSha256": "5798d0e52cb113c2db9383d957d676899a90c558ae3bf8cee1ad124216b3bc98",
+      "gzipBytes": 144831,
+      "gzipSha256": "752bc6a7217c14842b0a7335037a44847b3b2680cad56576a36b2c90c3e510c2"
+    },
+    {
+      "source": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "member": "0136.gz",
+      "rawBytes": 37345,
+      "rawSha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a",
+      "gzipBytes": 13237,
+      "gzipSha256": "5ab84177b04792ffadd8f630253c488a0ea0aa8d5c08f2f574fbffa5466d6285"
+    },
+    {
+      "source": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "member": "0137.gz",
+      "rawBytes": 13273,
+      "rawSha256": "95f14045a622c740c6ba3975dad54d50891e470a8e932826f250bbe64b9e7aa3",
+      "gzipBytes": 5334,
+      "gzipSha256": "845e0d92b8a3e986d55dbe0942bae679cca84d423ba882e0f7ec13910553f1f3"
+    },
+    {
+      "source": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "member": "0138.gz",
+      "rawBytes": 20913,
+      "rawSha256": "67e65e7002688a05460c9b3c3ceb6aac78032417fcc79052a5a7ea19dde15343",
+      "gzipBytes": 7621,
+      "gzipSha256": "affcfbae9c56fa0139456b23ab58e6c582fc493ec3ef1e4f98c88e1c9a880646"
+    },
+    {
+      "source": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "member": "0139.gz",
+      "rawBytes": 328237,
+      "rawSha256": "5afc45a588961edf1479f026f75907e170a7fa25832fc68e0297d1f6be5ccd4e",
+      "gzipBytes": 109459,
+      "gzipSha256": "d4160d31d6777988aa87dcbc95e60a8c8aa6494c7cce13949241071b3cdee8d4"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13-http-router.js",
+      "member": "0140.gz",
+      "rawBytes": 202566,
+      "rawSha256": "01ee670fea11c9ff47b499035e9d9f6d820d2ede744830ff502216f75ea6cfe9",
+      "gzipBytes": 72280,
+      "gzipSha256": "08873068e94d84a377acea5e68c61e95b26e4aef67b004c634f69c82cc0fea7d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "member": "0141.gz",
+      "rawBytes": 15634,
+      "rawSha256": "9250168aec95a1a1ef80428d83d0ed3812cb4481c7879e4b1c276b87f51331f1",
+      "gzipBytes": 5502,
+      "gzipSha256": "731a0c4e878db85e147a48f76108428530d7e522142ca04ce1c8746fc1fed538"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "member": "0142.gz",
+      "rawBytes": 38307,
+      "rawSha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4",
+      "gzipBytes": 10381,
+      "gzipSha256": "2b61a39346dc49d11fd29529f4b3297ad9451c1d0f2d3a184b3640c1e52e9bab"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ac-mcp-consumer.js",
+      "member": "0143.gz",
+      "rawBytes": 47305,
+      "rawSha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a",
+      "gzipBytes": 12904,
+      "gzipSha256": "f68eb4e5d475a9530c603920c9d49db9a5026742e5713a5cae80f06e346c9b14"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "member": "0144.gz",
+      "rawBytes": 16689,
+      "rawSha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0",
+      "gzipBytes": 5087,
+      "gzipSha256": "40c76d6b518ce95c18c527892300a3c58dda1d410bc0ba78920902e058805763"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ae-cli-business-services.js",
+      "member": "0145.gz",
+      "rawBytes": 37446,
+      "rawSha256": "bb782375626acb0cd5459794da8a74dd7922bbf87920af8ed03fecb7c96910a6",
+      "gzipBytes": 13129,
+      "gzipSha256": "4077de9cc0990ac6df4d894d41f62bec0050cca96abafbaccf3d62937e3b32e8"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13af-internal-mcp-relay.js",
+      "member": "0146.gz",
+      "rawBytes": 26054,
+      "rawSha256": "f1e9424d4242ac9cc6603607575d0d6641568d039a4579d3bcfa611eb53d42ea",
+      "gzipBytes": 8662,
+      "gzipSha256": "31fda993837c6d2b903bed1cdbeccda04d0c6f7c04ce84061819f8131b0dcf16"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+      "member": "0147.gz",
+      "rawBytes": 19083,
+      "rawSha256": "682de965dda06d37625d667fde8dba35110e5964bce7b71b77b1efe3d6489a24",
+      "gzipBytes": 5457,
+      "gzipSha256": "967889a764d804f338658880ed096678ade0bfe8e5af3cd57139989bde6e0b8e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "member": "0148.gz",
+      "rawBytes": 30227,
+      "rawSha256": "c9ac18212aed5f1da1c20fbe7af440ad1ff97ab7bd64e3c4d87dfd283246b5c9",
+      "gzipBytes": 8981,
+      "gzipSha256": "29b4d050fa88c3c8215f8819428610617c16875e047be87f4f8c0bf1754170fa"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "member": "0149.gz",
+      "rawBytes": 28546,
+      "rawSha256": "f8d20ac66714481c9dc837fcd418ccd839a8900ced81f344ae675591a4034171",
+      "gzipBytes": 8383,
+      "gzipSha256": "ea9a8761f931e2ae4d49f6d05b769fae2daf7294f6f150ecc73929229cd5418c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13aj-work-data-control.js",
+      "member": "0150.gz",
+      "rawBytes": 32065,
+      "rawSha256": "90072a42519f653771769bb98865b25ba4f98b1f1725d6a1023c37273a96bffc",
+      "gzipBytes": 8073,
+      "gzipSha256": "7af43e0efe98d36d467ffc118648ffbc67688b0ab04273e90b764956f6d1b407"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "member": "0151.gz",
+      "rawBytes": 37068,
+      "rawSha256": "44eebfffa9cd98b07d91c5cd1b78ebd267d8660884cbd20f64945ef02d6db2b5",
+      "gzipBytes": 10190,
+      "gzipSha256": "68ba5c81b5efe050ccf1fe0b9916ee98dd99f8fbf35a4eb162ee9d2ff8e015c5"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13al-work-data-maintenance-http.js",
+      "member": "0152.gz",
+      "rawBytes": 7779,
+      "rawSha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+      "gzipBytes": 2762,
+      "gzipSha256": "e580276b1db512b523826749cb3d345ddb7e1db8624c31a1252baeff2cd1e92a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "member": "0153.gz",
+      "rawBytes": 46468,
+      "rawSha256": "00b7acdf0f5156ad9941e63e54ca000b92b972b5eda5dbd70625fd09161e7041",
+      "gzipBytes": 12631,
+      "gzipSha256": "1d31d6e96963d4c38ac69eb5662ac603fb2601329305e16fe37ed4e31f1ceb04"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13an-work-data-disposable-tree.js",
+      "member": "0154.gz",
+      "rawBytes": 3011,
+      "rawSha256": "d12fda0cb7853a831392dcff3da3b75d4ec233ae0c0756314069c3fbabc071eb",
+      "gzipBytes": 1254,
+      "gzipSha256": "cc4601b7105e8e97765a66a3e67acfc745c1ed5e0677f03add254c888c7d03c5"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ap-session-fulltext-index.js",
+      "member": "0155.gz",
+      "rawBytes": 77481,
+      "rawSha256": "90a0191d29307ba1f5582f4073bb7a01dc311f5a72481bbc06b01ee3a084a15f",
+      "gzipBytes": 20721,
+      "gzipSha256": "41eca351aee76944fc3e714ee36e42e53cfd7ddb88f916e11689a3f780448df3"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "member": "0156.gz",
+      "rawBytes": 47255,
+      "rawSha256": "cc6f8c6c2bc256c1d7cb953bc3cc190ba1be22ee26078cf306f1272d70879789",
+      "gzipBytes": 11837,
+      "gzipSha256": "bb139fd2900c2bd8ce709c86d18d8a8632463540a7c0502e49c3f74a0bccb5bd"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ar-work-data-verifier-entry.js",
+      "member": "0157.gz",
+      "rawBytes": 2648,
+      "rawSha256": "e2dd690f9ff07da29c6be85f91a2de28f78a1f7b9b44f452f685d70d146c2955",
+      "gzipBytes": 1047,
+      "gzipSha256": "23d98589d70e10e5e1db6fe240ffc737340c6a1cf6e996244550a6ef2e7b7968"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13as-session-fulltext-consumers.js",
+      "member": "0158.gz",
+      "rawBytes": 25464,
+      "rawSha256": "67deb8fbb314749ae2befdd3cc7660661a55f930d13ff4a72889a63c5a73f889",
+      "gzipBytes": 7582,
+      "gzipSha256": "760407c8fd27db37b08e177d6c0e638fb35bf308f5a6727d9ff20dd372df3bda"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13at-work-data-restore-uploads.js",
+      "member": "0159.gz",
+      "rawBytes": 9607,
+      "rawSha256": "8f411b63b3656200f78a3013e2790a2c283f06da4fc310695a31634277e76c54",
+      "gzipBytes": 3239,
+      "gzipSha256": "021b3d79c7e1b847d37382239b588fbe8dbf5bca38c76c8a82879fbc8b55ae2d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "member": "0160.gz",
+      "rawBytes": 87865,
+      "rawSha256": "530ae7f6f1bf9af3c190f3aab355bdbc254caa85b82a23197992011c7fc5677a",
+      "gzipBytes": 22335,
+      "gzipSha256": "a30cd969bd7b22fe98d6d59f630b0220a3e486287c1fb6d20a2267e1e0a5dc08"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "member": "0161.gz",
+      "rawBytes": 31432,
+      "rawSha256": "a7007b1337aeef097743bce6b5ec09eeff9867fbe464ae93a5f67e63be884b43",
+      "gzipBytes": 6872,
+      "gzipSha256": "fd8a4719096085d553726030f3d27667839b8f7f1b3d65b70906571265fb5dcf"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13aw-work-data-root-preference.js",
+      "member": "0162.gz",
+      "rawBytes": 15212,
+      "rawSha256": "8bc7d82aa814723d08399911e034e4c382fa8c3972f74e526c2b9082fba1fc5b",
+      "gzipBytes": 4449,
+      "gzipSha256": "f89b8a908f78ee39499b64247067b2e3762935b32e70b7cad4d08809ac4b39cf"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+      "member": "0163.gz",
+      "rawBytes": 14558,
+      "rawSha256": "902130d45e462f206222e75dce4c75e0f793be2870b961160e1669cd8eaa43f1",
+      "gzipBytes": 4587,
+      "gzipSha256": "29134a66cc53af61f6d028982a5a99cf8d0f54185cb196e084f8628cec678e15"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ax-work-data-attachment-upload.js",
+      "member": "0164.gz",
+      "rawBytes": 4288,
+      "rawSha256": "30e9532c4d67fadb79eb05ce9794c72994f48153def6bfc221de35b28de3c42f",
+      "gzipBytes": 1590,
+      "gzipSha256": "55f02b2f299b7c234b31aa53a1fc29d39631c22c2f220b6e8569a698805a0e47"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "member": "0165.gz",
+      "rawBytes": 79098,
+      "rawSha256": "145efa8b3ef41d377e6e31ca8020807a39f683782e805c961ddcf80e15361cc4",
+      "gzipBytes": 26867,
+      "gzipSha256": "2ec9acad0730c81c4d17d77f762b297f6e0400316545e9f5664a06c966aebf7f"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ba-media-image-contract.js",
+      "member": "0166.gz",
+      "rawBytes": 25918,
+      "rawSha256": "176363b156bcf832ed56e374e4caae3dcc7a63e7ecfc22aeffe82aa1c0b3e68f",
+      "gzipBytes": 7554,
+      "gzipSha256": "7eb1f87f1df8994b5b1d1bf440f19938dc8a28c0c3e60e4cd3aa8f2e6bbb1a5a"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13bb-media-derived-store.js",
+      "member": "0167.gz",
+      "rawBytes": 15343,
+      "rawSha256": "7845016d17dd148ce3200914158d6476d6cb30d2a1bc93210c11af44370c3cc3",
+      "gzipBytes": 4661,
+      "gzipSha256": "80a1b6333cc0a92df0536389482b130f1e5f7d27bf41e4d45f8ddae343c4edc9"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13bc-media-image-processor.js",
+      "member": "0168.gz",
+      "rawBytes": 38682,
+      "rawSha256": "d75995d5ee92b04468afd8a47e0b1029eaf74f280c5ec6795cd17dae892d3c29",
+      "gzipBytes": 12915,
+      "gzipSha256": "bfa601478b44603d73912505e81014e15d1a6c4b66d4ad6070a76409b9034e9b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13bd-media-image-service.js",
+      "member": "0169.gz",
+      "rawBytes": 20793,
+      "rawSha256": "c20cd8f02875a75cbbd1f5a72f577336e257d16b088c462bdbf73562b1f658f9",
+      "gzipBytes": 6784,
+      "gzipSha256": "e9a67c5d192f34f019def3014425dafddc4f0d2f8c6ebcb73513b93abd96a00e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13be-media-image-host.js",
+      "member": "0170.gz",
+      "rawBytes": 34806,
+      "rawSha256": "f325e62f57b2e1e57ec89aef34635c18563905cf6a89956a35642332bf929a28",
+      "gzipBytes": 11126,
+      "gzipSha256": "f43ea60dcd95f19ce427cfc7668e1915bf86c58f96761ba3390c80e9803ade29"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "member": "0171.gz",
+      "rawBytes": 13511,
+      "rawSha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a",
+      "gzipBytes": 4810,
+      "gzipSha256": "4a790ddd01da255f16c1e0f97360dcff4ba78ebd9a8522ffede59ff8a5137100"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "member": "0172.gz",
+      "rawBytes": 185989,
+      "rawSha256": "c7b61832a7e8076bc816e5aeb462ea8d35dd5339ec9544be76203d9680779d7c",
+      "gzipBytes": 62456,
+      "gzipSha256": "51b593d119eac703a9df83c4a9e9f480bdb8fd929bc955454a0407d7a359ef34"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "member": "0173.gz",
+      "rawBytes": 59145,
+      "rawSha256": "3989bd3bac79662a571ee74d3a5cb03b6e4b7a3cef66f322d745f9aceb396967",
+      "gzipBytes": 20583,
+      "gzipSha256": "0382099b282e71da6213e39f4b57adbeca2915322c6901d2b53f0689c8789874"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "member": "0174.gz",
+      "rawBytes": 151888,
+      "rawSha256": "13fb0de0b84d4c22efe127b51455e019b66a6d752aa193fae17970dc6ef3d645",
+      "gzipBytes": 49978,
+      "gzipSha256": "0e8bd91c36ef5c4915185d568ca8de088db16a7b97634bb780f0162561a1fcaf"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13g-steward.js",
+      "member": "0175.gz",
+      "rawBytes": 35878,
+      "rawSha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385",
+      "gzipBytes": 12664,
+      "gzipSha256": "349e7b72dea1628dd0cdcd5b5ee7ef039518d16d13dc5a2c9794fa929cd76007"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "member": "0176.gz",
+      "rawBytes": 36092,
+      "rawSha256": "767a0d09a440ffd479894e3e08e574640e14f2b09e7c7f964e65b1fc38622767",
+      "gzipBytes": 13693,
+      "gzipSha256": "2a1006bccbb89ea22a08334433d1fc47ed0f90082a5a3ed30f1f9627d8387223"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "member": "0177.gz",
+      "rawBytes": 107273,
+      "rawSha256": "5d0e55ca4c470fea0f077f72ab91469682109a9f4353c3706fcee4e50b9ae3a8",
+      "gzipBytes": 37291,
+      "gzipSha256": "ae39bc141e11f9cbc589e3134939d3698a94245787f18a33cdb94939047b7c1b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "member": "0178.gz",
+      "rawBytes": 40769,
+      "rawSha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a",
+      "gzipBytes": 16281,
+      "gzipSha256": "c720787663663fdaf3f8ebc77382c7b2fbc4a1378fa2b5f7240ced07efdbc998"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "member": "0179.gz",
+      "rawBytes": 139182,
+      "rawSha256": "baf3eccd52355fcc202aa36b278b5b4f04c895d580c846fdacd28f898759acef",
+      "gzipBytes": 50006,
+      "gzipSha256": "4c9185374a848692a6329548f556e5a5cbb17cb911994617398e711ee029e35d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "member": "0180.gz",
+      "rawBytes": 124837,
+      "rawSha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e",
+      "gzipBytes": 44351,
+      "gzipSha256": "ea80a062ff50ac1b9daf02a2c6ef7cc6a8d4fd87cc2d33b5e076985a9f73b8a7"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "member": "0181.gz",
+      "rawBytes": 26677,
+      "rawSha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939",
+      "gzipBytes": 11885,
+      "gzipSha256": "67ec57cabe6dc9058c0d4dc3dd96d313666126727887d1ca8990e54ad53e9f66"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "member": "0182.gz",
+      "rawBytes": 40223,
+      "rawSha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+      "gzipBytes": 14989,
+      "gzipSha256": "e09bcf19535312a958829b32534198509ef3d3250e61693782d12c1b8e4bcef3"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "member": "0183.gz",
+      "rawBytes": 57554,
+      "rawSha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81",
+      "gzipBytes": 23545,
+      "gzipSha256": "0295d046f31890a06419fcc4d16d274233873157369c58b986c8f738912ebba2"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "member": "0184.gz",
+      "rawBytes": 70406,
+      "rawSha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e",
+      "gzipBytes": 26094,
+      "gzipSha256": "e35db552bf95ba551188097bd412d4dd37c8bc858e686ac8e802fabfe8802856"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "member": "0185.gz",
+      "rawBytes": 92757,
+      "rawSha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3",
+      "gzipBytes": 33206,
+      "gzipSha256": "78a90f495c7686ed8fb60d74abb8da5e31ef67e1230a6b85db30d9a07c7e74eb"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13r-event-stream.js",
+      "member": "0186.gz",
+      "rawBytes": 26858,
+      "rawSha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+      "gzipBytes": 10321,
+      "gzipSha256": "7c9dae4859eeba5c648fce62630dcff29b4114216a678ba7f3ad880ce99572e1"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13s-scheduler.js",
+      "member": "0187.gz",
+      "rawBytes": 104744,
+      "rawSha256": "333a372308196535ac4c34a8db02057c062e155fe58bed537ea17c0591981001",
+      "gzipBytes": 33505,
+      "gzipSha256": "164d1447bf457b642e04842225a8690a12039fbf41a68837e27c6d87cb52e05d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "member": "0188.gz",
+      "rawBytes": 35516,
+      "rawSha256": "e2f5c7dd30842acc30ccea8cf16cbea9b1c7b73bf4e99e4d6dfa09ed6e28b68b",
+      "gzipBytes": 13046,
+      "gzipSha256": "764a03eadb0a5845ddd9faab40f054f3061b2516d636669b6cc25d4990d34c53"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13u-migration-center.js",
+      "member": "0189.gz",
+      "rawBytes": 474359,
+      "rawSha256": "f99582fabd1a6ce8d695fda47d0233907a07d007cbde13f21f59d2673cab05d3",
+      "gzipBytes": 113473,
+      "gzipSha256": "e8f4bc6851890bec5a7331fef562b6338ca2ddb5e2b5410a5ecbea0bf0518900"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "member": "0190.gz",
+      "rawBytes": 14755,
+      "rawSha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+      "gzipBytes": 4111,
+      "gzipSha256": "a403f5c8cd35ce895725068c5bc6d178c8088ec7b8f8b1a2fe8dc51750f5407b"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13w-external-bots.js",
+      "member": "0191.gz",
+      "rawBytes": 143021,
+      "rawSha256": "3d55ac5bb0f0a92851323b4a8d208d419ee37ae9565da32a51f67f5246bec826",
+      "gzipBytes": 31982,
+      "gzipSha256": "398df56ec0770de380db1a8e1f0960c6b54df598555833d8fc95f77a5c3fc353"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13w1-external-remote-views.js",
+      "member": "0192.gz",
+      "rawBytes": 51241,
+      "rawSha256": "641c65d93c7037f4373947ded4704f9d77bd8d7875189c66a7992af0f1d91222",
+      "gzipBytes": 13045,
+      "gzipSha256": "a7eae4db0feebb147f0843979e12fc68c9625b99a6bbfe60d58c3c0bf455a743"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "member": "0193.gz",
+      "rawBytes": 11547,
+      "rawSha256": "fc8be61895159daa8b5ec219078b1c944f11fe3f3593c44a51473737348606d3",
+      "gzipBytes": 3664,
+      "gzipSha256": "21d97e1f794142d804832cf4b3079d4e8d201a623876e585cea04f8545e04566"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "member": "0194.gz",
+      "rawBytes": 20475,
+      "rawSha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+      "gzipBytes": 5709,
+      "gzipSha256": "77d04b27fa51263ef033271caf0300a29a1194d30aad79cc87b416a68c121f83"
+    },
+    {
+      "source": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "member": "0195.gz",
+      "rawBytes": 6315,
+      "rawSha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+      "gzipBytes": 2324,
+      "gzipSha256": "be74caf196f49c763999d3c5828ba18d26f8277932bfdb479f3626d634ef7c7e"
+    },
+    {
+      "source": "ruyi-workbench/app/src/14-main.js",
+      "member": "0196.gz",
+      "rawBytes": 51084,
+      "rawSha256": "1798abaf17c7d8a0e8f5e0ed52f0606624438aa7691994a9671814facbcead5c",
+      "gzipBytes": 20703,
+      "gzipSha256": "44b483c41415a7a2bc74a2dcd14ed4ee015a3a4cd15f0e143d7a7363aea8f20c"
+    },
+    {
+      "source": "ruyi-workbench/app/src/context-governance-rules.json",
+      "member": "0197.gz",
+      "rawBytes": 16604,
+      "rawSha256": "28afcfd81fdc3f4581d950400754dae51bcb034ebf0f2f2bd7aa5e1f9a5e4414",
+      "gzipBytes": 5794,
+      "gzipSha256": "aef8485ec6176ab128eeb04277a844b97f50a3695e2aa8cd9fdeaddd830471ab"
+    },
+    {
+      "source": "ruyi-workbench/app/src/manifest.json",
+      "member": "0198.gz",
+      "rawBytes": 40566,
+      "rawSha256": "136350b03037dc2dcaaf98e935ea0c627a6a7b78b48f66d2e6feb2faf72fca10",
+      "gzipBytes": 14216,
+      "gzipSha256": "7c6a27896286ff6b27d25a93b1ebf4db22dad8bee5838573d1513659d4cca8dd"
+    },
+    {
+      "source": "ruyi-workbench/app/src/module-contracts.json",
+      "member": "0199.gz",
+      "rawBytes": 860172,
+      "rawSha256": "8311bc30a3e7ad03f1638e16ed4c5474ca57e746c958f59b9230a379cdea4eb4",
+      "gzipBytes": 77151,
+      "gzipSha256": "55dbceabd8c70a919b6ccff24e995482a7b36708521cc076ce8ff7be7b08668d"
+    },
+    {
+      "source": "ruyi-workbench/app/src/module-dependency-policy.json",
+      "member": "0200.gz",
+      "rawBytes": 28287,
+      "rawSha256": "0e05a9356822d031e7c0126f35dec2b9f76bdbc604e079a29d28f507fb147a9f",
+      "gzipBytes": 8298,
+      "gzipSha256": "827c3a20768f19f7c0a07e08505ec6aa6505b97de87de5f561eeb324b85a49b7"
+    },
+    {
+      "source": "ruyi-workbench/package.json",
+      "member": "0201.gz",
+      "rawBytes": 1502,
+      "rawSha256": "11a8627f73b0c99c02ceb8dff64f07ae3ecac0dac2e3e148fc12aa592d07bce5",
+      "gzipBytes": 634,
+      "gzipSha256": "005ca31eb9961fc2fd217cb7c26de705bd42aa45c7d2ff5ce85e6992f6368051"
+    },
+    {
+      "source": "ruyi-workbench/semantic-runtime/gemma2-provider.cjs",
+      "member": "0202.gz",
+      "rawBytes": 4227,
+      "rawSha256": "fd37049a952fa7dfb0c74ece421990189a15978430b10b468894b76b0a7fe90f",
+      "gzipBytes": 1830,
+      "gzipSha256": "42bb6c0207e46a6ff2b43e117181be57a6744d1232ae8be209ab4b358a458ead"
+    }
+  ],
+  "external": [
+    {
+      "file": "C:\\Program Files\\nodejs\\node.exe",
+      "bytes": 91380224,
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+      "reason": "External Node binary not copied"
+    }
+  ],
+  "totalRawBytes": 28469915,
+  "totalGzipBytes": 9233590,
+  "limits": [
+    "No native binaries, model/tokenizer weights or blind corpus bodies included.",
+    "Root36 lifecycle/provider/admission/bridge tests are scoped; genuine Gemma2 resident/full consumers/hard exit pending.",
+    "Two open production review findings are preserved; no approval of vulnerable profile validation/unspawned cleanup.",
+    "Actual snapshot failure isolated to root directory access time; invariant is not weakened and enable is not qualified.",
+    "Official Microsoft VC source/signatures/5DLL bytes verified, but app-local load, redistribution and clean Windows package remain unqualified.",
+    "All SR gates remain pending; default/version unchanged."
+  ]
+}

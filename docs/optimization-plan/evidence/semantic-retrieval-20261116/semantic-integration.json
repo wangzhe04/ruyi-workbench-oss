@@ -1,0 +1,2399 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-11-16T10:55:27.192Z",
+  "realModel": true,
+  "encryptedSource": true,
+  "fixtureSha256": "026bc01001f1e4c4dbd5614eff08e8a4b1de76bffafd01abf286f252b05adf25",
+  "sourceHashes": {
+    "06ha-semantic-retrieval.js": "22ee7909f380f56fa62051f853db7315cb78ba7df8e561d82e04c3ad7058b967",
+    "06hb-semantic-runtime.js": "fa5b803a88350748218f9dcef1e8b20ff30b38c06101a2d0eef208b31758f8ac",
+    "13ap-session-fulltext-index.js": "5b0f42c365a86df3b0f97d15dbbf4f8a72f8d3c8dd247236cc85a736bbbcbed6"
+  },
+  "checks": [
+    {
+      "label": "all scored references carry raw source excerpts",
+      "passed": true
+    },
+    {
+      "label": "revoked source is excluded after vector cache warmup",
+      "passed": true
+    }
+  ],
+  "queries": [
+    {
+      "id": "delivery-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "delivery",
+          "score": 0.5996553034877534,
+          "semanticScore": 0.5996553034877534,
+          "snippet": "北区货运车辆检修期间，订单改由铁路运输，预计到货比原计划晚两天。"
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.41978968071766304,
+          "semanticScore": 0.41978968071766304,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.4079487293279807,
+          "semanticScore": 0.4079487293279807,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        },
+        {
+          "id": "seal-distractor",
+          "score": 0.3988307207773922,
+          "semanticScore": 0.3988307207773922,
+          "snippet": "包装箱外侧应标注货物重量。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.3687138489875109,
+          "semanticScore": 0.3687138489875109,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 1391.4309000000003
+    },
+    {
+      "id": "delivery-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "delivery",
+          "score": 0.6427214154031645,
+          "semanticScore": 0.6427214154031645,
+          "snippet": "北区货运车辆检修期间，订单改由铁路运输，预计到货比原计划晚两天。"
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.3979182908655255,
+          "semanticScore": 0.3979182908655255,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "seal-distractor",
+          "score": 0.35131258555372336,
+          "semanticScore": 0.35131258555372336,
+          "snippet": "包装箱外侧应标注货物重量。"
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.34744523941380323,
+          "semanticScore": 0.34744523941380323,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.3448110653402433,
+          "semanticScore": 0.3448110653402433,
+          "snippet": "Fragile glassware travels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 799.7136
+    },
+    {
+      "id": "diet-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "diet",
+          "score": 0.6255082067043163,
+          "semanticScore": 0.6255082067043163,
+          "snippet": "The cafeteria serves plant-based lunches on Mondays; eggs and dairy remain available on other weekdays."
+        },
+        {
+          "id": "ventilation",
+          "score": 0.49903823737324615,
+          "semanticScore": 0.49903823737324615,
+          "snippet": " both workshop windows open for forty-eight hours and do not store food in the room."
+        },
+        {
+          "id": "printer",
+          "score": 0.354572337305317,
+          "semanticScore": 0.354572337305317,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "calibration",
+          "score": 0.29872442162886,
+          "semanticScore": 0.29872442162886,
+          "snippet": "Weighing scales must be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        },
+        {
+          "id": "lease",
+          "score": 0.28858313609250047,
+          "semanticScore": 0.28858313609250047,
+          "snippet": "办公室租约于六月三十日到期，续租须提前六十天书面通知房东。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 806.0494999999992
+    },
+    {
+      "id": "diet-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "diet",
+          "score": 0.592554505473928,
+          "semanticScore": 0.592554505473928,
+          "snippet": "The cafeteria serves plant-based lunches on Mondays; eggs and dairy remain available on other weekdays."
+        },
+        {
+          "id": "ventilation",
+          "score": 0.5179213754435849,
+          "semanticScore": 0.5179213754435849,
+          "snippet": " both workshop windows open for forty-eight hours and do not store food in the room."
+        },
+        {
+          "id": "calibration",
+          "score": 0.29353550587960464,
+          "semanticScore": 0.29353550587960464,
+          "snippet": "Weighing scales must be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        },
+        {
+          "id": "seal-distractor",
+          "score": 0.23802195749272806,
+          "semanticScore": 0.23802195749272806,
+          "snippet": "包装箱外侧应标注货物重量。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 824.2177000000001
+    },
+    {
+      "id": "lease-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "lease",
+          "score": 0.790634872298299,
+          "semanticScore": 0.790634872298299,
+          "snippet": "办公室租约于六月三十日到期，续租须提前六十天书面通知房东。"
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.45236644278192617,
+          "semanticScore": 0.45236644278192617,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        },
+        {
+          "id": "ventilation",
+          "score": 0.41823586883115543,
+          "semanticScore": 0.41823586883115543,
+          "snippet": "After painting, keep both workshop windows open for forty-eight hours and do not store food in the room."
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.351257060776914,
+          "semanticScore": 0.351257060776914,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        },
+        {
+          "id": "migration",
+          "score": 0.32820701862391605,
+          "semanticScore": 0.32820701862391605,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 945.7331000000013
+    },
+    {
+      "id": "lease-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "lease",
+          "score": 0.5558187190032922,
+          "semanticScore": 0.5558187190032922,
+          "snippet": "办公室租约于六月三十日到期，续租须提前六十天书面通知房东。"
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.4409914056576995,
+          "semanticScore": 0.4409914056576995,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        },
+        {
+          "id": "shipping-label-distractor",
+          "score": 0.3102211429439905,
+          "semanticScore": 0.3102211429439905,
+          "snippet": "The shipping department sends a weekly staffing report."
+        },
+        {
+          "id": "ventilation-distractor",
+          "score": 0.2959106157550511,
+          "semanticScore": 0.2959106157550511,
+          "snippet": "Workshop safety notices are printed in large letters."
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.282653523514912,
+          "semanticScore": 0.282653523514912,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 903.9301999999989
+    },
+    {
+      "id": "printer-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "printer",
+          "score": 0.6030615115979865,
+          "semanticScore": 0.6030615115979865,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "battery",
+          "score": 0.398126636544185,
+          "semanticScore": 0.398126636544185,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.39387784623029054,
+          "semanticScore": 0.39387784623029054,
+          "snippet": "avels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        },
+        {
+          "id": "seal",
+          "score": 0.30099120360861575,
+          "semanticScore": 0.30099120360861575,
+          "snippet": "出库包装的防拆封条如有破损，收货人员应拍照留证并拒绝签收。"
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.2963143884047928,
+          "semanticScore": 0.2963143884047928,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 785.7637999999988
+    },
+    {
+      "id": "printer-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "printer",
+          "score": 0.46509571520452003,
+          "semanticScore": 0.46509571520452003,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "archive",
+          "score": 0.32034093519716567,
+          "semanticScore": 0.32034093519716567,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.3039804760240148,
+          "semanticScore": 0.3039804760240148,
+          "snippet": "avels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        },
+        {
+          "id": "battery",
+          "score": 0.2944202790871295,
+          "semanticScore": 0.2944202790871295,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.28030788716356025,
+          "semanticScore": 0.28030788716356025,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 874.4274999999998
+    },
+    {
+      "id": "merge-zh",
+      "group": "zh-zh",
+      "rank": 0,
+      "top": [
+        {
+          "id": "battery",
+          "score": 0.4685020600971637,
+          "semanticScore": 0.4685020600971637,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "archive",
+          "score": 0.4576669254575475,
+          "semanticScore": 0.4576669254575475,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "identity",
+          "score": 0.44069056133213624,
+          "semanticScore": 0.44069056133213624,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "recovery",
+          "score": 0.3709620033860427,
+          "semanticScore": 0.3709620033860427,
+          "snippet": "已经清理的原始快照无法从搜索向量还原；界面必须说明原文不可用，不能编造缺失数值。"
+        },
+        {
+          "id": "decision",
+          "score": 0.33433982760161374,
+          "semanticScore": 0.33433982760161374,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 1017.4605999999985
+    },
+    {
+      "id": "merge-en",
+      "group": "en-zh",
+      "rank": 4,
+      "top": [
+        {
+          "id": "decision",
+          "score": 0.3961439089576392,
+          "semanticScore": 0.3961439089576392,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        },
+        {
+          "id": "identity",
+          "score": 0.34437043115538657,
+          "semanticScore": 0.34437043115538657,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "identity-distractor",
+          "score": 0.3389310036009994,
+          "semanticScore": 0.3389310036009994,
+          "snippet": "工单 ZX-7195 是数据库连接耗尽，重启连接池后恢复。"
+        },
+        {
+          "id": "merge",
+          "score": 0.32932661476140324,
+          "semanticScore": 0.32932661476140324,
+          "snippet": "这次没有合入补丁，因为合并会覆盖用户尚未提交的修改；应先在独立工作树验证。"
+        },
+        {
+          "id": "archive",
+          "score": 0.31451152003937677,
+          "semanticScore": 0.31451152003937677,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 826.8760000000002
+    },
+    {
+      "id": "travel-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "travel",
+          "score": 0.8319841571716985,
+          "semanticScore": 0.8319841571716985,
+          "snippet": "International train tickets may be refunded until two hours before departure, with a fifteen percent cancellation fee."
+        },
+        {
+          "id": "delivery",
+          "score": 0.5618852597704211,
+          "semanticScore": 0.5618852597704211,
+          "snippet": "北区货运车辆检修期间，订单改由铁路运输，预计到货比原计划晚两天。"
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.443918714243557,
+          "semanticScore": 0.443918714243557,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.42551405663097036,
+          "semanticScore": 0.42551405663097036,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.4093046269765276,
+          "semanticScore": 0.4093046269765276,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 733.8873999999996
+    },
+    {
+      "id": "travel-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "travel",
+          "score": 0.7654343906007732,
+          "semanticScore": 0.7654343906007732,
+          "snippet": "International train tickets may be refunded until two hours before departure, with a fifteen percent cancellation fee."
+        },
+        {
+          "id": "delivery",
+          "score": 0.4906061181605812,
+          "semanticScore": 0.4906061181605812,
+          "snippet": "北区货运车辆检修期间，订单改由铁路运输，预计到货比原计划晚两天。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.42239260769220344,
+          "semanticScore": 0.42239260769220344,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.39580042653051506,
+          "semanticScore": 0.39580042653051506,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.3480651158787155,
+          "semanticScore": 0.3480651158787155,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 828.2106000000003
+    },
+    {
+      "id": "seal-zh",
+      "group": "zh-zh",
+      "rank": 0,
+      "top": [
+        {
+          "id": "printer-distractor",
+          "score": 0.47295132227715797,
+          "semanticScore": 0.47295132227715797,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "seal-distractor",
+          "score": 0.46781395101135326,
+          "semanticScore": 0.46781395101135326,
+          "snippet": "包装箱外侧应标注货物重量。"
+        },
+        {
+          "id": "artifact",
+          "score": 0.44565599100865316,
+          "semanticScore": 0.44565599100865316,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "retry",
+          "score": 0.35695894780484877,
+          "semanticScore": 0.35695894780484877,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        },
+        {
+          "id": "delivery",
+          "score": 0.3498759359300006,
+          "semanticScore": 0.3498759359300006,
+          "snippet": "北区货运车辆检修期间，订单改由铁路运输，预计到货比原计划晚两天。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 827.9675000000007
+    },
+    {
+      "id": "seal-en",
+      "group": "en-zh",
+      "rank": 2,
+      "top": [
+        {
+          "id": "elevator",
+          "score": 0.46154080922810864,
+          "semanticScore": 0.46154080922810864,
+          "snippet": "everyone must use the stairwell; the freight elevator is reserved for emergency personnel."
+        },
+        {
+          "id": "seal",
+          "score": 0.33002496778000723,
+          "semanticScore": 0.33002496778000723,
+          "snippet": "出库包装的防拆封条如有破损，收货人员应拍照留证并拒绝签收。"
+        },
+        {
+          "id": "swimming",
+          "score": 0.2961796771197801,
+          "semanticScore": 0.2961796771197801,
+          "snippet": "e must be accompanied by an adult in the swimming pool, including during supervised lessons."
+        },
+        {
+          "id": "cooling-distractor",
+          "score": 0.29295802311887564,
+          "semanticScore": 0.29295802311887564,
+          "snippet": "Server maintenance windows are scheduled on Sundays."
+        },
+        {
+          "id": "ventilation-distractor",
+          "score": 0.2902361466882657,
+          "semanticScore": 0.2902361466882657,
+          "snippet": "Workshop safety notices are printed in large letters."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 815.3263999999999
+    },
+    {
+      "id": "cooling-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "cooling",
+          "score": 0.6257714593164448,
+          "semanticScore": 0.6257714593164448,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "battery",
+          "score": 0.4353803441243297,
+          "semanticScore": 0.4353803441243297,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.43435638318178027,
+          "semanticScore": 0.43435638318178027,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        },
+        {
+          "id": "elevator-distractor",
+          "score": 0.3970423713278214,
+          "semanticScore": 0.3970423713278214,
+          "snippet": "The elevator inspection certificate expires next spring."
+        },
+        {
+          "id": "elevator",
+          "score": 0.3864638899730913,
+          "semanticScore": 0.3864638899730913,
+          "snippet": "During a fire alarm everyone must use the stairwell; the freight elevator is reserved for emergency personnel."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 856.2416000000012
+    },
+    {
+      "id": "cooling-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "cooling",
+          "score": 4,
+          "snippet": "erature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.414312028482126,
+          "semanticScore": 0.414312028482126,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.392844939686063,
+          "semanticScore": 0.392844939686063,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "identity-distractor",
+          "score": 0.2802286119437659,
+          "semanticScore": 0.2802286119437659,
+          "snippet": "工单 ZX-7195 是数据库连接耗尽，重启连接池后恢复。"
+        },
+        {
+          "id": "decision",
+          "score": 0.27207456370085503,
+          "semanticScore": 0.27207456370085503,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 787.216800000002
+    },
+    {
+      "id": "quota-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "quota",
+          "score": 0.6402967881911202,
+          "semanticScore": 0.6402967881911202,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "quota-distractor",
+          "score": 0.42554036529637496,
+          "semanticScore": 0.42554036529637496,
+          "snippet": "聊天标题在侧栏最多显示二十四个字。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.3832072438988928,
+          "semanticScore": 0.3832072438988928,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        },
+        {
+          "id": "travel",
+          "score": 0.3825691013742985,
+          "semanticScore": 0.3825691013742985,
+          "snippet": "tickets may be refunded until two hours before departure, with a fifteen percent cancellation fee."
+        },
+        {
+          "id": "migration",
+          "score": 0.379856021227546,
+          "semanticScore": 0.379856021227546,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 965.7535000000025
+    },
+    {
+      "id": "quota-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "quota",
+          "score": 0.5019185672082638,
+          "semanticScore": 0.5019185672082638,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "archive",
+          "score": 0.4107581094515215,
+          "semanticScore": 0.4107581094515215,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "recovery-distractor",
+          "score": 0.33894255850323096,
+          "semanticScore": 0.33894255850323096,
+          "snippet": "快照列表按保存时间从新到旧展示。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.2945360646063655,
+          "semanticScore": 0.2945360646063655,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.28801796610628616,
+          "semanticScore": 0.28801796610628616,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 787.999200000002
+    },
+    {
+      "id": "garden-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "garden",
+          "score": 0.6059803443158982,
+          "semanticScore": 0.6059803443158982,
+          "snippet": "The greenhouse irrigation timer waters seedlings at dawn; suspend watering when the soil moisture sensor is above seventy percent."
+        },
+        {
+          "id": "cooling",
+          "score": 0.31673509287918045,
+          "semanticScore": 0.31673509287918045,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "printer",
+          "score": 0.2709951814947033,
+          "semanticScore": 0.2709951814947033,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "garden-distractor",
+          "score": 0.26766388309920147,
+          "semanticScore": 0.26766388309920147,
+          "snippet": "The garden gate stays locked after sunset."
+        },
+        {
+          "id": "battery",
+          "score": 0.244317472967276,
+          "semanticScore": 0.244317472967276,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 755.5393999999978
+    },
+    {
+      "id": "garden-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "garden",
+          "score": 0.5489443315069077,
+          "semanticScore": 0.5489443315069077,
+          "snippet": "The greenhouse irrigation timer waters seedlings at dawn; suspend watering when the soil moisture sensor is above seventy percent."
+        },
+        {
+          "id": "garden-distractor",
+          "score": 0.40627945850874625,
+          "semanticScore": 0.40627945850874625,
+          "snippet": "The garden gate stays locked after sunset."
+        },
+        {
+          "id": "cooling",
+          "score": 0.36795907804811095,
+          "semanticScore": 0.36795907804811095,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "printer",
+          "score": 0.32050317317958904,
+          "semanticScore": 0.32050317317958904,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "battery",
+          "score": 0.31187219702638547,
+          "semanticScore": 0.31187219702638547,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 760.4124999999985
+    },
+    {
+      "id": "migration-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "migration",
+          "score": 0.7175037031914318,
+          "semanticScore": 0.7175037031914318,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "recovery-distractor",
+          "score": 0.47530319691992357,
+          "semanticScore": 0.47530319691992357,
+          "snippet": "快照列表按保存时间从新到旧展示。"
+        },
+        {
+          "id": "archive",
+          "score": 0.43664290399300654,
+          "semanticScore": 0.43664290399300654,
+          "snippet": "Research recordings are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.3838867818338418,
+          "semanticScore": 0.3838867818338418,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "quota",
+          "score": 0.36943456102405525,
+          "semanticScore": 0.36943456102405525,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 791.6905999999981
+    },
+    {
+      "id": "migration-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "migration",
+          "score": 0.6916369488234714,
+          "semanticScore": 0.6916369488234714,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "archive",
+          "score": 0.45690915283181627,
+          "semanticScore": 0.45690915283181627,
+          "snippet": "Research recordings are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "recovery-distractor",
+          "score": 0.3617329771242321,
+          "semanticScore": 0.3617329771242321,
+          "snippet": "快照列表按保存时间从新到旧展示。"
+        },
+        {
+          "id": "identity-distractor",
+          "score": 0.3496628911109322,
+          "semanticScore": 0.3496628911109322,
+          "snippet": "工单 ZX-7195 是数据库连接耗尽，重启连接池后恢复。"
+        },
+        {
+          "id": "identity",
+          "score": 0.3237987409299782,
+          "semanticScore": 0.3237987409299782,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 757.3018000000011
+    },
+    {
+      "id": "battery-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "battery",
+          "score": 0.5566861010770556,
+          "semanticScore": 0.5566861010770556,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "diet-distractor",
+          "score": 0.3736497502267717,
+          "semanticScore": 0.3736497502267717,
+          "snippet": "The cafeteria closes at six in the evening."
+        },
+        {
+          "id": "ventilation-distractor",
+          "score": 0.3444476671964196,
+          "semanticScore": 0.3444476671964196,
+          "snippet": "Workshop safety notices are printed in large letters."
+        },
+        {
+          "id": "elevator",
+          "score": 0.33973810899972334,
+          "semanticScore": 0.33973810899972334,
+          "snippet": "During a fire alarm everyone must use the stairwell; the freight elevator is reserved for emergency personnel."
+        },
+        {
+          "id": "garden-distractor",
+          "score": 0.32904613195558874,
+          "semanticScore": 0.32904613195558874,
+          "snippet": "The garden gate stays locked after sunset."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 750.6830999999984
+    },
+    {
+      "id": "battery-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "battery",
+          "score": 5,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "battery-distractor",
+          "score": 0.35893837046824545,
+          "semanticScore": 0.35893837046824545,
+          "snippet": "The barcode font must be large enough for camera scanning."
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.3028601849391201,
+          "semanticScore": 0.3028601849391201,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "elevator-distractor",
+          "score": 0.2985522700293987,
+          "semanticScore": 0.2985522700293987,
+          "snippet": "The elevator inspection certificate expires next spring."
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.26410077358768985,
+          "semanticScore": 0.26410077358768985,
+          "snippet": "Fragile glassware travels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 794.8381000000008
+    },
+    {
+      "id": "retry-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "retry",
+          "score": 0.7042564911621466,
+          "semanticScore": 0.7042564911621466,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        },
+        {
+          "id": "retry-distractor",
+          "score": 0.569016413099533,
+          "semanticScore": 0.569016413099533,
+          "snippet": "付款页面支持保存常用发票抬头。"
+        },
+        {
+          "id": "artifact",
+          "score": 0.39689480792942905,
+          "semanticScore": 0.39689480792942905,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.3682303809507734,
+          "semanticScore": 0.3682303809507734,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.3657941611595762,
+          "semanticScore": 0.3657941611595762,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 756.9540000000015
+    },
+    {
+      "id": "retry-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "retry",
+          "score": 0.5823868465086092,
+          "semanticScore": 0.5823868465086092,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.4742333395603973,
+          "semanticScore": 0.4742333395603973,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "artifact",
+          "score": 0.429643048006049,
+          "semanticScore": 0.429643048006049,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "retry-distractor",
+          "score": 0.40704310268570226,
+          "semanticScore": 0.40704310268570226,
+          "snippet": "付款页面支持保存常用发票抬头。"
+        },
+        {
+          "id": "delivery-distractor",
+          "score": 0.306705028278197,
+          "semanticScore": 0.306705028278197,
+          "snippet": "北区采购订单的开票地址下个月变更。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 752.4254000000001
+    },
+    {
+      "id": "archive-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "archive",
+          "score": 0.5816766422511935,
+          "semanticScore": 0.5816766422511935,
+          "snippet": "Research recordings are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "quota",
+          "score": 0.48646275663390753,
+          "semanticScore": 0.48646275663390753,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "migration",
+          "score": 0.4402526438218527,
+          "semanticScore": 0.4402526438218527,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.41171451949950405,
+          "semanticScore": 0.41171451949950405,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "swimming",
+          "score": 0.3636010570264919,
+          "semanticScore": 0.3636010570264919,
+          "snippet": "e must be accompanied by an adult in the swimming pool, including during supervised lessons."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 977.1785999999993
+    },
+    {
+      "id": "archive-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "archive",
+          "score": 5,
+          "snippet": "Research recordings are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "migration",
+          "score": 0.529110492344725,
+          "semanticScore": 0.529110492344725,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "quota",
+          "score": 0.41545266631665834,
+          "semanticScore": 0.41545266631665834,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "identity",
+          "score": 0.3950404325333135,
+          "semanticScore": 0.3950404325333135,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "decision",
+          "score": 0.38903831505037195,
+          "semanticScore": 0.38903831505037195,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 755.6994000000013
+    },
+    {
+      "id": "decision-zh",
+      "group": "zh-zh",
+      "rank": 2,
+      "top": [
+        {
+          "id": "decision-distractor",
+          "score": 0.5871179066111784,
+          "semanticScore": 0.5871179066111784,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "decision",
+          "score": 0.41712383904887973,
+          "semanticScore": 0.41712383904887973,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        },
+        {
+          "id": "migration",
+          "score": 0.31334318041183684,
+          "semanticScore": 0.31334318041183684,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "artifact",
+          "score": 0.2966442140979287,
+          "semanticScore": 0.2966442140979287,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "archive",
+          "score": 0.2862874640060499,
+          "semanticScore": 0.2862874640060499,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 743.3235000000022
+    },
+    {
+      "id": "decision-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "decision",
+          "score": 0.5505923762884672,
+          "semanticScore": 0.5505923762884672,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.3889244400475307,
+          "semanticScore": 0.3889244400475307,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "retry-distractor",
+          "score": 0.3503188607445974,
+          "semanticScore": 0.3503188607445974,
+          "snippet": "付款页面支持保存常用发票抬头。"
+        },
+        {
+          "id": "retry",
+          "score": 0.33290687159059984,
+          "semanticScore": 0.33290687159059984,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 754.2968000000001
+    },
+    {
+      "id": "calibration-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "calibration",
+          "score": 0.5002500241644625,
+          "semanticScore": 0.5002500241644625,
+          "snippet": " be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.47492762571790426,
+          "semanticScore": 0.47492762571790426,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        },
+        {
+          "id": "cooling",
+          "score": 0.4578762763999075,
+          "semanticScore": 0.4578762763999075,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "battery",
+          "score": 0.4376316265650992,
+          "semanticScore": 0.4376316265650992,
+          "snippet": "The handheld scanner uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.4160824597961729,
+          "semanticScore": 0.4160824597961729,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 759.9157000000014
+    },
+    {
+      "id": "calibration-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "calibration",
+          "score": 5,
+          "snippet": "Weighing scales must be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        },
+        {
+          "id": "battery",
+          "score": 0.4313090524345041,
+          "semanticScore": 0.4313090524345041,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "quota",
+          "score": 0.36078887543048827,
+          "semanticScore": 0.36078887543048827,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "cooling",
+          "score": 0.34880923024812044,
+          "semanticScore": 0.34880923024812044,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.2908820411236017,
+          "semanticScore": 0.2908820411236017,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 752.7210000000014
+    },
+    {
+      "id": "identity-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "identity",
+          "score": 0.6390043147581096,
+          "semanticScore": 0.6390043147581096,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "identity-distractor",
+          "score": 0.6159028601635621,
+          "semanticScore": 0.6159028601635621,
+          "snippet": "工单 ZX-7195 是数据库连接耗尽，重启连接池后恢复。"
+        },
+        {
+          "id": "archive",
+          "score": 0.29700931775217193,
+          "semanticScore": 0.29700931775217193,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.2916286215071316,
+          "semanticScore": 0.2916286215071316,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        },
+        {
+          "id": "artifact",
+          "score": 0.24998432938702927,
+          "semanticScore": 0.24998432938702927,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 782.168099999999
+    },
+    {
+      "id": "identity-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "identity",
+          "score": 3,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "identity-distractor",
+          "score": 0.6505007624549718,
+          "semanticScore": 0.6505007624549718,
+          "snippet": "工单 ZX-7195 是数据库连接耗尽，重启连接池后恢复。"
+        },
+        {
+          "id": "archive",
+          "score": 0.31762376721568547,
+          "semanticScore": 0.31762376721568547,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.2872672840125432,
+          "semanticScore": 0.2872672840125432,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        },
+        {
+          "id": "decision",
+          "score": 0.273493894058057,
+          "semanticScore": 0.273493894058057,
+          "snippet": "最新决定取消自动上传，改为只在用户点击导出后生成本地文件；上周的云同步方案已作废。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 741.3336999999992
+    },
+    {
+      "id": "swimming-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "swimming",
+          "score": 0.7292294847040612,
+          "semanticScore": 0.7292294847040612,
+          "snippet": "Children under twelve must be accompanied by an adult in the swimming pool, including during supervised lessons."
+        },
+        {
+          "id": "travel",
+          "score": 0.24889486247054113,
+          "semanticScore": 0.24889486247054113,
+          "snippet": "tickets may be refunded until two hours before departure, with a fifteen percent cancellation fee."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 710.1403000000028
+    },
+    {
+      "id": "swimming-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "swimming",
+          "score": 5,
+          "snippet": "ompanied by an adult in the swimming pool, including during supervised lessons."
+        },
+        {
+          "id": "calibration",
+          "score": 0.243085350885355,
+          "semanticScore": 0.243085350885355,
+          "snippet": "Weighing scales must be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        },
+        {
+          "id": "recovery",
+          "score": 0.24079169246403345,
+          "semanticScore": 0.24079169246403345,
+          "snippet": "已经清理的原始快照无法从搜索向量还原；界面必须说明原文不可用，不能编造缺失数值。"
+        },
+        {
+          "id": "scope",
+          "score": 0.22382775442972486,
+          "semanticScore": 0.22382775442972486,
+          "snippet": "红杉项目中的客户资料不允许进入白桦项目的聊天，即使问题内容完全相同也不能跨范围引用。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 738.2174999999988
+    },
+    {
+      "id": "scope-zh",
+      "group": "zh-zh",
+      "rank": 2,
+      "top": [
+        {
+          "id": "merge-distractor",
+          "score": 0.4702526824141313,
+          "semanticScore": 0.4702526824141313,
+          "snippet": "合并请求的标题需要包含问题编号。"
+        },
+        {
+          "id": "scope",
+          "score": 0.43386608114394,
+          "semanticScore": 0.43386608114394,
+          "snippet": "红杉项目中的客户资料不允许进入白桦项目的聊天，即使问题内容完全相同也不能跨范围引用。"
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.35191980258473277,
+          "semanticScore": 0.35191980258473277,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "merge",
+          "score": 0.34008911632132527,
+          "semanticScore": 0.34008911632132527,
+          "snippet": "这次没有合入补丁，因为合并会覆盖用户尚未提交的修改；应先在独立工作树验证。"
+        },
+        {
+          "id": "swimming",
+          "score": 0.3078408640488965,
+          "semanticScore": 0.3078408640488965,
+          "snippet": "e must be accompanied by an adult in the swimming pool, including during supervised lessons."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 760.7743999999948
+    },
+    {
+      "id": "scope-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "scope",
+          "score": 0.45760917012241364,
+          "semanticScore": 0.45760917012241364,
+          "snippet": "红杉项目中的客户资料不允许进入白桦项目的聊天，即使问题内容完全相同也不能跨范围引用。"
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.3745273452053254,
+          "semanticScore": 0.3745273452053254,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "merge-distractor",
+          "score": 0.37407553879276145,
+          "semanticScore": 0.37407553879276145,
+          "snippet": "合并请求的标题需要包含问题编号。"
+        },
+        {
+          "id": "migration",
+          "score": 0.3224369555523876,
+          "semanticScore": 0.3224369555523876,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "merge",
+          "score": 0.30771937621960105,
+          "semanticScore": 0.30771937621960105,
+          "snippet": "这次没有合入补丁，因为合并会覆盖用户尚未提交的修改；应先在独立工作树验证。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 773.6403999999966
+    },
+    {
+      "id": "ventilation-zh",
+      "group": "zh-en",
+      "rank": 0,
+      "top": [
+        {
+          "id": "lease",
+          "score": 0.3774582445403038,
+          "semanticScore": 0.3774582445403038,
+          "snippet": "办公室租约于六月三十日到期，续租须提前六十天书面通知房东。"
+        },
+        {
+          "id": "printer",
+          "score": 0.33325533284489156,
+          "semanticScore": 0.33325533284489156,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "cooling",
+          "score": 0.3320766896770892,
+          "semanticScore": 0.3320766896770892,
+          "snippet": "tomatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "lease-distractor",
+          "score": 0.3276344943090831,
+          "semanticScore": 0.3276344943090831,
+          "snippet": "办公室空调每季度由物业检查一次。"
+        },
+        {
+          "id": "scope-distractor",
+          "score": 0.2743752410505881,
+          "semanticScore": 0.2743752410505881,
+          "snippet": "红杉和白桦项目可以使用同一套窗口配色。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 822.1137999999992
+    },
+    {
+      "id": "ventilation-en",
+      "group": "en-en",
+      "rank": 0,
+      "top": [
+        {
+          "id": "lease",
+          "score": 0.3157508352579063,
+          "semanticScore": 0.3157508352579063,
+          "snippet": "办公室租约于六月三十日到期，续租须提前六十天书面通知房东。"
+        },
+        {
+          "id": "swimming",
+          "score": 0.29471668797878203,
+          "semanticScore": 0.29471668797878203,
+          "snippet": "e must be accompanied by an adult in the swimming pool, including during supervised lessons."
+        },
+        {
+          "id": "battery",
+          "score": 0.27384656976662347,
+          "semanticScore": 0.27384656976662347,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        },
+        {
+          "id": "decision-distractor",
+          "score": 0.26654210818666896,
+          "semanticScore": 0.26654210818666896,
+          "snippet": "旧决定：应用每晚自动同步文件到云端。（已被后续决定取代）"
+        },
+        {
+          "id": "calibration",
+          "score": 0.2663821264534266,
+          "semanticScore": 0.2663821264534266,
+          "snippet": " be calibrated using the two-kilogram reference weight every morning before processing any orders."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 779.3636999999944
+    },
+    {
+      "id": "artifact-zh",
+      "group": "zh-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "artifact",
+          "score": 0.4480361492056541,
+          "semanticScore": 0.4480361492056541,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.433057647599553,
+          "semanticScore": 0.433057647599553,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "retry",
+          "score": 0.426981107312942,
+          "semanticScore": 0.426981107312942,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.4223982199193768,
+          "semanticScore": 0.4223982199193768,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "retry-distractor",
+          "score": 0.379512145642163,
+          "semanticScore": 0.379512145642163,
+          "snippet": "付款页面支持保存常用发票抬头。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 744.127999999997
+    },
+    {
+      "id": "artifact-en",
+      "group": "en-zh",
+      "rank": 1,
+      "top": [
+        {
+          "id": "artifact",
+          "score": 0.5253666909436763,
+          "semanticScore": 0.5253666909436763,
+          "snippet": "最终交付文件是报价单-终版.xlsx，含税总额为 18450 元；此前草稿金额 17600 元不再适用。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.3738498069624434,
+          "semanticScore": 0.3738498069624434,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "quota-distractor",
+          "score": 0.35881644623279046,
+          "semanticScore": 0.35881644623279046,
+          "snippet": "聊天标题在侧栏最多显示二十四个字。"
+        },
+        {
+          "id": "merge-distractor",
+          "score": 0.3351050799091662,
+          "semanticScore": 0.3351050799091662,
+          "snippet": "合并请求的标题需要包含问题编号。"
+        },
+        {
+          "id": "quota",
+          "score": 0.32308179059683956,
+          "semanticScore": 0.32308179059683956,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 694.3157999999967
+    },
+    {
+      "id": "shipping-label-zh",
+      "group": "zh-en",
+      "rank": 3,
+      "top": [
+        {
+          "id": "seal-distractor",
+          "score": 0.4598168399966408,
+          "semanticScore": 0.4598168399966408,
+          "snippet": "包装箱外侧应标注货物重量。"
+        },
+        {
+          "id": "printer",
+          "score": 0.43487692815773693,
+          "semanticScore": 0.43487692815773693,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.37537135354028356,
+          "semanticScore": 0.37537135354028356,
+          "snippet": "avels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.3713722149950601,
+          "semanticScore": 0.3713722149950601,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "seal",
+          "score": 0.367546141521987,
+          "semanticScore": 0.367546141521987,
+          "snippet": "出库包装的防拆封条如有破损，收货人员应拍照留证并拒绝签收。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 700.1249000000025
+    },
+    {
+      "id": "shipping-label-en",
+      "group": "en-en",
+      "rank": 5,
+      "top": [
+        {
+          "id": "seal-distractor",
+          "score": 0.4884647850869807,
+          "semanticScore": 0.4884647850869807,
+          "snippet": "包装箱外侧应标注货物重量。"
+        },
+        {
+          "id": "printer-distractor",
+          "score": 0.4068000559035937,
+          "semanticScore": 0.4068000559035937,
+          "snippet": "Printer cartridges are ordered from the approved supplier."
+        },
+        {
+          "id": "printer",
+          "score": 0.34764911162474277,
+          "semanticScore": 0.34764911162474277,
+          "snippet": "If the printer feeds two sheets at once, clean the pickup rollers and replace damp paper."
+        },
+        {
+          "id": "ventilation",
+          "score": 0.3329448830301209,
+          "semanticScore": 0.3329448830301209,
+          "snippet": " both workshop windows open for forty-eight hours and do not store food in the room."
+        },
+        {
+          "id": "shipping-label",
+          "score": 0.3282903477366111,
+          "semanticScore": 0.3282903477366111,
+          "snippet": "avels upright in individual foam sleeves; place the handling label on two adjacent sides of each carton."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 697.2082000000009
+    },
+    {
+      "id": "recovery-zh",
+      "group": "zh-zh",
+      "rank": 5,
+      "top": [
+        {
+          "id": "quota",
+          "score": 0.5673117224432331,
+          "semanticScore": 0.5673117224432331,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "artifact-distractor",
+          "score": 0.4213615260955111,
+          "semanticScore": 0.4213615260955111,
+          "snippet": "早期估算：草稿报价单金额为 17600 元，尚未计算新增运输费。"
+        },
+        {
+          "id": "calibration-distractor",
+          "score": 0.404244863014304,
+          "semanticScore": 0.404244863014304,
+          "snippet": "The order processing dashboard shows yesterday’s totals."
+        },
+        {
+          "id": "migration",
+          "score": 0.3848714884286974,
+          "semanticScore": 0.3848714884286974,
+          "snippet": "数据迁移先复制并校验新目录，确认完整后切换读取位置，原目录保留七天供回退。"
+        },
+        {
+          "id": "recovery",
+          "score": 0.3446673662714257,
+          "semanticScore": 0.3446673662714257,
+          "snippet": "已经清理的原始快照无法从搜索向量还原；界面必须说明原文不可用，不能编造缺失数值。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 722.2209000000003
+    },
+    {
+      "id": "recovery-en",
+      "group": "en-zh",
+      "rank": 2,
+      "top": [
+        {
+          "id": "quota",
+          "score": 0.3611912267434706,
+          "semanticScore": 0.3611912267434706,
+          "snippet": "本轮最多回读四段原始记录，总计不超过六千字；到限后应使用已有证据回答。"
+        },
+        {
+          "id": "recovery",
+          "score": 0.3449975723685536,
+          "semanticScore": 0.3449975723685536,
+          "snippet": "已经清理的原始快照无法从搜索向量还原；界面必须说明原文不可用，不能编造缺失数值。"
+        },
+        {
+          "id": "identity",
+          "score": 0.3132499881573915,
+          "semanticScore": 0.3132499881573915,
+          "snippet": "故障记录对应工单 ZX-7194，真正原因是编码后的路径被再次编码，修复是在边界只转换一次。"
+        },
+        {
+          "id": "archive",
+          "score": 0.30095893320827344,
+          "semanticScore": 0.30095893320827344,
+          "snippet": "are kept for ninety days after the study ends, then permanently removed along with transcripts."
+        },
+        {
+          "id": "retry",
+          "score": 0.3009469763630415,
+          "semanticScore": 0.3009469763630415,
+          "snippet": "支付接口返回结果未知时禁止自动重试扣款，应先用交易编号查询实际到账状态。"
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 782.8564999999944
+    },
+    {
+      "id": "elevator-zh",
+      "group": "zh-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "elevator",
+          "score": 0.6748492713396885,
+          "semanticScore": 0.6748492713396885,
+          "snippet": "During a fire alarm everyone must use the stairwell; the freight elevator is reserved for emergency personnel."
+        },
+        {
+          "id": "cooling",
+          "score": 0.3833900198660136,
+          "semanticScore": 0.3833900198660136,
+          "snippet": "Servers shut down automatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "elevator-distractor",
+          "score": 0.34259216785832525,
+          "semanticScore": 0.34259216785832525,
+          "snippet": "The elevator inspection certificate expires next spring."
+        },
+        {
+          "id": "diet-distractor",
+          "score": 0.3420729786524324,
+          "semanticScore": 0.3420729786524324,
+          "snippet": "The cafeteria closes at six in the evening."
+        },
+        {
+          "id": "battery",
+          "score": 0.3034342076607435,
+          "semanticScore": 0.3034342076607435,
+          "snippet": " uses a replaceable battery; a flashing amber light indicates it must be charged before the next shift."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 721.931700000001
+    },
+    {
+      "id": "elevator-en",
+      "group": "en-en",
+      "rank": 1,
+      "top": [
+        {
+          "id": "elevator",
+          "score": 5,
+          "snippet": "During a fire alarm everyone must use the stairwell; the freight elevator is reserved for emergency personnel."
+        },
+        {
+          "id": "elevator-distractor",
+          "score": 0.43276649566249986,
+          "semanticScore": 0.43276649566249986,
+          "snippet": "The elevator inspection certificate expires next spring."
+        },
+        {
+          "id": "ventilation-distractor",
+          "score": 0.39103972682885296,
+          "semanticScore": 0.39103972682885296,
+          "snippet": "Workshop safety notices are printed in large letters."
+        },
+        {
+          "id": "cooling",
+          "score": 0.3698658515523406,
+          "semanticScore": 0.3698658515523406,
+          "snippet": "Servers shut down automatically when inlet temperature exceeds thirty-eight degrees; check cooling airflow before restarting."
+        },
+        {
+          "id": "travel",
+          "score": 0.3125868571975236,
+          "semanticScore": 0.3125868571975236,
+          "snippet": "International train tickets may be refunded until two hours before departure, with a fifteen percent cancellation fee."
+        }
+      ],
+      "semantic": {
+        "status": "ready",
+        "coverage": "complete",
+        "candidateFragments": 59,
+        "cachedFragments": 59,
+        "truncated": false,
+        "minScore": 0.22,
+        "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d"
+      },
+      "elapsedMs": 747.3225999999995
+    }
+  ],
+  "noAnswer": [
+    {
+      "id": 0,
+      "count": 4,
+      "semanticHits": 4
+    },
+    {
+      "id": 1,
+      "count": 5,
+      "semanticHits": 5
+    },
+    {
+      "id": 2,
+      "count": 5,
+      "semanticHits": 5
+    },
+    {
+      "id": 3,
+      "count": 4,
+      "semanticHits": 4
+    },
+    {
+      "id": 4,
+      "count": 4,
+      "semanticHits": 4
+    },
+    {
+      "id": 5,
+      "count": 1,
+      "semanticHits": 1
+    },
+    {
+      "id": 6,
+      "count": 3,
+      "semanticHits": 3
+    },
+    {
+      "id": 7,
+      "count": 5,
+      "semanticHits": 5
+    },
+    {
+      "id": 8,
+      "count": 1,
+      "semanticHits": 1
+    },
+    {
+      "id": 9,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 10,
+      "count": 1,
+      "semanticHits": 1
+    },
+    {
+      "id": 11,
+      "count": 4,
+      "semanticHits": 4
+    },
+    {
+      "id": 12,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 13,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 14,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 15,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 16,
+      "count": 0,
+      "semanticHits": 0
+    },
+    {
+      "id": 17,
+      "count": 5,
+      "semanticHits": 5
+    },
+    {
+      "id": 18,
+      "count": 1,
+      "semanticHits": 1
+    },
+    {
+      "id": 19,
+      "count": 1,
+      "semanticHits": 1
+    }
+  ],
+  "limitations": [
+    "Synthetic isolated source-owner integration; not a packaged EXE or UI/model consumer authorization test.",
+    "Only the bounded 48-document acceptance corpus, not a 1000-fragment latency claim."
+  ],
+  "ready": {
+    "ok": true,
+    "available": true,
+    "state": "ready",
+    "modelFingerprint": "sha256:ef863b2fb1acd7d975d8930278cf6454374b8cff526a20d93c3122c465295d5d",
+    "dimensions": 384,
+    "modelId": "paraphrase-multilingual-MiniLM-L12-v2",
+    "retrievalThresholds": {
+      "search": 0.22,
+      "automatic": null
+    },
+    "recommendedChunkChars": 96
+  },
+  "coldReadyMs": 2294.6281,
+  "quality": {
+    "all": {
+      "count": 48,
+      "recallAt5": 0.9166666666666666,
+      "mrr": 0.812152777777778
+    },
+    "groups": {
+      "zh-zh": {
+        "count": 12,
+        "recallAt5": 0.8333333333333334,
+        "mrr": 0.6833333333333332
+      },
+      "en-zh": {
+        "count": 12,
+        "recallAt5": 1,
+        "mrr": 0.8541666666666666
+      },
+      "zh-en": {
+        "count": 12,
+        "recallAt5": 0.9166666666666666,
+        "mrr": 0.8611111111111112
+      },
+      "en-en": {
+        "count": 12,
+        "recallAt5": 0.9166666666666666,
+        "mrr": 0.85
+      }
+    },
+    "noAnswerFalsePositiveRate": 0.7
+  },
+  "acceptanceThresholds": {
+    "chineseRecallAt5": 0.9,
+    "crossLanguageRecallAt5": 0.85,
+    "mrr": 0.75
+  },
+  "qualityGatePassed": false,
+  "workerClose": [
+    {
+      "code": null,
+      "signal": "SIGTERM"
+    }
+  ]
+}
