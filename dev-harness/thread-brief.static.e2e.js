@@ -38,7 +38,8 @@ function authorizedSearchBriefContract() {
   const consumers = readSrc('13as-session-fulltext-consumers.js');
   const search = functionBlock(consumers, 'searchOnce'), projection = functionBlock(consumers, 'projection');
   const metadata = functionBlock(consumers, 'publicMetadata');
-  if (!search || !projection || !metadata || !/const meta=hit\.reference\.session/.test(search)
+  // 3.1：命中会话先经 relatedMetadata(cap, id, session) 核对属于本次授权范围再取元数据（不再直接信 hit.reference.session）。
+  if (!search || !projection || !metadata || !/const meta=relatedMetadata\(cap,hit\.reference\.session\?\.id,hit\.reference\.session\)/.test(search)
     || !/const safe=await publicMetadata\(meta\.id\)/.test(search)
     || !/metadata=await publicMetadata\(sid\)/.test(projection)
     || !/await authorize\(sid,token,cap\.access\)/.test(metadata) || !/await disclose\(/.test(metadata)) return false;
@@ -48,9 +49,10 @@ function authorizedSearchBriefContract() {
     assemblers.push(block.slice(block.indexOf('{'))); at += block.length;
   }
   if (assemblers.length !== 2) return false;
-  for (const brief of [{ title: 'authorized generated name', gist: 'authorized gist' }, null]) {
+  // 3.1：行装配按 windowPolicy（语义窗口策略是否在用）决定 reference.session 是否换成核对过的 meta；两支都要带 brief。
+  for (const windowPolicy of [false, true]) for (const brief of [{ title: 'authorized generated name', gist: 'authorized gist' }, null]) {
     const meta = { id: 'owned', title: 'original title', ...(brief ? { brief } : {}) };
-    const context = { meta, safe: meta, excerpt: meta.title, requiredIds: [], rankScore: 1 / 61, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
+    const context = { meta, safe: meta, excerpt: meta.title, requiredIds: [], rankScore: 1 / 61, windowPolicy, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
     for (const assembly of assemblers) {
       const row = vm.runInNewContext('(' + assembly + ')', context);
       if (row.title !== meta.title || (brief ? row.briefTitle !== brief.title || row.briefGist !== brief.gist : 'briefTitle' in row || 'briefGist' in row)) return false;

@@ -164,8 +164,13 @@ const files = manifest.modules.map(m => (typeof m === 'string' ? m : m.file));
 const idxH = files.indexOf('06h-retrieval-index.js');
 const idxI = files.indexOf('06i-steward-core.js');
 const idxD = files.indexOf('06d-memory-domain.js');
-ok(idxH >= 0 && idxI === idxH + 3 && files[idxH + 1] === '06ha-semantic-retrieval.js' && files[idxH + 2] === '06hb-semantic-runtime.js',
-  '共享检索06h/06ha和隔离运行时06hb依次位于06i之前');
+// 3.1 起共享检索一族多了语义策略 06h9（06ha 加载时即读它的 SemanticOriginalWindows）；06hb 与 06ha 相对顺序不限（无加载期依赖）。
+// 判据不变：这一族整体紧挨在 06i 之前、06h 打头、06h9 先于 06ha。
+const retrievalFamily = ['06h-retrieval-index.js', '06h9-semantic-policy.js', '06ha-semantic-retrieval.js', '06hb-semantic-runtime.js'];
+const familyAt = retrievalFamily.map(name => files.indexOf(name));
+ok(idxH >= 0 && familyAt.every(at => at >= idxH && at < idxI) && idxI === idxH + retrievalFamily.length
+  && files.indexOf('06h9-semantic-policy.js') < files.indexOf('06ha-semantic-retrieval.js'),
+  '共享检索06h/06h9/06ha和隔离运行时06hb整体紧挨在06i之前(06h打头、06h9先于06ha)');
 ok(idxD >= 0 && idxD === idxI + 1, '06d-memory-domain.js 紧跟在 06i-steward-core.js 之后(06i 插在两者之间)');
 ok(files[idxD + 1] === '06hc-memory-semantic.js', '记忆语义hook在06d定义后绑定');
 
