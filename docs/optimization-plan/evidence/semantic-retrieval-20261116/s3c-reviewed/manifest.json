@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T14:21:52.683749+00:00",
+  "status": "BOUNDARY_REVIEW_SCOPED_PASS_DEVELOPMENT_QUALITY_RED",
+  "files": [
+    {
+      "path": "semantic-s3c-root-final-boundaries.log.gz",
+      "source": "output/semantic-s3c-root-final-boundaries.log",
+      "sha256": "232d08c6cce8a09d3c42ec341692d5eaecb3c0df9132bbc4d31a023f72ee0017",
+      "decodedSha256": "1122886be7ca8c6e5ffea3fab9dca6dc713568ae9e6f874cf91f0f659ffb5a1a",
+      "bytes": 441,
+      "decodedBytes": 810
+    },
+    {
+      "path": "semantic-s3c-root-policy-exit-fixed.log.gz",
+      "source": "output/semantic-s3c-root-policy-exit-fixed.log",
+      "sha256": "99d6f1b1575fc970bd83b617584f297fcfe538652b7e859a13cc0c3688cb0435",
+      "decodedSha256": "35fd1105489485f01318fad77aba7ab7bc27242b3185dcfcc2cd339a2ee77bca",
+      "bytes": 363,
+      "decodedBytes": 2007
+    },
+    {
+      "path": "model-policy-exit-fixed-acceptance.json.gz",
+      "source": "output/s3c-storage/model-policy-exit-fixed-acceptance.json",
+      "sha256": "50397a3af8a24043e8b56a8c1b1794aabf505cc61b95c72c3a7cbb4b7e32c963",
+      "decodedSha256": "4ea1ebbf936cba9be00ce8fcac7479fadf690293339ba8d736c41ee6a4eb30d9",
+      "bytes": 2562,
+      "decodedBytes": 7754
+    },
+    {
+      "path": "semantic-calibration-reranker-v1-logits.json.gz",
+      "source": "output/semantic-calibration-reranker-v1-logits.json",
+      "sha256": "34fbb2d6856587df9c5c558320a4f9d236444a90efe8db319e0cba63ca93762b",
+      "decodedSha256": "5d94c772ad0a830dd7a8b633aa589e8d56aec03a72e6f759a8d920cd39f68838",
+      "bytes": 58303,
+      "decodedBytes": 262062
+    },
+    {
+      "path": "semantic-calibration-reranker-v1-selection.json.gz",
+      "source": "output/semantic-calibration-reranker-v1-selection.json",
+      "sha256": "f6ea465fcabf1fcabde75b1bacad2f5abbdf1febfaf8a04a58eaaf52e6b4ce96",
+      "decodedSha256": "b68f9aef3a60f57308e29dcdf2af2c3958aff4b5b1d6ebf2f141b5c13d7514df",
+      "bytes": 35553,
+      "decodedBytes": 2098618
+    },
+    {
+      "path": "semantic-calibration-reranker-script-v1-selection.json.gz",
+      "source": "output/semantic-calibration-reranker-script-v1-selection.json",
+      "sha256": "12394ee1ac3ff8d7101eedbdae679c06c6f2b06f172af51ee203eb1ecedd6afd",
+      "decodedSha256": "ed8648edfc58cd78346c57f8b66057680523c205206864940d6f0832210c1386",
+      "bytes": 185245,
+      "decodedBytes": 13293022
+    },
+    {
+      "path": "semantic-calibration-reranker-confidence-v1-selection.json.gz",
+      "source": "output/semantic-calibration-reranker-confidence-v1-selection.json",
+      "sha256": "cd06f96779549f0da34265a0a396fef803fe5e0742fe9fa7af979b2b9e28973b",
+      "decodedSha256": "4ca5b1e3904a5d1334e755fafda89c7f71fe5266b868d40ffdc18e0b40a956c4",
+      "bytes": 86194,
+      "decodedBytes": 7210784
+    },
+    {
+      "path": "semantic-calibration-bge-reranker-v1-logits.json.gz",
+      "source": "output/semantic-calibration-bge-reranker-v1-logits.json",
+      "sha256": "09e28d0ea453757db360356ac82d60310e8770c2ddade72e3307f8dca49f954d",
+      "decodedSha256": "a59630bc19b81fcfc3846b3390d4f65d33816542f3d1f1a45d2d5acb7a495ab0",
+      "bytes": 56215,
+      "decodedBytes": 263048
+    },
+    {
+      "path": "semantic-calibration-bge-reranker-v1-selection.json.gz",
+      "source": "output/semantic-calibration-bge-reranker-v1-selection.json",
+      "sha256": "09dffd270a6ccc53a78f28fe9922bbe821ce0db08484b7c23bc8f5e02c2493fb",
+      "decodedSha256": "8ea34b4d574ccc0e7b67cd1262f51af67a4ca0b2b0d5b538009efd756d705228",
+      "bytes": 37917,
+      "decodedBytes": 2137380
+    },
+    {
+      "path": "semantic-calibration-bge-reranker-script-v1-selection.json.gz",
+      "source": "output/semantic-calibration-bge-reranker-script-v1-selection.json",
+      "sha256": "fe0d88d9546bdbfdf59a993a634b6b35e525c62fdff0bef93847562da148d2e9",
+      "decodedSha256": "343a32c71e4e0c8ac41f1a25475615395e8325ea8763dc9e0a0b68846992a98d",
+      "bytes": 169911,
+      "decodedBytes": 13320308
+    },
+    {
+      "path": "semantic-calibration-bge-reranker-confidence-v1-selection.json.gz",
+      "source": "output/semantic-calibration-bge-reranker-confidence-v1-selection.json",
+      "sha256": "73018d618d2ca1eaf11627c9995879ecc21f956c009d4551e33b443b8ec3aa72",
+      "decodedSha256": "fa8d6d41bad9bf0e1ddf539c6438c8f90f553d68b13aa67c737d75e404e0c959",
+      "bytes": 72116,
+      "decodedBytes": 7068293
+    }
+  ],
+  "limits": [
+    "Cross-encoder results are development research only and were not adopted.",
+    "BGE reranker single research process837MB is not deployed total memory.",
+    "Final source tree regression and packages remain required."
+  ]
+}

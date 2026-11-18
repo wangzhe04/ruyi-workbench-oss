@@ -1,0 +1,563 @@
+{
+  "schema": 1,
+  "status": "PRESERVED_SCOPED_EVIDENCE_NOT_OVERALL_PASS",
+  "records": [
+    {
+      "source": "dev-harness/semantic/archive-recovery-proxy-and-media.py",
+      "rawSha256": "271659c99bb5cd7f6f8c0211a2063b410af24af1c1a145552320117841a9888d",
+      "rawBytes": 9009,
+      "member": "blobs/271659c99bb5cd7f6f8c0211a2063b410af24af1c1a145552320117841a9888d.gz",
+      "gzipBytes": 3471,
+      "gzipSha256": "ad8b5cbf34243b8a84d592444b42b187566e94da45176176adba041000fb9f14"
+    },
+    {
+      "source": "dev-harness/semantic/archive-resident-home-checkpoint-20261118.py",
+      "rawSha256": "376359dbf6fa267ed3d8ddc28be0233c2276792bf7c11a3d07246952ef10b643",
+      "rawBytes": 1899,
+      "member": "blobs/376359dbf6fa267ed3d8ddc28be0233c2276792bf7c11a3d07246952ef10b643.gz",
+      "gzipBytes": 887,
+      "gzipSha256": "7d71759e1fdf0949ff23ac67bbf7410c73a23028e3c746fde965aaf739a87a0f"
+    },
+    {
+      "source": "dev-harness/semantic/root-resident-home-compile.py",
+      "rawSha256": "28a0f39f215f6a0bdb9ade7d1adcb97d5835b031b8099bad26e1392bceb7e3ad",
+      "rawBytes": 4008,
+      "member": "blobs/28a0f39f215f6a0bdb9ade7d1adcb97d5835b031b8099bad26e1392bceb7e3ad.gz",
+      "gzipBytes": 1771,
+      "gzipSha256": "9cc0009a29e95648869c010d0a28aea05229b7bc197c62038a4980b581bde6ef"
+    },
+    {
+      "source": "dev-harness/semantic/root-resident-home-source-review.cjs",
+      "rawSha256": "1289ae8eed517da45407c9fc619e4e1c95cc539acce14ee6fc24728303cb33a8",
+      "rawBytes": 3974,
+      "member": "blobs/1289ae8eed517da45407c9fc619e4e1c95cc539acce14ee6fc24728303cb33a8.gz",
+      "gzipBytes": 1867,
+      "gzipSha256": "7248cd0ef525b4cad5d817aa7b1d7fdb55d6d9a6a1823a004791f3eddda4eca0"
+    },
+    {
+      "source": "output/semantic-desktop-job-list-candidate-v1/candidate/DesktopLifetimeHost.cs",
+      "rawSha256": "dc04db7a34fac581be40b181998aea0605e660f65b4b304bb94a282a6bd5a004",
+      "rawBytes": 41790,
+      "member": "blobs/dc04db7a34fac581be40b181998aea0605e660f65b4b304bb94a282a6bd5a004.gz",
+      "gzipBytes": 11108,
+      "gzipSha256": "a598389e26a70b2bd6dd34cabfa5431b53af5733c6fc06d9fbb4c99a32b3ffbf"
+    },
+    {
+      "source": "output/semantic-desktop-job-list-candidate-v1/freeze.json",
+      "rawSha256": "6c4a241a559c39da385a1f76cf2422ca2c8ebaacb383cda1e07508e20f367d64",
+      "rawBytes": 5998,
+      "member": "blobs/6c4a241a559c39da385a1f76cf2422ca2c8ebaacb383cda1e07508e20f367d64.gz",
+      "gzipBytes": 1658,
+      "gzipSha256": "d41fb3c500faa8a376345ab681970dc9d3fa7c99ba94af26f3f9fa32e02196b0"
+    },
+    {
+      "source": "output/semantic-resident-home-service-build-v1/compile-attempt.json",
+      "rawSha256": "93300ebefd95dd776bd68497054692f2e20792ed0fb120edbe3a4e31d95030a2",
+      "rawBytes": 115,
+      "member": "blobs/93300ebefd95dd776bd68497054692f2e20792ed0fb120edbe3a4e31d95030a2.gz",
+      "gzipBytes": 125,
+      "gzipSha256": "f434b672b73647dea1f69ee062d01edd6ce4b1fbb1a3fe6d24a7f711caef027d"
+    },
+    {
+      "source": "output/semantic-resident-home-service-build-v1/compiler.log",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0021.gz",
+        "gzipBytes": 20,
+        "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "source": "output/semantic-resident-home-service-build-v1/OWNER.json",
+      "rawSha256": "6ec5b0e937a9e3854d597c3b5b84d9943ff19a4372f265b8dcd7f8fdd265b59a",
+      "rawBytes": 65,
+      "member": "blobs/6ec5b0e937a9e3854d597c3b5b84d9943ff19a4372f265b8dcd7f8fdd265b59a.gz",
+      "gzipBytes": 79,
+      "gzipSha256": "4888ce1a6fccec43b179fe27ac94d9d63c49f4f7cca246d7f6817703b512eb22"
+    },
+    {
+      "source": "output/semantic-resident-home-service-build-v1/root-review.json",
+      "rawSha256": "c38a09642bf71e415c970fc7f7136f212119a27bec95acdb2297c598f3c3ae44",
+      "rawBytes": 1394,
+      "member": "blobs/c38a09642bf71e415c970fc7f7136f212119a27bec95acdb2297c598f3c3ae44.gz",
+      "gzipBytes": 842,
+      "gzipSha256": "3d6a27e8d16cedb3c5492fd77bad05a09fb5dda7e65bf79844c5412b600507ea"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/13ax-desktop-lifetime.js",
+      "rawSha256": "1e98ba7fa33e44c46a3603dd786fe11c1767030b62d224c98136f5f129fba37a",
+      "rawBytes": 18034,
+      "member": "blobs/1e98ba7fa33e44c46a3603dd786fe11c1767030b62d224c98136f5f129fba37a.gz",
+      "gzipBytes": 5548,
+      "gzipSha256": "58404f15daec1081d52848bc5a72a279125d650a5145022ed6a1c0adc17fde4a"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/app/06hb-semantic-runtime.js",
+      "rawSha256": "9e990617737a5894768a04b2b7513fe1f01597ee6880edf736044e441dbaeb14",
+      "rawBytes": 37316,
+      "member": "blobs/9e990617737a5894768a04b2b7513fe1f01597ee6880edf736044e441dbaeb14.gz",
+      "gzipBytes": 10049,
+      "gzipSha256": "25e9b6cd39d7b2de717f0f3f5a2b6eeb749ed8bb3c00cc0310a9a2a72d01c9aa"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/app/13-http-router.js",
+      "rawSha256": "02fbce218be9b7f0285e6e9c6626d25c69ef56a2b1739562e28a5f8112405e7f",
+      "rawBytes": 205213,
+      "member": "blobs/02fbce218be9b7f0285e6e9c6626d25c69ef56a2b1739562e28a5f8112405e7f.gz",
+      "gzipBytes": 72275,
+      "gzipSha256": "9146f950807592309d943e0bdcf87de849331aaa67b2de941e466de1cc31db71"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/app/13ax-desktop-lifetime.js",
+      "rawSha256": "1e98ba7fa33e44c46a3603dd786fe11c1767030b62d224c98136f5f129fba37a",
+      "rawBytes": 18034,
+      "member": "blobs/1e98ba7fa33e44c46a3603dd786fe11c1767030b62d224c98136f5f129fba37a.gz",
+      "gzipBytes": 5548,
+      "gzipSha256": "58404f15daec1081d52848bc5a72a279125d650a5145022ed6a1c0adc17fde4a"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/embeddinggemma2-live-contract.cjs",
+      "rawSha256": "b9cd2d2b86a252a7682092776a4afa34363e6d6e3a298cd83c95a2093047a819",
+      "rawBytes": 5603,
+      "member": "blobs/b9cd2d2b86a252a7682092776a4afa34363e6d6e3a298cd83c95a2093047a819.gz",
+      "gzipBytes": 2443,
+      "gzipSha256": "602d20b9081220c5a573b54987feb99c6f8fd56da472563019d14f5f8ae2eac5"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/gemma2-profile-validation.cjs",
+      "rawSha256": "caf838b85a8cafff670f693dacee6bd1e0ac94abd54d704d5c09e4ef1c42ac57",
+      "rawBytes": 3325,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0018.gz",
+        "gzipBytes": 1625,
+        "gzipSha256": "c7973e70c582910febabddb92586e631d11bb4fc68e10fb30a7d60f322408c46"
+      }
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/gemma2-provider.cjs",
+      "rawSha256": "88cc5f1ac8992dbe929a812daee61eb27fdd97cb418c50bcada07cf154929fe8",
+      "rawBytes": 3084,
+      "member": "blobs/88cc5f1ac8992dbe929a812daee61eb27fdd97cb418c50bcada07cf154929fe8.gz",
+      "gzipBytes": 1421,
+      "gzipSha256": "095d52ff004eaec3cec116743aebc20289d54ecd7ef7701b01151115ff665cc1"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-home-preparation.cjs",
+      "rawSha256": "81ed3ed3eb2c6447647c682767e4a0574b474e174699a631038750a4cb8247ce",
+      "rawBytes": 5242,
+      "member": "blobs/81ed3ed3eb2c6447647c682767e4a0574b474e174699a631038750a4cb8247ce.gz",
+      "gzipBytes": 1865,
+      "gzipSha256": "413ab9b8ab2c57c0f62bcd2cb07013af7e7e7b241c8fafed021f39c8d6066f5f"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-proxy-file-lease-candidate.cjs",
+      "rawSha256": "857af74b0a95cf299a02a0ba81ba395c1129283914adcb6367777349798a0d0b",
+      "rawBytes": 11049,
+      "member": "blobs/857af74b0a95cf299a02a0ba81ba395c1129283914adcb6367777349798a0d0b.gz",
+      "gzipBytes": 3988,
+      "gzipSha256": "b7a40ff4275c20888cf212620262187b41dc836161a0c5952340b6ca53b5573f"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-proxy-host.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-proxy-raw-candidate.cjs",
+      "rawSha256": "b4680de4665960b2be494137ece393fcf675e74a50d7b5472a0d2d55612d4235",
+      "rawBytes": 17713,
+      "member": "blobs/b4680de4665960b2be494137ece393fcf675e74a50d7b5472a0d2d55612d4235.gz",
+      "gzipBytes": 5415,
+      "gzipSha256": "121c57a2b95cca85e9df12ef22089ec7a3cdffb0b5465fbb19826302096303ff"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/resident-proxy-transport-candidate.cjs",
+      "rawSha256": "0b63951f3db12fa3d6fc5a1267b5325d2e720d29bb7bd7ce5c4bef0534fd3244",
+      "rawBytes": 6001,
+      "member": "blobs/0b63951f3db12fa3d6fc5a1267b5325d2e720d29bb7bd7ce5c4bef0534fd3244.gz",
+      "gzipBytes": 1945,
+      "gzipSha256": "7470a59d7f02f7871de44452bf1ed9fbb3a48704258f2fd2b8103364091e7725"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/candidate/semantic-runtime/windows-os-platform-candidate.cjs",
+      "rawSha256": "600c0144025e26ddb75c542607eed6ad6b7448a3b093adaeba382e8f5019cc6e",
+      "rawBytes": 6475,
+      "member": "blobs/600c0144025e26ddb75c542607eed6ad6b7448a3b093adaeba382e8f5019cc6e.gz",
+      "gzipBytes": 2744,
+      "gzipSha256": "0cc6a2af699d6cc0c3daa5b6d7e7d08aa71d82533347ad5cadfb98fa67fb1b59"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/client-derivation.json",
+      "rawSha256": "bcff3a4014323b03b6ae62ded2db39be71eb6c2daee65b0ec2c710858d93a6cd",
+      "rawBytes": 512,
+      "member": "blobs/bcff3a4014323b03b6ae62ded2db39be71eb6c2daee65b0ec2c710858d93a6cd.gz",
+      "gzipBytes": 300,
+      "gzipSha256": "798bd56b0536cc5c86baa574fe1ccb760e8e12244de592a36d2d61014dd4d116"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/compile-plan.json",
+      "rawSha256": "d043cb921b8eb882e42843e6e47e964c7ee46544bb99ee221d839a97d3ea61d0",
+      "rawBytes": 3354,
+      "member": "blobs/d043cb921b8eb882e42843e6e47e964c7ee46544bb99ee221d839a97d3ea61d0.gz",
+      "gzipBytes": 1347,
+      "gzipSha256": "3f2ff32b00a3d36e214e182ba2700c763b36e38c2a650f272dff27876e306826"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/contract.json",
+      "rawSha256": "e1cb2086d984d52dab1e14580f1fb5930bb4c53c7cac281326587e42b261d61f",
+      "rawBytes": 5551,
+      "member": "blobs/e1cb2086d984d52dab1e14580f1fb5930bb4c53c7cac281326587e42b261d61f.gz",
+      "gzipBytes": 2686,
+      "gzipSha256": "cc08150af721fbfb2f2d28fa830dcaff1527591d92d7aa7408c615b27800cb65"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/derive-client.cjs",
+      "rawSha256": "a9423f20bac6a068ea9f9a958729a26ede8d3654defca1b47c1dbf7ca35626af",
+      "rawBytes": 4970,
+      "member": "blobs/a9423f20bac6a068ea9f9a958729a26ede8d3654defca1b47c1dbf7ca35626af.gz",
+      "gzipBytes": 1858,
+      "gzipSha256": "57de24a731b785e86dc957c451ce4f63f2408e1150b0f96e351411378bfe633b"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/derive-desktop.cjs",
+      "rawSha256": "96e93c69952950ade74862c264e2be951b62422495acf369ad549c3ef4517340",
+      "rawBytes": 3106,
+      "member": "blobs/96e93c69952950ade74862c264e2be951b62422495acf369ad549c3ef4517340.gz",
+      "gzipBytes": 1328,
+      "gzipSha256": "2765460b0552e28269d9145ea4fd6cce023e0ef08424363523f69d9885a6d63c"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/derive-v6.cjs",
+      "rawSha256": "9626b3d115b06df53e53fd1c516986c7aa5d0ba161aa2d44ece51121cd609e03",
+      "rawBytes": 8653,
+      "member": "blobs/9626b3d115b06df53e53fd1c516986c7aa5d0ba161aa2d44ece51121cd609e03.gz",
+      "gzipBytes": 2961,
+      "gzipSha256": "68df397528448aeb4cff29a6beb3a954d6ed02521e6e63b498428924a32fac79"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/desktop-derivation.json",
+      "rawSha256": "3299fa4a2e8223a84bbb7793b5dce2f49392922b2e20be4946bb37a42d6b2927",
+      "rawBytes": 544,
+      "member": "blobs/3299fa4a2e8223a84bbb7793b5dce2f49392922b2e20be4946bb37a42d6b2927.gz",
+      "gzipBytes": 312,
+      "gzipSha256": "d48b30b5152254c99e21385933e3a89d823a04ccb7cc9a8157dd36a2c477c714"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/desktop-home-client.test.cjs",
+      "rawSha256": "8e464d28dae87121b07fa529ae7e019fe6fda59daf52504922a137cea10e22d6",
+      "rawBytes": 4418,
+      "member": "blobs/8e464d28dae87121b07fa529ae7e019fe6fda59daf52504922a137cea10e22d6.gz",
+      "gzipBytes": 1722,
+      "gzipSha256": "f2c02e171a5a75a58f4356f93bbf07222f46dc2413dfa8916f8df74e2dbbad9d"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/desktop-home-dispatch.txt",
+      "rawSha256": "2691cf5f81b2eae6f731039280a42e9c1979dafaa0fab0c713ba6b328ea4eb31",
+      "rawBytes": 2366,
+      "member": "blobs/2691cf5f81b2eae6f731039280a42e9c1979dafaa0fab0c713ba6b328ea4eb31.gz",
+      "gzipBytes": 479,
+      "gzipSha256": "9fb62cb69ad56e2be629adc1fb029112a41d6c597734bbfa589d7672d51f60c7"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/desktop-lifecycle-matrix.cjs",
+      "rawSha256": "3c964b23ba9eac2e1599321eb535c39b92d158bbe30307fdf7a5e20e4a38476d",
+      "rawBytes": 3648,
+      "member": "blobs/3c964b23ba9eac2e1599321eb535c39b92d158bbe30307fdf7a5e20e4a38476d.gz",
+      "gzipBytes": 1403,
+      "gzipSha256": "aedee0ec065e2614443e62d70bc3152123d64a38ab631622cae9d3a045c82d90"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/desktop-lifecycle-matrix.test.cjs",
+      "rawSha256": "d36d0bb6a02976ed3c43b03f4995cb82d750fc557ac25c43f918923fadb6e0b1",
+      "rawBytes": 3801,
+      "member": "blobs/d36d0bb6a02976ed3c43b03f4995cb82d750fc557ac25c43f918923fadb6e0b1.gz",
+      "gzipBytes": 1174,
+      "gzipSha256": "fd524732a2e5140389e6d99548b98b125d720d2b9c53d42b529ef88c2ca017c3"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/DesktopLifecycleProbe.cs",
+      "rawSha256": "0749931a86c55868513e2d7278d71d2b5620d16085eaa2db7f861b3312c6993a",
+      "rawBytes": 3999,
+      "member": "blobs/0749931a86c55868513e2d7278d71d2b5620d16085eaa2db7f861b3312c6993a.gz",
+      "gzipBytes": 1643,
+      "gzipSha256": "98f848adea3a2055d57f33ec2400a36723dea50d377867bc62510f8a72c426dc"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/DesktopLifetimeHost.cs",
+      "rawSha256": "c78aee4be7c0b2a6863a8189feaa1889ad8e40bdc5e84e7003838b14b3b7a350",
+      "rawBytes": 45180,
+      "member": "blobs/c78aee4be7c0b2a6863a8189feaa1889ad8e40bdc5e84e7003838b14b3b7a350.gz",
+      "gzipBytes": 11630,
+      "gzipSha256": "82505ba8f330a8ea3f1df43f7349fc568dd46ae915315d930c5f8c216cd95129"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/draft-errors.json",
+      "rawSha256": "2c152ad1e7430fb9c430b5726a42ffb8c7ebb295d6624c1673fde690507ffae7",
+      "rawBytes": 991,
+      "member": "blobs/2c152ad1e7430fb9c430b5726a42ffb8c7ebb295d6624c1673fde690507ffae7.gz",
+      "gzipBytes": 583,
+      "gzipSha256": "4ad12239e0c560ab1df2e7fbbc6233b872c61934b83db7dbc00f2ed15c4f8776"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/draft-freeze-before-final-test.json",
+      "rawSha256": "296d107f11267dcefbd16e004c12ecbd0be2f6e555586d4fe1470b01c0d0ca96",
+      "rawBytes": 19013,
+      "member": "blobs/296d107f11267dcefbd16e004c12ecbd0be2f6e555586d4fe1470b01c0d0ca96.gz",
+      "gzipBytes": 4258,
+      "gzipSha256": "b1433d110be955c17f1d8ef135158ac33ecd27f46ffba8222a8550d4ee5992b9"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/draft-tests-before-final-client-validation.log",
+      "rawSha256": "95d2d5611d580ac19132f97d364fda17fe8c450e8cd3ab52dc6d46a36d4ff11d",
+      "rawBytes": 5458,
+      "member": "blobs/95d2d5611d580ac19132f97d364fda17fe8c450e8cd3ab52dc6d46a36d4ff11d.gz",
+      "gzipBytes": 2427,
+      "gzipSha256": "cdacf558052b14eda316d1ff9a28e8098a8f461b6b78e32525d70c47d63e792e"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/freeze.json",
+      "rawSha256": "abb730626ecaa4c8d5610510bce3b86359d335a7b0c36a0f1ed7e0d64e842be0",
+      "rawBytes": 19013,
+      "member": "blobs/abb730626ecaa4c8d5610510bce3b86359d335a7b0c36a0f1ed7e0d64e842be0.gz",
+      "gzipBytes": 4262,
+      "gzipSha256": "78e968007b20e8b9d4828ddb758170f22720d617abaabb9082f3971401ee1fbb"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/home-component.test.cjs",
+      "rawSha256": "e6b2ea8840915050524186ffcfaabd798ac091e92b100e850d2ba93abdeba16c",
+      "rawBytes": 8642,
+      "member": "blobs/e6b2ea8840915050524186ffcfaabd798ac091e92b100e850d2ba93abdeba16c.gz",
+      "gzipBytes": 2962,
+      "gzipSha256": "5a7d145f70439231addc6ab4a257034270c5a426afb365d0219109386d5ba2fc"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/home-early-registration.test.cjs",
+      "rawSha256": "8bda12c15be505aa70deff1620e5d10f11109925ddc933edd98f714f1676e0c3",
+      "rawBytes": 3816,
+      "member": "blobs/8bda12c15be505aa70deff1620e5d10f11109925ddc933edd98f714f1676e0c3.gz",
+      "gzipBytes": 1548,
+      "gzipSha256": "51cbda4cde50f352671fd8c997732792acd27e797b91875a721706cf7ca8a879"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/home-native-static.test.cjs",
+      "rawSha256": "1c5c23420482df08de17c020bc2241a68c8358d6bf7c7c9d2cdf11ac391fa939",
+      "rawBytes": 3273,
+      "member": "blobs/1c5c23420482df08de17c020bc2241a68c8358d6bf7c7c9d2cdf11ac391fa939.gz",
+      "gzipBytes": 1414,
+      "gzipSha256": "fb147bd4f11f0631916d31a38483a2110efdd557c668c02e5e068bf9684c63df"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/lifecycle-fixture.test.cjs",
+      "rawSha256": "64fe6db95e6f735c80c78f14c02956a0b740260838a7010f957662b98b095351",
+      "rawBytes": 3171,
+      "member": "blobs/64fe6db95e6f735c80c78f14c02956a0b740260838a7010f957662b98b095351.gz",
+      "gzipBytes": 1329,
+      "gzipSha256": "9e08a8ffcd9afc505837ff29147d7fa3621d498dd037270725fccdf29f6bb9fc"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/lifecycle-server-fixture.cjs",
+      "rawSha256": "cb1f367cbcc627a97044e20464d23ded2df40027b577b0343179e577bbe309d1",
+      "rawBytes": 5013,
+      "member": "blobs/cb1f367cbcc627a97044e20464d23ded2df40027b577b0343179e577bbe309d1.gz",
+      "gzipBytes": 2254,
+      "gzipSha256": "ece54752e5dd78bd166b64397c8c19b506cf3e7154f2ffad02a2572eee500ab1"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/native-free-tests.log",
+      "rawSha256": "54d4ddd1c347dc1da8041a26f052b4562dec5d553221aeb98338bcd00860f53b",
+      "rawBytes": 5458,
+      "member": "blobs/54d4ddd1c347dc1da8041a26f052b4562dec5d553221aeb98338bcd00860f53b.gz",
+      "gzipBytes": 2425,
+      "gzipSha256": "c43ca54f40edfa0867837ab4bc75254d79fa7a0112fb45068494f3e98997caf1"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/OWNER.json",
+      "rawSha256": "f6505b111ea297dd2f2dcf72a7e8f9475933809c37f6167a36dfa169d4b29f69",
+      "rawBytes": 76,
+      "member": "blobs/f6505b111ea297dd2f2dcf72a7e8f9475933809c37f6167a36dfa169d4b29f69.gz",
+      "gzipBytes": 89,
+      "gzipSha256": "e7b423c3d713ccf1a65c210e6b9c78952f5874cd162839260d2c1e7769759d8d"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/prepare-source-freeze.cjs",
+      "rawSha256": "fecc05c24682ab7f23e615ad61c0249f3be649ff0bf7856ba8e56cd48c350cd0",
+      "rawBytes": 4990,
+      "member": "blobs/fecc05c24682ab7f23e615ad61c0249f3be649ff0bf7856ba8e56cd48c350cd0.gz",
+      "gzipBytes": 1982,
+      "gzipSha256": "4adeb61825517f0102ced60ea3d661751210f44b66cd8cea3f292e7b01e7148b"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/protocol/desktop-early-lease-protocol-v3.cjs",
+      "rawSha256": "11f7298cb19335483cd8861f82f37dd5fa0340f679a280ab4f5d3edb7b8a5083",
+      "rawBytes": 5024,
+      "member": "blobs/11f7298cb19335483cd8861f82f37dd5fa0340f679a280ab4f5d3edb7b8a5083.gz",
+      "gzipBytes": 1779,
+      "gzipSha256": "cdf780655aab55c293d0120dfa7b5e5ba6a84db2d9cded328ba5fff676df88d7"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/protocol/desktop-early-lease-protocol-v3.test.cjs",
+      "rawSha256": "243aff36a67885aa9e2d7bb8cf08e04744e48e31749ad1310a50209a1b6eadd6",
+      "rawBytes": 1871,
+      "member": "blobs/243aff36a67885aa9e2d7bb8cf08e04744e48e31749ad1310a50209a1b6eadd6.gz",
+      "gzipBytes": 818,
+      "gzipSha256": "596453859d3c628b7719b76bf8b59c6e01ba5d136e32b61112637dac1bad1514"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/provider-pins.json",
+      "rawSha256": "ec8f3a60e3a0fe848b364d0065b27589916433bcc14ece219a619d46a5cd390c",
+      "rawBytes": 847,
+      "member": "blobs/ec8f3a60e3a0fe848b364d0065b27589916433bcc14ece219a619d46a5cd390c.gz",
+      "gzipBytes": 486,
+      "gzipSha256": "c93e3a0cdaf736bfb87bee202826771eae69af276499e51f31ff68da0553de83"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/resident-home-preparation.cjs",
+      "rawSha256": "14e2584b9ce32878025131c9882ca6997ccca48a564a2bd640027f450b4e9fff",
+      "rawBytes": 5198,
+      "member": "blobs/14e2584b9ce32878025131c9882ca6997ccca48a564a2bd640027f450b4e9fff.gz",
+      "gzipBytes": 1803,
+      "gzipSha256": "fc96c2379f662ed2792ed92c2e70cc0cfaf0c71554de1a1e52b72e8761c32eca"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/ResidentHomeService.cs",
+      "rawSha256": "7deb9a448fe41662331391f346df12135580294b6496fe139cfdb0304dc36357",
+      "rawBytes": 23498,
+      "member": "blobs/7deb9a448fe41662331391f346df12135580294b6496fe139cfdb0304dc36357.gz",
+      "gzipBytes": 6509,
+      "gzipSha256": "07265b7ad41fbabf31584219d86df0358748cff21356d3cda211a39cd1089190"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/REVIEW.md",
+      "rawSha256": "ad6874c3ef56993a73bfb635b2e29c936961825a827d9b49713f0b1f2b39a79c",
+      "rawBytes": 2086,
+      "member": "blobs/ad6874c3ef56993a73bfb635b2e29c936961825a827d9b49713f0b1f2b39a79c.gz",
+      "gzipBytes": 1131,
+      "gzipSha256": "dfd9e4daa365476d8ac8e2a09bf015b6ec5153045a997a2146d221d4caa2e210"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/root-source-review.json",
+      "rawSha256": "deb4cd4089df6be74a40acebe3ed7f74afa5de7c4009d61c3bb1d3168d75afce",
+      "rawBytes": 2339,
+      "member": "blobs/deb4cd4089df6be74a40acebe3ed7f74afa5de7c4009d61c3bb1d3168d75afce.gz",
+      "gzipBytes": 1265,
+      "gzipSha256": "a27c876f4f27032317ba688f89fc7193d8dda4d646d81ca67b27468913efaecd"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/RuyiDesktop.cs",
+      "rawSha256": "6fab94bb9603177e7ce623b2e0a66ff3bd6c79fa1a4a92da45050d32c95b65f8",
+      "rawBytes": 86848,
+      "member": "blobs/6fab94bb9603177e7ce623b2e0a66ff3bd6c79fa1a4a92da45050d32c95b65f8.gz",
+      "gzipBytes": 24610,
+      "gzipSha256": "c6b7c19ca015e282f2434ea83ed5b0e6b1cc5e63c6ca074037b7b2afc6cef4e6"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/tests/client.test.cjs",
+      "rawSha256": "5a8bfad6f6c05036941e250f3c0fb7917b0b8ce1f27e776387d16eb6bd9a5750",
+      "rawBytes": 13350,
+      "member": "blobs/5a8bfad6f6c05036941e250f3c0fb7917b0b8ce1f27e776387d16eb6bd9a5750.gz",
+      "gzipBytes": 4008,
+      "gzipSha256": "65968cbe9963928f2915de93c85b91e31eba14a42faf088facbb57135ceb8506"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/toolchain-pins.json",
+      "rawSha256": "dfa8a9d0d15a46060c417e7a8426024cf8e5b572a62a49c52f3f94f93b484779",
+      "rawBytes": 1613,
+      "member": "blobs/dfa8a9d0d15a46060c417e7a8426024cf8e5b572a62a49c52f3f94f93b484779.gz",
+      "gzipBytes": 587,
+      "gzipSha256": "c9a5f4bab3ddc859d3af70a872ee75e6070ff8a461d38af5c66c57884824e1a8"
+    },
+    {
+      "source": "output/semantic-resident-home-service-candidate-v1/v6-copy-receipt.json",
+      "rawSha256": "68511e04ea5e52ff0b15d03744896ceea5aa890ad079c7e675f851960919fcfb",
+      "rawBytes": 3843,
+      "member": "blobs/68511e04ea5e52ff0b15d03744896ceea5aa890ad079c7e675f851960919fcfb.gz",
+      "gzipBytes": 1038,
+      "gzipSha256": "3be764b0b0c60878f24c99d635f0b9875a0ee533d5c741ad48698c08b0ff6303"
+    },
+    {
+      "source": "output/semantic-resident-proxy-production-candidate-v5/freeze.json",
+      "rawSha256": "334ce5fc3dbf7e1c1274a88baf15c514ca43fda2be6d34e137dd2e10e37efc38",
+      "rawBytes": 13090,
+      "member": "blobs/334ce5fc3dbf7e1c1274a88baf15c514ca43fda2be6d34e137dd2e10e37efc38.gz",
+      "gzipBytes": 2519,
+      "gzipSha256": "bd18e9370cb4825b4e83a84694a7cfe21bdee7845cd37bed080aa783b3a80d81"
+    },
+    {
+      "source": "ruyi-workbench/app/src/00-boot.js",
+      "rawSha256": "720c7a756ee55017a88e3fbedf1bb9b2513a37b7e42ec270f9867a8a485ffdd4",
+      "rawBytes": 108527,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0174.gz",
+        "gzipBytes": 42415,
+        "gzipSha256": "3599740578eef05fd7790cd8feadcd1315e0bc4e1a92ac0bf580b0e6e7d329a3"
+      }
+    },
+    {
+      "source": "ruyi-workbench/app/src/13-http-router.js",
+      "rawSha256": "2ba92af7435f99cdf6e525b9825d13e7a638ea96991a4263dd5ad1947fe67476",
+      "rawBytes": 204752,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0014.gz",
+        "gzipBytes": 73272,
+        "gzipSha256": "47496bc1af5ab55b8cfa2b84559b5e059c5567e2b1a09d0539bf21658570b77d"
+      }
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+      "rawSha256": "902130d45e462f206222e75dce4c75e0f793be2870b961160e1669cd8eaa43f1",
+      "rawBytes": 14558,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0281.gz",
+        "gzipBytes": 4587,
+        "gzipSha256": "29134a66cc53af61f6d028982a5a99cf8d0f54185cb196e084f8628cec678e15"
+      }
+    },
+    {
+      "source": "ruyi-workbench/app/src/manifest.json",
+      "rawSha256": "7ece2c31b7c914ca71c7a741af6c5a0e7eac80caff006f854953a697485079ed",
+      "rawBytes": 40754,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0315.gz",
+        "gzipBytes": 14252,
+        "gzipSha256": "f6d3c6259e228535558ecd4e779a25ba0bdfc7edd9e5bbd6e8522180d2364c33"
+      }
+    }
+  ],
+  "sourceAliases": 65,
+  "localUniqueMembers": 57,
+  "priorReferences": 7,
+  "logicalRawBytes": 1128695,
+  "limits": [
+    "Original FAIL and UNKNOWN outcomes remain unchanged.",
+    "No backup, keys, data roots, caches, model/corpus, Node or native binary included.",
+    "License material is an unpublished review draft, not distribution approval."
+  ]
+}
