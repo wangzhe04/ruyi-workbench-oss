@@ -411,16 +411,17 @@ async function stewardImplThreadsSearch(args, ctx, config) {
 
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
-  let degraded = '';let coverage=null;const matches=new Map();
-  if (sessionSearchIndexEnabled(config)) {
+  let degraded = '';let coverage=null;const matches=new Map(),sourceBoundMethod=typeof SessionFullTextHooks.usesSourceBoundMethod==='function'&&SessionFullTextHooks.usesSourceBoundMethod();
+  if (sessionSearchIndexEnabled(config)||sourceBoundMethod) {
     // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
     const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10));
     if (found && Array.isArray(found.results)) {
       indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;for(const match of found.results)matches.set(match.id,match);
       ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
     } else throw Object.assign(Error('session_search.result_invalid'),{code:'session_search.result_invalid'});
+    if(!sessionSearchIndexEnabled(config))degraded='index_disabled';
   } else degraded = 'index_disabled';
-  if (!ranked.length && !sessionSearchIndexEnabled(config)) {
+  if (!ranked.length && !sessionSearchIndexEnabled(config)&&!sourceBoundMethod) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
     ranked = metas
@@ -451,7 +452,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 116-2e(§11.1 第 2 项):已收工的速查线程默认不出现 —— 它答完那一句就没用了,留在结果里
     // 只会挤掉真正的任务线程。includeClosed:true 可以要回来(用户问「刚才那条速查说了啥」)。
     if (!includeClosed && stewardQuickClosed(head)) continue;
-    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead={...head,...publicMeta,threadBrief:publicMeta.brief||null};
+    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead=sourceBoundMethod?{...publicMeta,threadBrief:publicMeta.brief||null}:{...head,...publicMeta,threadBrief:publicMeta.brief||null};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
     // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
@@ -467,7 +468,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         ? deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true })
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
-    const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
+    const wsName = stewardWorkspaceNameOf(sourceBoundMethod?publicMeta.cwd:meta.cwd || (head && head.cwd), config, knownForNames);
     const recentUserRequest = stewardRecentUserRequest(publicHead);
     results.push({
       sessionId: row.id,

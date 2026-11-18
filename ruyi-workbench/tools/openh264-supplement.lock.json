@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "status": "CANDIDATE_NOT_BUILD_PROVENANCE",
+  "commit": "8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0",
+  "archive": {
+    "name": "openh264-headers-v2.5.0-supplement.tar.xz",
+    "bytes": 15592,
+    "sha256": "4b2544085f7b545997c77c411948fbed921107b6eedb6c7c83bec66be7cab7c3"
+  },
+  "files": [
+    {
+      "name": "codec_api.h",
+      "bytes": 21178,
+      "sha256": "21f29b20c24f7c7946f2e243d0bc2532fb3542f6c28af338209477e70d9036c9",
+      "url": "https://raw.githubusercontent.com/cisco/openh264/8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0/codec/api/wels/codec_api.h"
+    },
+    {
+      "name": "codec_app_def.h",
+      "bytes": 32852,
+      "sha256": "ffd9561a96b4290daddce67b23f1d4839568bfe73531f0309215ab64bb7f5580",
+      "url": "https://raw.githubusercontent.com/cisco/openh264/8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0/codec/api/wels/codec_app_def.h"
+    },
+    {
+      "name": "codec_def.h",
+      "bytes": 7630,
+      "sha256": "f974d269b5935e8dc7265b8bfc02f60e5185b4d6165d30541d2758a4506f1979",
+      "url": "https://raw.githubusercontent.com/cisco/openh264/8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0/codec/api/wels/codec_def.h"
+    },
+    {
+      "name": "codec_ver.h",
+      "bytes": 420,
+      "sha256": "818e022a59b896837d28d485c1d29b2c586e31d72ad3bcf50994ee3a5a6fab54",
+      "url": "https://raw.githubusercontent.com/cisco/openh264/8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0/codec/api/wels/codec_ver.h"
+    },
+    {
+      "name": "LICENSE",
+      "bytes": 1295,
+      "sha256": "dd5c1c9668512530fa5a96e4c29ac4033d70a7eeb0eed7a42fddb6dd794ebdbb",
+      "url": "https://raw.githubusercontent.com/cisco/openh264/8c7008aeb6335e7d36ab0d9a023a63f82a8eaac0/LICENSE"
+    }
+  ]
+}

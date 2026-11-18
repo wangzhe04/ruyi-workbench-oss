@@ -6,6 +6,8 @@ param(
   [string]$AccOfflineSource = "",
   [string]$MediaSourcesRoot = "",
   [switch]$LocalMediaSources,
+  [string]$BuildPython = "",
+  [string]$SemanticRuntimeSource = "",
   [string]$Variant = "offline"
 )
 
@@ -291,6 +293,30 @@ foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
 
+# 147: independent local encoder; never install npm dependencies in server.js.
+# Preparation is explicit and separate. Packaging only verifies/copies locked assets.
+if (-not $SemanticRuntimeSource -and $env:RUYI_SEMANTIC_RUNTIME_ROOT) {
+  $SemanticRuntimeSource = $env:RUYI_SEMANTIC_RUNTIME_ROOT
+}
+$semanticCode = Join-Path $root "semantic-runtime"
+$semanticTarget = Join-Path $stage "semantic-runtime"
+if ($SemanticRuntimeSource) {
+  & node (Join-Path $semanticCode "bundle.cjs") $SemanticRuntimeSource $semanticTarget
+  if ($LASTEXITCODE -ne 0) { throw "Semantic runtime asset bundling failed." }
+  Get-ChildItem -LiteralPath $semanticCode -File | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $semanticTarget $_.Name) -Force
+  }
+  Copy-Item -LiteralPath (Join-Path $semanticCode "licenses") -Destination (Join-Path $semanticTarget "licenses") -Recurse -Force
+  & node (Join-Path $semanticTarget "verify.cjs") $semanticTarget
+  if ($LASTEXITCODE -ne 0) { throw "Packaged semantic runtime verification failed." }
+} else {
+  $semanticVersion = (Get-Content -LiteralPath (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
+  if ([version]($semanticVersion -replace '-.*$', '') -ge [version]'3.1.0') {
+    throw "3.1 requires a verified semantic runtime. Supply -SemanticRuntimeSource; runtime downloads are not permitted."
+  }
+  Write-Warning "Development package has no semantic runtime; keyword fallback only. This does not pass the 3.1 semantic release gate."
+}
+
 # Optional callback gateway ships as a standalone opt-in tool in every variant. Do not copy developer tools.
 New-Item -ItemType Directory -Force -Path (Join-Path $stage "tools") | Out-Null
 Copy-Item -LiteralPath (Join-Path $root "tools\external-bot-gateway.js") -Destination (Join-Path $stage "tools\external-bot-gateway.js") -Force
@@ -401,11 +427,20 @@ if ($IncludeAcc) {
     $mediaDestination = Join-Path $stage "resources\media-runtime-sources"
     New-Item -ItemType Directory -Force -Path $mediaDestination | Out-Null
     if ($LocalMediaSources) {
-      foreach ($file in @('opencv-windows-ffmpeg-sources-v2-local.zip', 'opencv_python_headless-5.0.0.93.tar.gz')) {
+      if (-not $BuildPython) { throw 'BuildPython required for Full-local source supplement validation.' }
+      $supplementValidator = Join-Path $root 'tools\validate-openh264-supplement.py'
+      $supplementLock = Join-Path $root 'tools\openh264-supplement.lock.json'
+      . (Join-Path $root 'tools\invoke-supplement-validator.ps1')
+      Invoke-SupplementValidator $BuildPython @($supplementValidator, $supplementLock, $mediaSources, $mediaSources)
+      foreach ($file in @('opencv-windows-ffmpeg-sources-v2-local.zip', 'opencv_python_headless-5.0.0.93.tar.gz', 'openh264-headers-v2.5.0-supplement.tar.xz')) {
         Copy-Item -LiteralPath (Join-Path $mediaSources $file) -Destination $mediaDestination -Force
       }
     } else {
       Copy-Item -LiteralPath (Join-Path $mediaSources "opencv-windows-ffmpeg-source-sidecar.zip") -Destination $mediaDestination -Force
+    }
+    if ($LocalMediaSources) {
+      Copy-Item -LiteralPath $supplementLock -Destination (Join-Path $mediaDestination 'openh264-supplement.lock.json') -Force
+      Invoke-SupplementValidator $BuildPython @($supplementValidator, (Join-Path $mediaDestination 'openh264-supplement.lock.json'), $mediaDestination, $mediaDestination)
     }
     Assert-MediaArtifactInventory $stage $accDst $mediaDestination -LocalSources:$LocalMediaSources
     Assert-FullAccOcrPayload $accDst $accPython -RequireReleaseManifest
@@ -453,7 +488,8 @@ if ($nodeBytes -lt 20MB) {
   throw "'$nodeSource' is only $([math]::Round($nodeBytes / 1MB, 1)) MB: that is a version-manager shim, not a Node runtime. Put a real node.exe first on PATH (or run the packager from a shell where it is)."
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime\node") | Out-Null
-Copy-Item $nodeSource (Join-Path $stage "runtime\node\node.exe")
+& $nodeSource (Join-Path $root "tools\node-license-materials.cjs") $nodeSource (Join-Path $root "runtime\node") (Join-Path $stage "runtime\node")
+if ($LASTEXITCODE -ne 0) { throw "Node runtime or its complete license/source materials failed verification; refusing this package." }
 Write-Host "Bundled Node runtime: $(([string]$nodeVersionText).Trim()) from $nodeSource"
 
 $accPreflight = ""

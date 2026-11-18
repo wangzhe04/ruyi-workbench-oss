@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "defaultModel": "paraphrase-multilingual-MiniLM-L12-v2",
+  "models": [
+    {
+      "id": "bge-small-zh-v1.5",
+      "upstream": "BAAI/bge-small-zh-v1.5",
+      "repository": "Xenova/bge-small-zh-v1.5",
+      "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+      "license": "MIT",
+      "dimensions": 512,
+      "pooling": "cls",
+      "normalize": true,
+      "maxTokens": 512,
+      "prefix": {
+        "query": "为这个句子生成表示以用于检索相关文章：",
+        "document": ""
+      },
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 716,
+          "sha256": "d4193ead3a810fd694fa8a31d7fc72fbaebc0668b603e398734bf2f6538ff42f"
+        },
+        {
+          "path": "tokenizer.json",
+          "bytes": 439125,
+          "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "bytes": 367,
+          "sha256": "e6f3b96db926a37d4039995fbf5ad17de158dfb8f6343d607e4dbaad18d75f5a"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "bytes": 125,
+          "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "bytes": 24010842,
+          "sha256": "15b717c382bcb518ba457b93ea6850ede7f4f1cd8937454aa06972366cd19bcc"
+        }
+      ],
+      "retrievalThresholds": {
+        "search": 0.48,
+        "automatic": null
+      },
+      "recommendedChunkChars": 320,
+      "thresholdCalibration": {
+        "fixtureSha256": "51a1d10d87b2adc22cad0e8e2934809b19521436bad0ab8cfedb5ad5a06c8938",
+        "method": "ceil((max pilot no-answer top cosine + 0.02) * 100) / 100; explicit search only; automatic unapproved"
+      }
+    },
+    {
+      "id": "multilingual-e5-small",
+      "upstream": "intfloat/multilingual-e5-small",
+      "repository": "Xenova/multilingual-e5-small",
+      "revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+      "license": "MIT",
+      "dimensions": 384,
+      "pooling": "mean",
+      "normalize": true,
+      "maxTokens": 512,
+      "prefix": {
+        "query": "query: ",
+        "document": "passage: "
+      },
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 658,
+          "sha256": "cb99455288675345e1a4f411438d5d0adbba5fbd3a67ea4fb03c015433b996c1"
+        },
+        {
+          "path": "tokenizer.json",
+          "bytes": 17082730,
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "bytes": 443,
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "bytes": 167,
+          "sha256": "d05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "bytes": 118308185,
+          "sha256": "f80102d3f2a1229f387d3c81909990d8945513e347b0eab049f7de3c6f98c193"
+        }
+      ],
+      "retrievalThresholds": {
+        "search": 0.86,
+        "automatic": null
+      },
+      "recommendedChunkChars": 320,
+      "thresholdCalibration": {
+        "fixtureSha256": "51a1d10d87b2adc22cad0e8e2934809b19521436bad0ab8cfedb5ad5a06c8938",
+        "method": "ceil((max pilot no-answer top cosine + 0.02) * 100) / 100; explicit search only; automatic unapproved"
+      }
+    },
+    {
+      "id": "paraphrase-multilingual-MiniLM-L12-v2",
+      "upstream": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "repository": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+      "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
+      "license": "Apache-2.0",
+      "dimensions": 384,
+      "pooling": "mean",
+      "normalize": true,
+      "maxTokens": 128,
+      "prefix": {
+        "query": "",
+        "document": ""
+      },
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 673,
+          "sha256": "05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7"
+        },
+        {
+          "path": "tokenizer.json",
+          "bytes": 17082913,
+          "sha256": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "bytes": 496,
+          "sha256": "3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "bytes": 280,
+          "sha256": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "bytes": 118308126,
+          "sha256": "66fc00f5f29afcaff34092e1bdd20008ca3918265a82fb9695a551e510cc4ebc"
+        }
+      ],
+      "retrievalThresholds": {
+        "search": 0.34,
+        "automatic": null
+      },
+      "recommendedChunkChars": 96,
+      "thresholdCalibration": {
+        "fixtureSha256": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
+        "vectorsSha256": "8b23459616d4fb045f3e468f0aaeb7f0eaa5c96b0807be26e400b33085eb831a",
+        "method": "Quality-preserving train/calibration Pareto: minimize worst search-negative admission FPR, then calibration FPR; no margin/background statistic; new check used only after selection.",
+        "status": "RED_PARTIAL_IMPROVEMENT",
+        "automaticApproved": false
+      },
+      "retrievalPolicy": {
+        "id": "minilm-search-relevance-v1",
+        "purpose": "search-relevance",
+        "minimumCosine": 0.34,
+        "structuredIdentifiers": true,
+        "answerability": "not-assessed",
+        "automatic": null
+      }
+    },
+    {
+      "id": "multilingual-e5-small-official-q8",
+      "upstream": "intfloat/multilingual-e5-small",
+      "repository": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "license": "MIT",
+      "dimensions": 384,
+      "pooling": "mean",
+      "normalize": true,
+      "maxTokens": 512,
+      "prefix": {
+        "query": "query: ",
+        "document": "passage: "
+      },
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 655,
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "tokenizer.json",
+          "bytes": 17082730,
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "bytes": 443,
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "bytes": 167,
+          "sha256": "d05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "bytes": 118346824,
+          "sha256": "dd476dd0c2514e9b9be83aeb3853fac0763e0bdf4a71645407587d77c48a2d88"
+        }
+      ],
+      "sourceFiles": {
+        "onnx/model_quantized.onnx": "onnx/model_qint8_avx512_vnni.onnx"
+      },
+      "retrievalThresholds": {
+        "search": 0.86,
+        "automatic": null
+      },
+      "recommendedChunkChars": 320,
+      "thresholdCalibration": {
+        "fixtureSha256": "51a1d10d87b2adc22cad0e8e2934809b19521436bad0ab8cfedb5ad5a06c8938",
+        "method": "ceil((max pilot no-answer top cosine + 0.02) * 100) / 100; explicit search only; automatic unapproved"
+      }
+    }
+  ]
+}

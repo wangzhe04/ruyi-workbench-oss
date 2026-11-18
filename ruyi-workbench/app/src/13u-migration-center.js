@@ -1114,7 +1114,7 @@ public static class RuyiSkillCapsule {
     if(!String.Equals(PathOf(handle),expected,StringComparison.OrdinalIgnoreCase))Reject("store_path_alias");
     if(volume!=null && !String.Equals(VolumeOf(handle),volume,StringComparison.Ordinal))Reject("store_volume_changed");
   }
-  static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume) {
+  static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume,string expectedId=null) {
     IntPtr buffer=Marshal.StringToHGlobalUni(part),name=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RelativeName))),iosb=Marshal.AllocHGlobal(IntPtr.Size*2);
     SafeFileHandle handle=null;
     try {
@@ -1127,9 +1127,30 @@ public static class RuyiSkillCapsule {
       int status=NtCreateFile(out handle,0xC0100000u,ref attributes,iosb,IntPtr.Zero,0,3,1,0x00204021u,IntPtr.Zero,0);
       if(status<0)throw new Win32Exception((int)RtlNtStatusToDosError(status));
       if(status!=0 || handle==null || handle.IsInvalid)Reject("store_relative_open");
-      CheckFlushDirectory(handle,expected,volume);return handle;
+      CheckFlushDirectory(handle,expected,volume,expectedId);return handle;
     } catch {if(handle!=null)handle.Dispose();throw;}
     finally {GC.KeepAlive(parent);Marshal.FreeHGlobal(buffer);Marshal.FreeHGlobal(name);Marshal.FreeHGlobal(iosb);}
+  }
+  // Research-only owned-restore flush: open each component from the held
+  // parent and compare the creation-time identity supplied by its owner.
+  static object FlushOwnedRestoreDirectories(Dictionary<string,object> args) {
+    string anchor=Str(args["root"]),relative=Str(args["relative"]);
+    object[] ids=args["ids"] as object[];
+    if(anchor.Length<3 || anchor.Length>32763 || !Char.IsLetter(anchor[0]) || anchor[1]!=':' || anchor[2]!='\\'
+      || !String.Equals(System.IO.Path.GetFullPath(anchor),anchor,StringComparison.OrdinalIgnoreCase))Reject("owned_restore_root");
+    string[] parts=relative==""?new string[0]:relative.Split('/');
+    if(parts.Length>512 || ids==null || ids.Length!=parts.Length+1)Reject("owned_restore_chain");
+    foreach(string part in parts)if(!FlushPart(part))Reject("owned_restore_chain");
+    foreach(object value in ids)if(!(value is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value,"^[a-f0-9]{24}$"))Reject("owned_restore_identity");
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
+    try {
+      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
+      handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null,(string)ids[0]);string volume=VolumeOf(root);SafeFileHandle current=root;
+      for(int i=0;i<parts.Length;i++){expected+=(expected.EndsWith("\\")?"":"\\")+parts[i];current=OpenFlushChild(current,parts[i],expected,volume,(string)ids[i+1]);handles.Add(current);}
+      Check(FlushFileBuffers(current));
+      return new Dictionary<string,object>{{"ok",true},{"root",anchor},{"relative",relative},{"ids",ids}};
+    } finally {try {for(int n=handles.Count-1;n>=0;n--)handles[n].Dispose();}finally {PreserveTimeHandles=previous;}}
   }
   static void FlushStoreDirectoryPreserved(string path,string anchor) {
     // Both paths are strict local DOS paths, validated lexically before any open.
@@ -1334,10 +1355,34 @@ public static class RuyiSkillCapsule {
       Step=prior;
     } finally {Marshal.FreeHGlobal(value);Marshal.FreeHGlobal(iosb);}
   }
+  // A read-only capture must never rewrite Basic metadata: doing so can
+  // re-enable a delayed access-time update when the directory handle closes,
+  // and can also mask a concurrent writer. Keep every captured field in the
+  // proof and reject a difference on the already held handles.
+  static void VerifyCapturedBasicUnchanged(List<Node> nodes) {
+    foreach(Node node in nodes) {
+      List<string> times = new List<string>(); foreach(object raw in (IEnumerable)node.Entry["times"]) times.Add(Str(raw));
+      Basic actual=BasicOf(node.Handle);
+      if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1]
+        || Str(actual.Write)!=times[2] || Str(actual.Change)!=times[3]
+        || actual.Attr!=Convert.ToUInt32(node.Entry["attrs"])) Reject("metadata_changed");
+    }
+  }
   static object CapturePreserved(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    Exception primary=null;
     try {return Capture(args);}
-    finally {try {RestoreBasic(new List<Node>(Nodes.Values));} finally {PreserveTimeHandles=previous;}}
+    catch(Exception error) {primary=error;throw;}
+    finally {
+      try {VerifyCapturedBasicUnchanged(new List<Node>(Nodes.Values));}
+      catch(Exception verificationError) {
+        // Never replace the original capture error. A failed verification can
+        // only accompany an already failed operation in this branch.
+        if(primary==null)throw;
+        primary.Data["preservedMetadataVerificationFailed"]=verificationError.GetType().Name;
+      }
+      finally {PreserveTimeHandles=previous;}
+    }
   }
   static object ReadPreservedControl(Dictionary<string,object> args) {
     string root=Str(args["root"]),relative=Str(args["relative"]),id=Str(args["id"]);
@@ -1553,6 +1598,7 @@ public static class RuyiSkillCapsule {
           else if (command == "publish") Publish(args);
           else if (command == "finish-published") FinishPublished(args);
           else if (command == "publish-check") CheckPublication(args);
+          else if (command == "owned-restore-flush") result=FlushOwnedRestoreDirectories(args);
           else if (command == "store-flush-bound") result=FlushStoreDirectoryBound(args);
           else if (command == "store-flush-by-id") FlushStoreDirectoryById(args);
           else if (command == "store-flush") {
@@ -2222,6 +2268,7 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
   return Object.freeze({ prepare, idle: () => Promise.all([...adoptions]), stats: () => Object.freeze({ ...counts, pending: adoptions.size,
     ...(cached ? { codeIdentity: Object.freeze({ contextKey: cached.key, sourceHash: cached.sourceHash, artifactSha256: cached.sha256, clr: cached.clr, mvid: cached.mvid }) } : {}) }) });
 })();
+const migrationCapsuleIssuedChildren = new Set();
 async function migrationCapsuleBroker() {
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
@@ -2241,6 +2288,9 @@ async function migrationCapsuleBroker() {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
+  migrationCapsuleIssuedChildren.add(child);
+  try {
+    child.once('close', () => migrationCapsuleIssuedChildren.delete(child));
   try { code?.observe(child); } catch { /* Optional code reuse cannot replace the original child/error pipeline. */ }
   const timers = require('node:timers');
   const decoder = new (require('node:string_decoder').StringDecoder)('utf8');
@@ -2278,7 +2328,7 @@ async function migrationCapsuleBroker() {
     // errors on a PID, and ambiguous error objects, still require actual close.
     let absent = false;
     try { absent = !spawned && child.pid == null && typeof cause?.syscall === 'string' && cause.syscall.startsWith('spawn '); } catch { /* unknown is not absent */ }
-    if (absent) { firstError ||= failure('native_unavailable', cause); finish(firstError); }
+    if (absent) { migrationCapsuleIssuedChildren.delete(child); firstError ||= failure('native_unavailable', cause); finish(firstError); }
     else stop('native_unavailable', cause);
   });
   child.on('exit', code => {
@@ -2345,6 +2395,10 @@ async function migrationCapsuleBroker() {
     return closePromise;
   };
   return Object.freeze({ command, close });
+  } catch (cause) {
+    migrationCapsuleBroker.helperMayStillRun = true;
+    throw failure('native_helper_uncertain', cause, true);
+  }
 }
 function migrationCapsulePortableShape(snapshot) {
   const keys=(value,names)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===names;
