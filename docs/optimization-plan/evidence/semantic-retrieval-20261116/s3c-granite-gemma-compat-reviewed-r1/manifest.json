@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "status": "THREE_QUANTIZED_MODELS_COMPATIBLE_NOT_QUALITY_OR_RELEASE",
+  "checks": [
+    {
+      "name": "official Granite pinned assets and synthetic4 compatibility, not quality",
+      "passed": true
+    },
+    {
+      "name": "community Q4 full768 sentence embedding and synthetic4 tokenizer/order parity",
+      "passed": true
+    },
+    {
+      "name": "asset sums and separately scoped runtime smoke memory",
+      "passed": true
+    }
+  ],
+  "resources": [
+    {
+      "model": "Granite-97m-multilingual-r2",
+      "format": "official Q8 ONNX",
+      "assetBytes": 123586186,
+      "assetAndSharedDependencyBytes": 164119903,
+      "syntheticWorkerPeakRssBytes": 516292608
+    },
+    {
+      "model": "Granite-311m-multilingual-r2",
+      "format": "official Q8 ONNX",
+      "assetBytes": 347986541,
+      "assetAndSharedDependencyBytes": 388520258,
+      "syntheticWorkerPeakRssBytes": 968286208
+    },
+    {
+      "model": "EmbeddingGemma300M",
+      "format": "community full ONNX Q4",
+      "assetBytes": 218746407,
+      "assetAndSharedDependencyBytes": 259280124,
+      "syntheticWorkerPeakRssBytes": 488386560
+    }
+  ],
+  "sharedDependencyBytes": 40533717,
+  "records": [
+    {
+      "source": "output/granite-multilingual-r2-assets-v1/asset-lock.json",
+      "group": "verified-asset-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/001-asset-lock.json.gz",
+      "sha256": "c558a0080c21f40733f4f88b79d7614e2fcca2263fb9469bbd8a22f54832fe86",
+      "bytes": 13375,
+      "gzipSha256": "0df95245b567cc585c97503ea2145dd60a7cd3fc00de64d04974a7536d13f896",
+      "gzipBytes": 3108
+    },
+    {
+      "source": "output/granite-r2-native-smoke-v1/receipt.json",
+      "group": "native-synthetic-smoke",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/002-receipt.json.gz",
+      "sha256": "31259b07aa63a2362741c6eb4f2c79a4541760fcaad6cc314d34208dce58c60e",
+      "bytes": 256289,
+      "gzipSha256": "849f51ad6b331e45c0eeb64c72e713d10a7dd9e1575cfd9669b730447c060f26",
+      "gzipBytes": 69838
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-compat-freeze-v2.json",
+      "group": "execution-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/003-granite-r2-compat-freeze-v2.json.gz",
+      "sha256": "10602063a244594f71afbddef2a2960989a3d7aeb2c8a87ec6623e99191f6d01",
+      "bytes": 6080,
+      "gzipSha256": "b0cd97a27c3c6ac53f4a0be9474adc24da002d87f85470999c562dd7e4e39099",
+      "gzipBytes": 2428
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-compat-smoke-inputs.json",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/004-granite-r2-compat-smoke-inputs.json.gz",
+      "sha256": "33c9a84438b452f7763dc26b262872bbf0a8ee2c29c7ff9859c4435485cc35b3",
+      "bytes": 927,
+      "gzipSha256": "c40ce605b3414509405ff76560943e0cb3801cf0458d8850c32e086ee8b6f790",
+      "gzipBytes": 575
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-rust-tokenizers.py",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/005-granite-r2-rust-tokenizers.py.gz",
+      "sha256": "b404f998b88978c94dcaca0c7b842b8abc4535205ae044529c85e19eb2d09ba8",
+      "bytes": 483,
+      "gzipSha256": "2d5cc5d0eef1e8d4b7862563b5f268c35332864a788f7e10b8b879aa1e7540bf",
+      "gzipBytes": 317
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-js-tokenizers.cjs",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/006-granite-r2-js-tokenizers.cjs.gz",
+      "sha256": "e09b56356885de7e790dd23c8393219b0b16ca6211880c2bc394b10c828217f5",
+      "bytes": 2015,
+      "gzipSha256": "122ad437315c8b13311192900fdac3a456c8ce0b04ee5f85b4dee61c2ff61c24",
+      "gzipBytes": 977
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-native-smoke.cjs",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/007-granite-r2-native-smoke.cjs.gz",
+      "sha256": "dd2fea2ea294d0f49f978ed7d4253cede4aa7e5d8961cc28b2a987e4e107a17f",
+      "bytes": 3927,
+      "gzipSha256": "9e907e20d2118e7df55f440f58a1ea39f83aa750bf993fe7eddad6966de35cf0",
+      "gzipBytes": 1820
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-compat-run.cjs",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/008-granite-r2-compat-run.cjs.gz",
+      "sha256": "5930d7c903230c3d19d3aa52aac3ba9412e7fa61b0f24bbb5e8469b0406d7678",
+      "bytes": 6001,
+      "gzipSha256": "a2ed0c9ef4daadfedd462f5e7629a9dacb8a1022769145442ad7f92f558008de",
+      "gzipBytes": 2572
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-research-asset-protocol.json",
+      "group": "frozen-smoke-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/009-granite-r2-research-asset-protocol.json.gz",
+      "sha256": "b84c6dfd4e8f504bf218621a0bf30bb16fd95b3eeedf7b522450e0a86f6dfd7e",
+      "bytes": 3815,
+      "gzipSha256": "57ced17231b28294d0b0d53f5fbb83179ba2145ca9f88dfe840f875595b21112",
+      "gzipBytes": 1768
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-compat-v2/receipt.json",
+      "group": "native-synthetic-smoke",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/010-receipt.json.gz",
+      "sha256": "0f378507156f6d899ed0ebaf1ae7e89a9eab986e3fbdffb77bbae50beefbc679",
+      "bytes": 95720,
+      "gzipSha256": "79780ebfd34a6ae76f008ffcfee0014f4b78e265c44e502e486e016b54c11628",
+      "gzipBytes": 31228
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-compat-v2/freeze.json",
+      "group": "execution-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/011-freeze.json.gz",
+      "sha256": "20883a7ca21d68ddd190ba77a5ba45b774a05807c49e73c2fb39a1be511d094b",
+      "bytes": 2398,
+      "gzipSha256": "27cb1a811b23cf48f9b7c2c380308033c9b7006c798bf3a1b8016adb91018771",
+      "gzipBytes": 1130
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma-onnx-compat.cjs",
+      "group": "frozen-full-pipeline-source-and-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/012-embeddinggemma-onnx-compat.cjs.gz",
+      "sha256": "a6ccab27027e8c5876bafdd4e30dd6285ab22a60f266a4aa698ce2d5a06810c2",
+      "bytes": 7995,
+      "gzipSha256": "9833a78c0db8005447e48589e25bcfc4433cec639c8f45b06ad8b8b631626991",
+      "gzipBytes": 3430
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma-tokenizer-oracle.py",
+      "group": "frozen-full-pipeline-source-and-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/013-embeddinggemma-tokenizer-oracle.py.gz",
+      "sha256": "c10fbbb824b36d2d677c87784f75d17cd5e5318fc752f63c479ff14eb208e975",
+      "bytes": 290,
+      "gzipSha256": "1e2d7e68291ed0459330c74d6863b329830c19a09b3c385d43b7b6f07bfcb003",
+      "gzipBytes": 210
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-assets-v1/asset-receipt.json",
+      "group": "frozen-full-pipeline-source-and-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/014-asset-receipt.json.gz",
+      "sha256": "ba01f2bc6cfa6a7af02a539f7cc208a32dc456892c7913bae1151abae3bc03dd",
+      "bytes": 3743,
+      "gzipSha256": "5707961a77f68c9c58773db8c611d72751b367ad3faf38fb550af7dedf09c344",
+      "gzipBytes": 1078
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-assets-v1/asset-plan.json",
+      "group": "frozen-full-pipeline-source-and-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/015-asset-plan.json.gz",
+      "sha256": "5f6543049d539c36180d06dee22ff7633ffb773c5687decb3a64e2e31e830425",
+      "bytes": 3778,
+      "gzipSha256": "faefa14f3c8ef9164315016f98d121723e3f1dfd77ff0efb911437d22fd57af0",
+      "gzipBytes": 1391
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-static-inspection-r1.json",
+      "group": "frozen-full-pipeline-source-and-metadata",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/016-embeddinggemma-full-onnx-q4-static-inspection-r1.json.gz",
+      "sha256": "17a5866851bf277208936c16cdbc092637d032be7825f87a72bb767c8532b702",
+      "bytes": 7345,
+      "gzipSha256": "2978ab8a1d187f6a3c4136dc0f7215816d6a0024e61e9e9ac20f00722e471193",
+      "gzipBytes": 1199
+    },
+    {
+      "source": "output/granite-r2-native-smoke-v1/runtime-postcheck.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/017-runtime-postcheck.json.gz",
+      "sha256": "d1206d31559761f6394ec390aa9fea50e8e03f1d644841f9346ca393b61c3fad",
+      "bytes": 1391,
+      "gzipSha256": "138b1d0285b6988ae5d3753ff973f1fd64431311e800585e45d7c00ee4672523",
+      "gzipBytes": 633
+    },
+    {
+      "source": "output/granite-gemma-root-post-smoke-processes-r1.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/018-granite-gemma-root-post-smoke-processes-r1.json.gz",
+      "sha256": "75987556d0a3bbbe403bd74ef05efa0e7de18be53d508cc66b06d10e0f1a10cb",
+      "bytes": 351,
+      "gzipSha256": "346c9ee406c78bc8e6547d2fe5c0756c401ae8b3cac8c1bee305b74a5c9f0e37",
+      "gzipBytes": 206
+    },
+    {
+      "source": "output/embeddinggemma-qat-q4-header-observation-v1.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/019-embeddinggemma-qat-q4-header-observation-v1.json.gz",
+      "sha256": "d6aa880f25df642d63efce93b5166551470006cd2e4f7e1bda5f75ddfc58640e",
+      "bytes": 46241,
+      "gzipSha256": "9e29b393164fd0e23abab7118843ce8e5a346e8dfcf9594cdd2a7c2d3b93f001",
+      "gzipBytes": 3414
+    },
+    {
+      "source": "output/embeddinggemma-300m-qat-q4-assets-v1/download-receipt.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/020-download-receipt.json.gz",
+      "sha256": "fb0222586c6f5dc58edbb4769e902534a69f113e897af6b0c190568b66596080",
+      "bytes": 1110,
+      "gzipSha256": "fac2c0f853cb3e3db85c60724fdb6ab0073d2eeb089ba9aa45def474ea982106",
+      "gzipBytes": 525
+    },
+    {
+      "source": "output/embeddinggemma-300m-qat-q4-assets-v1/download-lock.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/021-download-lock.json.gz",
+      "sha256": "57115cc2ae2ab078f67de706ce76ecb6b64e982b1b32e91e603da815b6a89655",
+      "bytes": 1626,
+      "gzipSha256": "d234760ff54887db23c18835d89d65007b516caf4ec3c79a50792fc1dbaa1633",
+      "gzipBytes": 846
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-compat-v1/freeze.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/022-freeze.json.gz",
+      "sha256": "332324d5c804b27b8ef2e3e04844f1fd4acd8eaf864d1110ea872b0bb5e0de48",
+      "bytes": 2398,
+      "gzipSha256": "290ae33f4b0fc8a5b26e3b001400986d16085965972f782d0d3b8b7df5a55723",
+      "gzipBytes": 1131
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-compat-v1/receipt.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/023-receipt.json.gz",
+      "sha256": "98250d7295339f7eed3304fefd2a4214e9a1dac31bfa383bd013c9ddfc316bb9",
+      "bytes": 1473,
+      "gzipSha256": "393f246ca2d4b0272d42b5af19f715e32113eea6525b0e8531c67e38fc522faf",
+      "gzipBytes": 799
+    },
+    {
+      "source": "output/embeddinggemma-full-onnx-q4-compat-v1/oracle-source-r1.py",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/024-oracle-source-r1.py.gz",
+      "sha256": "fb6aff7bb9e594893d6aa0f5278bbef769df374db30fd2bda366ca5684fde307",
+      "bytes": 259,
+      "gzipSha256": "0442f4ceb9e67022ad3dc295012670f835c33e16e5464a9e8031796f6f0a244d",
+      "gzipBytes": 187
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma-assets.cjs",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/025-embeddinggemma-assets.cjs.gz",
+      "sha256": "2877c3b95c113b8057fb0e2a85297a80320c0b6d636db099f2fd89a0f1fdb2b8",
+      "bytes": 4254,
+      "gzipSha256": "e035512201aaf7e93764c0462891f0b3a58904546659f62bb7044181d47009b7",
+      "gzipBytes": 1909
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma-onnx-assets.cjs",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/026-embeddinggemma-onnx-assets.cjs.gz",
+      "sha256": "27175c336ea94f575ebf3f0e9fa223854ca7009231340534bb4961137cd30793",
+      "bytes": 4134,
+      "gzipSha256": "80a7d21ff71b6e9fe2da7af184d9f0f46b0e98da28219aa74f8303a794544cb9",
+      "gzipBytes": 2071
+    },
+    {
+      "source": "dev-harness/semantic/gguf-header-inspect.cjs",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/027-gguf-header-inspect.cjs.gz",
+      "sha256": "02e70798cec655fe98637b7ce2a506e76d93dd4e6841a7637fbdd82fcfbf09f8",
+      "bytes": 3458,
+      "gzipSha256": "83cfeed28ccd99f1bda08cc408ddac6452be47bbe7cb6a82bd7d41eec5445aa4",
+      "gzipBytes": 1447
+    },
+    {
+      "source": "output/embeddinggemma-onnx-inspect-r1.py",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/028-embeddinggemma-onnx-inspect-r1.py.gz",
+      "sha256": "8974095f82e54211dd240cb14ecce69dc1e51c5146b2400a262f18c380779d9b",
+      "bytes": 1292,
+      "gzipSha256": "8eaf16e3a1f251a1908e1326d5953dc57b0fbca9e0b1d767fe8f4889580aa8bc",
+      "gzipBytes": 705
+    },
+    {
+      "source": "dev-harness/semantic/granite-r2-compat-freeze.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/029-granite-r2-compat-freeze.json.gz",
+      "sha256": "4631273c40c449359d99a6796d8abd38a393d6c87b24b7e6d449a43a3d4e8ba4",
+      "bytes": 6005,
+      "gzipSha256": "0c314988b6ddefdf9a9df640ed22f150973069767807d9c5ad3c471648525fd2",
+      "gzipBytes": 2395
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-protocol.json",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/030-granite-gemma-development-protocol.json.gz",
+      "sha256": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f",
+      "bytes": 6890,
+      "gzipSha256": "fc0aaebaad06874a4d7d0a2cd4827e95dab63aa26776773e1f4ddb10c1aa7bc9",
+      "gzipBytes": 3364
+    },
+    {
+      "source": "dev-harness/semantic/archive-granite-gemma-compat-evidence.cjs",
+      "group": "scoped-context-source-or-superseded-attempt",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/031-archive-granite-gemma-compat-evidence.cjs.gz",
+      "sha256": "95be6f635f8f51fcda9ccc1327030dca8959c62bc6953eeb1a51aef4afca9a47",
+      "bytes": 8405,
+      "gzipSha256": "e0b183b646693af58e6f624a7f3e4a017b551ef8d3c3c4e740e0840df5817413",
+      "gzipBytes": 3445
+    }
+  ],
+  "limits": [
+    "Only4 synthetic originals/model; native order repeats are not independent quality or FP32 equivalence. Granite runtime full inventory is post-only; Gemma has pre/post inventory.",
+    "RSS is each synthetic worker lifetime peak across separate OS runs, not current search working set or whole desktop incremental memory. Asset totals exclude Node, scripts, notices, index/cache, installer and compression.",
+    "Gemma QAT GGUF inspected header lacks both Dense projection tensors, and is not used as the full Google embedding pipeline. Its header observation happened before full download completion; the separate verified download receipt has final asset hash.",
+    "Gemma full ONNX Q4 is a community PTQ export, not Google QAT. Old Gemma first oracle failure was Windows stdin encoding before model inference; corrected explicit UTF8 helper and new immutable run passed.",
+    "IBM311 model card Apache2 does not settle Gemma-derived tokenizer terms; Gemma redistribution obligations remain pending.",
+    "No holdout fixture was read/copied by this archiver. V6 is not executed but partially exposed; next final full-language independent evidence must be newly authored after method freeze.",
+    "No production/default/version changes or SR gate closure. Train/cal/mixed quality evaluation is still pending in the next batch."
+  ]
+}
