@@ -78,3 +78,57 @@ test('gate never re-enables an input it did not disable', async () => {
   w.emit('workdata:status', { maintenance: { phase: 'open' } });
   assert.equal(input.disabled, true);
 });
+
+// ── 151 阶段 1E：管家壳输入框 #stewardComposerInput 接同一个闸门 ─────────────────────────────
+function shells() {
+  const base = dom(); const make = tag => base.doc.createElement(tag);
+  const stewardComposer = make('div'); stewardComposer.className = 'steward-composer';
+  const steward = make('textarea'); steward.id = 'stewardComposerInput'; steward.closest = sel => (sel === '.steward-composer' ? stewardComposer : null);
+  const byId = base.doc.getElementById;
+  base.doc.getElementById = id => (id === 'stewardComposerInput' ? steward : id === 'stewardMaintenanceComposerNotice' ? stewardComposer.children.find(n => n.id === id) || null : byId(id));
+  return { ...base, steward, stewardComposer };
+}
+
+test('the steward composer is gated with its own notice and gets back exactly the state its owners asked for', async t => {
+  const { createMaintenanceGate, setComposerDisabled, maintenanceBlocked } = await load();
+  const s = shells(); const w = win(); t.after(() => w.emit('workdata:status', { maintenance: { phase: 'open' }, job: null })); // 断言失败时也清掉复查计时器
+  s.steward.disabled = true; // 进壳前:HTML 里是 disabled,等「先接模型」判定
+  createMaintenanceGate({ api: async () => ({}), apiErrorInfo: e => e, t: tFor('zh-CN'), doc: s.doc, win: w, pollMs: 1e9 });
+  w.emit('workdata:status', { maintenance: { phase: 'waiting' }, job: job('draining', 'export') });
+  assert.equal(s.steward.disabled, true); assert.equal(s.steward.dataset.maintenance, 'draining'); assert.equal(maintenanceBlocked(s.steward), true);
+  const notice = s.stewardComposer.children[0];
+  assert.equal(notice.id, 'stewardMaintenanceComposerNotice'); assert.equal(notice.hidden, false); assert.equal(notice.attributes.role, 'status');
+  assert.match(notice.textContent, /导出完整恢复包/);
+  assert.equal(s.composer.children[0].id, 'maintenanceComposerNotice', 'the workbench composer keeps its own notice');
+  // 维护期间管家壳判定「模型接上了」想放开输入框:只记下意愿,不提前放开。
+  setComposerDisabled(s.steward, false);
+  assert.equal(s.steward.disabled, true, 'an owner cannot re-open a gated input');
+  w.emit('workdata:status', { maintenance: { phase: 'open' }, job: null });
+  assert.equal(s.steward.disabled, false, 'released to what the owner asked for during the gate');
+  assert.equal(s.steward.dataset.maintenance, undefined); assert.equal(s.steward.dataset.maintenancePrior, undefined); assert.equal(notice.hidden, true);
+  // 反过来:维护期间掉了模型(owner 想置灰),闸门放开时不能把它放开。
+  w.emit('workdata:status', { maintenance: { phase: 'retired' }, job: job('failed') });
+  setComposerDisabled(s.steward, true);
+  w.emit('workdata:status', { maintenance: { phase: 'open' }, job: null });
+  assert.equal(s.steward.disabled, true, 'the gate does not erase the need-a-model disable');
+  // 闸门开着时 owner 写入照常直达。
+  setComposerDisabled(s.steward, false); assert.equal(s.steward.disabled, false);
+  w.emit('i18n:change'); assert.equal(s.steward.disabled, false);
+});
+
+test('a steward send failure with a maintenance code makes the gate check status', async t => {
+  const { createMaintenanceGate, reportMaintenanceFailure } = await load();
+  const s = shells(); const w = win(); const calls = []; t.after(() => w.emit('workdata:status', { maintenance: { phase: 'open' }, job: null }));
+  createMaintenanceGate({ api: async route => { calls.push(route); return { maintenance: { phase: 'retired' }, job: job('handoff') }; }, apiErrorInfo: e => e || {}, t: tFor('en-US'), doc: s.doc, win: w, pollMs: 1e9 });
+  w.emit('workdata:failure', { error: { code: 'session.not_found' } }); assert.equal(calls.length, 0);
+  w.emit('workdata:failure', { error: { code: 'api.internal_error', message: 'work_data.maintenance_busy' } });
+  await new Promise(setImmediate);
+  assert.deepEqual(calls, ['/api/work-data/status']); assert.equal(s.steward.disabled, true); assert.equal(s.steward.dataset.maintenance, 'handoff');
+  assert.ok(!/[㐀-鿿]/.test(s.stewardComposer.children[0].textContent));
+  w.emit('workdata:status', { maintenance: { phase: 'open' }, job: null }); // 放开闸门,清掉复查计时器
+  assert.equal(s.steward.disabled, false);
+  const fired = []; const target = { dispatchEvent: event => { fired.push(event); return true; } };
+  assert.equal(reportMaintenanceFailure({ code: 'x' }, target), typeof CustomEvent === 'function');
+  if (typeof CustomEvent === 'function') { assert.equal(fired[0].type, 'workdata:failure'); assert.deepEqual(fired[0].detail, { error: { code: 'x' } }); }
+  assert.equal(reportMaintenanceFailure({}, null), false);
+});

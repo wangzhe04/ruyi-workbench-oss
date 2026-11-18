@@ -4,6 +4,8 @@
 // 本模块此前零 import（一切靠 deps 注入，为 vm 直跑留门）；这里只引一个无状态纯字符串函数 ——
 // 它是 util.js 里的叶子实现，注入路线需要动 app.js 的 deps 对象，而组合根已无行余量。
 import { stewardShortTitle } from './util.js';
+// 151 阶段 1E：历史消息的记忆尾标与实时回合同一个纯模块（同一样式、同一份文案），同样不经组合根注入。
+import { appendStaticMemoryBadge } from './memory-check-badge.js';
 
 export function createChatStaticRenderer(deps = {}) {
   const {
@@ -625,7 +627,10 @@ export function createChatStaticRenderer(deps = {}) {
     if (msg.turnSummary && !options.readonly) {
       main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
     }
-    if (msg.usage) main.appendChild(usageLine(msg.usage, meta));
+    // 151 阶段 1E：记忆尾标随消息落盘（message.memoryCheck），重载与切语言后的静态重绘照样画出来。
+    const usageRow = msg.usage ? usageLine(msg.usage, meta) : null;
+    if (usageRow) main.appendChild(usageRow);
+    if (msg.role === 'assistant' && msg.memoryCheck) appendStaticMemoryBadge(main, msg, usageRow, { t });
     if (!options.readonly) main.appendChild(msgActions(msg));
     if (messageKey) row.dataset.messageKey = messageKey;
     if (renderSignature) row.dataset.renderSignature = renderSignature;

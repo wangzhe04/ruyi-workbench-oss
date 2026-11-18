@@ -31,6 +31,7 @@ import { stewardWaitText } from './thread-facts.js';   // W2-F5：等待原因�
 import { confirmDanger } from './confirm-panel.js';
 import { appendSettingsReceipt, settingsReceiptOf, settingsReceiptText, refreshSettingsAfterReceipt } from './steward-settings-receipt.js';
 import { createHandoffRecoveryStore } from './steward-handoff-recovery.js';
+import { setComposerDisabled, reportMaintenanceFailure } from './work-data-maintenance-gate.js';   // 151 阶段 1E：管家输入框接维护闸门
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -1614,6 +1615,7 @@ export function createStewardConversation({
       return reply;
     } catch (error) {
       if (generation !== conversationGeneration) return null;
+      reportMaintenanceFailure(error);   // 151 阶段 1E：维护族失败码让闸门主动复查一次（与工作台发送失败同口径）
       parkAvatar();   // W2-3 陷阱：这一行马上要被移除，头像若还在里面会一起没
       if (row && row.parentNode) { row.parentNode.removeChild(row); resealGroups(); }
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
@@ -2492,7 +2494,7 @@ export function createStewardConversation({
     const ready = !(cfg && Array.isArray(cfg.providers)) || stewardEngineReady(cfg);
     const input = byId('stewardComposerInput');
     if (input) {
-      input.disabled = !ready;
+      setComposerDisabled(input, !ready);   // 151 阶段 1E：维护闸门关着时只记下意愿，闸门放开时按它恢复
       const key = ready ? 'stewardShell.compose.placeholder' : 'stewardShell.compose.needModel';
       input.placeholder = t(key);
       input.setAttribute('data-i18n-attr', 'placeholder:' + key);   // 语言包晚到、重新套用 data-i18n-attr 时不把「先接模型」写回默认句（N2 偶发的根）

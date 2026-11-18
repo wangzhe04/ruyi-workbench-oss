@@ -341,6 +341,9 @@
   color: var(--warn);
 }
 .steward-composer-note:empty { display: none; }
+/* 151 阶段 1E：工作数据维护期的说明条（work-data-maintenance-gate.js 插在 #stewardComposer 第一个子位）。胶囊是一行横向
+   wrap 的 flex：不给它整行宽，它会和 chip／输入行挤在同一行。整行独占、圆角收进胶囊里。 */
+.steward-composer > .maintenance-composer-notice { flex: 1 1 100%; min-width: 0; margin: 0; border-radius: 18px; }
 .steward-target {
   flex: 0 0 auto;
   /* 117r-D3 ②：不挑出来的话 chip 会被拉成整行宽的大按钮（brief 明令「不要」）。

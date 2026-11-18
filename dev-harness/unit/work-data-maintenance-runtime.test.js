@@ -495,8 +495,11 @@ const settle=async promise=>Promise.race([promise.then(value=>({value}),error=>(
   new Promise(resolve=>setTimeout(()=>resolve({pending:true}),120))]);
 // The hold publishes its typed status asynchronously; wait for it instead of racing a
 // loaded test runner.
+// 1E 复审:修前是「500 次 × 2 ms」的次数预算,满载并发时 hold 里那次真 readAuthority(读盘)可能晚于它,偶发拿到 null job。
+// 改成按墙钟的 10 s 上限(判据不变:仍只认带 job.error 的那份状态)。
 const waitStatus=async state=>{
- for(let count=0;count<500;count++){
+ const deadline=Date.now()+10000;
+ for(let count=0;count<500||Date.now()<deadline;count++){
   let value=null;try{value=state.status?state.status():null;}catch{value=null;}
   if(value&&value.job&&value.job.error)return value;
   await new Promise(resolve=>setTimeout(resolve,2));
@@ -569,6 +572,42 @@ test('restore result refuses activation target drift instead of handing off',asy
   assert.ok(status,name+' must publish a typed hold status');
   assert.equal(status.job.error,'work_data_setup.'+code,name);
   assert.equal(status.job.state,'failed',name);
+ }
+});
+// 151 阶段 1E(150 号文 W10 子项):preparation_failed 不再吞掉真原因 —— 冷端 hold 沿 cause 链带出更具体的稳定码,
+// 系统错误只按固定表映射,绝不带 message 或路径。
+test('a held cold failure names the specific cause behind the wrapper code without leaking messages or paths',async t=>{
+ const wrap=(cause,suffix='preparation_failed')=>Object.assign(Error('work_data_setup.'+suffix),{code:'work_data_setup.'+suffix,cause});
+ const typed=(suffix,extra={})=>Object.assign(Error('work_data_setup.'+suffix),{code:'work_data_setup.'+suffix,...extra});
+ const sys=(code,file)=>Object.assign(Error(code+': operation failed, open \''+file+'\''),{code,path:file,syscall:'open'});
+ const secretPath='C:\\Users\\someone\\private\\notes.json';
+ const cases=[
+  ['space with bytes',wrap(typed('space_insufficient',{requiredBytes:'5368709120',availableBytes:'1024'})),'work_data_setup.space_insufficient',{requiredBytes:'5368709120',availableBytes:'1024'}],
+  ['nested typed cause under a typed wrapper',wrap(typed('space_unavailable',{cause:sys('EACCES',secretPath)})),'work_data_setup.space_unavailable',undefined],
+  ['raw system error',wrap(sys('ENOSPC',secretPath)),'work_data_setup.disk_full',undefined],
+  ['system error two levels down',wrap(Object.assign(Error('opaque'),{cause:sys('EBUSY',secretPath)})),'work_data_setup.file_busy',undefined],
+  ['wrapper inside wrapper is skipped',wrap(wrap(typed('file_too_large'),'worker_failed')),'work_data_setup.file_too_large',undefined],
+  ['top-level raw system error',sys('EROFS',secretPath),'work_data_setup.read_only_volume',undefined],
+  ['space bytes in the wrong shape are dropped',wrap(typed('space_insufficient',{requiredBytes:5,availableBytes:'1'})),'work_data_setup.space_insufficient',undefined],
+  ['unknown cause stays silent',wrap(Object.assign(Error(secretPath),{code:'EWEIRD'})),undefined,undefined],
+  ['no cause at all',typed('preparation_failed'),undefined,undefined],
+ ];
+ // 一个夹具(一份真 OS 所有权)给全部用例,每例起一个新 Runtime。修前每例各起一个夹具:9 次真所有权获取/释放在满载的
+ // 并发 unit 里会拖慢同文件后面依赖 waitStatus 的用例(1E 复审「另」项)。
+ const f=await fixture(t);
+ f.host.readAuthority=async()=>({generation:0,id:null,mode:'plain',proof:{sha256:null}});
+ for(const [name,error,reason,detail] of cases){
+  const state={};
+  f.host.httpApi={create:options=>{state.status=options.readStatus;return{listen:async()=>{},close:async()=>{}};}};
+  f.host.operations=()=>({execute:async()=>{throw error;}});
+  const runtime=Runtime.create(f.host);await runtime.runCold({parentConnected:()=>true,parentPid:()=>88,readInput:async()=>Buffer.alloc(0)});
+  const execute=f.state.creates.at(-1).execute;
+  const outcome=await settle(execute(coldContext(f,'a'.repeat(48),'enable')));assert.equal(outcome.pending,true,name+' holds');
+  const status=await waitStatus(state);assert.ok(status,name+' publishes a typed hold status');
+  assert.equal(status.job.reason,reason,name);
+  assert.deepEqual(status.job.reasonDetail===undefined?undefined:JSON.parse(JSON.stringify(status.job.reasonDetail)),detail,name);
+  const text=JSON.stringify(status.job);
+  assert.ok(!text.includes('someone')&&!text.includes('operation failed')&&!text.includes('EWEIRD'),name+' leaks no message, path or raw errno');
  }
 });
 test('restore successor writes the receipt before spawn and serves the target root',async t=>{

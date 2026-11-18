@@ -10,6 +10,8 @@
 
 下面按原顺序(最老在上)逐行保留原文,只去掉了行首的 `// `。
 
+2026-11(151 阶段 1E 整理):此前追加在代码块之外、仍带 `// ` 前缀的 156 行已并入同一代码块并去掉前缀,另从 `read-frontend-css.js` 挪来最老的一条(M5-B1;随后 1E 续钉按流程又挪来 M5 retention);文字逐字未改,空行保留。
+
 ```text
 第66波修复:845bb8c 把 chat.css 拆成 5 个聊天层文件并改了载荷拼接,却漏更新本锁 → D51 自 HEAD 起恒红。
 逐行 diff 旧单体载荷(f667405d…) vs 新分层载荷:仅丢 2 行空行(拆文件后组内以 '' 拼接,原段间空行随边界消失),
@@ -750,173 +752,178 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 体验走查 #5 续钉(前值 b8f38cb4…＝#6 续钉):零新增、零删除层,改一层 ——
   `css/views/chat-narrative.css`:对话里待决权限卡就地的「允许／拒绝」按钮行(`.narrative-perm-actions`)。
 算法自证:同上(HEAD 重算 = b8f38cb4…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+走查 U13 续钉(前值 22f8eb52…＝体验走查 #5 续钉):零新增、零删除层,改一层 ——
+  `css/components/tool-pane.css`:提示条 `.toast-tray` 点击穿透(pointer-events:none),管家视角下改到中栏输入框上方居中
+  (修前「引导完成」那条压着右栏底部的「停止」)。
+算法自证:同上(HEAD 重算 = 22f8eb52…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+走查 U17 续钉(前值 3afc1cb2…＝走查 U13 续钉):零新增、零删除层,改一层 ——
+  `css/layout.css`:980px 图标栏每行只留居中那一颗色点 —— 收起行头 8px 小点(`.steward-tcard-dot`)与行尾「⋯」。
+算法自证:同上(HEAD 重算 = 3afc1cb2…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+N11 续钉(前值 62741739…＝走查 U17 续钉):零新增、零删除层,改一层 ——
+  `css/states/chat-live.css`:工具结果富渲染(`.tc-result-rich` / `.tc-res-meta` / `.tc-res-block` / `.tc-res-text` /
+  `.tc-res-more`):多行 stdout/stderr 画成真文本块、超 40 行折叠、截图缩略图复用既有 `.tool-image`。颜色全走既有 token,零新增动效。
+算法自证:把 chat-live.css 换回 HEAD 重算 = 62741739…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+2026-10 设置补全续钉(前值 8ace18e5…＝N11 续钉):零新增、零删除层,改两层 ——
+  `css/views/settings.css`:设置弹窗定高实底、每段同一张卡(.settings-section／.steward-settings-group／运行时画进来的
+  迁移中心、语音识别、扩展组件)、设置目录的行与拨钮(.setcat-*)、锚点条吸顶、按钮一种口径、工作区权限不再横向溢出;
+  服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
+  `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
+算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+  同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
+  算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
+59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
+  `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
+  内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
+  `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
+算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
+  `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
+  (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
+算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
+逐字相同(先自证再替换);按工作区重算得下面这个值。
+2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
+  `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
+  用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
+逐字相同(先自证再替换);按工作区重算得下面这个值。
+2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
+  `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
+  (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
+逐字相同(先自证再替换);按工作区重算得下面这个值。
+2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
+  `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
+  更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
+  js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+2026-10 mermaid 图表配色续钉(前值 5e1ed875…＝2026-10 chip 菜单往上翻续钉):零新增、零删除层,改两层 ——
+  `css/views/chat-narrative.css`:mermaid 灯箱 —— 幕布从 `--glass-bg-3`(浅色下 46% 白毛玻璃)换成两套主题都压暗的
+  `--viewer-scrim`;`.mermaid-lightbox-stage` 加实底卡片(`--panel-2` 底、`--line-2` 描边、圆角、投影;内边距由 JS 写)。
+  用户实报浅色下点开放大后光标糊在发白的背景与透明底图里、看不见。
+  `css/themes/color-schemes.css`:两套主题各加一个 `--viewer-scrim`(暗 rgba(8,12,20,.78) / 亮 rgba(20,28,44,.62))。
+  其余规则零改动;图本身的配色在 js/mermaid-runtime.js 的色板里(mermaid 只认十六进制,不走 CSS 变量)。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 366ffa5:<两层>` 重算 = 5e1ed875…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
+  `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
+  (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
+  新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
+逐字相同(先自证再替换);按工作区重算得下面这个值。
+61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
+  `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
+  `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
+  颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
+逐字相同(先自证再替换);按工作区重算得下面这个值。
+2026-10 3.0 收口走查第一波续钉(前值 ecad3e8f…＝61 号文 C3 记忆批量卡续钉):零新增、零删除层,真浏览器走查的布局修复改八层 ——
+  `css/views/steward-shell.css`:≤1180 容器查询里补一条与基础规则同选择器的「右栏不占列」(修前特异度输掉,1024 宽中栏 364px＋392px 死列);
+  `css/views/chat-shell.css`:线程头管家条可收(flex 0 4 auto)、线程名基准 10em(英文下线程名被挤成 0);
+  `css/components/chat-primitives.css` / `css/components/onboarding.css`:拖放区按钮 white-space:normal、向导说明 overflow-wrap:anywhere、
+  向导当前步与手册语言钮文字改 --link;`css/views/settings.css`:设置导航当前项文字改 --link(暗色 accent 3.0:1);
+  `css/views/steward-settings.css`:星期勾选 / 筛选标签里的 input/select 不吃 width:100%;`css/views/workspace.css`:审计时间线类型名可收;
+  `css/views/chat-narrative.css`:markdown 表格单元格 min-width 4.5em;`css/base.css`:复选框 / 单选框 :focus-visible 实线焦点环;
+  `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+2026-10 3.0 收口走查第一波 · 杂项续钉(前值 c9f20392…＝收口走查第一波续钉):零新增、零删除层,改两层 ——
+  `css/views/workspace.css`:文件树文件行的 @ 钮不再吃 button 的 min-height / .tool-section 的 margin(文件行 42px → 22px,与目录行齐),
+  新增 `.ftree-main`(文件行可聚焦主体)与 @ 钮 :focus-visible / 行 :focus-within 时可见;
+  `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+2026-10 3.0 收口走查第一波 · 聊天区续钉(前值 8c959d30…＝2026-10 3.0 收口走查第一波 · 杂项续钉):零新增、零删除层,改两层 ——
+  `css/components/chat-composer.css`:附件胶囊的「上传中」占位(`.attachment-pill.uploading`:没有 × 钮,右内边距补齐、半透明斜体);
+  `css/components/chat-primitives.css`:附件大图查看器的暗幕打开时接焦点(Esc / 焦点归还),暗幕本身不画焦点框。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show ce7210c:<css>` 重算 = 8c959d30…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+2026-10 3.0 收口走查 · 记忆作用域续钉(前值 33d8aa55…＝2026-10 3.0 收口走查第一波 · 聊天区续钉):零新增、零删除层,改一层 ——
+  `css/states/chat-live.css`:记忆候选卡补作用域选择与说明(`.memory-proposal-scope` / `-scope-note`)、批量卡每条的选项行与「加入核心」开关(`.memory-proposal-opts` / `.memory-proposal-core` 及其 `[aria-pressed]` 态)。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 77751c2:<css>` 重算 = 33d8aa55…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+
+2026-10 3.0 收口走查第二波 · 前端续钉(前值 eb011087…＝2026-10 3.0 收口走查 · 记忆作用域续钉):零新增、零删除层,改四层 ——
+  `css/views/chat-shell.css`:线程头钉回 flex-wrap:nowrap 并做 container: thhead / inline-size,按线程头自身宽度分档收起管家话与开关文字(中英各一套阈值,<460px 管家条独占一行);`.topbar-title` 最小宽 6em。
+  `css/components/chat-composer.css`:回合进行中胶囊允许折行,输入框以 14em 为基、8em 为底,下拉定宽 8em。
+  `css/views/settings.css`:`.settings-nav-label` 允许折行。
+  `css/views/steward-board.css`:左栏行「⋯」出流定位,悬停时右端时间 visibility:hidden 不再改行高;hover:none 仍流内常显。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show a77a57e:<css>` 重算 = eb011087…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+
+2026-10 3.0 收口走查第三波 · 界面续钉(前值 503807bf…＝2026-10 3.0 收口走查第二波 · 前端续钉):零新增、零删除层,改八层 ——
+  `css/layout.css`:顶栏改三列(1fr / auto / max-content),窄档收状态胶囊;抽屉关着时 visibility:hidden(不进 Tab 序、不漏阴影)。
+  `css/views/steward-settings.css`:权限档菜单限宽、选项可换行,≤640 改顶栏下方全宽;定时任务表单与星期块的 [hidden] 补 display:none。
+  `css/views/steward-board.css`:左栏行标题限宽,「等你放行」胶囊限高省略。
+  `css/views/settings.css`:窄屏页签自适应宽度,不再互相叠印。
+  `css/states/chat-live.css`:子代理卡头允许换行、标题保底 6em。
+  `css/themes/ui-modes.css`:简洁模式工具卡动词不换行。
+  `css/views/chat-shell.css`:上下文电量条可收缩;线程头 chip 值在线程头 ≥400 宽时保底 2em,英文窄档标签可换行。
+  `css/views/workbench.css`:配合线程头窄档的小调整。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+
+2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
+  `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
+  (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
+  就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
+算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
+(先自证再替换);按工作区重算得下面这个值。
+
+2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
+算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
+反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
+
+2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
+算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
+反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
+2026-10 62号运行故障与读取质量续钉（前值 e8b78800…）：仅workbench.css增加两视图共享紧凑故障/读取质量横幅，复用主题token和折行，不改布局骨架。
+算法自证：readLayerPayload读取git show HEAD各层得e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c，与旧锁一致。
+反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
+65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
+Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
+66: compact external bot connection/inbox styles use existing typography and theme tokens.
+Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
+67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
+Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
+
+73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
+算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
+反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。
+
+74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
+HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
+
+75 设置回执：沿用设置字体，实际值和作用域换行，撤销结果就近显示。
+HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
+31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
+HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
+交付阅读整理：收起降为次级、图表错误折叠、文件入口加粗；HEAD 旧载荷自证 8a38e356…3ba84。
+3.1 隐私设置体验续钉（前值 118d4b57…）：仅 settings.css 增加已生效摘要、四档草稿、规则表单与不遮正文的 modal footer，隐私入口复用既有更多菜单。
+算法自证：仅用 git HEAD settings.css 替换内存读取后，载荷精确回到旧锁 118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7；其余层未改。
+反向验证：内存注入错误 CSS 后 D51/F3 均失败；磁盘 CSS 未改，证据见 ux4/validation/static-rechecks。
+
+用户反馈「本轮变更」折叠续钉（前值 b98aab33…）：仅 chat-live.css 新增六条隐藏正文、收起分隔线、原生按钮/焦点和箭头样式，默认仍展开。
+算法自证：内存仅替换 HEAD chat-live.css 后精确回到旧锁 b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04；其余层不变、不忽略。
+反向验证：内存注入错误 CSS 后 D51/F3 均失败；实际产品 CSS 未修改，记录见 checks/ux-model-turn/34-css-lock-*。
+M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
+2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
+自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
+
+M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.
+
+M4 explicit image regions original source pin a0b6f51682fbabc3a03352730206589f4a1f29819f993ebadb4ebf20c8a2111b; prior c5ebb proof remains in Git.
+M4+8cca combined source pin 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;8cca composer-only substitution restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b.
+
+M4+committed-B2 composition20261030: only the accepted image editor composer CSS is added to8cca.
+Exact in-memory replacement with8cca composer restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b; no other CSS layer is replaced.
+
+3.1 精简 P12 重钉(前值 3709bb1f…):仅 chat-shell.css 删去从未渲染的账本状态卡 .mission-card / -ok / -warn / -head / -body 五条规则及其说明注释
+(missionStateCard 零调用点,随 6 个 i18n 键一起删除),其余各层逐字未动。算法自证:只把 chat-shell.css 的内存读取替回基线 ce9b329d
+字节时精确复现 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;反向检查:内存里改坏 .mission-bar-list li .mb-text 一条规则得到不同摘要,D51/F3 当场拒绝。
+M5-B1 投递管理续钉（前值 05fe9874…）：仅 steward-settings.css 追加十行局部样式及分隔空行，布局、窄屏事实列和键盘焦点已实测。
+算法自证：仅把该层内存读取替回 HEAD 后精确恢复完整旧锁 05fe987494504fcccdb60676bf0988850c5f702fea9b5861c5fad9570af970ec；其他所有层逐字保留。
+反向检查由原 D51/F3 对内存损坏规则执行，实际样式文件不改坏，记录见本批投递管理证据。
+M5 retention: steward-settings.css adds three scoped rules for wrapping and narrow layouts.
+In-memory HEAD substitution restores 68f1ea1b7b4188b41332f49a23a08900a4f6e50ce6f765239692bab5f8493ee6; D51/F3 in-memory corruption controls reject.
 ```
-// 走查 U13 续钉(前值 22f8eb52…＝体验走查 #5 续钉):零新增、零删除层,改一层 ——
-//   `css/components/tool-pane.css`:提示条 `.toast-tray` 点击穿透(pointer-events:none),管家视角下改到中栏输入框上方居中
-//   (修前「引导完成」那条压着右栏底部的「停止」)。
-// 算法自证:同上(HEAD 重算 = 22f8eb52…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
-// 走查 U17 续钉(前值 3afc1cb2…＝走查 U13 续钉):零新增、零删除层,改一层 ——
-//   `css/layout.css`:980px 图标栏每行只留居中那一颗色点 —— 收起行头 8px 小点(`.steward-tcard-dot`)与行尾「⋯」。
-// 算法自证:同上(HEAD 重算 = 3afc1cb2…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
-// N11 续钉(前值 62741739…＝走查 U17 续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:工具结果富渲染(`.tc-result-rich` / `.tc-res-meta` / `.tc-res-block` / `.tc-res-text` /
-//   `.tc-res-more`):多行 stdout/stderr 画成真文本块、超 40 行折叠、截图缩略图复用既有 `.tool-image`。颜色全走既有 token,零新增动效。
-// 算法自证:把 chat-live.css 换回 HEAD 重算 = 62741739…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 设置补全续钉(前值 8ace18e5…＝N11 续钉):零新增、零删除层,改两层 ——
-//   `css/views/settings.css`:设置弹窗定高实底、每段同一张卡(.settings-section／.steward-settings-group／运行时画进来的
-//   迁移中心、语音识别、扩展组件)、设置目录的行与拨钮(.setcat-*)、锚点条吸顶、按钮一种口径、工作区权限不再横向溢出;
-//   服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
-//   `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
-// 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-//   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
-//   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
-// 59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
-//   `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
-//   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
-//   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
-// 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
-//   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
-// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
-//   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
-//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
-//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
-//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
-//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
-//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 mermaid 图表配色续钉(前值 5e1ed875…＝2026-10 chip 菜单往上翻续钉):零新增、零删除层,改两层 ——
-//   `css/views/chat-narrative.css`:mermaid 灯箱 —— 幕布从 `--glass-bg-3`(浅色下 46% 白毛玻璃)换成两套主题都压暗的
-//   `--viewer-scrim`;`.mermaid-lightbox-stage` 加实底卡片(`--panel-2` 底、`--line-2` 描边、圆角、投影;内边距由 JS 写)。
-//   用户实报浅色下点开放大后光标糊在发白的背景与透明底图里、看不见。
-//   `css/themes/color-schemes.css`:两套主题各加一个 `--viewer-scrim`(暗 rgba(8,12,20,.78) / 亮 rgba(20,28,44,.62))。
-//   其余规则零改动;图本身的配色在 js/mermaid-runtime.js 的色板里(mermaid 只认十六进制,不走 CSS 变量)。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 366ffa5:<两层>` 重算 = 5e1ed875…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
-//   (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
-//   新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
-//   `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
-//   颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 3.0 收口走查第一波续钉(前值 ecad3e8f…＝61 号文 C3 记忆批量卡续钉):零新增、零删除层,真浏览器走查的布局修复改八层 ——
-//   `css/views/steward-shell.css`:≤1180 容器查询里补一条与基础规则同选择器的「右栏不占列」(修前特异度输掉,1024 宽中栏 364px＋392px 死列);
-//   `css/views/chat-shell.css`:线程头管家条可收(flex 0 4 auto)、线程名基准 10em(英文下线程名被挤成 0);
-//   `css/components/chat-primitives.css` / `css/components/onboarding.css`:拖放区按钮 white-space:normal、向导说明 overflow-wrap:anywhere、
-//   向导当前步与手册语言钮文字改 --link;`css/views/settings.css`:设置导航当前项文字改 --link(暗色 accent 3.0:1);
-//   `css/views/steward-settings.css`:星期勾选 / 筛选标签里的 input/select 不吃 width:100%;`css/views/workspace.css`:审计时间线类型名可收;
-//   `css/views/chat-narrative.css`:markdown 表格单元格 min-width 4.5em;`css/base.css`:复选框 / 单选框 :focus-visible 实线焦点环;
-//   `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 3.0 收口走查第一波 · 杂项续钉(前值 c9f20392…＝收口走查第一波续钉):零新增、零删除层,改两层 ——
-//   `css/views/workspace.css`:文件树文件行的 @ 钮不再吃 button 的 min-height / .tool-section 的 margin(文件行 42px → 22px,与目录行齐),
-//   新增 `.ftree-main`(文件行可聚焦主体)与 @ 钮 :focus-visible / 行 :focus-within 时可见;
-//   `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 3.0 收口走查第一波 · 聊天区续钉(前值 8c959d30…＝2026-10 3.0 收口走查第一波 · 杂项续钉):零新增、零删除层,改两层 ——
-//   `css/components/chat-composer.css`:附件胶囊的「上传中」占位(`.attachment-pill.uploading`:没有 × 钮,右内边距补齐、半透明斜体);
-//   `css/components/chat-primitives.css`:附件大图查看器的暗幕打开时接焦点(Esc / 焦点归还),暗幕本身不画焦点框。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show ce7210c:<css>` 重算 = 8c959d30…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 3.0 收口走查 · 记忆作用域续钉(前值 33d8aa55…＝2026-10 3.0 收口走查第一波 · 聊天区续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:记忆候选卡补作用域选择与说明(`.memory-proposal-scope` / `-scope-note`)、批量卡每条的选项行与「加入核心」开关(`.memory-proposal-opts` / `.memory-proposal-core` 及其 `[aria-pressed]` 态)。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 77751c2:<css>` 重算 = 33d8aa55…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-
-// 2026-10 3.0 收口走查第二波 · 前端续钉(前值 eb011087…＝2026-10 3.0 收口走查 · 记忆作用域续钉):零新增、零删除层,改四层 ——
-//   `css/views/chat-shell.css`:线程头钉回 flex-wrap:nowrap 并做 container: thhead / inline-size,按线程头自身宽度分档收起管家话与开关文字(中英各一套阈值,<460px 管家条独占一行);`.topbar-title` 最小宽 6em。
-//   `css/components/chat-composer.css`:回合进行中胶囊允许折行,输入框以 14em 为基、8em 为底,下拉定宽 8em。
-//   `css/views/settings.css`:`.settings-nav-label` 允许折行。
-//   `css/views/steward-board.css`:左栏行「⋯」出流定位,悬停时右端时间 visibility:hidden 不再改行高;hover:none 仍流内常显。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show a77a57e:<css>` 重算 = eb011087…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-
-// 2026-10 3.0 收口走查第三波 · 界面续钉(前值 503807bf…＝2026-10 3.0 收口走查第二波 · 前端续钉):零新增、零删除层,改八层 ——
-//   `css/layout.css`:顶栏改三列(1fr / auto / max-content),窄档收状态胶囊;抽屉关着时 visibility:hidden(不进 Tab 序、不漏阴影)。
-//   `css/views/steward-settings.css`:权限档菜单限宽、选项可换行,≤640 改顶栏下方全宽;定时任务表单与星期块的 [hidden] 补 display:none。
-//   `css/views/steward-board.css`:左栏行标题限宽,「等你放行」胶囊限高省略。
-//   `css/views/settings.css`:窄屏页签自适应宽度,不再互相叠印。
-//   `css/states/chat-live.css`:子代理卡头允许换行、标题保底 6em。
-//   `css/themes/ui-modes.css`:简洁模式工具卡动词不换行。
-//   `css/views/chat-shell.css`:上下文电量条可收缩;线程头 chip 值在线程头 ≥400 宽时保底 2em,英文窄档标签可换行。
-//   `css/views/workbench.css`:配合线程头窄档的小调整。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-
-// 2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
-//   `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
-//   (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
-//   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-
-// 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
-// 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
-// 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
-
-// 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
-// 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
-// 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
-// 2026-10 62号运行故障与读取质量续钉（前值 e8b78800…）：仅workbench.css增加两视图共享紧凑故障/读取质量横幅，复用主题token和折行，不改布局骨架。
-// 算法自证：readLayerPayload读取git show HEAD各层得e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c，与旧锁一致。
-// 反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
-// 65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
-// Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
-// 66: compact external bot connection/inbox styles use existing typography and theme tokens.
-// Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
-// 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
-// Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
-
-// 73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
-// 算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
-// 反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。
-
-// 74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
-// HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
-
-// 75 设置回执：沿用设置字体，实际值和作用域换行，撤销结果就近显示。
-// HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
-// 31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
-// HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
-// 交付阅读整理：收起降为次级、图表错误折叠、文件入口加粗；HEAD 旧载荷自证 8a38e356…3ba84。
-// 3.1 隐私设置体验续钉（前值 118d4b57…）：仅 settings.css 增加已生效摘要、四档草稿、规则表单与不遮正文的 modal footer，隐私入口复用既有更多菜单。
-// 算法自证：仅用 git HEAD settings.css 替换内存读取后，载荷精确回到旧锁 118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7；其余层未改。
-// 反向验证：内存注入错误 CSS 后 D51/F3 均失败；磁盘 CSS 未改，证据见 ux4/validation/static-rechecks。
-
-// 用户反馈「本轮变更」折叠续钉（前值 b98aab33…）：仅 chat-live.css 新增六条隐藏正文、收起分隔线、原生按钮/焦点和箭头样式，默认仍展开。
-// 算法自证：内存仅替换 HEAD chat-live.css 后精确回到旧锁 b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04；其余层不变、不忽略。
-// 反向验证：内存注入错误 CSS 后 D51/F3 均失败；实际产品 CSS 未修改，记录见 checks/ux-model-turn/34-css-lock-*。
-// M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
-// 2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
-// 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
-
-// M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.
-
-// M4 explicit image regions original source pin a0b6f51682fbabc3a03352730206589f4a1f29819f993ebadb4ebf20c8a2111b; prior c5ebb proof remains in Git.
-// M4+8cca combined source pin 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;8cca composer-only substitution restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b.
-
-// M4+committed-B2 composition20261030: only the accepted image editor composer CSS is added to8cca.
-// Exact in-memory replacement with8cca composer restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b; no other CSS layer is replaced.
-
-// 3.1 精简 P12 重钉(前值 3709bb1f…):仅 chat-shell.css 删去从未渲染的账本状态卡 .mission-card / -ok / -warn / -head / -body 五条规则及其说明注释
-// (missionStateCard 零调用点,随 6 个 i18n 键一起删除),其余各层逐字未动。算法自证:只把 chat-shell.css 的内存读取替回基线 ce9b329d
-// 字节时精确复现 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;反向检查:内存里改坏 .mission-bar-list li .mb-text 一条规则得到不同摘要,D51/F3 当场拒绝。

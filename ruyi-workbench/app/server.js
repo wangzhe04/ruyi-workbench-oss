@@ -19436,6 +19436,37 @@ async function saveSession(session, opts) {
   return session;
 }
 
+// 151 阶段 1E:每轮记忆检查的尾标随消息落盘,重载 / 切语言后才能重画。只收前端尾标读的那几个计数与回退原因(白名单、
+// 全是非负整数或短枚举),不收候选内容、记忆正文或任何自由文本;形状不对就整个不落。
+function compactMemoryCheckForMessage(check) {
+  if (!check || typeof check !== 'object' || Array.isArray(check)) return null;
+  const count = value => (Number.isSafeInteger(value) && value >= 0 ? value : 0);
+  const out = { enabled: check.enabled === true, checked: check.checked === true };
+  if (out.enabled && out.checked) {
+    for (const key of ['candidateCount', 'matchCount', 'projectMatches', 'globalMatches', 'coreActiveCount', 'ruleFillCount']) out[key] = count(check[key]);
+  }
+  const reason = check.semantic && check.semantic.fallback && check.semantic.fallback.reason;
+  if (typeof reason === 'string' && /^[a-z][a-z_]{0,31}$/.test(reason)) out.semantic = { fallback: { reason } };
+  return out;
+}
+// 由 10 runSessionTurn 的 emit 记下的待落标记盖到【本回合】那条助手消息上(turnSeq 对得上、还没盖过才盖)。
+// 标记是不可枚举属性,永远不会自己进盘;盖完即删,同一会话对象的下一回合不会沿用。
+function stampTurnMemoryCheck(session) {
+  const pending = session && session.__turnMemoryCheck;
+  if (!pending) return;
+  delete session.__turnMemoryCheck;
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  // CLI 引擎(05 / 05b)在助手消息之后、收尾存之前还会追加一条 {role:'system', source:'stderr'};越过这类尾随行找本回合助手消息。
+  // 只越过 stderr 系统行:遇到任何别的行(用户消息、别的系统行)就停,不往更早的回合里盖。
+  let index = messages.length - 1;
+  while (index >= 0 && messages[index] && messages[index].role === 'system' && messages[index].source === 'stderr') index -= 1;
+  const last = messages[index];
+  if (!last || last.role !== 'assistant' || last.memoryCheck !== undefined) return;
+  if (Number(last.turnSeq) !== Number(pending.turnSeq) || Number(last.turnSeq) !== (Number(session.turnSeq) || 0)) return;
+  const compact = compactMemoryCheckForMessage(pending.check);
+  if (compact) last.memoryCheck = compact;
+}
+
 // ── 回合收尾那一存(三个引擎共用):带回合代数闸 ──────────────────────────────────────────────────────
 // 现象(审计 t4):回合 1 卡在不理会中止的工具里,用户在同一会话发回合 2,回合 2 跑完;回合 1 的工具稍后返回,
 // 收尾那一存拿着回合 1 起跑时的旧对象把整份正文写回去 —— 回合 2 的 user/assistant 消息与 providerHistory 全没了。
@@ -19443,6 +19474,7 @@ async function saveSession(session, opts) {
 // false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
 // 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
 async function saveTurnFinalSession(session, writer, options = {}) {
+  stampTurnMemoryCheck(session);
   try {
     await saveSession(session, { ...options, throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
     return true;
@@ -66495,6 +66527,12 @@ async function runSessionTurn(input) {
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
     if (evt && evt.type === 'result') lastResult = evt;
+    // 151 阶段 1E:本回合记忆检查(三个引擎的 meta 都带 memoryCheck)。修前它只活在流里,重载后尾标消失。这里只在内存会话上
+    // 记一个不可枚举的待落标记(连同此刻的 turnSeq),由 02 saveTurnFinalSession 在回合收尾那一存里盖到本回合助手消息上 ——
+    // 不新增任何一次写盘。子代理的事件不算。
+    if (evt && evt.type === 'meta' && !evt.subagentId && evt.memoryCheck && typeof evt.memoryCheck === 'object' && session) {
+      Object.defineProperty(session, '__turnMemoryCheck', { value: { check: evt.memoryCheck, turnSeq: Number(session.turnSeq) || 0 }, writable: true, configurable: true, enumerable: false });
+    }
     // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b))写入点:这条线程读过外部内容 → 会话头落一个粘性污染位
     // stewardTaint:{by, at, turnSeq}(空不落字段:没读过外部内容的会话一个字节不多)。挂在这里而不是 09 的
     // 工具循环里:runSessionTurn 是三个引擎的唯一汇合点,Claude CLI 的 WebFetch、桥接的 mcp__x__y、子代理与
@@ -111556,6 +111594,9 @@ Object.assign(InternalMcpHooks, InternalMcpRelay);
 // still observe this process exit and acquire the stable base OS owner before census.
 const WorkDataMaintenance = ((AsyncLocalStorage) => {
   const failure = suffix => Object.assign(Error('work_data.maintenance_' + suffix), { code: 'work_data.maintenance_' + suffix, statusCode: 409 });
+  // 151 阶段 1E:桌面正在关闭时拒收新活,内部语义仍是「不收」(code/message 不变:04f、13ah 与桌面诊断按它分支),
+  // 但对用户那不是「正在维护」—— HTTP 面改报自己的稳定码 desktop_lifetime.closing(01-config sendError 只认 apiCode)。
+  const refusal = host => { const error = failure('busy'); if (host.closing?.() === true) error.apiCode = 'desktop_lifetime.closing'; return error; };
   function create(host) {
     const context = new AsyncLocalStorage(), live = new Set(), writes = new Map(); let ownerSeq = 0, admittedTotal = 0, releasedTotal = 0;
     let phase = 'open', epoch = 0, lease = null;
@@ -111566,7 +111607,7 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
     async function run(kind, work) {
       const inherited = context.getStore();
       if (inherited && !active()) throw failure('stale_continuation');
-      if (phase === 'retired' || !inherited && !accepting()) throw failure('busy');
+      if (phase === 'retired' || !inherited && !accepting()) throw refusal(host);
       const token = inherited?.token || { refs: 0 }; if (token.refs === 0) { token.ownerId = ++ownerSeq; token.ownerKind = kind; admittedTotal++; } token.refs++; live.add(token); changed();
       try { return await context.run({ token, kind }, work); }
       finally { if (--token.refs === 0) { live.delete(token); releasedTotal++; } changed(); }
@@ -111669,6 +111710,7 @@ let workDataDeferredStewardWake = false;
 let workDataDeferredBootWarmup = null;
 const workDataMaintenance = WorkDataMaintenance.create({
   extraAdmission:()=>workDataInfrastructurePhase==='open'&&(typeof DesktopLifetimeHooks==='undefined'||!DesktopLifetimeHooks.canAdmit||DesktopLifetimeHooks.canAdmit()),
+  closing:workDataDesktopClosing,
   owns(owner) {
     return !!owner && ([...turnSettlers.values()].includes(owner) || [...activeAgentRuns.values()].includes(owner)
       || [...shellSessions.values()].includes(owner) && owner.running === true
@@ -111763,10 +111805,15 @@ function workDataTrackChildClose(child){
     else{workDataInfrastructureFailure(error);reject(error);}
   });return child;
 }
+// 151 阶段 1E:桌面关闭(或关闭未完成)期间的拒收对用户说「正在关闭」,不说「正在维护」。读 13ax 的 closingCopy():
+// 它在关闭让位给已提交的维护交接(deferred)时为假 —— 那时正在跑的是维护,仍按维护说。只决定文案,不参与准入。
+function workDataDesktopClosing(){
+  try{return typeof DesktopLifetimeHooks!=='undefined'&&typeof DesktopLifetimeHooks.closingCopy==='function'&&DesktopLifetimeHooks.closingCopy()===true;}catch{return false;}
+}
 function workDataAdmitHelper(){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet
     ||typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.canAdmit&&DesktopLifetimeHooks.canAdmit()!==true)
-    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409});
+    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409,...(workDataDesktopClosing()?{apiCode:'desktop_lifetime.closing'}:{})});
 }
 function workDataPrepareInfrastructure({normalClose=false}={}){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');
@@ -113589,19 +113636,35 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
       'The maintenance operation did not finish and this maintenance process will not continue. Quit Ruyi completely and start it again, then check the current data root under Settings, Work data encryption and migration. Do not submit the same operation again.'],
     unknown:['暂时读不到维护进度。请稍候，这一页会自动刷新；长时间没有变化时，请完全退出并重新启动如意。',
       'Maintenance progress cannot be read right now. Please wait, this page refreshes by itself; if nothing changes for a long time, quit Ruyi completely and start it again.']};
-  function maintenancePage(operation, jobState) {
+  // 151 阶段 1E:按浏览器的 Accept-Language 决定先显示哪种语言(页面无脚本,所以只能在服务端排)。只比较 zh 与 en
+  // 两族的最高权重;没有这个头、两族都不在或权重相同时保持修前的中文在前。头的内容只用于这一次比较,不进页面。
+  function prefersEnglish(header) {
+    if (typeof header !== 'string' || header.length > 512) return false;
+    let zh = -1, en = -1;
+    for (const part of header.split(',')) {
+      const [tag, ...params] = part.trim().toLowerCase().split(';');
+      const q = params.map(p => /^\s*q\s*=\s*([01](?:\.\d{0,3})?)\s*$/.exec(p)).find(Boolean);
+      const weight = q ? Number(q[1]) : 1;
+      if (!(weight > 0)) continue;
+      if (/^zh(?:-|$)/.test(tag)) zh = Math.max(zh, weight);
+      else if (/^en(?:-|$)/.test(tag)) en = Math.max(en, weight);
+    }
+    return en > zh;
+  }
+  function maintenancePage(operation, jobState, english = false) {
     const op = Object.hasOwn(PAGE_OPERATION, operation || '') ? PAGE_OPERATION[operation] : ['工作数据维护','Work data maintenance'];
     const help = Object.hasOwn(PAGE_STATE, jobState || '') ? PAGE_STATE[jobState] : PAGE_STATE.unknown;
-    return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<meta http-equiv="refresh" content="10"><title>如意 · 维护中 / Ruyi maintenance</title>'
+    const zhSection = heading => '<section lang="zh-CN"><' + heading + '>如意正在进行工作数据维护</' + heading + '><p>正在进行：' + op[0] + '。</p><p>' + help[0] + '</p>'
+      + '<p>维护期间不能发送消息或修改设置。这一页每 10 秒自动刷新一次。</p></section>';
+    const enSection = heading => '<section lang="en"><' + heading + '>Ruyi is running work data maintenance</' + heading + '><p>In progress: ' + op[1] + '.</p><p>' + help[1] + '</p>'
+      + '<p>Messages and settings are unavailable during maintenance. This page refreshes every 10 seconds.</p></section>';
+    return '<!doctype html><html lang="' + (english ? 'en' : 'zh-CN') + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+      + '<meta http-equiv="refresh" content="10"><title>' + (english ? 'Ruyi maintenance / 如意 · 维护中' : '如意 · 维护中 / Ruyi maintenance') + '</title>'
       + '<style>body{margin:0;font:15px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;background:#f5f6f8;color:#1d2430}'
       + 'main{max-width:640px;margin:10vh auto;padding:24px 28px;background:#fff;border:1px solid #d9dde5;border-radius:10px}'
       + 'h1{font-size:20px;margin:0 0 12px}h2{font-size:16px;margin:20px 0 8px}p{margin:8px 0}section+section{border-top:1px solid #e3e6ec;margin-top:20px}'
       + '@media (prefers-color-scheme:dark){body{background:#11161f;color:#e6e9ef}main{background:#1a2230;border-color:#33425e}section+section{border-color:#33425e}}</style></head><body><main>'
-      + '<section lang="zh-CN"><h1>如意正在进行工作数据维护</h1><p>正在进行：' + op[0] + '。</p><p>' + help[0] + '</p>'
-      + '<p>维护期间不能发送消息或修改设置。这一页每 10 秒自动刷新一次。</p></section>'
-      + '<section lang="en"><h2>Ruyi is running work data maintenance</h2><p>In progress: ' + op[1] + '.</p><p>' + help[1] + '</p>'
-      + '<p>Messages and settings are unavailable during maintenance. This page refreshes every 10 seconds.</p></section>'
+      + (english ? enSection('h1') + zhSection('h2') : zhSection('h1') + enSection('h2'))
       + '</main></body></html>';
   }
   function authority(value) {
@@ -113632,6 +113695,13 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         error:source.error || null,operationMayHaveExecuted:true};
       if (source.phase !== undefined) job.phase = source.phase;
       if (source.backupPath != null) job.backupPath = source.backupPath;
+      // 151 阶段 1E:外层失败码背后更具体的那一枚(13am failureReason)。只放行同族稳定码与两枚十进制字节数;
+      // 形状不对就不带(诊断信息缺了不该让整个进度读不出来)。
+      if (typeof source.reason === 'string' && /^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(source.reason) && source.reason !== job.error) {
+        job.reason = source.reason;
+        const detail = source.reasonDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
+        if (object(detail) && decimal(detail.requiredBytes) && decimal(detail.availableBytes)) job.reasonDetail = {requiredBytes:detail.requiredBytes,availableBytes:detail.availableBytes};
+      }
       return {ok:true,authority:authority(value.authority),configMirror:null,maintenance:{phase:'retired',accepting:false},job,lastResult:null,
         capabilities:{worker:false,upload:false,download:false},processRestartRequired:true};
     };
@@ -113646,14 +113716,14 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
     // 151 阶段 1 · U3/W10：交接期刷新页面，修前浏览器只拿到 403 auth.token_invalid 的 JSON。现在 GET/HEAD / 回一页
     // 静态、无脚本、中英双语的「维护中」页：只读已校验的 operation/state 两个枚举（读不到就给通用版），不含令牌、
     // 备份路径、错误码或任何数据路径；鉴权不变 —— 仍先过 Host/Origin/Sec-Fetch 与请求体检查，页面本身不发令牌。
-    function sendPage(res, method) {
+    function sendPage(res, method, english) {
       if (res.destroyed || state !== 'listening') return;
       let view = null;
       // 只取 operation/state 两个枚举（maintenancePage 按白名单查表），不依赖 authority 校验：hold/preflight 失败时
       // current 会被置空，若走 snapshot() 就只能显示「读不到进度」而不是「失败，请重启」（1D 审查）。
       try {assertOwner();const raw = readStatus();view = object(raw) && object(raw.job) ? raw.job : null;} catch {view = null;}
-      const body = maintenancePage(view ? view.operation : null, view ? view.state : null);
-      res.writeHead(503, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body),'cache-control':'no-store',
+      const body = maintenancePage(view ? view.operation : null, view ? view.state : null, english === true);
+      res.writeHead(503, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body),'cache-control':'no-store','vary':'accept-language',
         'x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         'x-frame-options':'DENY','referrer-policy':'no-referrer','retry-after':'10','connection':'close'});
       res.end(method === 'HEAD' ? undefined : body);
@@ -113675,7 +113745,7 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         // unexpected upload cannot consume memory or trigger any base operation.
         if (req.headers['transfer-encoding'] !== undefined || req.headers['content-length'] !== undefined && req.headers['content-length'] !== '0') return denied(res,413,'work_data_setup.body_not_allowed');
         if (req.url === '/health' && req.method === 'GET') return send(res,200,{ok:true,maintenance:true,ready:false});
-        if ((req.url === '/' || req.url === '/index.html') && (req.method === 'GET' || req.method === 'HEAD')) return sendPage(res,req.method);
+        if ((req.url === '/' || req.url === '/index.html') && (req.method === 'GET' || req.method === 'HEAD')) return sendPage(res,req.method,prefersEnglish(req.headers['accept-language']));
         if (req.url === '/api/bootstrap' && req.method === 'POST') return send(res,200,{ok:true,token:token.toString('hex')});
         const candidate = req.headers['x-wcw-token'];
         const bytes = typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate) ? Buffer.from(candidate,'hex') : Buffer.alloc(0);
@@ -114277,6 +114347,32 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
   };
   const sameReceipt=(a,b)=>activationReceipt(a)&&activationReceipt(b)&&a.sha256===b.sha256&&a.dev===b.dev&&a.ino===b.ino&&fold(a.base)===fold(b.base);
   const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
+  // 151 阶段 1E(150 号文 W10 子项):preparation_failed 一类外层码只说「哪一段没做完」,真原因在 cause 链里
+  // (空间不足、文件被占用、只读磁盘……)。这里沿 cause 找第一个【更具体】的稳定码:工作数据族的码原样取(包装码跳过),
+  // Node 系统错误只按下表映射成固定码。只出码与两枚十进制字节数,绝不出 message、路径或任何来自错误对象的自由文本。
+  const WRAPPER_CODES=new Set(['preparation_failed','transition_requires_recovery','restore_requires_inspection','result_requires_recovery',
+    'worker_failed','worker_failed_after_handoff'].map(name=>'work_data_setup.'+name));
+  const SYSTEM_REASONS=Object.freeze({ENOSPC:'work_data_setup.disk_full',EACCES:'work_data_setup.access_denied',EPERM:'work_data_setup.access_denied',
+    EBUSY:'work_data_setup.file_busy',ETXTBSY:'work_data_setup.file_busy',ENOENT:'work_data_setup.file_missing',EROFS:'work_data_setup.read_only_volume',
+    EMFILE:'work_data_setup.too_many_open_files',ENFILE:'work_data_setup.too_many_open_files',EIO:'work_data_setup.io_error',ENAMETOOLONG:'work_data_setup.path_too_long'});
+  const bytes=value=>typeof value==='string'&&/^\d{1,20}$/.test(value);
+  const failureReason=error=>{
+    const top=safeCode(error),seen=new Set();let value=error;
+    for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
+      seen.add(value);
+      try{
+        const code=String(value.code||'');
+        if(depth>0&&code!==top&&!WRAPPER_CODES.has(code)&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(code)){
+          return code==='work_data_setup.space_insufficient'&&bytes(value.requiredBytes)&&bytes(value.availableBytes)
+            ?{reason:code,reasonDetail:{requiredBytes:value.requiredBytes,availableBytes:value.availableBytes}}:{reason:code};
+        }
+        // 外层本身就是裸系统错误时 safeCode 已退成通用码,这一层同样值得说出来,所以不限 depth。
+        if(Object.hasOwn(SYSTEM_REASONS,code))return {reason:SYSTEM_REASONS[code]};
+        value=value.cause;
+      }catch{break;}
+    }
+    return {};
+  };
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
   // A retirement receipt is data, never a boolean promotion: it must carry the
@@ -114550,7 +114646,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
         assertColdOwner:()=>context.assertExclusive(context.ownership)===true,readStatus:()=>({authority:current,job})});
       const hold=async error=>{
-        latch(error);context.password=null;job.state=error?.operationMayHaveExecuted===true||helpers()?'uncertain':'failed';job.error=safeCode(error);
+        latch(error);context.password=null;job.state=error?.operationMayHaveExecuted===true||helpers()?'uncertain':'failed';job.error=safeCode(error);Object.assign(job,failureReason(error));
         current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* Do not report the pre-operation authority after a failed operation. */ }
         const seen=new Set();let value=error;for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
           seen.add(value);try{if(typeof value.backupPath==='string'&&value.backupPath.length<=4096&&!/[\0\r\n]/.test(value.backupPath))job.backupPath=value.backupPath;value=value.cause;}catch{break;}
@@ -114643,7 +114739,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       try {
         owner=await host.acquire([base]);
         let current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* The expected authority is not a fresh observation. */ }
-        const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),backupPath:result.backupPath};
+        const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),...failureReason(error),backupPath:result.backupPath};
         http=host.httpApi.create({id:result.id,port:result.listener.port,bindHost:result.listener.host,assertColdOwner:()=>ownership(owner,base),readStatus:()=>({authority:current,job})});
         await http.listen();
       }catch{ /* Another exact owner/listener may already hold the successor. Never kill or retry it. */ }
@@ -114653,7 +114749,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let current=null;
       try {const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* No expected-authority fallback. Status remains typed unavailable. */ }
-      const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error)};
+      const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error),...failureReason(error)};
       const http=host.httpApi.create({id:input.id,port:input.serve.port,bindHost:input.serve.host,assertColdOwner:()=>assertExclusive(owner)===true,
         readStatus:()=>({authority:current,job})});
       try {await http.listen();}catch{ /* The real source owner remains held even if progress cannot bind. */ }
@@ -118718,8 +118814,16 @@ const DesktopLifetime = (() => {
 })();
 
 let desktopLifetimeClient = null, desktopLifetimeServer = null, desktopLifetimeStopping = false, desktopLifetimeFailure = null, desktopLifetimeFailureSet = false;
+// 151 阶段 1E 复审:关窗时若已有提交了的工作数据维护(13ah closeForDesktop 返回 false),关闭让位给维护交接、桌面拿到
+// deferred —— 此后拒收仍然发生(stopping 不复位),但正在跑的是维护交接,对用户应说维护而不是「正在关闭」。
+let desktopLifetimeDeferredForMaintenance = false;
+function desktopLifetimeClosingCopy() {
+  return (desktopLifetimeStopping || desktopLifetimeFailureSet) && !desktopLifetimeDeferredForMaintenance;
+}
 function desktopLifetimeAdmit() {
-  if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode:'work_data.maintenance_busy', statusCode: 409 });
+  // 151 阶段 1E:内部仍是 maintenance_busy(诊断理由表与调用方按它认),对外的稳定码是「正在关闭」—— 修前用户在关窗那几秒
+  // 发的话得到「正在进行工作数据维护」,文案与事实不符。关闭让位给维护交接时仍按维护说(见上)。
+  if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode: desktopLifetimeClosingCopy() ? 'desktop_lifetime.closing' : 'work_data.maintenance_busy', statusCode: 409 });
 }
 async function desktopLifetimeStopInfrastructure() {
   if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.shutdown === 'function') {
@@ -118735,9 +118839,9 @@ async function desktopLifetimeStopInfrastructure() {
 async function desktopLifetimeStop() {
   DesktopLifetimeDiagnostic.stage('setup');
   if(desktopLifetimeFailureSet||desktopLifetimeClient?.unknown())throw Error('desktop_lifetime.uncertain');
-  desktopLifetimeStopping = true;
+  desktopLifetimeStopping = true; desktopLifetimeDeferredForMaintenance = false;
   // Setup serializes a pending submit/upload before cancelling its own uncommitted job.
-  if (await WorkDataSetupHooks.closeForDesktop() === false) return false;
+  if (await WorkDataSetupHooks.closeForDesktop() === false) { desktopLifetimeDeferredForMaintenance = true; return false; }
   DesktopLifetimeDiagnostic.stage('begin');
   const lease = WorkDataMaintenanceHooks.begin();
   const settlers = [...turnSettlers.values()];
@@ -118780,6 +118884,7 @@ Object.assign(DesktopLifetimeHooks, {
   canAdmit:()=>!desktopLifetimeStopping&&!desktopLifetimeFailureSet&&desktopLifetimeClient?.unknown()!==true,
   normalCloseRequested:()=>desktopLifetimeStopping,
   closing: () => desktopLifetimeStopping||desktopLifetimeFailureSet,
+  closingCopy: desktopLifetimeClosingCopy, // 151-1E:只决定对用户说「正在关闭」还是「正在维护」,不参与任何准入判定
   admissionOpen: () => !desktopLifetimeClient || desktopLifetimeClient.active(),
   helperMayStillRun: () => desktopLifetimeFailureSet || desktopLifetimeClient?.unknown() === true,
   async reportUncertain(){if(desktopLifetimeClient)await desktopLifetimeClient.reportUncertain();},

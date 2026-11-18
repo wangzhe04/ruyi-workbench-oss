@@ -64,6 +64,10 @@ const CODE_COPY = new Set([
   'work_data_setup.transition_requires_recovery', 'work_data_setup.restore_requires_inspection', 'work_data_setup.result_requires_recovery',
   'work_data.maintenance_not_idle', 'work_data.maintenance_infrastructure_unavailable', 'work_data.maintenance_infrastructure_uncertain',
   'work_data.authenticate_failed',
+  // 151 阶段 1E：桌面关闭期间的拒收（13ag/13ax 的 apiCode），以及冷端在 job.reason 里带出的系统错误原因（13am SYSTEM_REASONS）。
+  'desktop_lifetime.closing', 'work_data_setup.disk_full', 'work_data_setup.access_denied', 'work_data_setup.file_busy',
+  'work_data_setup.file_missing', 'work_data_setup.read_only_volume', 'work_data_setup.too_many_open_files', 'work_data_setup.io_error',
+  'work_data_setup.path_too_long',
 ]);
 // 服务端 message 里带着「这一次具体为什么」的码（不是固定英文句）：文案后面附上原话。
 const WITH_DETAIL = new Set(['tool.failed', 'editor.open_failed']);

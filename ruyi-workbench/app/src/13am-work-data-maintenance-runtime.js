@@ -41,6 +41,32 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
   };
   const sameReceipt=(a,b)=>activationReceipt(a)&&activationReceipt(b)&&a.sha256===b.sha256&&a.dev===b.dev&&a.ino===b.ino&&fold(a.base)===fold(b.base);
   const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
+  // 151 阶段 1E(150 号文 W10 子项):preparation_failed 一类外层码只说「哪一段没做完」,真原因在 cause 链里
+  // (空间不足、文件被占用、只读磁盘……)。这里沿 cause 找第一个【更具体】的稳定码:工作数据族的码原样取(包装码跳过),
+  // Node 系统错误只按下表映射成固定码。只出码与两枚十进制字节数,绝不出 message、路径或任何来自错误对象的自由文本。
+  const WRAPPER_CODES=new Set(['preparation_failed','transition_requires_recovery','restore_requires_inspection','result_requires_recovery',
+    'worker_failed','worker_failed_after_handoff'].map(name=>'work_data_setup.'+name));
+  const SYSTEM_REASONS=Object.freeze({ENOSPC:'work_data_setup.disk_full',EACCES:'work_data_setup.access_denied',EPERM:'work_data_setup.access_denied',
+    EBUSY:'work_data_setup.file_busy',ETXTBSY:'work_data_setup.file_busy',ENOENT:'work_data_setup.file_missing',EROFS:'work_data_setup.read_only_volume',
+    EMFILE:'work_data_setup.too_many_open_files',ENFILE:'work_data_setup.too_many_open_files',EIO:'work_data_setup.io_error',ENAMETOOLONG:'work_data_setup.path_too_long'});
+  const bytes=value=>typeof value==='string'&&/^\d{1,20}$/.test(value);
+  const failureReason=error=>{
+    const top=safeCode(error),seen=new Set();let value=error;
+    for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
+      seen.add(value);
+      try{
+        const code=String(value.code||'');
+        if(depth>0&&code!==top&&!WRAPPER_CODES.has(code)&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(code)){
+          return code==='work_data_setup.space_insufficient'&&bytes(value.requiredBytes)&&bytes(value.availableBytes)
+            ?{reason:code,reasonDetail:{requiredBytes:value.requiredBytes,availableBytes:value.availableBytes}}:{reason:code};
+        }
+        // 外层本身就是裸系统错误时 safeCode 已退成通用码,这一层同样值得说出来,所以不限 depth。
+        if(Object.hasOwn(SYSTEM_REASONS,code))return {reason:SYSTEM_REASONS[code]};
+        value=value.cause;
+      }catch{break;}
+    }
+    return {};
+  };
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
   // A retirement receipt is data, never a boolean promotion: it must carry the
@@ -314,7 +340,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
         assertColdOwner:()=>context.assertExclusive(context.ownership)===true,readStatus:()=>({authority:current,job})});
       const hold=async error=>{
-        latch(error);context.password=null;job.state=error?.operationMayHaveExecuted===true||helpers()?'uncertain':'failed';job.error=safeCode(error);
+        latch(error);context.password=null;job.state=error?.operationMayHaveExecuted===true||helpers()?'uncertain':'failed';job.error=safeCode(error);Object.assign(job,failureReason(error));
         current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* Do not report the pre-operation authority after a failed operation. */ }
         const seen=new Set();let value=error;for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
           seen.add(value);try{if(typeof value.backupPath==='string'&&value.backupPath.length<=4096&&!/[\0\r\n]/.test(value.backupPath))job.backupPath=value.backupPath;value=value.cause;}catch{break;}
@@ -407,7 +433,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       try {
         owner=await host.acquire([base]);
         let current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* The expected authority is not a fresh observation. */ }
-        const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),backupPath:result.backupPath};
+        const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),...failureReason(error),backupPath:result.backupPath};
         http=host.httpApi.create({id:result.id,port:result.listener.port,bindHost:result.listener.host,assertColdOwner:()=>ownership(owner,base),readStatus:()=>({authority:current,job})});
         await http.listen();
       }catch{ /* Another exact owner/listener may already hold the successor. Never kill or retry it. */ }
@@ -417,7 +443,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let current=null;
       try {const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* No expected-authority fallback. Status remains typed unavailable. */ }
-      const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error)};
+      const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error),...failureReason(error)};
       const http=host.httpApi.create({id:input.id,port:input.serve.port,bindHost:input.serve.host,assertColdOwner:()=>assertExclusive(owner)===true,
         readStatus:()=>({authority:current,job})});
       try {await http.listen();}catch{ /* The real source owner remains held even if progress cannot bind. */ }

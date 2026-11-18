@@ -16,19 +16,35 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
       'The maintenance operation did not finish and this maintenance process will not continue. Quit Ruyi completely and start it again, then check the current data root under Settings, Work data encryption and migration. Do not submit the same operation again.'],
     unknown:['暂时读不到维护进度。请稍候，这一页会自动刷新；长时间没有变化时，请完全退出并重新启动如意。',
       'Maintenance progress cannot be read right now. Please wait, this page refreshes by itself; if nothing changes for a long time, quit Ruyi completely and start it again.']};
-  function maintenancePage(operation, jobState) {
+  // 151 阶段 1E:按浏览器的 Accept-Language 决定先显示哪种语言(页面无脚本,所以只能在服务端排)。只比较 zh 与 en
+  // 两族的最高权重;没有这个头、两族都不在或权重相同时保持修前的中文在前。头的内容只用于这一次比较,不进页面。
+  function prefersEnglish(header) {
+    if (typeof header !== 'string' || header.length > 512) return false;
+    let zh = -1, en = -1;
+    for (const part of header.split(',')) {
+      const [tag, ...params] = part.trim().toLowerCase().split(';');
+      const q = params.map(p => /^\s*q\s*=\s*([01](?:\.\d{0,3})?)\s*$/.exec(p)).find(Boolean);
+      const weight = q ? Number(q[1]) : 1;
+      if (!(weight > 0)) continue;
+      if (/^zh(?:-|$)/.test(tag)) zh = Math.max(zh, weight);
+      else if (/^en(?:-|$)/.test(tag)) en = Math.max(en, weight);
+    }
+    return en > zh;
+  }
+  function maintenancePage(operation, jobState, english = false) {
     const op = Object.hasOwn(PAGE_OPERATION, operation || '') ? PAGE_OPERATION[operation] : ['工作数据维护','Work data maintenance'];
     const help = Object.hasOwn(PAGE_STATE, jobState || '') ? PAGE_STATE[jobState] : PAGE_STATE.unknown;
-    return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<meta http-equiv="refresh" content="10"><title>如意 · 维护中 / Ruyi maintenance</title>'
+    const zhSection = heading => '<section lang="zh-CN"><' + heading + '>如意正在进行工作数据维护</' + heading + '><p>正在进行：' + op[0] + '。</p><p>' + help[0] + '</p>'
+      + '<p>维护期间不能发送消息或修改设置。这一页每 10 秒自动刷新一次。</p></section>';
+    const enSection = heading => '<section lang="en"><' + heading + '>Ruyi is running work data maintenance</' + heading + '><p>In progress: ' + op[1] + '.</p><p>' + help[1] + '</p>'
+      + '<p>Messages and settings are unavailable during maintenance. This page refreshes every 10 seconds.</p></section>';
+    return '<!doctype html><html lang="' + (english ? 'en' : 'zh-CN') + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+      + '<meta http-equiv="refresh" content="10"><title>' + (english ? 'Ruyi maintenance / 如意 · 维护中' : '如意 · 维护中 / Ruyi maintenance') + '</title>'
       + '<style>body{margin:0;font:15px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;background:#f5f6f8;color:#1d2430}'
       + 'main{max-width:640px;margin:10vh auto;padding:24px 28px;background:#fff;border:1px solid #d9dde5;border-radius:10px}'
       + 'h1{font-size:20px;margin:0 0 12px}h2{font-size:16px;margin:20px 0 8px}p{margin:8px 0}section+section{border-top:1px solid #e3e6ec;margin-top:20px}'
       + '@media (prefers-color-scheme:dark){body{background:#11161f;color:#e6e9ef}main{background:#1a2230;border-color:#33425e}section+section{border-color:#33425e}}</style></head><body><main>'
-      + '<section lang="zh-CN"><h1>如意正在进行工作数据维护</h1><p>正在进行：' + op[0] + '。</p><p>' + help[0] + '</p>'
-      + '<p>维护期间不能发送消息或修改设置。这一页每 10 秒自动刷新一次。</p></section>'
-      + '<section lang="en"><h2>Ruyi is running work data maintenance</h2><p>In progress: ' + op[1] + '.</p><p>' + help[1] + '</p>'
-      + '<p>Messages and settings are unavailable during maintenance. This page refreshes every 10 seconds.</p></section>'
+      + (english ? enSection('h1') + zhSection('h2') : zhSection('h1') + enSection('h2'))
       + '</main></body></html>';
   }
   function authority(value) {
@@ -59,6 +75,13 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         error:source.error || null,operationMayHaveExecuted:true};
       if (source.phase !== undefined) job.phase = source.phase;
       if (source.backupPath != null) job.backupPath = source.backupPath;
+      // 151 阶段 1E:外层失败码背后更具体的那一枚(13am failureReason)。只放行同族稳定码与两枚十进制字节数;
+      // 形状不对就不带(诊断信息缺了不该让整个进度读不出来)。
+      if (typeof source.reason === 'string' && /^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(source.reason) && source.reason !== job.error) {
+        job.reason = source.reason;
+        const detail = source.reasonDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
+        if (object(detail) && decimal(detail.requiredBytes) && decimal(detail.availableBytes)) job.reasonDetail = {requiredBytes:detail.requiredBytes,availableBytes:detail.availableBytes};
+      }
       return {ok:true,authority:authority(value.authority),configMirror:null,maintenance:{phase:'retired',accepting:false},job,lastResult:null,
         capabilities:{worker:false,upload:false,download:false},processRestartRequired:true};
     };
@@ -73,14 +96,14 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
     // 151 阶段 1 · U3/W10：交接期刷新页面，修前浏览器只拿到 403 auth.token_invalid 的 JSON。现在 GET/HEAD / 回一页
     // 静态、无脚本、中英双语的「维护中」页：只读已校验的 operation/state 两个枚举（读不到就给通用版），不含令牌、
     // 备份路径、错误码或任何数据路径；鉴权不变 —— 仍先过 Host/Origin/Sec-Fetch 与请求体检查，页面本身不发令牌。
-    function sendPage(res, method) {
+    function sendPage(res, method, english) {
       if (res.destroyed || state !== 'listening') return;
       let view = null;
       // 只取 operation/state 两个枚举（maintenancePage 按白名单查表），不依赖 authority 校验：hold/preflight 失败时
       // current 会被置空，若走 snapshot() 就只能显示「读不到进度」而不是「失败，请重启」（1D 审查）。
       try {assertOwner();const raw = readStatus();view = object(raw) && object(raw.job) ? raw.job : null;} catch {view = null;}
-      const body = maintenancePage(view ? view.operation : null, view ? view.state : null);
-      res.writeHead(503, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body),'cache-control':'no-store',
+      const body = maintenancePage(view ? view.operation : null, view ? view.state : null, english === true);
+      res.writeHead(503, {'content-type':'text/html; charset=utf-8','content-length':Buffer.byteLength(body),'cache-control':'no-store','vary':'accept-language',
         'x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         'x-frame-options':'DENY','referrer-policy':'no-referrer','retry-after':'10','connection':'close'});
       res.end(method === 'HEAD' ? undefined : body);
@@ -102,7 +125,7 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         // unexpected upload cannot consume memory or trigger any base operation.
         if (req.headers['transfer-encoding'] !== undefined || req.headers['content-length'] !== undefined && req.headers['content-length'] !== '0') return denied(res,413,'work_data_setup.body_not_allowed');
         if (req.url === '/health' && req.method === 'GET') return send(res,200,{ok:true,maintenance:true,ready:false});
-        if ((req.url === '/' || req.url === '/index.html') && (req.method === 'GET' || req.method === 'HEAD')) return sendPage(res,req.method);
+        if ((req.url === '/' || req.url === '/index.html') && (req.method === 'GET' || req.method === 'HEAD')) return sendPage(res,req.method,prefersEnglish(req.headers['accept-language']));
         if (req.url === '/api/bootstrap' && req.method === 'POST') return send(res,200,{ok:true,token:token.toString('hex')});
         const candidate = req.headers['x-wcw-token'];
         const bytes = typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate) ? Buffer.from(candidate,'hex') : Buffer.alloc(0);

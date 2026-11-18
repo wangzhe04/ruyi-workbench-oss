@@ -15,6 +15,7 @@ import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT,
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
 // 从 preview-shell.js 搬到叶子 js/shell-mode.js，本文件只改 import 来源，取法一个字未变。
 import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';
+import { setComposerDisabled } from './work-data-maintenance-gate.js';   // 151 阶段 1E：管家输入框的 disabled 与维护闸门共管
 
 // 第117波 117a/117b/117c：管家壳（管家视角 steward）的模式与容器骨架 + avatar 状态派生
 // + 对话区与递话（后两者的实现住 steward-conversation.js / steward-composer.js，本文件只做组装与
@@ -369,7 +370,7 @@ export function createStewardShellDomain({
   function bindPresence() {
     const input = byId('stewardComposerInput');
     if (input) {
-      input.disabled = false; // 117b：可聚焦但仍不发送(发送归 117c)，仅用来测 listening 态
+      setComposerDisabled(input, false); // 117b：可聚焦但仍不发送(发送归 117c)，仅用来测 listening 态；151-1E：维护闸门关着时不提前放开
       const setTyping = () => setPresenceInputs({ typing: input.value.trim().length > 0 });
       input.addEventListener('input', setTyping);
       input.addEventListener('focus', setTyping);

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 144 | 4351 | 4354 | 958 | 67 | 0 | 1 |
+| 144 | 4356 | 4354 | 958 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -56,7 +56,7 @@
 | 38 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 39 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 40 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 41 | `02-session-store.js` | foundation | 427 | 86 | 23 |
+| 41 | `02-session-store.js` | foundation | 429 | 86 | 23 |
 | 42 | `03-bridge-guard.js` | foundation | 121 | 31 | 7 |
 | 43 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 44 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -135,7 +135,7 @@
 | 117 | `13ad-memory-cli-relay.js` | unclassified | 1 | 24 | 9 |
 | 118 | `13ae-cli-business-services.js` | unclassified | 6 | 62 | 13 |
 | 119 | `13af-internal-mcp-relay.js` | unclassified | 1 | 36 | 14 |
-| 120 | `13ag-work-data-maintenance.js` | unclassified | 18 | 90 | 26 |
+| 120 | `13ag-work-data-maintenance.js` | unclassified | 19 | 90 | 26 |
 | 121 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 1 | 1 |
 | 122 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 0 | 0 |
 | 123 | `13ah-work-data-setup.js` | unclassified | 6 | 27 | 10 |
@@ -155,7 +155,7 @@
 | 137 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 20 | 15 |
 | 138 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 139 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
-| 140 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 8 |
+| 140 | `13ax-desktop-lifetime.js` | unclassified | 12 | 16 | 8 |
 | 141 | `13ax-work-data-attachment-upload.js` | unclassified | 3 | 9 | 5 |
 | 142 | `13au-work-data-runtime-host.js` | unclassified | 2 | 18 | 14 |
 | 143 | `14-main.js` | entrypoint | 8 | 604 | 53 |

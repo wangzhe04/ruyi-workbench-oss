@@ -4577,6 +4577,37 @@ async function saveSession(session, opts) {
   return session;
 }
 
+// 151 阶段 1E:每轮记忆检查的尾标随消息落盘,重载 / 切语言后才能重画。只收前端尾标读的那几个计数与回退原因(白名单、
+// 全是非负整数或短枚举),不收候选内容、记忆正文或任何自由文本;形状不对就整个不落。
+function compactMemoryCheckForMessage(check) {
+  if (!check || typeof check !== 'object' || Array.isArray(check)) return null;
+  const count = value => (Number.isSafeInteger(value) && value >= 0 ? value : 0);
+  const out = { enabled: check.enabled === true, checked: check.checked === true };
+  if (out.enabled && out.checked) {
+    for (const key of ['candidateCount', 'matchCount', 'projectMatches', 'globalMatches', 'coreActiveCount', 'ruleFillCount']) out[key] = count(check[key]);
+  }
+  const reason = check.semantic && check.semantic.fallback && check.semantic.fallback.reason;
+  if (typeof reason === 'string' && /^[a-z][a-z_]{0,31}$/.test(reason)) out.semantic = { fallback: { reason } };
+  return out;
+}
+// 由 10 runSessionTurn 的 emit 记下的待落标记盖到【本回合】那条助手消息上(turnSeq 对得上、还没盖过才盖)。
+// 标记是不可枚举属性,永远不会自己进盘;盖完即删,同一会话对象的下一回合不会沿用。
+function stampTurnMemoryCheck(session) {
+  const pending = session && session.__turnMemoryCheck;
+  if (!pending) return;
+  delete session.__turnMemoryCheck;
+  const messages = Array.isArray(session.messages) ? session.messages : [];
+  // CLI 引擎(05 / 05b)在助手消息之后、收尾存之前还会追加一条 {role:'system', source:'stderr'};越过这类尾随行找本回合助手消息。
+  // 只越过 stderr 系统行:遇到任何别的行(用户消息、别的系统行)就停,不往更早的回合里盖。
+  let index = messages.length - 1;
+  while (index >= 0 && messages[index] && messages[index].role === 'system' && messages[index].source === 'stderr') index -= 1;
+  const last = messages[index];
+  if (!last || last.role !== 'assistant' || last.memoryCheck !== undefined) return;
+  if (Number(last.turnSeq) !== Number(pending.turnSeq) || Number(last.turnSeq) !== (Number(session.turnSeq) || 0)) return;
+  const compact = compactMemoryCheckForMessage(pending.check);
+  if (compact) last.memoryCheck = compact;
+}
+
 // ── 回合收尾那一存(三个引擎共用):带回合代数闸 ──────────────────────────────────────────────────────
 // 现象(审计 t4):回合 1 卡在不理会中止的工具里,用户在同一会话发回合 2,回合 2 跑完;回合 1 的工具稍后返回,
 // 收尾那一存拿着回合 1 起跑时的旧对象把整份正文写回去 —— 回合 2 的 user/assistant 消息与 providerHistory 全没了。
@@ -4584,6 +4615,7 @@ async function saveSession(session, opts) {
 // false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
 // 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
 async function saveTurnFinalSession(session, writer, options = {}) {
+  stampTurnMemoryCheck(session);
   try {
     await saveSession(session, { ...options, throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
     return true;

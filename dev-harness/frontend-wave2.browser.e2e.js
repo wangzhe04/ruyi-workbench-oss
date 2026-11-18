@@ -507,6 +507,17 @@ function fireAndForget(fx, pathname, body) {
       const matched = /匹配 (\d+) 条（项目 (\d+) \/ 全局 (\d+)）/.exec(line || '');
       ok(Boolean(matched) && matched[1] === '0' && matched[2] === '0' && matched[3] === '0', `M.2 「匹配」只数真命中：一句无关的话是 0，不是把补位也算进去（${line}）`);
       ok((line || '').indexOf(ZH['memory.check.fill'].replace('{{fill}}', '1')) >= 0, `M.3 补位另说一句「${ZH['memory.check.fill'].replace('{{fill}}', '1')}」（${line}）`);
+      // 151 阶段 1E：尾标随消息落盘（message.memoryCheck），切语言后的静态重绘与整页重载都还画得出来。
+      // 修前 memoryCheck 只活在流里：切语言重绘或刷新页面后尾标整个消失。
+      const lastBadge = `(() => { if (window.state.streaming) return null; const all = [...document.querySelectorAll('#messages .message .memory-check-badge')]; const b = all[all.length - 1]; if (!b) return null; const s = b.querySelector('summary'); const r = s.getBoundingClientRect(); return { summary: s.textContent, visible: b.offsetParent !== null && r.height > 0 }; })()`;
+      await setLocale('en-US');
+      const enBadge = await waitFor(`(() => { const b = ${lastBadge}; return b && /^Memory:/.test(b.summary) ? b : null; })()`, 300);
+      ok(Boolean(enBadge && enBadge.visible && /0 matched/.test(enBadge.summary) && /1 filled/.test(enBadge.summary) && !CJK.test(enBadge.summary)), `M.4 切到英文后尾标按英文重画且可见（${JSON.stringify(enBadge)}）`);
+      await setLocale('zh-CN');
+      const sid = await ev(`window.state.currentSession && window.state.currentSession.id`);
+      await fx.cdp.send('Page.reload', { ignoreCache: true });   // 与 boot-failure-kind / focus-rail 等件同一种重载法
+      const reloaded = await waitFor(`(() => { if (!window.state || !window.state.currentSession || window.state.currentSession.id !== ${JSON.stringify(sid)}) return null; const b = ${lastBadge}; return b && b.visible ? b : null; })()`, 900);
+      ok(Boolean(reloaded && /匹配 0 /.test(reloaded.summary) && /补位 1/.test(reloaded.summary)), `M.5 刷新页面后同一线程的历史消息仍画出可见的记忆尾标（${JSON.stringify(reloaded)}）`);
     });
   } catch (error) {
     t.fail(`fatal: ${error && error.stack || error}`);

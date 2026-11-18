@@ -1,6 +1,7 @@
 // 151 阶段 1 · U3：工作数据维护期的输入框闸门。
 // 维护（启用/停用加密、导出、恢复）期间后台不接新回合：修前输入框照常可用，发出去的话得到原始 JSON；
-// 交接给冷端维护进程后更是只剩 403/409。现在：维护期禁用 #promptInput，并在输入框上方说明为什么、该怎么做。
+// 交接给冷端维护进程后更是只剩 403/409。现在：维护期禁用 #promptInput 与管家壳的 #stewardComposerInput（151 阶段 1E），
+// 并在各自输入框上方说明为什么、该怎么做。
 // 状态来源只有 /api/work-data/status（与加密面板同一个接口、同一份已校验字段）：
 //   - 加密面板每次读到状态就派 workdata:status 事件，这里直接用，不另起一路轮询；
 //   - 发消息失败且码属于维护族时主动查一次；闸门关着时每 pollMs 复查（面板刚报过就跳过），恢复 open 即放开。
@@ -29,17 +30,40 @@ export function isMaintenanceFailureCode(code) {
   return typeof code === 'string' && MAINTENANCE_CODE.test(code);
 }
 
+// 151 阶段 1E：闸门管两只输入框 —— 工作台 #promptInput 与管家壳 #stewardComposerInput，各自在自己的输入区顶上放一条说明。
+const TARGETS = Object.freeze([
+  Object.freeze({ input: 'promptInput', host: '.composer', notice: 'maintenanceComposerNotice' }),
+  Object.freeze({ input: 'stewardComposerInput', host: '.steward-composer', notice: 'stewardMaintenanceComposerNotice' }),
+]);
+
+// 输入框的 disabled 不只归闸门管（管家壳的「先接模型」、进壳绑定也会写它）。闸门关着时，别的主人写进来的意愿先记在
+// data-maintenance-prior 里，闸门放开时按它恢复 —— 既不会被别人提前放开，也不会在放开时把「先接模型」的置灰抹掉。
+export function setComposerDisabled(input, disabled) {
+  if (!input) return;
+  if (input.dataset && input.dataset.maintenance) { input.dataset.maintenancePrior = disabled ? '1' : '0'; return; }
+  input.disabled = Boolean(disabled);
+}
+export function maintenanceBlocked(input) {
+  return Boolean(input && input.dataset && input.dataset.maintenance);
+}
+// 管家壳没有主输入框那条 noteMaintenanceFailure 注入线；它发送失败时派这个事件，闸门照样主动复查一次。
+export function reportMaintenanceFailure(error, win = globalThis.window) {
+  if (!win || typeof win.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return false;
+  win.dispatchEvent(new CustomEvent('workdata:failure', { detail: { error } }));
+  return true;
+}
+
 export function createMaintenanceGate({ api, apiErrorInfo, t, doc = globalThis.document, win = globalThis.window, pollMs = 3000, now = () => Date.now() } = {}) {
   let gate = null, timer = null, checking = null, lastEventAt = 0;
-  const input = () => doc && doc.getElementById('promptInput');
-  function notice() {
-    let node = doc.getElementById('maintenanceComposerNotice');
+  const input = target => doc && doc.getElementById(target.input);
+  function notice(target) {
+    let node = doc.getElementById(target.notice);
     if (node) return node;
-    const box = input();
-    const composer = box && typeof box.closest === 'function' ? box.closest('.composer') : null;
+    const box = input(target);
+    const composer = box && typeof box.closest === 'function' ? box.closest(target.host) : null;
     if (!composer) return null;
     node = doc.createElement('div');
-    node.id = 'maintenanceComposerNotice';
+    node.id = target.notice;
     node.className = 'maintenance-composer-notice';
     node.setAttribute('role', 'status');
     node.setAttribute('aria-live', 'polite');
@@ -48,13 +72,20 @@ export function createMaintenanceGate({ api, apiErrorInfo, t, doc = globalThis.d
     return node;
   }
   function paint() {
-    const box = input();
-    if (box) {
-      if (gate) { box.disabled = true; box.dataset.maintenance = gate.reason; }
-      else if (box.dataset.maintenance) { box.disabled = false; delete box.dataset.maintenance; }
+    for (const target of TARGETS) {
+      const box = input(target);
+      if (box) {
+        if (gate) {
+          if (!box.dataset.maintenance) box.dataset.maintenancePrior = box.disabled ? '1' : '0';
+          box.disabled = true; box.dataset.maintenance = gate.reason;
+        } else if (box.dataset.maintenance) {
+          box.disabled = box.dataset.maintenancePrior === '1';
+          delete box.dataset.maintenance; delete box.dataset.maintenancePrior;
+        }
+      }
+      const node = gate || doc.getElementById(target.notice) ? notice(target) : null;
+      if (node) { node.textContent = maintenanceGateText(gate, t); node.hidden = !gate; }
     }
-    const node = gate || doc.getElementById('maintenanceComposerNotice') ? notice() : null;
-    if (node) { node.textContent = maintenanceGateText(gate, t); node.hidden = !gate; }
   }
   function schedule() {
     if (timer) clearTimeout(timer);
@@ -76,12 +107,16 @@ export function createMaintenanceGate({ api, apiErrorInfo, t, doc = globalThis.d
   function noteFailure(error) {
     const info = apiErrorInfo ? apiErrorInfo(error) : { code: '', message: '' };
     // 抛错方只带 code 不带 apiCode 时服务端落成 api.internal_error，维护码在 message 里。
-    const hit = isMaintenanceFailureCode(info.code) || isMaintenanceFailureCode(String(info.message || '').trim());
+    // 151 阶段 1E 复审：只有「没有码 / 兜底码」时才看 message。服务端已经给了具体码（如桌面关闭的 desktop_lifetime.closing，
+    // 其 message 仍是内部的 work_data.maintenance_busy）就按码判，不再被 message 拉去查维护状态。
+    const generic = !info.code || info.code === 'api.internal_error' || info.code === 'api.request_failed';
+    const hit = isMaintenanceFailureCode(info.code) || (generic && isMaintenanceFailureCode(String(info.message || '').trim()));
     if (hit) void check();
     return hit;
   }
   if (win && typeof win.addEventListener === 'function') {
     win.addEventListener('workdata:status', event => { lastEventAt = now(); apply(event && event.detail); });
+    win.addEventListener('workdata:failure', event => { noteFailure(event && event.detail ? event.detail.error : null); });
     win.addEventListener('i18n:change', paint);
   }
   return Object.freeze({ apply, check, noteFailure, state: () => gate });

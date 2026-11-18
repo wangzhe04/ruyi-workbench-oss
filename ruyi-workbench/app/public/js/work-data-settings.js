@@ -1,6 +1,7 @@
 import { api, apiErrorInfo, apiRaw } from './net.js';
 import { t } from './i18n.js';
 import { apiErrorCopyKey } from './api-error-i18n.js';
+import { fmtBytes } from './util.js';
 
 const panels = new WeakMap();
 const OPERATIONS = ['enable', 'disable', 'export', 'restore'];
@@ -22,6 +23,20 @@ export function workDataRestartRequired(status, job) {
   if (!status || status.processRestartRequired !== true || !job) return false;
   if (job.state === 'uncertain' || (job.state === 'failed' && job.takeover === true)) return true;
   return status.maintenance?.phase === 'retired' && job.state !== 'handoff';
+}
+// 151 阶段 1E（150 号文 W10 子项）：外层失败码（如 preparation_failed）只说「哪一段没做完」，冷端在 job.reason 里带上
+// cause 链里更具体的那一枚码（13am failureReason），空间不足时另带需要/可用字节数。这里把它说成人话；没有专属文案的
+// 原因码照原样给出（它本身就是稳定码），形状不对就不说。
+export function workDataJobCause(job, errorCode) {
+  const reason = job && typeof job.reason === 'string' && /^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(job.reason) && job.reason !== errorCode ? job.reason : '';
+  if (!reason) return '';
+  const key = apiErrorCopyKey(reason);
+  let text = t('workData.causeLine', { reason: key ? t(key) : reason });
+  const detail = job.reasonDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
+  if (detail && decimal(detail.requiredBytes) && decimal(detail.availableBytes)) {
+    text += ' ' + t('workData.causeSpace', { required: fmtBytes(Number(detail.requiredBytes)), available: fmtBytes(Number(detail.availableBytes)) });
+  }
+  return text;
 }
 // 码 → 人话（仍带着码，便于对照）；没有专属文案的码沿用原来那句带码的通用话。
 function codeText(code, fallbackKey) {
@@ -174,7 +189,9 @@ export function mountWorkDataSettings() {
         const value = typeof job.error === 'string' && /^[\w.-]{1,128}$/.test(job.error) ? job.error : 'work_data_setup.job_failed';
         const reasonKey = apiErrorCopyKey(value);
         if (reasonKey) { const reason = node('p', null, 'field-help work-data-reason'); reason.textContent = t(reasonKey); progress.append(reason); }
-        const code = node('code'); code.textContent = value; progress.append(code);
+        const cause = workDataJobCause(job, value);
+        if (cause) { const line = node('p', null, 'field-help work-data-cause'); line.textContent = cause; progress.append(line); }
+        const code = node('code'); code.textContent = value + (cause ? ' · ' + job.reason : ''); progress.append(code);
       }
       if (workDataRestartRequired(current, job)) { const restart = node('p', 'restartRequired', 'work-data-restart'); restart.setAttribute('role', 'alert'); progress.append(restart); }
     } else if (restoreServing && !stale && rootKey(current?.selectedBase) === rootKey(restoreServing.target)) {

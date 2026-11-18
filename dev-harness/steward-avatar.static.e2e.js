@@ -127,6 +127,9 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 债都一并还了（shell-mode.js 不 import 任何 steward-* 模块，故不构成循环）。
   // 形态仍然不变：相对路径、零第三方库、零裸包名。
   "import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';",
+  // 151 阶段 1E：管家输入框的 disabled 与工作数据维护闸门共管。来源是零 import 的纯叶子（不 import 任何 steward-* 模块，
+  // 不构成循环）；形态仍是本域内相对路径、零第三方库、零裸包名。
+  "import { setComposerDisabled } from './work-data-maintenance-gate.js';   // 151 阶段 1E：管家输入框的 disabled 与维护闸门共管",
 ]), `D2 steward-shell.js 的 import 只有本域内相对路径、零第三方库、零裸包名：实测 ${JSON.stringify(importLines)}`);
 ok(stewardShell.includes("import { derivePresence, presenceLabelKey } from './steward-presence.js';"),
   'D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）');

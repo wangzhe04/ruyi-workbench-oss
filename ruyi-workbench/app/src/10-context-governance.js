@@ -4129,6 +4129,12 @@ async function runSessionTurn(input) {
     }
     if (evt && evt.type === 'process' && evt.state === 'stopped') turnStopped = true;
     if (evt && evt.type === 'result') lastResult = evt;
+    // 151 阶段 1E:本回合记忆检查(三个引擎的 meta 都带 memoryCheck)。修前它只活在流里,重载后尾标消失。这里只在内存会话上
+    // 记一个不可枚举的待落标记(连同此刻的 turnSeq),由 02 saveTurnFinalSession 在回合收尾那一存里盖到本回合助手消息上 ——
+    // 不新增任何一次写盘。子代理的事件不算。
+    if (evt && evt.type === 'meta' && !evt.subagentId && evt.memoryCheck && typeof evt.memoryCheck === 'object' && session) {
+      Object.defineProperty(session, '__turnMemoryCheck', { value: { check: evt.memoryCheck, turnSeq: Number(session.turnSeq) || 0 }, writable: true, configurable: true, enumerable: false });
+    }
     // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b))写入点:这条线程读过外部内容 → 会话头落一个粘性污染位
     // stewardTaint:{by, at, turnSeq}(空不落字段:没读过外部内容的会话一个字节不多)。挂在这里而不是 09 的
     // 工具循环里:runSessionTurn 是三个引擎的唯一汇合点,Claude CLI 的 WebFetch、桥接的 mcp__x__y、子代理与

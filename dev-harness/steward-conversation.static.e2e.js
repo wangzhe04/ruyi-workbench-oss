@@ -707,7 +707,9 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    不是新借了一个域的实现；本文件不自己搭第二个模态（那正是这条锁要挡住的事）。
 // 75：设置回执为纯展示/撤销叶子，聊天与行动流水共用，不另建配置权威或后台轮询。
 // 78: tab-local unresolved-delivery cache is a storage leaf, with no network or domain dependency.
-const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './steward-handoff-recovery.js', './steward-settings-receipt.js', './thread-facts.js', './util.js'];
+// 151 阶段 1E：工作数据维护闸门（work-data-maintenance-gate.js）是零 import、零顶层副作用的纯叶子；管家输入框的 disabled
+// 与闸门共管（setComposerDisabled）、发送失败时让闸门复查（reportMaintenanceFailure 只派 window 事件），不借别的域的实现。
+const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './steward-handoff-recovery.js', './steward-settings-receipt.js', './thread-facts.js', './util.js', './work-data-maintenance-gate.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
   `P10 import 仅登记的本域内相对路径，含共享设置回执和递话恢复叶子（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);

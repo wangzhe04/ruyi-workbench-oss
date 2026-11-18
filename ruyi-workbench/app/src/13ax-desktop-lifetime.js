@@ -134,8 +134,16 @@ const DesktopLifetime = (() => {
 })();
 
 let desktopLifetimeClient = null, desktopLifetimeServer = null, desktopLifetimeStopping = false, desktopLifetimeFailure = null, desktopLifetimeFailureSet = false;
+// 151 阶段 1E 复审:关窗时若已有提交了的工作数据维护(13ah closeForDesktop 返回 false),关闭让位给维护交接、桌面拿到
+// deferred —— 此后拒收仍然发生(stopping 不复位),但正在跑的是维护交接,对用户应说维护而不是「正在关闭」。
+let desktopLifetimeDeferredForMaintenance = false;
+function desktopLifetimeClosingCopy() {
+  return (desktopLifetimeStopping || desktopLifetimeFailureSet) && !desktopLifetimeDeferredForMaintenance;
+}
 function desktopLifetimeAdmit() {
-  if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode:'work_data.maintenance_busy', statusCode: 409 });
+  // 151 阶段 1E:内部仍是 maintenance_busy(诊断理由表与调用方按它认),对外的稳定码是「正在关闭」—— 修前用户在关窗那几秒
+  // 发的话得到「正在进行工作数据维护」,文案与事实不符。关闭让位给维护交接时仍按维护说(见上)。
+  if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode: desktopLifetimeClosingCopy() ? 'desktop_lifetime.closing' : 'work_data.maintenance_busy', statusCode: 409 });
 }
 async function desktopLifetimeStopInfrastructure() {
   if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.shutdown === 'function') {
@@ -151,9 +159,9 @@ async function desktopLifetimeStopInfrastructure() {
 async function desktopLifetimeStop() {
   DesktopLifetimeDiagnostic.stage('setup');
   if(desktopLifetimeFailureSet||desktopLifetimeClient?.unknown())throw Error('desktop_lifetime.uncertain');
-  desktopLifetimeStopping = true;
+  desktopLifetimeStopping = true; desktopLifetimeDeferredForMaintenance = false;
   // Setup serializes a pending submit/upload before cancelling its own uncommitted job.
-  if (await WorkDataSetupHooks.closeForDesktop() === false) return false;
+  if (await WorkDataSetupHooks.closeForDesktop() === false) { desktopLifetimeDeferredForMaintenance = true; return false; }
   DesktopLifetimeDiagnostic.stage('begin');
   const lease = WorkDataMaintenanceHooks.begin();
   const settlers = [...turnSettlers.values()];
@@ -196,6 +204,7 @@ Object.assign(DesktopLifetimeHooks, {
   canAdmit:()=>!desktopLifetimeStopping&&!desktopLifetimeFailureSet&&desktopLifetimeClient?.unknown()!==true,
   normalCloseRequested:()=>desktopLifetimeStopping,
   closing: () => desktopLifetimeStopping||desktopLifetimeFailureSet,
+  closingCopy: desktopLifetimeClosingCopy, // 151-1E:只决定对用户说「正在关闭」还是「正在维护」,不参与任何准入判定
   admissionOpen: () => !desktopLifetimeClient || desktopLifetimeClient.active(),
   helperMayStillRun: () => desktopLifetimeFailureSet || desktopLifetimeClient?.unknown() === true,
   async reportUncertain(){if(desktopLifetimeClient)await desktopLifetimeClient.reportUncertain();},

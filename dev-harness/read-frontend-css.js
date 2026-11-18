@@ -79,18 +79,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// M5-B1 投递管理续钉（前值 05fe9874…）：仅 steward-settings.css 追加十行局部样式及分隔空行，布局、窄屏事实列和键盘焦点已实测。
-// 算法自证：仅把该层内存读取替回 HEAD 后精确恢复完整旧锁 05fe987494504fcccdb60676bf0988850c5f702fea9b5861c5fad9570af970ec；其他所有层逐字保留。
-// 反向检查由原 D51/F3 对内存损坏规则执行，实际样式文件不改坏，记录见本批投递管理证据。
-// M5 retention: steward-settings.css adds three scoped rules for wrapping and narrow layouts.
-// In-memory HEAD substitution restores 68f1ea1b7b4188b41332f49a23a08900a4f6e50ce6f765239692bab5f8493ee6; D51/F3 in-memory corruption controls reject.
 // M5 W/T: workbench.css adds only seven scoped thread-relay rules already exercised by the two fresh relay browser journeys.
 // In-memory HEAD substitution restores 0aef5a1e1e0ffd850215d10d248a4730eb3067850b962d86ae0d3ecdcd70dca6; original D51/F3 assertions reject a one-rule in-memory mutation.
 // 151 阶段 1 批 1D 续钉(前值 567eb433…):chat-composer.css 追加维护期输入框说明条两条规则(U3)、chat-live.css 追加记忆尾标六条规则(U4)、
 // settings.css 追加「需要重启如意」一条规则(U3)、tool-pane.css 的 .toast 一条规则改为 max-width:min(340px,100vw-36px) 并加 overflow-wrap/max-height(U3 toast 溢出)。
 // 算法自证:四层内存读取替回 HEAD 字节时精确复现 567eb433e320bb76d43488dd401ce3de4d983130b6a4b8e6c3332f951f09bb2f;反向检查:内存里改坏 .memory-check-badge 一条规则得到不同摘要。
 // 若同阶段其他批也改 CSS,由主会话合并后统一重钉。
-const LEGACY_STYLES_SHA256 = '716d1eeeab9d05cf3382b100cabe1a8ac192510baf403f822a67a8eba280bf3f';
+// 151 阶段 1 批 1E 续钉(前值 716d1eee…):仅 steward-conversation.css 追加一条规则 `.steward-composer > .maintenance-composer-notice`
+// (管家胶囊里的维护期说明条整行独占、圆角收进胶囊;复审建议 4),其余各层逐字未动。算法自证:只把 steward-conversation.css 的内存读取
+// 替回 HEAD 字节时精确复现 716d1eeeab9d05cf3382b100cabe1a8ac192510baf403f822a67a8eba280bf3f;反向检查:内存里把该规则 flex 改成 1 1 99% 得到不同摘要。
+const LEGACY_STYLES_SHA256 = '683c4dc9bed7f2b60ccc9f63a0e231e7cd0c0c68e62210c778f7bb3c56a30e88';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

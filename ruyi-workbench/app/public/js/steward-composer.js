@@ -35,6 +35,8 @@ import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容�
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
 import { createComposerVoice, composerSent } from './composer-voice.js';
 import { privacyFailure, privacyVoiceFailure } from './privacy-failure.js';
+// 151 阶段 1E：管家壳输入框接工作数据维护闸门（与工作台 #promptInput 同一个闸门）。
+import { setComposerDisabled, maintenanceBlocked } from './work-data-maintenance-gate.js';
 
 // 121-K5（34 号文 §13.7 登记⑧）：F2 频道条那条 steward:pick-channel 的常量与监听器已删。
 // K4-3 删掉了频道条与它【唯一】的生产者（steward-conversation.js 的 pickChannelTarget），此后
@@ -392,6 +394,8 @@ export function createStewardComposer({
     if (!input || !conversation) return;
     const text = String(input.value || '').trim();
     if (!text) return;
+    // 151 阶段 1E：维护期间不发（发送键不归闸门管 —— 与工作台同口径），话原样留在输入框里，原因在输入区顶上的说明条。
+    if (maintenanceBlocked(input)) return;
     const target = currentTarget();
     const submittedGeneration = targetGeneration;
     // 走查 S-13：两种「发不出去」都要在【清空输入框之前】拦下，话与附件原样留着（修前先清后发，那句话既不上屏也不保留）：
@@ -645,7 +649,7 @@ export function createStewardComposer({
     inputRow.appendChild(send);
     voice.sync();   // 127-⑦：此刻 config 多半还没到，不建；到了由组合根的 syncComposerVoices() 再判
 
-    input.disabled = false;
+    setComposerDisabled(input, false);   // 151 阶段 1E：维护闸门关着时只记下意愿，不提前放开
     input.placeholder = t('stewardShell.compose.placeholder');
     input.addEventListener('input', () => {
       autoGrow(input);                                        // 133e：多打几行就长高（上限在 CSS max-height），不再只见一行

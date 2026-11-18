@@ -162,6 +162,41 @@ test('maintenance page keeps the host, origin and body gates and degrades to a g
   assert.ok(!generic.text.includes(secret)&&!generic.text.includes('C:\\private'));
   fail=false;owned=false;const lost=await rawRequest(f.port,'/');assert.equal(lost.status,503);assert.ok(!/<html/i.test(lost.text),'ownership loss before routing still refuses as before');
 });
+// 151 阶段 1E:维护页按 Accept-Language 先显示对应语言(页面无脚本,只能服务端排),两种语言都仍在页面上。
+test('maintenance page puts the Accept-Language preferred language first without dropping the other',async t=>{
+  const f=await fixture(t);
+  const order=text=>({zh:text.indexOf('<section lang="zh-CN">'),en:text.indexOf('<section lang="en">'),lang:/<html lang="([^"]+)"/.exec(text)[1]});
+  for(const [header,first] of [[undefined,'zh'],['zh-CN,zh;q=0.9,en;q=0.8','zh'],['en-US,en;q=0.9','en'],['en-GB;q=0.8, zh-TW;q=0.5','en'],
+    ['zh;q=0.6,en;q=0.6','zh'],['zh-CN;q=0.2,en;q=0.9','en'],['en;q=0.3,zh-Hans;q=0.8','zh'],['fr-FR,de;q=0.8','zh'],['en;q=0','zh'],['x'.repeat(600)+',en','zh']]){
+    const page=await rawRequest(f.port,'/',{headers:header===undefined?{}:{'accept-language':header}});
+    assert.equal(page.status,503);const at=order(page.text);
+    assert.ok(at.zh>0&&at.en>0,'both languages stay on the page for '+header);
+    assert.equal(at[first]<at[first==='zh'?'en':'zh'],true,String(header)+' -> '+first+' first');
+    assert.equal(at.lang,first==='zh'?'zh-CN':'en',String(header));
+    assert.match(page.text,first==='zh'?/<h1>如意正在进行工作数据维护<\/h1>/:/<h1>Ruyi is running work data maintenance<\/h1>/);
+    assert.equal(page.headers.vary,'accept-language');assert.doesNotMatch(page.text,/<script|\son[a-z]+\s*=/i);
+  }
+  const evil=await rawRequest(f.port,'/',{headers:{'accept-language':'en;q=1,<script>alert(1)</script>'}});
+  assert.ok(!evil.text.includes('<script>'),'header content never reaches the page');assert.match(evil.text,/<html lang="en">/);
+});
+// 151 阶段 1E(150 号文 W10 子项):冷端进度把外层失败码背后的具体原因(job.reason)与空间字节数带给面板;形状不对的一律丢掉。
+test('cold progress carries a validated failure reason and space detail, and drops malformed ones',async t=>{
+  const value=ordinary(),f=await fixture(t,{readStatus:()=>value});
+  value.job.state='failed';value.job.error='work_data_setup.preparation_failed';value.job.reason='work_data_setup.space_insufficient';
+  value.job.reasonDetail={requiredBytes:'2147483648',availableBytes:'1048576',path:'C:\\private'};
+  let result=await request(f.port,undefined,{headers:f.headers});assert.equal(result.status,200);
+  assert.equal(result.value.job.reason,'work_data_setup.space_insufficient');
+  assert.deepEqual(result.value.job.reasonDetail,{requiredBytes:'2147483648',availableBytes:'1048576'});assert.ok(!result.text.includes('C:\\\\private'));
+  result=await request(f.port,'/api/work-data/jobs/'+id,{headers:f.headers});assert.equal(result.value.job.reason,'work_data_setup.space_insufficient');
+  for(const [reason,detail] of [['C:\\private\\file.json',undefined],['work_data_setup.preparation_failed',undefined],[42,undefined],['ENOSPC',undefined],
+    ['work_data_setup.disk_full',{requiredBytes:12,availableBytes:'1'}],['work_data_setup.disk_full',{requiredBytes:'1e9',availableBytes:'1'}]]){
+    value.job.reason=reason;value.job.reasonDetail=detail;
+    result=await request(f.port,undefined,{headers:f.headers});assert.equal(result.status,200,'a malformed reason never makes progress unreadable');
+    assert.equal(result.value.job.reasonDetail,undefined,String(reason));
+    if(reason==='work_data_setup.disk_full')assert.equal(result.value.job.reason,'work_data_setup.disk_full');else assert.equal(result.value.job.reason,undefined,String(reason));
+  }
+  const page=await rawRequest(f.port,'/');assert.ok(!page.text.includes('disk_full')&&!page.text.includes('space_insufficient'),'the maintenance page still carries no code');
+});
 test('arbitrary remote or DNS bind hosts are rejected before listener creation',()=>{
   for(const bindHost of ['0.0.0.0','::','evil.test','127.0.0.1.evil','[::1]',''])assert.throws(()=>api.create({id,port:34567,bindHost,assertColdOwner:()=>true,readStatus:ordinary}),{code:'work_data_setup.http_host_invalid'});
 });

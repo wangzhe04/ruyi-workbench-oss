@@ -2,6 +2,9 @@
 // still observe this process exit and acquire the stable base OS owner before census.
 const WorkDataMaintenance = ((AsyncLocalStorage) => {
   const failure = suffix => Object.assign(Error('work_data.maintenance_' + suffix), { code: 'work_data.maintenance_' + suffix, statusCode: 409 });
+  // 151 阶段 1E:桌面正在关闭时拒收新活,内部语义仍是「不收」(code/message 不变:04f、13ah 与桌面诊断按它分支),
+  // 但对用户那不是「正在维护」—— HTTP 面改报自己的稳定码 desktop_lifetime.closing(01-config sendError 只认 apiCode)。
+  const refusal = host => { const error = failure('busy'); if (host.closing?.() === true) error.apiCode = 'desktop_lifetime.closing'; return error; };
   function create(host) {
     const context = new AsyncLocalStorage(), live = new Set(), writes = new Map(); let ownerSeq = 0, admittedTotal = 0, releasedTotal = 0;
     let phase = 'open', epoch = 0, lease = null;
@@ -12,7 +15,7 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
     async function run(kind, work) {
       const inherited = context.getStore();
       if (inherited && !active()) throw failure('stale_continuation');
-      if (phase === 'retired' || !inherited && !accepting()) throw failure('busy');
+      if (phase === 'retired' || !inherited && !accepting()) throw refusal(host);
       const token = inherited?.token || { refs: 0 }; if (token.refs === 0) { token.ownerId = ++ownerSeq; token.ownerKind = kind; admittedTotal++; } token.refs++; live.add(token); changed();
       try { return await context.run({ token, kind }, work); }
       finally { if (--token.refs === 0) { live.delete(token); releasedTotal++; } changed(); }
@@ -115,6 +118,7 @@ let workDataDeferredStewardWake = false;
 let workDataDeferredBootWarmup = null;
 const workDataMaintenance = WorkDataMaintenance.create({
   extraAdmission:()=>workDataInfrastructurePhase==='open'&&(typeof DesktopLifetimeHooks==='undefined'||!DesktopLifetimeHooks.canAdmit||DesktopLifetimeHooks.canAdmit()),
+  closing:workDataDesktopClosing,
   owns(owner) {
     return !!owner && ([...turnSettlers.values()].includes(owner) || [...activeAgentRuns.values()].includes(owner)
       || [...shellSessions.values()].includes(owner) && owner.running === true
@@ -209,10 +213,15 @@ function workDataTrackChildClose(child){
     else{workDataInfrastructureFailure(error);reject(error);}
   });return child;
 }
+// 151 阶段 1E:桌面关闭(或关闭未完成)期间的拒收对用户说「正在关闭」,不说「正在维护」。读 13ax 的 closingCopy():
+// 它在关闭让位给已提交的维护交接(deferred)时为假 —— 那时正在跑的是维护,仍按维护说。只决定文案,不参与准入。
+function workDataDesktopClosing(){
+  try{return typeof DesktopLifetimeHooks!=='undefined'&&typeof DesktopLifetimeHooks.closingCopy==='function'&&DesktopLifetimeHooks.closingCopy()===true;}catch{return false;}
+}
 function workDataAdmitHelper(){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet
     ||typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.canAdmit&&DesktopLifetimeHooks.canAdmit()!==true)
-    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409});
+    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409,...(workDataDesktopClosing()?{apiCode:'desktop_lifetime.closing'}:{})});
 }
 function workDataPrepareInfrastructure({normalClose=false}={}){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');

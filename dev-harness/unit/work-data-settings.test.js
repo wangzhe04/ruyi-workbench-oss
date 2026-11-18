@@ -374,3 +374,17 @@ test('refusal codes are shown as plain-language reasons with the code alongside,
  const g=fixture(()=>status({capabilities:{worker:false,upload:true,download:false}}));await g.panel.refresh();
  assert.match(g.find('workDataUnavailable').textContent,/desktop app/);assert.match(g.find('workDataUnavailable').textContent,/work_data_setup\.worker_unavailable/);g.panel.dispose();
 });
+// 151 阶段 1E(150 号文 W10 子项):preparation_failed 背后的具体原因由冷端带上(job.reason),面板说成人话,空间不足另带需要/可用。
+test('a wrapper failure shows the specific cause the cold service reported, in both languages, with the codes alongside',async()=>{
+ const scenario=async(extra,lang='en-US')=>{const j=job({state:'failed',cancellable:false,takeover:true,error:'work_data_setup.preparation_failed',...extra});const f=fixture(route=>route.includes('/jobs/')?{ok:true,job:j}:status({maintenance:{phase:'retired',accepting:false},capabilities:{worker:false,upload:false,download:false},job:j}));if(lang!=='en-US')f.language(lang);await f.panel.refresh();const text=f.find('workDataProgress').textContent;f.panel.dispose();return text;};
+ const space=await scenario({reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:'5368709120',availableBytes:'1048576'}});
+ assert.match(space,/Maintenance preparation did not finish/);assert.match(space,/Underlying cause: There is not enough free space/);
+ assert.match(space,/Needs 5\.0 GB; 1\.0 MB available/);assert.match(space,/work_data_setup\.preparation_failed · work_data_setup\.space_insufficient/);
+ const zh=await scenario({reason:'work_data_setup.disk_full'},'zh-CN');
+ assert.match(zh,/具体原因：磁盘空间已满/);assert.match(zh,/work_data_setup\.preparation_failed · work_data_setup\.disk_full/);
+ const unknown=await scenario({reason:'work_data_setup.path_alias'});assert.match(unknown,/Underlying cause: work_data_setup\.path_alias/,'a cause without its own copy is still named by its stable code');
+ for(const reason of [undefined,'C:\\private\\x','work_data_setup.preparation_failed',7]){
+  const text=await scenario({reason});assert.doesNotMatch(text,/Underlying cause/,String(reason));assert.ok(!text.includes('private'),String(reason));
+ }
+ const badBytes=await scenario({reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:5,availableBytes:'x'}});assert.doesNotMatch(badBytes,/Needs/);assert.match(badBytes,/Underlying cause/);
+});
