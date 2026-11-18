@@ -1,0 +1,2695 @@
+{
+  "schema": 1,
+  "status": "PRESERVED_SCOPED_EVIDENCE_NOT_OVERALL_PASS",
+  "records": [
+    {
+      "source": "dev-harness/semantic/archive-candidate-directory-and-hard-death.py",
+      "rawSha256": "01bc899d2b79015bdf0830142ec10d775e9c9a429a365496423ed3a1ec16e366",
+      "rawBytes": 3644,
+      "member": "blobs/01bc899d2b79015bdf0830142ec10d775e9c9a429a365496423ed3a1ec16e366.gz",
+      "gzipBytes": 1683,
+      "gzipSha256": "b5f3cd9a6060efde45c26e1f3a9eee691b0d61f1a9541eaacb939b7d9dba0e09"
+    },
+    {
+      "source": "dev-harness/semantic/archive-recovery-proxy-and-media.py",
+      "rawSha256": "271659c99bb5cd7f6f8c0211a2063b410af24af1c1a145552320117841a9888d",
+      "rawBytes": 9009,
+      "member": "blobs/271659c99bb5cd7f6f8c0211a2063b410af24af1c1a145552320117841a9888d.gz",
+      "gzipBytes": 3471,
+      "gzipSha256": "ad8b5cbf34243b8a84d592444b42b187566e94da45176176adba041000fb9f14"
+    },
+    {
+      "source": "dev-harness/semantic/root-candidate-primitive-preflight.cjs",
+      "rawSha256": "fa8e35fcfa8c51650ae8c97958fe2173f6001eacc1d53ca6a8aa1f09840164a8",
+      "rawBytes": 3410,
+      "member": "blobs/fa8e35fcfa8c51650ae8c97958fe2173f6001eacc1d53ca6a8aa1f09840164a8.gz",
+      "gzipBytes": 1515,
+      "gzipSha256": "2d5bd71b0f624bdcd44c2f0a0817d3227a76ff426e4b4409229601f571e057a2"
+    },
+    {
+      "source": "dev-harness/semantic/root-candidate-primitive-review.cjs",
+      "rawSha256": "5826b71b41974493321828ff7d6565dd908cb6564aebb2612282f3b7af18d1df",
+      "rawBytes": 3745,
+      "member": "blobs/5826b71b41974493321828ff7d6565dd908cb6564aebb2612282f3b7af18d1df.gz",
+      "gzipBytes": 1829,
+      "gzipSha256": "706e54b7d800ede818714f91e7187a07c91ba5219634c5a4b578e1a6e6631166"
+    },
+    {
+      "source": "dev-harness/semantic/root-proxy-death-first-failure-review.cjs",
+      "rawSha256": "3116f650ebe9831b9def7077bfd6e4834b6f119739547e3c572a99e194b224bf",
+      "rawBytes": 3373,
+      "member": "blobs/3116f650ebe9831b9def7077bfd6e4834b6f119739547e3c572a99e194b224bf.gz",
+      "gzipBytes": 1595,
+      "gzipSha256": "e4aaae4865c7bd9b1ebcbbd6710fc51489463b92589bc92d9e72440287d0483c"
+    },
+    {
+      "source": "dev-harness/semantic/root-proxy-death-pass-review.cjs",
+      "rawSha256": "4b93ef9c4f8c79627f6cf4e2ff4c609a0cd6fc0667a56d9b66ec2de9ca8a8044",
+      "rawBytes": 5528,
+      "member": "blobs/4b93ef9c4f8c79627f6cf4e2ff4c609a0cd6fc0667a56d9b66ec2de9ca8a8044.gz",
+      "gzipBytes": 2260,
+      "gzipSha256": "78b65c1226868fa4fa0edfc7bccb189201b6ad6706cc0dd9bdbbca6c21a6938d"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/darkgarden-historical-proof.json",
+      "rawSha256": "836e7608ea930b78fa2d06ec5ca5b9f519fab2d8dae23c1066317317841adaf5",
+      "rawBytes": 3698,
+      "member": "blobs/836e7608ea930b78fa2d06ec5ca5b9f519fab2d8dae23c1066317317841adaf5.gz",
+      "gzipBytes": 1147,
+      "gzipSha256": "fa0e981c20e7f7c0eff196cb70be8605a056585ec548bd2fe7a7cd56c8accfdb"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/freeze.json",
+      "rawSha256": "b66ea77161c064b1c1ff9384ad7efc18658349337c52298825969dbc9b57674b",
+      "rawBytes": 4016,
+      "member": "blobs/b66ea77161c064b1c1ff9384ad7efc18658349337c52298825969dbc9b57674b.gz",
+      "gzipBytes": 1416,
+      "gzipSha256": "4a2ad6eeae49e7dcf46d2642db70d1c5f9e48db3c987db79143fec354e86edd2"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/historical-full-local.json",
+      "rawSha256": "9a4971de6fae31c11f6dd7c5f45eef2af08466fc7a0ff45d9ac152a549c35f8c",
+      "rawBytes": 28474,
+      "member": "blobs/9a4971de6fae31c11f6dd7c5f45eef2af08466fc7a0ff45d9ac152a549c35f8c.gz",
+      "gzipBytes": 2084,
+      "gzipSha256": "39af80babbc8961ba13b0badd337ba0a3b077453b244198f61c3c5c7d7e74000"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/negative-missing.json",
+      "rawSha256": "c506b9b4fe1d6ebefa4d7bc56d0d56a59c8c498294875aa06ba979cec6e09e5c",
+      "rawBytes": 925548,
+      "member": "blobs/c506b9b4fe1d6ebefa4d7bc56d0d56a59c8c498294875aa06ba979cec6e09e5c.gz",
+      "gzipBytes": 31070,
+      "gzipSha256": "a7695504bbc5bc1943dd7c2295cd81cfd831e544e4ce5437e8fdb344c5de2e9c"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/negative-no-package.json",
+      "rawSha256": "257a22bd98be1b114ac3b542f87aaeec06e2ec4e1aa08d926957d369a93403b1",
+      "rawBytes": 28123,
+      "member": "blobs/257a22bd98be1b114ac3b542f87aaeec06e2ec4e1aa08d926957d369a93403b1.gz",
+      "gzipBytes": 1895,
+      "gzipSha256": "c1953a5e8ceee19c78d0e81722c12fc39f16e445998b229e472f2f65cab41528"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/root-historical-full-local.json",
+      "rawSha256": "9a4971de6fae31c11f6dd7c5f45eef2af08466fc7a0ff45d9ac152a549c35f8c",
+      "rawBytes": 28474,
+      "member": "blobs/9a4971de6fae31c11f6dd7c5f45eef2af08466fc7a0ff45d9ac152a549c35f8c.gz",
+      "gzipBytes": 2084,
+      "gzipSha256": "39af80babbc8961ba13b0badd337ba0a3b077453b244198f61c3c5c7d7e74000"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/root-review.json",
+      "rawSha256": "6dffe7fb8edb29d3fb882b83deef32182c1165b70173f93ae220399c6893ddee",
+      "rawBytes": 380,
+      "member": "blobs/6dffe7fb8edb29d3fb882b83deef32182c1165b70173f93ae220399c6893ddee.gz",
+      "gzipBytes": 294,
+      "gzipSha256": "f3e672d72d9a2f4c14b222bed622c5aaa58708ab9b0fd55e67a00678a9f8efe7"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/scope.json",
+      "rawSha256": "f66bb51b9968dab48f8a7fa5d49c718560ec67a8107610e1bb8b1dac65e0bfb7",
+      "rawBytes": 1665,
+      "member": "blobs/f66bb51b9968dab48f8a7fa5d49c718560ec67a8107610e1bb8b1dac65e0bfb7.gz",
+      "gzipBytes": 906,
+      "gzipSha256": "45d7777923217681f7044150233ea90f095362efbab53af6d525a2e4a03b8514"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/verify-coverage.py",
+      "rawSha256": "1e4114f8904abc793d952b34f78b3774ca3834cf02d961beab0d72c2c4515f71",
+      "rawBytes": 6003,
+      "member": "blobs/1e4114f8904abc793d952b34f78b3774ca3834cf02d961beab0d72c2c4515f71.gz",
+      "gzipBytes": 2132,
+      "gzipSha256": "62bc718fc6ec8dc5df479ab9d799b3b5415450710996ea7ff491b448f590adb8"
+    },
+    {
+      "source": "output/m4-notice-delivery-coverage-20261117-r1/verify-darkgarden-source.py",
+      "rawSha256": "064ec24be4060f491e07bd5405cbd26bcc287cf7a7f90806c510c4b47fb815c9",
+      "rawBytes": 3218,
+      "member": "blobs/064ec24be4060f491e07bd5405cbd26bcc287cf7a7f90806c510c4b47fb815c9.gz",
+      "gzipBytes": 1525,
+      "gzipSha256": "6958049ef126f79ca8ebd5f1d7372e25312ecaa135af652ae609683f7650a803"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/contract.json",
+      "rawSha256": "bebdadea4dc5b41352a664b371f6da2b85210c03e2eee78182261269310ae030",
+      "rawBytes": 52054,
+      "member": "blobs/bebdadea4dc5b41352a664b371f6da2b85210c03e2eee78182261269310ae030.gz",
+      "gzipBytes": 10053,
+      "gzipSha256": "eb3a1629c49e708281956b2f13c6ea9f361d3a0adf75cf0cc20d31333b06f59a"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/outer-job-receipt.json",
+      "rawSha256": "db05801475ae734368eb600f04b7f569a361ac771bcea64d3f3bde1f559881f2",
+      "rawBytes": 815,
+      "member": "blobs/db05801475ae734368eb600f04b7f569a361ac771bcea64d3f3bde1f559881f2.gz",
+      "gzipBytes": 306,
+      "gzipSha256": "24f22669c3c769f6f44c697ebd5d79a59e86e3b6bd9fb620c68ea06cd80d5aa6"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/receipt.json",
+      "rawSha256": "601e35d24d01303692ed023a59fc6e0788a82962558fba98c2fd8280dc0ec400",
+      "rawBytes": 853,
+      "member": "blobs/601e35d24d01303692ed023a59fc6e0788a82962558fba98c2fd8280dc0ec400.gz",
+      "gzipBytes": 435,
+      "gzipSha256": "7f6559f6f5db8047e5ad261d49932f430db9b912c533f0d4494eca824aee73bc"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/root-preflight-unit.log",
+      "rawSha256": "6bcb18d628eaf171a5a6e429652fd969d8d34c425ae5df23a0a8776b07e9745c",
+      "rawBytes": 1445,
+      "member": "blobs/6bcb18d628eaf171a5a6e429652fd969d8d34c425ae5df23a0a8776b07e9745c.gz",
+      "gzipBytes": 729,
+      "gzipSha256": "422c9e2e416487e8cb94226a756c984c45e5320d292f566b8433c082d55d4da8"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/root-preflight.json",
+      "rawSha256": "63bcbf2ddab0de360ece13b79b36511e739839838df26a098f7db9bd3b88f2ee",
+      "rawBytes": 1819,
+      "member": "blobs/63bcbf2ddab0de360ece13b79b36511e739839838df26a098f7db9bd3b88f2ee.gz",
+      "gzipBytes": 1021,
+      "gzipSha256": "762e415a04a39ad171dbb387a92fa5a8689360e24024e55d7cd57a1479ec785b"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/root-review.json",
+      "rawSha256": "8ba2086a03ad183149a246d8dd20d8fdb0ee7fc9b0abc676d3ddb38ee304673d",
+      "rawBytes": 65347,
+      "member": "blobs/8ba2086a03ad183149a246d8dd20d8fdb0ee7fc9b0abc676d3ddb38ee304673d.gz",
+      "gzipBytes": 11188,
+      "gzipSha256": "59b651a244bf8ec69a2bd57b2ae43263a7b48ccc99cc25040487da1512eaba0c"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-directory-capability-research-v5.cjs",
+      "rawSha256": "08e9873dc5432c8bf2a882494cdbea606f4911770261609e9a7108739a0acb99",
+      "rawBytes": 8154,
+      "member": "blobs/08e9873dc5432c8bf2a882494cdbea606f4911770261609e9a7108739a0acb99.gz",
+      "gzipBytes": 2540,
+      "gzipSha256": "824675954448607fc38780ec5612eeb02c2ac6f472ab237de5d38200c3018ebf"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-directory-capability-research-v5.test.cjs",
+      "rawSha256": "b5895ce8a2c7b344da2aa8a59a2f34390d78ffc9386a76388539b97570c805c2",
+      "rawBytes": 6826,
+      "member": "blobs/b5895ce8a2c7b344da2aa8a59a2f34390d78ffc9386a76388539b97570c805c2.gz",
+      "gzipBytes": 1962,
+      "gzipSha256": "3b6b07aeae4aa351cb201c5b8bca7273861435b09e383eee51c3971c33ebe92f"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-native-primitive-controller-v6.cjs",
+      "rawSha256": "128505427de947b00c559907e9f46faaccc705c6a3eabb4e3d829519feebc11f",
+      "rawBytes": 10418,
+      "member": "blobs/128505427de947b00c559907e9f46faaccc705c6a3eabb4e3d829519feebc11f.gz",
+      "gzipBytes": 3379,
+      "gzipSha256": "c37d0c5be3a7c1e256de843e331b144d02d67e34bf68e3db940fa714bc2a27c5"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-native-primitive-keeper.ps1",
+      "rawSha256": "eea912d202e6d67a91abe3ec5c0b14036e6a8476229bb44e0d1c282604ea47cd",
+      "rawBytes": 9683,
+      "member": "blobs/eea912d202e6d67a91abe3ec5c0b14036e6a8476229bb44e0d1c282604ea47cd.gz",
+      "gzipBytes": 3063,
+      "gzipSha256": "1fdbeb3b2bf7774e0c52f106cea3b5f1f9f4aebedae8f4827c629c2ba7e61ef7"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-native-research-v3.cjs",
+      "rawSha256": "0ab433538b16ff12565b5fac190a7f03ff7365eec58b97b0bc9f8444b16a5628",
+      "rawBytes": 1486,
+      "member": "blobs/0ab433538b16ff12565b5fac190a7f03ff7365eec58b97b0bc9f8444b16a5628.gz",
+      "gzipBytes": 605,
+      "gzipSha256": "0114895a75d814ff4c036086bea62c639f2c2fedb5b7dfd2be0f22022b568ee7"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-native-research-v3.csfrag",
+      "rawSha256": "503ba6efc037f773d619bf2252931067f3fdfa55750317d529eeed5ab38abe04",
+      "rawBytes": 11187,
+      "member": "blobs/503ba6efc037f773d619bf2252931067f3fdfa55750317d529eeed5ab38abe04.gz",
+      "gzipBytes": 3124,
+      "gzipSha256": "1c2c1fbba8b7fb15357c9471a3ae4b8ccb81e4f6c8c397101b9d3412584823c7"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/owned-candidate-native-research-v3.test.cjs",
+      "rawSha256": "8fd791f736ded4b8244454b7c7bcf2c21082f16a05349f986ce5463d768e606f",
+      "rawBytes": 1883,
+      "member": "blobs/8fd791f736ded4b8244454b7c7bcf2c21082f16a05349f986ce5463d768e606f.gz",
+      "gzipBytes": 873,
+      "gzipSha256": "c33ce6e33dd58a982de5c33d8decd09348680f4c3d6423db7fbeb28d71238758"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/release-checks.js",
+      "rawSha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172",
+      "rawBytes": 2826,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0106.gz",
+        "gzipBytes": 1364,
+        "gzipSha256": "9485ea6172cbc92db1f2274f745286f9669bb90551b15e462673414f12adbb07"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/research/work-data-owned-restore-unknown.cjs",
+      "rawSha256": "5eb36130062ddb101df14777c5eeae628e139b5d943c9feed6d693bb4d7ceb29",
+      "rawBytes": 1696,
+      "member": "blobs/5eb36130062ddb101df14777c5eeae628e139b5d943c9feed6d693bb4d7ceb29.gz",
+      "gzipBytes": 768,
+      "gzipSha256": "9c52b3a80c91e6c5f15acadc3904f3fb6d8f93851782ef093c884e5c333ecefc"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/build.js",
+      "rawSha256": "37cac5c3933f2bc642966ec9d426b7517cfdc00d666d321f1e30193a97b6bc7b",
+      "rawBytes": 7433,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0172.gz",
+        "gzipBytes": 3449,
+        "gzipSha256": "867716ea955735d4fb58a82c21ba426842264674581d0b6cee59ea243f796047"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/server.js",
+      "rawSha256": "84b5262157c84b60abc3c6b8d34e771fb2c6cbb5999797c374d73c1b1b9bbca4",
+      "rawBytes": 9069630,
+      "member": "blobs/84b5262157c84b60abc3c6b8d34e771fb2c6cbb5999797c374d73c1b1b9bbca4.gz",
+      "gzipBytes": 2924237,
+      "gzipSha256": "023ec28ebf73e18165a8655623963945da0c4e5c2d8387ca692897a087a2bd38"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/00-boot.js",
+      "rawSha256": "720c7a756ee55017a88e3fbedf1bb9b2513a37b7e42ec270f9867a8a485ffdd4",
+      "rawBytes": 108527,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0174.gz",
+        "gzipBytes": 42415,
+        "gzipSha256": "3599740578eef05fd7790cd8feadcd1315e0bc4e1a92ac0bf580b0e6e7d329a3"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/00b-ruyi-names.js",
+      "rawSha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+      "rawBytes": 1282,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0175.gz",
+        "gzipBytes": 862,
+        "gzipSha256": "60aaa320f95d77d13976420e447d509e9e5aaf8e792ba33b03c6ef5ed8032b91"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01-config.js",
+      "rawSha256": "26d71c0317183972f1d2d10d5ad869e786d4855b6dac8730b018b38be586e58f",
+      "rawBytes": 294040,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0176.gz",
+        "gzipBytes": 108362,
+        "gzipSha256": "f225453e88df5a592fbca21a547a0d8488cf16681144faa9633e7cdfcad1ed7a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01aa-work-data-tree.js",
+      "rawSha256": "b69510863256d445eb80a67be03fd2c89de77c808693d4e7aba8b25ff4f8da60",
+      "rawBytes": 30747,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0177.gz",
+        "gzipBytes": 8231,
+        "gzipSha256": "a948adbfc8f1709f2f06f9a085aa86a68118887a71fda72ff784bb8775cd0d12"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "rawSha256": "821720925d02256a5e6138a41aedf0ce1b059f3b0710e04046f0033255ceb183",
+      "rawBytes": 45815,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0178.gz",
+        "gzipBytes": 12890,
+        "gzipSha256": "af13936f5ad95cb0b6817a7c2be5d05549f3fd0a04e1e1dad1e3270965b5c9bf"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ad-work-data-migration-host.js",
+      "rawSha256": "ef7ce43603286b0682f15e449f7bdfa41b878879df2300850cdc50688283b8ab",
+      "rawBytes": 53869,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0179.gz",
+        "gzipBytes": 13537,
+        "gzipSha256": "5d86b8f4b7b7abb8269a3ee3282411601c448914e385da8f0b79282c17f460a1"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ae-work-data-maintenance-result.js",
+      "rawSha256": "579a9459e0b1e0c619f828577cd1fc2fdf8c32e99e5f276b5915a97e61effed5",
+      "rawBytes": 12315,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0180.gz",
+        "gzipBytes": 3881,
+        "gzipSha256": "b7427114b5ff3cbf2d1e273106be0da2dcb64870763afac09c17ddaafb72ab8e"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01af-work-data-attachment-chunks.js",
+      "rawSha256": "9c38e5df0a9e8ea09691de049807a6a205ff7bad29c101eff8e847d0f8229f3f",
+      "rawBytes": 10076,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0181.gz",
+        "gzipBytes": 3540,
+        "gzipSha256": "c6674bfec47612999acb74054de9a052e159036323dc609837b0ba76d0e05ebc"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ag-work-data-attachment-reader.js",
+      "rawSha256": "c39386384731d9d5f99bad50478f141ed40f7a7c1e9ff42ad5c178f02bd3d346",
+      "rawBytes": 15192,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0182.gz",
+        "gzipBytes": 4236,
+        "gzipSha256": "b588c5241299d766ca0da6fa2051dbd228fbeb19e1c6b21e2489ef9aaf187fe0"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ah-work-data-attachment-catalog.js",
+      "rawSha256": "adac5b0f706d4a49377d250125f106b81bfb582347684b39c3ae3c27ea1fae13",
+      "rawBytes": 8325,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0183.gz",
+        "gzipBytes": 2656,
+        "gzipSha256": "a28977d29eb891c74e5ce33ed5009c4bef7a7ec3970dc1fcf43e8fb37a7a0581"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ai-work-data-attachment-store.js",
+      "rawSha256": "f5ee9769a75e7491788b987130f42848712764b43ccf64835c319461f9374074",
+      "rawBytes": 4573,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0184.gz",
+        "gzipBytes": 1680,
+        "gzipSha256": "215b02da6bc471fedc0d703b5873e8dd409cb00014bb130bfb129a5d5362691c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01aj-work-data-attachment-catalogs.js",
+      "rawSha256": "c1dcffd161d45e41c6148b8b3650cf051de4acc8ea5c996d815ea2a7d5c29c85",
+      "rawBytes": 3369,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0185.gz",
+        "gzipBytes": 1162,
+        "gzipSha256": "02cb370c9fe1e3f0d85d6e8ff7ba9601b7678496e6039312b5ea308bc0f07ada"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01ak-work-data-attachment-runtime.js",
+      "rawSha256": "2ae31a11cfd9a5e58662b04350c3db86f2a6b12afdd011129f0e83a259a4d992",
+      "rawBytes": 6975,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0186.gz",
+        "gzipBytes": 2404,
+        "gzipSha256": "5511280aae051eda31865eca5ad276eb69444a1451ee644df1a7ba14c48e16c0"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01al-work-data-uploads-owner.js",
+      "rawSha256": "bd0e652ee441bb748ea9c64b6627ffce5366a4bbdc5dbf9acb9474b0bd75e8fb",
+      "rawBytes": 10524,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0187.gz",
+        "gzipBytes": 2925,
+        "gzipSha256": "106df1ea3c8cf68df528c5a21209ec4e5ad235ad0271684895986ddd3e30687c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01b-route-auth.js",
+      "rawSha256": "c587587d7f3fbc37925682c221d5b5bba27812991418d28c3bd47577b93031d5",
+      "rawBytes": 20308,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0188.gz",
+        "gzipBytes": 6309,
+        "gzipSha256": "179edeed155d0da6471433a644acdf7b67e77e4ed1b1b79869a64025d8f44c52"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01c-runtime-flags.js",
+      "rawSha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+      "rawBytes": 11739,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0189.gz",
+        "gzipBytes": 4431,
+        "gzipSha256": "3cc609f39576ccdd8ca487d664638e1de2aafc75cab2b879b1cfc13895ef8f34"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01d-win-cmdline.js",
+      "rawSha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8",
+      "rawBytes": 7852,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0190.gz",
+        "gzipBytes": 4267,
+        "gzipSha256": "995ec4a24e81f2e6e2a4c0cd2c3e3aa7becd1914da2a6014191e07bd1c50b8f6"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01e-permission-modes.js",
+      "rawSha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+      "rawBytes": 17867,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0191.gz",
+        "gzipBytes": 7410,
+        "gzipSha256": "5537f97460add170e63abe938fc5e6a13599503aaaa92671f1e31d346ccffb7f"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "rawSha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0",
+      "rawBytes": 5030,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0192.gz",
+        "gzipBytes": 2740,
+        "gzipSha256": "0a1306fbca4708258cf28e83be1fd123ff5ee32b2aa8e998dd0d5229768bcb77"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01g-server-ownership.js",
+      "rawSha256": "dda467aad735b29397d48ebd50c96dd074e444bef7992cbdeda208506a8d3a09",
+      "rawBytes": 13398,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0193.gz",
+        "gzipBytes": 4435,
+        "gzipSha256": "971e30c727be39a2e55f3dcfac1270fe227d43d679d678d4b8b4cca26426da2f"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01h-privacy-core.js",
+      "rawSha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+      "rawBytes": 48184,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0194.gz",
+        "gzipBytes": 14087,
+        "gzipSha256": "125c0dad561130691bd15190621c6456cb7246c6d0974e1c2bd643c8628fb93f"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01i-privacy-rules.js",
+      "rawSha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+      "rawBytes": 26429,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0195.gz",
+        "gzipBytes": 8869,
+        "gzipSha256": "d638dfab9dcc2c69965133238b70aba6b92e472036b760a9e0a1a502cf7db0a8"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01j-local-crypto.js",
+      "rawSha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80",
+      "rawBytes": 6489,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0196.gz",
+        "gzipBytes": 2495,
+        "gzipSha256": "9f69b9e0444484cf5ccb1e2a3e053311b794fe86f22f927134cd40a541501788"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01k-credential-vault.js",
+      "rawSha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72",
+      "rawBytes": 26857,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0197.gz",
+        "gzipBytes": 6915,
+        "gzipSha256": "615f63d4725cd1edc0be3b258dc91da12c19c41776d3173c04f448ef5d309c52"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01l-credential-recovery.js",
+      "rawSha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419",
+      "rawBytes": 9234,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0198.gz",
+        "gzipBytes": 3623,
+        "gzipSha256": "2a7ffe08353d179695fae6e14be607392f98527c1012e74b90cf6b70e34df834"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01m-privacy-regex.js",
+      "rawSha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+      "rawBytes": 5889,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0199.gz",
+        "gzipBytes": 2038,
+        "gzipSha256": "d303bb5dffbfc162fcd14028a43a4580b647ea04c4cc71d1b201a5b70459af66"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "rawSha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+      "rawBytes": 5751,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0200.gz",
+        "gzipBytes": 2179,
+        "gzipSha256": "e47eb3bde15a1cc5ce9d8d95cdbb6049aedcf8b7e1d7c8c2d3cf5bebcd36f6cc"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01o-work-data-keys.js",
+      "rawSha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424",
+      "rawBytes": 9404,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0201.gz",
+        "gzipBytes": 2884,
+        "gzipSha256": "f879f2d4192bc54ade1bb4967372a22de19ac5af978bef6616221c36cb53e4c6"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01p-work-data-store.js",
+      "rawSha256": "c58d4e0ceaf89f72e168e3622ef8c0fc430283dff2578e20543afdde9a46b3ca",
+      "rawBytes": 42835,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0202.gz",
+        "gzipBytes": 11583,
+        "gzipSha256": "c626173bc7080e35e8f62fd35946418927c8cc2c02d1c5387e968799ac67c582"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01q-work-data-records.js",
+      "rawSha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0",
+      "rawBytes": 12082,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0203.gz",
+        "gzipBytes": 3987,
+        "gzipSha256": "209b67c9883da102c4077a4b3b4d6e5dbfee20e8579f98c084aa0514a81c22c6"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "rawSha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+      "rawBytes": 11594,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0204.gz",
+        "gzipBytes": 3680,
+        "gzipSha256": "d216b7915fd64eeb2f0f7e78eccba35ac994365eb47a4bdcf4d1eada4aff7612"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01s-work-data-journals.js",
+      "rawSha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f",
+      "rawBytes": 22365,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0205.gz",
+        "gzipBytes": 5974,
+        "gzipSha256": "6280bc6b7da34209961b7b6e8a53e9b0e571459658f7637d1226804e5e22fb02"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01t-work-data-recovery.js",
+      "rawSha256": "fafdc1ccda316ccb4170683f912bf2737fd9a3ac61c2b86665fb7bd78d43aa8a",
+      "rawBytes": 20988,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0206.gz",
+        "gzipBytes": 6038,
+        "gzipSha256": "18b02865698ee7dcd3e3d777d5df827893a9924bcab859e8cad629e6c703cef1"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01u-work-data-transition.js",
+      "rawSha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+      "rawBytes": 4494,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0207.gz",
+        "gzipBytes": 1625,
+        "gzipSha256": "fdb9f2a50bf8c6a9d0ca3db25801d1f98abea0a0cd10fb18e94b9c819515201d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01v-work-data-manifest.js",
+      "rawSha256": "058c46ea006a2913940777755aad13c9336d609f876846a0774a6ebccbd789a8",
+      "rawBytes": 11894,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0208.gz",
+        "gzipBytes": 3652,
+        "gzipSha256": "512adc907cfeb03721d5ae98ad53c55b1d0ead3e679111cda65015f6cea4f9b0"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01w-work-data-native-publish.js",
+      "rawSha256": "b1f18f9053bd6499bbb859d99fde28476f77de6c6f70712a8dffdd6a6b5aed31",
+      "rawBytes": 26919,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0209.gz",
+        "gzipBytes": 7445,
+        "gzipSha256": "5f31ce5e507461f41e264db1901875c9628245d9fe468bd9d3949e8f39b9ff51"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+      "rawSha256": "1a204c67870f7327a677052f696e22dcf82b426c44d8acf620ad290be7249c75",
+      "rawBytes": 31489,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0210.gz",
+        "gzipBytes": 8293,
+        "gzipSha256": "8f1f13be69fe23bb84558dd7b3ea2f1af7079807c8ba42518c8f18b4efced05a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/01z-work-data-root-authority.js",
+      "rawSha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1",
+      "rawBytes": 11202,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0211.gz",
+        "gzipBytes": 3387,
+        "gzipSha256": "9fafc80fc7ff6fddb559cddfaf4f7573327884d4ad6208e1df79f6db03c3e64c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/02-session-store.js",
+      "rawSha256": "233c2c11a493a96ad9576bf87c0888bd95f4a722b0503b16af362836d6c01573",
+      "rawBytes": 507123,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0212.gz",
+        "gzipBytes": 176862,
+        "gzipSha256": "827350d25c9488addd642b9d6517c2bb91893586c80586d0d9a558a60ef33c4a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/02c-turn-segments.js",
+      "rawSha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf",
+      "rawBytes": 19644,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0213.gz",
+        "gzipBytes": 7059,
+        "gzipSha256": "12cc223416a4713286132ac6c37a2982b8e0dc397747e24d8b2c4762903b1517"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/02d-session-overrides.js",
+      "rawSha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+      "rawBytes": 5740,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0214.gz",
+        "gzipBytes": 2613,
+        "gzipSha256": "3d72e75e9e82aaa3de702531c52539be9151d54a8d667f7643508026deddc91b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/02e-session-engine-route.js",
+      "rawSha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+      "rawBytes": 3042,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0215.gz",
+        "gzipBytes": 1212,
+        "gzipSha256": "ad8758733a8eb4bc31c0144a5b3ab2126035d4050da60333b40ebac7053de724"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "rawSha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23",
+      "rawBytes": 11897,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0216.gz",
+        "gzipBytes": 5678,
+        "gzipSha256": "e4d17463df0166d8061ad799143136c947b96a46e5f57fa84c1b2042c5955ed4"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/03-bridge-guard.js",
+      "rawSha256": "61f01bdf4553a96e9d396a80125979126c8ffcd1769bfda4ee1c4eb3347402ca",
+      "rawBytes": 126311,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0217.gz",
+        "gzipBytes": 47155,
+        "gzipSha256": "90ff8207ae6f5d74f6ebd98f6ac81c057a9641ea3a54909750b597cf04a69a9c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "rawSha256": "22059423a6b646f027a5dface1a8947f1ecb4c35e81af8c64d79c014c70fe3a3",
+      "rawBytes": 113136,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0218.gz",
+        "gzipBytes": 29460,
+        "gzipSha256": "41a6f4e5e57858858024cfe1c8887d48071337140c0dc2de4aeae696f1e69e1e"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/03b-privacy-local-drive.js",
+      "rawSha256": "ebde94c416a7149b185da3e856e25242b27a03386f7c802bc9db0a9bf63c284b",
+      "rawBytes": 5985,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0219.gz",
+        "gzipBytes": 2254,
+        "gzipSha256": "3a98b0433e9f6c0781bba3c3e04ab4b923c0d4c165ca0c71d3346ac4b37b0bd0"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/03c-model-dispatch-context.js",
+      "rawSha256": "d98aaa12f853ac671409edcc89b9f3fb69d89e42aa959799fd8e1311fd38d29b",
+      "rawBytes": 660,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0220.gz",
+        "gzipBytes": 387,
+        "gzipSha256": "a776749f2b7bcfb907611046cf1b99b64d908987505ef72177f6499f61809896"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04-desktop-shell.js",
+      "rawSha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2",
+      "rawBytes": 37358,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0221.gz",
+        "gzipBytes": 14983,
+        "gzipSha256": "ce653dcd63cadb466f1f89f59c1891c641ed417d4ff6eda632391a735aaf4e28"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04-permission-runtime.js",
+      "rawSha256": "a37d292d04cb632311d5a053158541b9f20ceb0d189f9cc4c723d5b36ab83450",
+      "rawBytes": 227961,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0222.gz",
+        "gzipBytes": 79880,
+        "gzipSha256": "aa3d2c0d07164d048fb8b5b1e084855c33d7d76879a15e22bbc9e1b30b9731eb"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04-visual-pipeline.js",
+      "rawSha256": "639336bee0fba75c3113d2ff4070d9ff3e5f9e53134621383ae1c2f5fe98cb0b",
+      "rawBytes": 15114,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0223.gz",
+        "gzipBytes": 6571,
+        "gzipSha256": "3e4908b6f6d51c7f7fa524a0a9dc636aa6aadf7228a4ec2f7887df86c69dd9dc"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04f-toolbox-services.js",
+      "rawSha256": "ecd1fc70e18dcec845c923da911000146f94273e98321dee0c9d4e16591b352f",
+      "rawBytes": 27325,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0224.gz",
+        "gzipBytes": 10278,
+        "gzipSha256": "ad3cb284c36f07d698485d8277ccd5b6e2b875829322f21d85bc362ff436fa45"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04h-provider-http.js",
+      "rawSha256": "1514fffc620760481e53ca9416cef5bf900ba9536d1bbfaaba0e1e5d3373d073",
+      "rawBytes": 20141,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0225.gz",
+        "gzipBytes": 9251,
+        "gzipSha256": "7cb00536497eee8ac62977140ab0d09bf2d74d1803aefef37a705bca7c24e9b7"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "rawSha256": "bacb95867c4d72d4b2f17b66b63fe65dde927200618a048fd891ff5c2894dea5",
+      "rawBytes": 46110,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0226.gz",
+        "gzipBytes": 15636,
+        "gzipSha256": "193bb202756f47de4f704e74749923256ee8e8a1a71dc87cc751f8c09d6b8ec7"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04i-provider-wire.js",
+      "rawSha256": "507a660de50d0a5e99fd84d0eb49876bcd91166d9f66b8621fc5b92e6594150f",
+      "rawBytes": 52116,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0227.gz",
+        "gzipBytes": 18094,
+        "gzipSha256": "241b8722465ab2a0807f09935d771231e2b7798791a7ca19c65359d7cc48d694"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "rawSha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+      "rawBytes": 53142,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0228.gz",
+        "gzipBytes": 32991,
+        "gzipSha256": "77882c939d5f2a51747949f620822fd8e6c30a4f9c7d250a9138c2a9f8f7ba43"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04j-voice-learn.js",
+      "rawSha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+      "rawBytes": 42013,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0229.gz",
+        "gzipBytes": 15819,
+        "gzipSha256": "544052d4e498eb8b553f4274e1a53c0bd845cd6cb4ef87ede1f4da41699d126f"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "rawSha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+      "rawBytes": 28768,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0230.gz",
+        "gzipBytes": 13754,
+        "gzipSha256": "24bd5c41569119078352ea5189a114d97c36e941d1834c6c9b27a8603355176a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/05-claude-engine.js",
+      "rawSha256": "8d6c031a86e00e72d17760df42e86341a0e8599e0962f86cc8d7025a8dada2fd",
+      "rawBytes": 187431,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0231.gz",
+        "gzipBytes": 68080,
+        "gzipSha256": "f90a3ad1d8201738a4a1fa020a9d59f8b694e8bc1b73c6d5b365484c9a7852b4"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "rawSha256": "dc726820e5d00e905084829c179d53a10ed9ce91d999f9f743e3a3ea6e9123ff",
+      "rawBytes": 174992,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0232.gz",
+        "gzipBytes": 49027,
+        "gzipSha256": "c2e9b1c5f5a750170f778e505b243538c20a62491edeaf154fec11b1c759ec66"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "rawSha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760",
+      "rawBytes": 35743,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0233.gz",
+        "gzipBytes": 8884,
+        "gzipSha256": "23adb02c2ef3c0128825ffb0afec2ae86a0ad186467d9d759b06bb5410fded46"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "rawSha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+      "rawBytes": 10916,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0234.gz",
+        "gzipBytes": 3599,
+        "gzipSha256": "e0b6fff1a1a89256abee6d1954e8df3b1e876bcc2346aa1c0291e0653491c046"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06-provider-engine.js",
+      "rawSha256": "67ec2ba64336972172fbd68f0e2083cd0f4d0f97d2c06438edb97f9053302d4e",
+      "rawBytes": 168041,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0235.gz",
+        "gzipBytes": 64080,
+        "gzipSha256": "8b537b7728996e1b4452be1bc972e7cf3a914701be893563970116710cbaae00"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06b-prompt-registry.js",
+      "rawSha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5",
+      "rawBytes": 123163,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0236.gz",
+        "gzipBytes": 53375,
+        "gzipSha256": "5f21a5b2c2f5f26c1cd1f6160f885410d8bd1263a1cd1b8f7d167321efc112cf"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "rawSha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+      "rawBytes": 7061,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0237.gz",
+        "gzipBytes": 3002,
+        "gzipSha256": "c151494ea5312c2e60135a930ef3fcd3899034c90c9cfc5f29c6b90b33c89470"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06d-memory-domain.js",
+      "rawSha256": "beb52d51b13e5f196a15a22491f2f928730465ac2be8588283c0ec73b78d2545",
+      "rawBytes": 207040,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0238.gz",
+        "gzipBytes": 68625,
+        "gzipSha256": "acbf204e2d6507afdf55144168ca5ce36503d5ea7ecff92ca0c149e456e44b4d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06e-mission-domain.js",
+      "rawSha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+      "rawBytes": 10619,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0239.gz",
+        "gzipBytes": 5021,
+        "gzipSha256": "a13a76ce5947fc52ef6a5c02f7c2fe463fe5d7109221550be379e1efa320a9c1"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "rawSha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+      "rawBytes": 21944,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0240.gz",
+        "gzipBytes": 8941,
+        "gzipSha256": "796c963ca94eb905a5b77a90acdcf2817cae1618c3fb30af3fb5c4ef56c391d0"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06g-resource-leases.js",
+      "rawSha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9",
+      "rawBytes": 18206,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0241.gz",
+        "gzipBytes": 7296,
+        "gzipSha256": "76b169dbc4abecfc072253fc6b32e8d299693487e11b4384aa30e42231f6295b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06h-retrieval-index.js",
+      "rawSha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+      "rawBytes": 14952,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0242.gz",
+        "gzipBytes": 6247,
+        "gzipSha256": "0b80c0eb85983dac150ded3922e89ea38641584aa12a499e97d1ebd33a7cd266"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06h9-semantic-policy.js",
+      "rawSha256": "395ac6a14725ad1d39032488115f3bdc8a3c1c90317dfa918ecaa8556a95afef",
+      "rawBytes": 32356,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0332.gz",
+        "gzipBytes": 9778,
+        "gzipSha256": "befe98b85129bc571de0abc395282cb940b386dd90230b1dccfa72ac9e9c0927"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "rawSha256": "bad17170389555cd63252a21ba2b2a7d66dd6c129e2fb6b059e1e82545cf4303",
+      "rawBytes": 15781,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0333.gz",
+        "gzipBytes": 5092,
+        "gzipSha256": "f2f72e398ebf0f68da4ea440672ef2e3977167676f2abfc370758a5863258e9d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06hb-semantic-runtime.js",
+      "rawSha256": "6a2105f4dba0924197a216dec1fc4d43a9eb65f116696894e68c57282b32917a",
+      "rawBytes": 30508,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0334.gz",
+        "gzipBytes": 8483,
+        "gzipSha256": "b5803598144435758c18019c8418de87c2c10ec98e90489b70fd3d3d0cd65265"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06hc-memory-semantic.js",
+      "rawSha256": "3914d13f84a68c971eea8c06603fec955fd5527eba6793940fe4117793883e21",
+      "rawBytes": 12118,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0243.gz",
+        "gzipBytes": 3714,
+        "gzipSha256": "3b6e9f2975309b9ba8171bc4a1198c31a618382d7bad118b6cc3d82b628c7fb8"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06i-steward-core.js",
+      "rawSha256": "fe6d5fd9ba4f6c128ab74ff1f956a858536fd3c28372086c7ab1335616ea5628",
+      "rawBytes": 193451,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0244.gz",
+        "gzipBytes": 76395,
+        "gzipSha256": "162d2fa846806faef7abd416ddf25f0bb8fbe6adce2f8605954b26c155538ac3"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06j-scheduler-core.js",
+      "rawSha256": "4baa5b4df259155da8c955f98383541c1a2f67e07539f7445f45b84f1eb2cfe8",
+      "rawBytes": 43987,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0245.gz",
+        "gzipBytes": 15969,
+        "gzipSha256": "2633f3d00aed0b2657dbf6e8be54c9305121d902d1cb9cd0269d07706faac356"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/06k-config-patch.js",
+      "rawSha256": "7f7fd56526ed143216076a05afce68afd5c68df359f7db546e1c61e37e86cd1c",
+      "rawBytes": 18148,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0246.gz",
+        "gzipBytes": 8207,
+        "gzipSha256": "b4064390449a19f120cb0b80141b05b27c5a8bcf5c116748a4217bba91bc3934"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/07-autonomy.js",
+      "rawSha256": "5ddac0141bbbc73b76e6223b61bd6814c6661b4c300ab07dae2682de420b1124",
+      "rawBytes": 236552,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0247.gz",
+        "gzipBytes": 91016,
+        "gzipSha256": "cec8cd3394bd9b507c76b3a3791842e727006defb3a33063246136c96240e5c7"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/08-agent-runs.js",
+      "rawSha256": "06b6a7535dbd5ecf20c80352761d3a24401b34f3a5aea1a3a56e66753cd17e72",
+      "rawBytes": 256564,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0248.gz",
+        "gzipBytes": 91306,
+        "gzipSha256": "b3fb251495146840856418267dc68f3bd9d0a0d08d5c347804ad195cc30e4148"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/09-workflow.js",
+      "rawSha256": "041cf8481210a40d4ad529cf7e656e2552e867feb21826192b8a87a9a392259a",
+      "rawBytes": 372071,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0249.gz",
+        "gzipBytes": 132122,
+        "gzipSha256": "9f0d7001e628033d5ee2f65f54efa587f3f66b5d763ad4cf6de567d3c6e2f479"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/09b-replan-ledger.js",
+      "rawSha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+      "rawBytes": 12031,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0250.gz",
+        "gzipBytes": 4808,
+        "gzipSha256": "b3303b0c7a3fb8bac1b4cc756f06fe9c508cca5a46012762408310d98a4c53f1"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/09c-thread-relay.js",
+      "rawSha256": "ac8c8fbd5f9c19b72a148a521eda956631c5aa9d14ffb8a10e90a68b54175d94",
+      "rawBytes": 35002,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0251.gz",
+        "gzipBytes": 9203,
+        "gzipSha256": "9a8747fa635e20f9f93a6ced3c55aacc706e93e3615c31e190dff0e3ac336a9b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/09d-token-estimation.js",
+      "rawSha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+      "rawBytes": 17595,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0252.gz",
+        "gzipBytes": 8226,
+        "gzipSha256": "cf3066902b1012b6504078e3154d07c3a98537e573e9aa6581287d3eb3118707"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/10-context-governance.js",
+      "rawSha256": "baa61de2b7fd6a67db421a2b378efbcd0a26649779ee37d5b2c3cad7afd04c04",
+      "rawBytes": 377613,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0253.gz",
+        "gzipBytes": 130543,
+        "gzipSha256": "485b28207bad6000f49a9238680d2bb5a699a35255b5de3de1e9da7b512d420a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/11-native-tools.js",
+      "rawSha256": "5798d0e52cb113c2db9383d957d676899a90c558ae3bf8cee1ad124216b3bc98",
+      "rawBytes": 398588,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0254.gz",
+        "gzipBytes": 144831,
+        "gzipSha256": "752bc6a7217c14842b0a7335037a44847b3b2680cad56576a36b2c90c3e510c2"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/11b-file-text-io.js",
+      "rawSha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a",
+      "rawBytes": 37345,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0255.gz",
+        "gzipBytes": 13237,
+        "gzipSha256": "5ab84177b04792ffadd8f630253c488a0ea0aa8d5c08f2f574fbffa5466d6285"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/11c-file-visual-io.js",
+      "rawSha256": "95f14045a622c740c6ba3975dad54d50891e470a8e932826f250bbe64b9e7aa3",
+      "rawBytes": 13273,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0256.gz",
+        "gzipBytes": 5334,
+        "gzipSha256": "845e0d92b8a3e986d55dbe0942bae679cca84d423ba882e0f7ec13910553f1f3"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/11d-media-inspection.js",
+      "rawSha256": "67e65e7002688a05460c9b3c3ceb6aac78032417fcc79052a5a7ea19dde15343",
+      "rawBytes": 20913,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0257.gz",
+        "gzipBytes": 7621,
+        "gzipSha256": "affcfbae9c56fa0139456b23ab58e6c582fc493ec3ef1e4f98c88e1c9a880646"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/12-tool-dispatch.js",
+      "rawSha256": "5afc45a588961edf1479f026f75907e170a7fa25832fc68e0297d1f6be5ccd4e",
+      "rawBytes": 328237,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0258.gz",
+        "gzipBytes": 109459,
+        "gzipSha256": "d4160d31d6777988aa87dcbc95e60a8c8aa6494c7cce13949241071b3cdee8d4"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13-http-router.js",
+      "rawSha256": "01ee670fea11c9ff47b499035e9d9f6d820d2ede744830ff502216f75ea6cfe9",
+      "rawBytes": 202566,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0335.gz",
+        "gzipBytes": 72280,
+        "gzipSha256": "08873068e94d84a377acea5e68c61e95b26e4aef67b004c634f69c82cc0fea7d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "rawSha256": "9250168aec95a1a1ef80428d83d0ed3812cb4481c7879e4b1c276b87f51331f1",
+      "rawBytes": 15634,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0259.gz",
+        "gzipBytes": 5502,
+        "gzipSha256": "731a0c4e878db85e147a48f76108428530d7e522142ca04ce1c8746fc1fed538"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ab-privacy-api.js",
+      "rawSha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4",
+      "rawBytes": 38307,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0260.gz",
+        "gzipBytes": 10381,
+        "gzipSha256": "2b61a39346dc49d11fd29529f4b3297ad9451c1d0f2d3a184b3640c1e52e9bab"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ac-mcp-consumer.js",
+      "rawSha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a",
+      "rawBytes": 47305,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0261.gz",
+        "gzipBytes": 12904,
+        "gzipSha256": "f68eb4e5d475a9530c603920c9d49db9a5026742e5713a5cae80f06e346c9b14"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "rawSha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0",
+      "rawBytes": 16689,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0262.gz",
+        "gzipBytes": 5087,
+        "gzipSha256": "40c76d6b518ce95c18c527892300a3c58dda1d410bc0ba78920902e058805763"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ae-cli-business-services.js",
+      "rawSha256": "bb782375626acb0cd5459794da8a74dd7922bbf87920af8ed03fecb7c96910a6",
+      "rawBytes": 37446,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0263.gz",
+        "gzipBytes": 13129,
+        "gzipSha256": "4077de9cc0990ac6df4d894d41f62bec0050cca96abafbaccf3d62937e3b32e8"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13af-internal-mcp-relay.js",
+      "rawSha256": "f1e9424d4242ac9cc6603607575d0d6641568d039a4579d3bcfa611eb53d42ea",
+      "rawBytes": 26054,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0264.gz",
+        "gzipBytes": 8662,
+        "gzipSha256": "31fda993837c6d2b903bed1cdbeccda04d0c6f7c04ce84061819f8131b0dcf16"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+      "rawSha256": "682de965dda06d37625d667fde8dba35110e5964bce7b71b77b1efe3d6489a24",
+      "rawBytes": 19083,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0265.gz",
+        "gzipBytes": 5457,
+        "gzipSha256": "967889a764d804f338658880ed096678ade0bfe8e5af3cd57139989bde6e0b8e"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "rawSha256": "c9ac18212aed5f1da1c20fbe7af440ad1ff97ab7bd64e3c4d87dfd283246b5c9",
+      "rawBytes": 30227,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0266.gz",
+        "gzipBytes": 8981,
+        "gzipSha256": "29b4d050fa88c3c8215f8819428610617c16875e047be87f4f8c0bf1754170fa"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "rawSha256": "f8d20ac66714481c9dc837fcd418ccd839a8900ced81f344ae675591a4034171",
+      "rawBytes": 28546,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0267.gz",
+        "gzipBytes": 8383,
+        "gzipSha256": "ea9a8761f931e2ae4d49f6d05b769fae2daf7294f6f150ecc73929229cd5418c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13aj-work-data-control.js",
+      "rawSha256": "90072a42519f653771769bb98865b25ba4f98b1f1725d6a1023c37273a96bffc",
+      "rawBytes": 32065,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0268.gz",
+        "gzipBytes": 8073,
+        "gzipSha256": "7af43e0efe98d36d467ffc118648ffbc67688b0ab04273e90b764956f6d1b407"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "rawSha256": "44eebfffa9cd98b07d91c5cd1b78ebd267d8660884cbd20f64945ef02d6db2b5",
+      "rawBytes": 37068,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0269.gz",
+        "gzipBytes": 10190,
+        "gzipSha256": "68ba5c81b5efe050ccf1fe0b9916ee98dd99f8fbf35a4eb162ee9d2ff8e015c5"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13al-work-data-maintenance-http.js",
+      "rawSha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+      "rawBytes": 7779,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0270.gz",
+        "gzipBytes": 2762,
+        "gzipSha256": "e580276b1db512b523826749cb3d345ddb7e1db8624c31a1252baeff2cd1e92a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "rawSha256": "00b7acdf0f5156ad9941e63e54ca000b92b972b5eda5dbd70625fd09161e7041",
+      "rawBytes": 46468,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0271.gz",
+        "gzipBytes": 12631,
+        "gzipSha256": "1d31d6e96963d4c38ac69eb5662ac603fb2601329305e16fe37ed4e31f1ceb04"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13an-work-data-disposable-tree.js",
+      "rawSha256": "d12fda0cb7853a831392dcff3da3b75d4ec233ae0c0756314069c3fbabc071eb",
+      "rawBytes": 3011,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0272.gz",
+        "gzipBytes": 1254,
+        "gzipSha256": "cc4601b7105e8e97765a66a3e67acfc745c1ed5e0677f03add254c888c7d03c5"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ap-session-fulltext-index.js",
+      "rawSha256": "4357f3258e8c555a19a5c0fb2ddef4d05d6a1d0515fd115832f77bbe9d4ec252",
+      "rawBytes": 84794,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0273.gz",
+        "gzipBytes": 22486,
+        "gzipSha256": "1cf85b23b649686d3c9f8c0892834ec6f4f8305fc02e02cdb01d3ea80378b3e2"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "rawSha256": "714a64a5fdef49d363790563b756fa1585b9d814152d25ad3c6667c7e3f2aa75",
+      "rawBytes": 57984,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0274.gz",
+        "gzipBytes": 14892,
+        "gzipSha256": "13470e0772907de2efbd0a6b03f0a58908107eeffa417ba960186f35a69dc664"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ar-work-data-verifier-entry.js",
+      "rawSha256": "e2dd690f9ff07da29c6be85f91a2de28f78a1f7b9b44f452f685d70d146c2955",
+      "rawBytes": 2648,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0275.gz",
+        "gzipBytes": 1047,
+        "gzipSha256": "23d98589d70e10e5e1db6fe240ffc737340c6a1cf6e996244550a6ef2e7b7968"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13as-session-fulltext-consumers.js",
+      "rawSha256": "836ef01bdb9737a7338981bac38d62f3108f23f31a39e501329a54855d574d98",
+      "rawBytes": 28577,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0276.gz",
+        "gzipBytes": 8206,
+        "gzipSha256": "380cc972c41b7aaab1ca8e7d898af6cfda146a89ddf980f6919464c718850515"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13at-work-data-restore-uploads.js",
+      "rawSha256": "8f411b63b3656200f78a3013e2790a2c283f06da4fc310695a31634277e76c54",
+      "rawBytes": 9607,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0277.gz",
+        "gzipBytes": 3239,
+        "gzipSha256": "021b3d79c7e1b847d37382239b588fbe8dbf5bca38c76c8a82879fbc8b55ae2d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "rawSha256": "530ae7f6f1bf9af3c190f3aab355bdbc254caa85b82a23197992011c7fc5677a",
+      "rawBytes": 87865,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0278.gz",
+        "gzipBytes": 22335,
+        "gzipSha256": "a30cd969bd7b22fe98d6d59f630b0220a3e486287c1fb6d20a2267e1e0a5dc08"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "rawSha256": "a7007b1337aeef097743bce6b5ec09eeff9867fbe464ae93a5f67e63be884b43",
+      "rawBytes": 31432,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0279.gz",
+        "gzipBytes": 6872,
+        "gzipSha256": "fd8a4719096085d553726030f3d27667839b8f7f1b3d65b70906571265fb5dcf"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13aw-work-data-root-preference.js",
+      "rawSha256": "8bc7d82aa814723d08399911e034e4c382fa8c3972f74e526c2b9082fba1fc5b",
+      "rawBytes": 15212,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0280.gz",
+        "gzipBytes": 4449,
+        "gzipSha256": "f89b8a908f78ee39499b64247067b2e3762935b32e70b7cad4d08809ac4b39cf"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+      "rawSha256": "902130d45e462f206222e75dce4c75e0f793be2870b961160e1669cd8eaa43f1",
+      "rawBytes": 14558,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0281.gz",
+        "gzipBytes": 4587,
+        "gzipSha256": "29134a66cc53af61f6d028982a5a99cf8d0f54185cb196e084f8628cec678e15"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ax-work-data-attachment-upload.js",
+      "rawSha256": "30e9532c4d67fadb79eb05ce9794c72994f48153def6bfc221de35b28de3c42f",
+      "rawBytes": 4288,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0282.gz",
+        "gzipBytes": 1590,
+        "gzipSha256": "55f02b2f299b7c234b31aa53a1fc29d39631c22c2f220b6e8569a698805a0e47"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "rawSha256": "145efa8b3ef41d377e6e31ca8020807a39f683782e805c961ddcf80e15361cc4",
+      "rawBytes": 79098,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0283.gz",
+        "gzipBytes": 26867,
+        "gzipSha256": "2ec9acad0730c81c4d17d77f762b297f6e0400316545e9f5664a06c966aebf7f"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13ba-media-image-contract.js",
+      "rawSha256": "176363b156bcf832ed56e374e4caae3dcc7a63e7ecfc22aeffe82aa1c0b3e68f",
+      "rawBytes": 25918,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0284.gz",
+        "gzipBytes": 7554,
+        "gzipSha256": "7eb1f87f1df8994b5b1d1bf440f19938dc8a28c0c3e60e4cd3aa8f2e6bbb1a5a"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13bb-media-derived-store.js",
+      "rawSha256": "7845016d17dd148ce3200914158d6476d6cb30d2a1bc93210c11af44370c3cc3",
+      "rawBytes": 15343,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0285.gz",
+        "gzipBytes": 4661,
+        "gzipSha256": "80a1b6333cc0a92df0536389482b130f1e5f7d27bf41e4d45f8ddae343c4edc9"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13bc-media-image-processor.js",
+      "rawSha256": "d75995d5ee92b04468afd8a47e0b1029eaf74f280c5ec6795cd17dae892d3c29",
+      "rawBytes": 38682,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0286.gz",
+        "gzipBytes": 12915,
+        "gzipSha256": "bfa601478b44603d73912505e81014e15d1a6c4b66d4ad6070a76409b9034e9b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13bd-media-image-service.js",
+      "rawSha256": "c20cd8f02875a75cbbd1f5a72f577336e257d16b088c462bdbf73562b1f658f9",
+      "rawBytes": 20793,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0287.gz",
+        "gzipBytes": 6784,
+        "gzipSha256": "e9a67c5d192f34f019def3014425dafddc4f0d2f8c6ebcb73513b93abd96a00e"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13be-media-image-host.js",
+      "rawSha256": "f325e62f57b2e1e57ec89aef34635c18563905cf6a89956a35642332bf929a28",
+      "rawBytes": 34806,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0288.gz",
+        "gzipBytes": 11126,
+        "gzipSha256": "f43ea60dcd95f19ce427cfc7668e1915bf86c58f96761ba3390c80e9803ade29"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13c-overlay-routes.js",
+      "rawSha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a",
+      "rawBytes": 13511,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0289.gz",
+        "gzipBytes": 4810,
+        "gzipSha256": "4a790ddd01da255f16c1e0f97360dcff4ba78ebd9a8522ffede59ff8a5137100"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "rawSha256": "c7b61832a7e8076bc816e5aeb462ea8d35dd5339ec9544be76203d9680779d7c",
+      "rawBytes": 185989,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0290.gz",
+        "gzipBytes": 62456,
+        "gzipSha256": "51b593d119eac703a9df83c4a9e9f480bdb8fd929bc955454a0407d7a359ef34"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13e-pretender-index.js",
+      "rawSha256": "3989bd3bac79662a571ee74d3a5cb03b6e4b7a3cef66f322d745f9aceb396967",
+      "rawBytes": 59145,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0291.gz",
+        "gzipBytes": 20583,
+        "gzipSha256": "0382099b282e71da6213e39f4b57adbeca2915322c6901d2b53f0689c8789874"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "rawSha256": "13fb0de0b84d4c22efe127b51455e019b66a6d752aa193fae17970dc6ef3d645",
+      "rawBytes": 151888,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0292.gz",
+        "gzipBytes": 49978,
+        "gzipSha256": "0e8bd91c36ef5c4915185d568ca8de088db16a7b97634bb780f0162561a1fcaf"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13g-steward.js",
+      "rawSha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385",
+      "rawBytes": 35878,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0293.gz",
+        "gzipBytes": 12664,
+        "gzipSha256": "349e7b72dea1628dd0cdcd5b5ee7ef039518d16d13dc5a2c9794fa929cd76007"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13h-steward-runner.js",
+      "rawSha256": "767a0d09a440ffd479894e3e08e574640e14f2b09e7c7f964e65b1fc38622767",
+      "rawBytes": 36092,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0294.gz",
+        "gzipBytes": 13693,
+        "gzipSha256": "2a1006bccbb89ea22a08334433d1fc47ed0f90082a5a3ed30f1f9627d8387223"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13i-steward-inbox.js",
+      "rawSha256": "5d0e55ca4c470fea0f077f72ab91469682109a9f4353c3706fcee4e50b9ae3a8",
+      "rawBytes": 107273,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0295.gz",
+        "gzipBytes": 37291,
+        "gzipSha256": "ae39bc141e11f9cbc589e3134939d3698a94245787f18a33cdb94939047b7c1b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "rawSha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a",
+      "rawBytes": 40769,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0296.gz",
+        "gzipBytes": 16281,
+        "gzipSha256": "c720787663663fdaf3f8ebc77382c7b2fbc4a1378fa2b5f7240ced07efdbc998"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13k-steward-threads.js",
+      "rawSha256": "c228f1635f1e6c6f33ef07291ab511e7d7cfa9669975ee6356a4c67e6eabf1c3",
+      "rawBytes": 139519,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0297.gz",
+        "gzipBytes": 50090,
+        "gzipSha256": "c57e6d25e040dc624a27130f1b35be6e9ecf665ab28bbd31023ef74e2aef7740"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13l-steward-ops.js",
+      "rawSha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e",
+      "rawBytes": 124837,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0298.gz",
+        "gzipBytes": 44351,
+        "gzipSha256": "ea80a062ff50ac1b9daf02a2c6ef7cc6a8d4fd87cc2d33b5e076985a9f73b8a7"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "rawSha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939",
+      "rawBytes": 26677,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0299.gz",
+        "gzipBytes": 11885,
+        "gzipSha256": "67ec57cabe6dc9058c0d4dc3dd96d313666126727887d1ca8990e54ad53e9f66"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "rawSha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+      "rawBytes": 40223,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0300.gz",
+        "gzipBytes": 14989,
+        "gzipSha256": "e09bcf19535312a958829b32534198509ef3d3250e61693782d12c1b8e4bcef3"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "rawSha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81",
+      "rawBytes": 57554,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0301.gz",
+        "gzipBytes": 23545,
+        "gzipSha256": "0295d046f31890a06419fcc4d16d274233873157369c58b986c8f738912ebba2"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "rawSha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e",
+      "rawBytes": 70406,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0302.gz",
+        "gzipBytes": 26094,
+        "gzipSha256": "e35db552bf95ba551188097bd412d4dd37c8bc858e686ac8e802fabfe8802856"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "rawSha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3",
+      "rawBytes": 92757,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0303.gz",
+        "gzipBytes": 33206,
+        "gzipSha256": "78a90f495c7686ed8fb60d74abb8da5e31ef67e1230a6b85db30d9a07c7e74eb"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13r-event-stream.js",
+      "rawSha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+      "rawBytes": 26858,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0304.gz",
+        "gzipBytes": 10321,
+        "gzipSha256": "7c9dae4859eeba5c648fce62630dcff29b4114216a678ba7f3ad880ce99572e1"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13s-scheduler.js",
+      "rawSha256": "333a372308196535ac4c34a8db02057c062e155fe58bed537ea17c0591981001",
+      "rawBytes": 104744,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0305.gz",
+        "gzipBytes": 33505,
+        "gzipSha256": "164d1447bf457b642e04842225a8690a12039fbf41a68837e27c6d87cb52e05d"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13t-steward-schedule.js",
+      "rawSha256": "e2f5c7dd30842acc30ccea8cf16cbea9b1c7b73bf4e99e4d6dfa09ed6e28b68b",
+      "rawBytes": 35516,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0306.gz",
+        "gzipBytes": 13046,
+        "gzipSha256": "764a03eadb0a5845ddd9faab40f054f3061b2516d636669b6cc25d4990d34c53"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13u-migration-center.js",
+      "rawSha256": "f1005faf2990a4269ca3ef1f9202580bb845474ba48bd94da9e1a9dda1f169ef",
+      "rawBytes": 489810,
+      "member": "blobs/f1005faf2990a4269ca3ef1f9202580bb845474ba48bd94da9e1a9dda1f169ef.gz",
+      "gzipBytes": 115938,
+      "gzipSha256": "a4e9cf20823f904bca7f3bf87029cd065d093d7cf513ea50b1e46a009218b814"
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "rawSha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+      "rawBytes": 14755,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0308.gz",
+        "gzipBytes": 4111,
+        "gzipSha256": "a403f5c8cd35ce895725068c5bc6d178c8088ec7b8f8b1a2fe8dc51750f5407b"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13w-external-bots.js",
+      "rawSha256": "3d55ac5bb0f0a92851323b4a8d208d419ee37ae9565da32a51f67f5246bec826",
+      "rawBytes": 143021,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0309.gz",
+        "gzipBytes": 31982,
+        "gzipSha256": "398df56ec0770de380db1a8e1f0960c6b54df598555833d8fc95f77a5c3fc353"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13w1-external-remote-views.js",
+      "rawSha256": "641c65d93c7037f4373947ded4704f9d77bd8d7875189c66a7992af0f1d91222",
+      "rawBytes": 51241,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0310.gz",
+        "gzipBytes": 13045,
+        "gzipSha256": "a7eae4db0feebb147f0843979e12fc68c9625b99a6bbfe60d58c3c0bf455a743"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "rawSha256": "fc8be61895159daa8b5ec219078b1c944f11fe3f3593c44a51473737348606d3",
+      "rawBytes": 11547,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0311.gz",
+        "gzipBytes": 3664,
+        "gzipSha256": "21d97e1f794142d804832cf4b3079d4e8d201a623876e585cea04f8545e04566"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "rawSha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+      "rawBytes": 20475,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0312.gz",
+        "gzipBytes": 5709,
+        "gzipSha256": "77d04b27fa51263ef033271caf0300a29a1194d30aad79cc87b416a68c121f83"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "rawSha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+      "rawBytes": 6315,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0313.gz",
+        "gzipBytes": 2324,
+        "gzipSha256": "be74caf196f49c763999d3c5828ba18d26f8277932bfdb479f3626d634ef7c7e"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/14-main.js",
+      "rawSha256": "1798abaf17c7d8a0e8f5e0ed52f0606624438aa7691994a9671814facbcead5c",
+      "rawBytes": 51084,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0314.gz",
+        "gzipBytes": 20703,
+        "gzipSha256": "44b483c41415a7a2bc74a2dcd14ed4ee015a3a4cd15f0e143d7a7363aea8f20c"
+      }
+    },
+    {
+      "source": "output/semantic-owned-candidate-native-primitive-v6/source-input/ruyi-workbench/app/src/manifest.json",
+      "rawSha256": "77b1d18e3b366179b20cf7007c1513b945d3e98fbae5ab142f4c6e5e71bd484f",
+      "rawBytes": 40754,
+      "member": "blobs/77b1d18e3b366179b20cf7007c1513b945d3e98fbae5ab142f4c6e5e71bd484f.gz",
+      "gzipBytes": 14003,
+      "gzipSha256": "6de5ce7abd295196e34d8a61f1afb6f8096532fa4d3e2b6ddf9fc96b49bc7f5e"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-build-v1/build-receipt.json",
+      "rawSha256": "4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0",
+      "rawBytes": 3715,
+      "member": "blobs/4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0.gz",
+      "gzipBytes": 1226,
+      "gzipSha256": "0d3c5c1172cb5378121337fbab76c35b836404f83aeb38251dda55b8e672c590"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-build-v1/OWNER.json",
+      "rawSha256": "5be946ff8852d04fd672dee6ed8d4928c366909550b0d490f33b0b63a80d372e",
+      "rawBytes": 71,
+      "member": "blobs/5be946ff8852d04fd672dee6ed8d4928c366909550b0d490f33b0b63a80d372e.gz",
+      "gzipBytes": 88,
+      "gzipSha256": "a0e1cf36d7ad695c8d1733cf48d601726f73ca98c51d32b026b80e9f18f04398"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-build-v1/resident-owned-process-control.dll.stderr.log",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0021.gz",
+        "gzipBytes": 20,
+        "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-build-v1/resident-owned-process-control.dll.stdout.log",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0021.gz",
+        "gzipBytes": 20,
+        "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-build-v1/sources/resident-owned-process-control.cs",
+      "rawSha256": "1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935",
+      "rawBytes": 3995,
+      "member": "blobs/1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935.gz",
+      "gzipBytes": 1484,
+      "gzipSha256": "c6869b3ac9f7a307cb837d5ac697d91aa06aedd21cafc6a8fd790e933ef625a0"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-compile-v2/freeze.json",
+      "rawSha256": "7b7333afd85dba37a5a3ec4e5f1e35a350c225e9af4f7ac0a7c89fc3c72d2693",
+      "rawBytes": 3324,
+      "member": "blobs/7b7333afd85dba37a5a3ec4e5f1e35a350c225e9af4f7ac0a7c89fc3c72d2693.gz",
+      "gzipBytes": 1379,
+      "gzipSha256": "1443ded3f39e3989ab78eab1e5a6591306a4b4749a62dbeec18632dc6a4b7331"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-compile-v2/OWNER.json",
+      "rawSha256": "d11f5789b61fc25d67d2635f0dca62a15c1be0ef4baa5e355f358bb7c9356f46",
+      "rawBytes": 54,
+      "member": "blobs/d11f5789b61fc25d67d2635f0dca62a15c1be0ef4baa5e355f358bb7c9356f46.gz",
+      "gzipBytes": 70,
+      "gzipSha256": "0cbc5ddad2f4da0175da77501d9fa33506bd5075f81449ac4b95956a936ceb46"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-compile-v2/root-preflight.json",
+      "rawSha256": "b06e6e13d89bc4de3b40a7d63be43b8df57538bf40ee86968ca26bfea4959d45",
+      "rawBytes": 328,
+      "member": "blobs/b06e6e13d89bc4de3b40a7d63be43b8df57538bf40ee86968ca26bfea4959d45.gz",
+      "gzipBytes": 276,
+      "gzipSha256": "adc29a056a245a3de135cc94a6f205bf4f7fba651a52537b520549f4d3dc3b38"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-compile-v2/sources/dev-harness/semantic/resident-owned-process-control-build.cjs",
+      "rawSha256": "f8e7ebf40d16f1aefc81f88f0cd3c08edb1bb44e7f6621177bce8ab97dfbaf07",
+      "rawBytes": 5127,
+      "member": "blobs/f8e7ebf40d16f1aefc81f88f0cd3c08edb1bb44e7f6621177bce8ab97dfbaf07.gz",
+      "gzipBytes": 2082,
+      "gzipSha256": "a91467fa93c649b072d2346d585eb5228e3e68f95f79867a12b1fb14352247ba"
+    },
+    {
+      "source": "output/semantic-resident-owned-process-control-compile-v2/sources/dev-harness/semantic/resident-owned-process-control.cs",
+      "rawSha256": "1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935",
+      "rawBytes": 3995,
+      "member": "blobs/1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935.gz",
+      "gzipBytes": 1484,
+      "gzipSha256": "c6869b3ac9f7a307cb837d5ac697d91aa06aedd21cafc6a8fd790e933ef625a0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/freeze.json",
+      "rawSha256": "e93171c98977b6b1e882fc549b4beb9334f3b5eae2b189422539b2a44113cb71",
+      "rawBytes": 8292,
+      "member": "blobs/e93171c98977b6b1e882fc549b4beb9334f3b5eae2b189422539b2a44113cb71.gz",
+      "gzipBytes": 2050,
+      "gzipSha256": "20349d2b0779727ede531147e4b7a0fc811b93700b5b4f3e88eaebc46dbeb9e4"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/native-witness.stderr.raw",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0021.gz",
+        "gzipBytes": 20,
+        "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/native-witness.stdout.raw",
+      "rawSha256": "75d48a25770e5dc9ce139fd6fff7bb81f0dabe754a57e07709ec40ea2fc2d8c0",
+      "rawBytes": 508,
+      "member": "blobs/75d48a25770e5dc9ce139fd6fff7bb81f0dabe754a57e07709ec40ea2fc2d8c0.gz",
+      "gzipBytes": 349,
+      "gzipSha256": "5dc3d8de8bc9f965eae03d6c1e7f2d08047086020f006d8d9aa3ed365c18c2fd"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/outer-job-receipt.json",
+      "rawSha256": "9099d82327b917ad6029d1921ffbff70a6f8f3740134cffc4e3c9fc7f771577e",
+      "rawBytes": 803,
+      "member": "blobs/9099d82327b917ad6029d1921ffbff70a6f8f3740134cffc4e3c9fc7f771577e.gz",
+      "gzipBytes": 295,
+      "gzipSha256": "beda6265e87641df4e47961c1a62cd8f268393fdcdc5fe3c31edcd25ec3a1a13"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/receipt.json",
+      "rawSha256": "a33fc00e3a7db60cdcbc99d65306fd2020c59ccf0073aa1731235edd8f2601cd",
+      "rawBytes": 5225,
+      "member": "blobs/a33fc00e3a7db60cdcbc99d65306fd2020c59ccf0073aa1731235edd8f2601cd.gz",
+      "gzipBytes": 1900,
+      "gzipSha256": "7114c1ae6ae6358a84b122faca8eb6dc53a3c5507fd191532e4b4bc490a024f3"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-preflight.json",
+      "rawSha256": "654f0d0c2bb46aed787a6667cad1f87d8ee4f4f834e8783a1d00a388c4402f46",
+      "rawBytes": 455,
+      "member": "blobs/654f0d0c2bb46aed787a6667cad1f87d8ee4f4f834e8783a1d00a388c4402f46.gz",
+      "gzipBytes": 342,
+      "gzipSha256": "cf81b8f4d2287713ef990a97d7303dd8bfeb2b74d31212f5bdecccadd4b1cd4c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-review.json",
+      "rawSha256": "e4dbd9fa401eb63871d07953606fe8fdbec820e2f59e634d0daa5a7212e74f63",
+      "rawBytes": 9615,
+      "member": "blobs/e4dbd9fa401eb63871d07953606fe8fdbec820e2f59e634d0daa5a7212e74f63.gz",
+      "gzipBytes": 2346,
+      "gzipSha256": "21fded7429ced6bebd0a9b78c012081e33c02e2fa3c480e785a8913b1b8b0d0e"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/001-resident-proxy-death-controller-v2.cjs",
+      "rawSha256": "09e77ee36b65d95a726b41bffc650c2e178b78f815acb06b8a34a4076dae47c4",
+      "rawBytes": 17011,
+      "member": "blobs/09e77ee36b65d95a726b41bffc650c2e178b78f815acb06b8a34a4076dae47c4.gz",
+      "gzipBytes": 5876,
+      "gzipSha256": "c89b8168fffddff9a6448535625e1120619ee650a569a50613b3a65fd28791f9"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/002-resident-proxy-native-witness.cjs",
+      "rawSha256": "34848b225faf3e5f4d10d06913867e512eeeeaadef2d681e3860f60d2edd6662",
+      "rawBytes": 1719,
+      "member": "blobs/34848b225faf3e5f4d10d06913867e512eeeeaadef2d681e3860f60d2edd6662.gz",
+      "gzipBytes": 822,
+      "gzipSha256": "8704b551394dd4d7be7abfb42c7c1c1c5501d21c7f69a8267dbec66cabac4214"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/003-resident-proxy-death-actor.cjs",
+      "rawSha256": "8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f",
+      "rawBytes": 4802,
+      "member": "blobs/8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f.gz",
+      "gzipBytes": 1982,
+      "gzipSha256": "c2fac3529788e3a4e79ed3f9cf2fe575ad73e3154869091121f880f7c1fe6fc2"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/004-resident-proxy-death-worker.cjs",
+      "rawSha256": "d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca",
+      "rawBytes": 820,
+      "member": "blobs/d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca.gz",
+      "gzipBytes": 497,
+      "gzipSha256": "73d33a7b732716eb4841571c807595fc748a99b0d8f07fbbe8d5a1482575871e"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/005-resident-proxy-death-keeper.ps1",
+      "rawSha256": "dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a",
+      "rawBytes": 9880,
+      "member": "blobs/dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a.gz",
+      "gzipBytes": 3137,
+      "gzipSha256": "f26b6e40bf946bfc6c13a451380599b900b6b28eabf9b8a9ed1fc23542908cb0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/007-build-receipt.json",
+      "rawSha256": "4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0",
+      "rawBytes": 3715,
+      "member": "blobs/4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0.gz",
+      "gzipBytes": 1226,
+      "gzipSha256": "0d3c5c1172cb5378121337fbab76c35b836404f83aeb38251dda55b8e672c590"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/008-resident-owned-process-control.cs",
+      "rawSha256": "1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935",
+      "rawBytes": 3995,
+      "member": "blobs/1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935.gz",
+      "gzipBytes": 1484,
+      "gzipSha256": "c6869b3ac9f7a307cb837d5ac697d91aa06aedd21cafc6a8fd790e933ef625a0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/009-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/010-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/011-resident-proxy-host-flush.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/012-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/015-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/016-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/017-resident-proxy-host.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/018-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-helper-death-v2/root-source-snapshots/021-build-receipt.json",
+      "rawSha256": "6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92",
+      "rawBytes": 3636,
+      "member": "blobs/6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92.gz",
+      "gzipBytes": 1219,
+      "gzipSha256": "aacf606ab3ffb7cf0553a72cd9a8e5f331d26dd9e37e074f7b5f3d15216f973a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/freeze.json",
+      "rawSha256": "dea6110c0c178280e7981fb899330444c034b445425e3dd396ded295f6ed9504",
+      "rawBytes": 7990,
+      "member": "blobs/dea6110c0c178280e7981fb899330444c034b445425e3dd396ded295f6ed9504.gz",
+      "gzipBytes": 1950,
+      "gzipSha256": "6bdea4f9a0e2452a19d5a245345b591fccf4d88523dea445087a17d4d1b4ec50"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/outer-job-receipt.json",
+      "rawSha256": "38335b4f42661a6dca3518e9197571eba9d46ecca5978d60a3ad75a3a4b68760",
+      "rawBytes": 674,
+      "member": "blobs/38335b4f42661a6dca3518e9197571eba9d46ecca5978d60a3ad75a3a4b68760.gz",
+      "gzipBytes": 315,
+      "gzipSha256": "16350bf464408ddd248c38fc0234c3860c73889aff3094f3f6c978c2822a86c2"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/receipt.json",
+      "rawSha256": "b84b09d0cbb89d6d2e3c0140b5082633bba901d68e320edceabdda2448d254ea",
+      "rawBytes": 1726,
+      "member": "blobs/b84b09d0cbb89d6d2e3c0140b5082633bba901d68e320edceabdda2448d254ea.gz",
+      "gzipBytes": 875,
+      "gzipSha256": "5cd32a9fd2d18ea65bb756f846d19b97f31f1b22994f4ef416727f832c29a2b2"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-preflight-unit.log",
+      "rawSha256": "7cfc72e5f1e2f0dd1bb5a1a8d8015c8dda68c8732429a8ddbf7fa7a9b79c692c",
+      "rawBytes": 480,
+      "member": "blobs/7cfc72e5f1e2f0dd1bb5a1a8d8015c8dda68c8732429a8ddbf7fa7a9b79c692c.gz",
+      "gzipBytes": 315,
+      "gzipSha256": "3a8ef4a79411a61de9ab6b802cd5211ccd4f2d2b423d560e057a14744a87bfe4"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-preflight.json",
+      "rawSha256": "c4e02201e93871da04048ce6af02c7b2cb884daeabb7739842d39b3b80351e4c",
+      "rawBytes": 434,
+      "member": "blobs/c4e02201e93871da04048ce6af02c7b2cb884daeabb7739842d39b3b80351e4c.gz",
+      "gzipBytes": 334,
+      "gzipSha256": "612eab8e6111a8166b21e23259aa8222973a0a9c529e36f7df84ef0f186fc82c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-review.json",
+      "rawSha256": "3d887f0bbe1655afe8180a24a8371080b75892282aea29a2733d3bfc763c7d66",
+      "rawBytes": 8360,
+      "member": "blobs/3d887f0bbe1655afe8180a24a8371080b75892282aea29a2733d3bfc763c7d66.gz",
+      "gzipBytes": 2002,
+      "gzipSha256": "caedc068fb58707e60ad43aff683650eea7864ac0ea5ae399f758fde0f11ae28"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/001-resident-proxy-death-controller.cjs",
+      "rawSha256": "7d437909c64e66818c72edf38f0ade39df63f7250bd3904137590cb3dd4f6128",
+      "rawBytes": 15940,
+      "member": "blobs/7d437909c64e66818c72edf38f0ade39df63f7250bd3904137590cb3dd4f6128.gz",
+      "gzipBytes": 5629,
+      "gzipSha256": "8cb0276f5246ff0b9be3bbb8ed85bc01d48c598e84ca37a091f3bca79eeaef7f"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/002-resident-proxy-death-actor.cjs",
+      "rawSha256": "8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f",
+      "rawBytes": 4802,
+      "member": "blobs/8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f.gz",
+      "gzipBytes": 1982,
+      "gzipSha256": "c2fac3529788e3a4e79ed3f9cf2fe575ad73e3154869091121f880f7c1fe6fc2"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/003-resident-proxy-death-worker.cjs",
+      "rawSha256": "d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca",
+      "rawBytes": 820,
+      "member": "blobs/d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca.gz",
+      "gzipBytes": 497,
+      "gzipSha256": "73d33a7b732716eb4841571c807595fc748a99b0d8f07fbbe8d5a1482575871e"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/004-resident-proxy-death-keeper.ps1",
+      "rawSha256": "dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a",
+      "rawBytes": 9880,
+      "member": "blobs/dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a.gz",
+      "gzipBytes": 3137,
+      "gzipSha256": "f26b6e40bf946bfc6c13a451380599b900b6b28eabf9b8a9ed1fc23542908cb0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/006-build-receipt.json",
+      "rawSha256": "4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0",
+      "rawBytes": 3715,
+      "member": "blobs/4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0.gz",
+      "gzipBytes": 1226,
+      "gzipSha256": "0d3c5c1172cb5378121337fbab76c35b836404f83aeb38251dda55b8e672c590"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/007-resident-owned-process-control.cs",
+      "rawSha256": "1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935",
+      "rawBytes": 3995,
+      "member": "blobs/1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935.gz",
+      "gzipBytes": 1484,
+      "gzipSha256": "c6869b3ac9f7a307cb837d5ac697d91aa06aedd21cafc6a8fd790e933ef625a0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/008-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/009-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/010-resident-proxy-host-flush.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/011-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/014-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/015-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/016-resident-proxy-host.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/017-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v1/root-source-snapshots/020-build-receipt.json",
+      "rawSha256": "6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92",
+      "rawBytes": 3636,
+      "member": "blobs/6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92.gz",
+      "gzipBytes": 1219,
+      "gzipSha256": "aacf606ab3ffb7cf0553a72cd9a8e5f331d26dd9e37e074f7b5f3d15216f973a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/freeze.json",
+      "rawSha256": "888aa29ef3feff39bcbf35e739de6b4e24b154dcf41a54628ec39317beec1e59",
+      "rawBytes": 8246,
+      "member": "blobs/888aa29ef3feff39bcbf35e739de6b4e24b154dcf41a54628ec39317beec1e59.gz",
+      "gzipBytes": 2016,
+      "gzipSha256": "ba50cd721940dec09bc3660749de713a45f636e8aab60f5d0084587fa5702ef4"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/native-witness.stderr.raw",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0021.gz",
+        "gzipBytes": 20,
+        "gzipSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/native-witness.stdout.raw",
+      "rawSha256": "c9c91c954ffe26bf19f36343ff26cac8a35dd1903c660a6683722a8370a284c2",
+      "rawBytes": 402,
+      "member": "blobs/c9c91c954ffe26bf19f36343ff26cac8a35dd1903c660a6683722a8370a284c2.gz",
+      "gzipBytes": 285,
+      "gzipSha256": "a37c0344293edda0827509fead6309d79683f1368f0477981cab4b4d43e5d940"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/outer-job-receipt.json",
+      "rawSha256": "87bf8534ede22bb5560b1df387ed1383e04ab1725359018c3d763b36167c2d3b",
+      "rawBytes": 802,
+      "member": "blobs/87bf8534ede22bb5560b1df387ed1383e04ab1725359018c3d763b36167c2d3b.gz",
+      "gzipBytes": 295,
+      "gzipSha256": "5cdb433b6496d5eac6f994522469c5af6178aae9bb6fe9bf89493e355f8b33b5"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/receipt.json",
+      "rawSha256": "92db9d3b43b1081904cddd211fc1bd083ed7c1d5a6a15c2491b884085c003661",
+      "rawBytes": 3889,
+      "member": "blobs/92db9d3b43b1081904cddd211fc1bd083ed7c1d5a6a15c2491b884085c003661.gz",
+      "gzipBytes": 1568,
+      "gzipSha256": "654571adc612caa164c644ee2949b0adf4371e79d3df4493161d047c057d64f9"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-preflight-unit.log",
+      "rawSha256": "6e5f9098be726dd96b04d06494972e5a79ddd64fcb85968a571ea0846ee46089",
+      "rawBytes": 1076,
+      "member": "blobs/6e5f9098be726dd96b04d06494972e5a79ddd64fcb85968a571ea0846ee46089.gz",
+      "gzipBytes": 610,
+      "gzipSha256": "769f3319cf8881dcdc8224c16c3a6d8786e15746f5075b930eba6b30d982d2ea"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-preflight.json",
+      "rawSha256": "d933e2b287ba687f66b1ffd4104150ebd5947087c4f1015a1f055ba336048af6",
+      "rawBytes": 490,
+      "member": "blobs/d933e2b287ba687f66b1ffd4104150ebd5947087c4f1015a1f055ba336048af6.gz",
+      "gzipBytes": 372,
+      "gzipSha256": "97785d3657171fda6c8d687a355f02636e664273cd479ef54cfa8b67d227c024"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-review.json",
+      "rawSha256": "57d555f615ba8d5be3de8f85c81944951007d5c9ef0dbf5b6b0d6921dce18d4d",
+      "rawBytes": 9465,
+      "member": "blobs/57d555f615ba8d5be3de8f85c81944951007d5c9ef0dbf5b6b0d6921dce18d4d.gz",
+      "gzipBytes": 2342,
+      "gzipSha256": "182787e910ba1a95d4893a87fee3c67db83d9d74d332cf7f1d7f3b529ddc6eac"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/001-resident-proxy-death-controller-v2.cjs",
+      "rawSha256": "09e77ee36b65d95a726b41bffc650c2e178b78f815acb06b8a34a4076dae47c4",
+      "rawBytes": 17011,
+      "member": "blobs/09e77ee36b65d95a726b41bffc650c2e178b78f815acb06b8a34a4076dae47c4.gz",
+      "gzipBytes": 5876,
+      "gzipSha256": "c89b8168fffddff9a6448535625e1120619ee650a569a50613b3a65fd28791f9"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/002-resident-proxy-native-witness.cjs",
+      "rawSha256": "34848b225faf3e5f4d10d06913867e512eeeeaadef2d681e3860f60d2edd6662",
+      "rawBytes": 1719,
+      "member": "blobs/34848b225faf3e5f4d10d06913867e512eeeeaadef2d681e3860f60d2edd6662.gz",
+      "gzipBytes": 822,
+      "gzipSha256": "8704b551394dd4d7be7abfb42c7c1c1c5501d21c7f69a8267dbec66cabac4214"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/003-resident-proxy-death-actor.cjs",
+      "rawSha256": "8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f",
+      "rawBytes": 4802,
+      "member": "blobs/8cb555e5779990afee423e0417f7167c51ef9f1ecb981bc267ef52e9f2fa566f.gz",
+      "gzipBytes": 1982,
+      "gzipSha256": "c2fac3529788e3a4e79ed3f9cf2fe575ad73e3154869091121f880f7c1fe6fc2"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/004-resident-proxy-death-worker.cjs",
+      "rawSha256": "d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca",
+      "rawBytes": 820,
+      "member": "blobs/d3b65070a3f423acb298b625261df2994bf5ecfc54dfeb1f10dd27abea93faca.gz",
+      "gzipBytes": 497,
+      "gzipSha256": "73d33a7b732716eb4841571c807595fc748a99b0d8f07fbbe8d5a1482575871e"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/005-resident-proxy-death-keeper.ps1",
+      "rawSha256": "dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a",
+      "rawBytes": 9880,
+      "member": "blobs/dd60331f07331ff7c88f0df8753b3261d95504a81bc96505f241abae6d934d0a.gz",
+      "gzipBytes": 3137,
+      "gzipSha256": "f26b6e40bf946bfc6c13a451380599b900b6b28eabf9b8a9ed1fc23542908cb0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/007-build-receipt.json",
+      "rawSha256": "4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0",
+      "rawBytes": 3715,
+      "member": "blobs/4fb9fc9fb75bccaca42a8ad582eaf9f3662c0ca65a1733985e63bd5642510de0.gz",
+      "gzipBytes": 1226,
+      "gzipSha256": "0d3c5c1172cb5378121337fbab76c35b836404f83aeb38251dda55b8e672c590"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/008-resident-owned-process-control.cs",
+      "rawSha256": "1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935",
+      "rawBytes": 3995,
+      "member": "blobs/1db3f43a613d3641ecb016b0f8532717a570fb132702a021dc07c0d223910935.gz",
+      "gzipBytes": 1484,
+      "gzipSha256": "c6869b3ac9f7a307cb837d5ac697d91aa06aedd21cafc6a8fd790e933ef625a0"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/009-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/010-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/011-resident-proxy-host-flush.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/012-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/015-resident-proxy-flush.cjs",
+      "rawSha256": "8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64",
+      "rawBytes": 16545,
+      "member": "blobs/8b58ea5b18cd09322bd3d321911cefab9cae7158fb4d058909e01a4b709caa64.gz",
+      "gzipBytes": 5118,
+      "gzipSha256": "21f09c2de38dff6a862bee2aa191d4a1ad75d63399677d5ef4709a17ebdea806"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/016-resident-proxy-file-lease-flush.cjs",
+      "rawSha256": "fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28",
+      "rawBytes": 10584,
+      "member": "blobs/fdbecc42b27709fb9aa52e88c10892f7be4a9afba9dcf85de69a62b217af2b28.gz",
+      "gzipBytes": 3791,
+      "gzipSha256": "eccd662a4006ef39ae776beac4d9f506959fe34e9a06178c45229d34ea28206a"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/017-resident-proxy-host.cs",
+      "rawSha256": "a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5",
+      "rawBytes": 19329,
+      "member": "blobs/a36d2197fc14753d37e01ed97937e5b4fa48b4b1de5c596a35ea7c41653a5fe5.gz",
+      "gzipBytes": 5933,
+      "gzipSha256": "016d49606b47d3b1e28785d23042751e67c16a1c8c1358495c97f91794a94e3c"
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/018-resident-proxy-file-lease.cs",
+      "rawSha256": "3afb18bc12944cd106be53a3f1ff9aa25b9a925a8e686facdc70ef38f5704ebb",
+      "rawBytes": 6811,
+      "prior": {
+        "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-blocker-first-batch-reviewed-r1/manifest.json",
+        "manifestSha256": "1991daab188700b9dcd5c57dca3db4a1a86f030e8b62fd513f241e3ccf2634f5",
+        "member": "0349.gz",
+        "gzipBytes": 2513,
+        "gzipSha256": "ac10ca06951f3409f7c4618d8e1cb44b64c2f4a3197dcf658da98fe892b07187"
+      }
+    },
+    {
+      "source": "output/semantic-resident-proxy-parent-death-v2/root-source-snapshots/021-build-receipt.json",
+      "rawSha256": "6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92",
+      "rawBytes": 3636,
+      "member": "blobs/6760f93a566ce0c1688488dcbc008dd20d626258ca3c5d586b5c8d43e4526f92.gz",
+      "gzipBytes": 1219,
+      "gzipSha256": "aacf606ab3ffb7cf0553a72cd9a8e5f331d26dd9e37e074f7b5f3d15216f973a"
+    }
+  ],
+  "sourceAliases": 257,
+  "localUniqueMembers": 68,
+  "priorReferences": 156,
+  "logicalRawBytes": 19965202,
+  "limits": [
+    "Original FAIL and UNKNOWN outcomes remain unchanged.",
+    "No backup, keys, data roots, caches, model/corpus, Node or native binary included.",
+    "License material is an unpublished review draft, not distribution approval."
+  ]
+}
