@@ -219,12 +219,11 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 // Optional memory failures may fall back to an empty preflight. Authority,
-// privacy, cancellation and semantic safety failures must reach the turn owner.
+// privacy, cancellation, staleness and work-data guard failures must reach the
+// turn owner. 150 号文 S1:语义运行时自己的失败(semantic.owner_identity、编解码契约等)不再整轮上抛 ——
+// 06hc/13ap/10 已就地退回关键词基线;这里只认 SemanticFailurePolicy 的守卫判据(单测钉着这条边界)。
 function memoryPreflightMustPropagate(error) {
-  const code=String(error?.code||''),message=String(error?.message||'');
-  return error?.memorySemanticGuardFailure===true||error?.name==='AbortError'
-    ||/^(?:work_data|privacy[._]|memory_semantic[._]|semantic[._]|SESSION_EXECUTION|STEWARD_TURN_CANCELLED|ABORT_ERR)/.test(code)
-    ||/^(?:memory_semantic|semantic)\./.test(message);
+  return SemanticFailurePolicy.isGuard(error);
 }
 
 async function runClaudeTurn({

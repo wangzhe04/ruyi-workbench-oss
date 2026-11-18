@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 144,
-    "providedSymbols": 4350,
-    "requiredSymbols": 4350,
+    "providedSymbols": 4351,
+    "requiredSymbols": 4354,
     "edges": 958,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -59,6 +59,7 @@
         "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SemanticFailurePolicy",
         "SemanticRuntimeHooks",
         "SessionExecutionHooks",
         "SessionFullTextHooks",
@@ -4845,6 +4846,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SessionExecutionHooks",
           "kinds": [
             "read"
@@ -8163,6 +8171,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MemorySemanticHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
           "kinds": [
             "read"
           ]
@@ -13467,6 +13482,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
           "kinds": [
             "read"
           ]
@@ -30826,6 +30848,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SemanticRuntimeHooks",
           "kinds": [
             "read"
@@ -37609,6 +37638,7 @@
         "MemoryCliHooks",
         "ObservationRecoveryHooks",
         "RUYI_EVENTS",
+        "SemanticFailurePolicy",
         "SessionExecutionHooks",
         "URL",
         "WorkDataMaintenanceHooks",
@@ -38641,6 +38671,7 @@
       "to": "00-boot.js",
       "symbols": [
         "MemorySemanticHooks",
+        "SemanticFailurePolicy",
         "SemanticRuntimeHooks",
         "crypto"
       ],
@@ -39984,6 +40015,7 @@
         "EventStreamHooks",
         "InternalMcpHooks",
         "ObservationRecoveryHooks",
+        "SemanticFailurePolicy",
         "SemanticRuntimeHooks",
         "SessionExecutionHooks",
         "ThreadRelayHooks",
@@ -42537,6 +42569,7 @@
       "to": "00-boot.js",
       "symbols": [
         "MediaImageHooks",
+        "SemanticFailurePolicy",
         "SemanticRuntimeHooks",
         "SessionFullTextHooks",
         "WorkDataMaintenanceHooks",

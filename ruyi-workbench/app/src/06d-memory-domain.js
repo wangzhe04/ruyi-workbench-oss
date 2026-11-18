@@ -2087,7 +2087,7 @@ function buildMemoryCheckPrompt(status, config) {
     excluded: safe(status.excludedCount),
     coreActive: safe(status.coreActiveCount),
     semanticFallback: status.enabled !== false && status.checked === true
-      && ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status.semantic?.fallback?.reason)
+      && ['loading','overloaded','timeout','partial','unavailable','truncated','stale'].includes(status.semantic?.fallback?.reason)
       ? status.semantic.fallback.reason : '',
   });
 }
@@ -2773,20 +2773,36 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   const staleResult = () => ({ entries: [], coreEntries: [], status: { mode: 'stale', enabled: true, checked: false, candidateCount: 0, matchCount: 0,
     projectMatches: 0, globalMatches: 0, excludedCount: exclusions.size, coreActiveCount: 0,
     semantic: { status: 'stale', mode: 'rerank-only', automaticCandidates: false } } });
+  // 150 号文 S11:回验因【数据】变化(库、核心席位、取代边、配置)判 stale 时不再直接交空核心(核心胶囊消失会让
+  // 本轮丢掉用户的基础记忆,还断前缀缓存)。改为按【当前】库、不走语义重排,把整条预检重算一次:库真被改了,重算
+  // 读到的就是新库(删掉的记忆不会被披露)。会话/回合本身已 stale(memoryStaleScope:'session')时照旧空结果;
+  // 重算里再判 stale 也退回空结果。只重算一次,不递归。
+  const staleFallback = async error => {
+    if (options.memoryStaleRecompute === true || error?.memoryStaleScope === 'session') return staleResult();
+    // 失配通知在首轮已发过一次,重算不再重复发(onSourceMismatch 传 undefined)。
+    const recomputed = await resolveMemoryPreflight(session, cwd, query, undefined,
+      { ...(effectiveConfig || {}), semanticRetrievalV1: false }, { ...options, memoryStaleRecompute: true });
+    if (!recomputed?.status?.checked) return recomputed;
+    return { ...recomputed, status: { ...recomputed.status, recovered: 'stale',
+      semantic: { status: 'stale', mode: 'rerank-only', automaticCandidates: false, fallback: { reason: 'stale', method: 'keywords-recomputed' } } } };
+  };
   if (explicit) entries = nonCore; // 固定选择不走排序，向量开关对它本来就不适用
   else {
     const signature = memorySelectionSignature(session, cwd), rewind = Number(session?.rewindGen) || 0;
     const generation = configReadGeneration, owner = session?.id ? activeChildren.get(session.id) : null;
     let policyGuard;
     const stale = () => { throw Object.assign(Error('memory_semantic.stale'), { code: 'memory_semantic.stale' }); };
+    // S11:会话/回合本身已不是这一轮(执行权、选择/排除、rewind、换主、取消)→ 不重算,照旧空结果。
+    const sessionStale = () => { throw Object.assign(Error('memory_semantic.stale'), { code: 'memory_semantic.stale', memoryStaleScope: 'session' }); };
     const assertCurrent = () => {
       if (options.signal?.aborted || options.executionOwner?.cancelRequested) throw Object.assign(Error('memory_semantic.aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
       if (!policyGuard) policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : () => {};
       policyGuard();
-      if (typeof options.executionOwnerCurrent === 'function' && options.executionOwnerCurrent() !== true) stale();
+      if (typeof options.executionOwnerCurrent === 'function' && options.executionOwnerCurrent() !== true) sessionStale();
       if (sessionObjectIsStale(session) || memorySelectionSignature(session, cwd) !== signature
-        || (Number(session?.rewindGen) || 0) !== rewind || configReadGeneration !== generation
-        || session?.id && activeChildren.get(session.id) !== owner || owner && (owner.cancelRequested || owner.exited || owner.session && owner.session !== session)) stale();
+        || (Number(session?.rewindGen) || 0) !== rewind
+        || session?.id && activeChildren.get(session.id) !== owner || owner && (owner.cancelRequested || owner.exited || owner.session && owner.session !== session)) sessionStale();
+      if (configReadGeneration !== generation) stale();
     };
     const revision = rows => JSON.stringify(rows.map(entry => [memoryRetrievalKey(entry), entry, memoryIsExpired(entry)]));
     const coreRevision = active => JSON.stringify(active.map(entry => [memoryRetrievalKey(entry), memoryCoreLine(entry)]).sort((a, b) => a[0].localeCompare(b[0])));
@@ -2827,7 +2843,7 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
         : rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
     } catch (error) {
       if (error?.code !== 'memory_semantic.stale') throw error;
-      return staleResult();
+      return staleFallback(error);
     }
     semanticStatus = recalled.semantic;
     // Relation suppression uses the previous baseline order. In particular a
@@ -2862,13 +2878,16 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
       entries = entries.slice(); positions.forEach((position, index) => { entries[position] = ranked[index]; });
     }
   }
+  // 150 号文 S10:先回验、后记使用。修前先 touch 再回验:核心超席位时被命中的候补核心 lastUsedAt 一刷新就挤进
+  // 核心席位,回验看到核心集合变了 → 判 stale → 本轮连核心一起清空。usage 只喂下一轮的席位与新鲜度,
+  // 本轮披露的集合以回验通过的那一份为准;别人真改了库,回验照样判 stale。
+  if (revalidateMemorySemantic) {
+    try { await revalidateMemorySemantic(); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleFallback(error); }
+  }
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
   ]).catch(error => { if (memoryBodyIsWorkDataError(error) || String(error?.code || '').startsWith('privacy.') || error?.memorySemanticGuardFailure === true) throw error; });
-  if (revalidateMemorySemantic) {
-    try { await revalidateMemorySemantic(); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleResult(); }
-  }
   return {
     entries, coreEntries,
     status: {

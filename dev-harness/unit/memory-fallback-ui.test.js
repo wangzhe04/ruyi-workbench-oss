@@ -26,8 +26,12 @@ for (const locale of ['zh-CN','en-US']) {
       + t('memory.check.core',{core:1}) + t('memory.check.fill',{fill:1});
     assert.equal(render({status:'ready'}),'\n'+expectedCounts);
     assert.equal(render({status:'loading',fallback:{reason:'loading'}}),'\n'+expectedCounts+'\n'+t('memory.check.semanticPreparing'));
-    for (const reason of ['timeout','overloaded','partial','unavailable','truncated']) {
+    for (const reason of ['timeout','overloaded','partial','truncated']) {
       assert.equal(render({status:reason,fallback:{reason}}),'\n'+expectedCounts+'\n'+t('memory.check.semanticFallback'));
     }
+    // 150 号文 S1/S11:语义运行时不可用与 stale 重算各有自己的回执,不再混进「重排未完成」。
+    assert.equal(render({status:'unavailable',fallback:{reason:'unavailable'}}),'\n'+expectedCounts+'\n'+t('memory.check.semanticUnavailable'));
+    assert.equal(render({status:'stale',fallback:{reason:'stale'}}),'\n'+expectedCounts+'\n'+t('memory.check.staleRecovered'));
+    assert.notEqual(t('memory.check.semanticUnavailable'),t('memory.check.semanticFallback'));
   });
 }

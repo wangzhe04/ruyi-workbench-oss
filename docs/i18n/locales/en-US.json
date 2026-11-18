@@ -505,6 +505,8 @@
   "memory.check.core": "; core memories: {{core}}",
   "memory.check.semanticPreparing": "Memory semantic search is getting ready. This turn uses keyword recall.",
   "memory.check.semanticFallback": "Memory semantic reranking did not finish. This turn used keyword recall.",
+  "memory.check.semanticUnavailable": "Memory semantic search is unavailable right now. This turn used keyword recall.",
+  "memory.check.staleRecovered": "Memory retrieval did not finish this turn (the memory library changed meanwhile). The basic result was used.",
   "memory.check.unavailable": "Memory=preflight unavailable (safely degraded for this turn)",
   "memory.createNew": "＋ Write a new memory",
   "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most {{count}} matches per turn.",
@@ -4995,6 +4997,8 @@
   ,"memory.badge.summary": "Memory: {{matches}} matched · {{core}} core · {{fill}} filled"
   ,"memory.badge.keywordFallback": "keyword fallback"
   ,"memory.badge.semanticPreparing": "semantic warming up"
+  ,"memory.badge.semanticUnavailable": "semantic unavailable"
+  ,"memory.badge.staleRecovered": "basic result"
   ,"memory.badge.disabled": "Memory: off for this thread"
   ,"memory.badge.unavailable": "Memory: check unavailable this turn"
   ,"memory.badge.title": "Memory check details for this turn"

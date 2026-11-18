@@ -5,6 +5,10 @@ const MemorySemanticRecall = (() => {
     return ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status)
       ? { reason:status, method } : null;
   }
+  // 150 号文 S1:语义层的非守卫失败(运行时起不来、编解码契约等)退回关键词基线并标 unavailable;
+  // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
+  // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
+  const failures = typeof SemanticFailurePolicy !== 'undefined' ? SemanticFailurePolicy : { guard: fn => fn, degradable: () => false };
   function create(host) {
     const searchProgress = new Map();
     let progressGeneration = 0;
@@ -83,6 +87,7 @@ const MemorySemanticRecall = (() => {
           ...(key && !complete && nextOffset<registry.length && scored.status!=='disabled' ? {canContinue:true,continuation:'repeat-same-query-and-scope'} : {})}});
     }
     async function rank(registry, query, limit, config, context = {}) {
+      context = { ...context, check: failures.guard(context.check) };
       const baseline = host.fallback(registry, query, limit, config);
       await context.check?.('start');
       const state = async status => {
@@ -101,11 +106,17 @@ const MemorySemanticRecall = (() => {
       // Headers only. This bounded prefix is a reranking hint, never a claim that
       // the memory body or the full metadata has been indexed or read.
       const texts = selected.map(entry => host.text(entry).slice(0, 96));
-      const result = await host.score(query, texts, {
-        scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
-        identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
-      });
-      if (!['ready', 'partial', 'disabled', 'unavailable', 'loading', 'timeout', 'overloaded', 'truncated'].includes(result?.status)) throw Error('memory_semantic.score_failed');
+      let result;
+      try {
+        result = await host.score(query, texts, {
+          scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+          identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
+        });
+        if (!['ready', 'partial', 'disabled', 'unavailable', 'loading', 'timeout', 'overloaded', 'truncated'].includes(result?.status)) throw Error('memory_semantic.score_failed');
+      } catch (error) {
+        if (!failures.degradable(error, context.signal)) throw error;
+        return state('unavailable');
+      }
       if (result.status !== 'ready' || result.scores?.length !== selected.length || !result.scores.every(Number.isFinite)) return state(result.status);
       await context.check?.('finish');
       const ordered = selected.map((entry, index) => ({ entry, score: result.scores[index], index })).sort((a, b) => b.score - a.score || a.index - b.index);
@@ -115,6 +126,7 @@ const MemorySemanticRecall = (() => {
         semantic: { status: 'reranked', mode: 'rerank-only', automaticCandidates: false, modelFingerprint: result.modelFingerprint, candidateCount: selected.length } };
     }
     async function search(registry, query, limit, config, context = {}) {
+      context = { ...context, check: failures.guard(context.check) };
       const lexical=host.lexical(registry,query),baseline=lexical.slice(0,limit);
       const result=(rows,status,extra={})=>{
         const deferred = deferredRecall(status, rows.some(row=>row.semanticOnly) ? 'keywords-and-admitted-semantic' : 'keywords');
@@ -127,7 +139,10 @@ const MemorySemanticRecall = (() => {
       if(config?.semanticRetrievalV1===false||!host.enabled(config))return fallback('disabled');
       if(!query||query.length>256||!registry.length)return fallback('not-needed');
       const useGemma=typeof SemanticAdmissionRequest!=='undefined'&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null;
-      if(!useGemma)return searchLegacy(registry,query,limit,context,lexical,result);
+      if(!useGemma){
+        try{return await searchLegacy(registry,query,limit,context,lexical,result);}
+        catch(error){if(!failures.degradable(error,context.signal))throw error;return fallback('unavailable');}
+      }
       // Full selected metadata is split before encoding; neither memory bodies
       // nor text-bearing identities enter this path. Coverage is explicit.
       const fragments=[],selected=registry.slice(0,64);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
@@ -150,7 +165,10 @@ const MemorySemanticRecall = (() => {
         const deadline=Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
-          const input=request.inputs(),scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish')});await context.check?.('finish');
+          const input=request.inputs();let scored;
+          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish')});}
+          catch(error){if(!failures.degradable(error,context.signal))throw error;await context.check?.('finish');return result(baseline,'unavailable',{coverage});}
+          await context.check?.('finish');
           const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
           const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish'),verifyField:async snapshot=>{await context.check?.('finish');const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
           const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];

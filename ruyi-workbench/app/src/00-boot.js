@@ -1678,3 +1678,30 @@ const SessionFullTextHooks = {};
 const SemanticRuntimeHooks = {};
 const MemorySemanticHooks = {};
 const ObservationRecoveryHooks = {};
+
+// 150 号文 S1:语义层失败分两类。守卫类(撤权、取消、会话/库 stale、privacy.*、work_data*、执行权)必须原样
+// 交给回合主人;其余一切从语义层抛出的异常只代表「语义不可用」,调用方退回自己的关键词基线并标
+// semantic.status:'unavailable'。调用方交给语义层的回验回调要先经 SemanticFailurePolicy.guard 包一层:回调里抛出的
+// 任何东西都记为守卫失败(它们是调用方自己的权威复核,码各不相同,不能靠前缀猜)。
+const SemanticFailurePolicy = (() => {
+  const marked = new WeakSet();
+  const isObject = value => !!value && (typeof value === 'object' || typeof value === 'function');
+  function isGuard(error) {
+    if (isObject(error) && (marked.has(error) || error.memorySemanticGuardFailure === true || error.name === 'AbortError')) return true;
+    const code = String(error?.code || ''), message = String(error?.message || '');
+    return /^(?:ABORT_ERR|work_data|privacy[._]|SESSION_EXECUTION|STEWARD_TURN_CANCELLED)/.test(code)
+      || /^memory_semantic\.(?:guard_failed|stale|aborted)$/.test(code)
+      || /^(?:memory_semantic\.(?:guard_failed|stale|aborted)|semantic\.aborted)$/.test(message);
+  }
+  // 只有「真 Error(跨 realm 也认)、信号没取消、不是守卫」才降级;冻结哨兵、裸值等非 Error 抛出物一律原样上抛。
+  function degradable(error, signal) {
+    return isObject(error) && Object.prototype.toString.call(error) === '[object Error]' && signal?.aborted !== true && !isGuard(error);
+  }
+  function guard(fn) {
+    if (typeof fn !== 'function') return fn;
+    return async (...args) => {
+      try { return await fn(...args); } catch (error) { if (isObject(error)) marked.add(error); throw error; }
+    };
+  }
+  return Object.freeze({ isGuard, degradable, guard });
+})();

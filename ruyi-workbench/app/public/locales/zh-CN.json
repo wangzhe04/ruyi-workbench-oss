@@ -505,6 +505,8 @@
   "memory.check.core": "；核心记忆 {{core}} 条",
   "memory.check.semanticPreparing": "记忆语义服务准备中，本轮先用关键词召回。",
   "memory.check.semanticFallback": "本轮记忆语义重排未完成，已使用关键词召回结果继续。",
+  "memory.check.semanticUnavailable": "记忆语义服务暂不可用，本轮已用关键词召回结果继续。",
+  "memory.check.staleRecovered": "本轮记忆检索未完成（期间记忆库有变化），已用基础结果继续。",
   "memory.check.unavailable": "记忆=预检暂不可用（本轮已安全降级）",
   "memory.createNew": "＋ 手写新建记忆",
   "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 {{count}} 条结果。",
@@ -4995,6 +4997,8 @@
   ,"memory.badge.summary": "记忆：匹配 {{matches}} · 核心 {{core}} · 补位 {{fill}}"
   ,"memory.badge.keywordFallback": "关键词回退"
   ,"memory.badge.semanticPreparing": "语义准备中"
+  ,"memory.badge.semanticUnavailable": "语义不可用"
+  ,"memory.badge.staleRecovered": "基础结果"
   ,"memory.badge.disabled": "记忆：本线程已关闭"
   ,"memory.badge.unavailable": "记忆：本轮预检不可用"
   ,"memory.badge.title": "本轮记忆检查详情"

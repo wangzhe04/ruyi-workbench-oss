@@ -47,6 +47,7 @@
         "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SemanticFailurePolicy",
         "SemanticRuntimeHooks",
         "SessionExecutionHooks",
         "SessionFullTextHooks",
@@ -4721,6 +4722,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SessionExecutionHooks",
           "kinds": [
             "read"
@@ -8013,6 +8021,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MemorySemanticHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
           "kinds": [
             "read"
           ]
@@ -13293,6 +13308,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
           "kinds": [
             "read"
           ]
@@ -30548,6 +30570,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticFailurePolicy",
           "kinds": [
             "read"
           ]

@@ -1346,7 +1346,9 @@ export function createChatStreamRuntime(deps = {}) {
             + (mc.coreActiveCount > 0 ? t('memory.check.core', { core: mc.coreActiveCount }) : '')
             + (mc.ruleFillCount > 0 ? t('memory.check.fill', { fill: mc.ruleFillCount }) : '')
             + (semanticFallback === 'loading' ? '\n' + t('memory.check.semanticPreparing') :
-              ['overloaded','timeout','partial','unavailable','truncated'].includes(semanticFallback) ? '\n' + t('memory.check.semanticFallback') : '')));
+              semanticFallback === 'unavailable' ? '\n' + t('memory.check.semanticUnavailable') :
+              semanticFallback === 'stale' ? '\n' + t('memory.check.staleRecovered') :
+              ['overloaded','timeout','partial','truncated'].includes(semanticFallback) ? '\n' + t('memory.check.semanticFallback') : '')));
         if (!replayingStream) appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n${t('chat.meta.modelPermission', { model: String(evt.model), permission: String(evt.permissionMode) })}${memoryLine}`);
         // v0.8-S0 cwd guardrail: warn once per turn when the working dir is the user's home/Desktop/
         // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).

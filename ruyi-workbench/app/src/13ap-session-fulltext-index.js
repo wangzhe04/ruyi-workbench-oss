@@ -1,6 +1,8 @@
 // Complete message-source shards; source authority and disclosure remain with
 // the existing session/storage/privacy owners. No embeddings or corpus sampling.
 const SessionFullTextIndex = ((io,p,c) => {
+  // 150 号文 S1 的失败分类(00-boot);单文件 vm 夹具没装它时保守:不包、不降级(同修前)。
+  const semanticFailures=typeof SemanticFailurePolicy!=='undefined'?SemanticFailurePolicy:{guard:fn=>fn,degradable:()=>false};
   const FORMAT=3,SCHEMA=1,CHARS=4096,OVERLAP=256,SHARD_BYTES=256*1024,MANIFEST_BYTES=4*1024*1024;
   const ATTACHMENT_REFS_PER_MESSAGE=16,ATTACHMENT_REFS_PER_SESSION=64,ATTACHMENT_DOCS_PER_SESSION=2;
   const HEX=/^[a-f0-9]{64}$/,GEN=/^[a-f0-9]{32}$/;
@@ -464,7 +466,10 @@ const SessionFullTextIndex = ((io,p,c) => {
           await beforeEncode();
           return indices.map(n=>semanticRows[n].metadata?semanticRows[n].text:(originalFragments.get(n)??null));
         };
-        try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),maxEncodeDocuments:128,resolveTexts,beforeEncode,policyContext,deadline:semanticDeadline,signal:options.signal});check();}catch(error){if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}
+        // 150 号文 S1:语义层自己的非守卫失败(运行时起不来、契约违例)退回词法结果并标 unavailable,不再 500;
+        // 交给语义层的两个回调经 SemanticFailurePolicy.guard 包过,它们抛的(撤权、源变化、取消、privacy)照常上抛。
+        try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),maxEncodeDocuments:128,resolveTexts:semanticFailures.guard(resolveTexts),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,deadline:semanticDeadline,signal:options.signal});}catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
+        check();
         if(policyContext&&(gemmaDecision||SemanticRetrieval.hasScoreEvidence(semanticState)||semanticState.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)){
           const expired=Object.freeze({semanticBudget:true}),guard=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw expired;},policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify,normalize,terms:retrievalTerms}),rawRows=[],entries=[],rowSources=[],tokens=new Map(),fieldRows=new Map(),canonical=new Map(),sourceIndices=[];
           try{

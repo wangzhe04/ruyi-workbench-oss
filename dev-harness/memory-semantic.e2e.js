@@ -68,11 +68,16 @@ const ids = entries => entries.map(entry => entry.id).sort().join(',');
     let raced = await race('alpha selection-race', () => { session.memoryExclusions = [{ id: 'alpha-one', scope: 'project' }]; });
     ok(raced.status.mode === 'stale' && !raced.entries.length && !raced.coreEntries.length, 'selection revocation during encoding prevents all disclosure'); session.memoryExclusions = [];
     raced = await race('alpha metadata-race', () => save('alpha-one', 'alpha changed header'));
-    ok(raced.status.mode === 'stale' && !raced.entries.length, 'memory metadata revisions are revalidated after encoding');
+    // 150 号文 S11:库在编码期间被改仍判 stale,但不再交空结果 —— 按当前库、不走语义重算一次(旧排序与旧表头都不出门)。
+    ok(raced.status.recovered === 'stale' && raced.status.semantic?.status === 'stale' && raced.status.semantic?.fallback?.reason === 'stale'
+      && raced.entries.find(entry => entry.id === 'alpha-one')?.name === 'alpha changed header' && raced.coreEntries.some(entry => entry.id === 'core-rule'),
+      'memory metadata revisions are revalidated after encoding (stale result recomputed from the current library, core kept)');
     raced = await race('alpha turn-race', () => { session.turnSeq++; });
     ok(raced.status.mode === 'stale' && !raced.entries.length, 'a changed turn cannot receive the old ranking');
     raced = await race('alpha config-race', () => { fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ ...config, semanticRetrievalV1: false })); });
-    ok(raced.status.mode === 'stale' && !raced.entries.length, 'direct configuration changes during encoding are detected without relying only on generation');
+    ok(raced.status.recovered === 'stale' && raced.status.semantic?.status === 'stale'
+      && ids(raced.entries) === ids(baseline.entries) && raced.coreEntries.some(entry => entry.id === 'core-rule'),
+      'direct configuration changes during encoding are detected without relying only on generation (recomputed without semantic, core kept)');
     fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify(config));
     srv.__test.clearSemantic(); onEncode = () => { throw Object.assign(Error('work_data.key_unavailable'), { code: 'work_data.key_unavailable' }); };
     let keyFailed = false; try { await srv.__test.resolveMemoryPreflight(session, cwd, 'alpha key-race', null, config); } catch (error) { keyFailed = error.code === 'work_data.key_unavailable'; }

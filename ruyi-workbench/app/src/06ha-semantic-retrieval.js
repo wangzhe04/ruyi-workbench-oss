@@ -68,8 +68,9 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(beforeEncode)await beforeEncode();
       if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
       if(generation!==cacheGeneration)return empty('unavailable');
-      if(Date.now()>=deadline)return empty('timeout');
+      // 150 号文 S18:先看 descriptor 再看期限。冷模型加载期 prepare 往往正好耗尽期限,修前先判期限就把「加载中」报成 timeout。
       if(!descriptor?.available){if(['disabled','unavailable','timeout','overloaded'].includes(descriptor?.reason))return empty(['loading','warming'].includes(descriptor.state)?'loading':descriptor.reason);throw Error('semantic.prepare_failed');}
+      if(Date.now()>=deadline)return empty('timeout');
       // Codec/startup readiness does not qualify a new retrieval policy. Keep
       // the explicit Gemma2 backend unavailable to consumers until its complete
       // K1/identifier/weak-evidence policy is connected across all entry points.

@@ -27,8 +27,12 @@ test('model reads only the memoryCheck counters and classifies fallback reasons'
   assert.deepEqual(memoryCheckBadgeModel({ enabled: true, checked: false }), { state: 'unavailable' });
   const done = memoryCheckBadgeModel({ enabled: true, checked: true, candidateCount: 7, matchCount: 2, projectMatches: 1, globalMatches: 1, coreActiveCount: 3, ruleFillCount: 1 });
   assert.deepEqual(done, { state: 'done', matches: 2, core: 3, fill: 1, candidates: 7, project: 1, global: 1, fallback: '' });
-  for (const reason of ['overloaded', 'timeout', 'partial', 'unavailable', 'truncated']) assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason } } }).fallback, 'keyword', reason);
+  for (const reason of ['overloaded', 'timeout', 'partial', 'truncated']) assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason } } }).fallback, 'keyword', reason);
   assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason: 'loading' } } }).fallback, 'preparing');
+  // 150 号文 S1/S11：运行时不可用与 stale 重算有自己的回执，不再并进「关键词回退」。
+  assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason: 'unavailable' } } }).fallback, 'unavailable');
+  assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason: 'stale' } } }).fallback, 'stale');
+  assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, semantic: { fallback: { reason: 'toString' } } }).fallback, '', 'inherited names are not reasons');
   assert.equal(memoryCheckBadgeModel({ enabled: true, checked: true, matchCount: -4, coreActiveCount: 'x' }).matches, 0);
 });
 
@@ -43,6 +47,14 @@ test('badge summary says matches/core/fill and the fallback in both languages; d
   const en = renderMemoryCheckBadge(check, { t: tFor('en-US'), doc });
   assert.equal(en.children[0].textContent, 'Memory: 0 matched · 2 core · 1 filled · keyword fallback');
   assert.ok(!/[㐀-鿿]/.test(en.textContent), 'English badge has no Chinese');
+  for (const [reason, zhTag, enTag, zhDetail] of [['unavailable', '语义不可用', 'semantic unavailable', /语义服务暂不可用/], ['stale', '基础结果', 'basic result', /记忆库有变化/]]) {
+    const row = { ...check, semantic: { fallback: { reason } } };
+    const zhRow = renderMemoryCheckBadge(row, { t: tFor('zh-CN'), doc });
+    assert.equal(zhRow.dataset.fallback, reason);
+    assert.equal(zhRow.children[0].textContent, '记忆：匹配 0 · 核心 2 · 补位 1 · ' + zhTag);
+    assert.match(zhRow.children[1].textContent, zhDetail); assert.doesNotMatch(zhRow.children[1].textContent, /重排未完成/);
+    assert.equal(renderMemoryCheckBadge(row, { t: tFor('en-US'), doc }).children[0].textContent, 'Memory: 0 matched · 2 core · 1 filled · ' + enTag);
+  }
   assert.match(renderMemoryCheckBadge({ enabled: false }, { t: tFor('zh-CN'), doc }).children[0].textContent, /已关闭/);
 });
 

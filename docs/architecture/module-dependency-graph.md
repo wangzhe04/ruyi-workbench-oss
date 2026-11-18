@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 144 | 4350 | 4350 | 958 | 67 | 0 | 1 |
+| 144 | 4351 | 4354 | 958 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 187 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 188 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 37 | 0 | 0 |
@@ -71,7 +71,7 @@
 | 53 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
 | 54 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
 | 55 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
-| 56 | `05-claude-engine.js` | engine | 79 | 152 | 26 |
+| 56 | `05-claude-engine.js` | engine | 79 | 153 | 26 |
 | 57 | `05b-kimi-bridge.js` | engine | 130 | 82 | 13 |
 | 58 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 59 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
@@ -84,7 +84,7 @@
 | 66 | `06ha-semantic-retrieval.js` | unclassified | 4 | 2 | 2 |
 | 67 | `06i-steward-core.js` | engine | 166 | 1 | 1 |
 | 68 | `06d-memory-domain.js` | engine | 182 | 46 | 12 |
-| 69 | `06hc-memory-semantic.js` | unclassified | 3 | 15 | 6 |
+| 69 | `06hc-memory-semantic.js` | unclassified | 3 | 16 | 6 |
 | 70 | `06e-mission-domain.js` | engine | 3 | 13 | 5 |
 | 71 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 72 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
@@ -96,7 +96,7 @@
 | 78 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 79 | `09-workflow.js` | orchestration | 32 | 286 | 29 |
 | 80 | `09c-thread-relay.js` | orchestration | 1 | 48 | 13 |
-| 81 | `10-context-governance.js` | orchestration | 248 | 133 | 25 |
+| 81 | `10-context-governance.js` | orchestration | 248 | 134 | 25 |
 | 82 | `11-native-tools.js` | tools | 143 | 51 | 9 |
 | 83 | `11b-file-text-io.js` | tools | 1 | 0 | 0 |
 | 84 | `11c-file-visual-io.js` | tools | 1 | 1 | 1 |
@@ -145,7 +145,7 @@
 | 127 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
 | 128 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 9 | 8 |
 | 129 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
-| 130 | `13ap-session-fulltext-index.js` | unclassified | 1 | 27 | 12 |
+| 130 | `13ap-session-fulltext-index.js` | unclassified | 1 | 28 | 12 |
 | 131 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 27 | 13 |
 | 132 | `13ba-media-image-contract.js` | unclassified | 1 | 1 | 1 |
 | 133 | `13bb-media-derived-store.js` | unclassified | 1 | 2 | 2 |
@@ -300,7 +300,7 @@
 | `04i-provider-wire.js` | `04i-provider-anthropic.js` | backward | `anthropicApiBase`, `anthropicCacheRetryBodyOn400`, `anthropicMessagesUrl`, `anthropicModelTraits`, `anthropicModelsUrl`, `anthropicRequestHeaders`, `anthropicRetryBodyOn400`, `applyAnthropicEffort`, `applyAnthropicTemperature`, `applyAnthropicTools`, `createAnthropicStreamDecoder`, `decodeAnthropicCompletion`, `encodeAnthropicMessages`, `encodeAnthropicQuick`, `normalizeAnthropicUsage` |
 | `04j-voice-learn.js` | `04j-hanzi-pinyin.js` | backward | `HanziPinyin` |
 | `04j-voice-learn.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
-| `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `InternalMcpHooks`, `MemoryCliHooks`, `ObservationRecoveryHooks`, `RUYI_EVENTS`, `SessionExecutionHooks`, `URL`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `dataRoot`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse` |
+| `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `InternalMcpHooks`, `MemoryCliHooks`, `ObservationRecoveryHooks`, `RUYI_EVENTS`, `SemanticFailurePolicy`, `SessionExecutionHooks`, `URL`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `dataRoot`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse` |
 | `05-claude-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `05-claude-engine.js` | `01-config.js` | backward | `agentCliLauncherUsable`, `atomicWriteJson`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
 | `05-claude-engine.js` | `01d-win-cmdline.js` | backward | `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `isBatchLauncher`, `quoteWinArg`, `spawnCmdLineLength` |
@@ -391,7 +391,7 @@
 | `06g-resource-leases.js` | `03-bridge-guard.js` | backward | `pathWithinRoot` |
 | `06ha-semantic-retrieval.js` | `06h9-semantic-policy.js` | backward | `SemanticOriginalWindows` |
 | `06ha-semantic-retrieval.js` | `06hb-semantic-runtime.js` | backward | `SemanticRuntimeTransportProof` |
-| `06hc-memory-semantic.js` | `00-boot.js` | backward | `MemorySemanticHooks`, `SemanticRuntimeHooks`, `crypto` |
+| `06hc-memory-semantic.js` | `00-boot.js` | backward | `MemorySemanticHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `crypto` |
 | `06hc-memory-semantic.js` | `01c-runtime-flags.js` | backward | `memoryVectorRecallEnabled` |
 | `06hc-memory-semantic.js` | `06d-memory-domain.js` | backward | `memoryExplicitRetrievalText`, `memoryRetrievalKey`, `memoryRetrievalText`, `memorySemanticBudgetSafe`, `rankMemoriesForRecallDetailed`, `rankRelevantMemoriesScored` |
 | `06hc-memory-semantic.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |
@@ -497,7 +497,7 @@
 | `09c-thread-relay.js` | `09-workflow.js` | backward | `launchPersistedAgentRun`, `waitForAgentRunResults` |
 | `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
 | `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
-| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `InternalMcpHooks`, `ObservationRecoveryHooks`, `SemanticRuntimeHooks`, `SessionExecutionHooks`, `ThreadRelayHooks`, `URL`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `zlib` |
+| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `InternalMcpHooks`, `ObservationRecoveryHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `SessionExecutionHooks`, `ThreadRelayHooks`, `URL`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `configReadGeneration`, `readConfig`, `readJsonBody`, `safeSessionId`, `send` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
@@ -720,7 +720,7 @@
 | `13am-work-data-maintenance-runtime.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13am-work-data-maintenance-runtime.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
 | `13am-work-data-maintenance-runtime.js` | `13al-work-data-maintenance-http.js` | backward | `WorkDataMaintenanceHttp` |
-| `13ap-session-fulltext-index.js` | `00-boot.js` | backward | `MediaImageHooks`, `SemanticRuntimeHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `decodeTextFileBytes`, `fsp`, `path`, `paths`, `text` |
+| `13ap-session-fulltext-index.js` | `00-boot.js` | backward | `MediaImageHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `decodeTextFileBytes`, `fsp`, `path`, `paths`, `text` |
 | `13ap-session-fulltext-index.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13ap-session-fulltext-index.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
 | `13ap-session-fulltext-index.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
