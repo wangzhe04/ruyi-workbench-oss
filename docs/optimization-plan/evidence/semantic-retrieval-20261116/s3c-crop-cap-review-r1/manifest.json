@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T18:04:53.212Z",
+  "status": "TARGETED_CAP_FIX_PASS_CROP_REJECTED_QUALITY_STILL_RED",
+  "limitations": [
+    "No independent quality pass; fixed Qwen .44 policy and default MiniLM unchanged.",
+    "MRL512/256 developer-only fixed threshold study failed OOD floor; not adopted.",
+    "405 open-set development policies still selected original .44 without background statistic; no new policy adoption.",
+    "Native host direct-launch tests cover normal lifecycle only; job helper hard-parent-kill research separate and not registered.",
+    "Five actual runner functional tests pass on stable current source, not a whole regression or new-package proof."
+  ],
+  "records": [
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-metadata-review-receipt-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/01-weak-metadata-review-receipt-r2.json.gz",
+      "sha256": "d9f32ad6caacd7b257f7737554d1942b63c8f6d441935dc8351a24a445489355",
+      "bytes": 5804,
+      "gzipSha256": "46d1c3b5e72d5bace3007160fcb87f1dca3e4c7ab7a23b5c4ab182b844d3eb0d",
+      "gzipBytes": 2232
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/prepare-weak-metadata-r2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/02-prepare-weak-metadata-r2.cjs.gz",
+      "sha256": "b4b08606275a4fdee67ff6f8c2aadb563ec80fbc68ecbee0e2e71cdf00674af1",
+      "bytes": 1161,
+      "gzipSha256": "ed2fd041596c39ed2275770bd838b8cd7f95011112ee9807ed5c6e7e0651296e",
+      "gzipBytes": 489
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-lexical-cap-repro-r2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/03-weak-lexical-cap-repro-r2.cjs.gz",
+      "sha256": "97af5f641801fd4299705f373baa958dfe6a67fc51e2d3fd524ccda007dabd5c",
+      "bytes": 2071,
+      "gzipSha256": "e4ec5f12305734b4b30450dd4e5ec1e266d9866fdf919596052c68dc4b0367b5",
+      "gzipBytes": 1062
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-lexical-cap-repro-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/04-weak-lexical-cap-repro-r2.json.gz",
+      "sha256": "52a7c101227f67ce4a05d501103b9848199567e205d5c82aa735fd7ae1590542",
+      "bytes": 475,
+      "gzipSha256": "59835d749fea7267fd0f3e46ed1331442dd94107c493ea9eafb748e71ebb01c9",
+      "gzipBytes": 328
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-lexical-cap-repro-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/05-weak-lexical-cap-repro-r2.log.gz",
+      "sha256": "01d19be61386f1e4c68c30419d04aeabe6546725d7340ac67436f26dadae1b3b",
+      "bytes": 412,
+      "gzipSha256": "e35fecb84e6dc368dbe8dc54507ae7a18a7cc9ac47b2aeb6d4e439e3fe625d59",
+      "gzipBytes": 313
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/metadata-boundary-review-r2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/06-metadata-boundary-review-r2.cjs.gz",
+      "sha256": "bb28e8243d42c3b6c19bc224302885d1e875c0d15ce55c60300f4dac71a9ffe4",
+      "bytes": 4516,
+      "gzipSha256": "22ac87beab71425665432c88719742c7db430b7a90cf2172c9e68557357ff0dc",
+      "gzipBytes": 1967
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/metadata-boundary-review-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/07-metadata-boundary-review-r2.json.gz",
+      "sha256": "f48066a7074b529553d4bb515424512fee5ca64289e2ce2ab540518db80406d6",
+      "bytes": 3501,
+      "gzipSha256": "9d12ce0689bfd5605bb32c2855183679430ec803c63e149e68a6f6208d5c0998",
+      "gzipBytes": 934
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/metadata-boundary-review-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/08-metadata-boundary-review-r2.log.gz",
+      "sha256": "c6aab05cea8d0a8446c3190a57d442eadb9a04c34d357e557993c91ec6a4dd29",
+      "bytes": 49,
+      "gzipSha256": "83a509f5d6a1e959a9623816d450fad4c7a0c6ec6822e138a31cb64d1e9da9c2",
+      "gzipBytes": 69
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-metadata-review-unit-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/09-weak-metadata-review-unit-r2.log.gz",
+      "sha256": "90e5561027d9cc487fa25b4c37b6f95a25520f1216da96d8c4e2089b9698ae2c",
+      "bytes": 6165,
+      "gzipSha256": "78130c0bee13b701081e9d11c5528db373de7dfdca75cdceb25135edf2f8c897",
+      "gzipBytes": 2619
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-metadata-semantic-e2e-r2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/10-weak-metadata-semantic-e2e-r2.log.gz",
+      "sha256": "41ca39f067dc2eb46b3869401ae8d9a508d4be46666d62ef9c295d9e69a36a9a",
+      "bytes": 813,
+      "gzipSha256": "2f0e9278688b4c5698a118a3265fa002ba3e16b1dabdc98de21acd826df77f8d",
+      "gzipBytes": 456
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/prefix-train-cal-fixed044-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/11-prefix-train-cal-fixed044-v1.json.gz",
+      "sha256": "fce43e8b0f0dcf10ac21f1562549ff63f03bf0d8e2e4f8b9f60974b73c2a584b",
+      "bytes": 31979,
+      "gzipSha256": "d94e48350cced0968927c37ee46342ed30afec28f0ca7f4070514f0448f3303c",
+      "gzipBytes": 2663
+    },
+    {
+      "source": "output/semantic-qwen3-dev-open-set-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/12-semantic-qwen3-dev-open-set-v1.json.gz",
+      "sha256": "a3bc15a4e817676464a9b8c185025f4d32451657628dc38e593075f59a9d095e",
+      "bytes": 1564738,
+      "gzipSha256": "fd4c130f1122ca180e4bfc32e70da3b1c21b5e3137329b47209c053738ae30a2",
+      "gzipBytes": 28235
+    },
+    {
+      "source": "output/semantic-native-host-v3-idle60.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/13-semantic-native-host-v3-idle60.json.gz",
+      "sha256": "3e88fcae9c8c45831918e3f796ddaea44f4983aa9537540d4cd21a39ee85b3ff",
+      "bytes": 4260,
+      "gzipSha256": "1bc37c91aea9bc06f97d374e371a9e7c90b2cd63055feae5f44293afe2fe6e13",
+      "gzipBytes": 1194
+    },
+    {
+      "source": "output/semantic-native-fault-fallback-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/14-semantic-native-fault-fallback-v2.json.gz",
+      "sha256": "77f280446a09cda346d6fbf0bc131f0141a171539ed3a0a637baee61eaad9bff",
+      "bytes": 2396,
+      "gzipSha256": "b843d4e521cd06b9bbe41c4ec1f88438b7ae11b3f65155adbec284e88383dd7b",
+      "gzipBytes": 1077
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/15-receipt.json.gz",
+      "sha256": "6beb50025422c2c2305ea088e816ccad68c74d5c690d5feba3e5e9f1ee7bf4ea",
+      "bytes": 21168,
+      "gzipSha256": "13599acd737eab4063d393fbb1699a1e03df997b880bd74a721d9d8fed84c291",
+      "gzipBytes": 8398
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/semantic-retrieval.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/16-semantic-retrieval.e2e.js.log.gz",
+      "sha256": "da37189275a20c72d59256d212f8c8c4cc9ce9f563436aaba0511adeb40600cf",
+      "bytes": 795,
+      "gzipSha256": "b51015e7a858fc5573ab139247acd9ae6024f6c74b922a6fe782f34ef152517f",
+      "gzipBytes": 450
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/observation-messages.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/17-observation-messages.e2e.js.log.gz",
+      "sha256": "b40496b5e7a341a921267390c84a3edd69e9568853c11406f38b28ce2259c4ac",
+      "bytes": 2267,
+      "gzipSha256": "dffe1edeedfcbbc38d6971e2e2d3c905c749b98544e4885fd1f8f28e5d9cb0a6",
+      "gzipBytes": 907
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/observation-query.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/18-observation-query.e2e.js.log.gz",
+      "sha256": "c8a0ccaad68ce4b569704171eb02e95055d1020ae4dc2bd98d3f1bf9f7994751",
+      "bytes": 1699,
+      "gzipSha256": "f0920b69b4a631ae6be40ac4b98f658b00cfe0f670859f652f2a482404a33b69",
+      "gzipBytes": 760
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/memory-explicit-semantic.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/19-memory-explicit-semantic.e2e.js.log.gz",
+      "sha256": "169dd0cf731a56a2dfe39a5f2fcf0cccfc5b1ca69194b5414a662d6a0e43be7f",
+      "bytes": 1533,
+      "gzipSha256": "665a431e6d7d03e417feef91ac25a0f4c4be2e6ed87f9e729abb588dec9ce37f",
+      "gzipBytes": 694
+    },
+    {
+      "source": "output/semantic-cap-source-functional-r1/rail-session-search.browser.e2e.js.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-crop-cap-review-r1/20-rail-session-search.browser.e2e.js.log.gz",
+      "sha256": "73ceb873a91916b2917cef2392585affe1dc935c447a0ebe776ef882cb66eeb0",
+      "bytes": 2130,
+      "gzipSha256": "41497b5bd481b139657854aeb48dfb4d891bdb6cb431c4bde0fcfa6b7ed3f615",
+      "gzipBytes": 993
+    }
+  ]
+}
