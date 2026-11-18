@@ -2898,6 +2898,7 @@
         "anthropicApiBase",
         "anthropicAssistantBlocks",
         "anthropicBaseUrl",
+        "anthropicCacheRetryBodyOn400",
         "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
@@ -3030,6 +3031,13 @@
         },
         {
           "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicCacheRetryBodyOn400",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
           "symbol": "anthropicMessagesUrl",
           "kinds": [
             "read"
@@ -3040,6 +3048,13 @@
           "symbol": "anthropicModelsUrl",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicModelTraits",
+          "kinds": [
+            "call"
           ]
         },
         {

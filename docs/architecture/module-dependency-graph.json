@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 72,
-    "providedSymbols": 3686,
-    "requiredSymbols": 3241,
+    "providedSymbols": 3687,
+    "requiredSymbols": 3243,
     "edges": 551,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2948,6 +2948,7 @@
         "anthropicApiBase",
         "anthropicAssistantBlocks",
         "anthropicBaseUrl",
+        "anthropicCacheRetryBodyOn400",
         "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
@@ -3082,6 +3083,13 @@
         },
         {
           "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicCacheRetryBodyOn400",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
           "symbol": "anthropicMessagesUrl",
           "kinds": [
             "read"
@@ -3092,6 +3100,13 @@
           "symbol": "anthropicModelsUrl",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicModelTraits",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -27801,7 +27816,9 @@
       "to": "04i-provider-anthropic.js",
       "symbols": [
         "anthropicApiBase",
+        "anthropicCacheRetryBodyOn400",
         "anthropicMessagesUrl",
+        "anthropicModelTraits",
         "anthropicModelsUrl",
         "anthropicRequestHeaders",
         "anthropicRetryBodyOn400",
