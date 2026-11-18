@@ -23,7 +23,9 @@ ok(/buildMemoryToolboxCard/.test(js) && /openMemoryEditModal/.test(js) && /delet
 ok(/\/api\/memory\/metadata/.test(js) && /memory-core-toggle/.test(js) && /memory-important-toggle/.test(js), 'toolbox supports core membership and importance protection controls');
 // 2026-09-04: 胶囊容量从硬常量改为可配。锁两件事 —— 兵底常量已抬高，且真正生效的是
 // 01c 里读配置的判定函数(而不是直接用常量)，否则用户改了配置也不会生效。
-ok(/CORE_MEMORY_MAX = 200/.test(autonomy) && /CORE_MEMORY_CHAR_CAP = 16000/.test(autonomy),
+// 3.1 精简:06d 里那两个兜底常量零引用已删,真正的兜底就是 01c 判定函数的缺省值 —— 改钉那里。
+const flags = read('ruyi-workbench/app/src/01c-runtime-flags.js');
+ok(/memoryLimit\(config, 'coreMemoryMaxItemsV1', 0, 2000, 200\)/.test(flags) && /memoryLimit\(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000\)/.test(flags),
   'core capsule fallbacks track the widened defaults (200 items / 16000 chars)');
 ok(/coreMemoryMaxItems\(config\)/.test(autonomy) && /coreMemoryCharBudget\(config\)/.test(autonomy)
   && /memoryRelevanceMax\(effectiveConfig\)/.test(autonomy) && /memoryIndexCharCap\(config\)/.test(autonomy),

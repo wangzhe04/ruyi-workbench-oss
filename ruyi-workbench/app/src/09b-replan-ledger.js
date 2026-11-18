@@ -93,7 +93,8 @@ function proposeReplanPatch(run, trigger, changes) {
 // R5(16-r5-replan-ledger.md §3.3): 应用/回滚引擎 —— 纯确定性图操作,不含审批(审批路由接 UI 是后续切片)。
 // 本切片支持两个安全 op:change_tier(仅降级)与 add_node(补节点)。remove_node/rewire/change_engine/
 // change_role/inherit_evidence/drop_evidence 涉及下游一致性/角色引擎解析/证据图变更,留后续切片。
-// 应用前 snapshot run.nodes 到 replanBaseline(仅首次),回滚即恢复基线。机器校验复用 validateReplanPatch。
+// 应用前 snapshot run.nodes 到 replanBaseline(仅首次)。机器校验复用 validateReplanPatch。
+// 3.1 精简:回滚入口 rollbackReplanPatch 从未接线(零调用点)已删;replanBaseline 是落盘字段,暂留。
 function applyReplanPatch(run, patchId) {
   try {
     if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
@@ -157,19 +158,5 @@ function applyReplanPatch(run, patchId) {
     run.nodes = nodes;
     patch.status = 'applied'; patch.appliedAt = nowIso();
     return { ok: true, applied, patchId: patch.id };
-  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
-}
-
-function rollbackReplanPatch(run, patchId) {
-  try {
-    if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
-    const patches = Array.isArray(run.replanPatches) ? run.replanPatches : [];
-    const patch = patches.find(p => p && String(p.id) === String(patchId || ''));
-    if (!patch) return { ok: false, error: 'replan patch 不存在' };
-    if (patch.status !== 'applied') return { ok: false, error: `patch 状态不是 applied(${patch.status})` };
-    if (run.replanBaseline === null || run.replanBaseline === undefined) return { ok: false, error: '无基线快照,无法回滚(基线缺失时禁止再回滚)' };
-    run.nodes = JSON.parse(JSON.stringify(run.replanBaseline));
-    patch.status = 'rolled_back'; patch.appliedAt = null;
-    return { ok: true, patchId: patch.id };
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }

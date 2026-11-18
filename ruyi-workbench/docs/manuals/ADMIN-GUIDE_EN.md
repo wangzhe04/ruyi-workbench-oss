@@ -125,7 +125,7 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
 
-Each data directory permits one service. Ownership is acquired before startup recovery or migration; a second service is refused even on a different port, preserving the first service's pending tasks and handshake. Use the existing window or stop the existing service first. Ruyi no longer ends any process to take its port. For a different data directory, it tries original+1 … original+9 and records the actual port in `runtime.json`, the console URL and the UI banner. Only when all candidates are occupied does startup fail. `killPortOnStart` and `WCW_KILL_PORT` remain legacy configuration fields and no longer enable takeover.
+Each data directory permits one service. Ownership is acquired before startup recovery or migration; a second service is refused even on a different port, preserving the first service's pending tasks and handshake. Use the existing window or stop the existing service first. Ruyi no longer ends any process to take its port. For a different data directory, it tries original+1 … original+9 and records the actual port in `runtime.json`, the console URL and the UI banner. Only when all candidates are occupied does startup fail. Since 3.1 the `killPortOnStart` setting is removed: a leftover key in an old configuration is ignored and dropped on read; `WCW_KILL_PORT` has no effect either.
 
 ### Windows 10/11 requirements
 

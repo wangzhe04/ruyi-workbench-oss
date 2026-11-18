@@ -30,7 +30,7 @@ async function fixture(options={}){
   const code=[base,functionBlock(cfg,'normalizeWorkspacePathString'),functionBlock(actual('01c-runtime-flags.js'),'sessionSearchIndexEnabled'),functionBlock(session,'sessionDisplayTitle'),functionBlock(session,'isUntitledSessionTitle'),functionBlock(session,'sessionMetaIsSteward'),
    sliceBlock(j,'const STEWARD_SEARCH_LIMIT_DEFAULT','\n'),...['stewardClampInt','stewardRawKind','stewardQuickClosed','stewardQuickThread','stewardDisplayKind'].map(name=>functionBlock(j,name)),
    ...['stewardCanonWorkspacePath','stewardFoldWorkspacePath','stewardKnownWorkspaces','stewardMatchKnownWorkspace','stewardWorkspaceNameOf','threadRelationsIndex','threadRelatedThreads','stewardRecentUserRequest','stewardThreadDisplayTitle','stewardImplThreadsSearch'].map(name=>functionBlock(k,name)),
-   ...['SESSION_SEARCH_MIN_QUERY','SESSION_SEARCH_MAX_LIMIT'].map(name=>constBlock(d,name)),...['sessionSearchScope','searchSessionsByContent','handleSessionApiRoutes'].map(name=>functionBlock(d,name))];
+   constBlock(d,'SESSION_SEARCH_MIN_QUERY'),...['sessionSearchScope','searchSessionsByContent','handleSessionApiRoutes'].map(name=>functionBlock(d,name))];
   if(code.some(value=>!value))throw Error('entry source missing');vm.runInContext(code.join('\n'),context);
   const entry=sliceBlock(g,'  threadHistorySearch:','\n  threadHistoryRead:');
   const api=vm.runInContext('({'+entry+'handleSessionApiRoutes,stewardImplThreadsSearch})',context);return api;

@@ -762,7 +762,7 @@ function stewardLaunchTurn(input, tool) {
   const registration = new Promise(resolve => { registered = resolve; });
   // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
   // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
-  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
+  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceUserTexts)分不出
   // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
   // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
   // input 里调用方自己给的 messageMeta 优先(目前没有)。

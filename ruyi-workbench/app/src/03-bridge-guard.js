@@ -1644,17 +1644,6 @@ async function probeGitCliAsync() {   // 128f-⑬:能力矩阵过期重算时用
   _gitCliProbe = { at: Date.now(), value };
   return value;
 }
-function probeGitCli() {
-  const now = Date.now();
-  if (_gitCliProbe && (now - _gitCliProbe.at) < GITCLI_CACHE_MS) return _gitCliProbe.value;
-  let value = false;
-  try {
-    const result = cp.spawnSync('git', ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
-    value = !result.error && result.status === 0;
-  } catch { value = false; }
-  _gitCliProbe = { at: now, value };
-  return value;
-}
 
 function buildDeliveryRevisionPrompt(meta) {
   const ref = meta && meta.revisionOf;

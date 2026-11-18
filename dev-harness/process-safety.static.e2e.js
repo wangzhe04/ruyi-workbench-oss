@@ -95,7 +95,7 @@ ok(cdpFiles.length === CDP_OWNERS, `③ 自带 CDP 客户端的件数钉成 ${CD
 ok(unguarded.length === 0, `② 每个 CDP 客户端的 send() 在 socket.send 之前都有 readyState 闸(未设闸 ${unguarded.length}${unguarded.length ? ':' + unguarded.join(' ') : ''})`);
 
 // ④ 128i:产品侧同一条规矩 —— src/ 里零 taskkill /T 调用;唯一的收尸实现 OWN_TREE_KILL_PS 保着「认子孙核创建时间」
-//    「conhost 不杀」两行;两个入口(killChildTree 发出去就算、freeStalePort 的 killPid 等它跑完)都走它。
+//    「conhost 不杀」两行;产品入口 killChildTree(发出去就算)走它;原第二个入口 freeStalePort 的 killPid 已随 3.1 精简删除。
 {
   const SRC = path.join(HARNESS, '..', 'ruyi-workbench', 'app', 'src');
   const srcFiles = fs.readdirSync(SRC).filter(n => n.endsWith('.js'));
@@ -112,7 +112,8 @@ ok(unguarded.length === 0, `② 每个 CDP 客户端的 send() 在 socket.send �
   ok(/'conhost\.exe'/.test(pr) && /Stop-Process/.test(pr) && /StartTime\.ToFileTimeUtc\(\)/.test(pr), '④ OWN_TREE_KILL_PS 不杀 conhost、动手前核启动时间');
   ok(/function killChildTree\(pid\)[\s\S]{0,1600}ownTreeKillCommand\(pid\)/.test(pr), '④ killChildTree 走 ownTreeKillCommand');
   const router = fs.readFileSync(path.join(SRC, '13-http-router.js'), 'utf8');
-  ok(/async function killPid\(pid\) \{\s*await killOwnProcessTree\(pid\);/.test(router), '④ freeStalePort 的 killPid 走 killOwnProcessTree');
+  // 3.1 精简:端口接管链(freeStalePort / killPid)已删 —— 62 号所有权闸起启动只顺延端口。钉住它不回来。
+  ok(!/function freeStalePort\(|async function killPid\(/.test(router), '④ 端口接管链(freeStalePort／killPid)已退役,启动不结束任何占端口进程');
 }
 
 console.log(`PROCESS SAFETY STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

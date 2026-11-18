@@ -71,7 +71,7 @@ const sites = [
   ['10-context-governance.js runProviderCompact', fnBody('10-context-governance.js', 'async function runProviderCompact('), true],
   ['10-context-governance.js runAgentExternalCompact', fnBody('10-context-governance.js', 'async function runAgentExternalCompact('), true],
   ['05b-kimi-bridge.js runKimiCompact', fnBody('05b-kimi-bridge.js', 'async function runKimiCompact('), false],
-  ['08-agent-runs.js appendAgentWorkflowSummaryToSession', fnBody('08-agent-runs.js', 'async function appendAgentWorkflowSummaryToSession('), false],
+  // 3.1 精简:08 的 appendAgentWorkflowSummaryToSession 零调用点(代理 v2 改走 deliverAgentRunEnvelope)已删,本行随之退役。
   ['13p-steward-runner-actions.js stewardStampReply', fnBody('13p-steward-runner-actions.js', 'async function stewardStampReply('), false],
   ['13q-steward-runner-turn.js stewardArchiveConversation', fnBody('13q-steward-runner-turn.js', 'async function stewardArchiveConversation('), true],
   ['02-session-store.js missionControlCommand', fnBody('02-session-store.js', 'async function missionControlCommand('), false],

@@ -537,7 +537,7 @@ ok(threadFactsMod.dockToneForMissionState('done') === 'quiet'
   && threadFactsMod.dockToneForMissionState('quick_ask', { settleDone: true }) === 'quiet',
   'G9b dockToneForMissionState 加了可选参数 settleDone：不传时 done 仍是 quiet（默认返回值零漂移），看板传 true 时 done 单独出第四档 settled，其余状态不受影响');
 ok(/dockToneForMissionState\(value, \{ settleDone: true \}\)/.test(board),
-  'G9c 看板 paintDot 显式传 settleDone:true 才选出第四档（不是改了默认返回值）');
+  'G9c 看板 toneOf 显式传 settleDone:true 才选出第四档（不是改了默认返回值）');
 // 121-K1：原 G9d 钉的是交办台 renderDock 那处「不传 settleDone」的伴随调用点。交办台整层退役后
 // 全仓只剩看板一个调用点，「默认返回值零漂移」这件事改由上面 G9b 的真值表首行（done → quiet）
 // 直接钉住 —— 判据没放松，只是它的见证者从「另一个调用点」换成了「函数本身的默认返回值」。
@@ -814,10 +814,9 @@ ok(/paintThreadCard\(el\('li', 'steward-now-thread'\), sessionId\)/.test(nowThre
 // 121-K4：那颗「按聚合态上色的事项点」随事项卡一起退役 —— 左栏的任务行用的是与线程行【同一枚】
 // 卡基元（色条＋色点按任务色，态由药丸说）。于是 paintDot 一个调用点都不剩：定义 1 ＋ 调用 0。
 // 被钉的事更强了：**整个模块没有一处把状态画成颜色**。
-ok(count(boardCode, /paintDot\(/g) === 1
-  && !/paintDot\(el\(/.test(boardCode)
-  && !/paintDot\(/.test(nowThreadBody),
-  `M5b 色 ≠ 态：paintDot（写 data-state/data-tone 的那一处）自此零调用点（定义 1 ＋ 调用 0 = ${count(boardCode, /paintDot\(/g)} 处），左栏与右栏的卡一次都不把状态画成颜色`);
+// 3.1 精简:零调用点的 paintDot 本体也已删除 —— 钉成「全模块零处 paintDot」,比「定义 1 ＋ 调用 0」更严。
+ok(count(boardCode, /paintDot\(/g) === 0 && !/paintDot\(/.test(nowThreadBody),
+  `M5b 色 ≠ 态：写 data-state/data-tone 的 paintDot 已删除（全模块 ${count(boardCode, /paintDot\(/g)} 处），左栏与右栏的卡一次都不把状态画成颜色`);
 ok(/tone === 'attention' \|\| tone === 'active'/.test(nowThreadBody)
   && count(boardCode, /needs_you/g) === 10 && count(boardCode, /'stopped'/g) === 0 && count(boardCode, /'done'/g) === 0,
   `M6 「展开还是折成一行」只读 toneOf 出的 data-tone（四档里的前两档）；五态字面量与 B5 同账：needs_you 10（一处计算＋九处分组映射；焦点那一处已随判据搬去叶子 thread-facts.js，见 B5）、'stopped' 零处（124 走查后本模块零五态字面量）、'done' 零处（实测 ${count(boardCode, /needs_you/g)}／${count(boardCode, /'stopped'/g)}／${count(boardCode, /'done'/g)}）`);
@@ -854,10 +853,8 @@ ok(count(boardCode, /missionStateIcon\(/g) === 1
 // 但「展开还是折成一行」仍然只认这四档 tone，提出来之前要拿 tone 必须先造一颗点再读回来再扔掉。
 // 被钉的契约一个字没变：settleDone 那一档没动，dockToneForMissionState 在全模块【仍然只被调用
 // 一次】（现在这一次住在 toneOf 里），paintDot 仍然把 state 与 tone 一起写在节点上。
-const paintDotBody = boardCode.slice(boardCode.indexOf('function paintDot(node, value)'), boardCode.indexOf('function paintThreadCard('));
+// 3.1 精简:paintDot 已删,原先钉它函数体的两条子判据随之退役;toneOf 的契约与唯一调用点照钉。
 ok(/function toneOf\(value\) \{ return dockToneForMissionState\(value, \{ settleDone: true \}\); \}/.test(boardCode)
-  && /node\.dataset\.state = value;/.test(paintDotBody)
-  && /node\.dataset\.tone = toneOf\(value\);/.test(paintDotBody)
   && count(boardCode, /dockToneForMissionState\(/g) === 1
   && new RegExp(`import \\{[^}]*\\bdockToneForMissionState\\b[^}]*\\} from '\\./thread-facts\\.js'`).test(board),
   'N4 tone 契约一个字没变：dockToneForMissionState 全模块仍然只调一次（住在纯函数 toneOf 里，settleDone 那一档没动），四档 tone 仍是紧凑行展开／折叠的唯一判据');

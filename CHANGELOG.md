@@ -10,6 +10,9 @@ This file records user-facing release highlights; it does not replace the comple
 - 新建记忆（编辑弹窗与模型批量提议卡）默认不再加入核心记忆；核心摘要每轮都会进入提示词，现在只有你在卡上打开「加入核心」才会加入。
 - New memories (edit dialog and the model's batch proposal card) are no longer added to core memory by default; core summaries enter every turn's prompt, so they are added only when you turn on "Add to core".
 
+- 设置页去掉已不起作用的「启动时接管被旧实例占用的端口」选项（端口被占时一直是自动顺延，旧配置里的该项读取时自动清除）；同时移除若干已无调用的旧代码与旧会话搜索索引。
+- Remove the no-longer-effective "take over the port held by an old instance on start" setting (an occupied port has always fallen back to the next free one; the key is cleared from old configs on read), along with unused legacy code and the old session-search index.
+
 - 修复 Claude 工具回合更新任务或改写既有请求前缀后仍回放旧思考签名的问题；配置恢复后，审计日志读取可在严格验证后解除策略拒读；显式会话索引刷新现在等待已在途的写入完成。
 - Fix stale Claude thinking replay after task updates or request-prefix edits, recover audit reads after strict policy revalidation, and make explicit session-index flushes wait for writes already in flight.
 

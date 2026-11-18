@@ -1063,7 +1063,6 @@ function probeRgInfoSync() {
 // 只读缓存,绝不触发探测:undefined = 还没探过(调用方按「未知」处理)。
 function peekRgProbe() { return _rgProbe; }
 function probeRg() { const info = probeRgInfoSync(); return info ? info.path : null; }
-function hasRg() { return !!probeRg(); }
 async function hasRgAsync() { return !!(await probeRgAsync()); }
 
 // 安全修复(审计 F · ReDoS 后续):file_list 的 pattern 是模型给的正则,逐项同步 `re.test(相对路径)`。

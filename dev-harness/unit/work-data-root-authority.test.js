@@ -188,10 +188,12 @@ test('generation-specific MCP drop-in discovery follows active paths rather than
   const fn = vm.runInNewContext(functionBlock(source('04-permission-runtime.js'), 'mcpDropInDirs') + '\nmcpDropInDirs;', { path, paths: f.paths, dataRoot: () => f.base, externalRoot: () => '/synthetic-install' });
   assert.equal(fn()[1].root, path.join(f.paths.data, 'mcp'));
 });
-test('runtime discovery continues reading the stable base after every managed data path is rebound', async () => {
-  const f = await fixture(); await f.factory.bind(f.owner); await fsp.writeFile(path.join(f.base, 'runtime.json'), '{"port":1234}');
-  const read = vm.runInNewContext(functionBlock(source('13-http-router.js'), 'readOwnRuntimeRecord') + '\nreadOwnRuntimeRecord;', { path, fsp, paths: f.paths, dataRoot: () => f.base, safeJsonParse: (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } } });
-  assert.equal((await read()).port, 1234);
+test('runtime record stays on the stable base after every managed data path is rebound', () => {
+  // 3.1 精简:原用例切片的读者 readOwnRuntimeRecord 随端口接管链(freeStalePort)一起删除,它已无调用点。
+  // 现钉生产写者:startServerInner 把 runtime.json 落在 dataRoot()(稳定基),不落在会被重绑的 paths.data。
+  const body = functionBlock(source('13-http-router.js'), 'startServerInner');
+  assert.match(body, /atomicWriteJson\(path\.join\(dataRoot\(\), 'runtime\.json'\)/);
+  assert.doesNotMatch(body, /path\.join\(paths\.data, 'runtime\.json'\)/);
 });
 test('serve selects under the existing OS owner before inner startup; an invalid manifest never reaches its error writer', async () => {
   for (const bad of [false, true]) {

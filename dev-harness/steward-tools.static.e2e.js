@@ -628,8 +628,6 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   const EXPIRY_FILTER_EXEMPT = {
     '13g-steward.js:stewardMemoryPanelList':
       '面板照常列出过期条目,只多打一枚「已过期」标(44 号文 §6 ②:时效是过滤不是删除)。逐条的 expired 由 stewardMemoryPanelRow 现算 —— 在这里滤掉等于用户再也看不见它过期了',
-    '13g-steward.js:stewardMemoryPanelExport':
-      '导出只滤 state !== active。含过期条目是有意的:导出再导入不该静默丢数据,expiresAt 本身也在导出字段集里',
     '13ab-privacy-api.js:memorySource':
       '受保护导出的权威来源仍包含全部 active 条目及 expiresAt，沿用记忆旧导出合同，不因隐私投影丢弃过期记录；时效筛选只影响任务召回而不是用户副本',
     '13j-steward-tool-base.js:stewardMutateMemory':
@@ -669,11 +667,12 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
       });
     }
   }
-  ok(occurrences === 8, `⑫b stewardReadMemoryStore 在 src/ 出现 8 次 = 定义 1 + 调用点 7(实得 ${occurrences};扫不到 = 本条静默失效)`);
+  // 3.1 精简:13g 的 stewardMemoryPanelExport 零调用点(导出路由早已改走 13ab 的 memorySource)已删,读取口 7 → 6。
+  ok(occurrences === 7, `⑫b stewardReadMemoryStore 在 src/ 出现 7 次 = 定义 1 + 调用点 6(实得 ${occurrences};扫不到 = 本条静默失效)`);
   ok(storeDefs === 1, `⑫b 库读取只有一处实现(实得 ${storeDefs} 处定义)`);
   // 129g 把第 6 个读取口加在 13k 的 stewardResolveAnswerBasis(代答的依据核实:给的记忆 id 必须
   // 真在库里、仍 active、且没过期)。它【自己滤】,所以不进白名单。
-  ok(sites.length === 7, `⑫b 调用点 7 个(实得 ${sites.length} 个:${sites.map(s => s.at).join('、')})`);
+  ok(sites.length === 6, `⑫b 调用点 6 个(实得 ${sites.length} 个:${sites.map(s => s.at).join('、')})`);
   ok(brokenRuler.length === 0, `⑫b 取函数体的尺子本身有效 —— 每个调用点都落在自己那个顶层函数体内${brokenRuler.length ? '；取不到的:' + brokenRuler.join('、') : ''}`);
   const unfiltered = sites.filter(s => !s.filters && !Object.prototype.hasOwnProperty.call(EXPIRY_FILTER_EXEMPT, s.key));
   ok(unfiltered.length === 0,

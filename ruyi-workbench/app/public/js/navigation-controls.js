@@ -817,7 +817,6 @@ function closeModal(id) {
   const t = modalReturnTarget(_modalTriggers.get(bd)); _modalTriggers.delete(bd);
   if (t) { try { t.focus(); } catch { /* ignore */ } }
 }
-function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop')].some(m => !m.classList.contains('hidden')); }
 // 2026-10 设置补全（用户：「工具与集成里啥都没有」「把所有能配置的都放进设置页」）：设置弹窗不再按界面模式藏页签。
 // 修前简易模式（出厂默认）把 Agent CLI／Agent 角色／集成与 MCP／高级四枚页签连同页内 .settings-expert-only 的行一起藏掉，
 // 迁移中心、扩展组件、MCP 都住在被藏的那一页里 —— 用户看到的「工具与集成」只剩一枚联网搜索，而且没有任何提示说还藏着东西。

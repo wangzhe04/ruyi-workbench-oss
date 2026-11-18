@@ -21,6 +21,8 @@
 //   [L] 投影幂等:normalizeConfig(投影).persisted 与投影相同、changed 为假。
 //   [M] 迁移给 raw 里没有的键造出的值(<10 的工作区播种)在迁移那一次读就落盘(第一轮全量逮到的丢数据缺陷)。
 //   [O] hunt2-P10:readConfig 不再每读一次就 ensureDirs()(14 个 mkdir):同一个数据根上只建一次目录。
+//   [Q] 3.1 精简:退役键 killPortOnStart(端口接管开关)残留在旧配置里时读盘不报错、内存视图里没有它,
+//       读盘那次就从盘上清掉,设置保存(mutateConfig)也不会把它写回;它不同于 [E] 的「更新版本写的未知键」。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -270,4 +272,19 @@ test('[P] 配置丢了但已有会话:钉回 default 而不是出厂的智能自
     fs.rmSync(marker, { force: true });
     reset();
   }
+});
+
+test('[Q] 退役键 killPortOnStart:不报错、不进内存视图、不被保存写回', async () => {
+  for (const legacy of [false, true]) {
+    reset();
+    writeDisk({ ...fullOldFile({ configSchema: 14 }), killPortOnStart: legacy, configExplicitKeysV1: ['killPortOnStart'] });
+    const cfg = await readConfig();
+    assert.equal(Object.prototype.hasOwnProperty.call(cfg, 'killPortOnStart'), false, '内存视图里没有退役键');
+    assert.equal(Object.prototype.hasOwnProperty.call(onDisk(), 'killPortOnStart'), false, '读盘那次就清掉');
+    assert.equal(onDisk().configExplicitKeysV1.includes('killPortOnStart'), false, '显式集合里也拿掉');
+    await mutateConfig(current => { current.killPortOnStart = legacy; current.toolLoadingMode = DEFAULTS.toolLoadingMode === 'auto' ? 'full' : 'auto'; });
+    assert.equal(Object.prototype.hasOwnProperty.call(onDisk(), 'killPortOnStart'), false, '设置保存不写回');
+    assert.equal(Object.prototype.hasOwnProperty.call(normalizeConfig({ killPortOnStart: legacy }).config, 'killPortOnStart'), false);
+  }
+  reset();
 });

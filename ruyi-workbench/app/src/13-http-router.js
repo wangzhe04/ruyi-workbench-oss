@@ -1564,141 +1564,6 @@ async function handleApi(req, res, pathname) {
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
 
-// --- startup port fallback: if the port is held by a STALE workbench, free it and retry ---
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// PIDs LISTENING on `port` (any local interface). Parses `netstat -ano`. Returns [] on any error.
-function pidsOnPort(port) {
-  return new Promise(resolve => {
-    cp.execFile('netstat', ['-ano'], { windowsHide: true, timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
-      if (err || !stdout) return resolve([]);
-      const suffix = ':' + port;
-      const pids = new Set();
-      for (const line of stdout.split(/\r?\n/)) {
-        if (!/\bLISTENING\b/i.test(line)) continue;
-        const parts = line.trim().split(/\s+/);
-        if (parts.length < 5) continue;
-        if (!String(parts[1]).endsWith(suffix)) continue; // local address column ends with :port
-        const pid = parseInt(parts[parts.length - 1], 10);
-        if (Number.isInteger(pid) && pid > 0) pids.add(pid);
-      }
-      resolve([...pids]);
-    });
-  });
-}
-function processImage(pid) {
-  return new Promise(resolve => {
-    cp.execFile('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
-      const m = !err && stdout ? /^"([^"]+)"/.exec(stdout.trim()) : null;
-      resolve(m ? m[1] : '');
-    });
-  });
-}
-// 第36波(v1.7): 命令行取证 —— node.exe 镜像名单独不足以证明"这是我们的 stale workbench"(见 freeStalePort
-// 的 image:node 分支)。返回 CommandLine+ExecutablePath 的小写合并串供证据匹配,拿不到返回 ''。pid 是 netstat
-// 解析出的整数,execFile 直调无 shell,无注入面;CIM 首次查询较慢,给 8s。
-function processCommandLine(pid) {
-  return new Promise(resolve => {
-    const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
-      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
-    });
-  });
-}
-// 128i:占端口的旧工作台连同它自己的子孙一起收 —— 走 04 的 killOwnProcessTree(按创建时间认子孙、动手前核启动时间),
-// 不再用 taskkill /T(父号过期撞号时会带走别人的树)。等它跑完再回:调用方紧接着要重试监听。
-async function killPid(pid) {
-  await killOwnProcessTree(pid);
-}
-function probeHealth(port, host) {
-  return new Promise(resolve => {
-    const req = http.get({ host, port, path: '/health', timeout: 900 }, res => {
-      let body = '';
-      res.setEncoding('utf8');   // app 字段是中文品牌名:按 Buffer 拼接遇到跨块的多字节字符会损坏
-      res.on('data', c => { body += c; if (body.length > 65536) req.destroy(); });
-      res.on('end', () => resolve(safeJsonParse(body, null)));
-    });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-  });
-}
-// /health 的回包像不像工作台。修前判据是 `app === APP_NAME || overlayId || version`,而 /health 从不带 app,
-// 于是退化成「有 version 字段就算」—— 本机别的服务(任何回 {version:…} 的 /health)占了端口会被当成陈旧工作台杀掉。
-// 现在 /health 带 app: APP_NAME(见 startServerInner);识别口径:
-//   · app 等于本应用名;或有 overlayId(每个进程一个的重启证明,别的服务不会有);
-//   · 旧版工作台的 /health 没有 app:只认「version 同时带着工作台 /health 的另外两个特征字段(launchMode + uptimeSec)」,
-//     单有 version 不够。旧版若连这个形状都不满足,下面还有 runtime.json 的 pid / 镜像名 / 命令行三道证据兜底。
-function healthLooksLikeWorkbench(health) {
-  if (!health || typeof health !== 'object') return false;
-  if (health.app === APP_NAME) return true;
-  if (typeof health.overlayId === 'string' && health.overlayId) return true;
-  return typeof health.version === 'string' && !!health.version
-    && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
-}
-// 端口被占时,只在「占着它的正是【本数据目录】登记的那个实例」时才接管(结束它再原端口重来);除此之外一律不动、顺延到下一个端口。
-// 安全走查(端口接管):修前对「任何像如意的占用者」都动手 —— /health 像工作台、或镜像名是 Ruyi / node + server.js,就杀。
-// 两份不同安装目录(或不同数据目录)的如意先后启动,后者会把前者连同它正在跑的回合一起结束。现在的唯一凭据是
-// 本数据目录 runtime.json 里记的 pid:那是本数据目录上一次启动写下的「我是谁」,pid 对上才说明它是自己的陈旧实例。
-// 别的数据目录的实例、别的安装里的如意、别人的服务,pid 都对不上 → blocked,调用方顺延端口。
-// 纯函数(不碰进程、不碰盘),单测直调:入参是已取好的证据,返回 { ours:boolean, why?, reason? }。
-//   · pid 必须等于 runtime.json 的 pid;runtime.json 记了端口的话,必须就是这个端口(登记的实例本不在这个端口上 = 号被别人撞了);
-//   · /health 在应答且带 overlayId、runtime.json 也记了 overlayId 时必须一致(pid 被回收给另一个如意进程时 overlayId 不同);
-//   · 取得到镜像名时必须像工作台:Ruyi / WinClaudeWorkbench 直接认,node 须命令行里有 server.js(取不到命令行不加否决),其余一律不认。
-function portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine }) {
-  if (!runtime || !Number.isInteger(runtime.pid) || runtime.pid <= 0 || runtime.pid !== pid) return { ours: false, reason: 'not-recorded-pid' };
-  if (Number.isInteger(runtime.port) && runtime.port !== port) return { ours: false, reason: 'recorded-on-other-port' };
-  if (healthLooksLikeWorkbench(health) && typeof health.overlayId === 'string' && health.overlayId
-    && typeof runtime.overlayId === 'string' && runtime.overlayId && health.overlayId !== runtime.overlayId) {
-    return { ours: false, reason: 'overlay-mismatch' };
-  }
-  let why = null;
-  const img = String(image || '');
-  if (!img) why = 'runtime.json';
-  else if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'runtime.json+image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
-  else if (/^node(\.exe)?$/i.test(img)) {
-    // 第36波(v1.7)起 node.exe 镜像名【不是】充分证据:登记 pid 只是前提,这里再核命令行,防「pid 被回收给一个无关的 node 服务」。
-    const evidence = String(commandLine || '').toLowerCase();
-    if (evidence && !/server\.js/.test(evidence)) return { ours: false, reason: 'node-not-workbench' };
-    if (evidence) why = 'image:node+cmdline';
-    else why = 'runtime.json';
-  }
-  else return { ours: false, reason: 'foreign-image' };
-  return { ours: true, why };
-}
-async function readOwnRuntimeRecord() {
-  try {
-    const rt = safeJsonParse(await fsp.readFile(path.join(dataRoot(), 'runtime.json'), 'utf8'), null);
-    return rt && typeof rt === 'object' && !Array.isArray(rt) ? rt : null;
-  } catch { return null; /* 没有上一次的 runtime.json:没有可接管的自己人 */ }
-}
-// 返回 { ok:true, killed:[…] } 或 { ok:false, blocked:{ pid, image, reason, workbench } }(blocked = 占用者不是自己人,没动它)。
-// deps 只给单测换桩(netstat / tasklist / CIM / taskkill 在 Linux 上都不存在)。
-async function freeStalePort(port, host, deps = {}) {
-  const d = { pidsOnPort, probeHealth, processImage, processCommandLine, killPid, readOwnRuntimeRecord, ...deps };
-  const pids = await d.pidsOnPort(port);
-  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
-  const health = await d.probeHealth(port, host);
-  const runtime = await d.readOwnRuntimeRecord();
-  // 两遍走:先给每个占用者下判决,有一个不是自己人就整体放弃、谁也不杀(不会杀了自己人的一半、再因为别人占着而失败);都是自己人才动手。
-  const verdicts = [];
-  for (const pid of pids) {
-    if (pid === process.pid) continue; // never kill self
-    const image = await d.processImage(pid);
-    // 只有「登记的就是它」且镜像是 node 时才花那一发 CIM(8s 上限)取命令行。
-    const commandLine = runtime && pid === runtime.pid && /^node(\.exe)?$/i.test(String(image || '')) ? await d.processCommandLine(pid) : '';
-    const verdict = portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine });
-    if (!verdict.ours) return { ok: false, blocked: { pid, image: image || '(unknown)', reason: verdict.reason, workbench: healthLooksLikeWorkbench(health) } };
-    verdicts.push({ pid, why: verdict.why });
-  }
-  const killed = [];
-  for (const { pid, why } of verdicts) {
-    await d.killPid(pid);
-    killed.push({ pid, why });
-    console.log(`[port] :${port} held by this data dir's stale instance — killed PID ${pid} (${why})`);
-  }
-  return { ok: true, killed };
-}
 // One listen attempt on an explicit port. Extracted from listenWithFallback so the 118c fallback scan can
 // reuse it. A failed listen leaves the server unbound, so calling it again on another port is legal.
 function listenOnce(server, port, host) {
@@ -1733,9 +1598,8 @@ async function listenOnNextFreePort(server, port, host, why) {
   throw error;
 }
 
-// Listen; on EADDRINUSE, free a stale workbench (if allowed + safe) and retry a few times.
-// 118c: 每一条「拿不到原端口」的岔路都不再是死路 -- 统一交给 listenOnNextFreePort 往后找。
-// 自动接管被禁用时同样往后找:那个开关的语义是「不许杀别人的进程」,不是「必须占住这个端口不放」。
+// Listen; on EADDRINUSE never kill the holder -- hand over to listenOnNextFreePort (118c).
+// 3.1 精简:修前的「接管陈旧实例」链(freeStalePort / pidsOnPort / killPid …)自 62 号所有权闸起已无调用点,整段删除。
 async function listenWithFallback(server, port, host, config) {
   const attempt = () => listenOnce(server, port, host);
   try { await attempt(); return port; }
@@ -2447,16 +2311,6 @@ async function discoverModels(config) {
 }
 
 // 110-1: MCP_TOOLS 原生工具 schema 数组抽至 13f-native-tool-schemas.js。
-
-function sendMcp(id, result, error) {
-  const payload = error
-    ? { jsonrpc: '2.0', id, error: { code: -32000, message: error.message || String(error) } }
-    : { jsonrpc: '2.0', id, result };
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
-}
-function sendMcpNotification(method, params) {
-  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', method, params })}\n`);
-}
 
 async function startMcp() {
   if (process.argv.includes('--memory-read-only')) {

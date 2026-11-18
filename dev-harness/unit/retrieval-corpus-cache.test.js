@@ -1,5 +1,5 @@
 'use strict';
-// 性能批 C1:06h createRetrievalCorpusCache 与 buildRetrievalCorpus 逐位相同。
+// 性能批 C1:06h createRetrievalCorpusCache 与全量现算(本文件里的对照实现 buildRetrievalCorpus)逐位相同。
 //   [R1] 随机文档集合 + 随机增 / 删 / 改 / 换序 / 同文不同实例,每一步 corpusFor(docs) 与 buildRetrievalCorpus(docs)
 //        的 ids、docCount、df、每篇向量逐位相等,rankRetrievalCorpus 的结果也相等
 //   [R2] 文档集合没变 → 直接复用同一份语料(不重算);改一篇 → 只重新分词那一篇
@@ -11,7 +11,29 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/06h-retrieval-index.js'), 'utf8');
+// 3.1 精简:产品里的全量版 buildRetrievalCorpus 零调用点已删;对照实现(连同只被它用的 buildRetrievalDf)原样搬到这里(其余只用 06h 的生产原语),仍是独立的「现算」尺子。
+const ORACLE = `
+function buildRetrievalDf(termCountsList) {
+  const df = new Map();
+  for (const counts of termCountsList) {
+    for (const term of counts.keys()) df.set(term, (df.get(term) || 0) + 1);
+  }
+  return { df, docCount: termCountsList.length };
+}
+function buildRetrievalCorpus(documents) {
+  const ids = [];
+  const countsList = [];
+  for (const doc of documents || []) {
+    if (!doc || !doc.id) continue;
+    ids.push(String(doc.id));
+    countsList.push(retrievalTermCounts(doc.text));
+  }
+  const { df, docCount } = buildRetrievalDf(countsList);
+  const vectors = countsList.map(counts => retrievalVector(counts, df, docCount));
+  return { ids, vectors, df, docCount };
+}
+`;
+const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/06h-retrieval-index.js'), 'utf8') + ORACLE;
 const ctx = vm.createContext({});
 vm.runInContext(source + '\n;globalThis.__api = { buildRetrievalCorpus, createRetrievalCorpusCache, rankRetrievalCorpus, retrievalTermCounts };', ctx);
 const { buildRetrievalCorpus, createRetrievalCorpusCache, rankRetrievalCorpus } = ctx.__api;

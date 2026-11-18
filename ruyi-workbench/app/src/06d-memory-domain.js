@@ -4,18 +4,14 @@
 // <workbench-memory>、UI 一律称「工作台记忆」。存储:dataRoot()/memory/{global,project/<projectKey>}/<id>.md。
 // ============================================================================
 const MEMORY_TYPES = new Set(['preference', 'convention', 'lesson', 'reference']);
-// 2026-09-04(用户拍板「上限才 24…拓展到尽可能大」):下面四个常量不再是硬上限,而是
+// 2026-09-04(用户拍板「上限才 24…拓展到尽可能大」):下面的 MEMORY_RELEVANCE_MAX（另三个常量已随 3.1 精简删除）不再是硬上限,而是
 // 【调用方没传 config 时的兜底】。真正生效的是 01c 里的五个判定函数(读配置 + 钳位)。
 // 兜底值就是新默认值,不是旧常量 —— 否则同一个库在不同入口会给出不同的席位数。
-const MEMORY_INDEX_CAP = 6000; // 相关记忆索引整段字符上限；只含元数据，正文仍按需读取
-const MEMORY_MAX = 64;         // 会话固定选择上限；默认检索不受此数量限制
-const MEMORY_RELEVANCE_MAX = 8; // 默认检索每轮注入条数；整段另受 MEMORY_INDEX_CAP 字数封顶
+const MEMORY_RELEVANCE_MAX = 8; // 默认检索每轮注入条数；整段另受 01c memoryIndexCharCap 字数封顶
 const MEMORY_EXCLUSION_MAX = 256; // 默认检索模式下的会话级排除项上限
 const MEMORY_METADATA_READ_CAP = 16 * 1024; // 注册表只读文件头；命中后才由模型按需读取完整正文
-const CORE_MEMORY_MAX = 200;    // 核心提示词席位上限；超出只进入候补，不删除原记忆
-// 核心摘要字符预算。胶囊走【易变层】、不进前缀缓存,每回合按实际字数付输入 token;
-// 但它只装用户主动标为 core 的条目,没标就不花钱 —— 所以把天花板抬高本身是安全的,真闸门是这个预算。
-const CORE_MEMORY_CHAR_CAP = 16000;
+// 3.1 精简:MEMORY_INDEX_CAP / MEMORY_MAX / CORE_MEMORY_MAX / CORE_MEMORY_CHAR_CAP 四个兜底常量零引用已删 ——
+// 席位与字数上限只由 01c 的 coreMemoryMaxItems / coreMemoryCharBudget / memoryFixedSelectionMax / memoryIndexCharCap 给出。
 const CORE_MEMORY_SUMMARY_CAP = 520;
 const MEMORY_USAGE_TOUCH_MS = 60 * 60 * 1000; // 主动检索/读取最多每小时记一次 use
 const MEMORY_RULE_TOUCH_MS = 24 * 60 * 60 * 1000; // 核心偏好/惯例被基础提示词采用时每天记一次隐式 use
@@ -2625,7 +2621,7 @@ function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX
   const lexicalScored = rankRelevantMemoriesScored(entries, query);
   const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
-  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
+  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与逐次全量重算逐位相同,见 unit/retrieval-corpus-cache)
   const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
   const vectorRows = rankRetrievalCorpus(corpus, query);
   const vectorTop = vectorRows.length ? vectorRows[0].score : 0;
@@ -2666,17 +2662,11 @@ function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX
   // 补位：零命中的 convention/preference 按词法层原序填到上限为止。
   return { entries: takeFallback(out), fillKeys };
 }
-function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
-  return rankMemoriesFusedDetailed(registry, query, limit).entries;
-}
 
 // 召回的唯一入口：开关关时与今天逐字节相同（直接转 rankRelevantMemories）。
 function rankMemoriesForRecallDetailed(registry, query, limit, config) {
   if (!memoryVectorRecallEnabled(config)) return rankRelevantMemoriesDetailed(registry, query, limit);
   return rankMemoriesFusedDetailed(registry, query, limit);
-}
-function rankMemoriesForRecall(registry, query, limit, config) {
-  return rankMemoriesForRecallDetailed(registry, query, limit, config).entries;
 }
 
 function memoryExclusionSet(session, cwd) {
@@ -2701,7 +2691,7 @@ function effectiveMemorySelection(session, registry, cwd) {
         const id = String((m && m.id) || '').trim();
         const scope = (m && m.scope === 'global') ? 'global' : 'project';
         const o = { id, scope };
-        // P3-3: 透传 project 条目锁定的 projectKey(供 resolveEnabledMemoryEntries 换 cwd 失配校验);global 无此概念。
+        // P3-3: 透传 project 条目锁定的 projectKey(供 resolveMemoryPreflight 换 cwd 失配校验);global 无此概念。
         if (scope === 'project' && m && m.projectKey) o.projectKey = String(m.projectKey);
         return o;
       })
@@ -2896,9 +2886,4 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   };
 }
 
-// 兼容旧调用方/测试：未提供 query 时仍走默认元数据检索，返回条目数组。
-async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query) {
-  const result = await resolveMemoryPreflight(session, cwd, query || '', onSourceMismatch);
-  return [...(result.coreEntries || []), ...(result.entries || [])];
-}
 

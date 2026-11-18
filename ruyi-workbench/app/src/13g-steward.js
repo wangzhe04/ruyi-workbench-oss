@@ -432,17 +432,6 @@ async function stewardMemoryPanelClear(confirm) {
   });
 }
 
-// 导出:只含 active,字段就是条目本身那几个(不含 isNew 这类派生视图字段,也不含任何别处的东西)。
-async function stewardMemoryPanelExport() {
-  const store = await stewardReadMemoryStore();
-  return {
-    ok: true,
-    schema: STEWARD_MEMORY_SCHEMA,
-    exportedAt: nowIso(),
-    entries: store.entries.filter(e => e.state === 'active'),
-  };
-}
-
 
 // 延迟绑定(先例 06c AgentLoopHooks):06i 声明空命名空间,本文件在加载时填充实现。
 // 消费者(13-http-router 的路由链、13-http-router 的关服收尾、116c 的管家工具 handler)全程只看

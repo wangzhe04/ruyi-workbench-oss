@@ -920,10 +920,6 @@ function kimiAcpToolTier(toolCall) {
   return 'exec';
 }
 
-function kimiAcpNormalizedToolName(toolCall) {
-  return String(toolCall && toolCall.title || '').trim().replace(/^.+?__/, '').toLowerCase();
-}
-
 function kimiAcpObjectInput(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }

@@ -23,7 +23,7 @@ const SERVER = process.env.RUYI_TEST_SERVER_JS
   : path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'server.js');
 
 // opts.withEval:再给一个 __eval(code) —— 在 server.js 的模块作用域里直接 eval,供单测把【模块级】依赖(netstat / tasklist /
-// 杀进程这类 Linux 上没有的外部命令封装)换成桩:`__eval('pidsOnPort = async () => [4242]')`。同一份测试代码因此既能跑新码
+// 杀进程这类 Linux 上没有的外部命令封装)换成桩:`__eval('existsExecutable = () => true')`。同一份测试代码因此既能跑新码
 // 也能跑 RUYI_TEST_SERVER_JS 指到的修前基线,反向验证才是同一把尺子。默认不给,不扩大别的测试的接触面。
 // opts.testPlatform: run platform-specific handlers against an isolated module-local process
 // facade. Only the platform name is overridden; the actual global/node:process is never changed.

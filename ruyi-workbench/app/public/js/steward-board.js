@@ -298,12 +298,8 @@ export function createStewardBoard({
   // dockToneForMissionState 在本模块全文仍然只被调用这一次。
   // 121-K1：它随交办台退役从 preview-shell.js 搬进叶子 thread-facts.js（与 elapsedLabel 同族的
   // 「五态显示事实」），只改 import 来源，调用一个字未变。
+  // 3.1 精简:原来唯一写 data-state/data-tone 的 paintDot 自 121-K4 起零调用点,已删;tone 只由 toneOf 给出。
   function toneOf(value) { return dockToneForMissionState(value, { settleDone: true }); }
-  function paintDot(node, value) {
-    node.dataset.state = value;
-    node.dataset.tone = toneOf(value);
-    return node;
-  }
 
   // ── 117u-G2：三面共用的那枚线程卡（27 号文 §11.15.3）───────────────────────────
   // 骨架 = 3px 色条 ＋ 色点 ＋ 名 ＋ 五态药丸；长相住 steward-conversation.css 的
@@ -1791,7 +1787,7 @@ export function createStewardBoard({
   }
 
   // 一条小行：色点＋名字＋状态药丸；在跑／等你的多一行「它刚说／它在问你」，已收工／已停工折成
-  // 一行。「展开还是折成一行」的判据【只有一处】—— paintDot 出的 data-tone（dockToneForMissionState
+  // 一行。「展开还是折成一行」的判据【只有一处】—— toneOf 给出的 tone（dockToneForMissionState
   // 的四档，与看板行那颗点、交办台 dock 座同一份判据），所以本模块不因为多了这一面而多认一个
   // 五态字面量；那一行说什么也只读行上既有的两个事实：asksYou.text（06i 的 stewardPendingOneLine
   // 单点算出，与抽屉问答卡同源）与 lastSay（13d 投影出的 head.summary），本模块不编第三句。
@@ -1839,7 +1835,7 @@ export function createStewardBoard({
   // 重画判据：行的「身份／五态／名字／那一句」有一处变了才重画 —— 否则用户正按着某一行时，
   // 每一拍都会把它连根拔掉（chip 菜单那条 304 纪律的同一条道理）。
   // 121-K6b（34 号文 §2.6「其它在途：其余【非收工】线程的最紧密度行」）：焦点栏下面那一叠只留
-  // 还在路上的线程。判据【不新增】—— 复用 paintDot 那四档 tone（dockToneForMissionState 一处算），
+  // 还在路上的线程。判据【不新增】—— 复用 toneOf 那四档 tone（dockToneForMissionState 一处算），
   // settled/quiet 两档就是「这件事此刻没在动」，与左栏「今天收工／更早」两组同一条界线。
   // 收工的线程没有消失：它们在左栏里，点一下就换成焦点。
   function inFlight(row) {

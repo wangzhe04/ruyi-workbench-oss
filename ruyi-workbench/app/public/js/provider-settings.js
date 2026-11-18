@@ -834,7 +834,6 @@ function fillSettings() {
   $('cfgModelsApiKey').value = c.modelsApiKey || '';
   { const el0 = $('cfgClaudeAuthMode'); if (el0) el0.value = ['auto', 'bearer', 'x-api-key'].includes(c.claudeAuthMode) ? c.claudeAuthMode : 'auto'; }
   populateClaudeEndpointPresets();
-  const kp = $('cfgKillPort'); if (kp) kp.checked = c.killPortOnStart !== false;
   { const el0 = $('cfgToolLoadingMode'); if (el0) el0.value = c.toolLoadingMode === 'full' ? 'full' : 'auto'; }
   // 105f: 摘要单发上限三档(16K/32K/64K);非法值落回 32K(与后端 sanitize 钳位同默认值)。
   { const el0 = $('cfgSummarySingleShotMax'); if (el0) el0.value = ['16384', '32768', '65536'].includes(String(c.summarySingleShotMaxTokensV1)) ? String(c.summarySingleShotMaxTokensV1) : '32768'; }
@@ -1687,7 +1686,6 @@ const INSTANT_SETTINGS = Object.freeze([
   { ids: ['cfgOutputStyle'], patch: () => ({ outputStyle: $('cfgOutputStyle').value === 'concise' ? 'concise' : 'detailed' }) },
   { ids: ['workspaceInput', 'cfgAllowOutsideWorkspace'], patch: () => { sanitizePrimaryWorkspaceInput(); return workspacePatch(); }, after: () => { renderWorkspacePerms(); renderWorkspacePicker(); } },
   { ids: ['cfgKillDisc'], patch: () => ({ killOnDisconnect: $('cfgKillDisc').checked }) },
-  { ids: ['cfgKillPort'], patch: () => ({ killPortOnStart: $('cfgKillPort').checked }) },
   // ── 权限与安全（全局默认权限的写口在 steward-settings.js：切「全自动」要就地二次确认）──
   { ids: ['cfgPermissionTimeout'], patch: () => ({ permissionTimeoutMs: Math.max(0, Number($('cfgPermissionTimeout').value) || 0) }) },
   { ids: ['cfgQuestionTimeout'], patch: () => ({ questionTimeoutMs: Math.max(0, Number($('cfgQuestionTimeout').value) || 0) }) },

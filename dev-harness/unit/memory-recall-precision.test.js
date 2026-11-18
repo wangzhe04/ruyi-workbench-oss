@@ -22,9 +22,11 @@ process.env.USERPROFILE = process.env.HOME;
 fs.mkdirSync(process.env.HOME, { recursive: true });
 const { loadServerInternals } = require('../lib/server-internals');
 const S = loadServerInternals([
-  'rankMemoriesForRecall', 'rankMemoriesForRecallDetailed', 'rankRelevantMemories', 'memorySearchTerms', 'resolveMemoryPreflight', 'buildMemoryPromptSection', 'buildMemoryCheckPrompt',
+  'rankMemoriesForRecallDetailed', 'rankRelevantMemories', 'memorySearchTerms', 'resolveMemoryPreflight', 'buildMemoryPromptSection', 'buildMemoryCheckPrompt',
   'buildMemoryConflictMap', 'analyzeMemoryMaintenance', 'saveMemory', 'deleteMemory', 'proposeMemoryRelation', 'confirmMemoryRelation',
 ]);
+// 3.1 精简:rankMemoriesForRecall 这个 .entries 薄包装零调用点已删,用例改测生产的 rankMemoriesForRecallDetailed。
+const rankForRecall = (...args) => S.rankMemoriesForRecallDetailed(...args).entries;
 
 let seq = 0;
 const E = (scope, type, id, name, description, extra = {}) => ({
@@ -82,7 +84,7 @@ for (const vec of [false, true]) {
   test(`[P1] 无关问句不召回无关条目(向量层${vec ? '开' : '关'}):${NEGATIVE.length} 句里 0 句被污染`, () => {
     const polluted = [];
     for (const q of NEGATIVE) {
-      const got = ruleFree(S.rankMemoriesForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: vec }));
+      const got = ruleFree(rankForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: vec }));
       if (got.length) polluted.push(`${q} => ${ids(got).join(',')}`);
     }
     assert.deepEqual(polluted, [], `修前向量开时 25/30 句被污染(58 条无关项),词法也有 4 句:${polluted.join(' | ')}`);
@@ -91,7 +93,7 @@ for (const vec of [false, true]) {
   test(`[P2] 精度修好后召回不退(向量层${vec ? '开' : '关'}):12 句相关问句的正解全进 Top-3`, () => {
     const missed = [];
     for (const [q, want] of POSITIVE) {
-      const got = ids(S.rankMemoriesForRecall(M16, q, 3, { runtimeMemoryVectorRecallV1: vec }));
+      const got = ids(rankForRecall(M16, q, 3, { runtimeMemoryVectorRecallV1: vec }));
       if (!got.includes(want)) missed.push(`${q} 想要 ${want} 实得 ${got.join(',')}`);
     }
     assert.deepEqual(missed, []);
@@ -101,8 +103,8 @@ for (const vec of [false, true]) {
 // ───────────── [V] 向量只重排 / 高分才独立准入 ─────────────
 test('[V1] 向量开时,无关问句的结果恰好等于词法准入的结果(向量没有「额外」放进任何条目)', () => {
   for (const q of NEGATIVE) {
-    const lex = ids(S.rankMemoriesForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: false }));
-    const fused = ids(S.rankMemoriesForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: true }));
+    const lex = ids(rankForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: false }));
+    const fused = ids(rankForRecall(M16, q, 8, { runtimeMemoryVectorRecallV1: true }));
     assert.deepEqual(fused, lex, q);
   }
 });
@@ -116,8 +118,8 @@ test('[V2] 拼写漂移的真命中(canry→canary、powrshell→powershell)靠�
   ];
   for (const vec of [false, true]) {
     const cfg = { runtimeMemoryVectorRecallV1: vec };
-    assert.deepEqual(ids(S.rankMemoriesForRecall(reg, 'canry deployment', 3, cfg)), ['deploy-canary'], `canry (vec=${vec})`);
-    assert.deepEqual(ids(S.rankMemoriesForRecall(reg, 'powrshell quoting rules', 3, cfg)), ['powershell-quoting'], `powrshell (vec=${vec})`);
+    assert.deepEqual(ids(rankForRecall(reg, 'canry deployment', 3, cfg)), ['deploy-canary'], `canry (vec=${vec})`);
+    assert.deepEqual(ids(rankForRecall(reg, 'powrshell quoting rules', 3, cfg)), ['powershell-quoting'], `powrshell (vec=${vec})`);
   }
 });
 
@@ -165,7 +167,7 @@ test('[L4] 走查例:「提交代码时的说明文字怎么写」不再召回�
     E('project', 'reference', 'a-orders', '订单表字段说明', '订单表 orders 的字段含义与索引'),
   ];
   for (const vec of [false, true]) {
-    const got = ids(S.rankMemoriesForRecall(reg, '提交代码时的说明文字怎么写', 8, { runtimeMemoryVectorRecallV1: vec }));
+    const got = ids(rankForRecall(reg, '提交代码时的说明文字怎么写', 8, { runtimeMemoryVectorRecallV1: vec }));
     assert.deepEqual(got, ['g-commit'], `vec=${vec}`);
   }
 });
@@ -175,10 +177,10 @@ test('[Z1] 召回条数 0 就是 0(向量开/关都一样);缺省与非数字仍
   const many = Array.from({ length: 12 }, (_, i) => E('global', 'lesson', 'deploy-' + i, 'deploy note ' + i, 'deploy pipeline step ' + i));
   for (const vec of [false, true]) {
     const cfg = { runtimeMemoryVectorRecallV1: vec };
-    assert.deepEqual(S.rankMemoriesForRecall(many, 'deploy pipeline', 0, cfg), [], `limit 0 (vec=${vec})`);
-    assert.equal(S.rankMemoriesForRecall(many, 'deploy pipeline', undefined, cfg).length, 8, 'undefined → 默认 8');
-    assert.equal(S.rankMemoriesForRecall(many, 'deploy pipeline', 'x', cfg).length, 8, '非数字 → 默认 8');
-    assert.equal(S.rankMemoriesForRecall(many, 'deploy pipeline', 3, cfg).length, 3);
+    assert.deepEqual(rankForRecall(many, 'deploy pipeline', 0, cfg), [], `limit 0 (vec=${vec})`);
+    assert.equal(rankForRecall(many, 'deploy pipeline', undefined, cfg).length, 8, 'undefined → 默认 8');
+    assert.equal(rankForRecall(many, 'deploy pipeline', 'x', cfg).length, 8, '非数字 → 默认 8');
+    assert.equal(rankForRecall(many, 'deploy pipeline', 3, cfg).length, 3);
   }
   assert.deepEqual(S.rankRelevantMemories(many, 'deploy pipeline', 0), []);
 });

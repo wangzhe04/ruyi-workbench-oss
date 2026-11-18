@@ -129,7 +129,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
       interventionWriteChains, missionChangeWriteChains, sessionMetaDeferChains, sessionMutateChains,
       journalWriteChains, journalRevertChains, missionContainerChains, voiceLexiconChains,
       memoryProposalStateChains, agentRunWriteChains, agentRunEventChains, backgroundJobChains,
-      fileToolWriteChains, proxyModelsCacheChains, sessionSearchRefreshChains, stewardArchiveChains, externalBotChains];
+      fileToolWriteChains, proxyModelsCacheChains, stewardArchiveChains, externalBotChains];
     const consumers = McpConsumers.maintenanceState();
     const fulltext = SessionFullTextHooks.maintenanceState ? SessionFullTextHooks.maintenanceState() : { pending: [], active: 0 };
     return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending, ...fulltext.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {

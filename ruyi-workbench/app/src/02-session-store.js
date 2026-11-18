@@ -1437,7 +1437,6 @@ function serializeSessionBody(entries) {
   }
   return lines;
 }
-function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
 // entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
 function isStrictSessionBodyPrefix(entries, record) {
   if (!record || entries.length >= record.count) return false;
@@ -2786,7 +2785,6 @@ const MISSION_MAX_MILESTONES = 16;
 const MISSION_MAX_TEXT = 400;
 const MISSION_MAX_CONSTRAINTS = 12;
 const MISSION_DEFAULT_MAX_TURNS = 12;
-const MISSION_REPLAN_LIMIT = 2;
 const MISSION_STALL_LIMIT = 3;
 // 对抗轮 P1(第26波b): check.cmd 是【驱动器每轮无提示 shell 执行】的输入 —— 绝不能被【模型】设置,否则
 // 提示注入 = 绕过整个权限系统的任意命令执行。`trusted` 门:仅用户(经 UI header token 的 /api/mission)可定义

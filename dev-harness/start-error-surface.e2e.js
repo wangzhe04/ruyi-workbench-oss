@@ -55,7 +55,7 @@ function getJson(port, p) {
   });
 }
 
-// 占位监听:一个【不像工作台】的裸 TCP 服务(不回 /health),所以 freeStalePort 不会认领它。
+// 占位监听:一个【不像工作台】的裸 TCP 服务(不回 /health)。62 号所有权闸起启动不结束任何占端口进程(3.1 已删接管链),这里只验顺延与报错面。
 function holdPort(port) {
   return new Promise((resolve, reject) => {
     const srv = net.createServer(socket => socket.destroy());

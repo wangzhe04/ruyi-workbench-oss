@@ -60,15 +60,6 @@ function retrievalTermCounts(input) {
   return counts;
 }
 
-// 语料的文档频次。IDF 用平滑对数式,单文档语料也不会除零。
-function buildRetrievalDf(termCountsList) {
-  const df = new Map();
-  for (const counts of termCountsList) {
-    for (const term of counts.keys()) df.set(term, (df.get(term) || 0) + 1);
-  }
-  return { df, docCount: termCountsList.length };
-}
-
 function retrievalIdf(df, docCount, term) {
   const seen = df.get(term) || 0;
   return Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
@@ -126,30 +117,8 @@ function reciprocalRankFusion(rankings, { k = RETRIEVAL_RRF_K, weights = null } 
   return scores;
 }
 
-// 内容指纹:索引条目的失效键之一(另一个是 mtime+size)。截断成 16 位十六进制够用,
-// 这里比对的是「同一条记忆有没有被改过」,不是防篡改。
-function retrievalContentHash(input) {
-  const source = String(input || '');
-  const a = fnv1a32(source);
-  const b = fnv1a32(source.length + '|' + source.slice(-256));
-  return (a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0'));
-}
-
-// 一次性把一批文档变成 {ids, vectors, df, docCount}。语料小(百到千级),每次重算是微秒级,
-// 所以这里不做磁盘索引 —— 会话搜索那边正文提取才是真花钱的地方,索引落盘在那边做。
-function buildRetrievalCorpus(documents) {
-  const ids = [];
-  const countsList = [];
-  for (const doc of documents || []) {
-    if (!doc || !doc.id) continue;
-    ids.push(String(doc.id));
-    countsList.push(retrievalTermCounts(doc.text));
-  }
-  const { df, docCount } = buildRetrievalDf(countsList);
-  const vectors = countsList.map(counts => retrievalVector(counts, df, docCount));
-  return { ids, vectors, df, docCount };
-}
-
+// 3.1 精简:一次性全量版 buildRetrievalCorpus 与 retrievalContentHash 零调用点已删;全量重算的对照实现搬进
+// unit/retrieval-corpus-cache.test.js(语料一律经 createRetrievalCorpusCache,结果与全量重算逐位相同)。
 // 用 query 在语料上打分,返回按余弦降序的 [{id, score}]。低于 minScore 的直接丢
 // (稀疏哈希在完全不相干的文本之间也会有零点几的噪声分)。
 function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {}) {
@@ -166,9 +135,9 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 }
 
 // ── 性能批 C1:可复用的语料缓存 ────────────────────────────────────────────────────────────────────────
-// buildRetrievalCorpus 每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
+// 修前的全量版每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
 // 3000 条会话 × 8 KB 的单元要 6–7 秒、整段占住事件循环;记忆召回每条用户消息也调一次。
-// 缓存两层,结果与 buildRetrievalCorpus 逐位相同(同一批文档、同一顺序 → 同一 df、同一向量):
+// 缓存两层,结果与全量重算逐位相同(同一批文档、同一顺序 → 同一 df、同一向量;对照实现在 unit/retrieval-corpus-cache):
 //   ① 每篇文档的词频按「文本没变」复用 —— 存成全局词表里的词号数组 + 次数数组(保留首次出现的次序,
 //      retrievalVector 的累加次序因此不变),不再每次重新分词;
 //   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。

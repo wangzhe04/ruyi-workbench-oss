@@ -59,10 +59,11 @@ vm.runInNewContext(
   + flagSlice + '\n'
   + rankingSlice + '\n'
   + 'this.rankRelevantMemories = rankRelevantMemories;\n'
-  + 'this.rankMemoriesFused = rankMemoriesFused;\n'
-  + 'this.rankMemoriesForRecall = rankMemoriesForRecall;\n'
+  // 3.1 精简:两个 .entries 薄包装零调用点已删,这里就地包一层,测的仍是生产的 *Detailed 两条路径。
+  + 'this.rankMemoriesFused = (registry, query, limit) => rankMemoriesFusedDetailed(registry, query, limit).entries;\n'
+  + 'this.rankMemoriesForRecall = (registry, query, limit, config) => rankMemoriesForRecallDetailed(registry, query, limit, config).entries;\n'
   + 'this.retrievalTerms = retrievalTerms;\n'
-  + 'this.buildRetrievalCorpus = buildRetrievalCorpus;\n'
+  + 'this.buildRetrievalCorpus = documents => createRetrievalCorpusCache()(documents);\n'
   + 'this.rankRetrievalCorpus = rankRetrievalCorpus;\n'
   + 'this.reciprocalRankFusion = reciprocalRankFusion;\n',
   context,

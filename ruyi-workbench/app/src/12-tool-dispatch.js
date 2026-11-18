@@ -104,7 +104,6 @@ function normalizeTextLineEndings(text, lineEnding) {
   return value;
 }
 function hasTextLineBreak(text) { return /[\r\n]/.test(String(text || '')); }
-function isUtf8Encoding(encoding) { return !encoding || /^utf-?8$/i.test(String(encoding)); }
 function defaultTextLineEnding(filePath) { return /\.(?:cmd|bat|ps1)$/i.test(String(filePath || '')) ? 'crlf' : 'lf'; }
 // Windows PowerShell 5.1 把无 BOM 的 .ps1 按 ANSI(中文系统 = GBK)读,脚本里的中文字面量就成了乱码;
 // 工具箱约定与 04 runPowerShell 头注同一条:PowerShell 脚本一律 UTF-8 with BOM。

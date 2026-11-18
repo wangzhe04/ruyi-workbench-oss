@@ -8,9 +8,9 @@ Object.assign(process.env, require(path.join(repo, 'dev-harness/lib/release-chec
 const t = require(path.join(repo, 'dev-harness/lib/harness')).createRunner('DERIVED INDEX WORK DATA');
 const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-internals'));
 const names = ['createSession', 'saveSession', 'loadSession', 'deleteSession', 'readConfig', 'mutateConfig', 'workDataKeys', 'paths',
-  'searchSessionsByContent', 'sessionSearchIndexPath', 'readSessionSearchIndex', 'sessionSearchIndexStore', 'sessionSearchRows',
+  'searchSessionsByContent',
   'getPretenderProjectionIndex', 'pretenderIndexRuntime', 'pretenderIndexPath', 'readPretenderIndexDisk', 'writePretenderIndexFile',
-  'sessionWriteChains', 'flushSessionIndex', 'sessionBodyPaths', 'SessionFullTextHooks', 'refreshSessionSearchIndex', 'listSessions', 'WorkDataStore', 'atomicWriteJson',
+  'sessionWriteChains', 'flushSessionIndex', 'sessionBodyPaths', 'SessionFullTextHooks', 'listSessions', 'WorkDataStore', 'atomicWriteJson',
   'WorkDataAttachmentUploadHooks'];
 const runtimes = [], load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
 const privateError = error => String(error && error.code || '').startsWith('work_data');
@@ -53,14 +53,12 @@ function assertOriginalReference(found, sid) {
   session.messages = [{ id: 'legacy_search_source', role: 'user', content: 'LEGACY_SEARCH_NEEDLE 在这里' }];
   await api.saveSession(session); await settle(api);
   assert.ok((await scopedSearch(api, 'LEGACY_SEARCH_NEEDLE', 5)).results.some(row => row.id === session.id));
-  await api.refreshSessionSearchIndex(await api.listSessions()); // Explicit real legacy adapter compatibility, not the production search owner.
-  const plainSearch = fs.readFileSync(api.sessionSearchIndexPath(), 'utf8');
-  assert.equal(plainSearch, JSON.stringify(JSON.parse(plainSearch)));
+  // 3.1 精简:旧派生索引 _search-index-v1.json 的读写适配器零生产调用已删,本件只钉投影索引与全文索引。
   const offProjection = await api.getPretenderProjectionIndex();
   await api.writePretenderIndexFile(offProjection);
   const plainProjection = fs.readFileSync(api.pretenderIndexPath(), 'utf8');
   assert.equal(plainProjection, JSON.stringify(JSON.parse(plainProjection)));
-  t.ok(true, 'OFF search and projection retain compact JSON and working content search');
+  t.ok(true, 'OFF projection retains compact JSON and content search works');
   if (process.platform !== 'win32') { console.log('SKIP encrypted index DPAPI lifecycle: Windows only'); return; }
 
   await mode(api, true); await api.workDataKeys.ensure();
@@ -70,20 +68,15 @@ function assertOriginalReference(found, sid) {
   await api.saveSession(session); await settle(api);
   const bodyFile = api.sessionBodyPaths(session.id).messages;
   assert.ok(fs.statSync(bodyFile).size > 1048576);
-  assert.equal((await api.sessionSearchRows(session.id)).length, session.messages.length);
   const found = await scopedSearch(api, 'ENCRYPTED_SEARCH_NEEDLE', 5);
   assert.ok(found.results.some(row => row.id === session.id));
   assertOriginalReference(found, session.id);
-  await api.refreshSessionSearchIndex(await api.listSessions());
-  const searchBytes = fs.readFileSync(api.sessionSearchIndexPath());
-  assert.equal(JSON.parse(searchBytes.toString('utf8').split('\n')[0]).purpose, 'search-index');
-  assert.equal(searchBytes.includes(Buffer.from('ENCRYPTED_SEARCH_NEEDLE')), false);
   const projection = await api.getPretenderProjectionIndex(); await api.writePretenderIndexFile(projection);
   assert.ok(projection.sessions.some(row => row.sessionId === session.id));
   const projectionBytes = fs.readFileSync(api.pretenderIndexPath());
   assert.equal(JSON.parse(projectionBytes.toString('utf8').split('\n')[0]).purpose, 'search-index');
   assert.equal(projectionBytes.includes(Buffer.from('PRIVATE_DERIVED_TITLE')), false);
-  t.ok(true, 'real DPAPI seals both derived indexes; mixed and large encrypted session bodies remain searchable');
+  t.ok(true, 'real DPAPI seals the projection index; mixed and large encrypted session bodies remain searchable');
   const records = currentRecords(api, session.id), currentSealed = snapshotCurrent(records);
   const sourceHeadBefore = fs.readFileSync(path.join(api.paths.sessions, session.id + '.json'));
   for (const row of records) {
@@ -104,21 +97,18 @@ function assertOriginalReference(found, sid) {
   unchangedCurrent(currentSealed);
   for (const row of records) assert.equal(typeof await currentStore(cold, row).read(), 'string');
   t.ok(true, 'fresh runtime cold reads current fulltext carriers and original reference without changing index bytes');
-  const warmLegacy = await cold.readSessionSearchIndex(); assert.ok(warmLegacy.entries && warmLegacy.entries[session.id]);
-  const coldSearch = fs.readFileSync(cold.sessionSearchIndexPath()), coldProjection = fs.readFileSync(cold.pretenderIndexPath()), bodyBefore = fs.readFileSync(bodyFile);
+  // Foreign ciphertext for the cross-record checks below: another live sealed carrier (fulltext state) with a different record identity.
+  const foreignCipher = currentSealed.get(records.find(row => row.name === 'state.json').file);
+  const coldProjection = fs.readFileSync(cold.pretenderIndexPath()), bodyBefore = fs.readFileSync(bodyFile);
   const keyFile = path.join(cold.paths.data, 'work-data-key-v1.json');
   for (const runtime of runtimes) runtime.workDataKeys.clear();
   fs.renameSync(keyFile, keyFile + '.missing');
   try {
-    await assert.rejects(cold.readSessionSearchIndex, privateError);
-    await assert.rejects(cold.readSessionSearchIndex, privateError);
     await assert.rejects(() => cold.getPretenderProjectionIndex(), privateError);
-    await assert.rejects(() => cold.sessionSearchRows(session.id), privateError);
     await assert.rejects(() => scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), privateError);
     for (const row of records) await assert.rejects(() => currentStore(cold, row).read(), privateError);
     unchangedCurrent(currentSealed);
     assert.deepEqual(fs.readFileSync(path.join(cold.paths.sessions, session.id + '.json')), sourceHeadBefore);
-    assert.deepEqual(fs.readFileSync(cold.sessionSearchIndexPath()), coldSearch);
     assert.deepEqual(fs.readFileSync(cold.pretenderIndexPath()), coldProjection);
     assert.deepEqual(fs.readFileSync(bodyFile), bodyBefore);
   } finally { fs.renameSync(keyFile + '.missing', keyFile); }
@@ -126,9 +116,7 @@ function assertOriginalReference(found, sid) {
 
   await mode(cold, false);
   assert.ok((await scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5)).results.some(row => row.id === session.id));
-  await assert.rejects(() => cold.sessionSearchIndexStore().write(JSON.stringify({ version: 2, entries: {} })), privateError);
   assert.equal(await cold.writePretenderIndexFile({ ...(await cold.readPretenderIndexDisk()), builtAt: 'must-not-downgrade' }), false);
-  assert.deepEqual(fs.readFileSync(cold.sessionSearchIndexPath()), coldSearch);
   assert.deepEqual(fs.readFileSync(cold.pretenderIndexPath()), coldProjection);
   t.ok(true, 'OFF continues to read sealed data with its key and refuses plaintext index downgrade');
   for (const row of records) { const plain = await currentStore(cold, row).read(); await assert.rejects(() => currentStore(cold, row).write(plain), privateError); }
@@ -137,24 +125,19 @@ function assertOriginalReference(found, sid) {
   t.ok(true, 'OFF reads existing current fulltext with its key and refuses downgrade of state, manifest and all shards');
 
   await mode(cold, true);
-  fs.writeFileSync(cold.sessionSearchIndexPath(), coldSearch.subarray(0, coldSearch.length - 12));
-  const damaged = fs.readFileSync(cold.sessionSearchIndexPath());
-  await assert.rejects(cold.readSessionSearchIndex, privateError);
   assertOriginalReference(await scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), session.id);
-  assert.deepEqual(fs.readFileSync(cold.sessionSearchIndexPath()), damaged);
-  fs.writeFileSync(cold.sessionSearchIndexPath(), coldSearch);
   const manifest = records.find(row => row.name === 'manifest.json'), manifestBytes = currentSealed.get(manifest.file);
   fs.writeFileSync(manifest.file, manifestBytes.subarray(0, manifestBytes.length - 12));
   const damagedManifest = fs.readFileSync(manifest.file);
   try { await assert.rejects(() => scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), privateError); assert.deepEqual(fs.readFileSync(manifest.file), damagedManifest); }
   finally { fs.writeFileSync(manifest.file, manifestBytes); }
-  fs.writeFileSync(cold.pretenderIndexPath(), coldSearch);
+  fs.writeFileSync(cold.pretenderIndexPath(), foreignCipher);
   await assert.rejects(cold.readPretenderIndexDisk, privateError);
-  assert.deepEqual(fs.readFileSync(cold.pretenderIndexPath()), coldSearch);
+  assert.deepEqual(fs.readFileSync(cold.pretenderIndexPath()), foreignCipher);
   fs.writeFileSync(cold.pretenderIndexPath(), coldProjection);
   for (const row of [manifest, records.find(row => row.name !== 'state.json' && row.name !== 'manifest.json')]) {
-    const original = currentSealed.get(row.file); fs.writeFileSync(row.file, coldSearch);
-    try { await assert.rejects(() => scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), privateError); assert.deepEqual(fs.readFileSync(row.file), coldSearch); }
+    const original = currentSealed.get(row.file); fs.writeFileSync(row.file, coldProjection);
+    try { await assert.rejects(() => scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), privateError); assert.deepEqual(fs.readFileSync(row.file), coldProjection); }
     finally { fs.writeFileSync(row.file, original); }
   }
   unchangedCurrent(currentSealed); assert.deepEqual(fs.readFileSync(bodyFile), bodyBefore);

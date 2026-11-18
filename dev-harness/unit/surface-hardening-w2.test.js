@@ -8,7 +8,7 @@
 //   [M]  S11 config.json / .prev / runtime.json 的写入权限 0600(POSIX)
 //   [I]  S10 导入会话:消息打 meta.imported、cwd 必须落在已配置工作区内
 //   [W]  W5  经 cmd.exe 起 CLI 时,--agents / --append-system-prompt 等动态文本里的 % ! 换成全角
-//   [P]  端口接管:只接管【本数据目录】runtime.json 登记的那个实例,别的实例 / 别人的服务一概不动
+//   [P]  (3.1 精简退役)端口接管链 freeStalePort 已删:62 号所有权闸起启动只顺延端口,不结束任何占端口进程
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -242,86 +242,5 @@ describe('[W] W5 cmd.exe meta characters in dynamic text arguments', () => {
     assert.deepEqual(exe.args, args, '直启 exe 不经 cmd,原文保真');
     const lin = withPlatform('linux', () => batchSafeSpawn('claude.cmd', args));
     assert.deepEqual(lin.args, args);
-  });
-});
-
-describe('[P] port takeover is bound to this data dir', () => {
-  const PORT = 18123;
-  const writeRuntime = (paths, rec) => { fs.mkdirSync(paths.data, { recursive: true }); fs.writeFileSync(path.join(paths.data, 'runtime.json'), JSON.stringify(rec)); };
-  const rig = (stubs) => {
-    const internals = loadServerInternals(['freeStalePort', 'paths'], { withEval: true });
-    const killed = [];
-    globalThis.__portRig = { ...stubs, killed };
-    internals.__eval(`
-      pidsOnPort = async () => globalThis.__portRig.pids;
-      probeHealth = async () => globalThis.__portRig.health;
-      processImage = async () => globalThis.__portRig.image;
-      processCommandLine = async () => globalThis.__portRig.commandLine || '';
-      killPid = async pid => { globalThis.__portRig.killed.push(pid); };
-    `);
-    return { internals, killed };
-  };
-  const WB = { ok: true, app: '如意 Ruyi', version: '3.0.0', overlayId: 'ov-A', launchMode: 'node', uptimeSec: 5 };
-
-  it('P1 verdict matrix', () => {
-    const { portHolderTakeoverVerdict: v } = loadServerInternals(['portHolderTakeoverVerdict']);
-    const rt = { pid: 4242, port: PORT, overlayId: 'ov-A' };
-    assert.equal(v({ pid: 4242, port: PORT, runtime: rt, health: WB, image: 'node.exe', commandLine: 'c:\\ruyi\\app\\server.js serve' }).ours, true);
-    assert.equal(v({ pid: 4242, port: PORT, runtime: rt, health: null, image: '', commandLine: '' }).ours, true, '拿不到任何旁证时,登记 pid 本身就够(陈旧实例常常 /health 已不应答)');
-    assert.equal(v({ pid: 4242, port: PORT, runtime: rt, health: WB, image: 'Ruyi.exe' }).ours, true);
-    assert.equal(v({ pid: 4242, port: PORT, runtime: { pid: 4242 }, health: null, image: '' }).ours, true, '老 runtime.json 没记端口也认');
-    for (const [label, args] of [
-      ['别的 pid(别的数据目录 / 别的安装的如意)', { pid: 7777, runtime: rt, health: { ...WB, overlayId: 'ov-B' }, image: 'Ruyi.exe' }],
-      ['没有 runtime.json', { pid: 4242, runtime: null, health: WB, image: 'node.exe' }],
-      ['runtime.json 没有 pid', { pid: 4242, runtime: { port: PORT }, health: WB, image: 'node.exe' }],
-      ['登记在别的端口', { pid: 4242, runtime: { ...rt, port: PORT + 5 }, health: WB, image: 'node.exe' }],
-      ['pid 被回收给另一个如意进程(overlayId 不同)', { pid: 4242, runtime: rt, health: { ...WB, overlayId: 'ov-OTHER' }, image: 'node.exe' }],
-      ['pid 被回收给无关程序', { pid: 4242, runtime: rt, health: null, image: 'notepad.exe' }],
-      ['pid 被回收给无关的 node 服务', { pid: 4242, runtime: rt, health: null, image: 'node.exe', commandLine: 'c:\\x\\other-service.js' }],
-    ]) assert.equal(v({ port: PORT, ...args }).ours, false, label);
-  });
-
-  it('P2 this data dir\'s own recorded stale instance is taken over (killed)', async () => {
-    const { internals, killed } = rig({ pids: [4242], health: WB, image: 'node.exe', commandLine: 'c:\\ruyi\\app\\server.js serve' });
-    writeRuntime(internals.paths, { pid: 4242, port: PORT, overlayId: 'ov-A' });
-    const res = await internals.freeStalePort(PORT, '127.0.0.1');
-    assert.equal(res.ok, true);
-    assert.deepEqual(killed, [4242]);
-  });
-
-  it('P3 another data dir\'s / another install\'s Ruyi instance on the port is NOT killed', async () => {
-    const { internals, killed } = rig({ pids: [7777], health: { ...WB, overlayId: 'ov-B' }, image: 'Ruyi.exe', commandLine: 'c:\\other\\ruyi\\app\\server.js' });
-    writeRuntime(internals.paths, { pid: 4242, port: PORT, overlayId: 'ov-A' });
-    const res = await internals.freeStalePort(PORT, '127.0.0.1');
-    assert.equal(res.ok, false, '修前 /health 像工作台就杀');
-    assert.deepEqual(killed, [], '一个进程都不许动');
-    assert.equal(res.blocked.pid, 7777);
-    assert.equal(res.blocked.workbench, true, '报告里说得清「这是另一份如意」');
-  });
-
-  it('P4 with no runtime.json at all, even a workbench-looking holder is left alone', async () => {
-    const { internals, killed } = rig({ pids: [7777], health: WB, image: 'node.exe', commandLine: 'c:\\ruyi\\app\\server.js' });
-    fs.rmSync(path.join(internals.paths.data, 'runtime.json'), { force: true });
-    const res = await internals.freeStalePort(PORT, '127.0.0.1');
-    assert.equal(res.ok, false);
-    assert.deepEqual(killed, []);
-  });
-
-  it('P5 an unrelated service is left alone and reported as not-a-workbench', async () => {
-    const { internals, killed } = rig({ pids: [9999], health: { status: 'UP', version: '1.0' }, image: 'someservice.exe' });
-    writeRuntime(internals.paths, { pid: 4242, port: PORT, overlayId: 'ov-A' });
-    const res = await internals.freeStalePort(PORT, '127.0.0.1');
-    assert.equal(res.ok, false);
-    assert.equal(res.blocked.workbench, false);
-    assert.deepEqual(killed, []);
-  });
-
-  it('P6 two holders, one ours and one foreign: all-or-nothing — nobody is killed', async () => {
-    const { internals, killed } = rig({ pids: [4242, 7777], health: WB, image: 'node.exe', commandLine: 'c:\\ruyi\\app\\server.js' });
-    writeRuntime(internals.paths, { pid: 4242, port: PORT, overlayId: 'ov-A' });
-    const res = await internals.freeStalePort(PORT, '127.0.0.1');
-    assert.equal(res.ok, false);
-    assert.equal(res.blocked.pid, 7777);
-    assert.deepEqual(killed, [], '不会先杀了自己人、再因为别人占着而失败');
   });
 });

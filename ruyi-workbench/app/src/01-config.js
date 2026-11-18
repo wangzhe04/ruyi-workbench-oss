@@ -54,7 +54,6 @@ function defaultConfig() {
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
     mcpCommandMode: 'auto',       // auto | node | exe — which command the generated MCP config points at
     killOnDisconnect: false,      // 体验走查 #4:刷新／关窗／断网不再结束回合(待决的权限与提问留在服务端,页面回来接着等;停止走「停止」键)
-    killPortOnStart: true,        // on startup, if the port is held by a STALE workbench, free it and retry
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
@@ -949,7 +948,10 @@ function normalizeConfig(raw, opts = {}) {
   if (configSecretValueOrCleared(config.modelsApiKey) !== config.modelsApiKey) { config.modelsApiKey = ''; changed = true; }
   if (!['auto', 'bearer', 'x-api-key'].includes(config.claudeAuthMode)) { config.claudeAuthMode = 'auto'; changed = true; }
   config.discoverModelsFromProxy = config.discoverModelsFromProxy !== false;
-  config.killPortOnStart = config.killPortOnStart !== false;
+  // 3.1 精简:killPortOnStart(启动时接管旧实例占用的端口)随端口接管链退役 —— 62 号所有权闸起启动只顺延端口,
+  // 这个开关早已不起作用。落盘投影会原样保留「本版不认识的键」(给更新的版本留),这一个是我们自己退役的:
+  // 旧配置里残留时在这里剥掉,不报错、也不被「设置保存」写回(投影与盘面不同 → 读盘那次落一遍清理后的配置)。
+  if (Object.prototype.hasOwnProperty.call(config, 'killPortOnStart')) delete config.killPortOnStart;
   // v0.5: providers (native OpenAI-compatible engines). Sanitize each, drop malformed, dedupe by id, cap count.
   {
     const rawArr = Array.isArray(config.providers) ? config.providers : [];

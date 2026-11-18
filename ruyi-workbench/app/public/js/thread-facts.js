@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // 五态 → 圆点色调。原住 preview-shell.js:54。
-// 117n-M1③：settled 只在 done 且【调用方主动选它】时才出（看板的 paintDot 传 settleDone:true）；
+// 117n-M1③：settled 只在 done 且【调用方主动选它】时才出（看板调用方传 settleDone:true）；
 // 不传这个选项时的返回值一个字没变（done 仍落 quiet）。
 // 121-K1 落点交代：34 号文 §8.2 原计划把它搬进 mission-state.js（「五态的表现与五态同住」）。
 // 实测不行，两条硬理由：① mission-state.js 是 UMD（六件 Node 测试 require 它），加不了 ESM 命名导出，

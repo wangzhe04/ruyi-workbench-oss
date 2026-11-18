@@ -1411,14 +1411,6 @@
       ]
     },
     {
-      "file": "01u-work-data-transition.js",
-      "layer": "foundation",
-      "provides": [
-        "WorkDataTransition"
-      ],
-      "requires": []
-    },
-    {
       "file": "01v-work-data-manifest.js",
       "layer": "foundation",
       "provides": [
@@ -1961,7 +1953,6 @@
         "MISSION_MAX_CONSTRAINTS",
         "MISSION_MAX_MILESTONES",
         "MISSION_MAX_TEXT",
-        "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "SESSION_BODY_LINE_CACHE_CHARS",
@@ -2254,7 +2245,6 @@
         "sessionBodyRecordFromRead",
         "sessionBodyStamp",
         "sessionBodyState",
-        "sessionBodyText",
         "sessionBodyWriteText",
         "sessionBriefOf",
         "sessionDeleteTombstones",
@@ -3059,7 +3049,6 @@
         "privacyLocalIo",
         "privacyMapBounded",
         "privacyQueryDrives",
-        "probeGitCli",
         "probeGitCliAsync",
         "providerIsLocal",
         "readFilePreview",
@@ -4226,7 +4215,6 @@
         "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
-        "anthropicModelTakesAdaptiveThinking",
         "anthropicModelTraits",
         "anthropicModelsUrl",
         "anthropicNonEmpty",
@@ -5686,7 +5674,6 @@
         "kimiAcpNativeBashWrapperTexts",
         "kimiAcpNativeShellQuote",
         "kimiAcpNativeWindowsPathToPosixPath",
-        "kimiAcpNormalizedToolName",
         "kimiAcpNoteConfigActual",
         "kimiAcpObjectInput",
         "kimiAcpObserveNativeMode",
@@ -7205,13 +7192,10 @@
         "RETRIEVAL_DIMS",
         "RETRIEVAL_RRF_K",
         "RETRIEVAL_TEXT_CAP",
-        "buildRetrievalCorpus",
-        "buildRetrievalDf",
         "createRetrievalCorpusCache",
         "fnv1a32",
         "rankRetrievalCorpus",
         "reciprocalRankFusion",
-        "retrievalContentHash",
         "retrievalCosine",
         "retrievalIdf",
         "retrievalTermCounts",
@@ -7346,7 +7330,6 @@
         "STEWARD_STATE_LABELS",
         "STEWARD_STOPPED_SAY",
         "STEWARD_TAINT_TOOL_NAMES",
-        "STEWARD_THREAD_STATES",
         "STEWARD_THREAD_STATE_ORDER",
         "STEWARD_THREAD_STATE_RULES",
         "STEWARD_TOOL_PREFIX",
@@ -7459,8 +7442,6 @@
         "AGENT_INSTRUCTION_MAX_BYTES",
         "AGENT_INSTRUCTION_NATIVE_CLI",
         "AGENT_INSTRUCTION_SCAN_VERSION",
-        "CORE_MEMORY_CHAR_CAP",
-        "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
@@ -7469,8 +7450,6 @@
         "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
-        "MEMORY_INDEX_CAP",
-        "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
         "MEMORY_PERSONAL_PREFERENCE_RE",
         "MEMORY_PROJECT_ONLY_RE",
@@ -7602,9 +7581,7 @@
         "proposeMemoryRelationTool",
         "proposeMemoryRevision",
         "proposeWorkbenchMemory",
-        "rankMemoriesForRecall",
         "rankMemoriesForRecallDetailed",
-        "rankMemoriesFused",
         "rankMemoriesFusedDetailed",
         "rankRelevantMemories",
         "rankRelevantMemoriesDetailed",
@@ -7624,7 +7601,6 @@
         "renderAgentInstructionMemory",
         "replayPendingMemoryProposal",
         "resolveCoreMemoryState",
-        "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
         "resolveWorkbenchMemoryReadContext",
         "resolveWorkbenchMemoryToolContext",
@@ -9473,7 +9449,6 @@
         "aggregateAgentVote",
         "aggregateCoverage",
         "appendAgentRunEvent",
-        "appendAgentWorkflowSummaryToSession",
         "autoResumeInterruptedRuns",
         "balancedJsonSpan",
         "buildAgentRunEnvelope",
@@ -9769,13 +9744,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "missionSignalThrottleAllow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -10457,7 +10425,6 @@
         "applyReplanPatch",
         "proposeReplanPatch",
         "recordNodeContinuation",
-        "rollbackReplanPatch",
         "validateReplanPatch"
       ],
       "requires": [
@@ -14171,7 +14138,6 @@
         "gitStagedSnapshot",
         "gitStatus",
         "globToRegExp",
-        "hasRg",
         "hasRgAsync",
         "ignoreGlobsForRg",
         "isBinaryReadPath",
@@ -14710,7 +14676,6 @@
         "fileToolWriteLockKey",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
-        "isUtf8Encoding",
         "journalCheckpointWarn",
         "mcpCatalogForContext",
         "naClassify",
@@ -15937,14 +15902,11 @@
         "doctorHumanLines",
         "doctorLocaleCatalog",
         "fetchProxyModels",
-        "freeStalePort",
         "getProxyModelsCache",
         "handleApi",
-        "healthLooksLikeWorkbench",
         "helpDocTitle",
         "helpDocsDir",
         "installIntegration",
-        "killPid",
         "kimiModelList",
         "kimiModelProbeChildren",
         "listenForWorkbenchServe",
@@ -15955,28 +15917,19 @@
         "offlineModelList",
         "openPathTargetDir",
         "parseArgs",
-        "pidsOnPort",
-        "portHolderTakeoverVerdict",
-        "probeHealth",
-        "processCommandLine",
-        "processImage",
         "proxyModelsCacheChains",
         "proxyModelsCacheFailure",
         "proxyModelsCacheMemo",
         "proxyModelsCacheMemoState",
         "proxyModelsCacheStore",
-        "readOwnRuntimeRecord",
         "readProxyModelsCache",
         "resetOrphanedMissionDrivers",
         "resolveBindHost",
         "resolveNodeModel",
         "semanticRuntimeHostPorts",
-        "sendMcp",
-        "sendMcpNotification",
         "setProxyModelsCache",
         "setSessionSkillsCore",
         "singleByteRange",
-        "sleep",
         "startErrorNextText",
         "startMcp",
         "startServer",
@@ -16075,13 +16028,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootSource",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]
@@ -17014,13 +16960,6 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "killOwnProcessTree",
           "kinds": [
             "call"
           ]
@@ -18522,23 +18461,11 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
-        "NDJSON_EDGE_EXTEND_CHUNK",
-        "NDJSON_EDGE_EXTEND_MAX",
-        "SESSION_SEARCH_ASSISTANT_CHARS",
-        "SESSION_SEARCH_HEAD_BYTES",
-        "SESSION_SEARCH_INDEX_FILE",
-        "SESSION_SEARCH_INDEX_VERSION",
-        "SESSION_SEARCH_MAX_LIMIT",
         "SESSION_SEARCH_MIN_QUERY",
-        "SESSION_SEARCH_SNIPPET_RADIUS",
-        "SESSION_SEARCH_TAIL_BYTES",
-        "SESSION_SEARCH_UNIT_CAP",
-        "SESSION_SEARCH_USER_CHARS",
         "addMissionCostBucket",
         "agentRunActionCommand",
         "buildMissionAggregateRows",
         "buildMissionCard",
-        "buildSessionSearchUnit",
         "canonicalDecisionValue",
         "clipMissionRunText",
         "decideIntervention",
@@ -18562,33 +18489,16 @@
         "missionRunGraph",
         "normalizeContractQuestionDecision",
         "overlayMissionAggregateFields",
-        "parseNdjsonRows",
         "pendingInterventionItem",
         "pendingInterventionRefs",
         "pendingInterventionRefsMemo",
-        "readNdjsonEdges",
-        "readSessionSearchIndex",
-        "refreshSessionSearchIndex",
-        "refreshSessionSearchIndexNow",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
         "sessionEnvelopeEtag",
         "sessionEnvelopeLiveParts",
         "sessionEnvelopeStamp",
-        "sessionMessageText",
-        "sessionSearchCorpusCache",
-        "sessionSearchHayMemo",
-        "sessionSearchHayOf",
-        "sessionSearchIndexAuthStamp",
-        "sessionSearchIndexCache",
-        "sessionSearchIndexFileStamp",
-        "sessionSearchIndexPath",
-        "sessionSearchIndexStore",
-        "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
-        "sessionSearchRows",
-        "sessionSearchScope",
-        "sessionSearchSnippet"
+        "sessionSearchScope"
       ],
       "requires": [
         {
@@ -18698,13 +18608,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "runKeyedChain",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -18736,13 +18639,6 @@
           "symbol": "URL",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "atomicWriteJson",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -18820,20 +18716,6 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01p-work-data-store.js",
-          "symbol": "WorkDataStore",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01q-work-data-records.js",
-          "symbol": "WorkDataRecords",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -21869,7 +21751,6 @@
         "stewardSettingsReceipt",
         "stewardSourceActivityTexts",
         "stewardSourceCwd",
-        "stewardSourceIsUserMessage",
         "stewardSourceUserTexts",
         "stewardTextGroundedInQuote"
       ],
@@ -22774,7 +22655,6 @@
         "stewardImplBotSetup",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
-        "stewardMemoryPanelExport",
         "stewardMemoryPanelList",
         "stewardMemoryPanelRestore",
         "stewardMemoryPanelRow",
@@ -22973,13 +22853,6 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_MEMORY_NEW_WINDOW_MS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
-          "symbol": "STEWARD_MEMORY_SCHEMA",
           "kinds": [
             "read"
           ]
@@ -24692,7 +24565,6 @@
         "STEWARD_ACT_ATTEMPT_LIMITS",
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
-        "STEWARD_RELAY_CHANNELS",
         "STEWARD_RELAY_SETTLE_WAIT_MS",
         "STEWARD_VISIT_DIGEST_PAGES",
         "runStewardTurn",
@@ -29745,13 +29617,6 @@
         {
           "provider": "13ac-mcp-consumer.js",
           "symbol": "McpConsumers",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13d-core-domain-routes.js",
-          "symbol": "sessionSearchRefreshChains",
           "kinds": [
             "read"
           ]

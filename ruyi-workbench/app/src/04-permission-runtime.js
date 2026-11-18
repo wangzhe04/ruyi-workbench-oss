@@ -651,7 +651,8 @@ function ownTreeKillCommand(pid, { dry = false, table = null } = {}) {
     .replace('__TABLE__', () => tableJson);
   return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')];
 }
-// 等它跑完(拿回 PLAN／KILLED 行):freeStalePort 要等旧实例真没了再重试监听;单测走 dry 模式。
+// 等它跑完(拿回 PLAN／KILLED 行)的版本:原调用方 freeStalePort 已随 3.1 精简删除,现只服务单测的 dry 模式
+// (unit/kill-own-process-tree.test.js 钉 OWN_TREE_KILL_PS 的判据,与 killChildTree 共用同一段脚本)。
 function killOwnProcessTree(pid, opts = {}) {
   return new Promise(resolve => {
     if (!pid) return resolve({ lines: [] });

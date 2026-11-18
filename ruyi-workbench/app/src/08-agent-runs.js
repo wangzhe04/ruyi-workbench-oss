@@ -2641,21 +2641,6 @@ function summarizeAgentWorkflowRun(run, opts = {}) {
   }
   return lines.join('\n');
 }
-async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
-  if (!sessionId || !run) return;
-  const content = summarizeAgentWorkflowRun(run, opts);
-  // 128b:走 mutateSession —— 撤回插在读与存之间时在新读的副本上重放这条追加,不被闸静默丢掉。
-  const createdAt = nowIso();
-  try {
-    await mutateSession(sessionId, fresh => {
-      if (!Array.isArray(fresh.messages)) fresh.messages = [];
-      fresh.messages.push({ role: 'assistant', content, createdAt, source: 'agent_workflow', runId: run.id });
-    }, { writer: 'agent_workflow_summary' });
-  } catch (error) {
-    if (error && error.code === 'session.rewound_during_write') { logEvent({ kind: 'agent_workflow_summary_dropped', sessionId, runId: run.id, reason: error.code }); return; }
-    throw error;
-  }
-}
 // ── 代理模式 v2:交付信封与按需取全文 ─────────────────────────────────────────────────────────────
 // 父会话(模型可见上下文 + 持久化消息 + 界面)对一个代理 run 只收【一个交付信封】:runId/status/每节点的
 // {nodeId, agentKey, role, status, summary(按句截断)、artifacts、error?}/usage/more。不带 toolEvidence、progressLog、

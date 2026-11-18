@@ -913,3 +913,6 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 
 // M4 explicit image regions original source pin a0b6f51682fbabc3a03352730206589f4a1f29819f993ebadb4ebf20c8a2111b; prior c5ebb proof remains in Git.
 // M4+8cca combined source pin 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;8cca composer-only substitution restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b.
+
+// M4+committed-B2 composition20261030: only the accepted image editor composer CSS is added to8cca.
+// Exact in-memory replacement with8cca composer restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b; no other CSS layer is replaced.

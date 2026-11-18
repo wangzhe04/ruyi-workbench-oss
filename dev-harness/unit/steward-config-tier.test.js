@@ -78,7 +78,7 @@ ok(!STEWARD_CONFIG_TIERS.free.some(k => new RegExp(STEWARD_CONFIG_TIERS.secretPa
 const EXPECTED = {
   // ── free (31) 改错了一眼看得见、一键改回;不花钱、不改权限、不扩大能动世界的范围 ─────────────────────────────
   theme: 'free', locale: 'free', includePartialMessages: 'free', killOnDisconnect: 'free',
-  killPortOnStart: 'free', permissionTimeoutMs: 'free', questionTimeoutMs: 'free', autonomyPauseOnTimeout: 'free',
+  permissionTimeoutMs: 'free', questionTimeoutMs: 'free', autonomyPauseOnTimeout: 'free',
   autonomyPauseTtlMs: 'free', monitorIncremental: 'free', storagePolicy: 'free', turnIdleTimeoutMs: 'free',
   dismissedMcpIds: 'free', toolCatalogCacheTtlMs: 'free', runtimeFailureTelemetryV1: 'free', sessionSearchIndexV1: 'free',
   enableToolRequiresProbe: 'free', uiMode: 'free', outputStyle: 'free', stewardProviderId: 'free',

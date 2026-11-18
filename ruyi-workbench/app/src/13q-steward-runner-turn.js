@@ -266,7 +266,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         source: 'steward',
         engineRoute: ensured.route,
         // 收件箱回合的这条 user 消息【不是用户本人说的话】:origin 随会话正文落盘,
-        // steward_memory_write 的来源校验据此确定性拒绝它(13g stewardSourceIsUserMessage)。
+        // steward_memory_write 的来源校验据此确定性拒绝它(13l stewardSourceUserTexts)。
         messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) }
           : trigger === 'external' ? { origin: 'external-owner', externalSource: entry.externalSource } : null,
         requestMeta: { steward: true, trigger, ...(trigger === 'external' ? { external: entry.externalSource } : {}) },
@@ -1073,7 +1073,6 @@ function stewardEnsureOpenAiRoute(session, config, tier) {
 // ════════════════════════════════════════════════════════════════════════════
 // 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
 // 见 stewardRelayChannelFor 里那段头注。
-const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
 // hunt2-steward ②:递话撞上「回合起步 / 收尾」窗口时最多等多久再重判(见 stewardRelayDeliver)。
 const STEWARD_RELAY_SETTLE_WAIT_MS = 5000;
 

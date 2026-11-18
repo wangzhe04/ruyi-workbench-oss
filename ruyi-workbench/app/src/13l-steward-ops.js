@@ -628,9 +628,6 @@ async function stewardSourceUserTexts(sourceRef) {
     && m.source !== 'mission-driver');
   return own.length ? own.map(m => String(m.content == null ? '' : (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))) : null;
 }
-async function stewardSourceIsUserMessage(sourceRef) {
-  return (await stewardSourceUserTexts(sourceRef)) !== null;
-}
 // 行动经验只引用已落盘、带明确成败的真实工具调用。只提供脱敏后的动作摘要,不把网页/工具正文当偏好。
 async function stewardSourceActivityTexts(sourceRef) {
   const sid = safeSessionId(sourceRef && sourceRef.sessionId);

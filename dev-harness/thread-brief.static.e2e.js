@@ -173,12 +173,10 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
   const judging = files
     .filter(f => /titleSource/.test(fs.readFileSync(f, 'utf8')))
     .map(f => path.relative(PUBLIC, f).replace(/\\/g, '/'));
-  ok(judging.length === 1 && judging[0] === 'js/session-experience.js',
-    `③ public/ 下读 titleSource 的只有经典壳那一处(实得 ${JSON.stringify(judging)})`);
-  const experience = readPub('js/session-experience.js');
-  ok(/function sessionGeneratedTitle\(s\) \{/.test(experience)
-    && /if \(!s \|\| s\.titleSource === 'user'\) return '';/.test(experience),
-    '③ 经典壳那一处与服务端逐条同优先级');
+  // 3.1 精简:经典壳那份 sessionGeneratedTitle / sessionDisplayTitle 零调用点已删 —— public/ 下自此零处自己判 titleSource,
+  // 显示名只读服务端算好的 displayTitle(比原来的「只许一处」更严)。
+  ok(judging.length === 0,
+    `③ public/ 下零处读 titleSource,显示名一律读服务端 displayTitle(实得 ${JSON.stringify(judging)})`);
   // 管家壳四个消费点只读服务端算好的 displayTitle。
   for (const [rel, needle] of [
     ['js/steward-board.js', 'row.displayTitle || row.title || sessionId'],

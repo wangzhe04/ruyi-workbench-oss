@@ -549,7 +549,7 @@ async function runClaudeTurn({
       }
     } catch { /* Playbook 索引注入绝不可阻断回合 */ }
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
-    // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
+    // P3-2 的 fits-or-drop 契约由段内构建自带截断(01c memoryIndexCharCap)替代,不再有命令行预算丢弃面。
     try {
       // W2 迁移中心:CLI 自己原生会读的全局指令文件(Claude Code 读 ~/.claude/CLAUDE.md、Kimi Code 读
       // ~/.kimi-code/AGENTS.md)导成的记忆,在【那个】CLI 的回合里不再注入一遍(去重;provider 引擎照常有)。

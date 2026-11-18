@@ -4,7 +4,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // 走查 W1(存储/路由一批)的 HTTP 层回归件。真服务、临时家、全离线。
 //   [K] #4  GET /api/kimi/status:只是「打开看一眼」—— 不把会话顶到列表最上面(updatedAt 不动)、状态没变就不写盘、变了才写;
 //   [F] #9  任何响应都带 X-Frame-Options: DENY 与 Content-Security-Policy: frame-ancestors 'none'(防被嵌入);
-//   [H] #11 /health 带 app 字段(freeStalePort 的工作台识别口径,见 unit/health-looks-like-workbench);
+//   [H] #11 /health 带 app 字段(外部识别本实例的口径,见 unit/health-looks-like-workbench [H4];3.1 起不再用于端口接管);
 //   [R] #10 项目级 agent-roles / workflows 的 cwd 不存在或是文件 → 400 人话(不再 500 + ENOTDIR 原文),正常目录照存;
 //   [S] #12 会话内容搜索:正文头/尾 1MB 边界上的消息补读成整行(≤2MB 整个读;更大的头尾补行),冷索引并发搜索只构建一代(双扫描及披露复验分别计数)。
 const { createRunner } = require('./lib/harness');

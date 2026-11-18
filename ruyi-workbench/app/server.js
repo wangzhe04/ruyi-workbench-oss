@@ -3851,7 +3851,6 @@ function defaultConfig() {
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
     mcpCommandMode: 'auto',       // auto | node | exe — which command the generated MCP config points at
     killOnDisconnect: false,      // 体验走查 #4:刷新／关窗／断网不再结束回合(待决的权限与提问留在服务端,页面回来接着等;停止走「停止」键)
-    killPortOnStart: true,        // on startup, if the port is held by a STALE workbench, free it and retry
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
@@ -4746,7 +4745,10 @@ function normalizeConfig(raw, opts = {}) {
   if (configSecretValueOrCleared(config.modelsApiKey) !== config.modelsApiKey) { config.modelsApiKey = ''; changed = true; }
   if (!['auto', 'bearer', 'x-api-key'].includes(config.claudeAuthMode)) { config.claudeAuthMode = 'auto'; changed = true; }
   config.discoverModelsFromProxy = config.discoverModelsFromProxy !== false;
-  config.killPortOnStart = config.killPortOnStart !== false;
+  // 3.1 精简:killPortOnStart(启动时接管旧实例占用的端口)随端口接管链退役 —— 62 号所有权闸起启动只顺延端口,
+  // 这个开关早已不起作用。落盘投影会原样保留「本版不认识的键」(给更新的版本留),这一个是我们自己退役的:
+  // 旧配置里残留时在这里剥掉,不报错、也不被「设置保存」写回(投影与盘面不同 → 读盘那次落一遍清理后的配置)。
+  if (Object.prototype.hasOwnProperty.call(config, 'killPortOnStart')) delete config.killPortOnStart;
   // v0.5: providers (native OpenAI-compatible engines). Sanitize each, drop malformed, dedupe by id, cap count.
   {
     const rawArr = Array.isArray(config.providers) ? config.providers : [];
@@ -10539,99 +10541,6 @@ const WorkDataRecovery = ((cryptoApi) => {
   return Object.freeze({ KIND, VERSION, LIMITS: DEFAULT_LIMITS, create, ...create() });
 })(require('node:crypto'));
 
-// M3-3 admission primitive. Integration is deliberately explicit: an owner must enter run()
-// before starting work and assertCurrent() immediately before publishing a disk mutation.
-// No monkey-patching fs, no secret material, and no key lease spanning a model turn.
-const WorkDataTransition = ((AsyncLocalStorage) => {
-  const failure = suffix => Object.assign(new Error('work_data.transition_' + suffix), {
-    code: 'work_data.transition_' + suffix, statusCode: 409,
-  });
-  const validGeneration = value => Number.isSafeInteger(value) && value >= 0;
-  function create({ generation = 0 } = {}) {
-    if (!validGeneration(generation)) throw failure('generation');
-    const context = new AsyncLocalStorage();
-    let current = generation, phase = 'open', active = 0, pending = null;
-    // Tokens are capabilities, not caller-supplied generation numbers. Retain no completed token.
-    const live = new Set();
-    function assertCurrent() {
-      const token = context.getStore();
-      if (!token || !live.has(token) || token.generation !== current || phase === 'retired') {
-        throw failure('stale_writer');
-      }
-      return current;
-    }
-    function wake() {
-      if (pending && active === 0) pending.ready();
-    }
-    async function run(work) {
-      if (typeof work !== 'function') throw new TypeError('work must be a function');
-      const inherited = context.getStore();
-      if (inherited) {
-        // An admitted task may finish nested writes while admission is closing. A detached
-        // continuation from an already finished task cannot resurrect that old admission.
-        assertCurrent();
-        active++;
-        try { return await work(assertCurrent); }
-        finally { active--; wake(); }
-      }
-      if (phase !== 'open') throw failure(phase === 'retired' ? 'restart_required' : 'busy');
-      const token = { generation: current };
-      live.add(token); active++;
-      try { return await context.run(token, () => work(assertCurrent)); }
-      finally { live.delete(token); active--; wake(); }
-    }
-    async function exclusive(work, { signal } = {}) {
-      if (typeof work !== 'function') throw new TypeError('work must be a function');
-      // Waiting for oneself would deadlock. An expired inherited context is also not an owner.
-      if (context.getStore()) throw failure('nested_exclusive');
-      if (phase !== 'open') throw failure(phase === 'retired' ? 'restart_required' : 'busy');
-      if (signal?.aborted) throw failure('cancelled');
-      phase = 'waiting';
-      let abort, valid = true, committed = false;
-      try {
-        await new Promise((resolve, reject) => {
-          pending = { ready: resolve };
-          abort = () => reject(failure('cancelled'));
-          signal?.addEventListener('abort', abort, { once: true });
-          // Covers an AbortSignal implementation that aborts between the initial read and add.
-          if (signal?.aborted) abort();
-          else wake();
-        });
-        pending = null;
-        phase = 'exclusive';
-        const check = () => {
-          if (!valid || phase !== 'exclusive') throw failure('owner_expired');
-          if (signal?.aborted) throw failure('cancelled');
-        };
-        const owner = Object.freeze({
-          generation: current,
-          check,
-          // Cancellation ends before publish starts. Even a rejected disk write can have an
-          // ambiguous outcome (e.g. rename succeeded, directory flush failed). Only a fresh
-          // process reading the durable manifest may resolve it; never reopen the old writer.
-          async commit(next, publish) {
-            check();
-            if (!validGeneration(next) || next !== current + 1) throw failure('generation');
-            if (typeof publish !== 'function') throw new TypeError('publish must be a function');
-            committed = true; phase = 'committing';
-            try {
-              const result = await publish(); current = next; return result;
-            } finally { phase = 'retired'; }
-          },
-        });
-        return await work(owner);
-      } finally {
-        valid = false; pending = null;
-        if (abort) signal?.removeEventListener('abort', abort);
-        if (!committed) phase = 'open';
-      }
-    }
-    function status() { return Object.freeze({ generation: current, phase, active }); }
-    return Object.freeze({ run, exclusive, assertCurrent, status });
-  }
-  return Object.freeze({ create });
-})(require('node:async_hooks').AsyncLocalStorage);
-
 // M3-3 authority IO only. The host holds the single serve owner and transition gate.
 // This byte comparison is not a cross-process CAS. No file below a generation is
 // scanned, transformed, retired, or removed here; the migration host owns those steps.
@@ -16230,7 +16139,6 @@ function serializeSessionBody(entries) {
   }
   return lines;
 }
-function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
 // entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
 function isStrictSessionBodyPrefix(entries, record) {
   if (!record || entries.length >= record.count) return false;
@@ -17579,7 +17487,6 @@ const MISSION_MAX_MILESTONES = 16;
 const MISSION_MAX_TEXT = 400;
 const MISSION_MAX_CONSTRAINTS = 12;
 const MISSION_DEFAULT_MAX_TURNS = 12;
-const MISSION_REPLAN_LIMIT = 2;
 const MISSION_STALL_LIMIT = 3;
 // 对抗轮 P1(第26波b): check.cmd 是【驱动器每轮无提示 shell 执行】的输入 —— 绝不能被【模型】设置,否则
 // 提示注入 = 绕过整个权限系统的任意命令执行。`trusted` 门:仅用户(经 UI header token 的 /api/mission)可定义
@@ -23520,17 +23427,6 @@ async function probeGitCliAsync() {   // 128f-⑬:能力矩阵过期重算时用
   _gitCliProbe = { at: Date.now(), value };
   return value;
 }
-function probeGitCli() {
-  const now = Date.now();
-  if (_gitCliProbe && (now - _gitCliProbe.at) < GITCLI_CACHE_MS) return _gitCliProbe.value;
-  let value = false;
-  try {
-    const result = cp.spawnSync('git', ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
-    value = !result.error && result.status === 0;
-  } catch { value = false; }
-  _gitCliProbe = { at: now, value };
-  return value;
-}
 
 function buildDeliveryRevisionPrompt(meta) {
   const ref = meta && meta.revisionOf;
@@ -26266,7 +26162,8 @@ function ownTreeKillCommand(pid, { dry = false, table = null } = {}) {
     .replace('__TABLE__', () => tableJson);
   return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')];
 }
-// 等它跑完(拿回 PLAN／KILLED 行):freeStalePort 要等旧实例真没了再重试监听;单测走 dry 模式。
+// 等它跑完(拿回 PLAN／KILLED 行)的版本:原调用方 freeStalePort 已随 3.1 精简删除,现只服务单测的 dry 模式
+// (unit/kill-own-process-tree.test.js 钉 OWN_TREE_KILL_PS 的判据,与 killChildTree 共用同一段脚本)。
 function killOwnProcessTree(pid, opts = {}) {
   return new Promise(resolve => {
     if (!pid) return resolve({ lines: [] });
@@ -30570,9 +30467,6 @@ function anthropicModelTraits(model) {
     fallbacks: (family === 'opus' && (is(5) || is(5.5))) || (family === 'sonnet' && is(5.5)) || (family === 'fable' && is(5.1)),
   };
 }
-function anthropicModelTakesAdaptiveThinking(model) {
-  return anthropicModelTraits(model).adaptive;
-}
 // 官方主机上要不要带「思考块丢块」与「拒答改派」:请求头与请求体用同一个判据,两边永远对得上。
 function anthropicOfficialFeatures(provider, model) {
   const official = anthropicOfficialHost(provider && provider.baseUrl);
@@ -34169,7 +34063,7 @@ async function runClaudeTurn({
       }
     } catch { /* Playbook 索引注入绝不可阻断回合 */ }
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
-    // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
+    // P3-2 的 fits-or-drop 契约由段内构建自带截断(01c memoryIndexCharCap)替代,不再有命令行预算丢弃面。
     try {
       // W2 迁移中心:CLI 自己原生会读的全局指令文件(Claude Code 读 ~/.claude/CLAUDE.md、Kimi Code 读
       // ~/.kimi-code/AGENTS.md)导成的记忆,在【那个】CLI 的回合里不再注入一遍(去重;provider 引擎照常有)。
@@ -37017,10 +36911,6 @@ function kimiAcpToolTier(toolCall) {
   if (/^(read|glob|grep|readmediafile|websearch|fetchurl|tasklist|taskoutput|todolist|getgoal)$/.test(name)) return 'read';
   if (/^(write|edit)$/.test(name)) return 'edit';
   return 'exec';
-}
-
-function kimiAcpNormalizedToolName(toolCall) {
-  return String(toolCall && toolCall.title || '').trim().replace(/^.+?__/, '').toLowerCase();
 }
 
 function kimiAcpObjectInput(value) {
@@ -43324,15 +43214,6 @@ function retrievalTermCounts(input) {
   return counts;
 }
 
-// 语料的文档频次。IDF 用平滑对数式,单文档语料也不会除零。
-function buildRetrievalDf(termCountsList) {
-  const df = new Map();
-  for (const counts of termCountsList) {
-    for (const term of counts.keys()) df.set(term, (df.get(term) || 0) + 1);
-  }
-  return { df, docCount: termCountsList.length };
-}
-
 function retrievalIdf(df, docCount, term) {
   const seen = df.get(term) || 0;
   return Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
@@ -43390,30 +43271,8 @@ function reciprocalRankFusion(rankings, { k = RETRIEVAL_RRF_K, weights = null } 
   return scores;
 }
 
-// 内容指纹:索引条目的失效键之一(另一个是 mtime+size)。截断成 16 位十六进制够用,
-// 这里比对的是「同一条记忆有没有被改过」,不是防篡改。
-function retrievalContentHash(input) {
-  const source = String(input || '');
-  const a = fnv1a32(source);
-  const b = fnv1a32(source.length + '|' + source.slice(-256));
-  return (a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0'));
-}
-
-// 一次性把一批文档变成 {ids, vectors, df, docCount}。语料小(百到千级),每次重算是微秒级,
-// 所以这里不做磁盘索引 —— 会话搜索那边正文提取才是真花钱的地方,索引落盘在那边做。
-function buildRetrievalCorpus(documents) {
-  const ids = [];
-  const countsList = [];
-  for (const doc of documents || []) {
-    if (!doc || !doc.id) continue;
-    ids.push(String(doc.id));
-    countsList.push(retrievalTermCounts(doc.text));
-  }
-  const { df, docCount } = buildRetrievalDf(countsList);
-  const vectors = countsList.map(counts => retrievalVector(counts, df, docCount));
-  return { ids, vectors, df, docCount };
-}
-
+// 3.1 精简:一次性全量版 buildRetrievalCorpus 与 retrievalContentHash 零调用点已删;全量重算的对照实现搬进
+// unit/retrieval-corpus-cache.test.js(语料一律经 createRetrievalCorpusCache,结果与全量重算逐位相同)。
 // 用 query 在语料上打分,返回按余弦降序的 [{id, score}]。低于 minScore 的直接丢
 // (稀疏哈希在完全不相干的文本之间也会有零点几的噪声分)。
 function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {}) {
@@ -43430,9 +43289,9 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 }
 
 // ── 性能批 C1:可复用的语料缓存 ────────────────────────────────────────────────────────────────────────
-// buildRetrievalCorpus 每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
+// 修前的全量版每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
 // 3000 条会话 × 8 KB 的单元要 6–7 秒、整段占住事件循环;记忆召回每条用户消息也调一次。
-// 缓存两层,结果与 buildRetrievalCorpus 逐位相同(同一批文档、同一顺序 → 同一 df、同一向量):
+// 缓存两层,结果与全量重算逐位相同(同一批文档、同一顺序 → 同一 df、同一向量;对照实现在 unit/retrieval-corpus-cache):
 //   ① 每篇文档的词频按「文本没变」复用 —— 存成全局词表里的词号数组 + 次数数组(保留首次出现的次序,
 //      retrievalVector 的累加次序因此不变),不再每次重新分词;
 //   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
@@ -45042,7 +44901,6 @@ function buildStewardBrief(brief) {
 // 架构还债批 4:判据从一串 if/else 换成与前端 RULES【同 id、同顺序】的判定表,两份抄写件由
 // dev-harness/unit/thread-state-differential.test.js 在整张证据网格上逐格比对输出(state/sources/label)
 // 钉住 —— 不再按源码字面量对账。改判据必须两边同改。
-const STEWARD_THREAD_STATES = Object.freeze(['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']);
 // 判定表:自上而下【第一条命中】的规则决定状态,顺序即优先级;各条的理由见 mission-state.js RULES 的逐条注释。
 // 117p-S2 的无账本分支(ledgerless_ran)排在 untouched 之后、兜底之前;账缺席(lastTurn 为 null)按成功算。
 const STEWARD_THREAD_STATE_RULES = Object.freeze([
@@ -45689,7 +45547,7 @@ const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   // 132b:等待时长 —— 变短只会更早拒／更早算卡住,变长只是多等,不放行任何东西(用户实报「线程提问的等待时长」改不了)。
   'permissionTimeoutMs', 'questionTimeoutMs', 'turnIdleTimeoutMs', 'autonomyPauseOnTimeout', 'autonomyPauseTtlMs',
   // 132b:显示粒度、启停整洁度、本地开销 —— 都是「看一眼就发现、一键改回」那一类。
-  'dismissedMcpIds', 'monitorIncremental', 'includePartialMessages', 'storagePolicy', 'killOnDisconnect', 'killPortOnStart',
+  'dismissedMcpIds', 'monitorIncremental', 'includePartialMessages', 'storagePolicy', 'killOnDisconnect',
   'toolCatalogCacheTtlMs', 'enableToolRequiresProbe', 'sessionSearchIndexV1', 'runtimeFailureTelemetryV1',
 ]);
 
@@ -45787,7 +45645,6 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['includePartialMessages', '流式时显示部分消息(关了只显示整段)', 'Show partial messages while streaming'],
   ['storagePolicy', '本地数据保留策略:日志保留天数等', 'Local data retention policy (log keep days, etc.)'],
   ['killOnDisconnect', '浏览器断开时结束正在跑的引擎进程', 'Kill the running engine process when the browser disconnects'],
-  ['killPortOnStart', '启动时清掉占着端口的旧进程', 'Kill a stale process holding the port on start'],
   ['toolCatalogCacheTtlMs', '工具目录缓存多久,毫秒', 'Tool catalog cache lifetime, ms'],
   ['enableToolRequiresProbe', '启用工具前先探测依赖是否齐', 'Probe dependencies before enabling a tool'],
   ['sessionSearchIndexV1', '本地会话搜索索引开关', 'Local session search index'],
@@ -46411,18 +46268,14 @@ const StewardHooks = {};
 // <workbench-memory>、UI 一律称「工作台记忆」。存储:dataRoot()/memory/{global,project/<projectKey>}/<id>.md。
 // ============================================================================
 const MEMORY_TYPES = new Set(['preference', 'convention', 'lesson', 'reference']);
-// 2026-09-04(用户拍板「上限才 24…拓展到尽可能大」):下面四个常量不再是硬上限,而是
+// 2026-09-04(用户拍板「上限才 24…拓展到尽可能大」):下面的 MEMORY_RELEVANCE_MAX（另三个常量已随 3.1 精简删除）不再是硬上限,而是
 // 【调用方没传 config 时的兜底】。真正生效的是 01c 里的五个判定函数(读配置 + 钳位)。
 // 兜底值就是新默认值,不是旧常量 —— 否则同一个库在不同入口会给出不同的席位数。
-const MEMORY_INDEX_CAP = 6000; // 相关记忆索引整段字符上限；只含元数据，正文仍按需读取
-const MEMORY_MAX = 64;         // 会话固定选择上限；默认检索不受此数量限制
-const MEMORY_RELEVANCE_MAX = 8; // 默认检索每轮注入条数；整段另受 MEMORY_INDEX_CAP 字数封顶
+const MEMORY_RELEVANCE_MAX = 8; // 默认检索每轮注入条数；整段另受 01c memoryIndexCharCap 字数封顶
 const MEMORY_EXCLUSION_MAX = 256; // 默认检索模式下的会话级排除项上限
 const MEMORY_METADATA_READ_CAP = 16 * 1024; // 注册表只读文件头；命中后才由模型按需读取完整正文
-const CORE_MEMORY_MAX = 200;    // 核心提示词席位上限；超出只进入候补，不删除原记忆
-// 核心摘要字符预算。胶囊走【易变层】、不进前缀缓存,每回合按实际字数付输入 token;
-// 但它只装用户主动标为 core 的条目,没标就不花钱 —— 所以把天花板抬高本身是安全的,真闸门是这个预算。
-const CORE_MEMORY_CHAR_CAP = 16000;
+// 3.1 精简:MEMORY_INDEX_CAP / MEMORY_MAX / CORE_MEMORY_MAX / CORE_MEMORY_CHAR_CAP 四个兜底常量零引用已删 ——
+// 席位与字数上限只由 01c 的 coreMemoryMaxItems / coreMemoryCharBudget / memoryFixedSelectionMax / memoryIndexCharCap 给出。
 const CORE_MEMORY_SUMMARY_CAP = 520;
 const MEMORY_USAGE_TOUCH_MS = 60 * 60 * 1000; // 主动检索/读取最多每小时记一次 use
 const MEMORY_RULE_TOUCH_MS = 24 * 60 * 60 * 1000; // 核心偏好/惯例被基础提示词采用时每天记一次隐式 use
@@ -49032,7 +48885,7 @@ function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX
   const lexicalScored = rankRelevantMemoriesScored(entries, query);
   const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
-  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
+  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与逐次全量重算逐位相同,见 unit/retrieval-corpus-cache)
   const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
   const vectorRows = rankRetrievalCorpus(corpus, query);
   const vectorTop = vectorRows.length ? vectorRows[0].score : 0;
@@ -49073,17 +48926,11 @@ function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX
   // 补位：零命中的 convention/preference 按词法层原序填到上限为止。
   return { entries: takeFallback(out), fillKeys };
 }
-function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
-  return rankMemoriesFusedDetailed(registry, query, limit).entries;
-}
 
 // 召回的唯一入口：开关关时与今天逐字节相同（直接转 rankRelevantMemories）。
 function rankMemoriesForRecallDetailed(registry, query, limit, config) {
   if (!memoryVectorRecallEnabled(config)) return rankRelevantMemoriesDetailed(registry, query, limit);
   return rankMemoriesFusedDetailed(registry, query, limit);
-}
-function rankMemoriesForRecall(registry, query, limit, config) {
-  return rankMemoriesForRecallDetailed(registry, query, limit, config).entries;
 }
 
 function memoryExclusionSet(session, cwd) {
@@ -49108,7 +48955,7 @@ function effectiveMemorySelection(session, registry, cwd) {
         const id = String((m && m.id) || '').trim();
         const scope = (m && m.scope === 'global') ? 'global' : 'project';
         const o = { id, scope };
-        // P3-3: 透传 project 条目锁定的 projectKey(供 resolveEnabledMemoryEntries 换 cwd 失配校验);global 无此概念。
+        // P3-3: 透传 project 条目锁定的 projectKey(供 resolveMemoryPreflight 换 cwd 失配校验);global 无此概念。
         if (scope === 'project' && m && m.projectKey) o.projectKey = String(m.projectKey);
         return o;
       })
@@ -49303,11 +49150,6 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   };
 }
 
-// 兼容旧调用方/测试：未提供 query 时仍走默认元数据检索，返回条目数组。
-async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query) {
-  const result = await resolveMemoryPreflight(session, cwd, query || '', onSourceMismatch);
-  return [...(result.coreEntries || []), ...(result.entries || [])];
-}
 
 
 // Semantic memory headers: automatic recall only reranks existing candidates;
@@ -56628,21 +56470,6 @@ function summarizeAgentWorkflowRun(run, opts = {}) {
   }
   return lines.join('\n');
 }
-async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
-  if (!sessionId || !run) return;
-  const content = summarizeAgentWorkflowRun(run, opts);
-  // 128b:走 mutateSession —— 撤回插在读与存之间时在新读的副本上重放这条追加,不被闸静默丢掉。
-  const createdAt = nowIso();
-  try {
-    await mutateSession(sessionId, fresh => {
-      if (!Array.isArray(fresh.messages)) fresh.messages = [];
-      fresh.messages.push({ role: 'assistant', content, createdAt, source: 'agent_workflow', runId: run.id });
-    }, { writer: 'agent_workflow_summary' });
-  } catch (error) {
-    if (error && error.code === 'session.rewound_during_write') { logEvent({ kind: 'agent_workflow_summary_dropped', sessionId, runId: run.id, reason: error.code }); return; }
-    throw error;
-  }
-}
 // ── 代理模式 v2:交付信封与按需取全文 ─────────────────────────────────────────────────────────────
 // 父会话(模型可见上下文 + 持久化消息 + 界面)对一个代理 run 只收【一个交付信封】:runId/status/每节点的
 // {nodeId, agentKey, role, status, summary(按句截断)、artifacts、error?}/usage/more。不带 toolEvidence、progressLog、
@@ -57112,7 +56939,8 @@ function proposeReplanPatch(run, trigger, changes) {
 // R5(16-r5-replan-ledger.md §3.3): 应用/回滚引擎 —— 纯确定性图操作,不含审批(审批路由接 UI 是后续切片)。
 // 本切片支持两个安全 op:change_tier(仅降级)与 add_node(补节点)。remove_node/rewire/change_engine/
 // change_role/inherit_evidence/drop_evidence 涉及下游一致性/角色引擎解析/证据图变更,留后续切片。
-// 应用前 snapshot run.nodes 到 replanBaseline(仅首次),回滚即恢复基线。机器校验复用 validateReplanPatch。
+// 应用前 snapshot run.nodes 到 replanBaseline(仅首次)。机器校验复用 validateReplanPatch。
+// 3.1 精简:回滚入口 rollbackReplanPatch 从未接线(零调用点)已删;replanBaseline 是落盘字段,暂留。
 function applyReplanPatch(run, patchId) {
   try {
     if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
@@ -57176,20 +57004,6 @@ function applyReplanPatch(run, patchId) {
     run.nodes = nodes;
     patch.status = 'applied'; patch.appliedAt = nowIso();
     return { ok: true, applied, patchId: patch.id };
-  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
-}
-
-function rollbackReplanPatch(run, patchId) {
-  try {
-    if (!run || typeof run !== 'object') return { ok: false, error: 'run 无效' };
-    const patches = Array.isArray(run.replanPatches) ? run.replanPatches : [];
-    const patch = patches.find(p => p && String(p.id) === String(patchId || ''));
-    if (!patch) return { ok: false, error: 'replan patch 不存在' };
-    if (patch.status !== 'applied') return { ok: false, error: `patch 状态不是 applied(${patch.status})` };
-    if (run.replanBaseline === null || run.replanBaseline === undefined) return { ok: false, error: '无基线快照,无法回滚(基线缺失时禁止再回滚)' };
-    run.nodes = JSON.parse(JSON.stringify(run.replanBaseline));
-    patch.status = 'rolled_back'; patch.appliedAt = null;
-    return { ok: true, patchId: patch.id };
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
 
@@ -57457,7 +57271,7 @@ function estimateHistoryTokens(history, systemPrompt, tools) {
 const CONTEXT_WINDOW_FALLBACK = 1000000; // runtime default when provider.contextWindow is unset（用户 2026-09-22 拍板：未知模型默认按 1M 窗算，宁晚压缩不误压缩；窗口超限学习只降不升兜住高估）
 const EVAPORATED_PREFIX = '[已省略:';   // marker prefixing an evaporated tool result (idempotency guard)
 
-// 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
+// 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch)抽至 09b-replan-ledger.js。
 
 // 子代理核心胶囊的实现(口住 00-boot 的 SubAgentMemoryHooks,理由见那里)。只取【核心】:relevance 压到 0,相关召回是按主线那句话排的,
 // 子任务是另一件事,顺带也让 preflight 不给没注入的条目记 use。走 parentSession:会话级排除 / 固定选择 / 关闭记忆同样管着子代理。
@@ -67852,7 +67666,6 @@ function probeRgInfoSync() {
 // 只读缓存,绝不触发探测:undefined = 还没探过(调用方按「未知」处理)。
 function peekRgProbe() { return _rgProbe; }
 function probeRg() { const info = probeRgInfoSync(); return info ? info.path : null; }
-function hasRg() { return !!probeRg(); }
 async function hasRgAsync() { return !!(await probeRgAsync()); }
 
 // 安全修复(审计 F · ReDoS 后续):file_list 的 pattern 是模型给的正则,逐项同步 `re.test(相对路径)`。
@@ -73877,7 +73690,6 @@ function normalizeTextLineEndings(text, lineEnding) {
   return value;
 }
 function hasTextLineBreak(text) { return /[\r\n]/.test(String(text || '')); }
-function isUtf8Encoding(encoding) { return !encoding || /^utf-?8$/i.test(String(encoding)); }
 function defaultTextLineEnding(filePath) { return /\.(?:cmd|bat|ps1)$/i.test(String(filePath || '')) ? 'crlf' : 'lf'; }
 // Windows PowerShell 5.1 把无 BOM 的 .ps1 按 ANSI(中文系统 = GBK)读,脚本里的中文字面量就成了乱码;
 // 工具箱约定与 04 runPowerShell 头注同一条:PowerShell 脚本一律 UTF-8 with BOM。
@@ -81012,141 +80824,6 @@ async function handleApi(req, res, pathname) {
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
 
-// --- startup port fallback: if the port is held by a STALE workbench, free it and retry ---
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// PIDs LISTENING on `port` (any local interface). Parses `netstat -ano`. Returns [] on any error.
-function pidsOnPort(port) {
-  return new Promise(resolve => {
-    cp.execFile('netstat', ['-ano'], { windowsHide: true, timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
-      if (err || !stdout) return resolve([]);
-      const suffix = ':' + port;
-      const pids = new Set();
-      for (const line of stdout.split(/\r?\n/)) {
-        if (!/\bLISTENING\b/i.test(line)) continue;
-        const parts = line.trim().split(/\s+/);
-        if (parts.length < 5) continue;
-        if (!String(parts[1]).endsWith(suffix)) continue; // local address column ends with :port
-        const pid = parseInt(parts[parts.length - 1], 10);
-        if (Number.isInteger(pid) && pid > 0) pids.add(pid);
-      }
-      resolve([...pids]);
-    });
-  });
-}
-function processImage(pid) {
-  return new Promise(resolve => {
-    cp.execFile('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
-      const m = !err && stdout ? /^"([^"]+)"/.exec(stdout.trim()) : null;
-      resolve(m ? m[1] : '');
-    });
-  });
-}
-// 第36波(v1.7): 命令行取证 —— node.exe 镜像名单独不足以证明"这是我们的 stale workbench"(见 freeStalePort
-// 的 image:node 分支)。返回 CommandLine+ExecutablePath 的小写合并串供证据匹配,拿不到返回 ''。pid 是 netstat
-// 解析出的整数,execFile 直调无 shell,无注入面;CIM 首次查询较慢,给 8s。
-function processCommandLine(pid) {
-  return new Promise(resolve => {
-    const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
-      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
-    });
-  });
-}
-// 128i:占端口的旧工作台连同它自己的子孙一起收 —— 走 04 的 killOwnProcessTree(按创建时间认子孙、动手前核启动时间),
-// 不再用 taskkill /T(父号过期撞号时会带走别人的树)。等它跑完再回:调用方紧接着要重试监听。
-async function killPid(pid) {
-  await killOwnProcessTree(pid);
-}
-function probeHealth(port, host) {
-  return new Promise(resolve => {
-    const req = http.get({ host, port, path: '/health', timeout: 900 }, res => {
-      let body = '';
-      res.setEncoding('utf8');   // app 字段是中文品牌名:按 Buffer 拼接遇到跨块的多字节字符会损坏
-      res.on('data', c => { body += c; if (body.length > 65536) req.destroy(); });
-      res.on('end', () => resolve(safeJsonParse(body, null)));
-    });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-  });
-}
-// /health 的回包像不像工作台。修前判据是 `app === APP_NAME || overlayId || version`,而 /health 从不带 app,
-// 于是退化成「有 version 字段就算」—— 本机别的服务(任何回 {version:…} 的 /health)占了端口会被当成陈旧工作台杀掉。
-// 现在 /health 带 app: APP_NAME(见 startServerInner);识别口径:
-//   · app 等于本应用名;或有 overlayId(每个进程一个的重启证明,别的服务不会有);
-//   · 旧版工作台的 /health 没有 app:只认「version 同时带着工作台 /health 的另外两个特征字段(launchMode + uptimeSec)」,
-//     单有 version 不够。旧版若连这个形状都不满足,下面还有 runtime.json 的 pid / 镜像名 / 命令行三道证据兜底。
-function healthLooksLikeWorkbench(health) {
-  if (!health || typeof health !== 'object') return false;
-  if (health.app === APP_NAME) return true;
-  if (typeof health.overlayId === 'string' && health.overlayId) return true;
-  return typeof health.version === 'string' && !!health.version
-    && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
-}
-// 端口被占时,只在「占着它的正是【本数据目录】登记的那个实例」时才接管(结束它再原端口重来);除此之外一律不动、顺延到下一个端口。
-// 安全走查(端口接管):修前对「任何像如意的占用者」都动手 —— /health 像工作台、或镜像名是 Ruyi / node + server.js,就杀。
-// 两份不同安装目录(或不同数据目录)的如意先后启动,后者会把前者连同它正在跑的回合一起结束。现在的唯一凭据是
-// 本数据目录 runtime.json 里记的 pid:那是本数据目录上一次启动写下的「我是谁」,pid 对上才说明它是自己的陈旧实例。
-// 别的数据目录的实例、别的安装里的如意、别人的服务,pid 都对不上 → blocked,调用方顺延端口。
-// 纯函数(不碰进程、不碰盘),单测直调:入参是已取好的证据,返回 { ours:boolean, why?, reason? }。
-//   · pid 必须等于 runtime.json 的 pid;runtime.json 记了端口的话,必须就是这个端口(登记的实例本不在这个端口上 = 号被别人撞了);
-//   · /health 在应答且带 overlayId、runtime.json 也记了 overlayId 时必须一致(pid 被回收给另一个如意进程时 overlayId 不同);
-//   · 取得到镜像名时必须像工作台:Ruyi / WinClaudeWorkbench 直接认,node 须命令行里有 server.js(取不到命令行不加否决),其余一律不认。
-function portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine }) {
-  if (!runtime || !Number.isInteger(runtime.pid) || runtime.pid <= 0 || runtime.pid !== pid) return { ours: false, reason: 'not-recorded-pid' };
-  if (Number.isInteger(runtime.port) && runtime.port !== port) return { ours: false, reason: 'recorded-on-other-port' };
-  if (healthLooksLikeWorkbench(health) && typeof health.overlayId === 'string' && health.overlayId
-    && typeof runtime.overlayId === 'string' && runtime.overlayId && health.overlayId !== runtime.overlayId) {
-    return { ours: false, reason: 'overlay-mismatch' };
-  }
-  let why = null;
-  const img = String(image || '');
-  if (!img) why = 'runtime.json';
-  else if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'runtime.json+image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
-  else if (/^node(\.exe)?$/i.test(img)) {
-    // 第36波(v1.7)起 node.exe 镜像名【不是】充分证据:登记 pid 只是前提,这里再核命令行,防「pid 被回收给一个无关的 node 服务」。
-    const evidence = String(commandLine || '').toLowerCase();
-    if (evidence && !/server\.js/.test(evidence)) return { ours: false, reason: 'node-not-workbench' };
-    if (evidence) why = 'image:node+cmdline';
-    else why = 'runtime.json';
-  }
-  else return { ours: false, reason: 'foreign-image' };
-  return { ours: true, why };
-}
-async function readOwnRuntimeRecord() {
-  try {
-    const rt = safeJsonParse(await fsp.readFile(path.join(dataRoot(), 'runtime.json'), 'utf8'), null);
-    return rt && typeof rt === 'object' && !Array.isArray(rt) ? rt : null;
-  } catch { return null; /* 没有上一次的 runtime.json:没有可接管的自己人 */ }
-}
-// 返回 { ok:true, killed:[…] } 或 { ok:false, blocked:{ pid, image, reason, workbench } }(blocked = 占用者不是自己人,没动它)。
-// deps 只给单测换桩(netstat / tasklist / CIM / taskkill 在 Linux 上都不存在)。
-async function freeStalePort(port, host, deps = {}) {
-  const d = { pidsOnPort, probeHealth, processImage, processCommandLine, killPid, readOwnRuntimeRecord, ...deps };
-  const pids = await d.pidsOnPort(port);
-  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
-  const health = await d.probeHealth(port, host);
-  const runtime = await d.readOwnRuntimeRecord();
-  // 两遍走:先给每个占用者下判决,有一个不是自己人就整体放弃、谁也不杀(不会杀了自己人的一半、再因为别人占着而失败);都是自己人才动手。
-  const verdicts = [];
-  for (const pid of pids) {
-    if (pid === process.pid) continue; // never kill self
-    const image = await d.processImage(pid);
-    // 只有「登记的就是它」且镜像是 node 时才花那一发 CIM(8s 上限)取命令行。
-    const commandLine = runtime && pid === runtime.pid && /^node(\.exe)?$/i.test(String(image || '')) ? await d.processCommandLine(pid) : '';
-    const verdict = portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine });
-    if (!verdict.ours) return { ok: false, blocked: { pid, image: image || '(unknown)', reason: verdict.reason, workbench: healthLooksLikeWorkbench(health) } };
-    verdicts.push({ pid, why: verdict.why });
-  }
-  const killed = [];
-  for (const { pid, why } of verdicts) {
-    await d.killPid(pid);
-    killed.push({ pid, why });
-    console.log(`[port] :${port} held by this data dir's stale instance — killed PID ${pid} (${why})`);
-  }
-  return { ok: true, killed };
-}
 // One listen attempt on an explicit port. Extracted from listenWithFallback so the 118c fallback scan can
 // reuse it. A failed listen leaves the server unbound, so calling it again on another port is legal.
 function listenOnce(server, port, host) {
@@ -81181,9 +80858,8 @@ async function listenOnNextFreePort(server, port, host, why) {
   throw error;
 }
 
-// Listen; on EADDRINUSE, free a stale workbench (if allowed + safe) and retry a few times.
-// 118c: 每一条「拿不到原端口」的岔路都不再是死路 -- 统一交给 listenOnNextFreePort 往后找。
-// 自动接管被禁用时同样往后找:那个开关的语义是「不许杀别人的进程」,不是「必须占住这个端口不放」。
+// Listen; on EADDRINUSE never kill the holder -- hand over to listenOnNextFreePort (118c).
+// 3.1 精简:修前的「接管陈旧实例」链(freeStalePort / pidsOnPort / killPid …)自 62 号所有权闸起已无调用点,整段删除。
 async function listenWithFallback(server, port, host, config) {
   const attempt = () => listenOnce(server, port, host);
   try { await attempt(); return port; }
@@ -81895,16 +81571,6 @@ async function discoverModels(config) {
 }
 
 // 110-1: MCP_TOOLS 原生工具 schema 数组抽至 13f-native-tool-schemas.js。
-
-function sendMcp(id, result, error) {
-  const payload = error
-    ? { jsonrpc: '2.0', id, error: { code: -32000, message: error.message || String(error) } }
-    : { jsonrpc: '2.0', id, result };
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
-}
-function sendMcpNotification(method, params) {
-  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', method, params })}\n`);
-}
 
 async function startMcp() {
   if (process.argv.includes('--memory-read-only')) {
@@ -83328,118 +82994,11 @@ async function handleOverlayApiRoutes(req, res, pathname) {
   }
 }
 
-// ── 113b: 会话内容搜索 ────────────────────────────────────────────────────────────────────────
-// 摸底口径:侧栏搜索此前是纯前端子串过滤,只看 title/summary/cwd 三个字段(session-experience.js),
-// 会话正文一个字都不查;`sessions/index.json` 也只是元数据缓存。用户「我上周让它改过那个文件」这类
-// 回忆式查找完全做不到,而这恰恰是本地工作台最该会的事 —— 历史全在本机。
-//
-// 为什么这里要落盘索引,而记忆召回那边不落:记忆的检索单元就是注册表已经读进来的头部字段,重算是
-// 微秒级;会话的检索单元要从可能几 MB 的 NDJSON 正文里抽,不缓存就是每次搜索把整个历史读一遍。
-//
-// 索引单元(v2)= 标题 + 摘要 + 【每一条】用户消息(各取开头一段)+ 助手回复(从新到旧各取开头一段),每会话 ≤ 8K 字符。
-// v1 只收首条 user 与末尾 6 条,长对话中间问过的事永远搜不到(「搜不全」);还把后台任务回执、压缩标记这类
-// 系统行也收了进来(「搜到垃圾」)。失效键 = updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
-// 正文读取:≤ 2MB 整个读,更大的只读头尾各 1MB —— 一条几十 MB 的会话不会因为被搜索而把内存顶起来。
-// 索引文件名沿用 _search-index-v1.json(换了名旧文件就成了孤儿),版本号升到 2:旧索引读进来就是版本不符 → 全量重建。
-const SESSION_SEARCH_INDEX_FILE = '_search-index-v1.json';
-const SESSION_SEARCH_INDEX_VERSION = 2;
-const SESSION_SEARCH_UNIT_CAP = 8192;      // 每会话进索引的字符上限
-const SESSION_SEARCH_USER_CHARS = 400;     // 每条用户消息取多少
-const SESSION_SEARCH_ASSISTANT_CHARS = 240;// 每条助手回复取多少
-const SESSION_SEARCH_HEAD_BYTES = 1024 * 1024;
-const SESSION_SEARCH_TAIL_BYTES = 1024 * 1024;
-const SESSION_SEARCH_SNIPPET_RADIUS = 60;
-const SESSION_SEARCH_MAX_LIMIT = 50;
+// ── 113b: 会话内容搜索 ──────────────────────────────────────────────────────────────────
+// 3.1 精简:旧的派生索引 _search-index-v1.json(头尾分段读正文、每会话 8K 单元、读写缓存与增量刷新)自全文索引
+// (13ap/13as)接管后零生产调用,整段删除。旧文件名仍由 01x 迁移编解码认得 —— 存量文件在开/关加密的迁移里照常处理;
+// 本版不再写它、也不再读它。这里只留两样仍在用的:查询最短长度,与全文索引共用的「噪声行」判据。
 const SESSION_SEARCH_MIN_QUERY = 2;
-
-function sessionSearchIndexPath() { return path.join(paths.sessions, SESSION_SEARCH_INDEX_FILE); }
-
-// 只读文件的头尾两段,中间跳过;两段都按【整行】交出去:
-//   · 文件 ≤ 头 + 尾:两段本来就盖满全文,整个读(头注「≤ 2MB 整个读」)。修前这种文件也切成两段,头段尾巴的半行 JSON 解析失败、
-//     尾段又无条件丢掉第一行 —— 恰好跨在 1MB 接缝上的那条消息两边都不要,搜它说过的话搜不到(而且与头注说的「整个读」不符);
-//   · 更大:头段停在半行里就继续往后读到行尾,尾段起点落在行中间就往前读到行首 —— 跨边界的那条消息补成完整一行。
-//     补读各有上限(NDJSON_EDGE_EXTEND_MAX):超过上限的单行(几 MB 的工具输出)才放弃,把那半行丢掉,不让它进解析。
-const NDJSON_EDGE_EXTEND_CHUNK = 64 * 1024;
-const NDJSON_EDGE_EXTEND_MAX = 2 * 1024 * 1024;
-async function readNdjsonEdges(file, headBytes, tailBytes) {
-  let fh = null;
-  try {
-    const st = await fsp.stat(file);
-    if (!st.isFile() || st.size === 0) return { head: '', tail: '' };
-    fh = await fsp.open(file, 'r');
-    const size = st.size;
-    const readAt = async (pos, len) => {
-      const buf = Buffer.allocUnsafe(len);
-      const { bytesRead } = await fh.read(buf, 0, len, pos);
-      return bytesRead === len ? buf : buf.subarray(0, bytesRead);
-    };
-    if (size <= headBytes + tailBytes) return { head: (await readAt(0, size)).toString('utf8'), tail: '' };
-    // 头段:读满 headBytes,停在半行里就往后补到行尾。
-    let headBuf = await readAt(0, headBytes);
-    if (headBuf.length && headBuf[headBuf.length - 1] !== 0x0a) {
-      const extra = [];
-      let pos = headBytes, found = false;
-      while (pos < size && pos - headBytes < NDJSON_EDGE_EXTEND_MAX) {
-        const chunk = await readAt(pos, Math.min(NDJSON_EDGE_EXTEND_CHUNK, size - pos));
-        if (!chunk.length) break;
-        const nl = chunk.indexOf(0x0a);
-        if (nl >= 0) { extra.push(chunk.subarray(0, nl + 1)); found = true; break; }
-        extra.push(chunk); pos += chunk.length;
-      }
-      if (found) headBuf = Buffer.concat([headBuf, ...extra]);
-      else { const cut = headBuf.lastIndexOf(0x0a); headBuf = cut >= 0 ? headBuf.subarray(0, cut + 1) : Buffer.alloc(0); }   // 超限的巨型单行:丢掉这半行
-    }
-    // 尾段:起点前一个字节不是换行 = 起点在行中间,往前补到行首。
-    const tailStart = size - tailBytes;
-    let tailBuf = await readAt(tailStart, tailBytes);
-    const before = await readAt(tailStart - 1, 1);
-    if (before.length && before[0] !== 0x0a) {
-      const front = [];
-      let pos = tailStart, found = false;
-      while (pos > 0 && tailStart - pos < NDJSON_EDGE_EXTEND_MAX) {
-        const from = Math.max(0, pos - NDJSON_EDGE_EXTEND_CHUNK);
-        const chunk = await readAt(from, pos - from);
-        const nl = chunk.lastIndexOf(0x0a);
-        if (nl >= 0) { front.unshift(chunk.subarray(nl + 1)); found = true; break; }
-        front.unshift(chunk); pos = from;
-        if (pos === 0) { found = true; break; }   // 一直退到文件开头:第一行本来就从 0 开始
-      }
-      if (found) tailBuf = Buffer.concat([...front, tailBuf]);
-      else { const cut = tailBuf.indexOf(0x0a); tailBuf = cut >= 0 ? tailBuf.subarray(cut + 1) : Buffer.alloc(0); }   // 超限:丢掉起点那半行
-    }
-    return { head: headBuf.toString('utf8'), tail: tailBuf.toString('utf8') };
-  } catch {
-    return { head: '', tail: '' };
-  } finally {
-    if (fh) await fh.close().catch(() => {});
-  }
-}
-
-function parseNdjsonRows(text) {
-  const lines = String(text || '').split('\n');
-  const rows = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try { rows.push(JSON.parse(trimmed)); } catch { /* 半条/坏行跳过,与会话读取侧同口径 */ }
-  }
-  return rows;
-}
-
-function sessionMessageText(row) {
-  if (!row || typeof row !== 'object') return '';
-  const content = typeof row.content === 'string' ? row.content : '';
-  if (content) return content;
-  // segments 型 assistant 消息:只取文本段与工具名,不展开工具结果(那是噪声,而且可能很大)。
-  const segments = Array.isArray(row.segments) ? row.segments : [];
-  const parts = [];
-  for (const segment of segments) {
-    if (!segment) continue;
-    if (typeof segment.text === 'string' && segment.text) parts.push(segment.text);
-    else if (segment.type === 'tool' && segment.name) parts.push(String(segment.name));
-  }
-  return parts.join(' ');
-}
 
 // 不进索引的行:系统行(压缩标记、修复说明、后台任务回执)、带 backgroundJobId 的回执、以及以「完成通知 /
 // system-reminder」开头的注入文本 —— 它们不是用户说过或看过的话,进了索引只会让搜索命中一堆不相干的会话。
@@ -83450,260 +83009,6 @@ function sessionSearchRowIsNoise(row) {
   if (row.meta && row.meta.origin === 'agent_wake') return true;   // 后台代理唤醒通知:系统文字,不是这条会话「干过什么」的信号
   const text = typeof row.content === 'string' ? row.content.trimStart() : '';
   return /^(?:\[(?:代理完成通知|后台任务完成通知|后台任务|工具结果)|<system-reminder>)/.test(text);
-}
-// Cipher records require physical ordinals, so authenticate a streaming pass while retaining
-// only bounded logical plaintext head/tail rows. Legacy unsealed searches retain their old edge IO.
-async function sessionSearchRows(sessionId) {
-  const file = sessionBodyPaths(sessionId).messages;
-  const protectedLine = line => {
-    const probe = WorkDataRecords.lineProbe();
-    probe.feed(Buffer.from(line, 'utf8'));
-    return probe.reserved();
-  };
-  let enabled;
-  try { enabled = (await readConfig()).workDataEncryptionV1 === true; }
-  catch { throw Object.assign(new Error('work_data_store.switch_unavailable'), { code: 'work_data_store.switch_unavailable', apiCode: 'work_data_store.switch_unavailable', statusCode: 503 }); }
-  // Enabling encryption can leave a mixed body. Scan it even when the sampled edges are legacy:
-  // ciphertext in the middle still changes the physical offsets of the logical plaintext tail.
-  if (!enabled) {
-    const edges = await readNdjsonEdges(file, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-    if (!(edges.head + '\n' + edges.tail).split('\n').some(protectedLine)) {
-      return [...parseNdjsonRows(edges.head), ...parseNdjsonRows(edges.tail)];
-    }
-  }
-  const headWindow = SESSION_SEARCH_HEAD_BYTES + NDJSON_EDGE_EXTEND_MAX + NDJSON_EDGE_EXTEND_CHUNK;
-  const tailWindow = SESSION_SEARCH_TAIL_BYTES + NDJSON_EDGE_EXTEND_MAX + NDJSON_EDGE_EXTEND_CHUNK;
-  let lease = null, handle = null, ordinal = 0, total = 0, primaryError = null;
-  let pending = [], pendingBytes = 0, skipping = false, tailStart = 0, probe = WorkDataRecords.lineProbe();
-  const head = [], tail = [];
-  const fail = code => { throw Object.assign(new Error(code), { code, apiCode: code, statusCode: 503 }); };
-  const accept = async (line, bytes, sealed = false) => {
-    let raw = line;
-    if (sealed) {
-      if (!lease) lease = await WorkDataStore.acquireSnapshot();
-      raw = await WorkDataRecords.decodeLine(raw, lease.key, { instanceId: lease.instanceId, sessionId, kind: 'messages', ordinal });
-      bytes = Buffer.byteLength(raw, 'utf8') + 1;
-    }
-    const start = total;
-    total += bytes;
-    ordinal++;
-    if (!raw) return;
-    let value;
-    try { value = JSON.parse(raw); }
-    catch { if (sealed) fail('work_data_record.corrupt'); return; }
-    const row = { start, end: total, value };
-    if (start < SESSION_SEARCH_HEAD_BYTES + SESSION_SEARCH_TAIL_BYTES && total <= headWindow) head.push(row);
-    tail.push(row);
-    while (tailStart < tail.length && tail[tailStart].end <= total - tailWindow) tail[tailStart++] = null;
-    if (tailStart > 4096 && tailStart * 2 > tail.length) { tail.splice(0, tailStart); tailStart = 0; }
-  };
-  try {
-    handle = await fsp.open(file, 'r');
-    const buffer = Buffer.alloc(64 * 1024);
-    for (;;) {
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (!bytesRead) break;
-      let start = 0;
-      for (let end = buffer.indexOf(10, start); end >= 0 && end < bytesRead; end = buffer.indexOf(10, start)) {
-        const part = buffer.subarray(start, end);
-        probe.feed(part);
-        pendingBytes += part.length;
-        if (pendingBytes > headWindow && probe.reserved()) fail('work_data_record.text_limit');
-        if (!skipping) pending.push(Buffer.from(part));
-        await accept(skipping ? '' : Buffer.concat(pending, pendingBytes).toString('utf8'), pendingBytes + 1, probe.reserved());
-        pending = []; pendingBytes = 0; skipping = false; start = end + 1; probe = WorkDataRecords.lineProbe();
-      }
-      if (start < bytesRead) {
-        const part = buffer.subarray(start, bytesRead);
-        probe.feed(part);
-        pendingBytes += part.length;
-        if (pendingBytes > headWindow && probe.reserved()) fail('work_data_record.text_limit');
-        if (!skipping) pending.push(Buffer.from(part));
-        if (!skipping && pendingBytes > headWindow) {
-          pending = []; skipping = true;
-        }
-      }
-    }
-    // Search used to accept a final complete legacy JSON without LF. An incomplete encrypted
-    // append is not a search row; refuse it without repairing or publishing a derived index.
-    if (pendingBytes) {
-      const raw = skipping ? '' : Buffer.concat(pending, pendingBytes).toString('utf8');
-      if (probe.reserved()) fail('work_data_record.corrupt');
-      await accept(raw, pendingBytes);
-    }
-    if (total <= SESSION_SEARCH_HEAD_BYTES + SESSION_SEARCH_TAIL_BYTES) return head.map(row => row.value);
-    const first = head.filter(row => row.start < SESSION_SEARCH_HEAD_BYTES && row.end <= headWindow);
-    const last = tail.slice(tailStart).filter(row => row.end > total - SESSION_SEARCH_TAIL_BYTES && row.start >= Math.max(0, total - tailWindow));
-    return [...first, ...last].map(row => row.value);
-  } catch (error) {
-    if (String(error?.code || '').startsWith('work_data')) { primaryError = error; throw error; }
-    // Legacy ordinary I/O remains a missing search unit, not a mutation of session authority.
-    return [];
-  } finally {
-    if (handle) await handle.close().catch(() => {});
-    if (lease) { try { await lease.release(); } catch { if (!primaryError) fail('work_data_store.snapshot_release'); } }
-  }
-}
-
-async function buildSessionSearchUnit(meta) {
-  const rows = (await sessionSearchRows(meta.id)).filter(row => !sessionSearchRowIsNoise(row));   // 两段都是整行(见 readNdjsonEdges)
-  // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
-  // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
-  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
-  const briefUnit = sessionBriefOf(meta);
-  const parts = [meta.title || '', (briefUnit && briefUnit.title) || '', (briefUnit && briefUnit.gist) || '', meta.summary || '', meta.cwd || ''];
-  let used = parts.reduce((n, part) => n + String(part).length + 1, 0);
-  const seen = new Set();
-  const push = (value, cap) => {
-    const trimmed = String(value || '').replace(/\s+/g, ' ').trim().slice(0, cap);
-    // 同一句话(重发、重试)只收一次,既不白白抬高 tf,摘录也不会像复制错了。
-    if (!trimmed || seen.has(trimmed) || used >= SESSION_SEARCH_UNIT_CAP) return;
-    seen.add(trimmed);
-    parts.push(trimmed);
-    used += trimmed.length + 1;
-  };
-  // 用户说过的每一句都是最强的「这条会话干过什么」信号,先收;剩下的额度给助手回复,从新到旧。
-  for (const row of rows) if (row.role === 'user') push(sessionMessageText(row), SESSION_SEARCH_USER_CHARS);
-  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].role === 'assistant') push(sessionMessageText(rows[i]), SESSION_SEARCH_ASSISTANT_CHARS);
-  return parts.filter(Boolean).join('\n').replace(/\s+/g, ' ').slice(0, SESSION_SEARCH_UNIT_CAP);
-}
-
-// 进程内缓存:侧栏搜索是边打字边搜(200ms 去抖),修前每敲一个字就把整份索引(会话多时十几 MB)读盘再解析一遍。
-// 按文件的 mtime + size 认新旧;本进程自己写索引时直接更新缓存。
-function sessionSearchIndexStore(onSealed, onMode, expectedStamp) {
-  let usedStamp = "";
-  return WorkDataStore.createText({ file: sessionSearchIndexPath, purpose: 'search-index', schema: 1,
-    scopeId: 'global', recordId: 'session-search-index', chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { snapshot: async () => {
-      const lease=await WorkDataStore.acquireSnapshot();
-      usedStamp=lease.instanceId+':'+crypto.createHash('sha256').update(lease.key).digest('hex');
-      if(expectedStamp && usedStamp!==expectedStamp) {try { await lease.release(); } catch { /* preserve changed authority */ } throw Object.assign(new Error('work_data_key.changed'),{code:'work_data_key.changed',apiCode:'work_data_key.changed',statusCode:503});}
-      return lease;
-    }, unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
-    enabled: async () => { const enabled = (await readConfig()).workDataEncryptionV1 === true; if (onMode) onMode(enabled); return enabled; },
-    writeJson: atomicWriteJson, validateSealedText: text => {
-      const value = JSON.parse(text);
-      if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== SESSION_SEARCH_INDEX_VERSION
-        || !value.entries || typeof value.entries !== 'object' || Array.isArray(value.entries)
-        || Object.values(value.entries).some(row => !row || typeof row !== 'object' || typeof row.stamp !== 'string' || typeof row.unit !== 'string')) return false;
-      if (onSealed) onSealed(usedStamp); return true;
-    },
-  });
-}
-async function sessionSearchIndexAuthStamp() {
-  const lease = await WorkDataStore.acquireSnapshot();
-  try { return lease.instanceId + ':' + crypto.createHash('sha256').update(lease.key).digest('hex'); }
-  finally { try { await lease.release(); } catch { throw Object.assign(new Error('work_data_store.snapshot_release'), {code:'work_data_store.snapshot_release',apiCode:'work_data_store.snapshot_release',statusCode:503}); } }
-}
-const sessionSearchIndexFileStamp = st => [st.dev, st.ino, st.size, st.mtimeMs, st.ctimeMs].join(':');
-
-let sessionSearchIndexCache = null;
-async function readSessionSearchIndex() {
-  try {
-    let enabled;
-    try { enabled = (await readConfig()).workDataEncryptionV1 === true; }
-    catch { throw Object.assign(new Error('work_data_store.switch_unavailable'), {code:'work_data_store.switch_unavailable',apiCode:'work_data_store.switch_unavailable',statusCode:503}); }
-    const file = sessionSearchIndexPath(), st = await fsp.stat(file), stamp = file + ':' + sessionSearchIndexFileStamp(st);
-    let authStamp = enabled || sessionSearchIndexCache?.sealed ? await sessionSearchIndexAuthStamp() : '';
-    if (sessionSearchIndexCache && sessionSearchIndexCache.stamp === stamp && sessionSearchIndexCache.authStamp === authStamp) return sessionSearchIndexCache.data;
-    let sealed = false;
-    const raw = JSON.parse(await sessionSearchIndexStore(stamp => { sealed = true; authStamp = stamp; }, null, authStamp).read());
-    if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') { sessionSearchIndexCache = null; return null; }
-
-    sessionSearchIndexCache = { stamp, data: raw, sealed, authStamp, requiresKey: !!authStamp };
-    return raw;
-  } catch (error) {
-    sessionSearchIndexCache = null;
-    if (String(error?.code || '').startsWith('work_data')) throw error;
-    return null;
-  }
-}
-
-// 增量刷新:只为「新会话」或「updatedAt/messageCount 变了的会话」重抽单元;删掉的会话顺带清出去。
-// 单飞:侧栏是边打字边搜,冷索引(首次/大批会话变化后)那一遍要把每个会话的正文头尾读一次、再整份写盘。修前每个并发请求
-// 各自读到同一份旧索引、各自把全部单元重抽一遍、各自整份写回(N 个请求 = N 倍读盘 + N 次互相覆盖的写)。
-// 现在按一条链串行(runKeyedChain):后到的请求等前一个建完,再拿它刚写好的索引做增量 —— 条目全都新鲜,不重抽、不重写。
-// 不是「后到的直接共用先到的结果」:各请求带的 metas 可能不同(中途新建的会话),共用会漏掉它们。
-const sessionSearchRefreshChains = new Map();
-function refreshSessionSearchIndex(metas) {
-  return runKeyedChain(sessionSearchRefreshChains, 'index', () => refreshSessionSearchIndexNow(metas));
-}
-async function refreshSessionSearchIndexNow(metas) {
-  const existing = (await readSessionSearchIndex()) || { version: SESSION_SEARCH_INDEX_VERSION, entries: {} };
-  const entries = {};
-  let changed = false;
-  for (const meta of metas) {
-    const prior = existing.entries[meta.id];
-    const stamp = `${meta.updatedAt || ''}|${Number(meta.messageCount) || 0}`;
-    if (prior && prior.stamp === stamp && typeof prior.unit === 'string') { entries[meta.id] = prior; continue; }
-    entries[meta.id] = { stamp, unit: await buildSessionSearchUnit(meta) };
-    changed = true;
-  }
-  if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
-  const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
-  // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
-  let sealedWrite = false;
-  sessionSearchIndexCache = null;
-  const wrote = await sessionSearchIndexStore(null, enabled => { sealedWrite = enabled; }).write(JSON.stringify(payload)).then(() => true, error => {
-    if (String(error?.code || '').startsWith('work_data')) throw error;
-    return false;
-  });
-  if (wrote) {
-    if (!sealedWrite) {
-      try { const file = sessionSearchIndexPath(), st = await fsp.stat(file); sessionSearchIndexCache = { stamp: file + ':' + sessionSearchIndexFileStamp(st), data: payload, sealed: false, requiresKey: false, authStamp: '' }; }
-      catch { sessionSearchIndexCache = null; }
-    }
-  }
-  return entries;
-}
-
-// 摘录:取【命中查询词最多】的那一段(修前取第一个命中处 —— 常常是某个常见字碰巧出现的地方,看不出为什么命中)。
-// 出服务端前过 redact() —— 与 /api/audit 同一条脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
-function sessionSearchSnippet(unit, terms) {
-  const source = String(unit || '');
-  const lower = source.toLowerCase();
-  const span = SESSION_SEARCH_SNIPPET_RADIUS * 3;
-  const candidates = [];
-  for (const term of terms) {
-    let from = 0;
-    for (let n = 0; n < 20; n++) {
-      const found = lower.indexOf(term, from);
-      if (found < 0) break;
-      candidates.push(found);
-      from = found + term.length;
-    }
-  }
-  let at = -1, best = -1;
-  for (const pos of candidates) {
-    const start = Math.max(0, pos - SESSION_SEARCH_SNIPPET_RADIUS);
-    const window = lower.slice(start, start + span);
-    const distinct = terms.filter(term => window.includes(term)).length;
-    if (distinct > best || (distinct === best && pos < at)) { best = distinct; at = pos; }
-  }
-  const start = at < 0 ? 0 : Math.max(0, at - SESSION_SEARCH_SNIPPET_RADIUS);
-  const end = Math.min(source.length, start + span);
-  const slice = source.slice(start, end);
-  return redact((start > 0 ? '…' : '') + slice + (end < source.length ? '…' : ''));
-}
-
-// 排序(修前:词法命中与字符 n-gram 向量两路做 RRF 融合,只要沾一个字就进结果 —— 「搜到垃圾」的主因):
-//   ① 词法命中为主。一个会话要算命中,得覆盖至少一半的查询词,或者原样包含整句查询;
-//      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
-//   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
-//      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
-// 性能批 C1:会话搜索每敲一个字就查一次。语料(分词、df、向量)与每篇的「小写 + 空白折叠」都按条目缓存 ——
-// 条目在会话没变时是同一个对象(refreshSessionSearchIndex 原样复用),结果与逐次现算逐位相同。
-let sessionSearchCorpusCache = null;
-const sessionSearchHayMemo = new WeakMap();   // 条目对象 -> { unit, hay }
-function sessionSearchHayOf(entry) {
-  const hit = sessionSearchHayMemo.get(entry);
-  if (hit && hit.unit === entry.unit) return hit.hay;
-  // 查询词(retrievalTerms 产出的)不含空白,所以在折叠过空白的文本里 includes 与在原文里结果相同;
-  // 整句 phrase 本来就是在折叠后的文本里比。一份就够两用。
-  const hay = String(entry.unit).toLowerCase().replace(/\s+/g, ' ');
-  sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
-  return hay;
 }
 function sessionSearchScope(indexEnabled = true) { return SessionFullTextHooks.scope(indexEnabled); }
 async function searchSessionsByContent(query, limit, options) { return SessionFullTextHooks.search(query, limit, options); }
@@ -90032,7 +89337,7 @@ function stewardLaunchTurn(input, tool) {
   const registration = new Promise(resolve => { registered = resolve; });
   // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
   // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
-  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
+  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceUserTexts)分不出
   // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
   // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
   // input 里调用方自己给的 messageMeta 优先(目前没有)。
@@ -91789,9 +91094,6 @@ async function stewardSourceUserTexts(sourceRef) {
     && m.source !== 'mission-driver');
   return own.length ? own.map(m => String(m.content == null ? '' : (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))) : null;
 }
-async function stewardSourceIsUserMessage(sourceRef) {
-  return (await stewardSourceUserTexts(sourceRef)) !== null;
-}
 // 行动经验只引用已落盘、带明确成败的真实工具调用。只提供脱敏后的动作摘要,不把网页/工具正文当偏好。
 async function stewardSourceActivityTexts(sourceRef) {
   const sid = safeSessionId(sourceRef && sourceRef.sessionId);
@@ -93165,17 +92467,6 @@ async function stewardMemoryPanelClear(confirm) {
     stewardAppendDecision({ tool: 'steward_memory_panel_clear', args: { removed }, targetSessionId: '', permissionMode: '', mayAct: 'user', undoRef: null, basis: {} });
     return { persist: true, result: { ok: true, removed } };
   });
-}
-
-// 导出:只含 active,字段就是条目本身那几个(不含 isNew 这类派生视图字段,也不含任何别处的东西)。
-async function stewardMemoryPanelExport() {
-  const store = await stewardReadMemoryStore();
-  return {
-    ok: true,
-    schema: STEWARD_MEMORY_SCHEMA,
-    exportedAt: nowIso(),
-    entries: store.entries.filter(e => e.state === 'active'),
-  };
 }
 
 
@@ -96149,7 +95440,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         source: 'steward',
         engineRoute: ensured.route,
         // 收件箱回合的这条 user 消息【不是用户本人说的话】:origin 随会话正文落盘,
-        // steward_memory_write 的来源校验据此确定性拒绝它(13g stewardSourceIsUserMessage)。
+        // steward_memory_write 的来源校验据此确定性拒绝它(13l stewardSourceUserTexts)。
         messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) }
           : trigger === 'external' ? { origin: 'external-owner', externalSource: entry.externalSource } : null,
         requestMeta: { steward: true, trigger, ...(trigger === 'external' ? { external: entry.externalSource } : {}) },
@@ -96956,7 +96247,6 @@ function stewardEnsureOpenAiRoute(session, config, tier) {
 // ════════════════════════════════════════════════════════════════════════════
 // 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
 // 见 stewardRelayChannelFor 里那段头注。
-const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
 // hunt2-steward ②:递话撞上「回合起步 / 收尾」窗口时最多等多久再重判(见 stewardRelayDeliver)。
 const STEWARD_RELAY_SETTLE_WAIT_MS = 5000;
 
@@ -111822,7 +111112,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
       interventionWriteChains, missionChangeWriteChains, sessionMetaDeferChains, sessionMutateChains,
       journalWriteChains, journalRevertChains, missionContainerChains, voiceLexiconChains,
       memoryProposalStateChains, agentRunWriteChains, agentRunEventChains, backgroundJobChains,
-      fileToolWriteChains, proxyModelsCacheChains, sessionSearchRefreshChains, stewardArchiveChains, externalBotChains];
+      fileToolWriteChains, proxyModelsCacheChains, stewardArchiveChains, externalBotChains];
     const consumers = McpConsumers.maintenanceState();
     const fulltext = SessionFullTextHooks.maintenanceState ? SessionFullTextHooks.maintenanceState() : { pending: [], active: 0 };
     return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending, ...fulltext.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {

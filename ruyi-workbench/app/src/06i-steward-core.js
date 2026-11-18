@@ -995,7 +995,6 @@ function buildStewardBrief(brief) {
 // 架构还债批 4:判据从一串 if/else 换成与前端 RULES【同 id、同顺序】的判定表,两份抄写件由
 // dev-harness/unit/thread-state-differential.test.js 在整张证据网格上逐格比对输出(state/sources/label)
 // 钉住 —— 不再按源码字面量对账。改判据必须两边同改。
-const STEWARD_THREAD_STATES = Object.freeze(['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']);
 // 判定表:自上而下【第一条命中】的规则决定状态,顺序即优先级;各条的理由见 mission-state.js RULES 的逐条注释。
 // 117p-S2 的无账本分支(ledgerless_ran)排在 untouched 之后、兜底之前;账缺席(lastTurn 为 null)按成功算。
 const STEWARD_THREAD_STATE_RULES = Object.freeze([
@@ -1642,7 +1641,7 @@ const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   // 132b:等待时长 —— 变短只会更早拒／更早算卡住,变长只是多等,不放行任何东西(用户实报「线程提问的等待时长」改不了)。
   'permissionTimeoutMs', 'questionTimeoutMs', 'turnIdleTimeoutMs', 'autonomyPauseOnTimeout', 'autonomyPauseTtlMs',
   // 132b:显示粒度、启停整洁度、本地开销 —— 都是「看一眼就发现、一键改回」那一类。
-  'dismissedMcpIds', 'monitorIncremental', 'includePartialMessages', 'storagePolicy', 'killOnDisconnect', 'killPortOnStart',
+  'dismissedMcpIds', 'monitorIncremental', 'includePartialMessages', 'storagePolicy', 'killOnDisconnect',
   'toolCatalogCacheTtlMs', 'enableToolRequiresProbe', 'sessionSearchIndexV1', 'runtimeFailureTelemetryV1',
 ]);
 
@@ -1740,7 +1739,6 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['includePartialMessages', '流式时显示部分消息(关了只显示整段)', 'Show partial messages while streaming'],
   ['storagePolicy', '本地数据保留策略:日志保留天数等', 'Local data retention policy (log keep days, etc.)'],
   ['killOnDisconnect', '浏览器断开时结束正在跑的引擎进程', 'Kill the running engine process when the browser disconnects'],
-  ['killPortOnStart', '启动时清掉占着端口的旧进程', 'Kill a stale process holding the port on start'],
   ['toolCatalogCacheTtlMs', '工具目录缓存多久,毫秒', 'Tool catalog cache lifetime, ms'],
   ['enableToolRequiresProbe', '启用工具前先探测依赖是否齐', 'Probe dependencies before enabling a tool'],
   ['sessionSearchIndexV1', '本地会话搜索索引开关', 'Local session search index'],

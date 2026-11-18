@@ -102,9 +102,6 @@ function anthropicModelTraits(model) {
     fallbacks: (family === 'opus' && (is(5) || is(5.5))) || (family === 'sonnet' && is(5.5)) || (family === 'fable' && is(5.1)),
   };
 }
-function anthropicModelTakesAdaptiveThinking(model) {
-  return anthropicModelTraits(model).adaptive;
-}
 // 官方主机上要不要带「思考块丢块」与「拒答改派」:请求头与请求体用同一个判据,两边永远对得上。
 function anthropicOfficialFeatures(provider, model) {
   const official = anthropicOfficialHost(provider && provider.baseUrl);

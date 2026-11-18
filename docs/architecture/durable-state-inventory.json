@@ -446,17 +446,17 @@
     },
     {
       "id": "session-search-index",
-      "pattern": "<data>/sessions/_search-index-v1.json",
-      "owner": "13d-core-domain-routes.js",
-      "anchor": "SESSION_SEARCH_INDEX_FILE",
-      "schema": "object / version2",
-      "writePrimitive": "WorkDataStore.createText compact version2 search cache; authenticated logical plaintext NDJSON edge extraction",
-      "corruption": "missing or wrong version rebuilds from scratch",
-      "capacity": "one bounded 8K-character unit per session",
-      "cache": "complete file stamp and current-key/instance aware warm cache",
-      "recovery": "rebuild by re-extracting units from session bodies",
+      "pattern": "<data>/sessions/_search-index-v1.json (legacy, pre-3.1)",
+      "owner": "01x-work-data-migration-codecs.js",
+      "anchor": "text('session-search-index'",
+      "schema": "object / version2 (legacy; no 3.1 reader or writer)",
+      "writePrimitive": "none since 3.1; work-data migration re-encodes an existing file through the fixed session-search-index codec",
+      "corruption": "not read by the product; a corrupt legacy file only fails its own migration codec",
+      "capacity": "bounded by the last pre-3.1 writer (one 8K-character unit per session)",
+      "cache": "none",
+      "recovery": "none needed: nothing reads it; deleting the file loses nothing",
       "lifecycle": "regenerable-exemption",
-      "exemptionReason": "fully derived search cache: every byte is recomputable from session NDJSON bodies"
+      "exemptionReason": "orphan derived cache from pre-3.1 versions: every byte was recomputable from session NDJSON bodies"
     },
     {
       "id": "session-fulltext-state",

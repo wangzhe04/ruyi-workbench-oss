@@ -133,14 +133,6 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
 }));
 // 「开始引导」/「重新打开引导」共用的入口。设置页按钮由组合根注入本函数。
 function openOnboardingWizard(options) { return onboardingWizard.openOnboardingWizard(options || {}); }   // options.startStep：管家「先接一个模型」卡直达引擎那一步
-function groupKey(iso) {
-  const d = new Date(iso); const now = new Date();
-  const days = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000);
-  if (days <= 0) return 'session.today';
-  if (days === 1) return 'session.yesterday';
-  if (days <= 7) return 'session.thisWeek';
-  return 'session.earlier';
-}
 // 113b: 内容搜索的客户端状态。旧的子串过滤一字未改，作为回退路径一直在：
 // 端点关闭、请求失败、还没返回时，侧栏看上去就是今天的样子，不会变成空白或报错。
 let sessionSearchState = { query: '', results: null, loading: false, failed: false };
@@ -472,18 +464,6 @@ function renderMissionBar(mission) {
       list.appendChild(li);
     }
   }
-}
-// 账本状态卡(完成/停滞/预算耗尽)—— 插入对话流,借用 plan/error 卡的视觉语言。
-function missionStateCard(evt) {
-  const meta = {
-    complete: { cls: 'ok', icon: '✓', title: t('mission.complete.title'), body: t('mission.complete.description') },
-    stuck: { cls: 'warn', icon: '⚠', title: t('mission.stuck.title'), body: evt.reason || t('mission.stuck.description') },
-    budget_exhausted: { cls: 'warn', icon: '⏸', title: t('mission.budgetPaused.title'), body: evt.reason || t('mission.budgetPaused.description') },
-  }[evt.state] || { cls: '', icon: '·', title: t('common.unknown'), body: '' };
-  const card = el('div', 'mission-card mission-card-' + meta.cls);
-  card.append(el('div', 'mission-card-head', `${meta.icon} ${meta.title}`));
-  if (meta.body) card.append(el('div', 'mission-card-body', meta.body));
-  return card;
 }
 async function stopMission() {
   const s = state.currentSession; if (!s || !s.mission) return;
@@ -918,30 +898,13 @@ function renderResumeBanner() {
 
 // 50-fix:未命名标题的本地化占位显示(后端占位 'New session' / 历史中文占位 '新会话' 均视为未命名)。
 function isUntitledTitle(tt) { const v = String(tt || '').trim(); return !v || v === 'New session' || v === t('chat.newSession'); }
-// 116-5b(27 号文 §11.8.5「消费面」):经典壳这一面的显示名。优先级与服务端 02-session-store 的
-// sessionDisplayTitle 【逐条相同】:人起的名字 > 自动生成的名字 > 原话。原话不被改写,它仍是权威
-// (也是下面 s-title 的 hover 全文与这里的最后回退)。
-// 为什么这一面还要再算一次、而管家壳那边是服务端算好直出的:本函数【本来就是】经典壳唯一的显示名
-// 判据 —— 「未命名 → 本地化占位」那条规则依赖 t(),服务端不认识它。把显示名拆成「服务端算一半、
-// 前端算一半」只会多出一个分叉点。public/ 下读 brief.title / titleSource 的地方只有这一处,
-// 由 thread-brief.static ③ 机械看住。
-function sessionGeneratedTitle(s) {
-  if (!s || s.titleSource === 'user') return '';
-  const brief = (s.brief && typeof s.brief === 'object') ? s.brief : null;
-  return String((brief && brief.title) || '').trim();
-}
-function sessionDisplayTitle(s) {
-  const generated = sessionGeneratedTitle(s);
-  if (generated) return generated;
-  return isUntitledTitle(s && s.title) ? t('session.new') : String(s.title).trim();
-}
 async function newSession(options = {}) {
   const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
   const seq = ++sessionOpenSeq; sessionChoices += 1;   // 新建与打开共用选择序号，迟到的创建也不能盖过后来的选择。
   invalidateImageOperations();
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
   // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
-  // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。
+  // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 isUntitledTitle 本地化占位。
   const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: '', cwd }) });
   if (seq !== sessionOpenSeq) return null;
   state.currentSession = res.session;

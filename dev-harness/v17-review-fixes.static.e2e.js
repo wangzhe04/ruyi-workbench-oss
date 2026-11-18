@@ -43,8 +43,8 @@ ok(!/else delete settings\.model;/.test(server), 'S2: 无条件 else delete sett
 ok(/else if \(prevSyncedModel && settings\.model === prevSyncedModel\) delete settings\.model;/.test(server), 'S2: 仅权属可证时才删除');
 
 // ── S3: freeStalePort 命令行取证 ────────────────────────────────────────────
-ok(/function processCommandLine\(pid\)/.test(server), 'S3: processCommandLine 取证助手存在');
-ok(server.includes("why = 'image:node+cmdline'"), 'S3: node.exe 需命令行佐证(image:node+cmdline)');
+// 3.1 精简:整条端口接管链已删(62 号所有权闸起无调用点),不再有任何按镜像/命令行判定后结束占端口进程的分支。
+ok(!/function freeStalePort\(/.test(server) && !/function processCommandLine\(pid\)/.test(server), 'S3: 端口接管链(freeStalePort／processCommandLine)已退役');
 ok(!/why = 'image:node';/.test(server), 'S3: 裸 image:node 处死分支绝迹');
 
 // ── S4: desktop_screenshot 输出路径写闸 ─────────────────────────────────────

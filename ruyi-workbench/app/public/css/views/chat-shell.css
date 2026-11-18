@@ -52,12 +52,6 @@
 .mission-bar-list li.done .mb-text { text-decoration: line-through; }
 .mission-bar-list li.blocked .mb-mark { color: var(--danger-fg); }
 .mission-bar-list li .mb-text { min-width: 0; overflow-wrap: anywhere; }
-/* 账本状态卡(完成/停滞/预算)—— 对话流内的轻卡片。 */
-.mission-card { margin: 8px 0; padding: 10px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel-2); }
-.mission-card-ok { border-color: color-mix(in srgb, var(--ok-fg) 40%, var(--line-2)); background: color-mix(in srgb, var(--ok-fg) 7%, var(--panel-2)); }
-.mission-card-warn { border-color: color-mix(in srgb, var(--warn-fg) 40%, var(--line-2)); background: color-mix(in srgb, var(--warn-fg) 8%, var(--panel-2)); }
-.mission-card-head { font-weight: 600; color: var(--ink); }
-.mission-card-body { margin-top: 4px; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; }
 
 /* 第27波:自主性授权书抽屉。视觉语言承接 mission-bar;exec 授权刻意更重(danger 色)。 */
 .autonomy-bar { flex: 0 0 auto; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 4%, var(--panel-2)); font-size: var(--fs-md); }

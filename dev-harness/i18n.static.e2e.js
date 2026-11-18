@@ -186,7 +186,7 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   assert.ok(app.includes("t('chat.loadEarlier'"), 'message-window controls must use the catalog');
   assert.ok(app.includes("t('onboarding.drop.title'"), 'dynamic onboarding must use the catalog');
   assert.ok(app.includes("'mission.autoProgress'"), 'mission mode labels must use the catalog');
-  assert.ok(app.includes("t('mission.complete.title')"), 'mission outcome cards must use the catalog');
+  // 3.1 精简:账本状态卡 missionStateCard 从未被调用,连同 mission.complete/stuck/budgetPaused 六个键一起删除,原断言随之退役。
   assert.ok(app.includes("t('mission.stop.failed'"), 'mission stop feedback must use the catalog');
   assert.ok(app.includes("'error.providerMisconfigured'"), 'known error classes must map to local catalog keys');
   assert.ok(app.includes("t('error.generic.title')"), 'generic error cards must use the catalog');

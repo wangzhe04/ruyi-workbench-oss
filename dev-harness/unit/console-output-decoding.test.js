@@ -4,7 +4,7 @@
 //        (修前 runProcess 整段判定 —— 有一处不是 UTF-8 就整段按 GBK,UTF-8 那部分反被解坏;shell 会话一律按 UTF-8)
 //   [E2] 流式:chunk 从一个 GBK / UTF-8 汉字中间切开也不出替换符;不带换行的尾巴(提示符)flush 时吐出
 //   [E3] 交互式 shell 的输入:含中文的命令改成纯 ASCII 的等价命令(UTF-8 Base64 → Invoke-Expression),纯 ASCII 原样
-//   [E4] 接线:runProcess 的 decodeBestEffort、shell 会话、覆盖包解压 / 进程取证都走这一套
+//   [E4] 接线:runProcess 的 decodeBestEffort、shell 会话、覆盖包解压都走这一套(原「进程取证」processCommandLine 随端口接管链删除)
 //   [E5] 源头编码(仅 Windows 且有 powershell.exe;走生产路径 toolCall):非中文代码页(en-US:OEM 437 / ANSI 1252)的机器上,
 //        powershell.exe 把输出按控制台代码页编码,中文在【源头】就变成 `?`(0x3f),Node 侧的 UTF-8 优先 / GB18030 回落无从还原。
 //        脚本前导 [Console]::OutputEncoding = UTF8(无 BOM)后,中文输出、中文文件名、cmd /c dir、Write-Host、stderr 全部正确。
@@ -86,7 +86,7 @@ test('[E3] 交互式 shell 的中文输入改成纯 ASCII 的等价命令', () =
   assert.match(wrapped, /^Invoke-Expression \(\[System\.Text\.Encoding\]::UTF8\.GetString\(/);
 });
 
-test('[E4] 接线:runProcess、shell 会话、覆盖包、进程取证都走按行解码', () => {
+test('[E4] 接线:runProcess、shell 会话、覆盖包都走按行解码', () => {
   const desktop = readSrcFile('04-desktop-shell.js');
   assert.match(functionBlock(desktop, 'decodeBestEffort'), /decodeConsoleTextFn\(buf\)/);
   const shell = functionBlock(readSrcFile('11-native-tools.js'), 'shellStart');
@@ -97,7 +97,6 @@ test('[E4] 接线:runProcess、shell 会话、覆盖包、进程取证都走按�
   assert.match(functionBlock(overlay, 'extractOverlayZip'), /-EncodedCommand/);
   assert.match(functionBlock(overlay, 'extractOverlayZip'), /'-ExecutionPolicy', 'Bypass'/, '解压子进程可加载 Archive 脚本模块');
   assert.match(functionBlock(overlay, 'runOverlayPs1'), /decodeConsoleText\(/);
-  assert.match(functionBlock(readSrcFile('13-http-router.js'), 'processCommandLine'), /decodeConsoleText\(stdout\)/);
 });
 
 test('[E6] 前导的形状:同一行放在 $ProgressPreference 之前;无 BOM 编码;豁免脚本不加;shell_start 两种形态都带', () => {
