@@ -1,0 +1,806 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T22:29:30.233Z",
+  "status": "COMPOSITE_RESEARCH_AND_PUBLIC_FAKE_SCOPED_PASS_GCC_EQUIVALENCE_RED",
+  "checks": [
+    {
+      "name": "composite/final replay/native/independent frozen bindings",
+      "passed": true
+    },
+    {
+      "name": "finite composite and public recipes reproduce exact full source",
+      "passed": true
+    },
+    {
+      "name": "separate public consumer8 fake/source proof",
+      "passed": true
+    },
+    {
+      "name": "GCC static five-delta/source/license metadata and numerical RED",
+      "passed": true
+    }
+  ],
+  "records": [
+    {
+      "source": "dev-harness/semantic/scalar-composite-policy-research.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/001-scalar-composite-policy-research.cjs.gz",
+      "sha256": "cd7b52943b834269e989b084cef23a486d605390a7c09589fd0a27a718e4bf6c",
+      "bytes": 8779,
+      "gzipSha256": "5e050f417e00323b91111dfe215a2f8f8262006a1eef2dab8071845714a8bad6",
+      "gzipBytes": 3015
+    },
+    {
+      "source": "dev-harness/semantic/scalar-producer-research-source.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/002-scalar-producer-research-source.cjs.gz",
+      "sha256": "6b93fd3e4fba2dd816c56b55b0bb50915d24c6f67371cb8db45744cc33c6bec1",
+      "bytes": 11057,
+      "gzipSha256": "7b2ce81ab9c4a4b8de8e0b3110c08fcbc090e81b08c23cd7f3d4fea264bc2a0f",
+      "gzipBytes": 3364
+    },
+    {
+      "source": "dev-harness/semantic/scalar-consumer-research-source.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/003-scalar-consumer-research-source.cjs.gz",
+      "sha256": "89b1347434c03827cabddf16664f828f49748a7e931fcf1f26cbae0b9b0d4732",
+      "bytes": 1861,
+      "gzipSha256": "167dfad3a4ba487bcf7998cd8798831290511e776e608f0a7e5b58186a7f1130",
+      "gzipBytes": 970
+    },
+    {
+      "source": "dev-harness/semantic/scalar-native-host-research.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/004-scalar-native-host-research.cjs.gz",
+      "sha256": "e3d85c6c8c4b28fc47dc6c49021375d4a8e0e0ce1cd814bd0e6e73a46666753f",
+      "bytes": 12385,
+      "gzipSha256": "daa5a79177ecd42bb093cb576f67331bf5a8e18bff3c68a808d67e3ca4627baf",
+      "gzipBytes": 4020
+    },
+    {
+      "source": "dev-harness/semantic/scalar-owned-native-research.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/005-scalar-owned-native-research.cjs.gz",
+      "sha256": "4e09627f1f1563b97fd7703415d5c223bdd672d30625711cb099f11d4225b7d3",
+      "bytes": 1500,
+      "gzipSha256": "d5c9d366cfe9899bc190671e3f639b3dd5c710a1f3fadb9e968f5bb7d84e2c1d",
+      "gzipBytes": 777
+    },
+    {
+      "source": "dev-harness/semantic/scalar-producer-development-replay.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/006-scalar-producer-development-replay.cjs.gz",
+      "sha256": "93243f18a69990ba88f7cb8445e7eed006f3a5eea5b985b5f72f84cb06508103",
+      "bytes": 12420,
+      "gzipSha256": "0a87cc156b8802e3598aa3ce48910aa9a7c64aa333ef43c9de0b517fe55ef9f7",
+      "gzipBytes": 4372
+    },
+    {
+      "source": "dev-harness/semantic/scalar-native-host-sanity.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/007-scalar-native-host-sanity.cjs.gz",
+      "sha256": "bfd7add515befde0e22e6535c5293770c64dc46d0170d7ec95d3c2aa50f997d3",
+      "bytes": 5634,
+      "gzipSha256": "1c0ae814e06986bb79deadbc2a31478227ee3dadac9514e4f26070c4e2f0da61",
+      "gzipBytes": 2261
+    },
+    {
+      "source": "dev-harness/semantic/scalar-composite-policy-research.test.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/008-scalar-composite-policy-research.test.cjs.gz",
+      "sha256": "1b4e8fd903406113353ea6b810f76b5f583f7e12d99a94131e0c84e73693571b",
+      "bytes": 6373,
+      "gzipSha256": "c8c5290bf317c5ea786cc0f695b07c397f24341cacd4d1828719ed677dbf3694",
+      "gzipBytes": 1904
+    },
+    {
+      "source": "dev-harness/semantic/scalar-producer-research.test.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/009-scalar-producer-research.test.cjs.gz",
+      "sha256": "298d7690830011842a920811063ad9911ccee2fc173c44c7884371a3624b352a",
+      "bytes": 11976,
+      "gzipSha256": "d3df20a7b951f93836d96821b13bf9bce908b837802819fc918ebfc54453c27e",
+      "gzipBytes": 3376
+    },
+    {
+      "source": "dev-harness/semantic/scalar-native-host-research.test.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/010-scalar-native-host-research.test.cjs.gz",
+      "sha256": "73b96c3f23ff5cbab514b77d4f70fb5171c0320461ca7039d6361d23d2005321",
+      "bytes": 10229,
+      "gzipSha256": "b77f15f2ee4f9c6e9da52995b68a617c1f6f2daa0e05394e5042f805f942f512",
+      "gzipBytes": 2827
+    },
+    {
+      "source": "dev-harness/semantic/scalar-verifier-bridge-prototype.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/011-scalar-verifier-bridge-prototype.cjs.gz",
+      "sha256": "92ac1f16c9fe0adecfa0c6b9ae29145b77a70bd14a9a26dba140f7c76b11230a",
+      "bytes": 8094,
+      "gzipSha256": "2929e655ea70399d027b6a2b531bf2f40b100ccd01ca15faae8932080500e1f1",
+      "gzipBytes": 2662
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-native.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/012-qwen-reranker-native.cjs.gz",
+      "sha256": "a2c8254b539bbff26a625365f399d15a483246453ba2fe9f556160da2c36d706",
+      "bytes": 12126,
+      "gzipSha256": "4033b3059d96982c91f9ff103c0b85e5b1f12e39272db406218c1bdd71394ae9",
+      "gzipBytes": 4635
+    },
+    {
+      "source": "dev-harness/semantic/native-job-launcher.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/013-native-job-launcher.cjs.gz",
+      "sha256": "90c52c9e51df47a05e127758df2c4f7352d066774b23700ff945285df3b18718",
+      "bytes": 6355,
+      "gzipSha256": "15d1faa63e5ca853613a18f7a7e67bdc9d199512d3a9c6a7f27243948df2a7e1",
+      "gzipBytes": 2256
+    },
+    {
+      "source": "output/semantic-scalar-unknown-start-review-r3.json",
+      "group": "independent-fake",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/014-semantic-scalar-unknown-start-review-r3.json.gz",
+      "sha256": "53c51a3db38de5476fa380d9f3e9b47c234e5cbef4a8303ca44c026bd7a63a6b",
+      "bytes": 1184,
+      "gzipSha256": "8548e692e53256519fb569f011e01103fa802a47904a935826429eac14265a8a",
+      "gzipBytes": 630
+    },
+    {
+      "source": "output/semantic-scalar-unknown-start-review-r3.cjs",
+      "group": "independent-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/015-semantic-scalar-unknown-start-review-r3.cjs.gz",
+      "sha256": "c808575dffb59ace5be19165787acdd37389bdb41e3973ceeaa90ae61947911e",
+      "bytes": 1603,
+      "gzipSha256": "7fcf69fb57b5f8c4890946230531e99898a8e98d01322820ed3e576abcd62d3f",
+      "gzipBytes": 915
+    },
+    {
+      "source": "output/semantic-scalar-unknown-stop-review-r3.json",
+      "group": "independent-fake",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/016-semantic-scalar-unknown-stop-review-r3.json.gz",
+      "sha256": "64eccc9b87c61b273dee1d45f671b20c984b73f3151d95bac42c4d50db6e2f51",
+      "bytes": 439,
+      "gzipSha256": "118b48bc50ae37ef0f89e46e905f002de3dde095e4279594c8d23148a93f442a",
+      "gzipBytes": 238
+    },
+    {
+      "source": "output/semantic-scalar-unknown-stop-review-r3.cjs",
+      "group": "independent-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/017-semantic-scalar-unknown-stop-review-r3.cjs.gz",
+      "sha256": "d48eb1638896b4bd84f07e4bcc75726764be561adaf4cd6812d200dbf13aef88",
+      "bytes": 1563,
+      "gzipSha256": "9495617ee06c46bd4779906c4a37efd8f0edb3f38911fdc12c2aac07430e92d4",
+      "gzipBytes": 904
+    },
+    {
+      "source": "output/semantic-scalar-id-k1-review-r2.json",
+      "group": "independent-fake",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/018-semantic-scalar-id-k1-review-r2.json.gz",
+      "sha256": "d745513db3ccf1af434498de915e13e6c86d1e3f3660833572484862bfc47e4d",
+      "bytes": 216,
+      "gzipSha256": "e698f95e780e654868df040abe91db5112173763299879d78811fb2d36653d3a",
+      "gzipBytes": 173
+    },
+    {
+      "source": "output/semantic-scalar-id-k1-review-r2.cjs",
+      "group": "independent-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/019-semantic-scalar-id-k1-review-r2.cjs.gz",
+      "sha256": "02dea4a3aa8d9bdb991a4f9dc9498073d1951fe29445bfa2ce3e8a9c7a06cade",
+      "bytes": 1706,
+      "gzipSha256": "3600375123509e0ebee1d31e1511559496779e497baf8a14da06dcddf81bba5f",
+      "gzipBytes": 890
+    },
+    {
+      "source": "output/semantic-scalar-composite-archive-source-r1/composite-producer.cjs",
+      "group": "finite-recipe-snapshot",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/020-composite-producer.cjs.gz",
+      "sha256": "a46905f17d18f7cbab8cd8c63b7c969828567ec63467f441754b3ff2ad299a50",
+      "bytes": 83343,
+      "gzipSha256": "edbb688b7cbb9f2a8663ecd56efdc5e441edbf10babe65dac79297787b8ca944",
+      "gzipBytes": 22075
+    },
+    {
+      "source": "ruyi-workbench/app/src/13ap-session-fulltext-index.js",
+      "group": "original-recipe-base",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/021-13ap-session-fulltext-index.js.gz",
+      "sha256": "90a0191d29307ba1f5582f4073bb7a01dc311f5a72481bbc06b01ee3a084a15f",
+      "bytes": 77481,
+      "gzipSha256": "41eca351aee76944fc3e714ee36e42e53cfd7ddb88f916e11689a3f780448df3",
+      "gzipBytes": 20721
+    },
+    {
+      "source": "output/semantic-scalar-composite-archive-source-r1/composite-consumer.cjs",
+      "group": "finite-recipe-snapshot",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/022-composite-consumer.cjs.gz",
+      "sha256": "b33ec236b7adb29e2ce03db40ce07f783b2532f036017535a8a3c1e51c1be0b2",
+      "bytes": 25499,
+      "gzipSha256": "69387cf43175b69eded817b6046da53e218d5ac50fe2eea6fce0511b4b0e5839",
+      "gzipBytes": 7601
+    },
+    {
+      "source": "ruyi-workbench/app/src/13as-session-fulltext-consumers.js",
+      "group": "original-recipe-base",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/023-13as-session-fulltext-consumers.js.gz",
+      "sha256": "67deb8fbb314749ae2befdd3cc7660661a55f930d13ff4a72889a63c5a73f889",
+      "bytes": 25464,
+      "gzipSha256": "760407c8fd27db37b08e177d6c0e638fb35bf308f5a6727d9ff20dd372df3bda",
+      "gzipBytes": 7582
+    },
+    {
+      "source": "output/semantic-scalar-composite-archive-source-r1/public-producer.cjs",
+      "group": "finite-recipe-snapshot",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/024-public-producer.cjs.gz",
+      "sha256": "a56b532bcc0d3028101c4d61908dfee3995b247da39d5326c08b4859ed19e641",
+      "bytes": 83864,
+      "gzipSha256": "ec09a1a5a6fe4ccbcdc3a9006fe2f0b38fd124b432d5d6bada001d9a3ef7c7be",
+      "gzipBytes": 22220
+    },
+    {
+      "source": "output/semantic-scalar-composite-archive-source-r1/public-consumer.cjs",
+      "group": "finite-recipe-snapshot",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/025-public-consumer.cjs.gz",
+      "sha256": "cc6cd4b2e0bc167fa2712c31c44d70270d4a0f2107d47e39541476109255a8c5",
+      "bytes": 26099,
+      "gzipSha256": "2bd1157a215cdb647538fb4fe433e73cc139449c6e458e0d46b730803e2ebb6c",
+      "gzipBytes": 7722
+    },
+    {
+      "source": "dev-harness/semantic/scalar-consumer-live-research-source.cjs",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/026-scalar-consumer-live-research-source.cjs.gz",
+      "sha256": "71042659f1ae624a7b5c19d0895669e01ff223c93d5f0f3055f6cbee4ff778c7",
+      "bytes": 3359,
+      "gzipSha256": "a96cb896e6d9e68820d58b352e1e1ee22b968b0aa7ed8882ceeb154aaf63f041",
+      "gzipBytes": 1434
+    },
+    {
+      "source": "dev-harness/semantic/scalar-live-research-layout.cjs",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/027-scalar-live-research-layout.cjs.gz",
+      "sha256": "a3f8f4ed26f768d0ada8de8896ccde046f67eaeff3db76fcf99683fef73f6a42",
+      "bytes": 2651,
+      "gzipSha256": "b67f1d10d00d2e43cecce533fa212e85c90392742a556bd54231226f4b111db3",
+      "gzipBytes": 1061
+    },
+    {
+      "source": "dev-harness/semantic/scalar-public-consumer-fixture.cjs",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/028-scalar-public-consumer-fixture.cjs.gz",
+      "sha256": "6d13221aadf1c12bc3dcbd64a4bcea5532e0abf179d20341ff40fb8464a7f773",
+      "bytes": 3318,
+      "gzipSha256": "aca0c41da5ac6eafb60b8076fa09b9d17fd2ceca98c8c04c02373743d2a5f5c6",
+      "gzipBytes": 1355
+    },
+    {
+      "source": "dev-harness/semantic/scalar-public-consumer-research.test.cjs",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/029-scalar-public-consumer-research.test.cjs.gz",
+      "sha256": "471184ae9927bd3bb9951c90c918a875034456f727fe8ee0982c8ea58f6c332d",
+      "bytes": 6523,
+      "gzipSha256": "19f31a5353127535b3605b2917764a21de276611bb32d0ae52dd311d2cd90d4f",
+      "gzipBytes": 2038
+    },
+    {
+      "source": "ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/030-06ha-semantic-retrieval.js.gz",
+      "sha256": "a0e846f4e4ec0199a6384172d7d6c67c9c8c4852258e130a0b7e660db1b9c8d1",
+      "bytes": 10179,
+      "gzipSha256": "9e88fe2b7c739294847a97e5ab12df0316298804d59d491fa8ddbfd310748b52",
+      "gzipBytes": 3690
+    },
+    {
+      "source": "dev-harness/lib/fulltext-consumer-fixture.js",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/031-fulltext-consumer-fixture.js.gz",
+      "sha256": "196b8e48e350aa096606758d6316b4af73d1db69bb730a207f7afcc5931b6c98",
+      "bytes": 7298,
+      "gzipSha256": "a49e5b64cdb77e2c3603b5d880c8f4534638a08e17f536a74bf8df9d1ea9fdd3",
+      "gzipBytes": 2968
+    },
+    {
+      "source": "dev-harness/lib/work-data-session-fulltext-fixture.js",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/032-work-data-session-fulltext-fixture.js.gz",
+      "sha256": "55bc93e4cb744af0e617373c0908090dbf105d9330b52e5c63980b671e190c44",
+      "bytes": 5739,
+      "gzipSha256": "67942d94980fec1af224cb2cd8593f7d3e523d651c2af103724c4ca8835ffc71",
+      "gzipBytes": 2315
+    },
+    {
+      "source": "output/semantic-native-mingw-research/toolchain-preflight.json",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/033-toolchain-preflight.json.gz",
+      "sha256": "7f966ef3e4395f5d20f9c76baec52575a756199003e2c10ee118944ed06d9697",
+      "bytes": 2013,
+      "gzipSha256": "be408e0d1564f6004f1bdc5410c92c7c3b45ded25fdc5cc5fcc55695b6a29612",
+      "gzipBytes": 857
+    },
+    {
+      "source": "output/semantic-native-mingw-research/toolchain-version.txt",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/034-toolchain-version.txt.gz",
+      "sha256": "c865613b9393e87655cf26fe2cc45d2aa43de3f347d578beade91e66e90b28ed",
+      "bytes": 916,
+      "gzipSha256": "b4abfe3bf4c001a382e21cc90076f491694fda00c69703a1fd1626b3829f0b2c",
+      "gzipBytes": 576
+    },
+    {
+      "source": "output/semantic-native-mingw-research/license-sources.json",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/035-license-sources.json.gz",
+      "sha256": "b934d3327b39d0b5bb9d9df5dbdf5fd3fee9fe1df863756c9c7974bc36926777",
+      "bytes": 1521,
+      "gzipSha256": "ee24ad4735d17d8a676f22c1c553ef544a5dc9e4f135b752a6149aaa8e2684c6",
+      "gzipBytes": 617
+    },
+    {
+      "source": "output/semantic-native-mingw-research/source-differences.json",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/036-source-differences.json.gz",
+      "sha256": "06424bf34a68871855edcff32335015a0a3cf91f1fa2d3b38e3182d14c243692",
+      "bytes": 1598,
+      "gzipSha256": "15a4d01f14a103f4e2271147a78bcb25c1ed5ffcf8b481ca21ed3a5e9d81e434",
+      "gzipBytes": 729
+    },
+    {
+      "source": "output/semantic-native-mingw-research/qwen3-headless.patch",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/037-qwen3-headless.patch.gz",
+      "sha256": "dd7b60621c71fa2e916130330e1325806be17960bb0df0b27d4b6b989e42505e",
+      "bytes": 565,
+      "gzipSha256": "9664fed81b2a3cb01c7424dd7b5a7098c68f41c0a28a16066e3543bf22febb4a",
+      "gzipBytes": 302
+    },
+    {
+      "source": "output/semantic-native-mingw-research/rank-safe-endpoint.patch",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/038-rank-safe-endpoint.patch.gz",
+      "sha256": "f2f3bbe8592fefe987fc02dcb955261af2f46d216ba0147451363badcb9de611",
+      "bytes": 680,
+      "gzipSha256": "cebafd921aa1d1d9fbcb1ec1e3335c1c63bec0bf689c54ed28abea1e211b46f8",
+      "gzipBytes": 384
+    },
+    {
+      "source": "output/semantic-native-mingw-research/combined-buffer.patch",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/039-combined-buffer.patch.gz",
+      "sha256": "12ace6130098d719badc83b28277756698ad100a743bce40f89066d1372dc9c5",
+      "bytes": 526,
+      "gzipSha256": "1163032f8512fdf4ea06d30aca7f95c3fc2bfb9869fa07248023e8682aba18af",
+      "gzipBytes": 278
+    },
+    {
+      "source": "output/semantic-native-mingw-research/mingw-thread-abi.patch",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/040-mingw-thread-abi.patch.gz",
+      "sha256": "10ad8531ccfa98c273a5e571b0a31578de4fc2e42e0a9dbcfcd59d521a2756ec",
+      "bytes": 672,
+      "gzipSha256": "43f1ae8446613db9bbafbdff3443c7b406dbf54f365e296adb72b1762a1124b1",
+      "gzipBytes": 395
+    },
+    {
+      "source": "output/semantic-native-mingw-research/mingw-httplib-target.patch",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/041-mingw-httplib-target.patch.gz",
+      "sha256": "58b63ebe962022121b6c5556b5a67259504d8230293478f5074f890d50a26ed7",
+      "bytes": 418,
+      "gzipSha256": "473ac36e0f0471eade3efecbbdd65afd59b6d2078d91944097efdac15b25a7e3",
+      "gzipBytes": 304
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build.bat",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/042-build.bat.gz",
+      "sha256": "0949d4575ce82c9f88c49fd323d3754283702e14491e802f96a20458928c5f88",
+      "bytes": 941,
+      "gzipSha256": "8eb1712714d96038d0609f3b705bad17de09c0ab73be239a1172932ddb5f2f3c",
+      "gzipBytes": 447
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r4.bat",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/043-build-r4.bat.gz",
+      "sha256": "4525da283a6b4f7c934d993ba9b5b1262a05ce88818823a1983fcdbc93157693",
+      "bytes": 1023,
+      "gzipSha256": "e6f0a2a7e0d2603831d66c63f92dee90e5b15efcedb27162e76453fa650278fd",
+      "gzipBytes": 473
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build.log",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/044-build.log.gz",
+      "sha256": "647529678e2617eb3ae4485fd5e20059c926921dd0972da25c725a49aa483214",
+      "bytes": 5825,
+      "gzipSha256": "9094b13d94a79f30812375933083ed4b168c106754d9abfd2d73a12e4f241e2c",
+      "gzipBytes": 1698
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r2.log",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/045-build-r2.log.gz",
+      "sha256": "6cb21aa69e7cea396e2d0543058fec03974ee13e5d3858e1de7d5b6bfdb3b8b6",
+      "bytes": 7825,
+      "gzipSha256": "a202b46c7ef36de09b311f6452fd5fa1a2e016d5d41129cb55aa8ea37530018f",
+      "gzipBytes": 1795
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r3.log",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/046-build-r3.log.gz",
+      "sha256": "88a3cad10d2b16903320f375ea742113f1ad16ac5bda7d268d7d815c2f88e521",
+      "bytes": 4826,
+      "gzipSha256": "92e1db98a0f315963b905b9d1d86f8b60459131183e5823535db81a7a7f4a9da",
+      "gzipBytes": 1328
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r4.log",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/047-build-r4.log.gz",
+      "sha256": "6cea64572156907028cea485e3aba52bc537723520c1bf1e5835ad201081dbfd",
+      "bytes": 57968,
+      "gzipSha256": "be9f37b1660edc9c69a7edafb9d287344205cd11c0d0a026a02dc4e0a5dd927d",
+      "gzipBytes": 4723
+    },
+    {
+      "source": "output/semantic-native-mingw-research/pe-objdump.log",
+      "group": "gcc-static",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/048-pe-objdump.log.gz",
+      "sha256": "5095bcf49a5ee551183c6ab592916020a19d4a7e38831a51e5631e085c9c4778",
+      "bytes": 10638642,
+      "gzipSha256": "8542e2753ec1beb2ed6d4b58a59f16906f9c104bc9704dd0a54dd03b9a7a9892",
+      "gzipBytes": 1078447
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/GCC-COPYING.RUNTIME.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/049-GCC-COPYING.RUNTIME.txt.gz",
+      "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+      "bytes": 3324,
+      "gzipSha256": "3a3d5521270d16f7476a93da327b188391821b064bc0082c17c821bcc55af60e",
+      "gzipBytes": 1495
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/GCC-COPYING3.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/050-GCC-COPYING3.txt.gz",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "bytes": 35147,
+      "gzipSha256": "8946379ba1659b26a9976655c49cbd6d5a6e34e0d0c1743eb450a0eb965cf5d1",
+      "gzipBytes": 12098
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/llama-MIT.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/051-llama-MIT.txt.gz",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "bytes": 1078,
+      "gzipSha256": "c3821214228fa8586fc4799b642cba6841750f375dfdf8551b6d8dd3952c3775",
+      "gzipBytes": 665
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/MinGW-runtime.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/052-MinGW-runtime.txt.gz",
+      "sha256": "e9b2dc02451ea29092a1f25fa0f3c07207ed421f1807dffb0c4e6dce69dee7bd",
+      "bytes": 10936,
+      "gzipSha256": "6ce7ef94452b5524729422b1c0ff16e716b9bc85fcea83138cf3234537837260",
+      "gzipBytes": 3151
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/MinGW-toolchain.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/053-MinGW-toolchain.txt.gz",
+      "sha256": "f38e6194bd3bfa1b654f118e5acefe0aead437bbe669eee43957ccc65a7127f1",
+      "bytes": 5905,
+      "gzipSha256": "66459b6fd0621909dc00b10e093752a2bc74041e347cb4bfc431e2fc1ebad3a2",
+      "gzipBytes": 2212
+    },
+    {
+      "source": "output/semantic-native-mingw-research/licenses/winpthreads.txt",
+      "group": "gcc-free-license-original",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/054-winpthreads.txt.gz",
+      "sha256": "63263614cdd29f2f93cba85e992f041b31f9fc7b4033692f31269489a8a1b177",
+      "bytes": 2883,
+      "gzipSha256": "050f3d65b52f962f61e00b0b7632db6a44997a89eea8b5336c721addbf64afc0",
+      "gzipBytes": 1358
+    },
+    {
+      "source": "output/semantic-scalar-producer-development-final-v1/bindings.json",
+      "group": "composite-research",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/055-bindings.json.gz",
+      "sha256": "cdbffe7fc413a33b0775f83847cb04b7bff55fb0b566a8e1610c3710517f28d8",
+      "bytes": 42924,
+      "gzipSha256": "76ff254996696d09246026c897f5ce7ce6b0ba1bb6d36563d79e768fa3032fc7",
+      "gzipBytes": 9416
+    },
+    {
+      "source": "output/semantic-scalar-producer-development-final-v1/replay.json",
+      "group": "composite-research",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/056-replay.json.gz",
+      "sha256": "d8f551b380b813a992ec41b835da09f046c2e88ae55418d8190a62a5fd71f115",
+      "bytes": 997480,
+      "gzipSha256": "99a4dd0611ba12b05a7a0c5b4da73e0127b7e8eae77e4fffaed1d0a96d85a0e8",
+      "gzipBytes": 52035
+    },
+    {
+      "source": "output/semantic-scalar-producer-native-sanity-v2.json",
+      "group": "composite-research",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/057-semantic-scalar-producer-native-sanity-v2.json.gz",
+      "sha256": "ddb52f98194798489dda1095583da2fead4db891160076e985b8fc94580b5281",
+      "bytes": 6171,
+      "gzipSha256": "961c985522be9cb2a5fb587d8aeb76cb56eeb606a7f82fa3af284a82f76f1def",
+      "gzipBytes": 1850
+    },
+    {
+      "source": "output/semantic-scalar-composite-independent-review-r1.json",
+      "group": "composite-research",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/058-semantic-scalar-composite-independent-review-r1.json.gz",
+      "sha256": "584cd8a22c43bf9046c7ab37dd6fa76e096773f51c010dc2ce107890d8c835a0",
+      "bytes": 5093,
+      "gzipSha256": "5807ccccc825d5585827e0c8c04cfbe2ae4aa00c47c80e0c65ccdcda89fce712",
+      "gzipBytes": 1874
+    },
+    {
+      "source": "output/semantic-scalar-producer-development-final-v1/research-producer.cjs",
+      "group": "composite-source-snapshot",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/059-research-producer.cjs.gz",
+      "sha256": "a46905f17d18f7cbab8cd8c63b7c969828567ec63467f441754b3ff2ad299a50",
+      "bytes": 83343,
+      "gzipSha256": "edbb688b7cbb9f2a8663ecd56efdc5e441edbf10babe65dac79297787b8ca944",
+      "gzipBytes": 22075
+    },
+    {
+      "source": "dev-harness/semantic/scalar-composite-research-bind.cjs",
+      "group": "composite-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/060-scalar-composite-research-bind.cjs.gz",
+      "sha256": "6975b397c96491f977935b40895be36f5ddffcc9d8588fd80862baab5a711841",
+      "bytes": 6139,
+      "gzipSha256": "3ae90308fe0b0f24994456cb50f34170e2b07ec4369fa65596ac6b0f3c4606ca",
+      "gzipBytes": 2595
+    },
+    {
+      "source": "dev-harness/semantic/scalar-public-consumer-bind.cjs",
+      "group": "public-consumer-fake-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/061-scalar-public-consumer-bind.cjs.gz",
+      "sha256": "00b17142d1a91670c8cfdd84167485aae87ee61ca032b1b33f147af27a2093b7",
+      "bytes": 3079,
+      "gzipSha256": "5f3d5aff863ee0967944f91259071e0b44e1a7c42f058b87a17422aabc0c311c",
+      "gzipBytes": 1407
+    },
+    {
+      "source": "output/semantic-scalar-public-consumer-final-v1/receipt.json",
+      "group": "public-consumer-fake",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/062-receipt.json.gz",
+      "sha256": "95ad1d4b4863e3bd1892c109053638dc71e8504d53b506e599efacff3f3cb4a4",
+      "bytes": 40038,
+      "gzipSha256": "616836dae8eb5d8fdc73d26f547fa91397bc0e1e3345d004964e0e1d0907c5b7",
+      "gzipBytes": 7950
+    },
+    {
+      "source": "output/semantic-native-mingw-research/static-receipt.json",
+      "group": "gcc-static-or-red-comparison",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/063-static-receipt.json.gz",
+      "sha256": "ac97b212e1b9e8280b809bfbaf095233c3984cfb3c0420ff93f9fd5803bad587",
+      "bytes": 4066,
+      "gzipSha256": "bcc2663ee977ab6b21ac5a3a918ea2f39c33f0af91f32d4a7fba77ad6b06561f",
+      "gzipBytes": 2095
+    },
+    {
+      "source": "output/semantic-native-mingw-research/config-diagnostic-r1.json",
+      "group": "gcc-static-or-red-comparison",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/064-config-diagnostic-r1.json.gz",
+      "sha256": "10c649aef6ecba3698adc36f0bc43f3a7eb273d9c773fef0c25bf76c05dd615b",
+      "bytes": 13941,
+      "gzipSha256": "08aa00eef74a7a19232d61614fa755e6089c20e050310828eeeda716c2cc5346",
+      "gzipBytes": 3118
+    },
+    {
+      "source": "output/semantic-native-mingw-research/runtime-comparison-v1.json",
+      "group": "gcc-static-or-red-comparison",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/065-runtime-comparison-v1.json.gz",
+      "sha256": "bb8b805b8aa48f0763ab7604e5a67218850630cb26acd768ec75b80a8c22ecc8",
+      "bytes": 76935,
+      "gzipSha256": "2b43b1f1579ad151a077119d1317a6623f5a186f90d326c2effa16164b0bc5e9",
+      "gzipBytes": 7732
+    },
+    {
+      "source": "output/semantic-native-mingw-research/runtime-comparison-v1.cjs",
+      "group": "gcc-static-or-red-comparison",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/066-runtime-comparison-v1.cjs.gz",
+      "sha256": "49a9429ea2b8b82bccafe4c0d7abc7e948dc7a1c8448c4066f7788269a5e7275",
+      "bytes": 13699,
+      "gzipSha256": "846c6a0789873f98fae959a7a5f072146d18f3873406d0f878a72411f1c699e8",
+      "gzipBytes": 5828
+    },
+    {
+      "source": "output/semantic-native-mingw-research/runtime-comparison-v1.log",
+      "group": "gcc-static-or-red-comparison",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/067-runtime-comparison-v1.log.gz",
+      "sha256": "9d01fee55ddee0c0faea00f115fa2c05140c02993b853d60d1dc7c83436b2a72",
+      "bytes": 80,
+      "gzipSha256": "c38fdc0879c3e8e3b4ef8327552f7997d2698af5679ae547133a0f702fb52088",
+      "gzipBytes": 58
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-contract-v1.json",
+      "group": "gcc-separate-candidate-contract",
+      "status": "PENDING_SEPARATE_PROFILE_QUALIFICATION",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/068-gcc-development-contract-v1.json.gz",
+      "sha256": "f9aa955631196820d8ce4555ec2d6bfc04d3cdbffb78e257533475d64f06e506",
+      "bytes": 4703,
+      "gzipSha256": "ee81311df1bc28ac0c7089dee3a35c47f45cbf7bb90e7c3ac7cd486ae6b34181",
+      "gzipBytes": 2318
+    },
+    {
+      "source": "dev-harness/semantic/archive-scalar-composite-gcc-evidence.cjs",
+      "group": "archive-tool",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/069-archive-scalar-composite-gcc-evidence.cjs.gz",
+      "sha256": "dbba10e48020e5a85e5f0751f4f16afa841eefb715a57e5570839322b5c42a2c",
+      "bytes": 13046,
+      "gzipSha256": "47d3a774c372b01fd9d9fd4871bb44905ac80ffa9aeab77375afaaabf7880c36",
+      "gzipBytes": 5196
+    }
+  ],
+  "snapshots": [
+    {
+      "file": "output/semantic-scalar-composite-archive-source-r1/composite-producer.cjs",
+      "sha256": "a46905f17d18f7cbab8cd8c63b7c969828567ec63467f441754b3ff2ad299a50",
+      "patchCount": 18
+    },
+    {
+      "file": "output/semantic-scalar-composite-archive-source-r1/composite-consumer.cjs",
+      "sha256": "b33ec236b7adb29e2ce03db40ce07f783b2532f036017535a8a3c1e51c1be0b2",
+      "patchCount": 1
+    },
+    {
+      "file": "output/semantic-scalar-composite-archive-source-r1/public-producer.cjs",
+      "sha256": "a56b532bcc0d3028101c4d61908dfee3995b247da39d5326c08b4859ed19e641",
+      "patchCount": 21
+    },
+    {
+      "file": "output/semantic-scalar-composite-archive-source-r1/public-consumer.cjs",
+      "sha256": "cc6cd4b2e0bc167fa2712c31c44d70270d4a0f2107d47e39541476109255a8c5",
+      "patchCount": 3
+    }
+  ],
+  "composite": {
+    "bindingSha256": "cdbffe7fc413a33b0775f83847cb04b7bff55fb0b566a8e1610c3710517f28d8",
+    "fakeTests": 30,
+    "replay": {
+      "queries": 248,
+      "usesRecordedVectorsAndScalars": true,
+      "nativeStarts": 0,
+      "scalarWrites": 128
+    },
+    "nativeSanity": {
+      "pairs": 2,
+      "guardCalls": 22,
+      "transportGuardCalls": 12,
+      "cleanup": "observed"
+    },
+    "independentSha256": "584cd8a22c43bf9046c7ab37dd6fa76e096773f51c010dc2ce107890d8c835a0",
+    "privateDiagnostics": "WeakMap only; public result policy/status/counts, no raw-derived identities."
+  },
+  "publicConsumer": {
+    "receiptSha256": "95ad1d4b4863e3bd1892c109053638dc71e8504d53b506e599efacff3f3cb4a4",
+    "fakeTests": 8,
+    "nativeStarts": 0,
+    "status": "SEPARATE_PUBLIC_API_FAKE_NOT_NATIVE_OR_INDEPENDENT_QUALITY"
+  },
+  "gcc": {
+    "binaryBytes": 22605545,
+    "binarySha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f",
+    "binaryArchived": false,
+    "sourceDeltas": 5,
+    "compiler": "MinGW-W64 x86_64-ucrt-posix-seh GCC13.2.0",
+    "staticOnly": true,
+    "osUcrtRequired": true,
+    "comparisonStatus": "RED_NUMERICAL",
+    "maxEmbeddingAbsolute": 0.01319030299782753,
+    "minEmbeddingCosine": 0.9978567850230692,
+    "maxRankDifference": 0.005041996017098427,
+    "allRankThresholdsAgree": false,
+    "rankOrderAgree": true,
+    "maxRepeatAbsolute": 0,
+    "rankShortSamples": 16,
+    "requestedRankShortSamples": 20,
+    "stderrRetained": false,
+    "diagnosticCauseAttribution": "none; config facts only",
+    "newContract": {
+      "path": "output/semantic-native-mingw-research/gcc-development-contract-v1.json",
+      "sha256": "f9aa955631196820d8ce4555ec2d6bfc04d3cdbffb78e257533475d64f06e506",
+      "status": "PENDING_SEPARATE_PROFILE_QUALIFICATION",
+      "newOutputsReadOrArchived": false
+    }
+  },
+  "limits": [
+    "248 producer replay uses prerecorded real vectors/scalars and starts no native models;30fake and2native illustrative pairs are not all actual-model consumers, independent quality, performance or combined resources.",
+    "Public8 uses actual source/privacy/13as/UI13d/tool13g with injected synthetic encoder/scalar; separate fake proof only.",
+    "Finite recipe reconstruction is pure string transformation verified against pinned base and final SHA; it does not execute changed production.",
+    "Private detailed identities/revisions/epochs/scores stay in exact-result WeakMaps and synthetic harness evidence; no public UI/model raw-derived identity claim.",
+    "GCC comparison remains RED: embedding maxAbs.0131903/minCos.9978568,rank maxDelta.005042 and.95 threshold disagreement.16rank short samples below20; discarded stderr prevents backend/kernel/repack attribution.",
+    "OpenMP-off is a build fact, not an isolated causal explanation. Single AVX2 Windows10+ static executable still imports OS UCRT; clean-machine/multiCPU/source-license completeness remain unqualified.",
+    "GPL/runtime-exception/MinGW/winpthread/MIT source texts retained with hashes; this does not prove the toolchain vendor binary build provenance or close redistribution qualification.",
+    "New GCC contract is preserved only as a distinct candidate pending review; no new collection/evaluation output was opened or archived and prior v6 decision is unchanged.",
+    "No v6/query or other holdout access, models/tests/compilers launched, product/default/manifest/gate-state changes by archive tool."
+  ],
+  "pending": [
+    "Actual-model public consumer and remaining independent entry-point wiring",
+    "Real producer/native complete replay",
+    "Independent frozen v6",
+    "1000-fragment fresh/repeated full-chain latency",
+    "Two-model total resources/lifecycle",
+    "Fresh package/regression and applicable redistribution conditions"
+  ]
+}

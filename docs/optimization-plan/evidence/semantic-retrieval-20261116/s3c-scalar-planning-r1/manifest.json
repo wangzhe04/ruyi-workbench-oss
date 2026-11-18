@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "status": "DEVELOPMENT_PLAN_ONLY_NOT_QUALITY_OR_PRODUCT_ADOPTION",
+  "generatedAt": "2026-11-16T20:43:53.170Z",
+  "records": [
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/calibration-protocol-v2.json",
+      "bytes": 7916,
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-planning-r1/001-calibration-protocol-v2.json.gz",
+      "sha256": "a334ada714efa935853b66cdcaf2c02693128423625c4bdc3b5fcfb7e87f2d90",
+      "gzipSha256": "442187dfd8aeeef7ee43fadb464b3e9bf66f15142ddb6c46219dbd185c6eabe1",
+      "gzipBytes": 3501
+    },
+    {
+      "source": "output/semantic-coarse-oracle-v2.json",
+      "bytes": 98470,
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-planning-r1/002-semantic-coarse-oracle-v2.json.gz",
+      "sha256": "8d426586f0bef26e9ab56972b3ed89507c9082f14b78ac00cb045d9ee442d906",
+      "gzipSha256": "7244ea9178f049089b84e2007e6e4fe99d49f37a71c320c470be61dae2e0acf3",
+      "gzipBytes": 4819
+    },
+    {
+      "source": "output/semantic-scalar-consumer-design-r1.json",
+      "bytes": 5131,
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-planning-r1/003-semantic-scalar-consumer-design-r1.json.gz",
+      "sha256": "fe2981344bfc8d95c1b582670c919210b0edc2145c3cc14f6acd2f71a74362d8",
+      "gzipSha256": "da4879fb66a4e0ea1cde847d9871d044ebd7af45382f92e806cb1d0d747b02cb",
+      "gzipBytes": 2219
+    }
+  ],
+  "limits": [
+    "Protocol is prospective: no new verifier inference or current90a candidate capture is qualified by this archive.",
+    "Oracle raw recall is an upper bound, not verified ranking quality; historical lexical capture is not current producer evidence.",
+    "Consumer mapping is a read-only design: four distinct entry paths still need implementation and independent source/privacy/partial tests.",
+    "All release gates remain pending; no production default, model layer/vocabulary pruning or gate threshold change."
+  ]
+}

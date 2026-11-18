@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "status": "SCOPED_COMPOSITE_AND_PUBLIC_FAKE_PASS_GCC_NUMERICAL_RED_ALL_RELEASE_PENDING",
+  "evidence": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/manifest.json",
+    "sha256": "ef7ef766f63379d47ab6da0af006cd2c97fda5da3aaa89f12ff426b8f178d98c"
+  },
+  "scopeNotes": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/scope-notes.json",
+    "sha256": "4369684b76ea3bc28cb60b47defc9a1314bb3df392288645fb6971e54625718a"
+  },
+  "latestIndependentQuality": "v5 RED unchanged",
+  "productionDefaultChanged": false,
+  "v6Consumed": false
+}

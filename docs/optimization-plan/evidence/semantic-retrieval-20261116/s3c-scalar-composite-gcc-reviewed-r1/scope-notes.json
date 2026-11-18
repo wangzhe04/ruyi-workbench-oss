@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "status": "EVIDENCE_SCOPE_AND_HISTORICAL_ATTEMPTS",
+  "manifest": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-composite-gcc-reviewed-r1/manifest.json",
+    "sha256": "ef7ef766f63379d47ab6da0af006cd2c97fda5da3aaa89f12ff426b8f178d98c"
+  },
+  "groups": {
+    "composite": "30 fake,248 recorded-input producer replay and2 native illustrative pairs, not all actual-model consumers.",
+    "publicConsumer": "8 injected encoder/scalar fake checks are separately classified; nativeStarts0.",
+    "gcc": "Static build evidence and failed numeric equivalence; separate GCC development contract pending review in this batch."
+  },
+  "historicalBuildAttempts": [
+    {
+      "source": "output/semantic-native-mingw-research/build.log",
+      "status": "FAILED_BUILD_ATTEMPT_SUPERSEDED_BY_BUILD_R4",
+      "sha256": "647529678e2617eb3ae4485fd5e20059c926921dd0972da25c725a49aa483214"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r2.log",
+      "status": "FAILED_BUILD_ATTEMPT_SUPERSEDED_BY_BUILD_R4",
+      "sha256": "6cb21aa69e7cea396e2d0543058fec03974ee13e5d3858e1de7d5b6bfdb3b8b6"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r3.log",
+      "status": "FAILED_BUILD_ATTEMPT_SUPERSEDED_BY_BUILD_R4",
+      "sha256": "88a3cad10d2b16903320f375ea742113f1ad16ac5bda7d268d7d815c2f88e521"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/build-r4.log",
+      "status": "FINAL_STATIC_BUILD_LOG",
+      "sha256": "6cea64572156907028cea485e3aba52bc537723520c1bf1e5835ad201081dbfd"
+    }
+  ],
+  "sensitiveJsonPreflight": {
+    "credentialOrArgvApiKeyFlags": 0,
+    "redactedOriginalsArchived": false,
+    "rawKeysPrinted": false
+  },
+  "separateNewGccData": "No gcc-development observations/evaluation/receipt/delta/pair-ledger was opened or archived. Contract only; no prior v6 decision changed.",
+  "publicPriorRed": "Final producer receipt reports an earlier fake-test assertion error via priorRed metadata; this batch does not claim to contain an unavailable original failed-run transcript.",
+  "archiverPreparation": {
+    "failedLog": "output/semantic-scalar-composite-gcc-archive-r1.log",
+    "failedLogSha256": "e3346c9a6ab609101e57dfd8dd01c2c338f1e551ab4fcd14361b9cff614322d3",
+    "reason": "Own archiver missed a function brace, parse failure before any snapshot/archive was created; corrected second invocation passed. Not producer/native failure."
+  }
+}

@@ -1,0 +1,381 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T21:35:22.499Z",
+  "status": "REAL_SCALAR_TRAIN_CAL_SELECTED_NOT_INDEPENDENT_ACCEPTANCE_OR_PRODUCTION_QUALIFICATION",
+  "checks": [
+    {
+      "name": "final explicit collector adapter evaluator and independent identities",
+      "passed": true
+    },
+    {
+      "name": "850 unique complete actual scalar records and observed cleanup",
+      "passed": true
+    },
+    {
+      "name": "train/cal-only views and current90a capture source identity",
+      "passed": true
+    },
+    {
+      "name": "fixed36 development strategies selected qwenK1 scalar095 independently reproduced",
+      "passed": true
+    },
+    {
+      "name": "bridge final fake18 source binding is not native hookup evidence",
+      "passed": true
+    }
+  ],
+  "records": [
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/calibration-protocol-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/001-calibration-protocol-v2.json.gz",
+      "sha256": "a334ada714efa935853b66cdcaf2c02693128423625c4bdc3b5fcfb7e87f2d90",
+      "bytes": 7916,
+      "gzipSha256": "442187dfd8aeeef7ee43fadb464b3e9bf66f15142ddb6c46219dbd185c6eabe1",
+      "gzipBytes": 3501,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/development-freeze-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/002-development-freeze-v2.json.gz",
+      "sha256": "a7421cb30b72a6bfa15f76f799d50bd2eca7fd08b09f0382f659c180660a0672",
+      "bytes": 1602,
+      "gzipSha256": "ba5144db275a1ee99e4449b433384b7acfd031583404fa992b39e0bcf80dffa0",
+      "gzipBytes": 712,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/development-pair-plan-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/003-development-pair-plan-v2.json.gz",
+      "sha256": "c4b8535b02d05c2dbdc62cad162dce5761cb8c1f31f85ddfe592682890f75ebd",
+      "bytes": 1360638,
+      "gzipSha256": "7eefa925809364d79453434d17284fee07ed5466fbaf16997b57e076e40c914b",
+      "gzipBytes": 136111,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/current90a-lexical-capture-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/004-current90a-lexical-capture-v2.json.gz",
+      "sha256": "f8ef1681cf6c20351b72daea34424da67dbec78f04e4d4e7432b4db84aaef52e",
+      "bytes": 2778679,
+      "gzipSha256": "189f600748ab584b927cdfbcde97aa4f94c298ac36bcc1e3afe59dd75bf54eb4",
+      "gzipBytes": 44687,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/current90a-observed-index.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/005-current90a-observed-index.cjs.gz",
+      "sha256": "f05f8b22d49180b7ac952c968e530b82915639b60b8bdae2105dc9627d3dd4db",
+      "bytes": 77617,
+      "gzipSha256": "07cf4f488d17c5906e7ee97257d2fc86545f7f4fbd5d7f4d5d4b10bcd5b6200e",
+      "gzipBytes": 20757,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/repro/pair-plan-capture-v2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/006-pair-plan-capture-v2.cjs.gz",
+      "sha256": "e90d7d895700d2e68a762a144bf5456b06c421f015df2288f9e236a126f26de0",
+      "bytes": 15274,
+      "gzipSha256": "d83fdf905c51907bfd5f02234400ea9560375e4522f883894cc57061d0bec751",
+      "gzipBytes": 5249,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/development-scalars-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/007-development-scalars-v1.json.gz",
+      "sha256": "1c4f876f3363c80e89cb9e36ca801bf39b56831d196e18d5039e78fc2021909a",
+      "bytes": 251578,
+      "gzipSha256": "6cd0c5030daede6d13cb72a62967486326b74589a73bb719302d892bef5f6b4e",
+      "gzipBytes": 52551,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/development-selection-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/008-development-selection-v1.json.gz",
+      "sha256": "d39c6a3e9f3e0ee716c18d71322470c93add734e6ed685c8ba65075fc1c8a0c4",
+      "bytes": 292879,
+      "gzipSha256": "51b545194a5c02dfb35ea4bdefe4417bbae31ab5bcd2e200e7184f4ca81af4d4",
+      "gzipBytes": 7086,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/minilm-train-cal-vectors-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/009-minilm-train-cal-vectors-v1.json.gz",
+      "sha256": "25513f6780d3617b81cfba152113d420502c02e5e579307ba9d5499eecfd455c",
+      "bytes": 3568949,
+      "gzipSha256": "afc49f3732b660d654f6bbc0d51a56e6a0acd904e35c8bb6d71bebd9cc4ef8fd",
+      "gzipBytes": 1123438,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/qwen-prior-evidence-train-cal-vectors-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/010-qwen-prior-evidence-train-cal-vectors-v1.json.gz",
+      "sha256": "b3949ce8aea2420bb539e6400d6bf19563576a4e1da9a0d16393013230efe2d7",
+      "bytes": 9545608,
+      "gzipSha256": "deebd50c40c5d06f6428243cdb2188d6f9fd17948b4657768fe1a016983a3e81",
+      "gzipBytes": 2986697,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/runtime/rank-buffer-t6.lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/011-rank-buffer-t6.lock.json.gz",
+      "sha256": "c703f828ce9ad6e423593c9baa44f5901dbce9a9776a8a3850f640e3f2799ee6",
+      "bytes": 4373,
+      "gzipSha256": "2a814a81e959b9da9da909c179b9889a0fc5514fbcf23216dbf943acc8785f61",
+      "gzipBytes": 1615,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/erase-contract-rankbuffer-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/012-erase-contract-rankbuffer-final.json.gz",
+      "sha256": "26094fd0546bd3eef530543a29cfd4331b1f569e6e601227875677e25543fb36",
+      "bytes": 5583,
+      "gzipSha256": "010323efc3596e9987ee7202b382d02e1b806c6660089d971c0df22b4d3e6790",
+      "gzipBytes": 995,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-calibration-protocol.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/013-qwen-reranker-calibration-protocol.cjs.gz",
+      "sha256": "3990a6b09ccca71733a3c34655ea1896320fef01d72fad0e351f6dcfa9076aa2",
+      "bytes": 7870,
+      "gzipSha256": "0bd9eb8b34d986fc3b7750bcadef1daf4f0bfb9097f1df0963643a96b7dad7c0",
+      "gzipBytes": 3697,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-native.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/014-qwen-reranker-native.cjs.gz",
+      "sha256": "a2c8254b539bbff26a625365f399d15a483246453ba2fe9f556160da2c36d706",
+      "bytes": 12126,
+      "gzipSha256": "4033b3059d96982c91f9ff103c0b85e5b1f12e39272db406218c1bdd71394ae9",
+      "gzipBytes": 4635,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-development-collect.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/015-qwen-reranker-development-collect.cjs.gz",
+      "sha256": "7506df2d651150f846e713d2a3ad1656188dae73a69840da5c409e4829e568fd",
+      "bytes": 10627,
+      "gzipSha256": "f47b96be41a8d539c236d6d60be7c51fd223975089c46a2e0fade44857c3f08e",
+      "gzipBytes": 3811,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-development-evaluate.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/016-qwen-reranker-development-evaluate.cjs.gz",
+      "sha256": "49eddaab486442e409f186a3f40f47dd92b73fa96935c05bc844a40913eb5837",
+      "bytes": 9070,
+      "gzipSha256": "db1b04b099f12509e2919714bbb80253c033919a5e8b648c46e3259bac4deeae",
+      "gzipBytes": 3346,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-pair-plan.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/017-qwen-reranker-pair-plan.cjs.gz",
+      "sha256": "5e62cb0cddf301393abc942e4fc1945c2d491fb84c414a5225a4c600ed926a7c",
+      "bytes": 18196,
+      "gzipSha256": "cedcf2ec975e2d4084e5b4b21b56dd9ebb5b20dd2c2fb269758c6ee6f9c61c1f",
+      "gzipBytes": 6165,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-erase-contract.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/018-qwen-reranker-erase-contract.cjs.gz",
+      "sha256": "f0cb13b9d2a3842a12e3caf223ee72020508b048a1e6f0133b8be0229a2c93b0",
+      "bytes": 8749,
+      "gzipSha256": "0790ae21635125e7b478bb4b9a5886a79fbab703b2c854a81162bb7ceadd2d94",
+      "gzipBytes": 3130,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/native-job-launcher.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/019-native-job-launcher.cjs.gz",
+      "sha256": "90c52c9e51df47a05e127758df2c4f7352d066774b23700ff945285df3b18718",
+      "bytes": 6355,
+      "gzipSha256": "15d1faa63e5ca853613a18f7a7e67bdc9d199512d3a9c6a7f27243948df2a7e1",
+      "gzipBytes": 2256,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/native-job-host.cs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/020-native-job-host.cs.gz",
+      "sha256": "e8457aaacfa525806461e9e33a185d46106eb06bf285bb8492f73deb67b2a734",
+      "bytes": 4838,
+      "gzipSha256": "96ad39cf114083f8a6fa1718a28f8719b28b0ef67381e57accf722592f0e4720",
+      "gzipBytes": 1891,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-verifier-bridge-prototype.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/021-scalar-verifier-bridge-prototype.cjs.gz",
+      "sha256": "92ac1f16c9fe0adecfa0c6b9ae29145b77a70bd14a9a26dba140f7c76b11230a",
+      "bytes": 8094,
+      "gzipSha256": "2929e655ea70399d027b6a2b531bf2f40b100ccd01ca15faae8932080500e1f1",
+      "gzipBytes": 2662,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-verifier-bridge-prototype.test.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/022-scalar-verifier-bridge-prototype.test.cjs.gz",
+      "sha256": "49ccb1c0f400456bafda28cd6b8c4cef363c7330fe064f56f1eecff968626511",
+      "bytes": 13804,
+      "gzipSha256": "f8c171c99be4625b4e340f1c183ef325e860471c3ff6ca93f4bbec55e5bf86d3",
+      "gzipBytes": 3022,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "dev-harness/semantic/archive-scalar-development-evidence.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/023-archive-scalar-development-evidence.cjs.gz",
+      "sha256": "e66cf293e45606f86de6d367f2d45362c04da696f09fe97694cca64ea724ae13",
+      "bytes": 11225,
+      "gzipSha256": "1c086e0452eaeaaff13cbecc6b9fd01ed0ee48033d4bb338414d8f9b0d744e78",
+      "gzipBytes": 4300,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-reranker-development-independent-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/024-semantic-reranker-development-independent-r2.json.gz",
+      "sha256": "b04d5a0a6ef7f407c7518b7f3413e7d17c25afc80c30d570dbfea80980d40dc5",
+      "bytes": 5847,
+      "gzipSha256": "923ccc242f7d5afb3966e3797227e1b30a6ebaa9139632a32315d1a4677d32a7",
+      "gzipBytes": 1479,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-reranker-development-independent-r2.cjs",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/025-semantic-reranker-development-independent-r2.cjs.gz",
+      "sha256": "b6b08b097c084998716ea86bf0e3ddc95547ae1f1f85882f4e94bae846875362",
+      "bytes": 8857,
+      "gzipSha256": "b5fa8d839f7a8599baeccdc7a3a515e0ed9fdaa55997b98e7743d9a47662106c",
+      "gzipBytes": 3288,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/scalar-verifier-bridge-prototype-receipt-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/026-scalar-verifier-bridge-prototype-receipt-r1.json.gz",
+      "sha256": "c17e8178440d9b71bc383ed5146de2c595ec74104624891ddcaed4fac931bf59",
+      "bytes": 1795,
+      "gzipSha256": "17f7d58dc6c972767d7464d96e6c7229ea3f62bd6d3c6ddd82ca28e0da11db6f",
+      "gzipBytes": 997,
+      "status": "SUPERSEDED_BY_PROTOTYPE_RECEIPT_R2"
+    },
+    {
+      "source": "output/scalar-verifier-bridge-prototype-receipt-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/027-scalar-verifier-bridge-prototype-receipt-r2.json.gz",
+      "sha256": "1fbd540109ea6cd8ba35650bae9fce30b073cdebacd50c60f62e8a5922806bd1",
+      "bytes": 2462,
+      "gzipSha256": "ae98793c4ea15749c5685bb4ce5a89a2b91fcfd47efcd470ac1f65348d16e9d7",
+      "gzipBytes": 1285,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/scalar-verifier-bridge-prototype-test-r3.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/028-scalar-verifier-bridge-prototype-test-r3.log.gz",
+      "sha256": "36bd5329b5e9aa7b4b33ecbe2e5f01c9fc9171f4632266c07380bf5695c6b3d1",
+      "bytes": 1809,
+      "gzipSha256": "c8bde0f13a3ee3c2ede25e32c2b3b8cc2ed5984ee899944e9c0cc4fb520e4cad",
+      "gzipBytes": 861,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-rank-redist-licenses-v1/downloads.lock.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/029-downloads.lock.json.gz",
+      "sha256": "bc7e7b1a0691e51d174c9950db5489adec923c64fd11fd3533fdb27f8e39f044",
+      "bytes": 6492,
+      "gzipSha256": "0487f5e051d78da2ad72243afc35c5bc21eab0d8bf60bce8079d5aa2bd27f3cb",
+      "gzipBytes": 1389,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-rank-redist-licenses-v1/extraction-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/030-extraction-r2.json.gz",
+      "sha256": "70a3230d402d35ead5b28fa0120ddf616990671132ea19d876b4637421209b2c",
+      "bytes": 1922,
+      "gzipSha256": "1bc761fdab0709864f7b818a858cdfdf189b53f148a7cf2baed45d90da7698a4",
+      "gzipBytes": 803,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-rank-redist-licenses-v1/license-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/031-license-review-r1.json.gz",
+      "sha256": "8b65b704170e8f11fd7317261be3b5c19d610f3aad2de525e85e19f368af7c71",
+      "bytes": 15188,
+      "gzipSha256": "40c968e7a3b917783664470d89fe29a92cb45c301ac40705f0067a9af57ab4ff",
+      "gzipBytes": 3754,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-rank-redist-licenses-v1/deployment-plan-license-update-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/032-deployment-plan-license-update-r1.json.gz",
+      "sha256": "b81ab763b497e3481ce36d47efb269bfd42676fef7d93f8cbb874e8f07fa5da7",
+      "bytes": 14143,
+      "gzipSha256": "857f94dfa8ce6e1e53ce1a3bca7fbe7e940a8745a28194413da48e90188774df",
+      "gzipBytes": 3123,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    },
+    {
+      "source": "output/semantic-rank-redist-licenses-v1/final-receipt-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/033-final-receipt-r1.json.gz",
+      "sha256": "ca34c0a2751ea5bb74354f4c6f9239bb0470fc37d5e4202f374adc1f1e2daa9d",
+      "bytes": 5510,
+      "gzipSha256": "df6d2a9ef7db22325e95ae71f48b2ff9259b7f26ff613d1886e63ad8642d7a58",
+      "gzipBytes": 1552,
+      "status": "CURRENT_SCOPED_EVIDENCE"
+    }
+  ],
+  "v6FreezeCopy": {
+    "source": "dev-harness/semantic/acceptance-v6/freeze.json",
+    "destination": "docs/optimization-plan/evidence/semantic-retrieval-20261116/v6-fixture-freeze.json",
+    "bytes": 2293,
+    "sha256": "8fe6750b51ecad603d92a1e1a14882a2d7b212e2ddf09279ad8a9166edcbd572",
+    "fixtureQueriesOpened": false,
+    "fixtureExecuted": false,
+    "decision": {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/v6-candidate-decision.json",
+      "sha256": "59017695947b14f28e38f0dd2bf72b336d52044f784adab782daafaf539b1319"
+    }
+  },
+  "development": {
+    "queries": 248,
+    "documents": 60,
+    "uniqueRealPairs": 850,
+    "refused": 0,
+    "maxJointTokens": 121,
+    "guardCalls": 4310,
+    "elapsedSeconds": 211.922,
+    "cleanup": "observed",
+    "fixedPolicies": 36,
+    "passing": 32,
+    "selected": {
+      "profile": "qwen-k1",
+      "threshold": 0.95,
+      "positiveCount": 96,
+      "recallAt5": 1,
+      "mrr": 1,
+      "pureOodCount": 80,
+      "pureOodFalsePositives": 0,
+      "entityMismatchCount": 24,
+      "entityMismatchFalsePositives": 0,
+      "strongEvidence": 96,
+      "weakEvidence": 7,
+      "selectedPairBudget": 128
+    }
+  },
+  "limits": [
+    "Train/cal candidate selection only; no v6 actual query opened, no check or other holdout used for selection by this archival task.",
+    "Root independent development r2 is final; any superseded prototype receipt is explicitly marked. Producer source hashes distinguish collector, adapter, evaluator and protocol.",
+    "Offline replay is limited to this synthetic single-lexical-source fixture; missing-field strong lexical returns do not establish answerability and do not dilute pure OOD denominator.",
+    "850 actual scalar collection and211.9s run are not500ms/product end-to-end/combined two-model RSS qualification.",
+    "Bridge92ac source and18fake tests are unregistered research; native beforeVerify/beforeRerank transport wiring and four genuine consumers remain pending.",
+    "License archives contain only metadata, paragraph references, observations and planning gaps; complete Microsoft EULA DOCX/TXT/paragraph bodies remain ignored output and are not redistributed through this git evidence.",
+    "All SR remain pending, latest independent quality remains v5RED, and production/default/model manifest are unchanged."
+  ],
+  "pending": [
+    "Four-entry native scalar bridge wiring",
+    "Real producer end-to-end replay and authority/privacy/source/cancel verification",
+    "Fresh independent v6 evaluation after fixed decision",
+    "1000-fragment fresh/repeat query performance with actual verifier counts",
+    "Two-model combined resources and lifecycle",
+    "New package/full regression and applicable redistribution grant"
+  ]
+}
