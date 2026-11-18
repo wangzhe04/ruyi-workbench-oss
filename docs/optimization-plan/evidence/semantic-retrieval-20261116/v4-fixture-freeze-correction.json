@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:31:40.872Z",
+  "status": "PRE_IMPLEMENTATION_FREEZE_LABEL_CORRECTION",
+  "previousSha256": "e0b6333f334c263a34cd490eb06a78e063a785e12d95060a9dc9fe43e629a7fe",
+  "sha256": "b8c68cb1b885c316bae5c839c3efd656384d72fec440eef8ef971f094ff3ae50",
+  "reason": "Exact filename diagnostic text is in supportrename-adjacent, not supportrename. Correct label before any implementation assignment or evaluation; all documents, quality questions and OOD labels unchanged.",
+  "implementationStarted": false,
+  "qualityEvaluated": false
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "status": "FROZEN_MIXED_DEVELOPMENT_COLLECTION_NOT_RELEASE",
+  "bindings": {
+    "dev-harness/semantic/bge-minilm-mixed-development-fixture.json": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+    "dev-harness/semantic/bge-minilm-language-route-protocol.json": "1a7f0eaafef2f9c1ca82db32dd0e3b927f2340cb4a19e2d9679c6bc98a172375",
+    "dev-harness/semantic/calibration-fixture.cjs": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
+    "dev-harness/semantic/bge-minilm-language-router.cjs": "716f03b862c09360ebd1a66623461dea6993ad53544239cb0c69ccf22cb643b2",
+    "output/semantic-bge-cn-coarse-v2/asset-lock.json": "949a4a0423530264cd867be5b65cd076ee22b282592578acf2ce41193055deff",
+    "output/semantic-bge-cn-coarse-v2/worker.cjs": "98d144c6e46352fe272c04e38030e61ccce31b3633f6f8133a300665cfd528f6",
+    "output/semantic-minilm-family-coarse-v1/asset-lock.json": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+    "output/semantic-minilm-family-coarse-v1/worker.cjs": "4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216",
+    "output/semantic-bge-cn-coarse-v2/coarse-vectors.json": "8da7e08d8db2c5749069cbb281bc06fb47042b3e99f4e89c116bea9208c84dac",
+    "output/semantic-minilm-family-coarse-v1/coarse-vectors-v1.json": "d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b",
+    "output/semantic-qwen-reranker-official-v1/repro/pair-plan-capture-v2.cjs": "e90d7d895700d2e68a762a144bf5456b06c421f015df2288f9e236a126f26de0"
+  },
+  "scope": "32 frozen queries only, original60 document vectors reused. Human-reviewed synthetic development data, not independent quality or acceptance.",
+  "collection": {
+    "order": [
+      "BGE",
+      "L6"
+    ],
+    "sequential": true,
+    "physicalBatch": 1,
+    "role": "query",
+    "queriesPerModel": 32,
+    "documentEncoding": 0,
+    "input": "original unchanged query; worker adds its locked prefix",
+    "strict": "ready and all response fingerprints equal previous locked vectors; dimension 512/384, finite L2, token accounting positive, no truncation; worker exited cleanly; source/asset hashes stable before/after"
+  },
+  "capture": "Original 90a producer synthetic encrypted source, all 60 documents, all ordered projected candidates, preserve strong and weak source identities/revisions, verify pre-limit candidate coverage; partial if truncated or candidate limit exceeded. Multiple hits retained and replay full RRF; no <=1 assumption.",
+  "policy": "Existing frozen routing/fusion K1 no refill, weak independent OR, Chinese .53 English .46; no sweep. Incomplete branches counted partial in original denominators.",
+  "reporting": "16 positive 8 per document language; 16 pure OOD; all 32 denominators. Recall@5/MRR and any-result FPR, coverage, source-identities/roles, branch counts. Mixed development only, no deployment qualification.",
+  "execution": "Root reviewed before collection. No model concurrency with other research processes; independently frozen execution hashes required."
+}

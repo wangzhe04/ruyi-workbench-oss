@@ -120,6 +120,7 @@ function scriptModel(work, { output, io = fs } = {}) {
     const index = requests.length;
     requests.push(req.body);
     try {
+      if (req.body && typeof req.body.then === 'function') throw Error('provider body must be resolved before handler');
       const body = JSON.parse(JSON.stringify(req.body));
       const record = { index, receivedAt: new Date().toISOString(), raw: typeof req.raw === 'string' ? req.raw : null,
         rawAvailable: typeof req.raw === 'string', body, expected, captureFile: '', captureError: null };

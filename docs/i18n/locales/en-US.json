@@ -1059,6 +1059,9 @@
   "session.running": "Running",
   "session.search": "Search threads",
   "session.searchCoverage": "Indexed {{indexed}} of {{total}} threads.",
+  "session.semanticLoading": "Loading the local semantic model. Keyword results are available.",
+  "session.semanticFallback": "Semantic retrieval is unavailable. Showing keyword results.",
+  "session.semanticPartial": "Semantic retrieval has prepared {{cached}} / {{total}} candidate excerpts. Results may be incomplete.",
   "session.searchPaused": "Index building is paused.",
   "session.searchUnverifiedAttachments": "Full text is unverified for {{count}} attachments.",
   "session.searchUnverifiedMessages": "Text is unverified in {{count}} messages.",
@@ -3832,6 +3835,8 @@
   ,"settings.catalog.sessionSearchIndexPausedV1": "Pause search index building"
   ,"settings.catalog.sessionSearchIndexPausedV1.hint": "Indexed threads remain searchable. Turn this off to resume building on the next search."
   ,"settings.catalog.runtimeMemoryVectorRecallV1": "Semantic memory recall"
+  ,"settings.catalog.semanticRetrievalV1": "Local semantic retrieval"
+  ,"settings.catalog.semanticRetrievalV1.hint": "Find historical content by meaning. The local model loads automatically at startup and stays in memory for all threads. Turn this off to release model memory without deleting history. Keyword search remains available while the model loads or is unavailable."
   ,"settings.catalog.runtimeMemoryVectorRecallV1.hint": "Finds related memories by meaning as well as keywords (computed locally)."
   ,"settings.catalog.runtimeSummarySingleShotV1": "Prefer single-shot summaries"
   ,"settings.catalog.runtimeSummarySingleShotV1.hint": "Summarize in one call when the context is short enough (the single-shot limit above only applies when this is on)."

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "status": "ROOT_REPRODUCED_PRODUCTION_SCORE_RUNTIME_AUTHORITY_FINDING_PRE_FIX",
+  "records": [
+    {
+      "source": "output/semantic-gemma2-root-runtime-authority-finding-r1/scorer-source.js",
+      "member": "0001.gz",
+      "rawBytes": 14800,
+      "rawSha256": "ff66e25cf3b5d776d07047f4c806fd13e1b0ca03eb70faaff7bd78e520652df3",
+      "gzipBytes": 4853,
+      "gzipSha256": "ae48b5580a4435ae06c1e5e63b4701416f4b4a7a1294145a2b1f7b3d13503f8b"
+    },
+    {
+      "source": "output/semantic-gemma2-root-runtime-authority-finding-r1/finding.json",
+      "member": "0002.gz",
+      "rawBytes": 589,
+      "rawSha256": "7cfd40b5bf8849d7e74b12f2153d942afce111f8e3512aec42acce08f5bdc4e4",
+      "gzipBytes": 434,
+      "gzipSha256": "faf568f78d99552dc9d79741fda470bd1cd37f57bc8fd0db33da66d52d9a33ba"
+    },
+    {
+      "source": "dev-harness/semantic/gemma2-runtime-authority-finding-review.cjs",
+      "member": "0003.gz",
+      "rawBytes": 1914,
+      "rawSha256": "601a21d7959cfd506850ed771eb9fc9720924193c40da0404abc031b31b09b05",
+      "gzipBytes": 1073,
+      "gzipSha256": "a932984147ee6149a3aec14e8dbbbaebace06a01dee3c16de4c9bf943dab7a84"
+    }
+  ],
+  "limits": [
+    "Pure synthetic isolated VM; no real model, source consumer or blind fixture.",
+    "Unmodified retained scorer accepts arbitrary injected runtime and issues readable private score seal. Not evidence of an externally reachable attack.",
+    "Reproducer pins pre-fix source; live-source fix and tests remain separate qualification."
+  ]
+}

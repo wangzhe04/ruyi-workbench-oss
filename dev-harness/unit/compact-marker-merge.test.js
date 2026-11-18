@@ -134,6 +134,7 @@ function autoCompactHarness(estimates, { overhead = 3000, failures = new Map() }
     CONTEXT_GOVERNANCE_RULES: require('../../ruyi-workbench/app/src/context-governance-rules.json'),
     sessionObjectIsStale: srv.sessionObjectIsStale, // 128b:历史快照前判「是不是撤回之前的对象」—— 同上,注真函数(沙箱里缺了它照样红成「没压缩」)
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
+    rememberObservationSnapshot: async () => {},
     evaporateHistory: history => {
       let n = 0;
       // 蒸发后的占位保持"长内容",模拟真实追加节奏 —— 短占位会让同一会话的后续 pass 无料可蒸。

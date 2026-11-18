@@ -83,6 +83,15 @@ test('node capability binds runtime/node/attempt/controller and does not imperso
  const listed=last(await f.request(token,{jsonrpc:'2.0',id:2,method:'tools/list'})).result.tools.map(x=>x.name);assert.ok(!listed.includes('todo_write'));assert.ok(!listed.includes('request_user_input'));
  assert.ok(last(await f.request(token,rpc('mission_update'))).error);c.ctrl.abort();assert.equal((await f.request(token,rpc('file_read'))).status,403);
 });
+test('observation read capability belongs to live main CLI only',async()=>{
+ const f=fixture(),g=f.acquire();let checked=false;
+ f.state.onCall=(_name,_args,ctx)=>{assert.equal(ctx.mainTurn,false);assert.equal(f.relay.assertObservationRead(ctx),true);checked=true;return{ok:true};};
+ await f.request(g.token,rpc('file_read'));assert.equal(checked,true);
+ const h=fixture(),node=nodeContext(h),grant=h.relay.createNode({config:h.state.config,context:node});h.relay.bindNode(grant,child());let denied=false;
+ h.state.onCall=(_name,_args,ctx)=>{assert.throws(()=>h.relay.assertObservationRead(ctx),/tool_not_allowed/);denied=true;return{ok:true};};
+ await h.request(grant.definition.env.RUYI_INTERNAL_MCP_CAP,rpc('file_read'));assert.equal(denied,true);
+ assert.throws(()=>f.relay.assertObservationRead({session:f.state.session}),/unavailable/);
+});
 
 test('CLI resource direct RPC retains the exact typed pre-dispatch refusal for main and node',async()=>{
  for(const isNode of [false,true]){

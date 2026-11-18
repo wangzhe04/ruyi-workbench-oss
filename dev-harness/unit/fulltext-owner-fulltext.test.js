@@ -180,12 +180,12 @@ test('public production coverage and operation statistics include only destinati
 
 test('public coverage rejects scope, permission and source sequence changes after its own awaits',()=>withFixture(async f=>{
   await f.put('Visible',[row('visible source needle')]);await f.index.step();
-  const original=f.host.epoch;
+  const original=f.host.scan;
   for(const cut of ['scope','permission','sequence']){
-    f.allowed.set('Visible',true);f.host.epoch=async id=>{const value=await original(id);if(cut==='scope')f.changeScope();if(cut==='permission')f.allowed.set(id,false);if(cut==='sequence')f.context.sessionDiskWriteSeq.set(id,(f.context.sessionDiskWriteSeq.get(id)||0)+1);return value;};
+    f.allowed.set('Visible',true);f.host.scan=async(id,visit,options)=>{const value=await original(id,visit,options);if(cut==='scope')f.changeScope();if(cut==='permission')f.allowed.set(id,false);if(cut==='sequence')f.context.sessionDiskWriteSeq.set(id,(f.context.sessionDiskWriteSeq.get(id)||0)+1);return value;};
     await assert.rejects(f.index.coverage({destination:'restricted'}),error=>['session_fulltext.disclosure_changed','session_fulltext.source_changed'].includes(error.code));
   }
-  f.host.epoch=original;
+  f.host.scan=original;
 }));
 
 test('public coverage and build statistics forward the exact destination context to scope checks',()=>withFixture(async f=>{

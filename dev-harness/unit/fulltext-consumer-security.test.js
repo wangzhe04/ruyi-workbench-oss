@@ -56,7 +56,8 @@ test('original uploaded text yields tail offsets, refuses mutation before emissi
   await fs.writeFile(file,prefix+replacement);
   const fresh=await f.ui(replacement);
   assert.equal(fresh.results[0]?.reference.matchStart,prefix.length);
-  assert.notEqual(fresh.results[0].reference.contentRevision,hit.reference.contentRevision);
+  assert.equal(fresh.results[0].reference.contentRevision,undefined);
+  assert.ok(fresh.results[0].snippet.includes(replacement));
   assert.equal(fresh.coverage.complete,true);
 });
 test('encrypted attachment lookup accepts only the authenticated original and seals extracted shards',async t=>{

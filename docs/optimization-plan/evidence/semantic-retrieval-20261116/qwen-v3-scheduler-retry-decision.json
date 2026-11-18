@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:08:19.982Z",
+  "status": "POST_SOURCE_GUARD_BATCH_SCHEDULER_REPAIR_SAME_FROZEN_MODEL_POLICY",
+  "modelPolicy": "Qwen Q4 cosine .44 plus original ID guard; unchanged weights/prefix/pooling/normalization/physical1",
+  "previousPrewarmReceiptSha256": "a176cab0495a66c5b7ea7e31203e5b535d327d0c603721e21feaa2941ccaaf91",
+  "previousQualityQueries": 0,
+  "semanticSourceSha256": "428f6d33688a6133a44d55c9c9e2e87b56c03f678ddb1378c1a5216ecdbdeaea",
+  "adapterSha256": "04cb87842d77c8b0d55a323f87bbfe57d3da3fb8a40aa48f1c950b7a0dfb517e",
+  "developmentCompleteProbeSha256": "639941c2c847be9541e23b13db6ce22b6de8182f1c0798e9f15588b180f38e27",
+  "change": "After source resolution and final guard, shrink document batch prefix to fit actual remaining deadline. Correct source positions map only executed vectors into the cache. General scheduler repair, no labels or quality parameters used.",
+  "frozenFixtureSha256": "32421b607bb5a7584a4d6c8a9c217ce291212229e05a07aded9c96e9a8f204c8"
+}

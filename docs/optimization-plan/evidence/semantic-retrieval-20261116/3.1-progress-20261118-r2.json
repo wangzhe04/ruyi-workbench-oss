@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-11-17T17:50:11.196248+00:00",
+  "status": "PRE_RC_SCOPED_RUNTIME_AND_ORDINARY_ENABLE_PROGRESS",
+  "rootEvidence": [
+    {
+      "path": "output/semantic-gemma2-proxy-cn-lease-smoke-v2/root-review.json",
+      "sha256": "5cefda7e31f0d946722cef4406b8dc2f79c19f9aba17fbc9828cae8f2d4c73dd"
+    },
+    {
+      "path": "output/semantic-gemma2-proxy-resident-smoke-v2/root-review.json",
+      "sha256": "e827a2d203cc7bf09ef1c7444b81e2f0a54cea13fb3666e662cfd96b5a95efc0"
+    },
+    {
+      "path": "output/semantic-target-binding-captured-read-v1/root-review.json",
+      "sha256": "e920a3918f2d80d4b21f23cd22a77a78167b7a2505ac6e9e371c4bacf66f2c13"
+    },
+    {
+      "path": "output/m4-source-preparation-root-20261118-r2/root-integration.json",
+      "sha256": "dbc533a2e9e1d4355ebc22d78e19ca2d6970574a32869732724ad62798ce2afa"
+    },
+    {
+      "path": "output/m4-openh264-repro-root-20261118-r1/root-live-integration.json",
+      "sha256": "39b6dc91df94cc612216c1d28b5baa120c0c98051fb41eb08d4f0ae9cfaa574c"
+    },
+    {
+      "path": "output/semantic-desktop-job-list-build-v1/root-review.json",
+      "sha256": "1aafe9678deb1660c2837439fb01cf807020035daea7e751f266353604a66e51"
+    }
+  ],
+  "immutableSourceCapsules": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-media-supplement-reviewed-20261118-r1/manifest.json",
+      "sha256": "0530e40bef3d85caa7cefec81a83a790844d438a7211edf2646dc8de9588494c"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-resident-and-publication-reviewed-20261118-r1/manifest.json",
+      "sha256": "89fe4fdb909fb43d3ec38be125d21b4291954090f35e082eb87315d44f738a71"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ordinary-enable-and-build-tools-reviewed-20261118-r1/manifest.json",
+      "sha256": "9b0de92e7a27d60969a53238cbb636d6743c18dda7e2b29f76eda30f7c4eb714"
+    }
+  ],
+  "runtime": {
+    "status": "ACTUAL_V4_GEMMA2_RESIDENT65_SCOPED_PASS",
+    "measurements": {
+      "startupCallReturnedMs": 0.34950000000003456,
+      "bootstrapToPublicWarmMs": 4696.9352,
+      "reenablePublicWarmMs": 4607.937600000005,
+      "idleMs": 65009,
+      "twoQueryMs": [
+        57.82659999999942,
+        91.2271000000037
+      ],
+      "idleRowsMiB": [
+        {
+          "role": "parent",
+          "workingSetMiB": 67.4375,
+          "privateMiB": 79.11328125
+        },
+        {
+          "role": "helper",
+          "workingSetMiB": 27.5390625,
+          "privateMiB": 20.0
+        },
+        {
+          "role": "worker",
+          "workingSetMiB": 298.59765625,
+          "privateMiB": 293.84375
+        }
+      ],
+      "idleHelperWorkerWorkingSetMiB": 326.13671875,
+      "idleHelperWorkerPrivateMiB": 313.84375,
+      "idleThreeProcessWorkingSetMiB": 393.57421875,
+      "idleThreeProcessPrivateMiB": 392.95703125,
+      "researchJobPeakCommitMiB": 648.95703125,
+      "cacheEvicted": false,
+      "p95Claimed": false,
+      "desktopIncrementalFootprintClaimed": false
+    },
+    "scope": "Actual frozen core/provider and router host prefix with genuine pinned model, synthetic VM configuration/consumer labels. Not full HTTP/UI or incremental desktop footprint.",
+    "cases": [
+      "Chinese/space canonical lease/helper UTF8 echo and observed cleanup",
+      "nonblocking prewarm call and actual public inference before available",
+      "65009ms resident same helper/worker across two synthetic sessions",
+      "disable observed cleanup and empty homes",
+      "reenable new owned helper/worker with public warm",
+      "normal shutdown observed cleanup and naturally empty outer Job"
+    ],
+    "open": [
+      "early bootstrap parent hard exit and actual desktop JobList matrix",
+      "all supported legacy/direct Node/fallback paths",
+      "full product source/privacy/consumer/quality/performance and clean Windows qualification"
+    ]
+  },
+  "ordinaryEncryption": {
+    "status": "ACTUAL_ENABLE_PUBLISHED_VERIFIED_SUCCESSOR_SCOPED_PASS",
+    "rootPreflightPass": 73,
+    "bindings": 641,
+    "outerForcedReclaim": false,
+    "rootCauseEvidence": "Earlier first published target comparison kept tree SHA but changed native file time.access. Candidate routes selected binding reads through actual target capture owner grant; original Basic4, fixed proof, namespace, identity and hash checks retained.",
+    "scope": "One ordinary synthetic config/session enable, semantic disabled. New successor observed and deliberately closed by the declared inner test Job; outer drained naturally.",
+    "open": [
+      "integrated private consumer injection candidate must be independently reviewed and rerun",
+      "encrypted session/source/index/export/disable lifecycle",
+      "restore/recovery, special ADS/uploads/portable and independent fresh-source Access"
+    ]
+  },
+  "media": {
+    "status": "SOURCE_PREPARATION_AND_OFFLINE_REPRO_BUILDER_INTEGRATED",
+    "sourceSupplementBytes": 15592,
+    "sourceSupplementSha256": "4b2544085f7b545997c77c411948fbed921107b6eedb6c7c83bec66be7cab7c3",
+    "rootSourcePreparationPass": true,
+    "rootValidatorUnitPass": 8,
+    "rootReproBuilderUnitPass": 5,
+    "legacySourceZipAndLockUnchanged": true,
+    "firstFailuresRetained": [
+      "PowerShell document dispatch without PATHEXT; original async Python identity not captured and historical closure not proven.",
+      "Root wrapper test accidentally omitted SystemRoot; managed PowerShell failed before script execution; explicit SystemRoot correction passed without source change."
+    ],
+    "open": [
+      "actual new package source delivery coverage",
+      "actual binary corresponding source/build/relink and applicable distribution obligations"
+    ]
+  },
+  "desktop": {
+    "status": "BASELINE_WAITER_JOBLIST_COMPILE_ONLY_PASS",
+    "targetLibrariesExecuted": false,
+    "liveDesktopModified": false,
+    "productArchitecture": "C# WinForms/WebView2 desktop shell plus Node; earlier Electron wording in experimental disclaimers is inaccurate.",
+    "open": [
+      "actual kernel creation/parent death/handoff/nested/two-instance/normal-close matrix",
+      "direct Node/fallback support",
+      "supported Windows/Server scope and clean machine verification"
+    ]
+  },
+  "checks": {
+    "releaseGateUnitPass": 4,
+    "offlineInstallerStaticPass": 52,
+    "allEightSemanticGates": "pending"
+  },
+  "version": "3.0.1",
+  "defaultModelChanged": false,
+  "commitPushOrPublicRelease": false,
+  "whole31Complete": false,
+  "blindFinalCorpusConsumed": false
+}

@@ -1,0 +1,235 @@
+{
+  "schema": 1,
+  "date": "2026-11-17",
+  "purpose": "3.1 remaining requirements inventory; historical receipts remain bound to their own inputs, not the current tree",
+  "status": "INCOMPLETE_NOT_RELEASE_APPROVAL",
+  "method": "Read the specified roadmap and handoffs and the current file-lease-only receipts; no blind corpus, model scores, native execution or user data was read or run for this audit.",
+  "scope_decisions": [
+    {
+      "item": "Strict managed CLI, independent namespace and VM isolation",
+      "disposition": "Explicitly deferred; do not resume as a 3.1 implementation or qualification requirement. Verify honest unsupported-path behavior and no silent downgrade.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:116",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:50"
+      ]
+    },
+    {
+      "item": "Local ASR and generated anonymized audio",
+      "disposition": "Explicitly deferred; do not download, package or test an ASR model as a 3.1 gate. Unsupported raw audio must continue to be blocked.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:168",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:51"
+      ]
+    },
+    {
+      "item": "General public HTTP/search/page-content privacy adaptation",
+      "disposition": "M2-5 cancelled. Ordinary public networking remains normal; verify that private references are not automatically restored to search terms, URLs or request bodies. Other protected destinations remain in scope.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:110"
+      ]
+    },
+    {
+      "item": "Computer Use, two new visible Desktop GUI tests and four excluded default E2E cases",
+      "disposition": "Explicit historical user prohibition; do not run artifacts.e2e.js, desktop-mcp-smoke.e2e.js, privacy-clipboard-copy.e2e.js or privacy-mermaid-export.e2e.js, or the two new visible Desktop GUI tests under that prohibition. Record missing coverage rather than changing runner, skips or pretending it passed; a different authorized verification route would need to establish the same product claim.",
+      "sources": [
+        "docs/optimization-plan/140-m4-m6-command-line-handoff-20261112.md:5",
+        "docs/optimization-plan/145-3.1-commandline-acceptance-20261115.md:7"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "P0-M2",
+      "scope": "Declared protected text, recipient/scope, local execution and MCP/robot/export boundaries, unsupported-path refusal and no duplicate effects; public network exception above.",
+      "disposition": "In scope; historical batch closure, not final-tree release proof.",
+      "evidence": "Roadmap and handoff record P0/M2 completion for their frozen text boundary; old results are source-specific.",
+      "gap": "Current final source, release build and real supported endpoints need their applicable regression and cross-review, including privacy changes, cancellation, revocation and recovery.",
+      "next": "Inventory current changed boundaries and run the authorized non-excluded source-bound regressions as part of the final frozen matrix.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:15",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:275",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:230"
+      ]
+    },
+    {
+      "id": "M3-enable-restore",
+      "scope": "Opt-in transparent work-data encryption, complete inventory, backup/export, restore and disable with one authority, integrity, owner lifetime and original metadata checks.",
+      "disposition": "Required, not deferred.",
+      "evidence": "Root ran 66 candidate JS/model-native tests and actual ordinary v3. Allocator individually close0 and same PID/creation absent, but whole enable failed. Corrected cause-only v5 localized the later rejection to complete target capture, held Basic time.access; no object path/category was recorded. Both real failures retain unknown; external Job containment active0 is not functional success. New root-reviewed private consumer integration passed 75 native-free checks; failed full lifecycle observed actual encrypted turn, original readback and complete lexical index before export failure.",
+      "gap": "Export fails before capture at held-basic generation-root directory time.access. Triggering access path still unknown; native/Node/final-census phase diagnostic pending. Disable/delete not reached; restore/recovery, special ADS/uploads/portable and independent fresh-source Access remain unqualified.",
+      "next": "Root review integrated candidate under original dependency policy; freeze and execute real synthetic session/source/index/export/disable matrix, then independent restore/recovery and special matrices. Do not reuse retained unknown fixtures.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:188",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:196",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:680",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:682",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:684"
+      ],
+      "progress": "Root actual ordinary enable now SCOPED PASS with641 postverified bindings and73 scoped regressions: target binding reads use actual captured owner grants, fixed target proof/Basic4/namespace/hash guards unchanged; published verification and successor reached, controller0 and outer naturally active0, no fallback. Earlier root/category/postpublication failures remain failed. Integrated private host consumer candidate, complete source/index/export/disable/restore/recovery and special paths remain unqualified.",
+      "checkpoint20261118": "Latest full lifecycle FAIL at export, first-native/generation-root/time.access. Relative-open candidate prepared only; disable/delete/restore/recovery remain open."
+    },
+    {
+      "id": "M3-index-lifecycle",
+      "scope": "Complete authorized original-source shards, message and supported attachment lookup, deletion, encryption transitions and crash/restart recovery; partial coverage honest.",
+      "disposition": "Required.",
+      "evidence": "Older M3 local development runs covered message/attachment retrieval and checkpoint retirement for their own tree. Failed encrypted lifecycle observed two messages, three original fields and two complete lexical index coverage reports; semantic model disabled.",
+      "gap": "Only the successful prefix of a failed lifecycle is observed. Export/disable/delete/rebuild/recovery and final-source installed-build qualification remain open; missing sources cannot be treated as negatives.",
+      "next": "After M3 restoration fix, freeze tree and exercise encrypted/plain indexing, source rewrite/delete/revocation, attachment eligibility, cancellation and restart with exact source/version binding.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:206",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1410",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:119"
+      ]
+    },
+    {
+      "id": "M4-media",
+      "scope": "Actual protected outgoing bytes for supported images/screenshots, document derivatives and video frames; fail closed on missing capability, failure or cancellation; keep unsupported audio refusal.",
+      "disposition": "Required; local ASR is excluded as above.",
+      "evidence": "Historical local Full-local build, protected PDF/image loopback and browser qualifications are limited to their stated source/package and platform, not a current release.",
+      "gap": "Current frozen tree and newly built Slim/Full must revalidate supported media, original/derived byte boundaries, preview, privacy lifecycle and failure paths; public-source requirements are separate.",
+      "next": "Bind existing qualified local media assets and current source, prepare non-excluded synthetic endpoint and package tests, then run on an authorized final candidate without transmitting to real recipients.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:162",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:265",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1432",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1435"
+      ]
+    },
+    {
+      "id": "M4-public-distribution",
+      "scope": "Full-local exact binary-to-source/build provenance and public distribution, corresponding source, license, notices, archives and relink obligations.",
+      "disposition": "Required before public distribution; no inference from local acceptance.",
+      "evidence": "Correction to the historical absence statement in 146:62: the exact 107865207-byte local replacement sidecar now exists at C:/r31-1109/m4-source-v2-local-45a725a7/opencv-windows-ffmpeg-sources-v2-local.zip and matches the existing 57a854ff5a73fed60f12903bdbdd189b7660f024b6724e5a4b804b81ef810a23 lock. A read-only complete 82-member EOF/CRC/SHA inventory and 25 notice-to-source comparisons passed; the separately locked wheel sdist also matches. Official version-index metadata matches all 21 recorded wheel names/sizes/hashes and lists a source distribution for each. These are external local files and index observations, not immutable custody, actual build attestation, legal review, or approval. Historical 146 remains unchanged.",
+      "gap": "Exact FFmpeg build image/digest, package snapshots, compiler/static links and corresponding libgcc/libstdc++/winpthreads materials; per-distribution source-to-binary build, notice/source-delivery/relink and legal review remain open. Index version correspondence alone does not close any of those claims.",
+      "next": "Retain and independently pin the verified external artifacts without modifying the old lock; obtain upstream build attestations and remaining correspondence, complete license/source-delivery and relink review, then bind approved artifacts to the release build. Missing upstream or legal facts require external resolution.",
+      "sources": [
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1431",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1441",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1443",
+        "docs/optimization-plan/146-3.1-package-acceptance-20261116.md:62",
+        "ruyi-workbench/tools/media-runtime-sources-local-full.json:11",
+        "output/m4-public-source-metadata-20261117-r1/local-sidecar-verification.json",
+        "output/m4-public-source-metadata-20261117-r1/pypi-version-matrix.json"
+      ],
+      "progress": "Root verified116 static bindings and byte-exact independent report replay; original32-byte empty OpenH264 header archive defect confirmed. Root independently ran source preparation before/after copying and8 validator tests, offline byte-exact15592-byte supplement reproduction and5 builder tests; reviewed build-tool integration now live. Known empty legacy inner archive remains explicit and original source ZIP/lock unchanged. New full-package coverage and actual corresponding source/build/relink remain open. First dispatch/environment failures preserved."
+    },
+    {
+      "id": "M5-platform",
+      "scope": "QQ and Feishu message correlation, delivery/cancel/manual retry, recipient privacy, rate/window constraints, remote pending decisions, platform receipts and unknown/replay recovery.",
+      "disposition": "Required; platform capability and authorized real testing are external dependencies.",
+      "evidence": "Historical signed synthetic callbacks and local combined flows do not establish real QQ/Feishu behavior. Two root actual fixed group runs are FAIL: first native identity observer unknown; next original serve-health deadline, sampled identity pairing true but native_helper_uncertain startup error. Both forced Job reclaims observed active0; neither is normal functional closure.",
+      "gap": "Fixed current-source HTTP cannot reach server health yet; legitimate WorkData helper startup needs a precisely reviewed harness allowance, not a product disable or deadline change. Full nine-action human, real platform callbacks/receipts/privacy/replay, and production continuous group audience revision provider remain unqualified.",
+      "next": "Review current official platform capabilities and design provider proof for member changes, event loss, disconnect and revocation; retain safe refusal when unavailable. Prepare isolated synthetic tests; real tests require dedicated application/account, permissions, reachable callback and explicitly authorized controlled conversation, not messages to real contacts.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:216",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:218",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1460",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1549"
+      ],
+      "progress": "Root independently reviewed synchronous void audience proof guard and ran79 current-source synthetic tests across7 files, with266 bindings preserved. No current real platform or continuous audience provider qualification; absent provider continues refusing group operation. Generated server and full HTTP/cold lifecycle remain separate. Full HTTP remains unexecuted. Research guard test made an unintended TCP attempt before mock installation; retain execution deviation, no application writes reported, historical PID/creation unavailable; current process name absence is not historical closure proof. No real platform messages sent.",
+      "checkpoint20261118": "Fixed local group v9 FAIL: exact flush spawn denial plus held-HANDLE observer retirement gap. Neither repair implemented. All nine human actions and authorized real QQ/Feishu plus continuous audience revision remain open."
+    },
+    {
+      "id": "M5-workflow",
+      "scope": "Existing-thread sequential relay with source/target revision, result evidence, waiting, failure, stop and restart; editable scheduled Playbook with time zone, permission, occurrence identity and no duplicated effect.",
+      "disposition": "Required; arbitrary DAG editor is not an implied requirement.",
+      "evidence": "Historical source-bound local HTTP, browser and synthetic signed-flow batches cover portions of relay, scheduler and remote pending.",
+      "gap": "No transfer of those historical results to this final tree or current package; full source-bound integrated lifecycle and release matrix remains.",
+      "next": "Prepare current-tree deterministic HTTP/clock/source-revision and encrypted-restart regression without invoking the explicitly excluded Computer Use cases; preserve unknown and no-retry receipts.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:224",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:228",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1449",
+        "docs/optimization-plan/92-3.1-implementation-handoff.md:1454"
+      ]
+    },
+    {
+      "id": "SR1-SR2",
+      "scope": "Approved local model/runtime and offline distribution, source/license inventory, genuine quantized model quality, latency, RSS and size against a properly frozen independent qualification.",
+      "disposition": "Required; independent evaluation material must remain unexposed and must not be substituted by fake encoder or old consumed results.",
+      "evidence": "Current work has genuine transport/scorer component evidence and separately source-bound consumer synthetic regressions; neither is end-to-end model quality or distribution approval.",
+      "gap": "Final qualification corpus and protocol must remain independently controlled; full real model results, correct denominator, source binding, full operating costs and legal/offline assets remain open.",
+      "next": "Complete lifecycle and method freeze, inventory licensed offline dependencies and prepare independent unexposed qualification under the current user-authorized process; do not open or search its contents in this audit.",
+      "sources": [
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:114",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:115",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:616",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:676"
+      ]
+    },
+    {
+      "id": "SR3-SR5",
+      "scope": "Authorized session UI/Agent/steward retrieval and citations; original message and tool-output recovery after compaction; explicit memory search and existing automatic candidate reranking with isolation, expiry and veto semantics.",
+      "disposition": "Required; no new automatic discovery when automatic threshold is null.",
+      "evidence": "Frozen consumer method tests passed on synthetic codec; genuine transport/scorer is separately qualified only at component scope.",
+      "gap": "Current real-model end-to-end consumer, source/privacy/revision and restored-reference flows remain unqualified, including partial/missing source semantics and metadata field-specific admission.",
+      "next": "After final frozen integration, run authorized independent real-model synthetic-data flows across each actual entry and recovery path, followed by quality qualification; verify ID-before-K, strong bypass without refill and independent weak windows.",
+      "sources": [
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:116",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:117",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:118",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:662"
+      ]
+    },
+    {
+      "id": "SR6-resident-hard-exit",
+      "scope": "Background startup, process-lifetime resident shared model, warm cross-session reuse, disable/shutdown observed cleanup, product hard-parent-exit and privacy/key/source lifecycle with sealed non-guessable references.",
+      "disposition": "Required; no idle-unload substitution.",
+      "evidence": "Real synthetic echo/tail, output-stalled unknown fence, input-stalled independent stop, simultaneous groups, parent/helper hard kill and helper prebootstrap parent watcher passed root execution. Prebootstrap helper absence completed at2208ms, before the10s watchdog. Local canonical OS/UTF8 and environment-poison tests passed. These are source-bound primitives, not integrated product lifecycle. Actual same-HANDLE early Node death reclaims preparation PowerShell in about 709ms while the fixed product Host remains alive; outer Job drains naturally. Console entry only, no visible Desktop.",
+      "gap": "Full Desktop-owner death/handoff/nested/two-instance/normal-close, trusted home ACL/lease channel, all legacy/direct Node/fallback paths, clean Windows matrix and total application resources remain unqualified. Unknown must fence every profile/config/fallback.",
+      "next": "Execute remaining reviewed frozen native batches; integrate and independently accept actual startup resident provider, configuration/disable/shutdown/unknown paths and full parent/helper/worker costs.",
+      "sources": [
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:119",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:127",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:638",
+        "output/semantic-resident-proxy-file-lease-smoke-v1/receipt.json",
+        "output/semantic-resident-proxy-file-lease-smoke-v1/outer-job-receipt.json"
+      ],
+      "progress": "Root actual v4 strict provider/router-prefix Gemma2 public warm,65s idle same helper/worker across two synthetic sessions,disable/reenable/normal-shutdown all scoped PASS; normal outer0/no fallback. Idle helper+worker326.14MiB WS/313.84MiB private, Node/VM+helper+worker393.57MiB WS/392.96MiB private; not full Desktop footprint. Existing desktop owner waiter+JobList candidates compiled only and not executed; early hard exit, all supported legacy/direct/fallback paths and full privacy/consumer matrix remain open.",
+      "checkpoint20261118": "Home v2 root65 native-free and compile-only pass; normal/handoff r2 and standalone NAPI unexecuted. Early Node-death scoped pass cannot substitute for full owner/provider/native lifecycle."
+    },
+    {
+      "id": "SR-performance",
+      "scope": "Budget genuine full retrieval including complete source and privacy work, cold/warm behavior, 1000-fragment scaling, memory, CPU, concurrency and clear attribution.",
+      "disposition": "Required; no artificial pruning or partial corpus counted as complete.",
+      "evidence": "Earlier single synthetic input and component timings are not full application or long-resident proof.",
+      "gap": "Current-source complete-pool end-to-end latency and RSS, startup and worst-case resource behavior remain unqualified.",
+      "next": "After lifecycle fix and source freeze, use a separately frozen synthetic workload and report p50/p95, coverage, CPU, parent/worker private and working set, cold/warm timing and overflow independently.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:242",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:604",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:606"
+      ]
+    },
+    {
+      "id": "M6-final-release",
+      "scope": "Final 3.1 source/runtime/model/build hashes, complete authorized static/unit/E2E, review, new offline Slim/Full, installation, upgrade, restoration and rollback; declared desktop, cross-account/machine and interruption/power-loss coverage.",
+      "disposition": "Required release gate; do not execute excluded Computer Use tests or claim their coverage.",
+      "evidence": "146 records 701 checks on earlier packages and a limited command-line old-source/new-package journey, not old released EXE or desktop installer upgrade. Historical 631 RED and first failures remain.",
+      "gap": "Current tree and new packages are not qualified. Real installed Desktop, cross-account/cross-machine, power loss, historical unknown process closure, public Full-local materials and authorized test gaps remain.",
+      "next": "After all upstream work, freeze exact inputs, build fresh offline candidates and run all authorized gates with raw first-failure/skip/unknown records. Obtain separate machines/accounts and any required real-platform authorization; explicitly report what cannot be verified under the Computer Use prohibition rather than claiming total pass.",
+      "sources": [
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:264",
+        "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md:267",
+        "docs/optimization-plan/146-3.1-package-acceptance-20261116.md:46",
+        "docs/optimization-plan/146-3.1-package-acceptance-20261116.md:54",
+        "docs/optimization-plan/146-3.1-package-acceptance-20261116.md:62",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:120",
+        "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md:121"
+      ]
+    }
+  ],
+  "independent_next_batches": [
+    "Continue M3 source access-time and held-handle diagnosis in synthetic owned roots, retaining the exact metadata and authority checks.",
+    "Finish and independently review proxy drain and lifecycle code, then prepare source-bound synthetic Win32 test plans for root's explicit review and execution.",
+    "Perform read-only Full-local artifact/provenance and license gap inventory; obtain missing upstream evidence without claiming distribution authority.",
+    "Review QQ/Feishu audience-revision protocol feasibility and build safe-refusal synthetic cases; do not send platform messages without the controlled account and explicit authorization.",
+    "Prepare current-tree regression mapping and package inputs while preserving exclusions, source identities and previous RED/UNKNOWN results."
+  ],
+  "progressUpdatedAt": "2026-11-18T02:47:33.116983+00:00",
+  "progressMethod": "Root-reviewed historical execution and checkpoint capsule verification, without consuming holdouts or running new native scenes. See latest progress/handoff; all original requirement gaps remain open.",
+  "latestProgressReview": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/3.1-progress-20261118-r5.json",
+    "sha256": "743ceb30ef85445a79098b591d0a96b4fa910f6308da86fed220038f28c7ae2b"
+  }
+}

@@ -155,7 +155,8 @@ function sessionSearchQuery() {
 
 // 去抖 200ms；每次发请求带一个递增序号，只采信最新一次的结果（快打字时先发后到会把
 // 旧结果盖到新查询上）。不取消已发的请求：本机调用代价比 AbortController 的复杂度低。
-function scheduleSessionSearch() {
+function scheduleSessionSearch(refreshAttempt = 0) {
+  if (!Number.isSafeInteger(refreshAttempt)) refreshAttempt = 0;
   const q = sessionSearchQuery();
   if (sessionSearchTimer) { clearTimeout(sessionSearchTimer); sessionSearchTimer = 0; }
   if (q.length < SESSION_SEARCH_MIN_QUERY) {
@@ -175,7 +176,7 @@ function scheduleSessionSearch() {
       const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30`);
       if (seq !== sessionSearchSeq) return;
       if (res && res.ok && Array.isArray(res.results)) {
-        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage };
+        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage, semantic: res.semantic };
       } else {
         sessionSearchState = { query: q, results: null, loading: false, failed: true };
       }
@@ -184,6 +185,17 @@ function scheduleSessionSearch() {
       sessionSearchState = { query: q, results: null, loading: false, failed: true };
     }
     renderSessions({ refresh: false });
+    const semantic = sessionSearchState.semantic;
+    const coverage = sessionSearchState.coverage;
+    // A bounded encoding pass can finish its budget after caching useful fragments.
+    // Continue warming that same query; a zero-progress timeout must not poll forever.
+    const sourcePending = coverage?.complete === false && coverage.pendingSessions > 0 && ['timeout', 'pending', 'building', 'idle'].includes(coverage.phase);
+    const canContinue = !['paused', 'disabled'].includes(coverage?.phase) && (sourcePending || semantic?.status === 'loading' || !semantic?.truncated && (
+      semantic?.status === 'partial' || semantic?.status === 'timeout' && semantic.coverage === 'partial' && semantic.cachedFragments > 0
+    ));
+    if (q === sessionSearchQuery() && refreshAttempt < 32 && canContinue) {
+      sessionSearchTimer = setTimeout(() => { if (q === sessionSearchQuery()) scheduleSessionSearch(refreshAttempt + 1); }, 500);
+    }
   }, SESSION_SEARCH_DEBOUNCE_MS);
 }
 
@@ -224,6 +236,12 @@ function renderSessions(opts) {
   if (coverageNode) {
     const coverage = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.coverage : null;
     const lines = [];
+    const semantic = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.semantic : null;
+    if (semantic && semantic.status !== 'disabled') {
+      if (semantic.status === 'loading') lines.push(t('session.semanticLoading'));
+      else if (['unavailable', 'timeout', 'overloaded'].includes(semantic.status) && !semantic.cachedFragments) lines.push(t('session.semanticFallback'));
+      else if (semantic.coverage !== 'complete') lines.push(t('session.semanticPartial', { cached: semantic.cachedFragments || 0, total: semantic.candidateFragments || 0 }));
+    }
     if (coverage && Number.isSafeInteger(coverage.indexedSessions) && Number.isSafeInteger(coverage.sessions)) {
       lines.push(t('session.searchCoverage', { indexed: coverage.indexedSessions, total: coverage.sessions }));
       if (coverage.phase === 'paused') lines.push(t('session.searchPaused'));

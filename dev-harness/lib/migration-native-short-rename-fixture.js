@@ -5,7 +5,8 @@ const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 const LIMITS=Object.freeze({outerMs:120000,commandMs:120000,closeMs:2000,metadataMs:30000,capsules:8,metadata:2,wireBytes:1048576});
 const RELS=Object.freeze(['','D','D/A','D/B']);
 const PHASES=Object.freeze([['initial-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['initial-verify',['capture-preserved-census-first','capture-preserved-census-final']],['N0',['capture-preserved']],['seal',['attach','seal-attached','verify']],['restore',['attach','publish-check','restore','publish']],['final-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['final-verify',['capture-preserved-census-first','capture-preserved-census-final']],['final-native',['capture-preserved']]]);
-const FACTORY_SHA='d32f7de37b6f8c16df0eb7a773303051003a90a1e9b64453bde4f4160bfe32b8';
+const HISTORICAL_FACTORY_SHA='d32f7de37b6f8c16df0eb7a773303051003a90a1e9b64453bde4f4160bfe32b8';
+const FACTORY_SHA='25b155b504be1450b21527736b01bbd1b378358a7fa4dfd7d89d6b2294b99605';
 function error(code,cause){return Object.assign(Error(code),{code,...(cause===undefined?{}:{cause})});}
 class State{
  constructor(now,started=now(),retain=()=>{}){a.equal(typeof now,'function');a(Number.isSafeInteger(started)&&started>=0&&started<=now());this.now=now;this.started=started;this.deadline=started+LIMITS.outerMs;this.first=null;this.unknown=false;this.native=0;this.metadata=0;this.retainOwner=retain;}
@@ -37,4 +38,4 @@ function installAdmission(api,{admit,afterFactory,latch}){
  }.toString()+')');
  return install(admit,afterFactory,latch,sha,FACTORY_SHA);
 }
-module.exports={sha,LIMITS,RELS,PHASES,FACTORY_SHA,State,error,fixture,check,publicSnapshot,same,metadata,installAdmission};
+module.exports={sha,LIMITS,RELS,PHASES,HISTORICAL_FACTORY_SHA,FACTORY_SHA,State,error,fixture,check,publicSnapshot,same,metadata,installAdmission};

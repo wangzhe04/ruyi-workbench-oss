@@ -279,7 +279,11 @@ async function readMemoryDir(dir, scope) {
         const oldest = MEMORY_HEAD_CACHE.keys().next();
         if (!oldest.done) MEMORY_HEAD_CACHE.delete(oldest.value);
       }
-      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority, entry });
+      // Keep explicit header fields separate from the legacy display fallback
+      // that derives a description from the first body paragraph.
+      const semanticHeaderText=[id,(fm.name||id).slice(0,120),String(fm.description||'').slice(0,400),
+        String(fm.coresummary||fm.description||'').slice(0,CORE_MEMORY_SUMMARY_CAP),type].filter(Boolean).join(' ');
+      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority, entry, semanticHeaderText });
     }
   }
   return out;
@@ -860,7 +864,7 @@ async function syncAgentInstructionImportsUnlocked(opts) {
 async function resolveWorkbenchMemoryToolContext(ctx) {
   const sid = safeSessionId((ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || '');
   let session = ctx && ctx.session;
-  if (!session && sid) session = await loadSession(sid).catch(() => null);
+  if (!session && sid) session = await loadSession(sid);
   const config = (ctx && ctx.config) || await readConfig();
   const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), config.defaultWorkspace);
   return { sid, session, config, cwd };
@@ -884,21 +888,45 @@ async function listWorkbenchMemories(args, ctx) {
   if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
   // 带 query 时 preference/convention 无词命中也会入榜(默认应遵守的稳定规则,列出来是对的),但它们【没有被这次检索
   // 选中】—— 只给真命中的条目记一次使用(useCount/lastUsedAt 喂记忆的新鲜度与淘汰判断,不该被不相干的查询刷高)。
-  let matched = null;
+  let matched = null, semantic, semanticMatches, semanticCheck;
   if (query) {
-    const ranked = rankRelevantMemoriesScored(registry, query).slice(0, limit);
-    registry = ranked.map(x => x.entry);
-    matched = ranked.filter(x => x.shared > 0).map(x => x.entry);
+    const generation=configReadGeneration,rewind=Number(session?.rewindGen)||0,anchor=session?.createdAt,owner=ctx?.executionOwner;
+    const policyGuard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+    const configRevision=value=>JSON.stringify(Object.fromEntries(Object.entries(value||{}).filter(([key])=>/memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
+    const currentConfig=await readConfig(),configVersion=configRevision(currentConfig);
+    const stale=()=>{throw Object.assign(Error('memory_semantic.stale'),{code:'memory_semantic.stale',memorySemanticGuardFailure:true});};
+    const sync=()=>{
+      if(ctx?.signal?.aborted||owner?.cancelRequested)throw Object.assign(Error('memory_semantic.aborted'),{name:'AbortError',code:'ABORT_ERR',memorySemanticGuardFailure:true});
+      policyGuard();if(!context.valid()||configReadGeneration!==generation||(Number(session?.rewindGen)||0)!==rewind||session?.createdAt!==anchor||sessionObjectIsStale(session))stale();
+    };
+    semanticCheck=async()=>{
+      sync();if(owner?.authority)await revalidateSessionExecutionPermission(session.id,owner);sync();
+      if(!await context.current())stale();sync();
+      if(configRevision(await readConfig())!==configVersion)stale();sync();
+      if(!await memoryToolLibraryCurrent(cwd,libraryVersion))stale();sync();
+      if(!await context.current())stale();sync();
+    };
+    try{
+      const recalled=typeof MemorySemanticHooks.search==='function'
+        ?await MemorySemanticHooks.search(registry,query,limit,{...config,semanticRetrievalV1:config.semanticRetrievalV1!==false&&currentConfig.semanticRetrievalV1!==false,
+          runtimeMemoryVectorRecallV1:memoryVectorRecallEnabled(config)&&memoryVectorRecallEnabled(currentConfig)},
+          {scopeId:'memory-explicit:'+String(session?.id||'')+':'+projectKeyForCwd(cwd),signal:ctx?.signal,check:semanticCheck})
+        :null;
+      if(recalled){registry=recalled.entries;matched=recalled.matched;semantic=recalled.semantic;semanticMatches=recalled.matches;}
+      else{const ranked=rankRelevantMemoriesScored(registry,query).slice(0,limit);registry=ranked.map(x=>x.entry);matched=ranked.filter(x=>x.shared>0).map(x=>x.entry);}
+      await semanticCheck();
+    }catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}
   } else registry = registry.slice(0, limit);
   if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion)) return { ok: false, error: 'memory context changed or unavailable' };
   if (matched && matched.length) await touchMemoryUsage(matched, cwd, 'relevant');
   if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current()
     || registry.some(e => memoryIsExpired(e))) return { ok: false, error: 'memory context changed or unavailable' };
-  return { ok: true, query, scope, count: registry.length, core: coreState.stats,
+  if(semanticCheck){try{await semanticCheck();}catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}}
+  return { ok: true, query, scope, count: registry.length, core: coreState.stats,...(semantic?{semantic}:{}),
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
       createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
       reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount,
-      ...memoryToolSupersededStatus(m, superseded, eligible) })) };
+      ...memoryToolSupersededStatus(m, superseded, eligible),...(semanticMatches?.has(memoryRetrievalKey(m))?{retrieval:semanticMatches.get(memoryRetrievalKey(m))}:{}) })) };
 }
 
 async function readWorkbenchMemory(args, ctx) {
@@ -931,7 +959,9 @@ function memorySelectionSignature(session, cwd) {
 }
 
 function memoryToolLibraryVersion(registry, edges = []) {
-  return JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e.memoryVersion || '', memoryIsExpired(e)]), edges]);
+  // mtime/size is a cache hint, not a content identity. Include the actual
+  // metadata so same-sized edits with a preserved mtime cannot pass this guard.
+  return crypto.createHash('sha256').update(JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e, memoryIsExpired(e)]), edges])).digest('hex');
 }
 
 async function memoryToolLibraryCurrent(cwd, version) {
@@ -946,20 +976,21 @@ async function resolveWorkbenchMemoryReadContext(ctx) {
   const initialReg = rawSid ? activeChildren.get(rawSid) : null;
   const context = await resolveWorkbenchMemoryToolContext(initialSession ? { ...ctx, session: initialSession } : ctx);
   const { sid, session, cwd } = context;
+  const rewind=Number(session?.rewindGen)||0,anchor=session?.createdAt;
   const signature = initialSignature || memorySelectionSignature(session, cwd);
   context.valid = () => (typeof ctx?.memoryReadOwner !== 'function' || ctx.memoryReadOwner() === true)
     && (!rawSid || sid === rawSid && !!session) && !ctx?.signal?.aborted
     && (!session || normalizeCwd(session.cwd, context.config.defaultWorkspace) === cwd)
     && (ctx?.memoryLiveRead !== true || !!initialReg || typeof ctx?.memoryReadOwner === 'function' && ctx.memoryReadOwner() === true)
     && (ctx?.turnSeq == null || Number(ctx.turnSeq) === Number(session?.turnSeq))
-    && memorySelectionSignature(session, cwd) === signature
-    && (!initialReg || activeChildren.get(sid) === initialReg && !initialReg.exited && initialReg.state === 'running')
+    && memorySelectionSignature(session, cwd) === signature && (Number(session?.rewindGen)||0)===rewind && session?.createdAt===anchor
+    && (!initialReg || activeChildren.get(sid) === initialReg && initialReg.session===session && !initialReg.exited && initialReg.state === 'running')
     && (!sid || !activeChildren.has(sid) || activeChildren.get(sid) === initialReg);
   context.current = async () => {
     if (!context.valid()) return false;
     if (sid && !initialReg) {
-      const fresh = await loadSession(sid).catch(() => null);
-      if (!fresh || memorySelectionSignature(fresh, cwd) !== signature) return false;
+      const fresh = await loadSession(sid);
+      if (!fresh || memorySelectionSignature(fresh, cwd) !== signature || (Number(fresh.rewindGen)||0)!==rewind || fresh.createdAt!==anchor) return false;
     }
     return context.valid();
   };
@@ -1934,6 +1965,28 @@ function buildMemoryPromptSection(entries, engine, config, conflicts, opts) {
   return [coreSection, relatedSection].filter(Boolean).join('\n');
 }
 
+// Until automatic semantic admission is calibrated, a reranker cannot decide
+// which entries survive the existing character cap. Admit reranking only when
+// every selected header fits even with maximum legal relation tags, in either
+// provider-by-id or native-path rendering. The original renderer is the oracle.
+function memorySemanticBudgetSafe(entries, config) {
+  const peers = new Set(['a', 'b', 'c', 'd'].map(letter => letter.repeat(64)));
+  const marks = new Map(entries.map(entry => [entry.id, peers]));
+  marks.supersededBy = new Map(entries.map(entry => [memoryRetrievalKey(entry), peers]));
+  const pack = getPromptPack(config && config.locale), cap = memoryIndexCharCap(config);
+  for (const engine of ['claude', 'openai']) {
+    let readTool;
+    if (engine === 'claude' && config?.workDataEncryptionV1 === true) {
+      if (typeof MemoryCliHooks.readerTool !== 'function') return false;
+      readTool = MemoryCliHooks.readerTool(config);
+      if (typeof readTool !== 'string' || !readTool) return false;
+    }
+    const rendered = buildMemoryPromptSection(entries, engine, { ...config, memoryIndexCharCapV1: 100000 }, marks, { part: 'related', readTool });
+    if (rendered.length > cap || rendered.includes(pack.memoryTruncated)) return false;
+  }
+  return true;
+}
+
 // 每回合随 query 变化的那一半:检索回执 + 相关记忆索引(不含核心胶囊)。provider 引擎投到末条 user 尾部、Claude/Kimi 拼进回合信封,
 // 稳定的核心胶囊与指南留在缓存前缀 / 去重载荷里(#9/#10:修前这一半跟着前缀走,召回一变整段前缀缓存/去重载荷全断)。
 function buildMemoryTurnSection(entries, engine, config, conflicts, status) {
@@ -2520,6 +2573,11 @@ function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
 function memoryRetrievalText(entry) {
   return [entry.id, entry.name, entry.description, entry.coreSummary, entry.type].filter(Boolean).join(' ');
 }
+function memoryExplicitRetrievalText(entry) {
+  const cached=MEMORY_HEAD_CACHE.get(entry?.file);
+  return cached&&cached.key===entry.memoryVersion&&cached.entry.id===entry.id&&cached.entry.scope===entry.scope
+    ?cached.semanticHeaderText:null;
+}
 function memoryRetrievalKey(entry) {
   return `${entry.scope}:${entry.id}`;
 }
@@ -2713,15 +2771,79 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   // hunt2-mcp:相关记忆在【去掉已激活核心之后】的候选里排 Top-N。修前先在含核心的全集里取 Top-N、再滤核心,
   // 核心条目恰好最相关时名额全被它们占掉,related 变成空,而明明还有匹配的非核心记忆。
   const nonCore = eligible.filter(e => !coreKeys.has(e.scope + ':' + e.id));
-  let entries, fillKeys = new Set();
+  let entries, fillKeys = new Set(), semanticStatus, revalidateMemorySemantic;
+  const staleResult = () => ({ entries: [], coreEntries: [], status: { mode: 'stale', enabled: true, checked: false, candidateCount: 0, matchCount: 0,
+    projectMatches: 0, globalMatches: 0, excludedCount: exclusions.size, coreActiveCount: 0,
+    semantic: { status: 'stale', mode: 'rerank-only', automaticCandidates: false } } });
   if (explicit) entries = nonCore; // 固定选择不走排序，向量开关对它本来就不适用
   else {
-    const recalled = rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
-    entries = recalled.entries; fillKeys = recalled.fillKeys;
+    const signature = memorySelectionSignature(session, cwd), rewind = Number(session?.rewindGen) || 0;
+    const generation = configReadGeneration, owner = session?.id ? activeChildren.get(session.id) : null;
+    let policyGuard;
+    const stale = () => { throw Object.assign(Error('memory_semantic.stale'), { code: 'memory_semantic.stale' }); };
+    const assertCurrent = () => {
+      if (options.signal?.aborted || options.executionOwner?.cancelRequested) throw Object.assign(Error('memory_semantic.aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+      if (!policyGuard) policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : () => {};
+      policyGuard();
+      if (typeof options.executionOwnerCurrent === 'function' && options.executionOwnerCurrent() !== true) stale();
+      if (sessionObjectIsStale(session) || memorySelectionSignature(session, cwd) !== signature
+        || (Number(session?.rewindGen) || 0) !== rewind || configReadGeneration !== generation
+        || session?.id && activeChildren.get(session.id) !== owner || owner && (owner.cancelRequested || owner.exited || owner.session && owner.session !== session)) stale();
+    };
+    const revision = rows => JSON.stringify(rows.map(entry => [memoryRetrievalKey(entry), entry, memoryIsExpired(entry)]));
+    const coreRevision = active => JSON.stringify(active.map(entry => [memoryRetrievalKey(entry), memoryCoreLine(entry)]).sort((a, b) => a[0].localeCompare(b[0])));
+    const initialCore = coreRevision(coreEntries);
+    const initialRevision = revision(registry), initialEligible = revision(eligible);
+    let edgeVersion, configVersion;
+    const configRevision = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).filter(([key]) => /memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
+    const check = async phase => {
+      try {
+      const authority = async () => { assertCurrent(); if (typeof options.executionOwnerRevalidate === 'function') await options.executionOwnerRevalidate(); assertCurrent(); };
+      await authority();
+      const currentConfig = await readConfig(); await authority();
+      if (phase === 'start') configVersion = configRevision(currentConfig);
+      else if (configVersion !== configRevision(currentConfig)) stale();
+      const current = await loadMemoryRegistry(cwd); await authority();
+      const currentEligible = eligibleMemoryEntries(session, current, cwd, effectiveConfig);
+      if (nativeCli) { const kept = filterMemoryForNativeCli(currentEligible, nativeCli); currentEligible.length = 0; currentEligible.push(...kept); }
+      if (revision(current) !== initialRevision || revision(currentEligible) !== initialEligible) stale();
+      const currentCore = await resolveCoreMemoryState(cwd, currentEligible, effectiveConfig); await authority();
+      if (coreRevision(currentCore.active) !== initialCore) stale();
+      const edges = JSON.stringify(await readConfirmedSupersedeEdges(cwd)); await authority();
+      if (phase === 'start') { edgeVersion = edges; revalidateMemorySemantic = () => check('finish'); }
+      else if (edgeVersion !== edges) stale();
+      } catch (error) {
+        if (error && (typeof error === 'object' || typeof error === 'function')) {
+          let marked = false;
+          try { Object.defineProperty(error, 'memorySemanticGuardFailure', { value: true, configurable: true }); marked = true; } catch { /* Frozen failures need the explicit wrapper below. */ }
+          if (marked) throw error;
+        }
+        throw Object.assign(Error('memory_semantic.guard_failed', { cause: error }), { code: 'memory_semantic.guard_failed', memorySemanticGuardFailure: true });
+      }
+    };
+    let recalled;
+    try {
+      recalled = typeof MemorySemanticHooks.rank === 'function'
+        ? await MemorySemanticHooks.rank(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig,
+          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check })
+        : rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
+    } catch (error) {
+      if (error?.code !== 'memory_semantic.stale') throw error;
+      return staleResult();
+    }
+    semanticStatus = recalled.semantic;
+    // Relation suppression uses the previous baseline order. In particular a
+    // supersedes cycle must not select a different survivor due to reranking.
+    entries = recalled.baselineEntries || recalled.entries; fillKeys = recalled.fillKeys;
+    let supersededKeys = new Set();
     // #16 supersedes 的运行时效果:被 confirmed supersedes 指向的条目 —— 取代者已在本轮注入(核心或相关)就不再重复注入旧版本;
     // 取代者没进本轮则旧版本排到末尾(降权)并在索引行上标「[已被 X 取代]」。固定选择(explicit)是用户的明确选择,只标注、不增删。
     if (entries.length) {
-      const supersededBy = memoryValidSupersededBy(await readConfirmedSupersedeEdges(cwd).catch(() => []), byKey);
+      const supersededBy = memoryValidSupersededBy(await readConfirmedSupersedeEdges(cwd).catch(error => {
+        if (memoryBodyIsWorkDataError(error) || String(error?.code || '').startsWith('privacy.') || error?.memorySemanticGuardFailure === true) throw error;
+        return [];
+      }), byKey);
+      supersededKeys = new Set(supersededBy.keys());
       if (supersededBy.size) {
         const present = new Set([...coreEntries, ...entries].map(memoryRetrievalKey));
         const kept = [], demoted = [];
@@ -2735,11 +2857,20 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
         entries = kept.concat(demoted);
       }
     }
+    if (recalled.baselineEntries) {
+      const admitted = new Set(recalled.rankingKeys), order = new Map(recalled.entries.map((entry, index) => [memoryRetrievalKey(entry), index]));
+      const positions = []; entries.forEach((entry, index) => { const key = memoryRetrievalKey(entry); if (admitted.has(key) && !supersededKeys.has(key)) positions.push(index); });
+      const ranked = positions.map(index => entries[index]).sort((a, b) => order.get(memoryRetrievalKey(a)) - order.get(memoryRetrievalKey(b)));
+      entries = entries.slice(); positions.forEach((position, index) => { entries[position] = ranked[index]; });
+    }
   }
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
-  ]).catch(() => {});
+  ]).catch(error => { if (memoryBodyIsWorkDataError(error) || String(error?.code || '').startsWith('privacy.') || error?.memorySemanticGuardFailure === true) throw error; });
+  if (revalidateMemorySemantic) {
+    try { await revalidateMemorySemantic(); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleResult(); }
+  }
   return {
     entries, coreEntries,
     status: {
@@ -2752,6 +2883,7 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
       globalMatches: entries.filter(e => e.scope === 'global' && !fillKeys.has(memoryRetrievalKey(e))).length,
       excludedCount: exclusions.size,
       coreActiveCount: coreEntries.length,
+      ...(semanticStatus ? { semantic: semanticStatus } : {}),
     },
   };
 }

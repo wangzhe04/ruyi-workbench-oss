@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "status": "OFFICIAL_CONVERSION_RANK_RUNTIME_SCOPED_REVIEWED_QUALITY_RED",
+  "manifests": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/manifest.json",
+      "sha256": "86006a765f8cae0e9e8b807d8c2d75d9ff5e1705ea970eeaa76c9bc836e8d669"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/manifest.json",
+      "sha256": "dab735c20d1fb4ffa1361500c0e2589d3d9644d3d0ca0dda832503e2a739f739"
+    }
+  ],
+  "records": [
+    {
+      "source": "output/native-headless-qwen-research/root-rank-resource-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/019-root-rank-resource-review-r1.json.gz",
+      "sha256": "47545adaef60408c3681b647babe3da912dcb3ac107fb7a1e0d12bb30161f279",
+      "bytes": 787,
+      "gzipSha256": "f2df361e0ff9b0c2e1a74542373541c1b0aedd52740d62dc557ab1b6374fbd80",
+      "gzipBytes": 497
+    },
+    {
+      "source": "output/semantic-warm-query-audit-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/020-semantic-warm-query-audit-r1.json.gz",
+      "sha256": "6a253755a804a533b50e8b9446649ccee422830b11ffd48b2207119ec2dd8dd5",
+      "bytes": 5172,
+      "gzipSha256": "ce8298f556b9b049aa12887c911e30f1befcfac7acdd941b36c78a7cecdcf7f6",
+      "gzipBytes": 2414
+    }
+  ],
+  "resourceEvidenceScope": "44 variant and44 cross-thread scalar/token comparisons;20 short samples per profile; no production quality/p95 qualification",
+  "selectedResearchThreads": 6,
+  "releaseGatesClosed": [],
+  "limits": [
+    "Preserve both immutable manifests and original failures; no model/binary/credentials archived.",
+    "Only research thread choice; default/model manifest unchanged and all SR pending."
+  ],
+  "supersedesIndexWithoutChangingIt": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/review-index.json",
+    "sha256": "6da7870a734c86549a0dd82962668a1f7ac0b2e3262afdae55f97888b49d2c9e"
+  },
+  "warmPerformanceLimit": "Historical351ms is old13ap b44;13 repeated/17 unseen queries and cache hits are inferred, not measured; no adding standalone187ms verifier p95 to establish complete-search p95."
+}

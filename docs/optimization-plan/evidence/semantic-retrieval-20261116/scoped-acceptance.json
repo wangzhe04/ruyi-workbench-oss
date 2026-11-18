@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "completedAt": "2026-11-16T11:55:22.032Z",
+  "status": "PASS_SCOPED_IMPLEMENTATION_ACCEPTANCE",
+  "releaseReady": false,
+  "productVersion": "3.0.1",
+  "sourceFilesVerified": 168,
+  "unit": {
+    "tests": 5376,
+    "passed": 5341,
+    "failed": 0,
+    "skipped": 35
+  },
+  "static": {
+    "passed": 100,
+    "failed": 0,
+    "flaky": 0
+  },
+  "slimSemanticChecks": 46,
+  "slimPackageQualificationChecks": 8,
+  "realModelQuality": {
+    "documents": 48,
+    "queries": 48,
+    "chineseRecallAt5": 0.9166666666666666,
+    "crossLanguageRecallAt5": {
+      "enToZh": 1,
+      "zhToEn": 1
+    },
+    "allRecallAt5": 0.9791666666666666,
+    "mrr": 0.8739583333333334,
+    "noAnswerFalsePositiveRate": 0.55
+  },
+  "modelFingerprint": "sha256:2d59dcd287005ee9adbb394f7dc94bbc5f9117bde908517ff24a7e30cfa74ba8",
+  "slim": {
+    "path": "ruyi-workbench/dist/semantic-20261116-r5/Ruyi-slim.zip",
+    "bytes": 191867501,
+    "sha256": "975dff1a274ec0f3f702772baf210d1577f4af02e9aab89fcbdaedf76e932108"
+  },
+  "full": {
+    "status": "BLOCKED",
+    "reason": "Missing exact corresponding-source sidecar; see full-blocker.json"
+  },
+  "limitations": [
+    "Automatic semantic-only memory candidates remain disabled.",
+    "Full-source scan has no complete end-to-end deadline; search latency target not met.",
+    "Cross-master owner re-sign/production restore, original-message multi-engine recovery and offline GUI/install acceptance remain open.",
+    "No real user data or public release; first failures and intermediate candidates retained."
+  ]
+}

@@ -127,6 +127,10 @@ function desktopLifetimeAdmit() {
   if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode:'work_data.maintenance_busy', statusCode: 409 });
 }
 async function desktopLifetimeStopInfrastructure() {
+  if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.shutdown === 'function') {
+    const semantic = await SemanticRuntimeHooks.shutdown();
+    if (semantic?.cleanupStatus !== 'observed' || semantic?.workerExited !== true) throw Error('desktop_lifetime.semantic_uncertain');
+  }
   if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop();
   if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox();
   stopScheduler();

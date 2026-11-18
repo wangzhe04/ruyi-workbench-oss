@@ -1,0 +1,433 @@
+{
+  "schema": 1,
+  "status": "PASS_SCOPED_PACKAGE_QUALIFICATION",
+  "startedAt": "2026-11-16T11:36:06.724Z",
+  "driverNode": "v24.14.0",
+  "stage": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\dist\\semantic-20261116-r4\\Ruyi-slim",
+  "zip": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\dist\\semantic-20261116-r4\\Ruyi-slim.zip",
+  "expectedServerSha": "932f73284caf84054c5e40f41b0dd0195e258d52c75a97a5000b8f5a4604ee7d",
+  "fullMediaRequested": false,
+  "budgetsMs": {
+    "archive": 600000,
+    "startup": 120000,
+    "productionChild": 90000,
+    "request": 90000,
+    "mediaPrepare": 180000,
+    "cleanup": 45000
+  },
+  "checks": [
+    {
+      "type": "real application EXE, Desktop, loader and bundled Node exist; stage server matches the explicit pin",
+      "status": "PASS"
+    },
+    {
+      "type": "every ZIP entry reaches CRC-checked EOF and all stage files match byte-for-byte without unsafe/duplicate paths",
+      "status": "PASS"
+    },
+    {
+      "type": "c2-provider-startup-resolved",
+      "phase": "resolved",
+      "settled": true,
+      "closeRequested": false,
+      "closeStatus": "not-requested",
+      "listenerCloseObserved": false,
+      "rejection": null,
+      "closeError": null,
+      "diagnosticErrors": []
+    },
+    {
+      "type": "plain: genuine EXE owns exact runtime/health/token and serves the actual packaged public JS",
+      "status": "PASS"
+    },
+    {
+      "type": "plain: real local model calls file_write once, receives the actual tool result and continues with preserved history",
+      "status": "PASS"
+    },
+    {
+      "type": "encrypted: genuine EXE owns exact runtime/health/token and serves the actual packaged public JS",
+      "status": "PASS"
+    },
+    {
+      "type": "encrypted: real local model calls file_write once, receives the actual tool result and continues with preserved history",
+      "status": "PASS"
+    },
+    {
+      "type": "encrypted: stage Node production cold reader matches real EXE history; physical session files are bound sealed records without base fallback",
+      "status": "PASS"
+    },
+    {
+      "type": "stage and ZIP remain byte-identical after both normal EXE scenarios",
+      "status": "PASS"
+    },
+    {
+      "type": "c2-provider-close-requested",
+      "phase": "resolved",
+      "settled": true,
+      "closeRequested": true,
+      "closeStatus": "pending",
+      "listenerCloseObserved": false,
+      "rejection": null,
+      "closeError": null,
+      "diagnosticErrors": []
+    },
+    {
+      "type": "c2-provider-startup-retained-pending",
+      "phase": "resolved",
+      "settled": true,
+      "closeRequested": true,
+      "closeStatus": "pending",
+      "listenerCloseObserved": false,
+      "rejection": null,
+      "closeError": null,
+      "diagnosticErrors": []
+    },
+    {
+      "type": "c2-provider-listener-close",
+      "phase": "resolved",
+      "settled": true,
+      "closeRequested": true,
+      "closeStatus": "pending",
+      "listenerCloseObserved": true,
+      "rejection": null,
+      "closeError": null,
+      "diagnosticErrors": []
+    },
+    {
+      "type": "c2-provider-close-observed",
+      "phase": "resolved",
+      "settled": true,
+      "closeRequested": true,
+      "closeStatus": "closed",
+      "listenerCloseObserved": true,
+      "rejection": null,
+      "closeError": null,
+      "diagnosticErrors": []
+    }
+  ],
+  "actors": [
+    {
+      "role": "zip-readback",
+      "pid": 10984,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "close": {
+        "code": 0,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": null,
+      "knownCleanup": true,
+      "logErrors": []
+    },
+    {
+      "role": "bundled-node-version",
+      "pid": 18276,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "close": {
+        "code": 0,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": null,
+      "knownCleanup": true,
+      "logErrors": []
+    },
+    {
+      "role": "plain-exe",
+      "pid": 30976,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "close": {
+        "code": 1,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": {
+        "killed": [
+          30976
+        ]
+      },
+      "knownCleanup": true,
+      "logErrors": []
+    },
+    {
+      "role": "encrypted-seed",
+      "pid": 29948,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "close": {
+        "code": 0,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": null,
+      "knownCleanup": true,
+      "logErrors": []
+    },
+    {
+      "role": "encrypted-exe",
+      "pid": 24748,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "close": {
+        "code": 1,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": {
+        "killed": [
+          24748
+        ]
+      },
+      "knownCleanup": true,
+      "logErrors": []
+    },
+    {
+      "role": "encrypted-inspect",
+      "pid": 6264,
+      "stdio": [
+        "ignore",
+        "pipe",
+        "pipe"
+      ],
+      "spawn": true,
+      "error": null,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "close": {
+        "code": 0,
+        "signal": null
+      },
+      "streams": {
+        "stdout": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        },
+        "stderr": {
+          "availability": "original-pipe",
+          "end": true,
+          "close": true,
+          "error": null
+        }
+      },
+      "killReceipt": null,
+      "knownCleanup": true,
+      "logErrors": []
+    }
+  ],
+  "scenarios": [
+    {
+      "mode": "plain",
+      "selected": {
+        "mode": "plaintext",
+        "root": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-package-qualification-r4\\plain\\data"
+      },
+      "embeddedNode": "v24.18.0",
+      "bundledNode": "v24.14.0",
+      "pid": 30976,
+      "port": 60793,
+      "overlayId": "b4845f72888a",
+      "sessionId": "sess_94c846439c614e8a",
+      "fileSha256": "af041440ba8de5ed54dce461b6f1d9f995a2b87a49b60a9926cb0f99a296a165",
+      "providerPosts": 3,
+      "writeCalls": 1
+    },
+    {
+      "mode": "encrypted",
+      "selected": {
+        "mode": "encrypted",
+        "root": "c:\\users\\87179\\documents\\claude code\\ruyi-workbench-oss\\output\\semantic-package-qualification-r4\\encrypted\\data\\.work-data\\generations\\106470f25a22caa55f32e128892d04f56252c0ed39fcc75f",
+        "id": "106470f25a22caa55f32e128892d04f56252c0ed39fcc75f",
+        "generation": 1,
+        "manifestSha256": "42da6d86df51973cb3c49eecc95cd66461453c36cd2985e2d145830d79a6310e",
+        "dpapi": "Windows CurrentUser; production LocalSecretCrypto",
+        "node": "v24.14.0"
+      },
+      "embeddedNode": "v24.18.0",
+      "bundledNode": "v24.14.0",
+      "pid": 24748,
+      "port": 56915,
+      "overlayId": "456a95247fb3",
+      "sessionId": "sess_4ec2088dfe831a4b",
+      "fileSha256": "989a2234afdb23945d281fe09e96fc6da3aa9c8c20f1267a7b5dd493f7810081",
+      "providerPosts": 3,
+      "writeCalls": 1,
+      "coldReader": {
+        "status": "PASS",
+        "node": "v24.14.0",
+        "generation": 1,
+        "manifestSha256": "42da6d86df51973cb3c49eecc95cd66461453c36cd2985e2d145830d79a6310e",
+        "physicalSessionSha256": {
+          "sess_4ec2088dfe831a4b.json": "252c189586cded714bc390ce91cce689b62884a9a3985d46649ce7be8f8679e6",
+          "sess_4ec2088dfe831a4b.messages.ndjson": "19c17578011ef73d3460a6162135acf1f7cb83114044be1f73811b518f8c8d6f",
+          "sess_4ec2088dfe831a4b.provider.ndjson": "047fc457749075d1a0afa4179dbeb70c612a7074599b9abdf2775bbf070fa21f"
+        },
+        "originalHeadAndBodyBytesUnchanged": true,
+        "historyScope": "id/title/turnSeq and complete messages/providerHistory arrays"
+      }
+    }
+  ],
+  "bounds": [
+    "manual opt-in qualification, not a default test asset requirement",
+    "no GUI/Desktop interaction, installation or upgrade acceptance",
+    "local synthetic provider only; no real account/platform",
+    "stage server pin is checked; embedded-source provenance additionally relies on the official build receipt",
+    "no all-descendant kernel-exit certification"
+  ],
+  "stageCensus": {
+    "files": 1492,
+    "directories": 243,
+    "sha256": "2242e2461e7368fe1f196e4588ad1ff537c6b0e0cc8cc117a8cacfe49f97140e"
+  },
+  "binarySha256": {
+    "app/server.js": "932f73284caf84054c5e40f41b0dd0195e258d52c75a97a5000b8f5a4604ee7d",
+    "app/public/js/steward-decisions.js": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a",
+    "Ruyi.exe": "c16455ead41b92f0639c49bd0e777821f9f457e0b8551e4bafe5e2ac55b8a4ac",
+    "RuyiDesktop.exe": "75f2f20d70309679dfaa5d4c3e491177f83647217d83e4a99ace434af79973bb",
+    "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+    "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+  },
+  "zipSha256": "89440c1a064cf3258683c786e0bfca8c7be12a2284f8832b3de22fee0cb25c6d",
+  "archive": {
+    "files": 1492,
+    "entries": 1735,
+    "bytes": 443657011,
+    "python": "3.12.10",
+    "reportSha256": "ce06b387dfab153cd588572e1acc88237ed3324c07371ea4d097fe7b3f52945e",
+    "hostToolOnly": true,
+    "crcReadToEof": true
+  },
+  "bundledNode": "v24.14.0",
+  "retentionDeadline": 1794829082726,
+  "provider": {
+    "phase": "resolved",
+    "settled": true,
+    "closeRequested": true,
+    "closeStatus": "closed",
+    "listenerCloseObserved": true,
+    "rejection": null,
+    "closeError": null,
+    "diagnosticErrors": []
+  },
+  "cleanup": {
+    "status": "KNOWN_ORIGINAL_ACTORS_CLOSED",
+    "allDescendantKernelExitCertified": false,
+    "errors": []
+  },
+  "finishedAt": "2026-11-16T11:36:32.746Z"
+}

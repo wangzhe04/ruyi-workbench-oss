@@ -1,6 +1,81 @@
 // Production adapter building blocks only. No startup/configure side effect, no
 // claim/upload/activation implementation, and no public worker-ready capability.
 const WorkDataNativeAdapters = ((io, p, c) => {
+const WorkDataOwnedRestoreUnknown = (()=>{
+'use strict';
+// Research helper: only inspect data descriptors; proxies/getters/cycles are
+// uncertain. Preserve the original thrown value as the existing cause.
+const {types}=require('node:util');
+function isUnknown(value){const active=new Set(),done=new Set();let visited=0;function visit(item,depth){if(item===null||item===undefined||typeof item!=='object'&&typeof item!=='function')return false;if(++visited>1024||depth>=32||types.isProxy(item)||active.has(item))return true;if(done.has(item))return false;active.add(item);try{for(let p=item,level=0;p!==null;p=Object.getPrototypeOf(p),level++){if(level>=16||types.isProxy(p))return true;for(const key of ['helperMayStillRun','ownershipRetained','cause','errors']){const d=Object.getOwnPropertyDescriptor(p,key);if(!d)continue;if(!Object.hasOwn(d,'value'))return true;if(key==='helperMayStillRun'||key==='ownershipRetained'){if(d.value!==undefined&&d.value!==false)return true;}else if(key==='cause'){if(visit(d.value,depth+1))return true;}else{const a=d.value;if(!Array.isArray(a)||types.isProxy(a))return true;const length=Object.getOwnPropertyDescriptor(a,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>1024)return true;for(let i=0;i<length.value;i++){const entry=Object.getOwnPropertyDescriptor(a,String(i));if(!entry||!Object.hasOwn(entry,'value')||visit(entry.value,depth+1))return true;}}}}done.add(item);return false;}finally{active.delete(item);}}try{return visit(value,0);}catch{return true;}}
+function flags(value){return isUnknown(value)?{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true}:{};}
+return Object.freeze({isUnknown,flags});
+
+})();
+const WorkDataOwnedRestoreBarrier = (()=>{
+'use strict';
+// Research-only host contract. The injected native operation MUST open every
+// component relative to a held anchor and compare the entire identity chain.
+const path=require('node:path');
+const fail=code=>Object.assign(Error('restore_flush.'+code),{code:'restore_flush.'+code});
+const fold=x=>process.platform==='win32'?x.toUpperCase():x;
+function isInside(a,b){const r=path.relative(fold(a),fold(b));return r!==''&&r!=='..'&&!r.startsWith('..'+path.sep)&&!path.isAbsolute(r);}
+function validRel(value){return typeof value==='string'&&value.length<=1024&&(value===''||value.split('/').every(x=>x&&x!=='.'&&x!=='..'&&!/[\x00-\x1f<>:"|?*\\]/.test(x)&&!/[. ]$/.test(x)));}
+function prepare({target,source,records}){
+ if(typeof target!=='string'||typeof source!=='string'||!path.isAbsolute(target)||!path.isAbsolute(source))throw fail('scope');
+ target=path.resolve(target);source=path.resolve(source);if(fold(target)===fold(source)||isInside(target,source)||isInside(source,target))throw fail('scope');
+ if(!Array.isArray(records)||!records.length||records.length>100001)throw fail('records');
+ const byKey=new Map();for(const r of records){if(!r||!validRel(r.relative)||typeof r.identity!=='string'||!/^\d+:\d+$/.test(r.identity))throw fail('records');const key=fold(r.relative);if(byKey.has(key))throw fail('duplicate');byKey.set(key,Object.freeze({relative:r.relative,identity:r.identity}));}
+ if(!byKey.has(''))throw fail('root_missing');
+ for(const r of byKey.values()){if(!r.relative)continue;let parent=r.relative;while(parent){const at=parent.lastIndexOf('/');parent=at<0?'':parent.slice(0,at);if(!byKey.has(fold(parent)))throw fail('parent_missing');}}
+ const ordered=[...byKey.values()].sort((a,b)=>b.relative.split('/').length-a.relative.split('/').length||a.relative.localeCompare(b.relative));const rootAt=ordered.findIndex(x=>x.relative==='');ordered.push(...ordered.splice(rootAt,1));
+ return Object.freeze({target,source,byKey,ordered:Object.freeze(ordered)});
+}
+async function run(input,host){
+ const plan=prepare(input);if(!host||['admit','listDirectories','inspectDirectory','flushAnchored'].some(k=>typeof host[k]!=='function'))throw fail('host');
+ const assertOwner=async()=>{if(await host.admit(input.ownership,plan.target)!==true)throw fail('owner');};
+ const verify=async()=>{await assertOwner();const actual=await host.listDirectories(plan.target);if(!Array.isArray(actual)||actual.some(x=>!validRel(x)))throw fail('namespace');const names=actual.map(fold).sort(),expected=[...plan.byKey.keys()].sort();if(JSON.stringify(names)!==JSON.stringify(expected))throw fail('namespace');for(const r of plan.ordered){const observed=await host.inspectDirectory(plan.target,r.relative);if(!observed||observed.identity!==r.identity||observed.alias!==false)throw fail('identity_changed');await assertOwner();}};
+ await verify();for(const r of plan.ordered){await assertOwner();const names=r.relative?r.relative.split('/'):[],chain=[plan.byKey.get('')];let rel='';for(const name of names){rel=rel?rel+'/'+name:name;chain.push(plan.byKey.get(fold(rel)));}const value=await host.flushAnchored(Object.freeze({target:plan.target,relative:r.relative,chain:Object.freeze(chain)}));if(!value||Object.keys(value).sort().join(',')!=='identities,ok,relative,target'||value.ok!==true||value.target!==plan.target||value.relative!==r.relative||!Array.isArray(value.identities)||JSON.stringify(value.identities)!==JSON.stringify(chain.map(x=>x.identity)))throw fail('native_receipt');await assertOwner();}await verify();return Object.freeze({ok:true,directories:plan.ordered.length});
+}
+return Object.freeze({prepare,run});
+
+})();
+const WorkDataOwnedRestoreBroker = (()=>{
+'use strict';
+// Research-only broker lifetime owner. A possibly live helper and its broker
+// remain strongly reachable; the owner permanently fences further requests.
+const {isUnknown}=WorkDataOwnedRestoreUnknown;
+function create({start,helperUncertain}){
+ if(typeof start!=='function'||typeof helperUncertain!=='function')throw Error('broker.host');
+ const retained=new Set();let uncertain=false,busy=false;
+ const unknown=()=>{try{return helperUncertain()!==false;}catch{return true;}};
+ const safeCode=value=>{try{if(!value||typeof value!=='object')return null;const d=Object.getOwnPropertyDescriptor(value,'code');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'?d.value:null;}catch{return null;}};
+ const fenced=cause=>Object.assign(Error('restore_flush.broker_uncertain'),{code:'restore_flush.broker_uncertain',cause,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,retry:false});
+ return Object.freeze({
+  async run(work){
+   if(uncertain||unknown()){uncertain=true;throw fenced(null);}if(busy)throw Object.assign(Error('restore_flush.busy'),{code:'restore_flush.busy'});if(typeof work!=='function')throw Error('broker.work');busy=true;let broker,failed=false,primary,result;
+   try{
+    try{broker=await start();}catch(error){if(isUnknown(error)||unknown()){uncertain=true;throw fenced(error);}throw error;}
+    let closeDescriptor;try{if(broker&&!require('node:util').types.isProxy(broker))closeDescriptor=Object.getOwnPropertyDescriptor(broker,'close');}catch{}
+    if(!closeDescriptor||!Object.hasOwn(closeDescriptor,'value')||typeof closeDescriptor.value!=='function'||unknown()){uncertain=true;if(broker)retained.add(broker);throw fenced(null);}
+    try{result=await work(broker);}catch(error){failed=true;primary=error;}
+    if((failed&&isUnknown(primary))||unknown()){uncertain=true;retained.add(broker);throw fenced(failed?primary:null);}
+    let closeFailed=false,closeError;try{await Reflect.apply(closeDescriptor.value,broker,[]);}catch(error){closeFailed=true;closeError=error;}
+    if((closeFailed&&isUnknown(closeError))||unknown()){uncertain=true;retained.add(broker);throw fenced(failed?primary:closeError);}
+    // The existing broker repeats a proven command refusal at close. Preserve
+    // the original failure; a different close failure remains a cleanup error.
+    if(failed){if(closeFailed&&closeError!==primary&&(!safeCode(primary)||safeCode(closeError)!==safeCode(primary)))throw Object.assign(new AggregateError([primary,closeError],'restore_flush.close_failed',{cause:primary}),{code:'restore_flush.close_failed'});throw primary;}
+    if(closeFailed)throw closeError;return result;
+   }finally{busy=false;}
+  },
+  stats:()=>Object.freeze({uncertain,retained:retained.size,busy}),
+  owns:value=>retained.has(value),
+ });
+}
+return Object.freeze({create});
+
+})();
+const WorkDataOwnedRestoreRetainedOwners = new Set();
+
   const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
@@ -31,7 +106,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
   function productionBindings() {
     return {ownership:ServerOwnership, manifest:WorkDataManifest, fullSnapshot:WorkDataFullSnapshot,
       nativePublish:WorkDataNativePublish, disposableTree:WorkDataDisposableNativeTree, tree:WorkDataTree,
-      capturePreserved:migrationCapsuleCapturePreserved, protector:LocalSecretCrypto,
+      capturePreserved:migrationCapsuleCapturePreserved, openOwnedRestoreBroker:migrationCapsuleBroker, protector:LocalSecretCrypto,
       ...(process.platform==='win32'?{readRecoveryControl:(file,base)=>{
         if(typeof MigrationHooks.readWorkDataControlPreserved!=='function')throw fail('transition_recovery_header_reader_unavailable');
         return MigrationHooks.readWorkDataControlPreserved(file,base);
@@ -57,6 +132,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       return Object.freeze({command:verifierCommand.command,args:Object.freeze([...verifierCommand.args])});
     })();
     let unknown = false, verifying = false, heldTimer = null;
+    const ownedRestoreBroker=WorkDataOwnedRestoreBroker.create({start:()=>{if(typeof bindings.openOwnedRestoreBroker!=='function')throw fail('restore_flush_unavailable');return bindings.openOwnedRestoreBroker();},helperUncertain:()=>bindings.helperMayStillRun()});
     const receipts = new WeakSet();
     function latch(cause) {
       const isProxy = require('node:util').types.isProxy, active = new Set(), done = new Set();
@@ -201,7 +277,22 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           }
         }
       });
-      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector:snapshotProtector,
+
+      const ownedRestoreFlush = async input => {
+        const targetOwner=input.ownership;
+        const admit=async (candidate,target)=>candidate===targetOwner && target===input.target && exclusiveSync(ownership)===true && exclusiveSync(targetOwner)===true;
+        const file=(root,relative)=>relative?p.join(root,...relative.split('/')):root;
+        const inspectDirectory=async(root,relative)=>{const name=file(root,relative),stat=await io.lstat(name,{bigint:true});return {identity:String(stat.dev)+':'+String(stat.ino),alias:!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(name))!==fold(name)};};
+        const listDirectories=async root=>{const found=[''];async function walk(relative){for(const entry of await io.readdir(file(root,relative),{withFileTypes:true})){if(entry.isSymbolicLink())throw fail('restore_flush_alias');if(entry.isDirectory()){const next=relative?relative+'/'+entry.name:entry.name;found.push(next);await walk(next);}}}await walk('');return found;};
+        try { return await ownedRestoreBroker.run(broker=>WorkDataOwnedRestoreBarrier.run(input,{admit,listDirectories,inspectDirectory,flushAnchored:async({target,relative,chain})=>{
+          const ids=chain.map(({identity})=>{const parts=identity.split(':'),dev=BigInt(parts[0]).toString(16),ino=BigInt(parts[1]).toString(16);if(dev.length>8||ino.length>16)throw fail('restore_flush_identity');return dev.padStart(8,'0')+ino.padStart(16,'0');});
+          const value=await broker.command({cmd:'owned-restore-flush',root:target,relative,ids});
+          if(!value||Object.keys(value).sort().join(',')!=='ids,ok,relative,root'||value.ok!==true||value.root!==target||value.relative!==relative||!Array.isArray(value.ids)||JSON.stringify(value.ids)!==JSON.stringify(ids))throw fail('restore_flush_receipt');
+          return {ok:true,target,relative,identities:chain.map(x=>x.identity)};
+        }})); } finally { if(ownedRestoreBroker.stats().uncertain) WorkDataOwnedRestoreRetainedOwners.add(ownedRestoreBroker); }
+      };
+
+      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,ownedRestoreFlush,protector:snapshotProtector,
         externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof,restoredTreeFor,readCapturedAuthority});
       const captureRestored = (result,{target,ownership:targetOwner}) => withSource(ownership,base,() => withSource(targetOwner,target,async () => {
         const receipt=await owner.describeRestored(result);

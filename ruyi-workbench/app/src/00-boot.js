@@ -1675,3 +1675,6 @@ async function recordInstallLaunch(launchMode) {
 }
 
 const SessionFullTextHooks = {};
+const SemanticRuntimeHooks = {};
+const MemorySemanticHooks = {};
+const ObservationRecoveryHooks = {};

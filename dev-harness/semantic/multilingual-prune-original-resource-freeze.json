@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "FROZEN_ORIGINAL_RESOURCE_REPLAY_NOT_STARTED",
+  "bindings": {
+    "dev-harness/semantic/multilingual-prune-native-collect.cjs": "9e0205bf20c49b9173aa3d0de63214c03f0cf815471c0a90d2b6abd35a0f262e",
+    "dev-harness/semantic/multilingual-prune-native-collect-test.cjs": "88037f203c78b14d0d926c771de17171eeb4f5bae684a337f4e0eecf677fbbe6",
+    "dev-harness/semantic/multilingual-prune-mechanism-probes.json": "cde95fa781fda508a9f611d87e48d0677a5d9a367d2073334cf7e9d0a97228ff",
+    "dev-harness/semantic/multilingual-prune-conversion-freeze.json": "8fbb8bce84d2c3c1b510ec6cbdfa1b4c5c24d9512065633748fc0c444aff7975",
+    "dev-harness/semantic/multilingual-prune-remap.cjs": "8a6e76393ef711af56c612cda871871bbcdda0595879643d1635cbac570f8929",
+    "dev-harness/semantic/multilingual-prune-worker-verify.cjs": "30ad7243255953b10339be0796151514867495eabfcbeaa173dcfbc07d617293",
+    "output/multilingual-minilm-pruned-research-v1/conversion-receipt.json": "a3a102579e00413f00dfda6a84ebfaf4519ed787c7a5891ed388b63adb3820db",
+    "output/multilingual-minilm-pruned-research-v1/worker.cjs": "1cbfa782ef153a8878a17b2b0edcefcd2bd0442cd350bd0e91386ce06e2bb742",
+    "output/multilingual-minilm-pruned-research-v1/id-map.json": "0870999f40c79de6b01554afcc191e6721adf46d88b96aa7a77c2e26be7116ce",
+    "output/multilingual-minilm-pruned-research-v1/tokenizer.json": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441",
+    "output/multilingual-minilm-pruned-research-v1/onnx/model_quantized.onnx": "d0ec2368e740f45d4d4e0a42e74d8f92b5163a858b0f1fcaedf44e148254ec8c",
+    "output/semantic-minilm-family-coarse-v1/asset-lock.json": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+    "output/semantic-minilm-family-coarse-v1/train-cal-inputs.json": "239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c",
+    "output/semantic-minilm-family-coarse-v1/coarse-vectors-v1.json": "d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b",
+    "dev-harness/semantic/bge-minilm-mixed-development-fixture.json": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+    "output/bge-minilm-mixed-baseline-v1/baseline-query-vectors.json": "a6e2eb71adee8d1416caeca538b0e8df00ffa227f484114591bd67b90e181d3f",
+    "dev-harness/semantic/multilingual-prune-original-resource-collect.cjs": "d6c969417222a143b52534b7518aca307c32bdfbd8baebdf35f4a700e4bd5a7a",
+    "dev-harness/semantic/multilingual-prune-original-resource-test.cjs": "5f362db34daf32e56652e9052f8b820105ed8ea2195deec2091d3877aa437d4d",
+    "output/semantic-minilm-family-coarse-v1/worker.cjs": "4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216",
+    "output/multilingual-minilm-pruned-native-v1/native-results.json": "d7d9f8541e380e941e2474ac7bfc3edf5b51d9b8eb645219a4b75a2b8c941a2c"
+  },
+  "scope": {
+    "order": "60 documents, 248 train/cal queries, 32 mixed queries; no mechanism probes",
+    "execution": "same runtime and original L12 worker and frozen asset lock, one worker CPU intra2/inter1 arena default, physical batch1; parent loads same original tokenizer bytes and mapping with same preprocessing; original FP must exactly equal baseline",
+    "measure": "per row elapsed, worker-reported current and lifetime peak RSS; parent process RSS at before spawn, ready, each row; coldReadyMs measured spawn to ready; process identity, exit and same-identity absence",
+    "vector": "save each vector and compare with original previous-run vectors, same text hashes; no fitting, no selection",
+    "limitations": "one run each not simultaneous or paired OS pressure; original coldReady newly recorded while pruned run lacked coldReady; do not infer comparable cold startup from earlier total elapsed; parent samples do not constitute paired process RAM; packaged footprint and UI unavailable"
+  }
+}

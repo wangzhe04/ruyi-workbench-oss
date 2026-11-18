@@ -3,14 +3,14 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 81,
+  "count": 82,
   "classCounts": {
-    "required": 47,
+    "required": 48,
     "excluded": 34
   },
   "batchCounts": {
     "not-migrated": 34,
-    "sessions": 13,
+    "sessions": 14,
     "index-cache": 10,
     "memory-queue": 13,
     "tasks": 7,
@@ -58,6 +58,7 @@
     "proxy-models-cache",
     "journal-index",
     "journal-reverts",
+    "journal-observation-owners",
     "journal-history",
     "memory-body",
     "session-search-index",
@@ -231,6 +232,15 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "records which files the user undid",
+      "adapter": "wired"
+    },
+    {
+      "id": "journal-observation-owners",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "authenticated main-history snapshot ownership and rewind bindings; encrypted with session data and independently MAC-bound to the original key and instance",
       "adapter": "wired"
     },
     {

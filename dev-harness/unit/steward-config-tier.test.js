@@ -103,7 +103,7 @@ const EXPECTED = {
   summaryFactTableMaxSamplesV1: 'confirm', runtimeSummaryRefineV1: 'confirm', runtimeBudgetGuardV1: 'confirm', budgetGuardWarnRatioV1: 'confirm',
   runtimeToolTimeBudgetShadowV1: 'confirm', runtimeToolTimeBudgetV1: 'confirm', toolTimeBudgetWarnMsV1: 'confirm', toolTimeBudgetHardMsV1: 'confirm',
   toolByteBudgetShadowBytesV1: 'confirm', runtimeVolatileTailLayoutV1: 'confirm', runtimeAppendOnlyToolSchemasV1: 'confirm', runtimeExecResultCacheV1: 'confirm',
-  execResultCacheMaxEntriesV1: 'confirm', runtimeMemoryVectorRecallV1: 'confirm', coreMemoryMaxItemsV1: 'confirm', coreMemoryCharBudgetV1: 'confirm',
+  execResultCacheMaxEntriesV1: 'confirm', runtimeMemoryVectorRecallV1: 'confirm', semanticRetrievalV1: 'confirm', coreMemoryMaxItemsV1: 'confirm', coreMemoryCharBudgetV1: 'confirm',
   memoryRelevanceMaxV1: 'confirm', memoryFixedSelectionMaxV1: 'confirm', memoryIndexCharCapV1: 'confirm', toolEconomicsShadowV1: 'confirm',
   boundedReadSchedulerV1: 'confirm', boundedReadConcurrencyV1: 'confirm', metaToolHintsV1: 'confirm', actionArgumentModelViewV1: 'confirm',
   enableMcpDropIn: 'confirm', shellSessionMax: 'confirm', autoCompactThreshold: 'confirm', subagentMaxConcurrent: 'confirm',

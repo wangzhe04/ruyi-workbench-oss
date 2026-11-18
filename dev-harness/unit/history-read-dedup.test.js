@@ -84,14 +84,15 @@ test('126-111e · 历史内重复读取去重', () => {
   {
     const h = historyOfReads([readResult('a.js', BODY), readResult('a.js', BODY), readResult('a.js', BODY)]);
     const toolNames = new Map([['r0', 'file_read'], ['r1', 'file_read'], ['r2', 'file_read']]);
-    const n = srv.dedupeRepeatedReads(h, 0, toolNames, 'history:7:aaaaaaaaaaaaaaaa');
+    const lookup={get:key=>'history:v2:'+require('node:crypto').createHash('sha256').update(key).digest('hex')};
+    const n = srv.dedupeRepeatedReads(h, 0, toolNames, 'history:7:aaaaaaaaaaaaaaaa',lookup);
     ok(n === 2, `C1 三次相同读取换掉两次(实得 ${n})`);
     ok(pointers(h).length === 2 && fullTexts(h).length === 1, `C2 只剩一份全文(指针 ${pointers(h).length}/全文 ${fullTexts(h).length})`);
     const last = h.filter(m => m.role === 'tool').at(-1);
     ok(isFullText(last), 'C3 留下全文的是【最新】那一次,不是最早那次');
     const first = h.filter(m => m.role === 'tool')[0];
     ok(String(first.content).includes('tool_call_id=r2'), `C4 指针点名了后文那一条(实得 ${String(first.content).slice(0, 80)})`);
-    ok(/rawRef=history:7:aaaaaaaaaaaaaaaa:\d+:[0-9a-f]{16}/.test(String(first.content)), 'C5 指针带 rawRef,原件回查得到');
+    ok(/rawRef=history:v2:[0-9a-f]{64}/.test(String(first.content)), 'C5 指针带 rawRef,原件回查得到');
     const second = srv.dedupeRepeatedReads(h, 0, toolNames, 'history:7:aaaaaaaaaaaaaaaa');
     ok(second === 0, `C6 幂等:第二遍零改写(实得 ${second})`);
   }

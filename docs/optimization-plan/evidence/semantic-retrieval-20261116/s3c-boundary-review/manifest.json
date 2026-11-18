@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T14:13:07.006845+00:00",
+  "status": "MODEL_BOUNDARY_FAIL_REAL_OBSERVATION_AND_INPUTS_SCOPED_PASS",
+  "files": [
+    {
+      "path": "semantic-observation-real-v1.json.gz",
+      "source": "output/semantic-observation-real-v1.json",
+      "sha256": "9e3f0088c8e823ad765e85a186c93011aac62746c60975f7d66fb14113300031",
+      "decodedSha256": "3f036ae5c72a24882d00c07f5c3820e09721f833a06dd6d8b3adb71a65f9fa96",
+      "bytes": 503,
+      "decodedBytes": 861
+    },
+    {
+      "path": "semantic-observation-real-v1.log.gz",
+      "source": "output/semantic-observation-real-v1.log",
+      "sha256": "22142786fa5122dc7d275e9ba28f1091d86f4c92390981e6f4899f4560543856",
+      "decodedSha256": "705de4fb8a2cc1d6e48a2ce2f0c506c8d308107ce7f74b275f5553c95a6e3f32",
+      "bytes": 280,
+      "decodedBytes": 546
+    },
+    {
+      "path": "semantic-observation-real-v2.json.gz",
+      "source": "output/semantic-observation-real-v2.json",
+      "sha256": "27be2f74bc36cbc645b41b18cf4918c331ad5fba8c99ee48f1c879eac5d966d6",
+      "decodedSha256": "dba9f3ece8c8886c4220686be0a9682b35740aac97a51e29e912b76f31603e06",
+      "bytes": 1518,
+      "decodedBytes": 2631
+    },
+    {
+      "path": "semantic-observation-real-v2.log.gz",
+      "source": "output/semantic-observation-real-v2.log",
+      "sha256": "05beaa473697c7877e0a8f66ab4d81f83a569e00b1d53c2f8d4f9e66d69ea055",
+      "decodedSha256": "26ce2a03966ead2cad6be2386c4c01ad682c917e935557cdb42bb599c663d1ad",
+      "bytes": 365,
+      "decodedBytes": 673
+    },
+    {
+      "path": "preflight-report.json.gz",
+      "source": "output/release-materials/full-local-preflight/preflight-report.json",
+      "sha256": "1ac5fa9f847c88a4dba0e03d8b48a8b0354591495b80917f0bf4ba035e6995df",
+      "decodedSha256": "b126bfbd28c75222322ecfeb6aa434dd43a90fd1aa75e60f7b3dc81b338b7105",
+      "bytes": 7811,
+      "decodedBytes": 30075
+    },
+    {
+      "path": "model-policy-exit-cross-review.json.gz",
+      "source": "output/s3c-storage/model-policy-exit-cross-review.json",
+      "sha256": "4bdc299bdb1403d90a5f8835fa1ddbf12fb309f8e1b03814b51a86f7db51199f",
+      "decodedSha256": "c46f0f0482e1364cfd4c997b83a040589e8cb5aeee91bdd65b9e08a05865d94a",
+      "bytes": 1945,
+      "decodedBytes": 5512
+    },
+    {
+      "path": "review-model-policy-exit.cjs.gz",
+      "source": "output/s3c-storage/review-model-policy-exit.cjs",
+      "sha256": "794a10e269b5355b9512a13476d2022f0d3b3b52d732dbed7c30972a0edc9ceb",
+      "decodedSha256": "d87aba26a914231a9750c022506630438cf3a170e4903a178808c98cc7250dec",
+      "bytes": 1520,
+      "decodedBytes": 3202
+    },
+    {
+      "path": "review-model-policy-exit.log.gz",
+      "source": "output/s3c-storage/review-model-policy-exit.log",
+      "sha256": "ab85c3a191886b2474ccdb059f5e2c0ab70b75583d3c388c2939258847f5b0f8",
+      "decodedSha256": "4a0664ee408b55e618642a0249a9e7aacd74cb54cc0814c58c86e5d1a760c03f",
+      "bytes": 381,
+      "decodedBytes": 2067
+    }
+  ],
+  "limits": [
+    "Initial real-observation test did not exceed compression budget; v2 uses an actual large tool observation and all seven checks pass.",
+    "Policy exit review confirms four source/policy boundary failures; implementation fix pending.",
+    "Full-local input preflight is not an actual package or install qualification."
+  ]
+}

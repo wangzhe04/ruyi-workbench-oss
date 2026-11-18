@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),{validateRank}=require('./bge-minilm-mixed-capture.cjs');
+const source=fs.readFileSync('ruyi-workbench/app/src/13ap-session-fulltext-index.js','utf8');
+const candidateMarker='return {sid,value,candidates,semanticRows,fragmentCount,entityTruncated,lexicalTruncated,totals};',candidate="if(typeof __candidateObserver==='function')__candidateObserver({sid,candidateCount:candidates.length,entityTruncated,lexicalTruncated});";
+const rankMarker='const projected=await host.project({sourceText,text,reference:Object.freeze(',rank="if(typeof __rankObserver==='function')__rankObserver({sid:hit.row.sessionId,messageId:hit.row.messageId,source:hit.row.source,contentRevision:hit.row.contentRevision,start:hit.start,end:hit.end,lexicalRank:hit.lexicalRank,exact:!!hit.exact,score:hit.score,rankScore:hit.rankScore});";
+assert.equal(source.split(candidateMarker).length,2);assert.equal(source.split(rankMarker).length,2);const observed=source.replace(candidateMarker,candidate+candidateMarker).replace(rankMarker,rank+rankMarker);assert.equal(observed.replace(candidate,'').replace(rank,''),source);
+const hit={reference:{sessionId:'CAL001',messageId:'m1',source:'content',contentRevision:'r',matchStart:2,matchEnd:4},strongReason:null},meta={sid:'CAL001',messageId:'m1',source:'content',contentRevision:'r',start:2,end:4,lexicalRank:3,exact:false,score:4,rankScore:0.01};
+assert.equal(validateRank(hit,meta).originalLexicalRank,3);for(const bad of [{...meta,contentRevision:'bad'},{...meta,start:1},{...meta,lexicalRank:-1},{...meta,score:NaN},{...meta,exact:true}])assert.throws(()=>validateRank(hit,bad));
+const hits=[validateRank(hit,meta),validateRank({...hit,reference:{...hit.reference,sessionId:'CAL002'}},{...meta,sid:'CAL002',lexicalRank:1})];assert.deepEqual(hits.sort((a,b)=>a.originalLexicalRank-b.originalLexicalRank).map(h=>h.reference.sessionId),['CAL002','CAL001']);
+console.log('fake capture observer, source identity, multi-rank: PASS');

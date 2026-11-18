@@ -84,6 +84,13 @@ const InternalMcpRelay = (() => {
     const state = contextOwner(ctx);
     if (!cliToolAllowed(name, state.grant)) fail('tool_not_allowed');
   }
+  // This capability authorizes only current-session observation reads. It is
+  // not mainTurn and cannot enable any other main-turn-only operation.
+  function assertObservationRead(ctx) {
+    const state=contextOwner(ctx);
+    if(state.grant.nodeContext||!cliToolAllowed('observation_recall',state.grant))fail('tool_not_allowed');
+    return true;
+  }
   function resourceRefusal(ctx, name) {
     contextOwner(ctx);
     return name === 'mcp_resource' ? ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' }) : null;
@@ -348,7 +355,7 @@ const InternalMcpRelay = (() => {
     process.stdin.once('end', () => { inputEnded = true; if (active === 0) closed = true; }); process.stdin.once('error', close); process.once('SIGTERM', close);
   }
   function maintenanceState() { return { active: [...grants].reduce((sum, grant) => sum + grant.inflight, 0) }; }
-  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks, maintenanceState });
+  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, assertObservationRead, resourceRefusal, business, Hooks, maintenanceState });
 })();
 
 Object.assign(InternalMcpHooks, InternalMcpRelay);

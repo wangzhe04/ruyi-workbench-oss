@@ -65,7 +65,7 @@ function noisyText(seed) {
       if (!req.tools.length) return textFrames('(summary)'); // L2 摘要调用(不应触发,兜底)
       if (reads < 3) { const f = files[reads]; reads += 1; return toolCallFrames('file_read', { path: f, limit: 50000 }, 'read_' + reads); }
       const joined = req.messages.map(m => (typeof m.content === 'string' ? m.content : '')).join('\n');
-      const m = /rawRef=(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/.exec(joined);
+      const m = /rawRef=(history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/.exec(joined);
       if (m && !recallCalled) { recallCalled = true; rawRefUsed = m[1]; return toolCallFrames('observation_recall', { rawRef: m[1], maxChars: 3000 }, 'recall_1'); }
       return textFrames(m ? 'RECALL_DONE' : 'NO_RAWREF');
     },
@@ -95,7 +95,7 @@ function noisyText(seed) {
     const sid = (events.find(e => e.type === 'session') || {}).session?.id;
     ok(!!sid, 'S1 session id captured');
     const reduced = events.filter(e => e.type === 'observation_reduced');
-    ok(reduced.length > 0 && reduced.every(e => /^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(String(e.rawRef))), 'S2 压缩 L1 产出带 rawRef 的缩减视图(' + reduced.length + ' 条)');
+    ok(reduced.length > 0 && reduced.every(e => /^history:v2:[A-Za-z0-9_.-]+$/.test(String(e.rawRef))), 'S2 压缩 L1 产出带 rawRef 的缩减视图(' + reduced.length + ' 条)');
     ok(recallCalled && /^history:/.test(rawRefUsed), 'S3 假模型从自己收到的请求里抠出了 rawRef 并调用 observation_recall');
     await sleep(600); // 后台整仓清扫(冷启动首轮)在快照写完后异步跑,等它落定
     const ckDir = path.join(home, 'checkpoints', sid);

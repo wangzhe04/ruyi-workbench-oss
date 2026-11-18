@@ -34,8 +34,10 @@
         "MAX_BODY_BYTES",
         "MediaImageHooks",
         "MemoryCliHooks",
+        "MemorySemanticHooks",
         "MigrationHooks",
         "OVERLAY_ID",
+        "ObservationRecoveryHooks",
         "PS_UTF8_OUTPUT_PREAMBLE",
         "ProxyModelHooks",
         "RUYI_DATA_DIR_NAME",
@@ -45,6 +47,7 @@
         "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SemanticRuntimeHooks",
         "SessionExecutionHooks",
         "SessionFullTextHooks",
         "StringDecoder",
@@ -800,6 +803,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
@@ -816,8 +826,7 @@
           "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
-            "call",
-            "read"
+            "call"
           ]
         },
         {
@@ -1425,13 +1434,6 @@
       ],
       "requires": [
         {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01v-work-data-manifest.js",
           "symbol": "WorkDataManifest",
           "kinds": [
@@ -1588,15 +1590,7 @@
       "provides": [
         "WorkDataAttachmentCatalog"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "01ai-work-data-attachment-store.js",
@@ -1621,13 +1615,6 @@
         "WorkDataAttachmentCatalogs"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
         {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
@@ -1719,13 +1706,6 @@
       ],
       "requires": [
         {
-          "provider": "00-boot.js",
-          "symbol": "paths",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
           "kinds": [
@@ -1747,13 +1727,6 @@
           "kinds": [
             "read"
           ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
         }
       ]
     },
@@ -1766,22 +1739,7 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "json",
-          "kinds": [
-            "call",
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "path",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -1858,13 +1816,6 @@
         "WorkDataMigrationHost"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
         {
           "provider": "01aa-work-data-tree.js",
           "symbol": "WorkDataTree",
@@ -2130,6 +2081,9 @@
         "journalIndexPath",
         "journalJsonStore",
         "journalNextEntrySeq",
+        "journalObservationOwnerMac",
+        "journalObservationOwnersValid",
+        "journalObservationSnapshotCommitted",
         "journalPreflightIndex",
         "journalPreflightMutation",
         "journalPruneSealedIndex",
@@ -2137,6 +2091,7 @@
         "journalReadHistory",
         "journalReadIndex",
         "journalReadIndexForWrite",
+        "journalReadObservationOwners",
         "journalReadRetentionIndex",
         "journalReclaimRetired",
         "journalRecord",
@@ -2144,6 +2099,7 @@
         "journalRecordManyContents",
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
+        "journalRegisterObservationOwner",
         "journalResolveTurnSeq",
         "journalResumeRetirements",
         "journalRetentionAssert",
@@ -2526,13 +2482,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -4054,14 +4003,6 @@
           "provider": "00-boot.js",
           "symbol": "spawnDetachedChecked",
           "kinds": [
-            "call",
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
             "read"
           ]
         },
@@ -4069,7 +4010,6 @@
           "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
           "kinds": [
-            "call",
             "read"
           ]
         },
@@ -4077,7 +4017,6 @@
           "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
           "kinds": [
-            "call",
             "read"
           ]
         }
@@ -4141,13 +4080,6 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -4602,6 +4534,7 @@
         "mcpEntryIsRemote",
         "mcpEntryTrimmed",
         "mcpSecretValueOrCleared",
+        "memoryPreflightMustPropagate",
         "providerFixCompletion",
         "providerLaunchUrls",
         "providerLaunchVectorKey",
@@ -4744,6 +4677,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "ObservationRecoveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -4780,13 +4720,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "SessionExecutionHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -5270,6 +5203,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "safeUrlForDisplay",
           "kinds": [
             "call"
@@ -5292,6 +5232,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
           "kinds": [
             "read"
           ]
@@ -6467,13 +6414,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
@@ -6862,13 +6802,6 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -7288,6 +7221,52 @@
       "requires": []
     },
     {
+      "file": "06h9-semantic-policy.js",
+      "layer": "unclassified",
+      "provides": [
+        "SemanticOriginalWindows",
+        "SemanticScoreEvidence"
+      ],
+      "requires": []
+    },
+    {
+      "file": "06hb-semantic-runtime.js",
+      "layer": "unclassified",
+      "provides": [
+        "SemanticRuntimeClient",
+        "SemanticRuntimeCore",
+        "SemanticRuntimeProviders",
+        "SemanticRuntimeTransportProof"
+      ],
+      "requires": []
+    },
+    {
+      "file": "06ha-semantic-retrieval.js",
+      "layer": "unclassified",
+      "provides": [
+        "SemanticAdmissionRequest",
+        "SemanticPolicyConsumers",
+        "SemanticRetrieval",
+        "SemanticWindowPolicy"
+      ],
+      "requires": [
+        {
+          "provider": "06h9-semantic-policy.js",
+          "symbol": "SemanticOriginalWindows",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "06i-steward-core.js",
       "layer": "engine",
       "provides": [
@@ -7562,6 +7541,7 @@
         "memoryDraftFromObject",
         "memoryEditWithin",
         "memoryExclusionSet",
+        "memoryExplicitRetrievalText",
         "memoryFailureResponse",
         "memoryGlobalDir",
         "memoryGlobalScopeAllowed",
@@ -7595,6 +7575,7 @@
         "memoryReviewDue",
         "memorySearchTerms",
         "memorySelectionSignature",
+        "memorySemanticBudgetSafe",
         "memorySupersededMarks",
         "memorySupersededTag",
         "memoryToolLibraryCurrent",
@@ -7727,6 +7708,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemorySemanticHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
           "kinds": [
             "call"
@@ -7783,13 +7778,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "tildePath",
           "kinds": [
             "call"
@@ -7805,6 +7793,13 @@
         {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
           "kinds": [
             "read"
           ]
@@ -7887,10 +7882,24 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -7903,6 +7912,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
           "kinds": [
             "call"
           ]
@@ -7952,6 +7968,122 @@
       ]
     },
     {
+      "file": "06hc-memory-semantic.js",
+      "layer": "unclassified",
+      "provides": [
+        "MemorySemanticRecall",
+        "memorySemanticRecall",
+        "memorySemanticRetrieval"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemorySemanticHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "memoryVectorRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryExplicitRetrievalText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryRetrievalKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryRetrievalText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySemanticBudgetSafe",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "rankMemoriesForRecallDetailed",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "rankRelevantMemoriesScored",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "retrievalTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticAdmissionRequest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticPolicyConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticRetrieval",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "06e-mission-domain.js",
       "layer": "engine",
       "provides": [
@@ -7972,13 +8104,6 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -9537,13 +9662,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
@@ -10558,13 +10676,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
@@ -11180,6 +11291,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-visual-pipeline.js",
           "symbol": "VisualPipeline",
           "kinds": [
@@ -11252,6 +11370,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "memoryPreflightMustPropagate",
           "kinds": [
             "call"
           ]
@@ -12358,6 +12483,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "observationCommitBeforeCompact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "providerContextWindow",
           "kinds": [
             "call"
@@ -12373,6 +12505,20 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runForcedOverflowCompaction",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "sealObservationHistoryReferences",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "sealObservationRuntimeText",
           "kinds": [
             "call"
           ]
@@ -12466,13 +12612,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "SessionExecutionHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -12935,7 +13074,22 @@
         "mergeSummaryTaskEvidence",
         "noteEstimateSample",
         "noteWindowOvershoot",
+        "observationCandidateKey",
+        "observationCommitBeforeCompact",
+        "observationCommittedMessages",
+        "observationMainReadAllowed",
+        "observationOpenRawRef",
+        "observationPrepareRefLookup",
+        "observationProjectedRange",
+        "observationProjectedSpans",
+        "observationResultChecks",
+        "observationResultFinal",
+        "observationResultMark",
+        "observationSealRawRef",
+        "observationSemanticRetrieval",
+        "observationSnapshotOwners",
         "observationToolNames",
+        "observationWindowAdmission",
         "openCompactMarker",
         "parseSessionNotesMarkdown",
         "persistContextCalibration",
@@ -12953,6 +13107,7 @@
         "recordCompactUsage",
         "reduceObservationContent",
         "rehydrateObservation",
+        "rememberObservationSnapshot",
         "renderSessionNotesMarkdown",
         "resolveCompactionProvider",
         "resolveContextWindow",
@@ -12966,6 +13121,9 @@
         "runSessionTurn",
         "scheduleAgentWake",
         "scheduleAgentWakesAtBoot",
+        "sealObservationHistoryReferences",
+        "sealObservationRuntimeText",
+        "searchObservationSnapshots",
         "sessionNotesBodyEmpty",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
@@ -13067,6 +13225,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
@@ -13077,6 +13242,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ObservationRecoveryHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -13095,14 +13267,14 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "SessionExecutionHooks",
+          "symbol": "SemanticRuntimeHooks",
           "kinds": [
             "read"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
+          "symbol": "SessionExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -13138,6 +13310,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "zlib",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
           "kinds": [
             "read"
           ]
@@ -13305,6 +13484,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "createSessionFullTextSource",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalBytesAdjust",
           "kinds": [
             "call"
@@ -13333,7 +13519,28 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalObservationSnapshotCommitted",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalReadHistory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalReadObservationOwners",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRegisterObservationOwner",
           "kinds": [
             "call"
           ]
@@ -13376,6 +13583,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionFullTextSequence",
           "kinds": [
             "call"
           ]
@@ -13703,6 +13924,49 @@
           ]
         },
         {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "retrievalTerms",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "06h9-semantic-policy.js",
+          "symbol": "SemanticOriginalWindows",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticPolicyConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticRetrieval",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticWindowPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
@@ -13747,6 +14011,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
           "kinds": [
             "call"
           ]
@@ -14115,14 +14393,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "call",
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call",
@@ -14347,22 +14617,7 @@
       "provides": [
         "FileTextIo"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "cp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "11c-file-visual-io.js",
@@ -14373,21 +14628,7 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "cp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "MediaImageHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "paths",
           "kinds": [
             "read"
           ]
@@ -14511,13 +14752,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "cp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "crypto",
           "kinds": [
             "read"
@@ -14616,6 +14850,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
@@ -14626,13 +14867,6 @@
           "symbol": "spawnDetachedChecked",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -14668,6 +14902,13 @@
           "symbol": "commandForSelfMcp",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14751,6 +14992,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -14879,6 +15127,13 @@
           "symbol": "SESSION_SCRATCHPAD_LIMITS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15048,6 +15303,13 @@
           "symbol": "DesktopShell",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15339,6 +15601,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "nativeToolsAcceptingArgKeys",
           "kinds": [
             "call"
@@ -15395,6 +15664,76 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "observationCandidateKey",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationCommittedMessages",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationMainReadAllowed",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationOpenRawRef",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationProjectedRange",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationProjectedSpans",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationResultChecks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationResultFinal",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationResultMark",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationSealRawRef",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "providerTurnQuotaKey",
           "kinds": [
             "call"
@@ -15403,6 +15742,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "rehydrateObservation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "searchObservationSnapshots",
           "kinds": [
             "call"
           ]
@@ -15624,6 +15970,7 @@
         "resetOrphanedMissionDrivers",
         "resolveBindHost",
         "resolveNodeModel",
+        "semanticRuntimeHostPorts",
         "sendMcp",
         "sendMcpNotification",
         "setProxyModelsCache",
@@ -15951,6 +16298,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
@@ -15961,13 +16315,6 @@
           "symbol": "spawnDetachedChecked",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -17183,6 +17530,27 @@
           ]
         },
         {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticPolicyConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticWindowPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
           "kinds": [
@@ -17663,13 +18031,6 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -18359,13 +18720,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "SessionFullTextHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -20328,13 +20682,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
@@ -20642,13 +20989,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "SessionFullTextHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -22481,13 +22821,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -23396,13 +23729,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -23914,13 +24240,6 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -26023,13 +26342,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -26348,6 +26660,7 @@
         "migrationCapsuleFinishPublished",
         "migrationCapsuleIntent",
         "migrationCapsuleIntentShape",
+        "migrationCapsuleIssuedChildren",
         "migrationCapsulePortableShape",
         "migrationCapsulePrepare",
         "migrationCapsulePresent",
@@ -26503,7 +26816,6 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
-            "call",
             "read"
           ]
         },
@@ -26546,14 +26858,6 @@
           "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
           "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "call",
             "read"
           ]
         },
@@ -26748,20 +27052,6 @@
           "kinds": [
             "read"
           ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "json",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
         }
       ]
     },
@@ -26771,22 +27061,7 @@
       "provides": [
         "ExternalChannelDelivery"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "path",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "13y-external-bot-credentials.js",
@@ -27345,13 +27620,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -27389,8 +27657,7 @@
           "provider": "01-config.js",
           "symbol": "send",
           "kinds": [
-            "call",
-            "read"
+            "call"
           ]
         },
         {
@@ -27512,13 +27779,6 @@
           "symbol": "runKeyedChain",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -28018,8 +28278,7 @@
           "provider": "01-config.js",
           "symbol": "send",
           "kinds": [
-            "call",
-            "read"
+            "call"
           ]
         },
         {
@@ -28194,13 +28453,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "http",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "json",
           "kinds": [
             "call"
@@ -28223,13 +28475,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -28826,13 +29071,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "http",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
@@ -28862,13 +29100,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -29749,13 +29980,6 @@
       ],
       "requires": [
         {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01t-work-data-recovery.js",
           "symbol": "WorkDataRecovery",
           "kinds": [
@@ -29770,15 +29994,7 @@
       "provides": [
         "WorkDataHandoffClaim"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "13ah-work-data-setup.js",
@@ -29837,13 +30053,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -30005,21 +30214,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "VERSION",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "send",
-          "kinds": [
-            "call",
-            "read"
-          ]
-        },
-        {
           "provider": "13at-work-data-restore-uploads.js",
           "symbol": "WorkDataRestoreUploads",
           "kinds": [
@@ -30035,20 +30229,6 @@
         "WorkDataMaintenanceControl"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "path",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
         {
           "provider": "01ab-work-data-full-snapshot.js",
           "symbol": "WorkDataFullSnapshot",
@@ -30085,13 +30265,6 @@
           "kinds": [
             "call"
           ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "send",
-          "kinds": [
-            "call"
-          ]
         }
       ]
     },
@@ -30113,13 +30286,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "MigrationHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -30198,13 +30364,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "http",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "MigrationHooks",
           "kinds": [
             "read"
@@ -30272,10 +30431,7 @@
       "file": "13ap-session-fulltext-index.js",
       "layer": "unclassified",
       "provides": [
-        "SessionFullTextIndex",
-        "bindSessionFullTextIndex",
-        "createSessionFullTextAttachmentSource",
-        "sessionFullTextOwner"
+        "SessionFullTextIndex"
       ],
       "requires": [
         {
@@ -30316,6 +30472,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
           "kinds": [
             "read"
           ]
@@ -30408,6 +30571,41 @@
         {
           "provider": "06h-retrieval-index.js",
           "symbol": "retrievalTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06h9-semantic-policy.js",
+          "symbol": "SemanticOriginalWindows",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticPolicyConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticRetrieval",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticWindowPolicy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeTransportProof",
           "kinds": [
             "read"
           ]
@@ -30585,6 +30783,20 @@
           ]
         },
         {
+          "provider": "06ha-semantic-retrieval.js",
+          "symbol": "SemanticRetrieval",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06hb-semantic-runtime.js",
+          "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolDisabledByPolicy",
           "kinds": [
@@ -30604,6 +30816,13 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "observationMainReadAllowed",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -30614,13 +30833,6 @@
         "MediaImageContract"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
         {
           "provider": "01h-privacy-core.js",
           "symbol": "PrivacyCore",
@@ -30637,13 +30849,6 @@
         "MediaDerivedStore"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
@@ -30666,22 +30871,7 @@
       "provides": [
         "MediaImageProcessor"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "VERSION",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "13bd-media-image-service.js",
@@ -30948,13 +31138,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "VERSION",
           "kinds": [
             "read"
@@ -31040,6 +31223,13 @@
         {
           "provider": "13an-work-data-disposable-tree.js",
           "symbol": "WorkDataDisposableNativeTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationCapsuleBroker",
           "kinds": [
             "read"
           ]
@@ -31166,6 +31356,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -31183,13 +31380,6 @@
           "symbol": "WorkDataSetupHooks",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "send",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -31328,13 +31518,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "MigrationHooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
           "kinds": [
             "read"
           ]

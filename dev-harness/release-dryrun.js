@@ -38,6 +38,10 @@ const NPM_RUN = process.platform === 'win32'
   : { cmd: 'npm', args: ['run', 'build:exe'] };
 
 (async () => {
+  try {
+    const semantic = require('./lib/semantic-release-gates.cjs').check(ROOT);
+    ok(true, semantic.applicable ? '3.1 semantic release gates and evidence bindings' : '3.1 semantic gates remain pending for the current pre-3.1 version');
+  } catch (e) { ok(false, e.message); }
   // ① 产物新鲜度
   try { run(process.execPath, [path.join(WB, 'app', 'build.js'), '--check'], WB, { quiet: true }); ok(true, '① 产物新鲜度(build.js --check)'); }
   catch (e) { ok(false, '① 产物新鲜度 —— 陈旧产物: ' + ((e.stdout || e.message) + '').slice(0, 200)); }

@@ -1,0 +1,82 @@
+// Research insertion into the owned 13u source. The caller supplies the real
+// maintenance-control receipt verifier and the actual source owner predicate.
+const migrationCandidateRetained = new Set();
+async function migrationCreateCandidateBoundary({candidate,root,sourceProof,assertIssued,ownership,assertExclusive,assertIntent,onNativeCause}) {
+  const fail=reason=>migrationCapsuleFail('candidate_'+reason);
+  const check=()=>{if(assertIssued(candidate)!==true||assertExclusive(ownership)!==true)fail('authority');};
+  if(!candidate||typeof assertIssued!=='function'||typeof assertExclusive!=='function'||typeof assertIntent!=='function'||typeof onNativeCause!=='function')fail('arguments');
+  const base=path.resolve(root),target=path.join(base,'.work-data','generations',candidate.id);
+  if(candidate.root!==target||!/^[a-f0-9]{48}$/.test(candidate.id||''))fail('scope');
+  if(!sourceProof||!Array.isArray(sourceProof.sourceFiles)||!Array.isArray(sourceProof.sourceDirectories))fail('baseline');
+  const excluded=('.work-data/generations/'+candidate.id).toLowerCase();
+  for(const row of [...sourceProof.sourceFiles,...sourceProof.sourceDirectories]){
+    if(typeof row?.path!=='string')fail('baseline');const name=row.path.toLowerCase();
+    if(name===excluded||name.startsWith(excluded+'/'))fail('baseline');
+  }
+  const baselineSha256=crypto.createHash('sha256').update(JSON.stringify({sourceFiles:sourceProof.sourceFiles,sourceDirectories:sourceProof.sourceDirectories})).digest('hex');
+  await assertIntent();check();
+  const drive=path.parse(base).root,parts=base.slice(drive.length).split(path.sep).filter(Boolean).concat(['.work-data','generations']);
+  let cursor=drive;const anchors=[];
+  for(const part of [null,...parts]){if(part)cursor=path.join(cursor,part);const st=await fsp.lstat(cursor,{bigint:true});
+    if(!st.isDirectory()||st.isSymbolicLink()||path.resolve(await fsp.realpath(cursor)).toLowerCase()!==path.resolve(cursor).toLowerCase())fail('anchor');
+    anchors.push(st.dev.toString(16).padStart(8,'0')+st.ino.toString(16).padStart(16,'0'));}
+  await assertIntent();check();let broker,closed=false,started=false,uncertain=false;
+  const windowsRoot=process.env.SystemRoot||process.env.SYSTEMROOT;
+  if(typeof windowsRoot!=='string'||!path.isAbsolute(windowsRoot))fail('process_environment');
+  const tmpRoot=path.resolve(require('node:os').tmpdir()),installation=path.resolve(__dirname,'..');
+  const overlaps=(a,b)=>{const rel=path.relative(a,b);return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);};
+  if(overlaps(base,tmpRoot)||overlaps(tmpRoot,base)||overlaps(installation,tmpRoot)||overlaps(tmpRoot,installation))fail('process_environment');
+  const observerRoot=await fsp.mkdtemp(path.join(tmpRoot,'ruyi-candidate-observer-'));
+  await fsp.writeFile(path.join(observerRoot,'OWNER.json'),JSON.stringify({kind:'ruyi-candidate-identity-query-v1'}),{flag:'wx'});
+  const windows=path.resolve(windowsRoot),system32=path.join(windows,'System32');
+  const powershell=path.join(system32,'WindowsPowerShell','v1.0','powershell.exe');
+  const queryEnv={SystemRoot:windows,WINDIR:windows,ComSpec:path.join(system32,'cmd.exe'),PATH:system32,TEMP:observerRoot,TMP:observerRoot,USERPROFILE:observerRoot,APPDATA:observerRoot,LOCALAPPDATA:observerRoot,PSModuleAnalysisCachePath:path.join(observerRoot,'ModuleAnalysisCache')};
+  let nativeChild,observation,creation,osIdentityChecked=false,sameIdentityAbsent=null,result,primary,failed=false;
+  async function processIdentity(pid,allowAbsent){
+    if(!Number.isSafeInteger(pid)||pid<1)fail('process_identity');
+    const script=`$ProgressPreference='SilentlyContinue';[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' -ErrorAction Stop;if(!$p){'ABSENT'}else{$p.CreationDate.ToUniversalTime().ToFileTimeUtc()}`;
+    const value=await new Promise((resolve,reject)=>{
+      let child,out='',error=null,settled=false;try{child=require('node:child_process').spawn(powershell,['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,stdio:['ignore','pipe','ignore'],env:queryEnv});}catch(cause){reject(cause);return;}
+      const timer=setTimeout(()=>{if(settled)return;settled=true;migrationCandidateRetained.add(Object.freeze({nativeChild:child,ownership}));reject(Error('candidate_identity_timeout'));},10000);
+      child.stdout.on('data',chunk=>{out+=String(chunk);if(out.length>4096)error=Error('candidate_identity_output');});
+      child.stdout.on('error',cause=>{error=cause;});
+      child.on('error',cause=>{error=cause;});
+      child.once('close',(code,signal)=>{clearTimeout(timer);if(settled)return;settled=true;if(error||code!==0||signal)reject(error||Error('candidate_identity_query'));else resolve(out.trim());});
+    });
+    if(!(value==='ABSENT'||/^\d+$/.test(value))||!allowAbsent&&value==='ABSENT')fail('process_identity');return value;
+  }
+  try {
+    broker=await migrationCapsuleBroker();started=true;
+    observation=migrationCapsuleBrokerChildren.get(broker);nativeChild=observation?.child;if(!nativeChild||!migrationCapsuleIssuedChildren.has(nativeChild)){uncertain=true;fail('process_identity');}
+    try{creation=await processIdentity(nativeChild.pid,false);}catch(cause){uncertain=true;throw cause;}check();
+    const receipt=await broker.command({cmd:'research-candidate-start',base,id:candidate.id,anchorIds:anchors});
+    if(!receipt||receipt.kind!=='candidate-directory-created-v1'||receipt.root!==target||receipt.relative!==''||receipt.parentId!==null||receipt.created!==true||!/^[a-f0-9]{24}$/.test(receipt.id||'')||!/^[a-f0-9]{64}$/.test(receipt.token||''))fail('receipt');
+    await assertIntent();check();let released;
+    try{released=await broker.command({cmd:'research-candidate-close',root:target,token:receipt.token});}
+    catch(cause){uncertain=true;throw cause;}
+    if(!released||released.closed!==true||Object.keys(released).join(',')!=='closed'){uncertain=true;fail('close');}
+    try{await broker.close();if(observation?.closeObserved!==true||observation.closeCode!==0||observation.closeSignal!==null)fail('process_identity');const after=await processIdentity(nativeChild.pid,true);osIdentityChecked=true;sameIdentityAbsent=after==='ABSENT'||after!==creation;if(!sameIdentityAbsent)fail('process_identity');closed=true;}catch(cause){uncertain=true;throw cause;}
+    await assertIntent();check();
+    result=Object.freeze({candidate,root:target,id:receipt.id,parents:Object.freeze(anchors.slice(-3)),baselineSha256});
+  }catch(cause){
+    if(broker&&!closed&&!uncertain){try{await broker.close();if(!nativeChild||!creation||observation?.closeObserved!==true)fail('process_identity');const after=await processIdentity(nativeChild.pid,true);osIdentityChecked=true;sameIdentityAbsent=after==='ABSENT'||after!==creation;if(!sameIdentityAbsent)fail('process_identity');closed=true;}catch{uncertain=true;}}
+    if(uncertain||migrationCapsuleBroker.helperMayStillRun===true){
+      migrationCapsuleBroker.helperMayStillRun=true;
+      migrationCandidateRetained.add(Object.freeze({broker,nativeChild,ownership}));
+      const error=Object.assign(Error('work_data_backup.candidate_close_unverified',{cause}),{code:'work_data_backup.candidate_close_unverified',helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:started,retry:false});
+      try{onNativeCause(error);}catch(observerError){error.observerFailed=true;}primary=error;failed=true;
+    }else{
+      primary=cause;failed=true;
+    }
+  }
+  const audit={schema:1,kind:'candidate-allocator-process-v1',status:uncertain||migrationCapsuleBroker.helperMayStillRun===true?'unknown':failed?'failure':'success',native:{pid:Number.isSafeInteger(nativeChild?.pid)?nativeChild.pid:null,creationFileTime:creation||null,closeObserved:observation?.closeObserved===true,closeCode:Number.isInteger(observation?.closeCode)?observation.closeCode:null,closeSignal:typeof observation?.closeSignal==='string'?observation.closeSignal:null,osIdentityChecked,sameIdentityAbsent},ownerRetained:uncertain||migrationCapsuleBroker.helperMayStillRun===true?true:null};
+  let auditHandle;
+  try{auditHandle=await fsp.open(path.join(observerRoot,'allocator-receipt.json'),'wx',0o600);await auditHandle.writeFile(JSON.stringify(audit)+'\n','utf8');await auditHandle.sync();await auditHandle.close();auditHandle=null;}
+  catch(auditError){
+    migrationCapsuleBroker.helperMayStillRun=true;migrationCandidateRetained.add(Object.freeze({broker,nativeChild,ownership,auditHandle}));
+    const cause=failed?new AggregateError([primary,auditError],'candidate_audit_failed',{cause:primary}):auditError;
+    const error=Object.assign(Error('work_data_backup.candidate_audit_unverified',{cause}),{code:'work_data_backup.candidate_audit_unverified',helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:started,retry:false});
+    try{onNativeCause(error);}catch{}throw error;
+  }
+  if(failed)throw primary;return result;
+}

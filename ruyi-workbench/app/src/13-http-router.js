@@ -1,3 +1,24 @@
+// One trusted host installation; the pure core owns fixed-code transport issuance.
+const semanticRuntimeHostPorts = (() => {
+function legacySemanticRuntimeSettings() {
+  const base=externalRoot(),root=process.env.RUYI_SEMANTIC_RUNTIME_ROOT||path.join(base,'semantic-runtime'),worker=path.join(base,'semantic-runtime','worker.cjs');
+  const command=isPkg()?path.join(base,'runtime','node',process.platform==='win32'?'node.exe':'node'):process.execPath;
+  if(![worker,command,path.join(root,'package.json')].every(file=>fs.existsSync(file)))return null;
+  const env={};for(const [key,value]of Object.entries(process.env))if(/^(SystemRoot|WINDIR|TEMP|TMP|PATH|PATHEXT|COMSPEC|NUMBER_OF_PROCESSORS|PROCESSOR_ARCHITECTURE)$/i.test(key))env[key]=value;
+  env.HF_HUB_OFFLINE='1';env.TRANSFORMERS_OFFLINE='1';const args=[worker,'--root',root];if(process.env.RUYI_SEMANTIC_MODEL)args.push('--model',process.env.RUYI_SEMANTIC_MODEL);return {command,args,cwd:base,env};
+}
+
+return SemanticRuntimeCore.installHost({
+ enabled:async()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&(await readConfig()).semanticRetrievalV1!==false,
+ selectedMethod:()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&process.env.RUYI_SEMANTIC_BACKEND==='gemma2',
+ legacySettings:legacySemanticRuntimeSettings,
+ gemma2Settings:()=>({base:externalRoot(),directory:process.env.RUYI_SEMANTIC_GEMMA2_ROOT,pin:process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256}),
+ selection:async()=>{const config=await readConfig(),id=process.env.RUYI_SEMANTIC_BACKEND==='gemma2'?'gemma2':'legacy';return {enabled:process.env.RUYI_DISABLE_SEMANTIC!=='1'&&config.semanticRetrievalV1!==false,id,signature:JSON.stringify([id,process.env.RUYI_SEMANTIC_MODEL||'',process.env.RUYI_SEMANTIC_RUNTIME_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256||''])};},
+ policyDescriptor:value=>value?.modelId!=='embeddinggemma-2-text-q4'?value:{...value,policyReady:value.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint&&['session','memory','observation-snapshot','observation-message'].every(kind=>SemanticPolicyConsumers.has(kind))},
+});
+})();
+Object.assign(SemanticRuntimeHooks,semanticRuntimeHostPorts);
+
 // 118a-fix: 应用内手册阅读器的服务端事实源。
 // 反模式治理:118a 的完成页只给了一行相对路径 + 「复制路径」,等于把用户推到文件管理器里自己找手册。
 // 产品口径是「每件事都能在如意里做完」,所以手册改为应用内直接读:本端点只吐 markdown 原文,
@@ -2037,6 +2058,9 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // /health and the token handshake are live already. Boot consumers must now use
   // the real discovered CLI paths, including verified shim-to-exe upgrades.
   config = await readConfig();
+  // Fixed public warm input is encoded by the resident transport itself. No
+  // user query/cache is involved, and HTTP/UI readiness does not await loading.
+  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().catch(() => {}); });
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
@@ -2072,13 +2096,17 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
   // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
   const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { PrivacyLocalDriveProbe.stopSync(); } catch { /* ignore */ } try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  let semanticShutdown = null;
+  const shutdownSemanticRuntime = () => { if (!semanticShutdown) semanticShutdown = Promise.resolve().then(() => SemanticRuntimeHooks.shutdown?.()); return semanticShutdown; };
+  const exitAfterCleanup = async code => { cleanupMcp(); server.close(); let result;try { result=await shutdownSemanticRuntime(); } catch { process.exitCode=1;return; }if(result&&(result.cleanupStatus!=='observed'||result.workerExited!==true)){process.exitCode=1;return;}process.exit(code); };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
   // 128f-⑥:用量账本还没轮到的那几行也在这里同步补写(Brief §4.2 第 5 条「账本即发即忘」)。
   process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } try { flushUsageLedgerSync(); } catch { /* ignore */ } cleanupMcp(); });
-  process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
-  process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
+  server.once('close', () => { void shutdownSemanticRuntime().catch(() => {}); });
+  process.once('SIGINT', () => { void exitAfterCleanup(0); });
+  process.once('SIGTERM', () => { void exitAfterCleanup(0); });
   // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a
   // require()'d unit test keeps Node's default handling). Before this, an uncaught exception left no journal
   // trace and an unhandled rejection could die silently. Policy: a stray REJECTION is logged and the process
@@ -2092,8 +2120,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   process.on('uncaughtException', (err) => {
     try { logEvent({ kind: 'uncaught_exception', error: (err && err.stack) || (err && err.message) || String(err) }); } catch { /* logging must never re-throw */ }
     try { console.error('uncaughtException (exiting):', (err && err.stack) || err); } catch { /* ignore */ }
-    try { cleanupMcp(); } catch { /* ignore */ }
-    process.exit(1);
+    void exitAfterCleanup(1);
   });
   if (opts.open) {
     // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。

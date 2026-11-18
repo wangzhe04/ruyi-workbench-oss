@@ -1,0 +1,8 @@
+{
+  "name": "ruyi-semantic-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated, local-only semantic encoder; never required by server.js",
+  "engines": { "node": ">=20" },
+  "dependencies": { "@huggingface/transformers": "3.8.1" }
+}

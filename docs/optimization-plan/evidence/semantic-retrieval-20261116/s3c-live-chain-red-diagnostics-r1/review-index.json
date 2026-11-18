@@ -1,0 +1,351 @@
+{
+  "schema": 1,
+  "status": "ACTUAL_CHAIN_RED_BUDGET_STARVATION",
+  "createdAt": "2026-11-17T02:24:50.505Z",
+  "evidence": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/manifest.json",
+      "sha256": "0caede3fcdd140a901710b786931a56a1f44116e527b12b6448627ad055e5c5d",
+      "records": 57
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/manifest.json",
+      "sha256": "cfd31d6cf8e4bdb237cdb70a555ec83de665f2a399ac610549580c904a9505b4",
+      "records": 13
+    }
+  ],
+  "verifiedRecords": 70,
+  "uniqueSourcePaths": 70,
+  "rawBytes": 10254472,
+  "gzipBytes": 3322751,
+  "assertions": [
+    {
+      "name": "frozen independent GCC development and root fixed-policy recheck",
+      "passed": true
+    },
+    {
+      "name": "GCC factory exact pinned source,40 recorded vector comparisons and final cleanup",
+      "passed": true
+    },
+    {
+      "name": "long field corrected raw witness and fixed-window fake proof",
+      "passed": true
+    },
+    {
+      "name": "append frozen16 plus root grouped16/22 and baseline mistaken assertion retained",
+      "passed": true
+    },
+    {
+      "name": "real Job and synthetic HTTP fault proof is not GGUF fault injection",
+      "passed": true
+    },
+    {
+      "name": "previous57 immutable archive independently read and roundtripped",
+      "passed": true
+    },
+    {
+      "name": "first actual248 chain RED retained and pure OOD not falsely treated as TN",
+      "passed": true
+    },
+    {
+      "name": "paired same-batch current memory sums and separate Node sample, not exclusive desktop delta",
+      "passed": true
+    },
+    {
+      "name": "historical execution freeze and immutable derived producer snapshots pinned",
+      "passed": true
+    },
+    {
+      "name": "six synthetic native budget diagnostic retains two predicted refusals and observed shutdown",
+      "passed": true
+    },
+    {
+      "name": "fake model actual UI source diagnostic preserves original call count and union intervals",
+      "passed": true
+    }
+  ],
+  "actualChain": {
+    "receiptSha256": "2eae8bacf390eb08cf15ed61731c63b7bb070f2c49c401d4fd877c398a5ebcb2",
+    "queries": 248,
+    "complete": 121,
+    "partial": 127,
+    "rawStatus": "PARTIAL_LIVE_DEVELOPMENT_NOT_ACCEPTANCE",
+    "pureOod": {
+      "count": 80,
+      "partialNoResultUnknown": 80,
+      "trueNegatives": 0,
+      "fpr": null,
+      "fprBounds": [
+        0,
+        1
+      ]
+    },
+    "actualCoarseEmbeddingWrites": 286,
+    "actualRankWrites": 2,
+    "predictedScalarBudgetRefusals": 128,
+    "positiveResults": {
+      "train": {
+        "count": 72,
+        "recallAt5": 0.5138888888888888,
+        "mrr": 0.5138888888888888,
+        "partial": 35
+      },
+      "calibration": {
+        "count": 24,
+        "recallAt5": 0.5,
+        "mrr": 0.5,
+        "partial": 12
+      }
+    },
+    "finalCleanup": {
+      "coarse": {
+        "ok": true,
+        "state": "research-stop",
+        "workerExited": true,
+        "cleanupStatus": "observed"
+      },
+      "scalar": {
+        "code": 0,
+        "signal": null,
+        "cleanupStatus": "observed",
+        "nativeSpawnRequested": true,
+        "workerExited": true
+      }
+    },
+    "resources": {
+      "pairedOsBatchSamples": 18,
+      "observedPairedMaxWorkingSetBytes": 1341620224,
+      "observedPairedMaxPrivateBytes": 935395328,
+      "separateNodeMaxSampledRssBytes": 221966336,
+      "independentPeaksAdded": false,
+      "exclusiveDesktopDelta": false,
+      "trueProcessPeakClaimed": false,
+      "workingSetMayDoubleCountSharedPages": true
+    },
+    "timing": {
+      "prescribedQueryCount": 248,
+      "p95NearestRankMs": 1201.0735999999742,
+      "sourceFields": 60,
+      "formal1000FragmentQualification": false
+    }
+  },
+  "nativeBudgetDiagnostic": {
+    "syntheticQueries": 6,
+    "completed": 4,
+    "predictedRefused": 2,
+    "rankRequestTotalMsRange": [
+      178.29589999999735,
+      192.50220000000263
+    ],
+    "hostMsRange": [
+      207.08719999999812,
+      222.5697
+    ],
+    "refused": [
+      {
+        "remainingAtHostMs": 228,
+        "estimateMs": 318,
+        "httpWrites": 0
+      },
+      {
+        "remainingAtHostMs": 246,
+        "estimateMs": 318,
+        "httpWrites": 0
+      }
+    ],
+    "finalCleanup": {
+      "coarse": {
+        "ok": true,
+        "state": "diagnostic-stop",
+        "workerExited": true,
+        "cleanupStatus": "observed"
+      },
+      "scalar": {
+        "code": 0,
+        "signal": null,
+        "cleanupStatus": "observed",
+        "nativeSpawnRequested": true,
+        "workerExited": true
+      }
+    },
+    "scope": "Actual native synthetic diagnostic, not quality or1000-fragment qualification; nested timings must not be added."
+  },
+  "uiCostDiagnostic": {
+    "nativeStarts": 0,
+    "scope": "Synthetic immediate models, actual UI/source calls; no checks removed.",
+    "crossLanguageWarm": {
+      "elapsedMs": 966.3222000000005,
+      "scan": {
+        "calls": 121,
+        "cumulativeMs": 1294.082599999998,
+        "unionWallMs": 366.7581999999993
+      },
+      "inspect": {
+        "calls": 77,
+        "cumulativeMs": 216.38810000000103,
+        "unionWallMs": 87.56770000000142
+      },
+      "finalEpoch": {
+        "calls": 60,
+        "cumulativeMs": 176.7761000000046,
+        "unionWallMs": 47.68790000000081
+      }
+    },
+    "strongId": {
+      "elapsedMs": 902.8165999999992,
+      "scan": {
+        "calls": 121,
+        "cumulativeMs": 1246.5431000000053,
+        "unionWallMs": 357.00990000000274
+      }
+    },
+    "intervalsNestedDoNotAdd": true
+  },
+  "tradeoff": {
+    "status": "HISTORICAL_MSVC_FIXED_DEVELOPMENT_TRADEOFF_NOT_LIVE_GCC_OR_INDEPENDENT_ACCEPTANCE",
+    "selection": {
+      "file": "output/semantic-qwen-reranker-official-v1/development-selection-v1.json",
+      "sha256": "d39c6a3e9f3e0ee716c18d71322470c93add734e6ed685c8ba65075fc1c8a0c4",
+      "durableArchive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-scalar-development-reviewed-r1/008-development-selection-v1.json.gz",
+      "archiveSha256": "51b545194a5c02dfb35ea4bdefe4417bbae31ab5bcd2e200e7184f4ca81af4d4"
+    },
+    "profiles": [
+      {
+        "profile": "minilm-k4",
+        "threshold": 0.95,
+        "train": {
+          "count": 72,
+          "recallAt5": 0.9861111111111112,
+          "mrr": 0.9861111111111112
+        },
+        "calibration": {
+          "count": 24,
+          "recallAt5": 1,
+          "mrr": 1
+        },
+        "positiveTotal": 96,
+        "recalled": 95,
+        "recallAt5": 0.9895833333333334,
+        "requiredPairs": {
+          "train": 384,
+          "calibration": 128,
+          "total": 512
+        },
+        "pureOod": {
+          "train": {
+            "count": 60,
+            "anyResultFpr": 0,
+            "verifiedCandidateResultFpr": 0,
+            "semanticOnlyAdmissionFpr": 0,
+            "weakLexicalResultFpr": 0,
+            "strongEvidenceResultFpr": 0
+          },
+          "calibration": {
+            "count": 20,
+            "anyResultFpr": 0,
+            "verifiedCandidateResultFpr": 0,
+            "semanticOnlyAdmissionFpr": 0,
+            "weakLexicalResultFpr": 0,
+            "strongEvidenceResultFpr": 0
+          }
+        }
+      },
+      {
+        "profile": "qwen-k1",
+        "threshold": 0.95,
+        "train": {
+          "count": 72,
+          "recallAt5": 1,
+          "mrr": 1
+        },
+        "calibration": {
+          "count": 24,
+          "recallAt5": 1,
+          "mrr": 1
+        },
+        "positiveTotal": 96,
+        "recalled": 96,
+        "recallAt5": 1,
+        "requiredPairs": {
+          "train": 96,
+          "calibration": 32,
+          "total": 128
+        },
+        "pureOod": {
+          "train": {
+            "count": 60,
+            "anyResultFpr": 0,
+            "verifiedCandidateResultFpr": 0,
+            "semanticOnlyAdmissionFpr": 0,
+            "weakLexicalResultFpr": 0,
+            "strongEvidenceResultFpr": 0
+          },
+          "calibration": {
+            "count": 20,
+            "anyResultFpr": 0,
+            "verifiedCandidateResultFpr": 0,
+            "semanticOnlyAdmissionFpr": 0,
+            "weakLexicalResultFpr": 0,
+            "strongEvidenceResultFpr": 0
+          }
+        }
+      }
+    ],
+    "recallAbsoluteGainPercentagePoints": 1.041666666666663,
+    "assetAccounting": {
+      "method": "Sum fixed lock/producer metadata only; no model or binary read. This is selected payload asset accounting, not actual installer size, clean-machine runtime closure or total RSS.",
+      "mini": {
+        "modelFilesBytes": 135392488,
+        "dependencyFilesBytes": 40533717,
+        "totalBytes": 175926205
+      },
+      "dualQwen": {
+        "embeddingBytes": 396474560,
+        "rankBytes": 396476288,
+        "singleSharedGccExecutableBytes": 22605545,
+        "totalBytes": 815556393,
+        "extraBytes": 639630188,
+        "ratio": 4.635786880072812
+      },
+      "miniPlusGccRank": {
+        "estimatedSelectedAssetBytes": 595008038,
+        "actualPackage": false
+      },
+      "metadataSources": [
+        {
+          "file": "ruyi-workbench/semantic-runtime/models.lock.json",
+          "sha256": "cec30d0f6ee26ac65170c2cfac03534d533686c52b5b1015e570298224536c43"
+        },
+        {
+          "file": "ruyi-workbench/semantic-runtime/runtime-assets.win32-x64.lock.json",
+          "sha256": "34c44dfe5a716d29a50921a8fd9c1668ace43674ce7c992cebb3a021b1cfb8a8"
+        },
+        {
+          "file": "output/semantic-qwen3-q4-research-v1/research.lock.json",
+          "sha256": "2c28aa645cce67b5fb52fba20995e437bbf658a028ea04facbc695b18680ab6f"
+        },
+        {
+          "file": "output/semantic-qwen-reranker-official-v1/artifact-inventory.json",
+          "sha256": "3f442df23bb4e4eb5e14da9f59a3ee5d9770dfc6fd266deb44e2d22060abe204"
+        },
+        {
+          "file": "output/semantic-native-mingw-research/static-receipt.json",
+          "sha256": "ac97b212e1b9e8280b809bfbaf095233c3984cfb3c0420ff93f9fd5803bad587"
+        }
+      ]
+    },
+    "decision": "Dual Qwen remains a research comparator, not a default upgrade. Prioritize small coarse plus verifier total quality/latency/size evaluation; automatic and production default unchanged.",
+    "limits": [
+      "Historical MSVC measured train/cal development evaluator only; not a new GCC complete actual-chain independent acceptance.",
+      "Both profiles have pure OOD0/80 in this complete offline evaluation. This does not replace the separate actual-chain80partial unknown[0,1] result.",
+      "MiniK4 requires512scalar pairs versus QwenK1 128 on the fixed development corpus. This pair-cost difference is not a measured end-to-end latency or memory result.",
+      "Asset sums compare different selected runtime stacks and exclude package/compression/common application files and unconfirmed deployment materials. Mini plus rank is an estimate, not a built bundle."
+    ]
+  },
+  "latestIndependentQuality": "v5 RED unchanged",
+  "v6Consumed": false,
+  "formal1000WorkloadStarted": false,
+  "productionDefaultChanged": false,
+  "allFormalSrGatesPending": true,
+  "mutableRunnerLayoutArchived": false
+}

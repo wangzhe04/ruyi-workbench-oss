@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "OFFICIAL_CONVERSION_RANK_RUNTIME_SCOPED_REVIEWED_QUALITY_RED",
+  "manifests": [
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-official-reviewed-r1/manifest.json",
+      "sha256": "86006a765f8cae0e9e8b807d8c2d75d9ff5e1705ea970eeaa76c9bc836e8d669"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/manifest.json",
+      "sha256": "dab735c20d1fb4ffa1361500c0e2589d3d9644d3d0ca0dda832503e2a739f739"
+    }
+  ],
+  "records": [
+    {
+      "source": "output/native-headless-qwen-research/root-rank-resource-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reranker-runtime-reviewed-r2/019-root-rank-resource-review-r1.json.gz",
+      "sha256": "47545adaef60408c3681b647babe3da912dcb3ac107fb7a1e0d12bb30161f279",
+      "bytes": 787,
+      "gzipSha256": "f2df361e0ff9b0c2e1a74542373541c1b0aedd52740d62dc557ab1b6374fbd80",
+      "gzipBytes": 497
+    }
+  ],
+  "resourceEvidenceScope": "44 variant and44 cross-thread scalar/token comparisons;20 short samples per profile; no production quality/p95 qualification",
+  "selectedResearchThreads": 6,
+  "releaseGatesClosed": [],
+  "limits": [
+    "Preserve both immutable manifests and original failures; no model/binary/credentials archived.",
+    "Only research thread choice; default/model manifest unchanged and all SR pending."
+  ]
+}

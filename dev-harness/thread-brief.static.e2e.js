@@ -50,7 +50,7 @@ function authorizedSearchBriefContract() {
   if (assemblers.length !== 2) return false;
   for (const brief of [{ title: 'authorized generated name', gist: 'authorized gist' }, null]) {
     const meta = { id: 'owned', title: 'original title', ...(brief ? { brief } : {}) };
-    const context = { meta, safe: meta, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
+    const context = { meta, safe: meta, excerpt: meta.title, requiredIds: [], rankScore: 1 / 61, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
     for (const assembly of assemblers) {
       const row = vm.runInNewContext('(' + assembly + ')', context);
       if (row.title !== meta.title || (brief ? row.briefTitle !== brief.title || row.briefGist !== brief.gist : 'briefTitle' in row || 'briefGist' in row)) return false;

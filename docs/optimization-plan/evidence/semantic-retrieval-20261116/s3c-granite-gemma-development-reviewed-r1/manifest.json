@@ -1,0 +1,526 @@
+{
+  "schema": 1,
+  "status": "EXPLORATORY_DEVELOPMENT_NUMERICALLY_REPRODUCED_WITH_READ_DEVIATION_NOT_RELEASE",
+  "checks": [
+    {
+      "name": "root numerical reproduction covers1206 fixed points and188 later rows, not independent acceptance",
+      "passed": true
+    },
+    {
+      "name": "all six physical partition files are exactly reconstructible without duplicate weight/vector archives",
+      "passed": true
+    }
+  ],
+  "previous": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-compat-reviewed-r1/manifest.json",
+    "sha256": "0f5071c0838a9524b3dde291cb675623954cf42ef057913c0e416ac8a2303563"
+  },
+  "records": [
+    {
+      "source": "output/granite-gemma-root-collection-review-r1.json",
+      "group": "root-collection-review",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/001-granite-gemma-root-collection-review-r1.json.gz",
+      "sha256": "bcc16c2b3a786fef6ce240aedd7c56583d1646bc70c63b4e8323b2186e3e3b8b",
+      "bytes": 4605,
+      "gzipSha256": "8dbb820e45ef19318491b4c08e2e420d144597a6752cf876378d8d422eebf491",
+      "gzipBytes": 1571
+    },
+    {
+      "source": "output/granite-gemma-root-quality-review-r1.json",
+      "group": "root-independent-quality-replay",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/002-granite-gemma-root-quality-review-r1.json.gz",
+      "sha256": "3bd9db43371b56ed9e7a9e6f758f44212ef122008dda7b8c1096790cab2e47d8",
+      "bytes": 14937,
+      "gzipSha256": "1d58d1a915303964e215fe4b8aec9a25acc7b84f64db7a3b2f08accd78be7bfa",
+      "gzipBytes": 1541
+    },
+    {
+      "source": "docs/optimization-plan/evidence/semantic-retrieval-20261116/granite-gemma-development-read-deviation.json",
+      "group": "protocol-read-deviation",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/003-granite-gemma-development-read-deviation.json.gz",
+      "sha256": "1b0db32a48763fb300a200c1ffc718a770fec2a583cdef0dd1bef8c7b614f174",
+      "bytes": 1664,
+      "gzipSha256": "212cba075a931809b1a77b460623ac5ddef1d75db6039b9d0aeb029701ea4e43",
+      "gzipBytes": 953
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-collection-freeze-v2.json",
+      "group": "collection-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/004-granite-gemma-collection-freeze-v2.json.gz",
+      "sha256": "b7f1317f036d5df9322604bf2c05d0029c5fb97d6a46a0ad9e853d8541735457",
+      "bytes": 8277,
+      "gzipSha256": "eb6ab8fee32c25d3e2105728241cb37c69f0447257d26dd78fde836290062cce",
+      "gzipBytes": 3201
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-selection-freeze.json",
+      "group": "selection-and-validation-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/005-granite-gemma-train-selection-freeze.json.gz",
+      "sha256": "84ad5130f3ad3b702a1edf87ddb2ea3de6cd69fc384b517ee0aa82211af8a415",
+      "bytes": 3456,
+      "gzipSha256": "20587b6a2f87615ad1599afe78235d54671e95ce2dc040a607bb0496b26abb64",
+      "gzipBytes": 1563
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-extract.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/006-granite-gemma-train-extract.cjs.gz",
+      "sha256": "f6440ea3fa67de0965c7124f9a4771f9feed19bcc31652f6b7448feceacd27e5",
+      "bytes": 3605,
+      "gzipSha256": "02452a82ef8b1fe5edf51fec347e81715290933f2328aa89f9e63c82b98528bc",
+      "gzipBytes": 1626
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-policy.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/007-granite-gemma-train-policy.cjs.gz",
+      "sha256": "ca03a57445438c73c89ee4ac7a1afb3707bbc19d5da322c440c2ef14078d8518",
+      "bytes": 3149,
+      "gzipSha256": "2458876888a7c6ee0a6db69c8d637b132b540c52ea00c287012ca2cb055846cb",
+      "gzipBytes": 1260
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-policy-test.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/008-granite-gemma-train-policy-test.cjs.gz",
+      "sha256": "8b1b0f7ee5c8779be994a428f0a7ec0024ac45a3a2549631dce04761bfcba67b",
+      "bytes": 1168,
+      "gzipSha256": "1fabbcc43ca54fa6101ac9b697129cf4953d16f1a4046a7ab29b5cbcd5f92638",
+      "gzipBytes": 628
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-select.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/009-granite-gemma-train-select.cjs.gz",
+      "sha256": "19cfe081cc380a1c233620d82dc639f56ff6ded693ac9f2dca574308d7148e0a",
+      "bytes": 7344,
+      "gzipSha256": "d97f163fee247ad5578c1254962d0dd4d4982c8cba0cb0bc7f6d6c7b38b5904a",
+      "gzipBytes": 3104
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-protocol.json",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/010-granite-gemma-development-protocol.json.gz",
+      "sha256": "c54140a3644fa8117935f955de1b878f970fe13d865e469304ffca9b3501592f",
+      "bytes": 6890,
+      "gzipSha256": "fc0aaebaad06874a4d7d0a2cd4827e95dab63aa26776773e1f4ddb10c1aa7bc9",
+      "gzipBytes": 3364
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-later-validation-freeze.json",
+      "group": "selection-and-validation-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/011-granite-gemma-later-validation-freeze.json.gz",
+      "sha256": "18bf9f1bf37a8e0c4d3798fe63463af2d8813b074008adba108fa4fac04087f7",
+      "bytes": 2400,
+      "gzipSha256": "3490cc567296778e3fe77ccf96d3815d5f99f7035070d9ec3087a6ab3b5bd648",
+      "gzipBytes": 918
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-later-extract.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/012-granite-gemma-later-extract.cjs.gz",
+      "sha256": "075236068b2720e30cbebf534bac231ca1d873149359a4ea88b2267419be869f",
+      "bytes": 4079,
+      "gzipSha256": "feb3822e507a2f0b4ff366973d143a70da8e36082ca3888a5108139bcfd6ded1",
+      "gzipBytes": 1760
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-later-validate.cjs",
+      "group": "exact-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/013-granite-gemma-later-validate.cjs.gz",
+      "sha256": "141d29ed9cbf7072add1838139b4d885125fea2d7ed2e6c04855f83601b460c7",
+      "bytes": 4145,
+      "gzipSha256": "f821cea41dabf1da47614ea15b3baf45cd791ea059eebf4a07144407ab3dbe4d",
+      "gzipBytes": 1972
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-common.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/014-granite-gemma-development-common.cjs.gz",
+      "sha256": "10615f8e51c180aeeee2cdf6b8e3c6cab13cc76877e666653afa157f4884a26d",
+      "bytes": 2711,
+      "gzipSha256": "70c0474e65193b4ce22406b9ae8865407611b0bc6e3d29380ee009e7ae1deb1a",
+      "gzipBytes": 1241
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-oracle.py",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/015-granite-gemma-development-oracle.py.gz",
+      "sha256": "7305e49c636d010fa6537b924a1f878805472bcf1162bc8b8aac86011473c03b",
+      "bytes": 404,
+      "gzipSha256": "13e6ee93a57bb9e39ba0572baa04589b14dd6c7b5256a5d365323a75bb8d641c",
+      "gzipBytes": 280
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-parity.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/016-granite-gemma-development-parity.cjs.gz",
+      "sha256": "6bc47a75a665790c877eb27eb29000592f9381c3e7a5c627cc411cb612448544",
+      "bytes": 3686,
+      "gzipSha256": "b353202b21f1473c9d60cb02f3e8de5e871b5ae24a9d567eaf0d57f578e4f658",
+      "gzipBytes": 1748
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-validate.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/017-granite-gemma-development-validate.cjs.gz",
+      "sha256": "6710db8e80cd0614c5ea9f6bc9d1958f83b4407a60d8d22c5a338aeddbfa21c5",
+      "bytes": 1070,
+      "gzipSha256": "856f581b4b1ae017792f12e40435a875db77b14e83adffdfabc323630a9ef6a5",
+      "gzipBytes": 585
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-validate-test.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/018-granite-gemma-development-validate-test.cjs.gz",
+      "sha256": "440a876539b9aa4c65255fb87ad569917dbc0ac5d5aac8d2458fbeaed9a6406b",
+      "bytes": 1020,
+      "gzipSha256": "9e90660c461bc4321c5af1eedc8c17cab1dc44835af972d63684de47859c0b7b",
+      "gzipBytes": 489
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-worker.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/019-granite-gemma-development-worker.cjs.gz",
+      "sha256": "ea9394fb36d42988d2de2396cc13ca90ad433880c6516c29e239e3957d2531db",
+      "bytes": 3006,
+      "gzipSha256": "fb847adc019b85eef3c233abde9503864549f59277ab3772adf58255a69e55a1",
+      "gzipBytes": 1387
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-development-collect.cjs",
+      "group": "exact-collection-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/020-granite-gemma-development-collect.cjs.gz",
+      "sha256": "3711a4122851105dba6eca3d270e59b1d636dd6163541446b5bdd6339e6a049a",
+      "bytes": 9929,
+      "gzipSha256": "e3ae9b97dde2f02eaa9122fe6662dc204faebaf05b3908686073ce5ee0b3c96d",
+      "gzipBytes": 3938
+    },
+    {
+      "source": "output/granite-gemma-development-v1/97m/vectors.json",
+      "group": "native340-raw-vectors-and-resources",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/021-vectors.json.gz",
+      "sha256": "dddf5ad024af554e28273cdede2f24f6215e4e647c19828cf5ad31cca83c010f",
+      "bytes": 2957509,
+      "gzipSha256": "29d44dec086e731d463cf7bd548f380d8e438eb40cc59249081c4791df5cf9eb",
+      "gzipBytes": 1269882
+    },
+    {
+      "source": "output/granite-gemma-train-97m-v1.json",
+      "group": "train-grid-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/022-granite-gemma-train-97m-v1.json.gz",
+      "sha256": "c79f49eceeacf389097c5d27829d9c62c9dbe3afced9a8536995ddf91cac2018",
+      "bytes": 1594141,
+      "gzipSha256": "580dc4d7f095bf9cb729d1364fd2c50aa6a4d6ee49d954cd11d047c993b9b36e",
+      "gzipBytes": 15951
+    },
+    {
+      "source": "output/granite-gemma-development-v1/gemma/vectors.json",
+      "group": "native340-raw-vectors-and-resources",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/023-vectors.json.gz",
+      "sha256": "5092ada08a787545f7171f8270cc9c40e960e63858af32d3a254a4628b825c7c",
+      "bytes": 5710999,
+      "gzipSha256": "6e54fb57c0f55d9065a84b27306baf5c72981a60b45cd124e200d4fdfc2b85cf",
+      "gzipBytes": 2481951
+    },
+    {
+      "source": "output/granite-gemma-train-gemma-v1.json",
+      "group": "train-grid-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/024-granite-gemma-train-gemma-v1.json.gz",
+      "sha256": "2ec37869539fc6c4227919a4c398f81fcc52d63342b4295f049dd20f299a73b4",
+      "bytes": 1553976,
+      "gzipSha256": "54d662e01015888aa39695a705cc35eaf94644f2bd919faa2d79ec75918d47ed",
+      "gzipBytes": 17627
+    },
+    {
+      "source": "output/granite-gemma-selected-gemma-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/025-granite-gemma-selected-gemma-v1.json.gz",
+      "sha256": "0d56f75348ca458d9df9125d6be00e947a81e5dbd0db32d2fa15b9bad1187249",
+      "bytes": 7211,
+      "gzipSha256": "dbd2d6af84f2bf486382bb52094c54a9f48aeb522ea19e7fac0be92529e96e12",
+      "gzipBytes": 1032
+    },
+    {
+      "source": "output/granite-gemma-later-input-gemma-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/026-granite-gemma-later-input-gemma-v1.json.gz",
+      "sha256": "d0eb961046411da28aa76b1d99156ba8608f60d4d12776f8f4b62ed4e73934e3",
+      "bytes": 601062,
+      "gzipSha256": "c5c7bbd23f61659b06981aa7c6be52d2e66fa47e294c6a42bf4348233ca00671",
+      "gzipBytes": 23677
+    },
+    {
+      "source": "output/granite-gemma-later-gemma-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/027-granite-gemma-later-gemma-v1.json.gz",
+      "sha256": "3af2f236da13af845100695fa041d032e661aa9270b358e2ce0485424509df92",
+      "bytes": 28148,
+      "gzipSha256": "2d07734af4c2c47b7f694550a9e1669516c1865b3138d60079f240d79ad4b1cf",
+      "gzipBytes": 2376
+    },
+    {
+      "source": "output/granite-gemma-development-v1/311m/vectors.json",
+      "group": "native340-raw-vectors-and-resources",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/028-vectors.json.gz",
+      "sha256": "b10051f8e528f03f9d45c41649dd3dec9a0116eca0f1c5f7985c88fc811b29b0",
+      "bytes": 5749921,
+      "gzipSha256": "73b74e6a09e58552573b4afe08a1c1d6248be90234055965dd59336669a11706",
+      "gzipBytes": 2477181
+    },
+    {
+      "source": "output/granite-gemma-train-311m-v1.json",
+      "group": "train-grid-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/029-granite-gemma-train-311m-v1.json.gz",
+      "sha256": "a34b6a989c61228215a408063d84bac97a98506b34641f4cac66f73da5311907",
+      "bytes": 1585335,
+      "gzipSha256": "9d01557d20429c586d7abaac5bb63325bc2005a4859d74367ded8776ee6f0c9d",
+      "gzipBytes": 14763
+    },
+    {
+      "source": "output/granite-gemma-selected-311m-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/030-granite-gemma-selected-311m-v1.json.gz",
+      "sha256": "a583aa51ed4f380ab319792dd1f5d748472578587cd9521d6b2c0feddf089d0c",
+      "bytes": 7317,
+      "gzipSha256": "a0994ec1bba4b0d2e9030d3dd573beb65b59a0d89d829f0bd61de3b73c311b89",
+      "gzipBytes": 1075
+    },
+    {
+      "source": "output/granite-gemma-later-input-311m-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/031-granite-gemma-later-input-311m-v1.json.gz",
+      "sha256": "e357e4e3fac161b253b59e1945bd811f8b71e949d29949af592f69ca9d9a165d",
+      "bytes": 601061,
+      "gzipSha256": "614dc0490f0eb94ffa25eb044c84c909987291ed3c414fcbec4cf984f1dafbdf",
+      "gzipBytes": 23676
+    },
+    {
+      "source": "output/granite-gemma-later-311m-v1.json",
+      "group": "frozen-point-and-later-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/032-granite-gemma-later-311m-v1.json.gz",
+      "sha256": "682f0650fc1a16821675ad57c530bd116c8371e94ab25a2b157421b2a37031d1",
+      "bytes": 29851,
+      "gzipSha256": "c72f1674ab924c24ed0639e0b2b8be26b5660331e5f2bcfa8be57073289ef6b2",
+      "gzipBytes": 2614
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-root-collection-review.cjs",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/033-granite-gemma-root-collection-review.cjs.gz",
+      "sha256": "6556bf749a87f6975965c3cd26ebfd8ebacecf06bab1b73674330cb7d7b5b11f",
+      "bytes": 4949,
+      "gzipSha256": "ba7914704d674ab60048c1ad163f124510eb45b70a760f4dced50671e8070fd0",
+      "gzipBytes": 2297
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-root-quality-review.cjs",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/034-granite-gemma-root-quality-review.cjs.gz",
+      "sha256": "c77e2bc0fd0bd56c05f77c4a3dd62c645779564852069b88a5c238ef80afba3b",
+      "bytes": 12154,
+      "gzipSha256": "b1af8c40278035bf33d14e3b19f9303b9df5e6ca003eedac6bd043fdf8efffbe",
+      "gzipBytes": 4518
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-collection-freeze.json",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/035-granite-gemma-collection-freeze.json.gz",
+      "sha256": "14e55d17346728577e52596f23408e1b8da66739a909c83dbdbdd15d3b852f21",
+      "bytes": 8081,
+      "gzipSha256": "9a81e146815c0cceb41471f7c03dd356bfba9fd643c977e89b80212bd7802fce",
+      "gzipBytes": 3088
+    },
+    {
+      "source": "output/granite-gemma-development-parity-v1.json",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/036-granite-gemma-development-parity-v1.json.gz",
+      "sha256": "8b76f7a123312b0c7e9fa0dd0dab5016825ba2ae737d0d2c8821c699ea5fbdb2",
+      "bytes": 576334,
+      "gzipSha256": "da5f98a3f3ba3a844b16bc63d808c0ef279b6d12365eee050414d9acf4c27872",
+      "gzipBytes": 108836
+    },
+    {
+      "source": "output/granite-gemma-development-parity-v2.json",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/037-granite-gemma-development-parity-v2.json.gz",
+      "sha256": "3648bc92bb44ff27ca2591a06a265b1d068882f8e2a2f71efda0a401704156f8",
+      "bytes": 576334,
+      "gzipSha256": "7e8f0ec76b95254ce93dc01fcb94b6724b881c592cfa3582cf80d22ebf26d11f",
+      "gzipBytes": 108840
+    },
+    {
+      "source": "output/granite-gemma-development-v1/receipt.json",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/038-receipt.json.gz",
+      "sha256": "ce17828c3dd8eee71fa3ee29ff1a6e3b6001124e58934c384d15298ca6293a7a",
+      "bytes": 1910,
+      "gzipSha256": "f85fd5c1aaafb3d070a15188e81aff90cb48a3602269ec853a5239ff06173e27",
+      "gzipBytes": 493
+    },
+    {
+      "source": "output/granite-gemma-train-input-v1.json",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/039-granite-gemma-train-input-v1.json.gz",
+      "sha256": "5f64dc132afe55fc4904868f22f5f6897973450c5f24602b6b227814f670cc1b",
+      "bytes": 1194425,
+      "gzipSha256": "694a8aa61d455e3f8da6b861a91b3f3fd828d874c2e8d7d4bae74b48f3e0445d",
+      "gzipBytes": 40015
+    },
+    {
+      "source": "dev-harness/semantic/archive-granite-gemma-development-evidence.cjs",
+      "group": "research-source-input-or-historical-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/040-archive-granite-gemma-development-evidence.cjs.gz",
+      "sha256": "631655d1b5431dd6d8390bff2e2f467d2eb30c5684118de918e0bcaebd75d6f6",
+      "bytes": 7196,
+      "gzipSha256": "3a539c2abd2d9f327c9e58e4afce225a83627f6b65bc14c2796a65869b8275fc",
+      "gzipBytes": 2885
+    }
+  ],
+  "reconstructiblePartitions": [
+    {
+      "source": "output/granite-gemma-development-v1/97m/train-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/97m/vectors.json",
+      "scope": "train-only",
+      "rows": 246,
+      "sha256": "ec90944b51fa61bc86d825d926ff84b7bcdac094bc4669897cb1d1031961dbd8",
+      "bytes": 2140358,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    },
+    {
+      "source": "output/granite-gemma-development-v1/97m/later-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/97m/vectors.json",
+      "scope": "calibration-and-mixed-only",
+      "rows": 94,
+      "sha256": "1e89fa81ee407c020e163c61c5eaf7ecd3f6bf69dd1caa1068e152903f65809c",
+      "bytes": 819505,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    },
+    {
+      "source": "output/granite-gemma-development-v1/gemma/train-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/gemma/vectors.json",
+      "scope": "train-only",
+      "rows": 246,
+      "sha256": "e7364b6f9e2cfe1a0d538f2369b39543a886fcd9b75d80fe927b03dd2dbbedb8",
+      "bytes": 4132634,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    },
+    {
+      "source": "output/granite-gemma-development-v1/gemma/later-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/gemma/vectors.json",
+      "scope": "calibration-and-mixed-only",
+      "rows": 94,
+      "sha256": "1a1920ae4b6662fda1e83e110c2e18e29b341528fc6d73139f9c4bf9e20cf821",
+      "bytes": 1580745,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    },
+    {
+      "source": "output/granite-gemma-development-v1/311m/train-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/311m/vectors.json",
+      "scope": "train-only",
+      "rows": 246,
+      "sha256": "62c207dcd9d34cb1e3fdf05b071b18e92da05cc3f8f7f378aac542fcd7131d24",
+      "bytes": 4160545,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    },
+    {
+      "source": "output/granite-gemma-development-v1/311m/later-vectors.json",
+      "derivedFrom": "output/granite-gemma-development-v1/311m/vectors.json",
+      "scope": "calibration-and-mixed-only",
+      "rows": 94,
+      "sha256": "cce0810367ce1da0116e5f79a0f11ebbc4536201a5ba1514b8e7faafa9d3ad19",
+      "bytes": 1591731,
+      "reconstruction": "JSON.stringify({...completeReport,scope,rows:completeReport.rows.filter(scopeFilter)}) plus newline; exact property order retained. train scopeFilter=document OR query/train; later=mixed OR query/calibration."
+    }
+  ],
+  "models": [
+    {
+      "name": "97m",
+      "passingTrainPoints": 0,
+      "selected": null,
+      "calibration": {
+        "status": "NOT_EVALUATED_NO_TRAIN_POINT",
+        "originalDenominator": 62
+      },
+      "mixed": {
+        "status": "NOT_EVALUATED_NO_TRAIN_POINT",
+        "originalDenominator": 32
+      }
+    },
+    {
+      "name": "gemma",
+      "passingTrainPoints": 12,
+      "selected": {
+        "k": 1,
+        "cutoff": 0.4,
+        "passes": true,
+        "worst": 0,
+        "mrr": 1,
+        "recall": 1
+      },
+      "calibration": {
+        "count": 62,
+        "complete": 62,
+        "positiveCount": 24,
+        "recallAt5": 1,
+        "mrr": 1,
+        "oodCount": 20,
+        "oodAny": 0,
+        "oodUpper": 0,
+        "logicalProjections": 36
+      },
+      "mixed": {
+        "count": 32,
+        "complete": 32,
+        "positiveCount": 16,
+        "recallAt5": 1,
+        "mrr": 1,
+        "oodCount": 16,
+        "oodAny": 0,
+        "oodUpper": 0,
+        "logicalProjections": 16
+      }
+    },
+    {
+      "name": "311m",
+      "passingTrainPoints": 3,
+      "selected": {
+        "k": 4,
+        "cutoff": 0.85,
+        "passes": true,
+        "worst": 0,
+        "mrr": 0.9722222222222222,
+        "recall": 0.9861111111111112
+      },
+      "calibration": {
+        "count": 62,
+        "complete": 62,
+        "positiveCount": 24,
+        "recallAt5": 1,
+        "mrr": 1,
+        "oodCount": 20,
+        "oodAny": 0,
+        "oodUpper": 0,
+        "logicalProjections": 39
+      },
+      "mixed": {
+        "count": 32,
+        "complete": 32,
+        "positiveCount": 16,
+        "recallAt5": 1,
+        "mrr": 1,
+        "oodCount": 16,
+        "oodAny": 0,
+        "oodUpper": 0,
+        "logicalProjections": 24
+      }
+    }
+  ],
+  "limits": [
+    "First-generation EmbeddingGemma300M, not EmbeddingGemma2.",
+    "Early complete-vector parsing by resource/provenance reporters violates strict later-read isolation despite the selector itself using only train files; retain the deviation, do not describe this batch as strictly isolated or independent.",
+    "Native340 collection and1206-point/188-row independent root replay are numerical development evidence only. No fresh holdout, actual all-consumer source test,1000 fragments, lifecycle or new-package acceptance.",
+    "Full vector receipts are archived once; exact train/later partition regeneration is byte/SHA verified and recorded. Binary models and native runtimes are not copied.",
+    "No production/default/version changes, gate closure, commit or push."
+  ]
+}

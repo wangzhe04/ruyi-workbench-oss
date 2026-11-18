@@ -1,0 +1,1151 @@
+{
+  "schema": 1,
+  "status": "GENERATION2_SEQUENTIAL_DEVELOPMENT_AND_GENERATION1_ACTUAL_UI_NUMERICALLY_REVIEWED_NOT_ACCEPTANCE",
+  "records": [
+    {
+      "source": "output/embeddinggemma2-root-cpuonly-review-r1.json",
+      "group": "root-cpu-trim-review",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/001-embeddinggemma2-root-cpuonly-review-r1.json.gz",
+      "bytes": 5899,
+      "sha256": "02687ccacbae1559e6f40636c1841d68cd2ea4e1d8660a1d92bd27b8d740be9e",
+      "gzipBytes": 1649,
+      "gzipSha256": "a62be29d365eb2c82f16a1a866348225423690330a52aa18602740c5e644f9f3"
+    },
+    {
+      "source": "output/embeddinggemma2-root-quality-review-r1.json",
+      "group": "root-generation2-quality-review",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/002-embeddinggemma2-root-quality-review-r1.json.gz",
+      "bytes": 6801,
+      "sha256": "bf14eaf0158c5a1cef4a961639a8689a89750d084024602521a221def1bf1bc8",
+      "gzipBytes": 1536,
+      "gzipSha256": "a644f5a04fb82371c8d9b3c3e6e379a7c917cb5a164b682235c73f78351bee9f"
+    },
+    {
+      "source": "output/gemma-q4-live-root-review-r1.json",
+      "group": "root-generation1-live-ui-review",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/003-gemma-q4-live-root-review-r1.json.gz",
+      "bytes": 5119,
+      "sha256": "b33689af72550d7f093634036e0b1ef97b3b1af3c702f24c22eb20336d728582",
+      "gzipBytes": 1588,
+      "gzipSha256": "94f20fb30aadd04ef9e89d61dedf4a9d0abc2f250c8a56994acd023f95dd9b34"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/freeze.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/004-freeze.json.gz",
+      "bytes": 194586,
+      "sha256": "0f0fb1e83cc442968a3109730700a2925db9fd1acbee61b7eea13c70a73cd591",
+      "gzipBytes": 29674,
+      "gzipSha256": "1ba893afcd48d6011fc63ee51781ba31805881ccd7ac14d45a55cbdb097a6e1b"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/receipt.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/005-receipt.json.gz",
+      "bytes": 100231,
+      "sha256": "cfc0e42ebd4bebabe554d4a2a97d3c8367aa3fc53abd882f323615a0208c1270",
+      "gzipBytes": 10996,
+      "gzipSha256": "0fd163332877adbcb00566be7af69f52e14a50cb2df83bde3ce82865ac433984"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/resources-metadata.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/006-resources-metadata.json.gz",
+      "bytes": 92908,
+      "sha256": "cb5944a1473116b9ea2cb1fc8975c59bd838444a1f87c21db250e740788a4179",
+      "gzipBytes": 10478,
+      "gzipSha256": "cdc01df53c58642485eebcf4fa3d5f691eda02756a716afb141d241b975b2667"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/vectors.ndjson",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/007-vectors.ndjson.gz",
+      "bytes": 4092433,
+      "sha256": "6a756872eab6860c10fc92a71471dbec58f3c0ef00e19393a361b134f7baa43d",
+      "gzipBytes": 1777876,
+      "gzipSha256": "3b9ce3c43e1453a133735b91c1db3fdb0cc0a3e954434ed3ff662a790400eb2d"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/tokenizer-parity-oracle.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/008-tokenizer-parity-oracle.json.gz",
+      "bytes": 68358,
+      "sha256": "9ec0a101ddf27ac0490f582e4ef334325e5d8d86a7f4bf6d100f9ff890b3fa87",
+      "gzipBytes": 8186,
+      "gzipSha256": "a2a6b5b1cc0b46237c5854c5312ca44e18bcff6ceb04063a0243c1e0b44b7697"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/preparation-receipt.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/009-preparation-receipt.json.gz",
+      "bytes": 2987,
+      "sha256": "1f370c251f52af1641d38ff8d290af85b5864f85e866a690464a5527ecb3dfc5",
+      "gzipBytes": 1194,
+      "gzipSha256": "edf20329727e7544edc9513525d7cfe69243e4d4f191b24e4ccd9d30e2fbb8f1"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/preparation-fakes.log",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/010-preparation-fakes.log.gz",
+      "bytes": 1819,
+      "sha256": "aada58e2d7cf31f572159ea82f8256db40059e1956c78edb7baf766435615d7b",
+      "gzipBytes": 977,
+      "gzipSha256": "0a7d1db251c7fc40e9fb545ed6d315cbe92105d63433fd6b3a56347580894049"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/CONSUMED",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/011-CONSUMED.gz",
+      "bytes": 116,
+      "sha256": "9de55b21064a60deae36e90d6279aa513e5a0e20355e97e41abfe1874114e7cc",
+      "gzipBytes": 117,
+      "gzipSha256": "22d73501160c5f578173a5e9f11541355ff1acc3fa2f1c4bad00fe8fe38f2526"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/freeze.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/012-freeze.json.gz",
+      "bytes": 4404,
+      "sha256": "ee091c9624c468d54456bcea20b9ff34ca092773dc218ca4880bdcd5ffb05eba",
+      "gzipBytes": 1285,
+      "gzipSha256": "ec877872450f19e07c874ec73973e4e0b9def9937bf999c79b34da789461e8a5"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/receipt.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/013-receipt.json.gz",
+      "bytes": 43799,
+      "sha256": "588e68e9a7de5be5160da8717f59ddf8e1b60ddbf17118bad01cbaa6f117d5b4",
+      "gzipBytes": 5994,
+      "gzipSha256": "f31414906a6d98ff49e0fa25fc05a2f017e2d24244878e46bbc2f3b5db48e110"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/resources-metadata.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/014-resources-metadata.json.gz",
+      "bytes": 39476,
+      "sha256": "bfb117a2f7cab32b8232997df925d19d704ac6604fbfbda881c94bc285bac5eb",
+      "gzipBytes": 5524,
+      "gzipSha256": "488f5abcfe4c0f75e72e3b74e65837905864925f4380cdbc9a08b379dede25cc"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/vectors.ndjson",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/015-vectors.ndjson.gz",
+      "bytes": 1563844,
+      "sha256": "4a00be93726aa6261a0ac9c26df6a814991be9f905c7082861cc03ad73751f1a",
+      "gzipBytes": 679646,
+      "gzipSha256": "e63ac6dc221220b39de368224ab430bd7d7fb368a7ac736fd98583a833db6e6d"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/tokenizer-parity-oracle.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/016-tokenizer-parity-oracle.json.gz",
+      "bytes": 25814,
+      "sha256": "afba4d2c044908a452318fcc19e91b8afec01cce79d7db7d147d6510deb4a9d8",
+      "gzipBytes": 3524,
+      "gzipSha256": "128eda825b82ba7f80bc5f0d6504d1f12b4c686a74b5c7075ea78a1ae651de57"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/preparation-receipt.json",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/017-preparation-receipt.json.gz",
+      "bytes": 2620,
+      "sha256": "ad33ffef1b82538d72959f3ab8220a11de6de76b1cddd267f6070155f40b111e",
+      "gzipBytes": 1028,
+      "gzipSha256": "1f2e43d192506d2c1d9da44531954b0d73450ca3aa24f5f090fd62b94125afcd"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/preparation-fakes.log",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/018-preparation-fakes.log.gz",
+      "bytes": 2534,
+      "sha256": "1e2b2fb38d47b6ccae3ae1e059f7ba9b8c654588683f16dfccbe9cb3cc2ede26",
+      "gzipBytes": 1291,
+      "gzipSha256": "ceb340b4d3afba68a138f5930c965ce8044803835b4da0d614282d474398ab7d"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/CONSUMED",
+      "group": "sequential-generation2-raw-and-freeze",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/019-CONSUMED.gz",
+      "bytes": 116,
+      "sha256": "41c6ff4aad31ef05c6f1ed9945ef297a6312251e03979d60021882952e977234",
+      "gzipBytes": 116,
+      "gzipSha256": "a81dccb27a122fda70282205141e3be6d311ec2bc97b05922d778020a5e98d4b"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/selection.json",
+      "group": "generation2-point-and-later-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/020-selection.json.gz",
+      "bytes": 2972694,
+      "sha256": "f6f74209204d9944664741351fe8db319c46fc35458929dd10b716fe6cf7a242",
+      "gzipBytes": 26688,
+      "gzipSha256": "860e15d926e3143d93e96373b8751300398a1ec316a5a96d67f93fb70e233363"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/selection.json.selected.json",
+      "group": "generation2-point-and-later-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/021-selection.json.selected.json.gz",
+      "bytes": 7346,
+      "sha256": "5ca0fe0eb92179d806ff1fc1f4299500dce057614c9304ae7d30619e4a02e14a",
+      "gzipBytes": 955,
+      "gzipSha256": "7a2b464e1b133e453825a0c27033799a49b4ac9dfa33ce93b7e86eff3d4fb6dd"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/later-input.json",
+      "group": "generation2-point-and-later-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/022-later-input.json.gz",
+      "bytes": 603863,
+      "sha256": "c44bc7c20e4a27114329e3f1764be3cbf89fdd01372663491466f1883041d576",
+      "gzipBytes": 23791,
+      "gzipSha256": "0c8800ec3e7a57079797c641829e5d586ee3d0dd1daf85a6cf48aa77d0347522"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/result.json",
+      "group": "generation2-point-and-later-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/023-result.json.gz",
+      "bytes": 48496,
+      "sha256": "3c3778d8d31988c5a360400c8bad9b3b78c39933347c3b655b88945d547ce0eb",
+      "gzipBytes": 2699,
+      "gzipSha256": "eda2f67dd9f2d5da6fdef83addec2e6309cfc8d7496338e1d08a9adefd26cc0a"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/final-summary-metadata.json",
+      "group": "generation2-point-and-later-results",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/024-final-summary-metadata.json.gz",
+      "bytes": 9035,
+      "sha256": "fad22fc083bd67e75c0fa27d501d8fad00361e2d6d6ad3122f76390aa016164b",
+      "gzipBytes": 1840,
+      "gzipSha256": "81f54e7134d8a131c0a84a38724a9da100c4245552f92e5c7be5b1420342520f"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/source-embeddinggemma2-development-collect.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/025-source-embeddinggemma2-development-collect.cjs.gz",
+      "bytes": 11545,
+      "sha256": "e0be7cb75ed66901c9a39c0bc89034d7ef709b00021a6631a158af18375650d1",
+      "gzipBytes": 4180,
+      "gzipSha256": "f5fe35112e912caa357510387f286322e627465df9acac09e2e584b26c01777d"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/source-embeddinggemma2-development-common.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/026-source-embeddinggemma2-development-common.cjs.gz",
+      "bytes": 4828,
+      "sha256": "09e6bad90a5940c265b8b262ba9aec2bf28c79e2d4696e294c9f2ca66f22ebd6",
+      "gzipBytes": 2074,
+      "gzipSha256": "d5408e3545c06f0d03e02da21a9f05605ea78c6e8a906c01546222c0f337455c"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/source-embeddinggemma2-development-select.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/027-source-embeddinggemma2-development-select.cjs.gz",
+      "bytes": 6638,
+      "sha256": "76bbeaa40ba58fc7622dafac5bd133f1126d05d72a3b65e8a81d7e5e2cfacc69",
+      "gzipBytes": 2801,
+      "gzipSha256": "179a15fd10e94afad76edd606476788eb57f834a5da0e4b0b467671d52892792"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/source-embeddinggemma2-development-worker.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/028-source-embeddinggemma2-development-worker.cjs.gz",
+      "bytes": 9881,
+      "sha256": "832087931a2ab434983c74864d0340b3b392b5f9c289ebe8ab52f6c97022d8d9",
+      "gzipBytes": 3833,
+      "gzipSha256": "6c060216f410942bd186cb6c5ac2e31cb51126a33d94603ebd8fbbe4984955f6"
+    },
+    {
+      "source": "output/embeddinggemma2-development-train-v2/source-embeddinggemma2-development.test.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/029-source-embeddinggemma2-development.test.cjs.gz",
+      "bytes": 11535,
+      "sha256": "762fbce2646db89e665f1b8ba587e626064414904c0f13df64fdfd1345c72038",
+      "gzipBytes": 3874,
+      "gzipSha256": "15379d76a4bba5ab869a0c7d78a7e788f725ebba3768eb84f31a3ac275a4e453"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/source-embeddinggemma2-development-later.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/030-source-embeddinggemma2-development-later.cjs.gz",
+      "bytes": 15557,
+      "sha256": "3ae24bcb1e7742284eed9b5f75091098b3a7b5f2be9d2a7958e0d650aa76c38d",
+      "gzipBytes": 5303,
+      "gzipSha256": "9c80c88170f15fb4102f4bcc0d19774796e4bdc5c03da94e94ab4b533b5112f3"
+    },
+    {
+      "source": "output/embeddinggemma2-development-later-v1/source-embeddinggemma2-development-later.test.cjs",
+      "group": "exact-phase-source-snapshot",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/031-source-embeddinggemma2-development-later.test.cjs.gz",
+      "bytes": 4597,
+      "sha256": "708ed8e3a51c4e68aabfb6566666933f0a1275c87fedfbfb81414c4b6d387bc3",
+      "gzipBytes": 1792,
+      "gzipSha256": "9f4d51c18084961c8c66122a46d8f8b1d7f3c5300f0ad04c6f1a325207b0361c"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-collect.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/032-embeddinggemma2-development-collect.cjs.gz",
+      "bytes": 11545,
+      "sha256": "e0be7cb75ed66901c9a39c0bc89034d7ef709b00021a6631a158af18375650d1",
+      "gzipBytes": 4180,
+      "gzipSha256": "f5fe35112e912caa357510387f286322e627465df9acac09e2e584b26c01777d"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-common.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/033-embeddinggemma2-development-common.cjs.gz",
+      "bytes": 4828,
+      "sha256": "09e6bad90a5940c265b8b262ba9aec2bf28c79e2d4696e294c9f2ca66f22ebd6",
+      "gzipBytes": 2074,
+      "gzipSha256": "d5408e3545c06f0d03e02da21a9f05605ea78c6e8a906c01546222c0f337455c"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-worker.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/034-embeddinggemma2-development-worker.cjs.gz",
+      "bytes": 9881,
+      "sha256": "832087931a2ab434983c74864d0340b3b392b5f9c289ebe8ab52f6c97022d8d9",
+      "gzipBytes": 3833,
+      "gzipSha256": "6c060216f410942bd186cb6c5ac2e31cb51126a33d94603ebd8fbbe4984955f6"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-select.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/035-embeddinggemma2-development-select.cjs.gz",
+      "bytes": 6638,
+      "sha256": "76bbeaa40ba58fc7622dafac5bd133f1126d05d72a3b65e8a81d7e5e2cfacc69",
+      "gzipBytes": 2801,
+      "gzipSha256": "179a15fd10e94afad76edd606476788eb57f834a5da0e4b0b467671d52892792"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-compat-control.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/036-embeddinggemma2-compat-control.cjs.gz",
+      "bytes": 11631,
+      "sha256": "746d322e1a0a6a8edffabcddf01ca8f325a789e91fd9660a3836a63a4d8e49ca",
+      "gzipBytes": 4480,
+      "gzipSha256": "2bc83f9e72f639ba1ab198bd75e40d266b05efd0604c45a8a76faa19420ffe86"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-tokenizer-oracle.py",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/037-embeddinggemma2-tokenizer-oracle.py.gz",
+      "bytes": 480,
+      "sha256": "e0bd644aac099becee24a5bb068b26484c5315fc999ea6c407a0e2b15974c2e0",
+      "gzipBytes": 281,
+      "gzipSha256": "f49fc212951c5fbc791cdf19885fa5eea881d2af5f814901fbc9dfbbccc3c90d"
+    },
+    {
+      "source": "dev-harness/semantic/granite-gemma-train-policy.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/038-granite-gemma-train-policy.cjs.gz",
+      "bytes": 3149,
+      "sha256": "ca03a57445438c73c89ee4ac7a1afb3707bbc19d5da322c440c2ef14078d8518",
+      "gzipBytes": 1260,
+      "gzipSha256": "2458876888a7c6ee0a6db69c8d637b132b540c52ea00c287012ca2cb055846cb"
+    },
+    {
+      "source": "dev-harness/semantic/calibration-policy.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/039-calibration-policy.cjs.gz",
+      "bytes": 4931,
+      "sha256": "9e55c62f537b87aaa3d4ba31aa43e5666e47184f2d1047f4a59a12ca6c1f8350",
+      "gzipBytes": 1891,
+      "gzipSha256": "dfa213d294341d54171fe1a4b77da20be76bac37ee5ddbc91cb4a2ef2bd7de12"
+    },
+    {
+      "source": "dev-harness/lib/source-slice.js",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/040-source-slice.js.gz",
+      "bytes": 6684,
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+      "gzipBytes": 2768,
+      "gzipSha256": "20f05afa54454ebe1354d6bd4471b6bf23605894ddb2c0801e875d0fd452d560"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-protocol.json",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/041-embeddinggemma2-development-protocol.json.gz",
+      "bytes": 8078,
+      "sha256": "6d1cdbdd62492a5deab7b6cdaf5ada68d0540e4bb31cbfa2b564311824f6b4f4",
+      "gzipBytes": 3913,
+      "gzipSha256": "fed0c49d4224d1256312b2e81d6120e97ccc69eb47ebcfaa8be26febc1b72b42"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-development-later.cjs",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/042-embeddinggemma2-development-later.cjs.gz",
+      "bytes": 15557,
+      "sha256": "3ae24bcb1e7742284eed9b5f75091098b3a7b5f2be9d2a7958e0d650aa76c38d",
+      "gzipBytes": 5303,
+      "gzipSha256": "9c80c88170f15fb4102f4bcc0d19774796e4bdc5c03da94e94ab4b533b5112f3"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-development-fixture.json",
+      "group": "frozen-generation2-execution-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/043-bge-minilm-mixed-development-fixture.json.gz",
+      "bytes": 11344,
+      "sha256": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+      "gzipBytes": 2870,
+      "gzipSha256": "2f7f9082f090ec8204b837392bdc0aa4ac3cb1666e4b359d825b3e4716b4c14b"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-old-v1/freeze.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/044-freeze.json.gz",
+      "bytes": 3789,
+      "sha256": "29a1a84432fc1aba3e3ee282d48a4f0e968bd7db48728dc8f8b2351f0f78e42e",
+      "gzipBytes": 1539,
+      "gzipSha256": "4db5cd9f4019444169067eaac55b5f162a61c5dc6ea70afc210dbd86466fac8a"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-old-v1/receipt.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/045-receipt.json.gz",
+      "bytes": 16110,
+      "sha256": "8c21c28172ff1550e20eab777c4186a21652bb684ae0c4f41e3e090ddf4cfc01",
+      "gzipBytes": 2989,
+      "gzipSha256": "949c8386155a1a5effde83bd050e73e7bdb629a649093dd2dba3ff3ff156abd2"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-old-v1/runtime-inventory.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/046-runtime-inventory.json.gz",
+      "bytes": 187318,
+      "sha256": "ea7229b5156c9ebb6f0d9acc861c0c6bcc14d84221333abf667a46a70b39dcff",
+      "gzipBytes": 32355,
+      "gzipSha256": "2797e897991894a4f8c72908304970f58ded572ce985b6ecfb9388076ed33e5d"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-compat-worker.cjs",
+      "group": "exact-compatibility-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/047-embeddinggemma2-compat-worker.cjs.gz",
+      "bytes": 7437,
+      "sha256": "17aa2be560b5be5db98b7ca141d1721cf8184d037615c39c3dce44b464eeb8da",
+      "gzipBytes": 2967,
+      "gzipSha256": "07212d9eabd2f4fb5515894d88cd48201d855578f4d13ebc81d110abb980a8d6"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-ort130-v1/freeze.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/048-freeze.json.gz",
+      "bytes": 3816,
+      "sha256": "6871b75536403e2bee557db7f21a661e1542a2149f7193095d51946b3082471e",
+      "gzipBytes": 1539,
+      "gzipSha256": "ce3eab1dd927bb7e3b9562fabe19180495170658422d60c0d79dfa8fc507510e"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-ort130-v1/receipt.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/049-receipt.json.gz",
+      "bytes": 121380,
+      "sha256": "60d3bfa3a4c909e9d19d7f86e3cd29ed248d47b0cfba11c57489ba77b04869e5",
+      "gzipBytes": 34005,
+      "gzipSha256": "7e2197918371238f3489a840630b1a4b74166df5b3c7b051e6f5e9c1dd33798e"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-ort130-v1/runtime-inventory.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/050-runtime-inventory.json.gz",
+      "bytes": 172107,
+      "sha256": "ef8a850d6d8a095d9567535a01a54602a373eddac1211f152b9fc4b652e89c3f",
+      "gzipBytes": 26426,
+      "gzipSha256": "11f30001d851f7cbaeaeeaa274ad6164a81811074f193308ec7d80486396b751"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-cpuonly-v1/freeze.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/051-freeze.json.gz",
+      "bytes": 3832,
+      "sha256": "2588d9bdf755efe94b8a96b45833c9307a7fabff6b1cfe365951ea8be970dcb8",
+      "gzipBytes": 1538,
+      "gzipSha256": "0948a7c236974845cf71d6a1f57fd73e7ba4d52265c490ce3553bb857950c0f3"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-cpuonly-v1/receipt.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/052-receipt.json.gz",
+      "bytes": 122820,
+      "sha256": "04f25bddbddc7615ba03f7bed163cd67e1b23f8c14eb30c4a341f8edcdf8ecd0",
+      "gzipBytes": 34272,
+      "gzipSha256": "184ca3fee9e679af5c84bb4a7eb7b63d6ccb74117625fa4a442e43eb46c85052"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-cpuonly-v1/runtime-inventory.json",
+      "group": "generation2-compat-failure-or-success",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/053-runtime-inventory.json.gz",
+      "bytes": 175862,
+      "sha256": "6711dba0bb88e2ecaeee44895e7a4d4217ef865da15c9595a1967b58712458a4",
+      "gzipBytes": 26269,
+      "gzipSha256": "93eceb94a647d1b570c816119691c1f23b8ff942f76e61e02380af9938262d53"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-cpuonly-compat.cjs",
+      "group": "exact-compatibility-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/054-embeddinggemma2-cpuonly-compat.cjs.gz",
+      "bytes": 3793,
+      "sha256": "7bad88449f2ed0c2b27ff7eb0eac5cc35c97adff4651425afa6356f4a25d60ad",
+      "gzipBytes": 1781,
+      "gzipSha256": "424c6e3c22c780b391c25b0d915331e6faa0250e6dcd4315b9e0a1cd1228aad2"
+    },
+    {
+      "source": "output/embeddinggemma2-compat-cpuonly-v1/cpuonly-verification.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/055-cpuonly-verification.json.gz",
+      "bytes": 3688,
+      "sha256": "eef19b2b295c402e8935a4c3a6cc887b0f822fb238124707f6684fcc1849c655",
+      "gzipBytes": 1427,
+      "gzipSha256": "9874ca82b52c66ed24a650da79d8c4fbdc630d40f4579e91396178f3ce692f3d"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/dependency-plan.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/056-dependency-plan.json.gz",
+      "bytes": 2073,
+      "sha256": "994e198d82afefad4ebcf405395d11a3c8d52146c3794d898a1a2c4342a27a23",
+      "gzipBytes": 1095,
+      "gzipSha256": "d07036bffa8dc2a789cb128e2d91d940fa0e40319fa3764c0144347ffd6bd541"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/lock-receipt.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/057-lock-receipt.json.gz",
+      "bytes": 5460,
+      "sha256": "d37cf1626c05be40676795e472780fdb551c849493930e4844a683e23af63b80",
+      "gzipBytes": 2032,
+      "gzipSha256": "80e95e332861a12464f3c228cbc15cd6cd0948411a3cf1ed20d1d46b3dc5025f"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/runtime-inventory.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/058-runtime-inventory.json.gz",
+      "bytes": 186067,
+      "sha256": "dbb21dc829315f48141568fb7bb3ac418bb5435089ed8e706e355cbe23f714d7",
+      "gzipBytes": 28280,
+      "gzipSha256": "6054b19ab3ad1212eadad93b72edad414ffde17d93e46dc6eaf29e9bbe4decb7"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/win32-x64-cpuonly/trim-lock.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/059-trim-lock.json.gz",
+      "bytes": 184074,
+      "sha256": "dfdc52158438cd89ad946ee36c39c5897a6f5528205ef08b89abe159e69618a0",
+      "gzipBytes": 27093,
+      "gzipSha256": "c3b4b1430cf015fbf7fa91305091eccedc224401dc586576eb15813fbd252ba3"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/win32-x64-cpuonly/package-lock.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/060-package-lock.json.gz",
+      "bytes": 8277,
+      "sha256": "31b9cefd9fe37ed94b0da0415fc93bd253d80518d89880f2d72e5e77e0379a3d",
+      "gzipBytes": 2371,
+      "gzipSha256": "ea1bf438824d0780ab7cfbc5aebc0d4a64ffa0a005a6db2a87da1a96b86ad4c5"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/license-inventory.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/061-license-inventory.json.gz",
+      "bytes": 712,
+      "sha256": "14df03110dc04b3caebd6407f24b71f8760844a68c12e3d80ec26c10f28df9b4",
+      "gzipBytes": 392,
+      "gzipSha256": "5b8c7ff2ad1e162fc26cecf0aa6ac2d237a1bf0d4cb08c0c9d75ae2026d9e863"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/deployment-vc-gap-v1.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/062-deployment-vc-gap-v1.json.gz",
+      "bytes": 1360,
+      "sha256": "6abffe406059cea1ca65e91c13c68479b726c187e1d3e99c11baa6b14bfb573f",
+      "gzipBytes": 707,
+      "gzipSha256": "0e5151ea543b45c98b3634127c6b7fb35fd64f68104602ab52822e44d2a097f5"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/pe-imports-0.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/063-pe-imports-0.json.gz",
+      "bytes": 140630,
+      "sha256": "6fd635bc8d05cd307a86ccd4c978f5b61d88dc8f12265269c9355f132d25886c",
+      "gzipBytes": 14443,
+      "gzipSha256": "88e5ad5944ad1b19c94992fcb8becaa628dc2320d5a8c109d313b0d0782666ea"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/pe-imports-1.json",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/064-pe-imports-1.json.gz",
+      "bytes": 48291,
+      "sha256": "8c2c117206b760df1ae935402d5fbbe75487f665c5bf08b49d69bd13cb19c593",
+      "gzipBytes": 6031,
+      "gzipSha256": "f2dd0ccc19e35ee508b56051cb49c115e4dd7615a4ab041f62a389143ba89fae"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-trim-cpu.cjs",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/065-embeddinggemma2-trim-cpu.cjs.gz",
+      "bytes": 3199,
+      "sha256": "5ed976c6606f3df721343f84d26742b9b93ea671a37dfdafaa8dcda2776ae2c5",
+      "gzipBytes": 1389,
+      "gzipSha256": "9e6979f234390ad865c9209a59d4eb038896c963b21bebe4cb45aa10cddfdf9f"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-dependency-stage.cjs",
+      "group": "cpu-runtime-source-license-and-deployment-boundary",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/066-embeddinggemma2-dependency-stage.cjs.gz",
+      "bytes": 8290,
+      "sha256": "f8ada396db22918a5b8dc5187daaa09939d23061ba0290458c40d2d6218a4e26",
+      "gzipBytes": 2942,
+      "gzipSha256": "6e64f8dc496cbb246423224a53f1ac63054e9bfb0b4bcdd8b29de253ba06158a"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/win32-x64-cpuonly/licenses/NOTICE.txt",
+      "group": "official-license-text",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/067-NOTICE.txt.gz",
+      "bytes": 426,
+      "sha256": "56d0289365348977c21a3b53472afad991893276f88160ba4171059995dfe58b",
+      "gzipBytes": 319,
+      "gzipSha256": "1b6decd4eae9ba9503bbd8d2bff48547723264ba38dd047280b11119e0ff1c92"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/win32-x64-cpuonly/licenses/onnxruntime-LICENSE",
+      "group": "official-license-text",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/068-onnxruntime-LICENSE.gz",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+      "gzipBytes": 650,
+      "gzipSha256": "14b659d9e7fbba12d730213058348b3956cd3dff136e5c3b8c488109068e72dc"
+    },
+    {
+      "source": "output/embeddinggemma2-cpu-runtime-v1/win32-x64-cpuonly/licenses/onnxruntime-ThirdPartyNotices.txt",
+      "group": "official-license-text",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/069-onnxruntime-ThirdPartyNotices.txt.gz",
+      "bytes": 338088,
+      "sha256": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3",
+      "gzipBytes": 32461,
+      "gzipSha256": "0c42222ee994c8ef462363cd801653c6e526a487a74bd6e28399dd3679001a3d"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v1/asset-plan.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/070-asset-plan.json.gz",
+      "bytes": 5336,
+      "sha256": "ece4266e74fbb557d8967547561125f5d61ee405b72863355e3560f61f85f885",
+      "gzipBytes": 1907,
+      "gzipSha256": "1b0421634399dd3f00167911bd8556eba1eec410cce84a25d6f137d532b05870"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v1/asset-receipt.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/071-asset-receipt.json.gz",
+      "bytes": 889,
+      "sha256": "2da94918d79f3143c70516e7e8bd8f90554671558b58245eab43ac0692eb6064",
+      "gzipBytes": 543,
+      "gzipSha256": "723ced6e36d20a15406926671710fd43f77ddc378b50eb4847313a97dd00ec51"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v2/asset-plan.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/072-asset-plan.json.gz",
+      "bytes": 5336,
+      "sha256": "624caa5e87c98587f276f4cda58363a60cbc1f39792ca7bae5cbcdbf71c198d0",
+      "gzipBytes": 1908,
+      "gzipSha256": "c5bb76d15933ebf12a75afc9d512f84b5a810fddfe65f55417a2672d800594f8"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v2/asset-receipt.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/073-asset-receipt.json.gz",
+      "bytes": 2155,
+      "sha256": "304066e0fe084ff26db90f2fbb55a5979c90f393b28fa330b2de79702698d3be",
+      "gzipBytes": 1014,
+      "gzipSha256": "5ef45c0fa5b4bb72bc4848c27ca06abbb54efc4fdb6e238f656861b1d81e73ad"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v3/asset-plan.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/074-asset-plan.json.gz",
+      "bytes": 5336,
+      "sha256": "0b8d03b08d8f49573be0318a73be673e5fbed645060f729cd7b75d4d77aeff85",
+      "gzipBytes": 1906,
+      "gzipSha256": "f2b00d5cb556d84f3ad026bde4435abdcd7be176847d87f3893336a46f364a7a"
+    },
+    {
+      "source": "output/embeddinggemma2-text-q4-assets-v3/asset-receipt.json",
+      "group": "public-asset-attempts-preserved",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/075-asset-receipt.json.gz",
+      "bytes": 25447,
+      "sha256": "e9783531058f0c813f633e7cec1eda2902cec4b4eb27dfdf0dc559f75fb59f11",
+      "gzipBytes": 5779,
+      "gzipSha256": "180635358beeb35f79f67361ece711ce56a2ce5553c02513f69f33b91caf8863"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/metadata-receipt.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/076-metadata-receipt.json.gz",
+      "bytes": 5702,
+      "sha256": "8d06e2f6b24e308b65ef787cf4fb31ea868efefd7b6a66b2b8a59b3736dac4f3",
+      "gzipBytes": 1324,
+      "gzipSha256": "92e48f428e6c1d80dcd5a79633ee8f38b0502a6064cffbc58e52890d756b7c4a"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/dependency-metadata-receipt.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/077-dependency-metadata-receipt.json.gz",
+      "bytes": 2111,
+      "sha256": "8b203c35f2011ec50a094a27ccb81293c75bed430cada5b43d8d60615a74fcf3",
+      "gzipBytes": 738,
+      "gzipSha256": "c475d0f52edfd1b96e836ab85bb6bd66a590996a854377db17783e817c359df9"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/official-api.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/078-official-api.json.gz",
+      "bytes": 6141,
+      "sha256": "6af8a01ee7ceee3ba8aa8df36dead5bf45769262e4cf7b05ef388ea5ec5db3c1",
+      "gzipBytes": 2596,
+      "gzipSha256": "bc23ab7c0f63a3ea06b5757d2523c8fca29a3cfd0c3ee2d64a8784ade9a80248"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/onnx-api.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/079-onnx-api.json.gz",
+      "bytes": 11145,
+      "sha256": "51e408aacca5c362ebb4065cdd00da6f435851df154c23cd7784f66952f8665d",
+      "gzipBytes": 4057,
+      "gzipSha256": "8e9f146d219be9f3199528db8c0600eb6bdea95f1a934784f98d7fc780fa8941"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/graph-metadata.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/080-graph-metadata.json.gz",
+      "bytes": 875133,
+      "sha256": "dd56d50fe7e32b96fc41937d345e7de9f879c16752101e38071a9364a77f4140",
+      "gzipBytes": 29651,
+      "gzipSha256": "6f33b6bf60cbcf53374b952a2cdf750133e57fe8f7b526cd2aa74ec0e92d140f"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/source-audit-downloads.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/081-source-audit-downloads.json.gz",
+      "bytes": 7713,
+      "sha256": "8f105bb046ff3303ee66137435f69242ca822cf101aa0a3f06003ebc63a0f34a",
+      "gzipBytes": 1712,
+      "gzipSha256": "a0d3216b59204b828bdb8021b8f683c3c802eacb18e6814654d810af1ab46424"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/npm-ort-1.30.0.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/082-npm-ort-1.30.0.json.gz",
+      "bytes": 3128,
+      "sha256": "4c00a3e687de8d8bd01b58bf75b5256f1d00cc5c67fdc20385776f8da26122e4",
+      "gzipBytes": 1453,
+      "gzipSha256": "5266823d8f511e9ad548340983d3bc272a463e05e590eaef2df7c949d09678ea"
+    },
+    {
+      "source": "output/embeddinggemma2-metadata-r1/npm-tokenizers-0.2.0.json",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/083-npm-tokenizers-0.2.0.json.gz",
+      "bytes": 3054,
+      "sha256": "c5dc8089b96afdaa5dda8010e584152a2780a4856a0c009deb71be86a3dc7e84",
+      "gzipBytes": 1564,
+      "gzipSha256": "b830d090a28de1d3a207287a5b60470eb8124fbe1ae5c1c9a0ac989f35af0d5a"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-metadata.cjs",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/084-embeddinggemma2-metadata.cjs.gz",
+      "bytes": 2892,
+      "sha256": "12967520e93095803a9e0f0bbce0ea30c46b89245dce3a6d77154a80db639191",
+      "gzipBytes": 1296,
+      "gzipSha256": "215cec5a1fab09fbb68d9b7eab94758d94d9c994ad7ac3a41c76bce35947ede2"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-source-audit.cjs",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/085-embeddinggemma2-source-audit.cjs.gz",
+      "bytes": 2731,
+      "sha256": "71f9433780f5ef2dc368b02658345245d8b6172e3b6d95f2fca76ab9063594dc",
+      "gzipBytes": 1189,
+      "gzipSha256": "d3d3051fd39f57305ae584b61d8cf13b84adab019ce775fbedc02e9627b497a6"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-graph-metadata.cjs",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/086-embeddinggemma2-graph-metadata.cjs.gz",
+      "bytes": 3007,
+      "sha256": "4abb4022ce38ee1f9d6057bd92e16ff00261f94f63d5f3ae55a6d8478d33b355",
+      "gzipBytes": 1411,
+      "gzipSha256": "5d665d0cff28abe08fb72759c85205d3d076c8a511ca0efebe90ed2cf1577646"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-assets.cjs",
+      "group": "pinned-public-metadata-and-audit-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/087-embeddinggemma2-assets.cjs.gz",
+      "bytes": 9680,
+      "sha256": "cc7bca91d33c1ebf4efdf78703c7ff77dec03dcbe847cb7051c97042d7c82e79",
+      "gzipBytes": 3817,
+      "gzipSha256": "4db281a4e150cf871bac000398df2e5ffeffa3d4b9a05465066982c22ef619aa"
+    },
+    {
+      "source": "output/semantic-gemma-q4-lexical-live-v1/receipt.json",
+      "group": "generation1-actual-ui-source-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/088-receipt.json.gz",
+      "bytes": 672712,
+      "sha256": "7120293731f450ccc1e9e8332aebeac637a2858352630e14f4df7fc233f84390",
+      "gzipBytes": 30854,
+      "gzipSha256": "d3d770c993888cfd8a3a2813ee440e5356b5b9930687e8ad8aa0fe6adc9b9ee4"
+    },
+    {
+      "source": "output/semantic-gemma-q4-lexical-live-execution-freeze-v1/freeze.json",
+      "group": "generation1-actual-ui-source-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/089-freeze.json.gz",
+      "bytes": 271782,
+      "sha256": "9bc27a979dfdeb470a110fbfde64211d03ea2580436428a8303333349368a6d7",
+      "gzipBytes": 49848,
+      "gzipSha256": "6e333248e75543a7968db16492a7c75b186f46f17e42f85cf7332a40356912f5"
+    },
+    {
+      "source": "output/semantic-gemma-q4-lexical-live-execution-freeze-v1/launch.cjs",
+      "group": "generation1-actual-ui-source-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/090-launch.cjs.gz",
+      "bytes": 718,
+      "sha256": "06f4b8d5b40c46d8f4fd78c51bab89086227ed28d4a612feb87931c7988161a6",
+      "gzipBytes": 471,
+      "gzipSha256": "8e5893a37fb6f16e91b10dc087800a6e43dabd32cc6d6d42ae6a78678d3e5241"
+    },
+    {
+      "source": "output/semantic-gemma-q4-adapter-freeze-v1/freeze.json",
+      "group": "generation1-actual-ui-source-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/091-freeze.json.gz",
+      "bytes": 14369,
+      "sha256": "bd99473da08da8bfa9fa6664c6589255687c47c6133955cf4c5589622b1011b3",
+      "gzipBytes": 3726,
+      "gzipSha256": "7cd7518ba9aa6cdf5329be3ddc75d396cfa8aa0824598c941d63f6998ef4abae"
+    },
+    {
+      "source": "output/semantic-gemma-q4-live-adapter-v3/asset-lock.json",
+      "group": "generation1-actual-ui-source-development",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/092-asset-lock.json.gz",
+      "bytes": 6445,
+      "sha256": "9eb7277dc9b61ef4d573bbccb3352c5c2e49d44813ae2bf302a8cea7f7239356",
+      "gzipBytes": 2082,
+      "gzipSha256": "7bdf6ed2b4cc39cfbfc0e2db27897f88d6ed2b6ecd7f163aa663f7883b1c9a4c"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-live-fixture.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/093-gemma-q4-lexical-live-fixture.cjs.gz",
+      "bytes": 1115,
+      "sha256": "f2acd7e4f4bb00ef9a44c7ef92fb1c02c0b543808dbb535ce9156a6c082b5664",
+      "gzipBytes": 680,
+      "gzipSha256": "71d325987100c7dd305bd3b368b2c664becaec233ef140f9d3216cd3024c873f"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-live-fixture.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/094-gemma-q4-lexical-live-fixture.test.cjs.gz",
+      "bytes": 2685,
+      "sha256": "da7c34301bb012b19d8fb4bb30316f2c4ebc7cf145036ba8ab6e06418588e09b",
+      "gzipBytes": 1003,
+      "gzipSha256": "4d9d04040b286bf7b4daf9be912d8fa4749fc36c20cedd3f8147cd5034a268e2"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-owner-audit.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/095-gemma-q4-lexical-owner-audit.test.cjs.gz",
+      "bytes": 1743,
+      "sha256": "8f02e6da8334be5d7b9ea572ff4a12eff6fac0a104812977189fdb982980f847",
+      "gzipBytes": 798,
+      "gzipSha256": "2ebdaf4dd466d3a5df5cf222b7e5444b76abee9b13059aef183ca37a6906bcfe"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-owner-source.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/096-gemma-q4-lexical-owner-source.test.cjs.gz",
+      "bytes": 1122,
+      "sha256": "1b5d55e2ccaa99165b2f351cd098bd513155117af30e4e96adf85003766a4b65",
+      "gzipBytes": 585,
+      "gzipSha256": "37bf1ccb02a26ca9544d847b01025f238855225e7fe7b80288bacec879ec01e3"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-adapter-freeze.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/097-gemma-q4-live-adapter-freeze.cjs.gz",
+      "bytes": 3740,
+      "sha256": "fcdf217ecf044e0682c01be3655dcc74d0ca9d850e6443d20f2fb3c0fc64f1ea",
+      "gzipBytes": 1496,
+      "gzipSha256": "b2a1cfbdad3134e66aacfb1644ff2cf109622df01a9945e4cf65dbb3d811606a"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-build.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/098-gemma-q4-live-build.cjs.gz",
+      "bytes": 4544,
+      "sha256": "0fee8ae39d62f99912b1e1d4c217c4c8bfedcb1f99043c3a63d38a7687897393",
+      "gzipBytes": 1947,
+      "gzipSha256": "da65c17bbaf945b6746e9b8897a9eb9ed064d648afabfd064d25df9f89477bab"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-comparator.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/099-gemma-q4-live-comparator.cjs.gz",
+      "bytes": 962,
+      "sha256": "9a166894c4ad6a2818c88f1670e4ffdd92359eabe8255d66a82a9efd1bdc841f",
+      "gzipBytes": 511,
+      "gzipSha256": "856e65845bb13e962c82fb10b53f79ec38618a9c67723a351d6a688470ca6a42"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-comparator.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/100-gemma-q4-live-comparator.test.cjs.gz",
+      "bytes": 1274,
+      "sha256": "ed42b8c22828149cd18bf3ff4936eafd6c4ec430bb7bacfe51fa3f88aee2919b",
+      "gzipBytes": 589,
+      "gzipSha256": "352c3af65faef128334cb8d18d3e463cc4875597189c85d830adfd9151614fe4"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-development-fence.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/101-gemma-q4-live-development-fence.test.cjs.gz",
+      "bytes": 620,
+      "sha256": "0f1f399ff086682f6166e10c2cad1679c1b487cdcef2e1587a78b8f682a60148",
+      "gzipBytes": 357,
+      "gzipSha256": "3510d3f14ecc6e020f4997d63e7c4cd27dd31b8a4b5e4e4d6faffcfb356aa26c"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-development.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/102-gemma-q4-live-development.cjs.gz",
+      "bytes": 13339,
+      "sha256": "24699ba4f5e0a86c17882e156140f51574ad580b4267c2d90c602e29770a9b41",
+      "gzipBytes": 4976,
+      "gzipSha256": "cc7b7f8fd2049e9a50e84912c3e20581b726b7c312d8faa3e5d2a06e47e92073"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-execution-freeze.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/103-gemma-q4-live-execution-freeze.cjs.gz",
+      "bytes": 5742,
+      "sha256": "a87ffabfa2b78ba79296b1a9320c7e7c143455bc0a2a75dcc80c3c5c901fb1e1",
+      "gzipBytes": 2340,
+      "gzipSha256": "2131db6e788c00aec0edc0706419b717610569b9c790fb8513d0ef07dd15a3f0"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-fixture.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/104-gemma-q4-live-fixture.cjs.gz",
+      "bytes": 965,
+      "sha256": "9630f3fbc7ce72e3838c145e5adb172026dbb1bfbbfe1c3da3f0ba098c2a3e7e",
+      "gzipBytes": 603,
+      "gzipSha256": "ea6caf2119e05b099e725a721aa875cff23a7803bd4800fe72032452daf4284c"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-fixture.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/105-gemma-q4-live-fixture.test.cjs.gz",
+      "bytes": 2675,
+      "sha256": "60b5b2bfe04d328823fe6e7dd56cfa2391364116e1576fc91a0c8d7f9c422142",
+      "gzipBytes": 997,
+      "gzipSha256": "7f48620c599759e87074ed4a8828bc2815e92ad77e01c1fa7f2791b1fe29e51b"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-output.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/106-gemma-q4-live-output.cjs.gz",
+      "bytes": 458,
+      "sha256": "f40d5aedebff63d503aa8401ecd1b2acb0440462873d03ee4a5ac255b6c12684",
+      "gzipBytes": 322,
+      "gzipSha256": "26aaf3e591f4f0b14ea25ec05a9f5b78a2922e590f267a64ab569358118accc4"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-output.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/107-gemma-q4-live-output.test.cjs.gz",
+      "bytes": 731,
+      "sha256": "a22800130e54f023cfcdfb28093fc08f1ff2264ef827089e3c581acbc0a48008",
+      "gzipBytes": 314,
+      "gzipSha256": "dfb4758f2736032131ac65d0943e6f5f8c357803d0cea6b6afc712a792c19f22"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-policy.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/108-gemma-q4-live-policy.cjs.gz",
+      "bytes": 2529,
+      "sha256": "3198777c0177c9c7d907842960e58181a629a81b5f6027749db1d2c466f37662",
+      "gzipBytes": 1100,
+      "gzipSha256": "a017310787332c48f9a57f37b0dbfb4fc9e5a9cd963bbe162222336a5310400f"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-policy.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/109-gemma-q4-live-policy.test.cjs.gz",
+      "bytes": 3501,
+      "sha256": "846782757d8be16d668ede6d1160e0f084eef6ff39af150e2514bd3082e6f225",
+      "gzipBytes": 1420,
+      "gzipSha256": "e0368bea2ba07117e5a3e34bd0e430f8f2327d6f57d8abe0e0af479c14afeb59"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-single-score.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/110-gemma-q4-live-single-score.cjs.gz",
+      "bytes": 636,
+      "sha256": "83fb0c252b622e8b29e930195cfcb6d11a6e870b2db2c98c1e644a2f5e3c0a34",
+      "gzipBytes": 340,
+      "gzipSha256": "9166c9a6adcd341706e0b4c5033d7b23a5bf465257c3afd8be8e4b7d15aab072"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-single-score.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/111-gemma-q4-live-single-score.test.cjs.gz",
+      "bytes": 850,
+      "sha256": "42a3dd6de83af0ab23a73cf2e69ea5cf790c4f9a20175186d85bbbe643546266",
+      "gzipBytes": 384,
+      "gzipSha256": "f29c23285de336c846e0c5a84e27e8a2738086e8726b68351b024bddd6f79ef3"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-warmup-contract.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/112-gemma-q4-live-warmup-contract.cjs.gz",
+      "bytes": 571,
+      "sha256": "1bd0810b252775dd8c0d174712e00b3c993a40d8d5e3cc5962c6d42106109685",
+      "gzipBytes": 332,
+      "gzipSha256": "816bb6c7ca38443f57dbeaaa15650de43a9df017467bfd2a11d1bc04053d00df"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-warmup-contract.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/113-gemma-q4-live-warmup-contract.test.cjs.gz",
+      "bytes": 1250,
+      "sha256": "7dd7c87c1122b35fd7532246bac5e884687b18785858190bb0a1715643fb09d5",
+      "gzipBytes": 495,
+      "gzipSha256": "d42081850e2bbe07a756f04d7dd03ed33d54595954872652ea947aaca25cb8c5"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-worker-host.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/114-gemma-q4-live-worker-host.cjs.gz",
+      "bytes": 2588,
+      "sha256": "43a30d94f268af8897c0ef7733dda37c11ff747f2a64bdc27fc40b61b2c8b1b5",
+      "gzipBytes": 1248,
+      "gzipSha256": "ae288548a84756527660868c24f50f016dcb676ee5f9e3df1414761a2ec32456"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-worker-host.test.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/115-gemma-q4-live-worker-host.test.cjs.gz",
+      "bytes": 5062,
+      "sha256": "6a6b00102b3f331d8a0f4173582e7b5f3c763722a9382992cdcf6d4b4783d537",
+      "gzipBytes": 1749,
+      "gzipSha256": "db6d4c9cab0e6e69752ee3b9386ebe9f8f5f61aa6dd82dd912dfcdfbf9530428"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-worker-verify.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/116-gemma-q4-live-worker-verify.cjs.gz",
+      "bytes": 1794,
+      "sha256": "5dba567f4a0410dcc20c5b820fd07e6a0dbf336bd5ee4119ba819f93f32967d8",
+      "gzipBytes": 877,
+      "gzipSha256": "94494d7fb88eabfa78fde46c1a0b7f0228b7a0f48f1f192169e7183fa1b26ddd"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-fixture-binding.cjs",
+      "group": "exact-generation1-live-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/117-owner-lexical-fixture-binding.cjs.gz",
+      "bytes": 2070,
+      "sha256": "ea97489fd4b225dff43ca4af4df0ebcbb98bbe35d1baa05e52f6eae01261f6bc",
+      "gzipBytes": 929,
+      "gzipSha256": "5725a465fc0fb3b1ec9f192c5f796a972bafad6efeb7ec23ecd410ce61865c3f"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-root-cpuonly-review.cjs",
+      "group": "root-review-or-archive-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/118-embeddinggemma2-root-cpuonly-review.cjs.gz",
+      "bytes": 5968,
+      "sha256": "f0442ecb8144e0dc38a048f23b0da40c4da13da06007dcd3cdc684a2b0b4dfb5",
+      "gzipBytes": 2646,
+      "gzipSha256": "a42720b21bc7c65af5e3f3aae7aab0e8edd0c4e86eeef7a481b0c85dba447787"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-root-quality-review.cjs",
+      "group": "root-review-or-archive-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/119-embeddinggemma2-root-quality-review.cjs.gz",
+      "bytes": 8677,
+      "sha256": "900b271614d936c989736eb51bb16566d9e6962d7e193bc258afbd205d56443c",
+      "gzipBytes": 3528,
+      "gzipSha256": "44d0e9d7f0e46f6c762a88fd2baaac7a038c2132e8126543cb6662bdc2d10300"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-live-root-review.cjs",
+      "group": "root-review-or-archive-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/120-gemma-q4-live-root-review.cjs.gz",
+      "bytes": 9601,
+      "sha256": "d4e4696d8b78421207ad54235dd0f768254114c19ab10e7f7dcc9ae1b510010c",
+      "gzipBytes": 4026,
+      "gzipSha256": "4e387ae2fe99829d4046771cab503bf0b75ad3a8f146b53b50b56eb56a534344"
+    },
+    {
+      "source": "dev-harness/semantic/archive-embeddinggemma2-research-evidence.cjs",
+      "group": "root-review-or-archive-source",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-embeddinggemma2-and-live-ui-reviewed-r1/121-archive-embeddinggemma2-research-evidence.cjs.gz",
+      "bytes": 9328,
+      "sha256": "95bb595e65d229b5e674079869019533ba503d2ee8c0f60a921aaf43af83ced1",
+      "gzipBytes": 3439,
+      "gzipSha256": "f439f75b4fca078400353185164f7e935027f1d81c2542b50413d9daabfc763d"
+    }
+  ],
+  "externalInputs": [
+    {
+      "source": "output/granite-gemma-train-input-v1.json",
+      "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/manifest.json",
+      "manifestSha256": "67b6f09599406d3954fee2f0b2970d00a88a8e6dc90d5241a1a295469dd05926",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-granite-gemma-development-reviewed-r1/039-granite-gemma-train-input-v1.json.gz",
+      "sha256": "5f64dc132afe55fc4904868f22f5f6897973450c5f24602b6b227814f670cc1b"
+    }
+  ],
+  "generation2": {
+    "method": {
+      "k": 1,
+      "cosine": 0.7,
+      "dimensions": 768
+    },
+    "train": {
+      "positive": 72,
+      "hit": 72,
+      "pureOod": 60,
+      "anyResult": 0
+    },
+    "calibration": {
+      "positive": 24,
+      "hit": 24,
+      "pureOod": 20,
+      "anyResult": 0
+    },
+    "mixed": {
+      "positive": 16,
+      "hit": 16,
+      "pureOod": 16,
+      "anyResult": 0
+    },
+    "rawVectorsRootVerified": 340,
+    "trainGridPointsRootVerified": 402,
+    "runtimeFilesRootVerified": 586,
+    "modelAndDependencyPayloadBytes": 237425947
+  },
+  "generation1": {
+    "actualUiQueries": 280,
+    "complete": 280,
+    "sourceReferencesRootVerified": 160,
+    "bindingsRootVerified": 1004,
+    "below500Ms": 0,
+    "workerPeakRssBytes": 463720448
+  },
+  "limits": [
+    "All data consumed development, not new independent/holdout. V7 author data is not read/copied/hashed by this archive.",
+    "Generation2 train246 collected/closed/selected before later94 encoding; existing synthetic dataset is still retrospective. Raw vector resources are separate vector-free metadata.",
+    "Encoding timings exclude parent per-request IPC/source/UI and include output validation; not directly identical to historical parent encoding measurements.",
+    "Generation1 actual encrypted source/private UI APIs run inside a partially aligned fixture; not full desktop or other consumers. All280 queries exceed500ms.",
+    "Missing fact diagnostics remain related-context results, not pure unrelated negatives or evidence that an answer exists.",
+    "Binary weights,tokenizer payload,executables/native DLLs are not copied. Download attempts and old ORT1.21 failure are preserved.",
+    "CPU-only exact3DLL trim passed4synthetic with loaded-module snapshots; clean-Windows legal VC-runtime deployment and final package still pending. Model payload237425947 excludes scripts/Node/licenses/index/ZIP.",
+    "No default/version/formal gate change or commit/push."
+  ]
+}

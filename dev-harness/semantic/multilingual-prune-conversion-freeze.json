@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "status": "FROZEN_PRUNED_EMBEDDING_RESEARCH_CONVERSION_NO_INFERENCE",
+  "unicodeVersion": "17.0",
+  "bindings": {
+    "dev-harness/semantic/multilingual-prune-convert.cjs": "50e13cc1eae7a2604f33b25f001463a5480686534edba0fbc1eca8cb2fd1b8c1",
+    "dev-harness/semantic/multilingual-prune-remap.cjs": "8a6e76393ef711af56c612cda871871bbcdda0595879643d1635cbac570f8929",
+    "dev-harness/semantic/multilingual-prune-remap-test.cjs": "ec683c4c9d961abaefc37445b73f2acb80474287e5bd9c2761cea78acc6450cc",
+    "dev-harness/semantic/multilingual-prune-worker-verify.cjs": "30ad7243255953b10339be0796151514867495eabfcbeaa173dcfbc07d617293",
+    "output/semantic-minilm-family-coarse-v1/asset-lock.json": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+    "ruyi-workbench/semantic-runtime/worker.cjs": "449f5d04f6df98ae76f0e76e18563b98603489bc3a8040d05ccdd4404cae983c",
+    "ruyi-workbench/semantic-runtime/protocol.cjs": "29bb6e178fe6a486f1cc608b60acce78b0f0b6f3e051ddf853d0bc5529c84ff2",
+    "ruyi-workbench/semantic-runtime/verify.cjs": "7de5806708065f60bc66f1400990196cef2b8f062d606df1eb11539d5570131e",
+    "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-runtime-win32-x64\\models\\paraphrase-multilingual-MiniLM-L12-v2\\config.json": "05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7",
+    "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-runtime-win32-x64\\models\\paraphrase-multilingual-MiniLM-L12-v2\\tokenizer.json": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441",
+    "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-runtime-win32-x64\\models\\paraphrase-multilingual-MiniLM-L12-v2\\tokenizer_config.json": "3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2",
+    "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-runtime-win32-x64\\models\\paraphrase-multilingual-MiniLM-L12-v2\\special_tokens_map.json": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f",
+    "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-runtime-win32-x64\\models\\paraphrase-multilingual-MiniLM-L12-v2\\onnx\\model_quantized.onnx": "66fc00f5f29afcaff34092e1bdd20008ca3918265a82fb9695a551e510cc4ebc"
+  },
+  "method": {
+    "vocabulary": "retain five special IDs, token pieces whose Unicode17 Script is Han, Latin, Common or Inherited after removing metaspace ▁ for classification; preserve all 35 embedding-only IDs",
+    "tensor": "replace only quantized UINT8 word embedding rows and first dimension; no changes to other protobuf graph fields, initializers, quantization constants, or model metadata",
+    "mapping": "full original 250037-entry ID to dense new ID; -1 for dropped; never silently substitute UNK",
+    "worker": "derived from frozen original; full untruncated token IDs checked before truncation, then input_ids remapped including padding; preserve attention/shape; any unsupported ID rejects entire request",
+    "validation": "all retained rows byte-exact; remaining graph/model fields byte-identical; all copied files hash-identical; no inference in this batch"
+  },
+  "limits": [
+    "Research only; no default/production/automatic change.",
+    "No independent quality, numerical equivalence, runtime memory or language coverage qualification.",
+    "Model/native numerical validation and resource sampling require separate coordination."
+  ]
+}

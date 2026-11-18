@@ -1,0 +1,35 @@
+  // Private source/output boundary. Caller must bind this receipt to the
+  // manifest-issued candidate and to the original legacy-source baseline.
+  static string BoundaryRel=null,BoundaryPath=null,BoundaryId=null;
+  static string[] BoundaryParents=null;
+  static SafeFileHandle BoundaryHandle=null;
+  static void BoundaryInit(Dictionary<string,object> args) {
+    object raw=null;if(!args.TryGetValue("candidateBoundary",out raw))return;
+    var proof=Dict(raw);if(proof.Count!=3||!proof.ContainsKey("rel")||!proof.ContainsKey("id")||!proof.ContainsKey("parents"))Reject("boundary_shape");
+    string rel=Str(proof["rel"]),id=Str(proof["id"]);object[] parents=proof["parents"] as object[];
+    if(!System.Text.RegularExpressions.Regex.IsMatch(rel,@"^\.work-data/generations/[a-f0-9]{48}$")||!System.Text.RegularExpressions.Regex.IsMatch(id,"^[a-f0-9]{24}$")||parents==null||parents.Length!=3)Reject("boundary_shape");
+    string[] parentIds=new string[3];for(int i=0;i<3;i++){parentIds[i]=Str(parents[i]);if(!System.Text.RegularExpressions.Regex.IsMatch(parentIds[i],"^[a-f0-9]{24}$"))Reject("boundary_shape");}
+    string boundaryPath=NativePath(System.IO.Path.Combine(Str(args["root"]),rel.Replace('/','\\')));
+    BoundaryRel=rel;BoundaryId=id;BoundaryParents=parentIds;BoundaryPath=boundaryPath;
+  }
+  static void BoundaryParent(string rel,SafeFileHandle handle) {
+    if(BoundaryRel==null)return;int at=rel==""?0:rel==".work-data"?1:rel==".work-data/generations"?2:-1;
+    if(at>=0&&Id(handle)!=BoundaryParents[at])Reject("boundary_parent_changed");
+  }
+  static bool BoundaryChild(Node parent,string child,string relative) {
+    if(BoundaryRel==null||!String.Equals(relative,BoundaryRel,StringComparison.Ordinal))return false;
+    if(BoundaryHandle!=null||Id(parent.Handle)!=BoundaryParents[2])Reject("boundary_parent_changed");
+    BoundaryHandle=ResearchRelativeOpen(parent.Handle,System.IO.Path.GetFileName(child),0x00100180u,3,1);
+    PreserveHandleTimes(BoundaryHandle);
+    ResearchCheck(BoundaryHandle,BoundaryPath,BoundaryId);return true;
+  }
+  static bool BoundaryContains(string child) {
+    if(BoundaryHandle==null||!String.Equals(child,BoundaryPath,StringComparison.OrdinalIgnoreCase))return false;
+    ResearchCheck(BoundaryHandle,BoundaryPath,BoundaryId);return true;
+  }
+  static void BoundaryClose(bool mustFind) {
+    try {if(mustFind&&BoundaryRel!=null&&BoundaryHandle==null)Reject("boundary_missing");
+      if(BoundaryHandle!=null){IntPtr value=BoundaryHandle.DangerousGetHandle();try{BoundaryHandle.Dispose();}catch{Reject("census_first_close_unverified");}BoundaryHandle=null;uint flags;
+        if(GetHandleInformation(value,out flags)||Marshal.GetLastWin32Error()!=6)Reject("census_first_close_unverified");}}
+    finally {BoundaryRel=null;BoundaryPath=null;BoundaryId=null;BoundaryParents=null;}
+  }

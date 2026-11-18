@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T16:09:29.143Z",
+  "status": "PROGRESS_ONLY_NOT_FINAL_ACCEPTANCE",
+  "description": "Synthetic research, confirmed pre-fix privacy disclosure, component/focused checks and actual HTTP egress. Source identities and limitations are inside individual receipts. Some production fixes occurred after these reports; no release gate closed.",
+  "records": [
+    {
+      "source": "output/privacy-ref-dictionary-v1/frozen-v4/repro-report-v4.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/01-repro-report-v4.json.gz",
+      "bytes": 9804,
+      "sha256": "e21fa3dfb2b7a42bac93ba56202d7ce067fa6e6b473155c4f9906f88dd36f721",
+      "gzipBytes": 3105,
+      "gzipSha256": "779472805e4d7451c959275a37027983f66b3f8aec16773e24bedbe179fd77d8"
+    },
+    {
+      "source": "output/privacy-ref-dictionary-v1/vault-persistence-tests.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/02-vault-persistence-tests.log.gz",
+      "bytes": 575,
+      "sha256": "25616833df5b43935b798fbc27fb0da7fb544e770de29f03abad700b3a277f93",
+      "gzipBytes": 364,
+      "gzipSha256": "f2699ec0a1ed446b5d2dd482343cd7d25adaa85fdd689685d55e4072a7d1a198"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/report-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/03-report-v2.json.gz",
+      "bytes": 5742,
+      "sha256": "8c5f194462d11e602f09e1af625577278615ba5d0fece2e390e56c2532836327",
+      "gzipBytes": 1941,
+      "gzipSha256": "87ec2f879d685dc1d6284eda717d5f19cbef38a588fc9f69382e70f0b1e6ca7a"
+    },
+    {
+      "source": "output/semantic-reference-egress-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/04-semantic-reference-egress-v1.json.gz",
+      "bytes": 1834,
+      "sha256": "6d2ca413b70e168eacbe842895a32322bd70106c13e15cf967cd2ad12032d744",
+      "gzipBytes": 981,
+      "gzipSha256": "6d4893eba1a4b69a6e718671518ffcaec17f9761d9fcb29dd65c73ff8df2e642"
+    },
+    {
+      "source": "output/semantic-reference-egress-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/05-semantic-reference-egress-v2.json.gz",
+      "bytes": 1916,
+      "sha256": "446f3ea11306b8e2853607b58cda00fc97ecf31ba0b76ba863caae36a78805e1",
+      "gzipBytes": 1014,
+      "gzipSha256": "277a4f8a1886bb6ad9aa0e122a6148664f4b03278b9337ea6dcb174fef84ba61"
+    },
+    {
+      "source": "output/semantic-reference-egress-v3.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/06-semantic-reference-egress-v3.json.gz",
+      "bytes": 2090,
+      "sha256": "c75e1043a54e0308ec32e87fa01055ccc758d826233e6fd2253bda99e38207eb",
+      "gzipBytes": 1076,
+      "gzipSha256": "dcb87a09ca0555a449575c4b580936bfdae210d5b2d875f5c834d068235842c5"
+    },
+    {
+      "source": "output/semantic-reference-egress-v4.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/07-semantic-reference-egress-v4.json.gz",
+      "bytes": 2473,
+      "sha256": "e1422625fa4d745ee56be6b137633f404f8b8450006c79f3c9bef3135be47db5",
+      "gzipBytes": 1035,
+      "gzipSha256": "be6c9fe2929c93cf001969e97717862c631348ccb1809ace1125f539aea20b86"
+    },
+    {
+      "source": "output/semantic-calibration-jina-v2-zh-v1-summary.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/08-semantic-calibration-jina-v2-zh-v1-summary.json.gz",
+      "bytes": 2436,
+      "sha256": "59211a0f348e869e31f6ea7a278fdbc392d223a2c8b92ead963c95b49001f080",
+      "gzipBytes": 1236,
+      "gzipSha256": "5effcd0a2f82511bcc990b63ed73d2add360da9c10349e83e25ce89817d728c4"
+    },
+    {
+      "source": "output/semantic-calibration-jina-v2-zh-v1-raw.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/09-semantic-calibration-jina-v2-zh-v1-raw.json.gz",
+      "bytes": 9734,
+      "sha256": "0d46dcbd16ecbf9e7d0eb4fd7c2032c2ac7e4fb75792f42e0ab121d419c72d6d",
+      "gzipBytes": 1535,
+      "gzipSha256": "b9cda08381407a9c1f33f609a0a3558d278fe84bde1d3969f6aaa46347cf2666"
+    },
+    {
+      "source": "output/semantic-calibration-jina-v2-zh-v1-hybrid.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/10-semantic-calibration-jina-v2-zh-v1-hybrid.json.gz",
+      "bytes": 2693021,
+      "sha256": "47b771978167b09bce80afafd6bdc8ae3afc5acd6c898dba817727b68558db1d",
+      "gzipBytes": 30101,
+      "gzipSha256": "637d3c0abac08675cf91a4e2dcbd25ea64f8aca05ca2f72f0d7d3375b98aa20a"
+    },
+    {
+      "source": "output/semantic-calibration-dual-encoder-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/11-semantic-calibration-dual-encoder-v1.json.gz",
+      "bytes": 796625,
+      "sha256": "f42ed99cb1acd797775904af2e372477133ee50b4e2ec7c71bef56916e7d45d3",
+      "gzipBytes": 16284,
+      "gzipSha256": "c618511e0b5e8023be1485c55752e03479ee50b69228a1b1f069f3f01e313d8f"
+    },
+    {
+      "source": "output/semantic-qwen3-06b-metadata-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/12-semantic-qwen3-06b-metadata-v1.json.gz",
+      "bytes": 3433,
+      "sha256": "77f3e2e688362ecf9278a925b0e2527aa28aff7a7ccd9edb28ba70f66a80caea",
+      "gzipBytes": 1558,
+      "gzipSha256": "c4eabb5a5b65f0cc76fe4d26e0774932a049bd7e9ac007bfad70ea1bfc918561"
+    },
+    {
+      "source": "output/semantic-calibration-late-interaction-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/13-semantic-calibration-late-interaction-v2.json.gz",
+      "bytes": 1123658,
+      "sha256": "403fd35dfda4bea0b218500ba62808a3bb1b68013ee2f2c158aebb1b31901e8a",
+      "gzipBytes": 133358,
+      "gzipSha256": "139b0216bb8e2aaf38a99b12dd458f1758d2149481190f6f3646fa2123e209e2"
+    },
+    {
+      "source": "output/tokenizer-native-research-v1/probe-native-official-0232/native-experiment-final-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/14-native-experiment-final-receipt.json.gz",
+      "bytes": 18395,
+      "sha256": "b683292d9cab0232c7737045a3f4de1054bd16a4dd0ce4e9d6ef213d29dd9313",
+      "gzipBytes": 5492,
+      "gzipSha256": "ed19015344f98a1830b7ad09f4402282c89aa55d8c3004edc00d90db0d44523d"
+    },
+    {
+      "source": "output/semantic-minilm-stage-resources-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-model-progress/15-semantic-minilm-stage-resources-v1.json.gz",
+      "bytes": 2398,
+      "sha256": "c3e9f9b52d714150df9b0e7bb4d701811ce7efc69368c0b2622f4d2b6c0878e1",
+      "gzipBytes": 874,
+      "gzipSha256": "5e6d1a1cef30aea82ffa33f0e9711cffca30510330bcfd97af3612258ed94d4c"
+    }
+  ]
+}

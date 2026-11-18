@@ -32,7 +32,7 @@ describe('compaction tool index · reused tool_call ids', () => {
       call('powershell_run', { command: 'Get-Date' }), result('C'.repeat(1300)),
       { role: 'assistant', content: '好了' },
     ];
-    const index = buildCompactionToolIndex(history, { upto: history.length, rawRefPrefix: 'history:3:0123456789abcdef', config: { runtimeObservationRecallV1: true, runtimeObservationReducerV1: true } });
+    const index = buildCompactionToolIndex(history, { upto: history.length, rawRefPrefix: 'history:3:0123456789abcdef', rawRefLookup: { get: key => 'history:v2:'+require('node:crypto').createHash('sha256').update(key).digest('hex') }, config: { runtimeObservationRecallV1: true, runtimeObservationReducerV1: true } });
     const lines = index.split('\n').filter(l => l.startsWith('- '));
     assert.equal(lines.length, 3, index);
     assert.ok(lines[0].includes('file_read') && lines[0].includes('500 字'), lines[0]);

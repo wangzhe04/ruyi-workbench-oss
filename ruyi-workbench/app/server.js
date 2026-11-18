@@ -1675,6 +1675,9 @@ async function recordInstallLaunch(launchMode) {
 }
 
 const SessionFullTextHooks = {};
+const SemanticRuntimeHooks = {};
+const MemorySemanticHooks = {};
+const ObservationRecoveryHooks = {};
 
 // 00b-ruyi-names.js - 3.0 收口:如意自有的对外标识(原 v1.0-S9 注释里「建议 v2.0 收口」的存量兼容标识)。
 // 零出边(不引用任何其他模块的顶层符号),排在 00-boot 之后;所有用到 MCP server id 的模块都只引用这里,不进依赖环。
@@ -4082,6 +4085,7 @@ function defaultConfig() {
     // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
     sessionSearchIndexV1: true,
     sessionSearchIndexPausedV1: false,
+    semanticRetrievalV1: true,
     // M3-2: 工作数据加密（默认关）。开启后新写入的受管记录写成 WorkDataCrypto v2 容器；关闭时
     // 落盘字节与既有实现完全一致。该开关目前只从配置文件读——启用/迁移 UI、首次迁移与恢复属于
     // M3-3，M3-2 不提供任何界面入口。
@@ -4855,7 +4859,7 @@ function normalizeConfig(raw, opts = {}) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -5988,6 +5992,7 @@ function configEmitWritten(config) {
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
 async function writeConfig(next, before = null, options = {}) {
+  const semanticBefore = before || lastGoodConfig;
   await ensureDirs();
   if (configDegraded) {
     // 读失败/JSON 损坏期间拿到的「当前配置」是默认值：在它上面合并再落盘 = 把用户配置冲成默认。拒绝。
@@ -5999,6 +6004,7 @@ async function writeConfig(next, before = null, options = {}) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2), options);
     configEmitWritten(config);
+    if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.configChanged === 'function') await SemanticRuntimeHooks.configChanged(semanticBefore, config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -6013,6 +6019,7 @@ async function writeConfig(next, before = null, options = {}) {
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), options);
   configEmitWritten(config);
+  if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.configChanged === 'function') await SemanticRuntimeHooks.configChanged(semanticBefore, config);
   return config;
 }
 
@@ -9563,9 +9570,9 @@ function createBinary(host) {
         let legacy;
         if (captured) {
           assert();
-          if (gzipMagic(captured)) legacy = Buffer.from(captured);
+          if (gzipMagic(captured)) { if (Number.isSafeInteger(host.legacyReadLimit) && captured.length > host.legacyReadLimit) fail('binary_file_limit'); legacy = Buffer.from(captured); }
           else if (captured.length > WorkDataChunks.maxFileBytes(host.maxPlaintextBytes)) fail('binary_file_limit');
-        } else legacy = await readGzipLegacy(host, file());
+        } else legacy = await readGzipLegacy(host, file(), Number.isSafeInteger(host.legacyReadLimit) ? host.legacyReadLimit : Infinity);
         if (legacy) {
           try { validateBinaryLegacy(host, legacy, { sealed: false, enabled: false }); if (assert) assert(); return legacy; }
           catch (error) { if (captured) legacy.fill(0); throw error; }
@@ -11205,6 +11212,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('session-head', 'session', new RegExp('^sessions/' + shortId + '\\.json$'), 'sessions', m => m[1], { schema: 2, sessionId: true });
   text('journal-index', 'session', new RegExp('^checkpoints/' + shortId + '/index\\.json$'), m => m[1], 'journal-index', { chunked: true, shape: 'array', sessionId: true });
   text('journal-reverts', 'session', new RegExp('^checkpoints/' + shortId + '/reverts\\.json$'), m => m[1], 'journal-reverts', { chunked: true, sessionId: true });
+  text('journal-observation-owners', 'session', new RegExp('^checkpoints/' + shortId + '/observation-owners-v1\\.json$'), m => m[1], 'journal-observation-owners-v1', { chunked: true, sessionId: true, maxPlaintextBytes: 65536 });
   define('journal-history', 'gzip', 'session', new RegExp('^checkpoints/' + shortId + '/(\\d+-\\d+\\.gz|history-\\d+(?:-[a-f0-9]{16})?\\.json\\.gz)$'),
     m => ({ scopeId: m[1], recordId: m[2] }), { sessionId: true });
   text('mission-container', 'task', new RegExp('^missions/' + shortId + '\\.json$'), m => m[1], 'mission-container', { chunked: true });
@@ -13182,6 +13190,16 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+const WorkDataOwnedRestoreUnknown=(()=>{
+'use strict';
+// Research helper: only inspect data descriptors; proxies/getters/cycles are
+// uncertain. Preserve the original thrown value as the existing cause.
+const {types}=require('node:util');
+function isUnknown(value){const active=new Set(),done=new Set();let visited=0;function visit(item,depth){if(item===null||item===undefined||typeof item!=='object'&&typeof item!=='function')return false;if(++visited>1024||depth>=32||types.isProxy(item)||active.has(item))return true;if(done.has(item))return false;active.add(item);try{for(let p=item,level=0;p!==null;p=Object.getPrototypeOf(p),level++){if(level>=16||types.isProxy(p))return true;for(const key of ['helperMayStillRun','ownershipRetained','cause','errors']){const d=Object.getOwnPropertyDescriptor(p,key);if(!d)continue;if(!Object.hasOwn(d,'value'))return true;if(key==='helperMayStillRun'||key==='ownershipRetained'){if(d.value!==undefined&&d.value!==false)return true;}else if(key==='cause'){if(visit(d.value,depth+1))return true;}else{const a=d.value;if(!Array.isArray(a)||types.isProxy(a))return true;const length=Object.getOwnPropertyDescriptor(a,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>1024)return true;for(let i=0;i<length.value;i++){const entry=Object.getOwnPropertyDescriptor(a,String(i));if(!entry||!Object.hasOwn(entry,'value')||visit(entry.value,depth+1))return true;}}}}done.add(item);return false;}finally{active.delete(item);}}try{return visit(value,0);}catch{return true;}}
+function flags(value){return isUnknown(value)?{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true}:{};}
+return Object.freeze({isUnknown,flags});
+
+})();
   const Hooks = {}; // The later control owner installs its immutable private-proof validator.
   const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_full.' + suffix), {
     code: 'work_data_full.' + suffix, apiCode: 'work_data_full.' + suffix, statusCode: 409, ...details,
@@ -13232,12 +13250,13 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
       cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
   }
-  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, readCapturedAuthority, preservedRead, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, readCapturedAuthority, preservedRead, ownedRestoreFlush, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
         || typeof externalOwner !== 'function') fail('host_invalid');
+    if(ownedRestoreFlush!==undefined&&typeof ownedRestoreFlush!=='function')fail('host_invalid');
     base = p.resolve(base);
     const controlProfile=Hooks.controlRecoveryProfile;
     if(controlRecoveryProof!==undefined&&(!controlProfile||typeof controlProfile.accepts!=='function'||typeof controlProfile.verify!=='function'
@@ -13575,14 +13594,15 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         const namespace=Object.freeze({directories,files});
         const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
-        await targetAdmission();await absent();let created=false;
+        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false;
         try{
-          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);
-          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
+          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
+          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
           for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
           }
           if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
+          if(needsRestoreFlush){await targetAdmission();try{await ownedRestoreFlush({target,source:base,ownership:targetOwnership,records:createdDirectories});}catch(cause){restoreBarrierUncertain=WorkDataOwnedRestoreUnknown.isUnknown(cause);throw cause;}await targetAdmission();}
           const verified=await readTree(targetOwnership).capture(target);disposable.push(verified);assertRestoredNamespace(verified,namespace);
           const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
           if(nativeStage)nativeProof(await analyzed.nativePlan.owner.verifyPortableInstalled(nativeStage));
@@ -13591,7 +13611,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           if(restoredTreeFor!==undefined){const initial=await restoredFingerprint(target,targetOwnership,assertExclusive,namespace);await targetAdmission();
             restoredProofs.set(result,Object.freeze({target,initial,namespace,packageSha256:hash(Buffer.from(serialized,'utf8')),packageBytes:Buffer.byteLength(serialized,'utf8'),manifestSha256:opened.manifestSha256}));}
           return result;
-        }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
+        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
       });
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});
@@ -13911,7 +13931,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
       const read=async row=>{if(decoded.has(row.path))return decoded.get(row.path);const d=row.descriptor,store=WorkDataStore.createText({file:()=>p.join(plan.candidate.root,...row.path.split('/')),purpose:d.purpose,schema:d.schema,scopeId:d.scopeId,recordId:d.recordId,chunked:d.chunked,maxPlaintextBytes:256*1024*1024,keys:plan.keys,enabled:()=>plan.candidate.mode==='encrypted',writeJson}),value=JSON.parse((await store.read()).replace(/^\uFEFF/,''));decoded.set(row.path,value);return value;};
       for(const row of rows.filter(row=>row.descriptor?.family==='session-index'))for(const entry of await read(row))if(entry&&Object.hasOwn(entry,'id'))add(entry.id);
       for(const row of rows.filter(row=>row.descriptor?.family==='session-head')){const head=await read(row),id=row.descriptor.recordId;if(head.id!==undefined&&head.id!==id)fail('session_owner_required',{file:row.path});add(id);}
-      for(const row of rows){const d=row.descriptor;if(!d)continue;const sid=['session-messages','session-provider','session-interventions','session-changes','session-v1-backup','background-job-ledger','journal-index','journal-reverts','journal-history','agent-run-events','agent-run-snapshot'].includes(d.family)?d.scopeId:d.family==='session-scratchpad'?d.recordId:null;if(sid&&canonical.has(key(sid))&&canonical.get(key(sid))!==sid)fail('session_owner_required',{file:row.path});if(d.family==='agent-run-snapshot'){const value=await read(row);if(value.id!==d.recordId.slice('agent-run:'.length)||value.sessionId!==d.scopeId)fail('run_owner_required',{file:row.path});}}
+      for(const row of rows){const d=row.descriptor;if(!d)continue;const sid=['session-messages','session-provider','session-interventions','session-changes','session-v1-backup','background-job-ledger','journal-index','journal-reverts','journal-observation-owners','journal-history','agent-run-events','agent-run-snapshot'].includes(d.family)?d.scopeId:d.family==='session-scratchpad'?d.recordId:null;if(sid&&canonical.has(key(sid))&&canonical.get(key(sid))!==sid)fail('session_owner_required',{file:row.path});if(d.family==='agent-run-snapshot'){const value=await read(row);if(value.id!==d.recordId.slice('agent-run:'.length)||value.sessionId!==d.scopeId)fail('run_owner_required',{file:row.path});}if(d.family==='journal-observation-owners'){const value=await read(row),items=value?.items;if(!value||Object.keys(value).sort().join(',')!=='anchor,items,mac,rewindGen,schema,sessionId'||value.schema!==1||value.sessionId!==d.scopeId||!/^[a-f0-9]{64}$/.test(value.mac||'')||!/^[a-f0-9]{64}$/.test(value.anchor||'')||!Number.isSafeInteger(value.rewindGen)||value.rewindGen<0||!Array.isArray(items)||items.length>128||new Set(items.map(item=>item?.prefix)).size!==items.length||items.some(item=>!item||Object.keys(item).sort().join(',')!=='digest,prefix'||!/^history:\d+:[a-f0-9]{16}$/.test(item.prefix||'')||!/^[a-f0-9]{64}$/.test(item.digest||'')||!item.prefix.endsWith(':'+item.digest.slice(0,16))))fail('session_owner_required',{file:row.path});}}
 
       for(const row of rows.filter(row=>row.descriptor?.family==='session-head')){
         const d=row.descriptor,headStore=WorkDataStore.createText({file:()=>p.join(plan.candidate.root,...row.path.split('/')),purpose:d.purpose,schema:d.schema,scopeId:d.scopeId,recordId:d.recordId,chunked:d.chunked,keys:plan.keys,enabled:()=>plan.candidate.mode==='encrypted',writeJson}),head=JSON.parse((await headStore.read()).replace(/^\uFEFF/,''));if(head.storageVersion!==2)continue;
@@ -19552,22 +19572,60 @@ async function withJournalArtifactOperation(work, supplied = null) {
 function journalJsonStore(sessionId, kind, operation = null, metadata = {}, directory = null) {
   const sid = assertSessionIdForPath(sessionId);
   const activeFile = kind === 'index' ? journalIndexPath(sid)
-    : kind === 'reverts' ? journalRevertLogPath(sid) : (() => { throw journalArtifactFailure('kind'); })();
+    : kind === 'reverts' ? journalRevertLogPath(sid) : kind === 'observation-owners-v1' ? path.join(journalDir(sid),'observation-owners-v1.json') : (() => { throw journalArtifactFailure('kind'); })();
   const file = directory === null ? activeFile : path.join(directory, path.basename(activeFile));
   return WorkDataStore.createText({
     file: () => file, purpose: 'session', schema: 1,
-    scopeId: sid, recordId: kind === 'index' ? 'journal-index' : 'journal-reverts',
+    scopeId: sid, recordId: kind === 'index' ? 'journal-index' : kind === 'reverts' ? 'journal-reverts' : 'journal-observation-owners-v1',
     keys: operation ? operation.keys : WorkDataStore.requireKeys(),
-    chunked: true, maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    chunked: true, maxPlaintextBytes: kind === 'observation-owners-v1' ? 65536 : JOURNAL_ARTIFACT_ENGINEERING_BYTES,
     enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: (target, value, options = {}) => atomicWriteJson(target, value, { ...options, retries: kind === 'index' ? 0 : 3 }),
     validateSealedText: plainText => {
     metadata.sealed = true;
     const value = safeJsonParse(plainText, null);
-    return kind === 'index' ? Array.isArray(value)
+    return kind === 'index' ? Array.isArray(value) : kind === 'observation-owners-v1' ? journalObservationOwnersValid(value,sid)
       : !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 && Array.isArray(value.items);
     },
   });
+}
+function journalObservationOwnersValid(value,sid) {
+  return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')==='anchor,items,mac,rewindGen,schema,sessionId'
+    &&value.schema===1&&value.sessionId===sid&&/^[a-f0-9]{64}$/.test(value.anchor||'')&&Number.isSafeInteger(value.rewindGen)&&value.rewindGen>=0
+    &&/^[a-f0-9]{64}$/.test(value.mac||'')&&Array.isArray(value.items)&&value.items.length<=128&&new Set(value.items.map(row=>row?.prefix)).size===value.items.length
+    &&value.items.every(row=>row&&typeof row==='object'&&!Array.isArray(row)&&Object.keys(row).sort().join(',')==='digest,prefix'
+      &&/^history:\d+:[a-f0-9]{16}$/.test(row.prefix||'')&&/^[a-f0-9]{64}$/.test(row.digest||'')&&row.prefix.endsWith(':'+row.digest.slice(0,16)));
+}
+async function journalReadObservationOwners(sessionId,operation=null) {
+  if(!operation)return withJournalArtifactOperation(scope=>journalReadObservationOwners(sessionId,scope));
+  let raw;try{raw=await journalJsonStore(sessionId,'observation-owners-v1',operation).read();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+  const value=safeJsonParse(raw,null);if(!journalObservationOwnersValid(value,sessionId))throw journalArtifactFailure('observation_owners_invalid');
+  const expected=await journalObservationOwnerMac(value,operation),actual=Buffer.from(value.mac,'hex');if(!crypto.timingSafeEqual(expected,actual))throw journalArtifactFailure('observation_owners_auth');return value;
+}
+async function journalObservationOwnerMac(value,operation) {
+  const lease=await operation.credential();return crypto.createHmac('sha256',lease.key).update(JSON.stringify(['ruyi-observation-owner-v1','main',lease.instanceId,value.sessionId,value.anchor,value.rewindGen,value.items])).digest();
+}
+async function journalRegisterObservationOwner(sessionId,anchor,rewindGen,prefix,guard) {
+  if(!/^[a-f0-9]{64}$/.test(anchor)||!Number.isSafeInteger(rewindGen)||rewindGen<0||!/^history:\d+:[a-f0-9]{16}$/.test(prefix)||typeof guard!=='function')throw journalArtifactFailure('observation_owners_invalid');
+  return withJournalWriteLock(sessionId,()=>withJournalArtifactOperation(async operation=>{
+    if(!operation.enabled)throw journalArtifactFailure('observation_owners_disabled');
+    await guard();const parts=prefix.split(':'),name=`history-${parts[1]}-${parts[2]}.json.gz`,history=await journalReadHistory(sessionId,name,operation,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024});
+    const digest=crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex');if(!digest.startsWith(parts[2]))throw journalArtifactFailure('observation_owner_mismatch');
+    const prior=await journalReadObservationOwners(sessionId,operation);await guard();
+    const items=prior&&prior.anchor===anchor&&prior.rewindGen===rewindGen?prior.items.filter(row=>row.prefix!==prefix):[];
+    items.push({prefix,digest});if(items.length>128)items.splice(0,items.length-128);
+    const value={schema:1,sessionId,anchor,rewindGen,items,mac:''};value.mac=(await journalObservationOwnerMac(value,operation)).toString('hex');if(!journalObservationOwnersValid(value,sessionId))throw journalArtifactFailure('observation_owners_invalid');
+    const file=path.join(journalDir(sessionId),'observation-owners-v1.json'),before=await fsp.stat(file).then(st=>st.size).catch(error=>{if(error.code==='ENOENT')return 0;throw error;});
+    // This records independently committed historical evidence, never a claim
+    // that its originating turn completed or still owns execution permission.
+    // Recheck after all preparation awaits. Once publication starts, cancellation
+    // or a crash may leave that valid fact on disk even if this call fails; every
+    // future read rechecks current scope/permission/rewind and the snapshot hash.
+    // No blind rollback/unlink: the in-process lock is not a filesystem CAS and
+    // restoring a prior record could erase a newer publisher's valid evidence.
+    await guard();
+    await journalJsonStore(sessionId,'observation-owners-v1',operation).write(JSON.stringify(value));journalBytesAdjust((await fsp.stat(file)).size-before);await guard();return value;
+  }));
 }
 function journalGzipIdentity(sessionId, name) {
   const sid = assertSessionIdForPath(sessionId), base = String(name || '');
@@ -19580,8 +19638,9 @@ function journalGzipStore(sessionId, name, metadata = {}, operation = null, dire
     file: () => directory === null ? identity.file : path.join(directory, identity.base), purpose: 'session', schema: 1,
     scopeId: identity.sid, recordId: identity.base,
     keys: operation ? operation.keys : WorkDataStore.requireKeys(), chunked: true,
-    maxBinaryBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
-    maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    maxBinaryBytes: metadata.maxCompressedBytes || JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    maxPlaintextBytes: metadata.maxCompressedBytes ? Math.ceil(metadata.maxCompressedBytes*4/3)+4096 : JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    ...(metadata.maxCompressedBytes?{legacyReadLimit:metadata.maxCompressedBytes}:{}),
     enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
     // Existing index writer is fail-fast across processes. All gzip publications
     // finish before the matching index commit and use the same no-retry policy.
@@ -19589,8 +19648,8 @@ function journalGzipStore(sessionId, name, metadata = {}, operation = null, dire
     validateLegacyBinary(bytes, context = { sealed: true, enabled: true }) {
       // Ordinary old history had no per-record cap. Only ON preparation/sealed
       // records acquire the new representation's engineering ceiling.
-      const bounded = !identity.history || context.sealed || context.enabled;
-      const options = bounded ? { maxOutputLength: identity.history ? JOURNAL_ARTIFACT_ENGINEERING_BYTES : JOURNAL_MAX_BEFORE_BYTES } : {};
+      const bounded = !identity.history || context.sealed || context.enabled || Number.isSafeInteger(metadata.maxDecodedBytes);
+      const options = bounded ? { maxOutputLength: identity.history ? Math.min(JOURNAL_ARTIFACT_ENGINEERING_BYTES,metadata.maxDecodedBytes||JOURNAL_ARTIFACT_ENGINEERING_BYTES) : JOURNAL_MAX_BEFORE_BYTES } : {};
       const decoded = zlib.gunzipSync(bytes, options);
       // Capture for this facade only, allowing callers to use the completed decode
       // rather than decompressing a large carrier a second time.
@@ -19630,10 +19689,97 @@ async function journalWriteBefore(sessionId, turnSeq, entrySeq, bytes, operation
   const afterSize = (await fsp.stat(identity.file)).size;
   journalBytesAdjust(afterSize - beforeSize);
 }
-async function journalReadHistory(sessionId, name, operation = null) {
+async function journalReadHistory(sessionId, name, operation = null, options = null) {
   const metadata = {};
+  for(const key of ['maxDecodedBytes','maxCompressedBytes'])if(options?.[key]!==undefined){if(!Number.isSafeInteger(options[key])||options[key]<1||options[key]>JOURNAL_ARTIFACT_ENGINEERING_BYTES)throw journalArtifactFailure('history_limit');metadata[key]=options[key];}
   await journalGzipStore(sessionId, name, metadata, operation).read();
   return metadata.history;
+}
+
+// Persistent observation authority requires the exact pre-compaction provider
+// history to have been committed by the session owner, not merely present in an
+// in-flight turn. No repair, truncation or fallback is performed here.
+async function journalObservationSnapshotCommitted(sessionId, head, digest, limits = null) {
+  if(!head||head.id!==sessionId||!/^[a-f0-9]{64}$/.test(digest||''))return false;
+  // Recovery eligibility has its own budget. The ordinary session loader may
+  // load a larger history, but cannot lend an unbounded read to this signer.
+  const ceiling={maxRawBytes:32*1024*1024,maxDecodedBytes:16*1024*1024,maxRecords:65536},budget={...ceiling};
+  const exhausted=(resource,limit,observed)=>Object.assign(journalArtifactFailure('observation_source_limit'),{resource,limit,observed});
+  for(const key of Object.keys(ceiling))if(limits?.[key]!==undefined){
+    if(!Number.isSafeInteger(limits[key])||limits[key]<1||limits[key]>ceiling[key])throw exhausted(key,ceiling[key],limits[key]);
+    budget[key]=limits[key];
+  }
+  const hash=crypto.createHash('sha256');hash.update('[');let canonicalBytes=2;
+  const feed=(value,ordinal)=>{
+    const line=JSON.stringify(value)??'null';canonicalBytes+=Buffer.byteLength(line)+(ordinal?1:0);
+    if(canonicalBytes>budget.maxDecodedBytes)throw exhausted('canonical-bytes',budget.maxDecodedBytes,canonicalBytes);
+    if(ordinal)hash.update(',');hash.update(line);
+  };
+  if(head.storageVersion===SESSION_STORAGE_VERSION){
+    const count=head.providerHistoryCount;if(!Number.isSafeInteger(count)||count<0)return false;
+    if(count>budget.maxRecords)throw exhausted('records',budget.maxRecords,count);
+    const file=sessionBodyPaths(sessionId).provider;let stat;try{stat=await fsp.lstat(file,{bigint:true});}catch(error){if(error.code==='ENOENT')throw journalArtifactFailure('observation_source_missing');throw error;}
+    const same=(a,b)=>process.platform==='win32'?path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase():path.resolve(a)===path.resolve(b);
+    const stamp=st=>[st.dev,st.ino,st.size,st.mtimeNs,st.ctimeNs,st.nlink].join(':');
+    const valid=st=>st.isFile()&&!st.isSymbolicLink()&&st.nlink===1n;
+    if(!valid(stat)||!same(await fsp.realpath(file),file))throw journalArtifactFailure('observation_source_alias');
+    if(stat.size>BigInt(budget.maxRawBytes))throw exhausted('raw-bytes',budget.maxRawBytes,Number(stat.size));
+    let handle=null,credential=null,failure=null;
+    try{
+      handle=await fsp.open(file,'r');
+      if(stamp(await handle.stat({bigint:true}))!==stamp(stat))throw journalArtifactFailure('observation_source_unverified');
+      const chunk=Buffer.allocUnsafe(64*1024),pieces=[];let pendingBytes=0,rawBytes=0,decodedBytes=0,records=0;
+      const record=async bytes=>{
+        if(!bytes.length)throw journalArtifactFailure('observation_source_unverified');
+        if(records>=budget.maxRecords)throw exhausted('records',budget.maxRecords,records+1);
+        let line=bytes.toString('utf8');
+        if(!Buffer.from(line,'utf8').equals(bytes))throw journalArtifactFailure('observation_source_unverified');
+        if(WorkDataRecords.isEncodedLine(line)){
+          if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+          // Physical ordinal, session and instance stay authenticated even for
+          // extra rows beyond the committed prefix. Key failures are not absence.
+          line=WorkDataRecords.decodeLine(line,credential.key,{instanceId:credential.instanceId,sessionId,kind:'provider',ordinal:records});
+        }
+        decodedBytes+=Buffer.byteLength(line)+1;
+        if(decodedBytes>budget.maxDecodedBytes)throw exhausted('decoded-bytes',budget.maxDecodedBytes,decodedBytes);
+        let value;try{value=JSON.parse(line);}catch{throw journalArtifactFailure('observation_source_unverified');}
+        if(records<count)feed(value,records);
+        records++;
+      };
+      for(;;){
+        const {bytesRead}=await handle.read(chunk,0,Math.min(chunk.length,budget.maxRawBytes-rawBytes+1),null);
+        if(!bytesRead)break;
+        rawBytes+=bytesRead;if(rawBytes>budget.maxRawBytes)throw exhausted('raw-bytes',budget.maxRawBytes,rawBytes);
+        let start=0;
+        for(;;){
+          const nl=chunk.indexOf(10,start);if(nl<0||nl>=bytesRead)break;
+          pieces.push(Buffer.from(chunk.subarray(start,nl)));pendingBytes+=nl-start;
+          await record(Buffer.concat(pieces,pendingBytes));pieces.length=0;pendingBytes=0;start=nl+1;
+        }
+        if(start<bytesRead){pieces.push(Buffer.from(chunk.subarray(start,bytesRead)));pendingBytes+=bytesRead-start;}
+      }
+      // Do not truncate a torn suffix or sign a successfully read prefix. A
+      // complete but uncommitted suffix is validated and excluded from the hash.
+      if(pendingBytes||records<count||BigInt(rawBytes)!==stat.size)throw journalArtifactFailure('observation_source_unverified');
+      const after=await fsp.lstat(file,{bigint:true});
+      if(!valid(after)||!same(await fsp.realpath(file),file)||stamp(after)!==stamp(stat)||stamp(await handle.stat({bigint:true}))!==stamp(stat))throw journalArtifactFailure('observation_source_unverified');
+    }catch(error){failure=error;throw error;}
+    finally{
+      const cleanup=[];
+      try{if(credential)await credential.release();}catch(error){cleanup.push(error);}
+      try{if(handle)await handle.close();}catch(error){cleanup.push(error);}
+      if(cleanup.length){
+        if(!failure&&cleanup.length===1)throw cleanup[0];
+        const errors=failure?[failure,...cleanup]:cleanup,combined=new AggregateError(errors,'observation source cleanup failed',{cause:errors[0]});
+        combined.code=errors[0].code||'work_data.journal_observation_source_cleanup';throw combined;
+      }
+    }
+  }else{
+    const history=head.providerHistory;if(!Array.isArray(history))return false;
+    if(history.length>budget.maxRecords)throw exhausted('records',budget.maxRecords,history.length);
+    for(let i=0;i<history.length;i++)feed(history[i],i);
+  }
+  return hash.update(']').digest('hex')===digest;
 }
 
 // Side-effect preflight is intentionally separate from normal UI reads: a sealed
@@ -20250,7 +20396,7 @@ async function journalRetentionAuthenticate(sessionId, name, operation, director
   const proof = await journalRetentionStat(file);
   const metadata = {};
   let index;
-  if (name === 'index.json' || name === 'reverts.json') {
+  if (name === 'index.json' || name === 'reverts.json' || name === 'observation-owners-v1.json') {
     const raw = await journalJsonStore(sessionId, name.slice(0, -5), operation, metadata, directory).read();
     if (name === 'index.json') index = JSON.parse(raw);
   } else {
@@ -21645,27 +21791,29 @@ function createSessionFullTextSource() {
     if(sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
     return {epoch:hash(raw+'\n'+stamp(body)),raw,head,count,modern,sequence,requiresEncryption:metadata.authenticated===true,bodyStamp:stamp(body)};
   }
-  async function scan(id,visit){
-    if(typeof visit!=='function')throw fail('visitor_invalid');const selected=await select(id);if(!selected)return null;
+  async function scan(id,visit,options={}){
+    const check=()=>{if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('session_fulltext_source.aborted'),{name:'AbortError',code:'ABORT_ERR'});if(typeof options.check==='function')options.check();};
+    if(typeof visit!=='function')throw fail('visitor_invalid');check();const selected=await select(id);check();if(!selected)return null;
     const revision=crypto.createHash('sha256').update(selected.raw).update('\n');let count=0,credential=null,handle=null,requiresEncryption=selected.requiresEncryption,result,workFailed=false,workError;
     const accept=async raw=>{
-      if(count>=selected.count)return;
+      check();if(count>=selected.count)return;
       const probe=WorkDataRecords.lineProbe();probe.feed(Buffer.from(raw));
       if(probe.reserved()){
         requiresEncryption=true;
-        if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+        if(!credential){credential=await WorkDataStore.acquireSnapshot(workDataKeys);check();}
         raw=await WorkDataRecords.decodeLine(raw,credential.key,{instanceId:credential.instanceId,sessionId:id,kind:'messages',ordinal:count});
+        check();
       }
       if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let row;try{row=JSON.parse(raw);}catch{throw fail('source_invalid');}
-      revision.update(raw).update('\n');await visit(row,count++);
+      revision.update(raw).update('\n');await visit(row,count++);check();
       if(selected.sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
     };
     try{
       if(!selected.modern){for(const row of selected.head.messages)await accept(JSON.stringify(row));}
       else if(selected.count){
-        handle=await fsp.open(sessionBodyPaths(id).messages,'r');if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+        check();handle=await fsp.open(sessionBodyPaths(id).messages,'r');check();if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');check();
         const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
-        while(!done){const read=await handle.read(buffer,0,buffer.length,null);if(!read.bytesRead)break;let start=0;
+        while(!done){check();const read=await handle.read(buffer,0,buffer.length,null);check();if(!read.bytesRead)break;let start=0;
           for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
             const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
             await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
@@ -21674,7 +21822,7 @@ function createSessionFullTextSource() {
         if(count!==selected.count)throw fail('committed_body_missing');
         if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
       }
-      const after=await select(id);if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
+      check();const after=await select(id);check();if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
       result=Object.freeze({epoch:selected.epoch,revision:revision.digest('hex'),count,requiresEncryption});
     }catch(error){workFailed=true;workError=error;}
     const errors=workFailed?[workError]:[];let closeFailed=false,releaseFailed=false;
@@ -21690,7 +21838,7 @@ function createSessionFullTextSource() {
       for(const name of ['helperMayStillRun','ownershipRetained','targetRetained'])if(errors.some(value=>own(value,name)===true))error[name]=true;
       throw error;
     }
-    return result;
+    check();return result;
   }
   async function inspect(id) {const selected=await select(id);if(!selected)return null;
     const head={...selected.head,messageCount:selected.count};delete head.messages;delete head.providerHistory;
@@ -33662,6 +33810,15 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 // 未登记的类型同 selectedAgentCli(01) 口径归到 claude(01f normalizeAgentCliType)。
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
+// Optional memory failures may fall back to an empty preflight. Authority,
+// privacy, cancellation and semantic safety failures must reach the turn owner.
+function memoryPreflightMustPropagate(error) {
+  const code=String(error?.code||''),message=String(error?.message||'');
+  return error?.memorySemanticGuardFailure===true||error?.name==='AbortError'
+    ||/^(?:work_data|privacy[._]|memory_semantic[._]|semantic[._]|SESSION_EXECUTION|STEWARD_TURN_CANCELLED|ABORT_ERR)/.test(code)
+    ||/^(?:memory_semantic|semantic)\./.test(message);
+}
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta, executionOwner,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -33742,13 +33899,16 @@ async function runClaudeTurn({
   const crossEngineGap = lastAssistantEngine(session.messages) === 'openai';
   const recoverySource = crossEngineGap ? claudeProviderTailSince(session.messages) : session.messages;
   const agentRecoverySummary = String(session.agentRecoverySummary || '').trim();
-  const recoveryHistory = kimiNativeSlashCommand
+  const recoveryHistorySource = kimiNativeSlashCommand
     ? ''
     : (typeof _recoveryHistoryOverride === 'string'
       ? _recoveryHistoryOverride
       : (agentRecoverySummary
         ? `[Ruyi 已压缩的前文摘要；请把它作为此前会话的权威连续性上下文]\n${agentRecoverySummary}`
         : (!slashCommand ? buildClaudeRecoveryHistory(recoverySource) : '')));
+  const recoveryHistory = recoveryHistorySource
+    ? await ObservationRecoveryHooks.sealRuntimeText(session.id, recoveryHistorySource)
+    : '';
   const historyRecoveryInjected = Boolean(recoveryHistory);
   // 第35波 P2(索引去重注入): fullPrompt 的组装延后到 appendSys 块之后 —— 技能/记忆/编排三类「稳定索引段」
   // 在那里算好并经内容 hash 决定去重,再以 <workbench-context> 块并入 stdin 消息流(见下方注释)。
@@ -33830,8 +33990,8 @@ async function runClaudeTurn({
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-    { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
-  ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+    { cliType: agentCliType, signal: executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
+  ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   // 本条消息的记忆检索结果:回执,稍后(记忆段)再把相关记忆索引接在它后面 —— 都随每条消息变化,所以走每回合信封(turnMemoryEnvelope),
   // 不进按 hash 去重的稳定索引(#10)。用 let 并沿用这个名字,是因为 kimi-prompt-parts 把下面那段信封装配抽出来单独执行,只认这个变量。
   let memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
@@ -43374,6 +43534,486 @@ function createRetrievalCorpusCache(opts = {}) {
   return corpusFor;
 }
 
+// Unified source-bound Gemma2 retrieval method. Only Node built-ins.
+const SemanticScoreEvidence = (() => {
+// Data-only cache identity canonicalization. No score signer or registry is public.
+const invalid=()=>Error('semantic.score_evidence_invalid');
+function identity(value){if(value===null||['string','boolean'].includes(typeof value)||typeof value==='number'&&Number.isFinite(value))return JSON.stringify(value);if(Array.isArray(value)&&value.length<=64&&value.every(v=>v===null||['string','boolean'].includes(typeof v)||typeof v==='number'&&Number.isFinite(v)))return JSON.stringify(value);throw invalid();}
+return {identity};
+
+})();
+const SemanticOriginalWindows = (() => {
+// Canonical generator copied byte-for-byte from reviewed90a; provenance stays private.
+const Encoding=SemanticScoreEvidence;
+const CHARS=4096,OVERLAP=256,segmenter=new Intl.Segmenter('und',{granularity:'grapheme'}),canonicalText=text=>text.normalize('NFKC').toUpperCase().normalize('NFKC'),fail=suffix=>Object.assign(Error('semantic.window_'+suffix),{code:'semantic.window_'+suffix});
+function* canonicalGroups(text){
+    let tail=null;
+    for(const part of segmenter.segment(text)){const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
+      for(const unit of segmenter.segment(joined)){const from=unit.index<boundary?tail.from:part.index,to=unit.index+unit.segment.length>boundary?part.index+part.segment.length:tail.to;
+        for(const normalized of segmenter.segment(canonicalText(unit.segment))){if(next)yield next;next={text:normalized.segment,from,to,linear:normalized.segment.length===1&&to-from===1};}
+      }
+      tail=next;
+    }
+    if(tail)yield tail;
+  }
+function* canonicalPieces(text){
+    let whitespace=null;
+    function* asciiParts(){for(let index=0;index<text.length;index+=CHARS)yield {text:text.slice(index,index+CHARS).toUpperCase(),from:index,to:Math.min(text.length,index+CHARS),linear:true};}
+    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text);
+    for(const part of parts){const matcher=/\s+|\S+/gu;let match;
+      while((match=matcher.exec(part.text))){const blank=/^\s/u.test(match[0]),linear=part.linear,from=linear?part.from+match.index:part.from,to=linear?from+match[0].length:part.to;
+        if(blank){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
+        if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
+        yield {text:match[0],from,to,linear};
+      }
+    }
+    if(whitespace)yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};
+  }
+function rangeAt(ranges,position){for(const run of ranges)if(position>=run[0]&&position<run[0]+run[1])return run.length===3?{from:run[2]+position-run[0],to:run[2]+position-run[0]+1}:{from:run[2],to:run[3]};throw fail('shard_invalid');}
+function* slices(text){
+    let buffer='',ranges=[],absolute=0,lastYield=0;
+    const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
+      if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
+      else ranges.push(linear?[at,value.length,from]:[at,value.length,from,to]);
+    };
+    const selected=end=>ranges.filter(run=>run[0]<end).map(run=>[run[0],Math.min(run[1],end-run[0]),...run.slice(2)]);
+    const window=end=>{const chosen=selected(end),start=rangeAt(chosen,0).from,finish=rangeAt(chosen,end-1).to;lastYield=absolute+end;return{canonicalStart:absolute,start,end:finish,text:buffer.slice(0,end),ranges:chosen};};
+    const drop=count=>{buffer=buffer.slice(count);ranges=ranges.filter(run=>run[0]+run[1]>count).map(run=>{const begin=Math.max(run[0],count),length=run[0]+run[1]-begin;return run.length===3?[begin-count,length,run[2]+begin-run[0]]:[begin-count,length,run[2],run[3]];});absolute+=count;};
+    for(const part of canonicalPieces(text)){for(let offset=0;offset<part.text.length;){const count=Math.min(CHARS+1-buffer.length,part.text.length-offset),value=part.text.slice(offset,offset+count);append(value,part.linear?part.from+offset:part.from,part.linear?part.from+offset+count:part.to,part.linear);offset+=count;
+        if(buffer.length>CHARS){let end=CHARS;if(/[\uDC00-\uDFFF]/.test(buffer[end]))end--;yield window(end);let count=end-OVERLAP;if(/[\uDC00-\uDFFF]/.test(buffer[count]))count--;drop(count);}
+      }}
+    if(buffer.length&&absolute+buffer.length>lastYield)yield window(buffer.length);
+  }
+const canonicalProofs=new WeakMap(),requests=new WeakMap(),IDENTITY_KEYS=['sourceId','field','revision','epoch','sourceRevision'];
+function* canonicalSlices(text){if(typeof text!=='string')throw fail('text_invalid');for(const window of slices(text)){for(const range of window.ranges)Object.freeze(range);Object.freeze(window.ranges);Object.freeze(window);canonicalProofs.set(window,{text,canonicalStart:window.canonicalStart,start:window.start,end:window.end,textValue:window.text,ranges:window.ranges});yield window;}}
+function* rawSlices(text){if(typeof text!=='string')throw fail('text_invalid');for(let start=0;start<text.length;){let end=Math.min(text.length,start+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;yield {start,end,text:text.slice(start,end)};if(end===text.length)break;start=end-16;if(text.charCodeAt(start)>=0xdc00&&text.charCodeAt(start)<=0xdfff)start--;}}
+function observationProjectedSpans(text) {return [...text.matchAll(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g)].map(match=>[match.index,match.index+match[0].length]);}
+function observationProjectedRange(text,start,end,spans=observationProjectedSpans(text)) {
+  let low=0,high=spans.length;while(low<high){const mid=(low+high)>>>1;if(spans[mid][1]<=start)low=mid+1;else high=mid;}
+  for(let index=low;index<spans.length;index++){const [left,right]=spans[index];if(left>=end&&left>=start)break;
+    if(start>left&&start<right)start=left;
+    if(end>left&&end<right)end=left>start?left:right;
+  }
+  return {start,end};
+}
+function* projectedSlices(text){const spans=observationProjectedSpans(text);for(let at=0;at<text.length;){let end=Math.min(text.length,at+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;const range=observationProjectedRange(text,at,end,spans);at=range.start;end=range.end;yield {start:at,end,text:text.slice(at,end)};if(end===text.length)break;let next=end-16;const adjusted=observationProjectedRange(text,next,end,spans);next=adjusted.start;if(next<=at)next=end;at=next;if(text.charCodeAt(at)>=0xdc00&&text.charCodeAt(at)<=0xdfff)at--;}}
+function hasPosition(text,start,end){for(const row of rawSlices(text)){if(row.start===start)return row.end===end;if(row.start>start)return false;}return false;}
+function validRawPosition(f,start,end){if(f.kind==='canonical-message-v3')return false;if(!f.positions){f.positions=new Map();f.positionIterator=(f.kind==='privacy-projected-v1'?projectedSlices(f.text):rawSlices(f.text));}if(f.positions.has(start))return f.positions.get(start)===end;for(;;){const next=f.positionIterator.next();if(next.done)return false;f.positions.set(next.value.start,next.value.end);if(next.value.start>=start)return next.value.start===start&&next.value.end===end;}}
+function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='string'||!query.trim()||typeof scopeId!=='string'||!scopeId||typeof modelFingerprint!=='string'||!modelFingerprint)throw fail('context_invalid');const context=Object.freeze({}),fields=new WeakMap(),windows=new WeakMap(),rows=new WeakMap(),weakKeys=new WeakMap(),byIdentity=new Map();let used=false,fieldSerial=0,poolReference=null,poolSnapshot=null;
+ const field=token=>{const f=fields.get(token);if(!f)throw fail('field_invalid');return f;};
+ function captureField(identity,text,kind){if(!identity||typeof text!=='string'||!['canonical-message-v3','raw-original-v1','raw-metadata-v1','privacy-projected-v1'].includes(kind)||IDENTITY_KEYS.some(k=>typeof identity[k]!=='string'))throw fail('field_invalid');const selected=Object.fromEntries(IDENTITY_KEYS.map(k=>[k,identity[k]])),key=JSON.stringify(selected),prior=byIdentity.get(key);if(prior){const old=field(prior);if(old.text!==text||old.kind!==kind)throw fail('source_changed');return prior;}const token=Object.freeze({});fields.set(token,{identity:selected,text,kind,key:'field-'+(++fieldSerial)});byIdentity.set(key,token);return token;}
+ function wholeSource(token){const f=field(token);return {identity:{...f.identity,start:0,end:f.text.length},fieldText:f.text,text:f.text,fieldWitness:token};}
+ function canonicalWindow(token,slice,at,width){const f=field(token);if(f.kind!=='canonical-message-v3'||canonicalProofs.get(slice)?.text!==f.text||!Number.isSafeInteger(at)||!Number.isSafeInteger(width)||!hasPosition(slice.text,at,at+width))throw fail('canonical_invalid');const start=rangeAt(slice.ranges,at).from,end=rangeAt(slice.ranges,at+width-1).to,witness=Object.freeze({});windows.set(witness,{field:token,start,end,canonicalStart:slice.canonicalStart,at,width,cacheText:slice.text.slice(at,at+width)});return {identity:{...f.identity,start,end},fieldText:f.text,text:f.text.slice(start,end),fieldWitness:token,windowWitness:witness};}
+ function rawWindow(token,start,end){const f=field(token);if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start||end>f.text.length||!validRawPosition(f,start,end))throw fail('raw_invalid');const witness=Object.freeze({});windows.set(witness,{field:token,start,end});return {identity:{...f.identity,start,end},fieldText:f.text,text:f.text.slice(start,end),fieldWitness:token,windowWitness:witness};}
+ function assertSource(source,wholeField,requestContext,row){if(requestContext!==context||!source||typeof wholeField!=='boolean')throw fail('context_invalid');const f=field(source.fieldWitness),expected=row?rows.get(row):null;if(row&&(!expected||expected.field!==source.fieldWitness))throw fail('row_source_changed');if(source.fieldText!==f.text||IDENTITY_KEYS.some(k=>source.identity?.[k]!==f.identity[k]))throw fail('source_changed');const {start,end}=source.identity;if(wholeField){if(start!==0||end!==f.text.length||source.text!==f.text)throw fail('whole_field_invalid');}else{const w=windows.get(source.windowWitness);if(!w||w.field!==source.fieldWitness||start!==w.start||end!==w.end||source.text!==f.text.slice(start,end)||expected&&['start','end','canonicalStart','at','width'].some(k=>w[k]!==expected.window[k]))throw fail('window_invalid');}return true;}
+ function row(source,orderParts,encodingIdentity=IDENTITY_KEYS.map(k=>source.identity[k]).concat(source.identity.start,source.identity.end)){assertSource(source,false,context);if(!Array.isArray(orderParts)||orderParts.some(x=>!['string','number'].includes(typeof x)||typeof x==='number'&&!Number.isFinite(x)))throw fail('row_order_invalid');const f=field(source.fieldWitness),value=Object.freeze({fieldKey:f.key,order:JSON.stringify([...orderParts,source.identity.start]),metadata:f.kind==='raw-metadata-v1'}),window={...windows.get(source.windowWitness)};rows.set(value,{field:source.fieldWitness,window,cacheText:window.cacheText??source.text,encodedText:source.text,encodingIdentity:Encoding.identity(encodingIdentity)});return value;}
+ function assertScore(row,doc,encodedIdentity,encodedText){const expected=rows.get(row);if(!expected||expected.cacheText!==doc||expected.encodingIdentity!==encodedIdentity||encodedText!==null&&expected.encodedText!==encodedText)throw fail('score_source_changed');}
+ function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
+ function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
+ const assertPool=pool=>{if(!used||pool!==poolReference||pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n]))throw fail('pool_changed');};
+ const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
+  begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
+return {canonicalSlices,rawSlices,projectedSlices,createRequest,isRequest:(value,context)=>requests.get(value)===context};
+
+})();
+
+// Resident local embedding transport and shared provider. Server dependencies are Node built-ins.
+const SemanticRuntimeClient = (() => {
+// Pure built-ins, intended for the production06hb transport. No idle timer exists.
+const cp=require('node:child_process'),path=require('node:path'),crypto=require('node:crypto'),{promisify}=require('node:util');
+const owners=new Map(),WARM=Symbol('public-startup-warmup'),WARM_TEXT='Local semantic runtime warmup.',unavailable=(reason,state=reason)=>({ok:false,available:false,reason,state}),fault=code=>Object.assign(Error(code),{code});
+function aborted(signal){if(signal?.aborted)throw signal.reason===undefined?fault('ABORT_ERR'):signal.reason;}
+async function observeProcess(pid){if(!Number.isSafeInteger(pid)||pid<1)throw fault('semantic.invalid_pid');if(process.platform!=='win32')throw fault('semantic.process_observer_unavailable');const script='$p=Get-Process -Id '+pid+' -ErrorAction SilentlyContinue;if($p){[ordered]@{exists=$true;pid=$p.Id;creationFileTime=[string]$p.StartTime.ToUniversalTime().ToFileTimeUtc()}|ConvertTo-Json -Compress}else{[ordered]@{exists=$false}|ConvertTo-Json -Compress}';return JSON.parse((await promisify(cp.execFile)(path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-Command',script],{cwd:path.dirname(process.execPath),windowsHide:true,encoding:'utf8',timeout:10000})).stdout);}
+function create(host){const pending=new Map(),observe=host.observe||observeProcess,spawn=host.spawn||cp.spawn;let owner=null,starting=null,startingFailure=null,generation=0,serial=0,disposed=false,busy=false,faulted=false,descriptorValue={available:false,state:'cold',modelFingerprint:''};const recent={query:100,document:110},metrics={starts:0,requests:0,kills:0,stops:0,cleanupFailures:0,queryTexts:0,documentTexts:0,warmupTexts:0,unknownExits:0,peakRssBytes:0};
+ function descriptor(){return {...descriptorValue,resident:true};}
+ function settle(id,value,error,rejected=false){const r=pending.get(id);if(!r)return;pending.delete(id);clearTimeout(r.timer);r.signal?.removeEventListener('abort',r.abort);rejected?r.reject(error):r.resolve(value);}
+ function current(record,signal){aborted(signal);if(!record||owner!==record||owners.get(record.key)!==record||record.state!=='ready')throw fault('semantic.owner_changed');}
+ function estimateEncodingBudget(role,count){if(!['query','document'].includes(role)||!Number.isSafeInteger(count)||count<0||count>16)throw TypeError('semantic.invalid_budget_estimate');return count?Math.min(60000,Math.ceil(recent[role]*count*1.3+20)):0;}
+ async function finalize(r){if(r.finalizing)return r.finalizing;r.finalizing=(async()=>{let observation,observed=false;try{if(r.closed&&r.identity){observation=await observe(r.identity.pid);observed=typeof observation?.exists==='boolean'&&(!observation.exists||observation.creationFileTime!==r.identity.creationFileTime);}}catch(e){r.cleanupFailure={value:e};}const outcome={cleanupStatus:observed?'observed':'unknown',workerExited:observed,identity:r.identity||null,postStopOs:observation||null,close:{observed:!!r.closed,code:r.code??null,signal:r.signal??null}};r.cleanup=outcome;if(!observed){r.state='unknown';metrics.unknownExits++;descriptorValue={available:false,state:'unknown',modelFingerprint:descriptorValue.modelFingerprint};return outcome;}if(r.settings.onObservedExit)try{await r.settings.onObservedExit();}catch(e){r.cleanupFailure={value:e};r.state='cleanup-failed';descriptorValue={available:false,state:r.state,modelFingerprint:descriptorValue.modelFingerprint};return {...outcome,cleanupFailed:true};}r.state='closed';if(owners.get(r.key)===r)owners.delete(r.key);if(owner===r)owner=null;return outcome;})();return r.finalizing;}
+ async function stop(reason='disabled'){if(reason==='idle')throw fault('semantic.idle_unload_disabled');generation++;metrics.stops++;if(['fault','timeout'].includes(reason))faulted=true;else if(['disabled','model-change','config-change'].includes(reason))faulted=false;const r=owner;if(!r){if(starting){const s=starting;s.cancelled=true;await s.staged;if(s.child)return stop(reason);}descriptorValue={available:false,state:reason,modelFingerprint:''};return {ok:true,cleanupStatus:'observed',workerExited:true,state:reason};}if(r.stopPromise)return r.stopPromise;r.state='stopping';descriptorValue={...descriptorValue,available:false,state:'stopping'};r.stopReason=reason;r.stopPromise=(async()=>{if(!r.child){r.cancelled=true;await r.staged;if(!r.child){descriptorValue={available:false,state:reason,modelFingerprint:''};return {ok:true,cleanupStatus:'observed',workerExited:true,state:reason};}}try{r.child.stdin.end();}catch{}let timer;await Promise.race([r.exited,new Promise(resolve=>{timer=setTimeout(resolve,150);})]);clearTimeout(timer);if(!r.closed){metrics.kills++;try{r.child.kill();}catch(e){r.cleanupFailure={value:e};}}await Promise.race([r.exited,new Promise(resolve=>{timer=setTimeout(resolve,host.stopMs??5000);})]);clearTimeout(timer);const cleanup=r.closed?await finalize(r):{cleanupStatus:'unknown',workerExited:false,identity:r.identity||null};if(cleanup.cleanupStatus!=='observed'){r.state='unknown';r.cleanup=cleanup;descriptorValue={...descriptorValue,available:false,state:'unknown'};}else if(owner===null)descriptorValue={available:false,state:faulted?'failed':reason,modelFingerprint:''};for(const id of [...pending.keys()])settle(id,unavailable(reason==='timeout'?'timeout':reason==='disabled'?'disabled':'unavailable'));return {ok:cleanup.cleanupStatus==='observed'&&!cleanup.cleanupFailed,...cleanup,state:reason};})();return r.stopPromise;}
+ function start(){if(starting)return starting.promise;if(owner?.warmPromise&&!descriptorValue.available)return owner.warmPromise;if(owner?.state==='ready'&&descriptorValue.available)return Promise.resolve({ok:true,...descriptor()});if(faulted)return Promise.resolve(unavailable('unavailable','failed'));let staged;const record={state:'preparing',cancelled:false,child:null,staged:new Promise(resolve=>staged=resolve)};starting=record;descriptorValue={available:false,state:'loading',modelFingerprint:''};record.promise=(async()=>{let timer,settings,primaryFailure=null;
+  try{settings=await host.settings();if(record.cancelled||disposed)return unavailable('disabled');if(!settings){faulted=true;descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:'semantic.assets_unavailable'};return unavailable('unavailable','failed');}const key=typeof host.key==='function'?host.key(settings):crypto.createHash('sha256').update(JSON.stringify([settings.command,settings.args,settings.cwd])).digest('hex');if(owners.has(key)){descriptorValue={available:false,state:'unknown',modelFingerprint:''};return unavailable('unavailable','unknown');}record.key=key;record.settings=settings;owners.set(key,record);owner=record;const check=()=>{if(record.cancelled||disposed)throw fault('semantic.preparation_stopped');};timer=setTimeout(()=>{record.cancelled=true;void stop('timeout');},host.startupMs||20000);timer.unref?.();if(host.verify)await host.verify(settings,check);check();
+   let child;try{child=spawn(settings.command,settings.args,{cwd:settings.cwd,env:settings.env,windowsHide:true,stdio:['pipe','pipe','pipe']});}catch(e){throw e;}record.child=child;metrics.starts++;let close,ready,rejectReady;record.exited=new Promise(resolve=>close=resolve);const readyPromise=new Promise((resolve,reject)=>{ready=resolve;rejectReady=reject;});readyPromise.catch(()=>{});let buffer='';
+   const publish=()=>{if(record.messageReady&&record.identity&&record.state==='preparing'&&!record.cancelled&&!disposed&&owner===record){record.state='ready';descriptorValue={...record.messageReady,available:false,state:'warming',loaded:true,warmupComplete:false};record.warmPromise=encode([WARM_TEXT],{role:'query',budgetMs:1000,deadline:Date.now()+1000,[WARM]:true}).then(value=>{if(!value.ok)throw fault('semantic.warmup_unavailable');current(record);descriptorValue={...record.messageReady,available:true,state:'ready',loaded:true,warmupComplete:true};return {ok:true,...descriptor()};}).catch(async e=>{try{await stop('fault');}catch{}throw e;});record.warmPromise.then(ready,rejectReady);}};
+   child.once('close',(code,signal)=>{record.closed=true;record.code=code;record.signal=signal;record.state='closing';if(!record.stopReason){faulted=true;descriptorValue={...descriptorValue,available:false,state:'failed',diagnosticCode:'semantic.worker_exited'};}close();void finalize(record).then(()=>{ready(unavailable(record.stopReason==='timeout'?'timeout':'unavailable'));for(const id of [...pending.keys()])settle(id,unavailable(record.stopReason==='timeout'?'timeout':'unavailable'));},e=>{record.cleanupFailure={value:e};record.state='unknown';ready(unavailable('unavailable','unknown'));});});child.once('error',e=>{rejectReady(e);void stop('fault');});child.stdin.on('error',()=>{void stop('fault');});child.stderr.on('data',()=>{});child.stdout.setEncoding('utf8');child.stdout.on('data',chunk=>{buffer+=chunk;if(Buffer.byteLength(buffer)>2*1024*1024){rejectReady(fault('semantic.response_limit'));void stop('fault');return;}let at;while((at=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,at);buffer=buffer.slice(at+1);let value;try{value=JSON.parse(line);}catch{rejectReady(fault('semantic.invalid_ndjson'));void stop('fault');return;}if(value.type==='ready'||value.event==='ready'||value.op==='ready'){try{if(value.ok===false){record.unavailableCode=value.error?.code;ready(unavailable('unavailable'));void stop('fault');continue;}if(!/^(?:sha256:)?[a-f0-9]{64}$/.test(value.modelFingerprint||'')||!Number.isSafeInteger(value.dimensions)||value.dimensions<8||value.dimensions>4096)throw fault('semantic.ready_contract');if(host.validateReady)host.validateReady(value,settings);const score=x=>typeof x==='number'&&Number.isFinite(x)&&x>=-1&&x<=1?x:null;record.messageReady={available:true,state:'ready',modelFingerprint:value.modelFingerprint,dimensions:value.dimensions,modelId:String(value.modelId||''),retrievalThresholds:{search:score(value.retrievalThresholds?.search),automatic:score(value.retrievalThresholds?.automatic)},recommendedChunkChars:Math.max(32,Math.min(256,value.limits?.recommendedChunkChars||96))};publish();}catch(e){rejectReady(e);void stop('fault');}continue;}if(pending.has(value.requestId))settle(value.requestId,value);}});
+   staged();record.identity=await observe(child.pid);if(!record.identity?.exists||record.identity.pid!==child.pid||!/^\d+$/.test(record.identity.creationFileTime||''))throw fault('semantic.owner_identity');publish();return await readyPromise;
+  }catch(e){primaryFailure={value:e};if(record.child){try{await stop('fault');}catch{}}else{if(record.key&&owners.get(record.key)===record)owners.delete(record.key);if(owner===record)owner=null;}if(e?.code==='semantic.preparation_stopped')return unavailable('unavailable');if(host.isAvailabilityFailure?.(e)){faulted=true;descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:e?.code||'unavailable'};return unavailable('unavailable');}startingFailure={value:e};descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:typeof e?.code==='string'?e.code:'semantic.startup_failed'};throw e;}finally{clearTimeout(timer);let cleanupFailure=null;if(!record.child&&settings?.onSpawnFailure)try{await settings.onSpawnFailure();}catch(e){record.cleanupFailure={value:e};cleanupFailure={value:e};metrics.cleanupFailures++;}staged();if(starting===record)starting=null;if(cleanupFailure&&!primaryFailure){startingFailure=cleanupFailure;throw cleanupFailure.value;}}})();record.promise.catch(()=>{});return record.promise;}
+ async function prepare(options={}){const g=generation;aborted(options.signal);const enabled=await host.enabled();aborted(options.signal);if(enabled!==true){await stop('disabled');aborted(options.signal);return unavailable('disabled');}if(startingFailure)throw startingFailure.value;if(disposed)return unavailable('disabled');if(g!==generation)return unavailable('unavailable');const remaining=Math.min(Number.isFinite(options.deadline)?options.deadline-Date.now():20000,Number.isFinite(options.budgetMs)?Math.max(0,options.budgetMs):250);if(remaining<=0)return unavailable('timeout');if(owner&&['unknown','stopping','closing','cleanup-failed'].includes(owner.state))return unavailable('unavailable',owner.state);const task=start();if(owner?.state==='ready'&&descriptorValue.available)return {ok:true,...descriptor()};return new Promise((resolve,reject)=>{let done=false;const finish=(v,e,failed=false)=>{if(done)return;done=true;clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);if(failed)reject(e);else if(options.signal?.aborted)reject(options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason);else resolve(v);},cancel=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>finish(null,e,true),()=>finish(null,e,true));},timer=setTimeout(()=>finish(unavailable('unavailable','loading')),Math.min(20000,remaining));options.signal?.addEventListener('abort',cancel,{once:true});if(options.signal?.aborted)cancel();task.then(v=>finish(v),e=>finish(null,e,true));});}
+ async function encode(texts,options={}){aborted(options.signal);if(!Array.isArray(texts)||!texts.length||texts.length>16||texts.some(x=>typeof x!=='string'||x.length>8192)||texts.reduce((n,x)=>n+x.length,0)>32768)throw TypeError('semantic.invalid_texts');if(!['query','document'].includes(options.role))throw TypeError('semantic.invalid_role');const deadline=Math.min(Number.isFinite(options.deadline)?options.deadline:Infinity,Date.now()+(Number.isFinite(options.budgetMs)?Math.max(0,Math.min(1000,options.budgetMs)):1000));let r,lease=false,wrote=false,callbackFailure=false;const guard=async()=>{if(options.beforeEncode)try{await options.beforeEncode();}catch(e){callbackFailure=true;throw e;}};const enabled=async()=>{try{return await host.enabled();}catch(e){callbackFailure=true;throw e;}};
+  try{const d=options[WARM]?{available:true}:await prepare({...options,deadline,budgetMs:Math.max(0,deadline-Date.now())});aborted(options.signal);if(!d.available)return d;if(busy)return unavailable('overloaded');busy=true;lease=true;r=owner;const on=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(on!==true){await stop('disabled');return unavailable('disabled');}current(r,options.signal);const minimum=Math.max(estimateEncodingBudget(options.role,texts.length),Number.isFinite(options.minimumBudgetMs)?Math.max(0,Math.min(60000,options.minimumBudgetMs)):0);if(deadline-Date.now()<minimum)return unavailable('timeout');const id=String(++serial),value=await new Promise((resolve,reject)=>{const abort=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>settle(id,null,e,true),()=>settle(id,null,e,true));},timer=setTimeout(()=>{void stop('timeout').then(()=>settle(id,unavailable('timeout')));},Math.max(1,deadline-Date.now()));pending.set(id,{resolve,reject,timer,signal:options.signal,abort});options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted){abort();return;}try{current(r,options.signal);wrote=true;metrics.requests++;metrics[options[WARM]?'warmupTexts':options.role==='query'?'queryTexts':'documentTexts']+=texts.length;r.child.stdin.write(JSON.stringify({requestId:id,op:'encode',role:options.role,texts,deadlineMs:deadline})+'\n');}catch(e){settle(id,null,e,true);}});
+   aborted(options.signal);const onAfter=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(onAfter!==true){await stop('disabled');return unavailable('disabled');}if(value.ok!==true)return unavailable(value.reason==='timeout'||/deadline|timeout/i.test(value.error?.code||'')?'timeout':'unavailable');current(r,options.signal);const dimension=descriptorValue.dimensions;if(value.modelFingerprint!==descriptorValue.modelFingerprint||!Array.isArray(value.vectors)||value.vectors.length!==texts.length||value.vectors.some(v=>!Array.isArray(v)||v.length!==dimension||!v.every(Number.isFinite)||Math.abs(Math.hypot(...v)-1)>1e-4))throw fault('semantic.vector_contract');if(value.truncated!==undefined&&(!Array.isArray(value.truncated)||value.truncated.length!==texts.length||value.truncated.some(x=>typeof x!=='boolean')))throw fault('semantic.token_contract');if(host.validateReply)host.validateReply(value,texts,r.settings);const cost=value.metrics?.workerEncodeMs/texts.length;if(!options[WARM]&&Number.isFinite(cost)&&cost>0&&cost<60000)recent[options.role]=Math.min(5000,Math.max(1,recent[options.role]*.6+cost*.4));metrics.peakRssBytes=Math.max(metrics.peakRssBytes,Number.isFinite(value.metrics?.peakRssBytes)?value.metrics.peakRssBytes:0);return value;
+  }catch(e){if(wrote&&!callbackFailure){try{await stop(options.signal?.aborted?'cancelled':'fault');}catch{}}throw e;}finally{if(lease)busy=false;}}
+ return Object.freeze({descriptor,prepare,encode,stop,estimateEncodingBudget,identity:()=>owner?.identity?{...owner.identity,state:owner.state}:null,stats:()=>({...metrics,ownership:owner?.state||(starting?'loading':'observed-none'),pending:pending.size,resident:true}),prewarm:()=>{const task=prepare({budgetMs:20000,deadline:Date.now()+20000});task.catch(()=>{});return task;},restart:async()=>{const result=await stop('model-change');if(!result.workerExited||result.cleanupStatus!=='observed')return unavailable('unavailable','unknown');startingFailure=null;return prepare({budgetMs:20000,deadline:Date.now()+20000});},shutdown:async()=>{disposed=true;return stop('shutdown');}});}
+return Object.freeze({create,observeProcess});
+})();
+const SemanticRuntimeProviders = (() => {
+// One resident backend for all sessions. Factories are trusted in-process code,
+// never a module path or function from model/tool/HTTP arguments.
+function create({factories,selection,invalidate=()=>{}}){const registered=new Map(Object.entries(factories));let active=null,selected=null,changing=Promise.resolve(),epoch=0,disposed=false,fenced=false,state='cold';
+ const unavailable=(reason,detail=reason)=>({ok:false,available:false,reason,state:detail});
+ function abort(signal){if(signal?.aborted)throw signal.reason===undefined?Object.assign(Error('semantic.aborted'),{code:'ABORT_ERR'}):signal.reason;}
+ async function ensure(options={}){const g=epoch;abort(options.signal);const choice=await selection();abort(options.signal);if(g!==epoch||disposed)return unavailable('disabled');if(!choice||choice.enabled===false){await stop('disabled');return unavailable('disabled');}if(typeof choice.id!=='string'||typeof choice.signature!=='string')throw Error('semantic.provider_selection');const desired=choice.id+'\0'+choice.signature;if(active&&selected===desired&&!fenced)return active;if(fenced)return unavailable('unavailable','unknown');
+  const transition=changing.catch(()=>{}).then(async()=>{abort(options.signal);if(g!==epoch||disposed)return unavailable('disabled');if(active&&selected===desired&&!fenced)return active;if(active){let failed=null;try{await invalidate();}catch(e){failed={value:e};}const result=await active.stop('model-change');if(result?.cleanupStatus!=='observed'||result.workerExited!==true){fenced=true;state='unknown';if(failed)throw failed.value;return unavailable('unavailable','unknown');}active=null;if(failed)throw failed.value;}const factory=registered.get(choice.id);if(typeof factory!=='function'){state='failed';return unavailable('unavailable','unsupported-provider');}active=factory();if(!active||['prepare','encode','stop','descriptor','prewarm','estimateEncodingBudget'].some(k=>typeof active[k]!=='function'))throw Error('semantic.provider_contract');selected=desired;state='loading';return active;});changing=transition.then(()=>{},()=>{});return transition;}
+ async function stop(reason='disabled'){epoch++;let failed=null;try{await invalidate();}catch(e){failed={value:e};}const wait=changing;await wait.catch(()=>{});if(!active){state=reason;if(failed)throw failed.value;return {ok:true,cleanupStatus:'observed',workerExited:true,state:reason};}const result=await active.stop(reason);if(result?.cleanupStatus!=='observed'||result.workerExited!==true){fenced=true;state='unknown';if(failed)throw failed.value;return {...result,ok:false};}fenced=false;active=null;selected=null;state=reason;if(failed)throw failed.value;return result;}
+ async function invoke(name,args,options={}){const g=epoch,provider=await ensure(options);abort(options.signal);if(!provider||typeof provider[name]!=='function')return provider;const result=await provider[name](...args);abort(options.signal);if(g!==epoch&&name==='encode')throw Object.assign(Error('semantic.provider_changed'),{code:'semantic.provider_changed'});return result;}
+ return Object.freeze({descriptor:()=>active?{...active.descriptor(),providerId:selected?.split('\0')[0]||'',resident:true}:{available:false,state,modelFingerprint:'',resident:true},prepare:options=>invoke('prepare',[options||{}],options),encode:(texts,options={})=>invoke('encode',[texts,options],options),prewarm:()=>{const task=invoke('prewarm',[]);task.catch(()=>{});return task;},estimateEncodingBudget:(role,count)=>active?.estimateEncodingBudget(role,count)??Math.min(60000,Math.max(64,count*160)),stop,reconfigure:async()=>{const result=await stop('config-change');return result.workerExited===true&&result.cleanupStatus==='observed'?invoke('prewarm',[]):unavailable('unavailable','unknown');},shutdown:async()=>{disposed=true;return stop('shutdown');},register:(id,factory)=>{if(active||selected)throw Error('semantic.provider_already_started');if(typeof id!=='string'||typeof factory!=='function')throw TypeError('semantic.provider_invalid');registered.set(id,factory);},identity:()=>active?.identity?.()||null,stats:()=>({state:active?.descriptor?.().state||state,fenced,provider:selected?.split('\0')[0]||null,backend:active?.stats?.()||null})});}
+return Object.freeze({create});
+})();
+
+const SemanticRuntimeCore = (() => {
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
+let host=null;
+const transportResults=new WeakMap(),methodToken=Object.freeze({id:'embeddinggemma2-global-eligible-k1-cos070-window-v1'});let transportEpoch=0,transportToken=Object.freeze({});
+const selectedMethod=()=>host?.selectedMethod()===true?methodToken:null;
+
+const providerPins=Object.freeze({'gemma2-provider.cjs':'40713b6792d39558374c8f08c58738288db075194baa33707a4130fefdb61c95','gemma2-profile-validation.cjs':'caf838b85a8cafff670f693dacee6bd1e0ac94abd54d704d5c09e4ef1c42ac57','embeddinggemma2-live-contract.cjs':'b9cd2d2b86a252a7682092776a4afa34363e6d6e3a298cd83c95a2093047a819'});
+function fixedProvider(file){const loaded=new Map();function load(target){const name=path.basename(target),pin=providerPins[name];if(!pin)throw Error('semantic.provider_source_untrusted');if(loaded.has(target))return loaded.get(target).exports;const stat=fs.lstatSync(target),bytes=fs.readFileSync(target);if(!stat.isFile()||stat.isSymbolicLink()||path.resolve(fs.realpathSync(target)).toLowerCase()!==path.resolve(target).toLowerCase()||crypto.createHash('sha256').update(bytes).digest('hex')!==pin)throw Error('semantic.provider_source_integrity');const module={exports:{}};loaded.set(target,module);const safeRequire=name=>{if(typeof name!=='string')throw Error('semantic.provider_require_contract');if(name.startsWith('node:'))return require(name);const resolved=path.isAbsolute(name)?name:path.resolve(path.dirname(target),name);return load(resolved);};require('node:vm').compileFunction(bytes.toString('utf8'),['require','module','exports','__filename','__dirname'],{filename:target})(safeRequire,module,module.exports,target,path.dirname(target));return module.exports;}return load(file);}
+
+let semanticRuntimeClient = null;
+const semanticRuntimeCacheClearers = new Set();
+function clearSemanticRuntimeCaches() { transportEpoch++;transportToken=Object.freeze({}); for (const ref of [...semanticRuntimeCacheClearers]) { const clear=ref.deref();if(!clear){semanticRuntimeCacheClearers.delete(ref);continue;}clear(); } }
+function unavailableSemanticRuntime(code) { const value=()=>({ok:false,available:false,reason:'unavailable',state:'failed',diagnosticCode:code});return Object.freeze({prepare:async()=>value(),encode:async()=>value(),prewarm:async()=>value(),descriptor:value,estimateEncodingBudget:(_role,count)=>Math.min(60000,count*160),stop:async()=>({ok:true,cleanupStatus:'observed',workerExited:true}),identity:()=>null,stats:()=>({state:'failed',diagnosticCode:code})}); }
+function getSemanticRuntimeClient() {
+  if(!host)throw Error('semantic.host_not_installed');if(!semanticRuntimeClient){const enabled=host.enabled;
+    semanticRuntimeClient=SemanticRuntimeProviders.create({factories:{legacy:()=>SemanticRuntimeClient.create({enabled,settings:host.legacySettings,spawn:(command,args,options)=>cp.spawn(command,args,options)}),gemma2:()=>{const {base,directory,pin}=host.gemma2Settings(),provider=path.join(base,'semantic-runtime','gemma2-provider.cjs');if(!directory||!/^[a-f0-9]{64}$/.test(pin||'')||!fs.existsSync(provider))return unavailableSemanticRuntime('semantic.gemma2_profile_unavailable');let client;try{client=fixedProvider(provider).create({clientFactory:SemanticRuntimeClient.create,directory,lockSha256:pin,enabled});}catch(error){if(['ENOENT','semantic.gemma2_lock_integrity','semantic.gemma2_profile_contract'].includes(error?.code)||error?.name==='SyntaxError')return unavailableSemanticRuntime(error?.code||'semantic.gemma2_profile_contract');throw error;}return Object.freeze({...client,encode:async(texts,options={})=>{const result=await client.encode(texts,options);if(result?.ok===true){const descriptor=client.descriptor();if(descriptor.modelId!=='embeddinggemma-2-text-q4'||result.modelFingerprint!==descriptor.modelFingerprint||!Array.isArray(result.vectors)||result.vectors.length!==texts.length)throw Error('semantic.codec_transport_contract');transportResults.set(result,{epoch:transportEpoch,modelFingerprint:result.modelFingerprint,role:options.role||'query',scopeId:options.scopeId,texts:texts.slice(),vectors:result.vectors.map(v=>v.slice()),dimensions:result.dimensions,tokenCounts:result.tokenCounts.slice(),encodedTokenCounts:result.encodedTokenCounts.slice(),truncated:result.truncated.slice(),tokenSignature:JSON.stringify([result.dimensions,result.tokenCounts,result.encodedTokenCounts,result.truncated])});}return result;}});}},selection:host.selection,invalidate:clearSemanticRuntimeCaches});
+  }return semanticRuntimeClient;
+}
+function semanticRuntimeEffectiveConfig(config) { return JSON.stringify([config?.semanticRetrievalV1!==false,config?.workDataEncryptionV1===true]); }
+function semanticRuntimePolicyDescriptor(value) {return host.policyDescriptor(value);}
+function installHost(ports){if(host)throw Error('semantic.host_already_installed');if(!ports||Object.keys(ports).sort().join('|')!==['enabled','gemma2Settings','legacySettings','policyDescriptor','selectedMethod','selection'].sort().join('|')||Object.values(ports).some(value=>typeof value!=='function'))throw TypeError('semantic.host_contract');host=Object.freeze({...ports});return Object.freeze({
+
+  descriptor:()=>semanticRuntimeClient?semanticRuntimePolicyDescriptor(semanticRuntimeClient.descriptor()):{available:false,state:'cold',modelFingerprint:'',resident:true},
+  prepare:async options=>semanticRuntimePolicyDescriptor(await getSemanticRuntimeClient().prepare(options)),encode:(texts,options)=>getSemanticRuntimeClient().encode(texts,options),
+  estimateEncodingBudget:(role,count)=>getSemanticRuntimeClient().estimateEncodingBudget(role,count),
+  prewarm:()=>getSemanticRuntimeClient().prewarm(),stop:(reason='disabled')=>semanticRuntimeClient?semanticRuntimeClient.stop(reason):Promise.resolve({ok:true,cleanupStatus:'observed',workerExited:true}),
+  shutdown:()=>semanticRuntimeClient?semanticRuntimeClient.shutdown():Promise.resolve({ok:true,cleanupStatus:'observed',workerExited:true}),
+  registerCache:clear=>{if(typeof clear!=='function')throw TypeError('semantic.invalid_cache_callback');semanticRuntimeCacheClearers.add(new WeakRef(clear));},
+  configChanged:async(before,next)=>{if(semanticRuntimeEffectiveConfig(before)===semanticRuntimeEffectiveConfig(next))return;if(!semanticRuntimeClient){if(next?.semanticRetrievalV1!==false&&await host.enabled()===true)void getSemanticRuntimeClient().prewarm().catch(()=>{});return;}const result=await semanticRuntimeClient.stop(next?.semanticRetrievalV1===false?'disabled':'config-change');if(result.cleanupStatus!=='observed'||result.workerExited!==true)return result;if(next?.semanticRetrievalV1!==false&&await host.enabled()===true)void semanticRuntimeClient.prewarm().catch(()=>{});return result;},
+  registerProvider:(id,factory)=>getSemanticRuntimeClient().register(id,factory),identity:()=>semanticRuntimeClient?.identity()||null,stats:()=>semanticRuntimeClient?.stats()||{state:'cold'},
+});}
+
+
+const proof=Object.freeze({method:selectedMethod,isMethod:token=>token===methodToken&&selectedMethod()===token,lifecycle:()=>transportToken,snapshot:model=>{const descriptor=semanticRuntimeClient?.descriptor();if(descriptor?.available!==true||descriptor.modelId!=='embeddinggemma-2-text-q4'||descriptor.modelFingerprint!==model)throw Error('semantic.untrusted_codec_result');return transportToken;},verify:(result,{texts,role,scopeId,modelFingerprint})=>{const proof=transportResults.get(result),descriptor=semanticRuntimeClient?.descriptor();if(!proof||proof.epoch!==transportEpoch||descriptor?.available!==true||descriptor.modelFingerprint!==proof.modelFingerprint||proof.modelFingerprint!==modelFingerprint||proof.role!==role||proof.scopeId!==scopeId||!Array.isArray(texts)||texts.length!==proof.texts.length||texts.some((text,n)=>text!==proof.texts[n])||result.modelFingerprint!==proof.modelFingerprint||!Array.isArray(result.vectors)||result.vectors.length!==proof.vectors.length||result.vectors.some((v,n)=>!Array.isArray(v)||v.length!==proof.vectors[n].length||v.some((x,i)=>x!==proof.vectors[n][i])))throw Error('semantic.untrusted_codec_result');if(JSON.stringify([result.dimensions,result.tokenCounts,result.encodedTokenCounts,result.truncated])!==proof.tokenSignature)throw Error('semantic.untrusted_codec_result');return {ok:true,modelFingerprint:proof.modelFingerprint,vectors:proof.vectors.map(v=>v.slice()),dimensions:proof.dimensions,tokenCounts:proof.tokenCounts.slice(),encodedTokenCounts:proof.encodedTokenCounts.slice(),truncated:proof.truncated.slice()};}});
+return Object.freeze({proof,installHost});
+})();
+const SemanticRuntimeTransportProof=SemanticRuntimeCore.proof;
+
+// In-memory semantic primitives. The host owns runtime availability and authorization.
+const SemanticRetrieval = ((crypto) => {
+const scoreEvidenceRecords=new WeakMap(),scoreEvidenceModel='sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e';
+const scoreEvidenceInvalid=()=>Error('semantic.score_evidence_invalid');
+function scoreEvidenceIdentity(value){if(value===null||['string','boolean'].includes(typeof value)||typeof value==='number'&&Number.isFinite(value))return JSON.stringify(value);if(Array.isArray(value)&&value.length<=64&&value.every(v=>v===null||['string','boolean'].includes(typeof v)||typeof v==='number'&&Number.isFinite(v)))return JSON.stringify(value);throw scoreEvidenceInvalid();}
+function scoreEvidenceVector(v){return Array.isArray(v)&&v.length===768&&v.every(Number.isFinite)&&v.some(n=>n!==0);}
+function scoreEvidenceCosine(a,b){let dot=0,an=0,bn=0;for(let n=0;n<a.length;n++){dot+=a[n]*b[n];an+=a[n]*a[n];bn+=b[n]*b[n];}return dot/Math.sqrt(an*bn);}
+function sealScoreEvidence(result,{query,scopeId,modelFingerprint,docs,identities,queryVector,vectors,encodedTexts,stillCurrent}){ if(!result||typeof result!=='object'||scoreEvidenceRecords.has(result)||typeof query!=='string'||!query.trim()||typeof scopeId!=='string'||!scopeId||modelFingerprint!==scoreEvidenceModel||result.modelFingerprint!==scoreEvidenceModel||!Array.isArray(docs)||!Array.isArray(identities)||identities.length!==docs.length||!docs.every(t=>typeof t==='string')||!Array.isArray(vectors)||vectors.length!==docs.length||!Array.isArray(encodedTexts)||encodedTexts.length!==docs.length||encodedTexts.some((t,n)=>vectors[n]===null?t!==null:typeof t!=='string')||!Array.isArray(result.scores)||result.scores.length!==docs.length||!scoreEvidenceVector(queryVector))throw scoreEvidenceInvalid();
+ const scores=vectors.map((v,n)=>{if(v===null){if(result.scores[n]!==null)throw scoreEvidenceInvalid();return null;}if(!scoreEvidenceVector(v))throw scoreEvidenceInvalid();const value=scoreEvidenceCosine(queryVector,v);if(!Number.isFinite(value)||!Number.isFinite(result.scores[n])||Math.abs(value-result.scores[n])>1e-12)throw scoreEvidenceInvalid();return result.scores[n];});
+ scoreEvidenceRecords.set(result,Object.freeze({query,scopeId,modelFingerprint,docs:docs.slice(),identities:identities.map(scoreEvidenceIdentity),scores,encodedTexts:encodedTexts.slice(),stillCurrent}));return result;
+}
+function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scoreEvidenceRecords.get(result);if(!p||!p.stillCurrent()||p.query!==query||p.scopeId!==scopeId||p.modelFingerprint!==modelFingerprint||result.modelFingerprint!==p.modelFingerprint||!Array.isArray(result.scores)||result.scores.length!==p.scores.length||p.scores.some((v,n)=>result.scores[n]!==v))throw scoreEvidenceInvalid();return {docs:p.docs.slice(),identities:p.identities.slice(),scores:p.scores.slice(),encodedTexts:p.encodedTexts.slice()};}
+  const searchPolicy=Object.freeze({id:'minilm-search-relevance-v1',modelId:'paraphrase-multilingual-MiniLM-L12-v2',minScore:0.34,structuredIdentifiers:true,purpose:'search-relevance',automatic:null});
+  function structuredIdMatches(identifierText) {
+    const normalized=String(identifierText).normalize('NFKC').toLowerCase(),matches=[];
+    // Validate the complete maximal ASCII identifier token. Searching inside a
+    // rejected token would conflate AB-ZZ-91, XY-ZZ-91 and overlong prefixes.
+    for(const match of normalized.matchAll(/[a-z0-9_:-]+/g)){
+      const token=match[0];let from=0,to=token.length;
+      // Boundary separators may be prose punctuation ("OP-12:"). Trim only
+      // the two edges; invalid internal segments never restart suffix parsing.
+      while(from<to&&!/[a-z0-9]/.test(token[from]))from++;
+      while(to>from&&!/[a-z0-9]/.test(token[to-1]))to--;
+      const value=token.slice(from,to);if(value.length>256||!/^[a-z][a-z0-9]{1,15}(?:[-_:][a-z0-9]+)+$/.test(value))continue;
+      if(!/\d/.test(value.slice(value.search(/[-_:]/)+1)))continue;
+      matches.push({value,start:match.index+from,end:match.index+to});
+    }
+    return matches;
+  }
+  const structuredIds=text=>[...new Set(structuredIdMatches(text).map(match=>match.value))];
+  function assessAdmission(query,docs,scores,{complete=true,minScore=searchPolicy.minScore}={}) {
+    const required=structuredIds(query),reasons=[];
+    const accepted=scores.map((score,n)=>{
+      const reason=!Number.isFinite(score)?'unscored':score<minScore?'low-cosine':required.some(id=>!structuredIds(docs[n]).includes(id))?'identifier-mismatch':'accepted';
+      reasons.push(reason);return reason==='unscored'?null:reason==='accepted';
+    });
+    return{policyId:searchPolicy.id,purpose:searchPolicy.purpose,status:complete?'evaluated':'partial',accepted,reasons,
+      features:{minimumCosine:minScore,requiredIdentifiers:required.length},answerability:'not-assessed'};
+  }
+  function create(runtime, options={}) {
+    // Queries cannot evict document vectors. One complete 4096-fragment corpus
+    // fits even while another scope/model is being warmed.
+    const codecProof=typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof:null;
+    const documentLimit=Math.max(4096,Math.min(16384,options.documentLimit||8192)),queryLimit=128;
+    const documents=new Map(),queries=new Map();let cacheGeneration=0,codecToken=null;
+    const clear=()=>{cacheGeneration++;documents.clear();queries.clear();};
+    if(typeof runtime?.registerCache==='function')runtime.registerCache(clear);
+    // Reserve measured call cost before starting another bounded batch. A native
+    // deadline still kills its owner; routine tail-budget exhaustion must not.
+    const callMsPerText={query:32,document:20};
+    const minimumBudget=(role,count)=>{
+      const local=Math.max(64,Math.ceil(callMsPerText[role]*Math.max(1,count)*1.25+16));
+      if(typeof runtime?.estimateEncodingBudget!=='function')return local;
+      const hint=runtime.estimateEncodingBudget(role,count);
+      if(typeof hint!=='number'||!Number.isFinite(hint)||hint<0||hint>60000)throw Error('semantic.invalid_budget_hint');
+      return Math.max(local,Math.ceil(hint));
+    };
+    const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,model,value])).digest('hex');
+    const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
+    const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
+    function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,identities=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext}={}) {
+      let generation=cacheGeneration;
+      const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
+      if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
+      const deadline=Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
+      const descriptor=await runtime.prepare({scopeId,signal,deadline});
+      if(beforeEncode)await beforeEncode();
+      if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+      if(generation!==cacheGeneration)return empty('unavailable');
+      if(Date.now()>=deadline)return empty('timeout');
+      if(!descriptor?.available){if(['disabled','unavailable','timeout','overloaded'].includes(descriptor?.reason))return empty(['loading','warming'].includes(descriptor.state)?'loading':descriptor.reason);throw Error('semantic.prepare_failed');}
+      // Codec/startup readiness does not qualify a new retrieval policy. Keep
+      // the explicit Gemma2 backend unavailable to consumers until its complete
+      // K1/identifier/weak-evidence policy is connected across all entry points.
+      if(descriptor.modelId==='embeddinggemma-2-text-q4'&&descriptor.policyReady!==true)return empty('unavailable');
+      if(descriptor.modelId==='embeddinggemma-2-text-q4'&&purpose!=='rerank'&&(typeof SemanticOriginalWindows==='undefined'||!SemanticOriginalWindows.isRequest(policyContext,policyContext?.context)))return empty('unavailable');
+      const minScore=descriptor.retrievalThresholds?.[purpose];
+      if(purpose==='automatic'&&!(typeof minScore==='number'&&Number.isFinite(minScore)))return empty('disabled');
+      const model=descriptor.modelFingerprint;if(typeof model!=='string'||!model.length||model.length>512)throw Error('semantic.invalid_model');
+      let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
+      const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(scopeId,model,['document',identities[n],text]));
+      let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
+      async function encode(texts,role){
+        if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+        if(beforeEncode)await beforeEncode();
+        if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+        if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
+        // Source resolution and the final authority guard can consume the
+        // budget used to select a batch. Submit only the prefix that still fits;
+        // an unchanged oversized batch must not block every later request.
+        let encodedCount=texts.length;
+        if(role==='document')while(encodedCount>1&&minimumBudget(role,encodedCount)>deadline-Date.now())encodedCount--;
+        texts=texts.slice(0,encodedCount);
+        const minimumBudgetMs=minimumBudget(role,texts.length);
+        if(deadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
+        const began=Date.now();
+        const result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
+        if(beforeEncode)await beforeEncode();
+        if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+        if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
+        const perText=(Date.now()-began)/Math.max(1,texts.length);
+        if(result?.ok)callMsPerText[role]=Math.min(250,Math.max(12,callMsPerText[role]*0.6+perText*0.4));
+        else if(result?.reason==='timeout')callMsPerText[role]=Math.min(250,Math.max(callMsPerText[role]*1.5,perText));
+        if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason))return result;throw Error('semantic.encode_failed');}
+        const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId,modelFingerprint:model}):result;
+        if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==texts.length||!validated.vectors.every(vector))throw Error('semantic.invalid_vectors');
+        const dimension=validated.vectors[0].length;if(descriptor.modelId==='embeddinggemma-2-text-q4'&&dimension!==768)throw Error('semantic.invalid_vectors');if(validated.vectors.some(v=>v.length!==dimension)||q&&q.length!==dimension)throw Error('semantic.invalid_vectors');
+        return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
+      }
+      if(!q){const result=await encode([query],'query');if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
+      const missing=[];for(let n=0;n<vectors.length;n++)if(!vectors[n])missing.push(n);
+      const budget=Math.max(0,Math.min(128,Math.floor(Number(maxEncodeDocuments)||0)));
+      const selected=missing.slice(0,budget);
+      for(let offset=0;offset<selected.length;){
+        let count=Math.min(4,selected.length-offset);
+        while(count>1&&minimumBudget('document',count)>deadline-Date.now())count--;
+        let batch=selected.slice(offset,offset+count);
+        if(Date.now()>=deadline){if(beforeEncode)await beforeEncode();status='timeout';break;}
+        let texts=typeof resolveTexts==='function'?await resolveTexts(batch,{signal,deadline}):batch.map(n=>docs[n]);
+        if(!Array.isArray(texts)||texts.length!==batch.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
+        const usable=batch.map((n,i)=>({n,position:i,text:texts[i]})).filter(item=>typeof item.text==='string'&&item.text.length>0&&item.text.length<=8192);
+        if(usable.length<batch.length)status='partial';if(!usable.length){offset+=count;continue;}
+        batch=usable.map(item=>item.n);texts=usable.map(item=>item.text);const result=await encode(texts,'document');
+        if(!result.ok){status=result.reason;break;}
+        // Keep vectors aligned with the actual submitted source prefix. Entries
+        // resolved but not executed remain pending, including gaps in usable rows.
+        batch=batch.slice(0,result.encodedCount);
+        batch.forEach((n,i)=>{if(result.truncated?.[i]){status='truncated';return;}vectors[n]=result.vectors[i];encodedTexts[n]=texts[i];documents.delete(keys[n]);documents.set(keys[n],{vector:vectors[n].slice(),encodedText:encodedTexts[n]});while(documents.size>documentLimit)documents.delete(documents.keys().next().value);});
+        offset+=usable[result.encodedCount-1].position+1;
+        if(Date.now()>=deadline){status='timeout';break;}
+      }
+      if(generation!==cacheGeneration)return empty('unavailable');
+      if(requestCodecToken&&codecProof.snapshot(model)!==requestCodecToken)return empty('unavailable');
+      const norm=v=>Math.sqrt(v.reduce((sum,n)=>sum+n*n,0)),qn=norm(q);
+      const scores=vectors.map(v=>{if(!v)return null;if(v.length!==q.length)throw Error('semantic.invalid_vectors');return v.reduce((sum,n,i)=>sum+n*q[i],0)/(norm(v)*qn);});
+      const cached=vectors.filter(Boolean).length,complete=cached===docs.length;
+      if(status==='ready'&&!complete)status='partial';
+      const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
+      const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId?assessAdmission(query,docs,scores,{complete,minScore:Math.max(searchPolicy.minScore,effectiveMinimum)}):null;
+      const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
+      if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
+      return scored;
+    }
+    return Object.freeze({score,clear});
+  }
+const SemanticWindowPolicy = (() => {
+// Unregistered research policy. Raw coarse rank is global to one complete
+// producer search, while every scalar verdict remains bound to its own field.
+const crypto=require('node:crypto'),Windowing=typeof SemanticOriginalWindows==='undefined'?null:SemanticOriginalWindows;
+const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
+  weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
+
+function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence }) {
+  if(typeof readScoreEvidence!=='function')throw TypeError('semantic.scorer_reader_required');
+  const issuedDecisions = new WeakMap();
+  if ([identify, normalize, terms].some(value => typeof value !== 'function')) throw TypeError('composite.host_invalid');
+  async function evaluate({ query, rows, lexical, scoreEntries, poolComplete, context, windowContext, modelFingerprint, scopeId, signal, deadline, resolve, beforeVerify }) {
+    if (!Array.isArray(rows) || !Array.isArray(lexical) || !Array.isArray(scoreEntries) || rows.length !== scoreEntries.length
+      || typeof poolComplete !== 'boolean' || !Windowing.isRequest(windowContext,context) || modelFingerprint!==CONTRACT.modelFingerprint || rows.length > 4096 || rows.some(row=>typeof row.fieldKey!=='string'||typeof row.order!=='string') || typeof resolve !== 'function' || typeof beforeVerify !== 'function' || !Number.isFinite(deadline)) throw TypeError('composite.request_invalid');
+    const accepted = rows.map(() => null), lexicalDecisions = new Map(), metadataDecisions = new Map(), lexicalWindowIndices = new Map(), metadataWindowIndices = new Map();
+    if(typeof query!=='string'||!query.trim()||!normalize(query).trim()||typeof scopeId!=='string'||!scopeId)throw TypeError('semantic.policy_query_invalid');
+    const abort=()=>{if(signal?.aborted)throw signal.reason===undefined?Object.assign(Error('semantic.policy_aborted'),{code:'ABORT_ERR'}):signal.reason;};
+    let started=false;
+    const verify=async event=>{abort();if(started)windowContext.assertPool(rows);await beforeVerify(event);abort();if(started)windowContext.assertPool(rows);};
+    await verify({phase:'start',index:null,source:null});
+    windowContext.begin(context,query,scopeId,modelFingerprint,rows);
+    started=true;
+    const evidenceReads=new Map(),scores=scoreEntries.map((entry,n)=>{if(entry===null)return null;if(!entry||!Number.isSafeInteger(entry.index)||entry.index<0)throw Error('semantic.score_evidence_invalid');let proof=evidenceReads.get(entry.result);if(!proof){proof=readScoreEvidence(entry.result,{query,scopeId,modelFingerprint});evidenceReads.set(entry.result,proof);}if(entry.index>=proof.scores.length)throw Error('semantic.score_evidence_invalid');windowContext.assertScore(rows[n],proof.docs[entry.index],proof.identities[entry.index],proof.encodedTexts[entry.index]);return proof.scores[entry.index];});
+    const required = identify(query), phrase = normalize(query), effective = [...new Set(terms(query).filter(x => typeof x === 'string' && !x.startsWith('#')).map(normalize))];
+    const strong = text => {
+      const sourceIds = identify(text);
+      if (required.some(id => !sourceIds.includes(id))) return { eligible: false, reason: 'identifier-mismatch' };
+      const normalized = normalize(text);
+      return { eligible: true, reason: required.length ? 'all-identifiers-same-field' : normalized.includes(phrase) ? 'exact-phrase-same-field'
+        : effective.length && effective.every(term => normalized.includes(term)) ? 'all-effective-terms-same-field' : null };
+    };
+    const fullSources = new Map(), fieldSources = new Map(), eligible = rows.map(() => true);
+    let sourceUnknown = false;
+    async function resolved(index, wholeField) {
+      abort();
+      if (Date.now() >= deadline) { sourceUnknown = true; return null; }
+      const source = wholeField && fullSources.has(index) ? fullSources.get(index) : await resolve(index, wholeField);
+      await verify({ phase: 'resolved', index, source });
+      if(source)windowContext.assertSource(source,wholeField,context,rows[index]);
+      if (wholeField && source) fullSources.set(index, source);
+      return source;
+    }
+    // Body rows retain the producer's full-ID source filter. Metadata has a
+    // separate field lifecycle, so prove all remaining field eligibility before
+    // cutting global K. A rejected metadata ID may never consume the K slot.
+    if (required.length) for (let index = 0; index < rows.length; index++) {
+      let source = fieldSources.get(rows[index].fieldKey);
+      if (!source) { source = await resolved(index, true); if (source) fieldSources.set(rows[index].fieldKey, source); }
+      if (!source) { eligible[index] = null; sourceUnknown = true; }
+      else { fullSources.set(index, source); eligible[index] = required.every(id => identify(source.fieldText).includes(id)); }
+    }
+    // A partially encoded or truncated eligible corpus cannot establish a
+    // global winner. Deterministically excluded IDs need no vector or score.
+    const globalComplete = poolComplete === true && !sourceUnknown && scores.every((score, index) => eligible[index] === false || Number.isFinite(score));
+    for(let i=0;i<eligible.length;i++)if(eligible[i]===false)accepted[i]=false;
+    if(globalComplete)accepted.fill(false);
+    const order = globalComplete ? scores.map((score, index) => ({ score, index })).filter(item => eligible[item.index] === true)
+      .sort((a, b) => b.score - a.score || rows[a.index].order.localeCompare(rows[b.index].order) || a.index - b.index) : [];
+    const selected = order.slice(0, CONTRACT.topK).map(item => item.index), work = new Map(), requiredWork = [], strongEvidence = [];
+    async function evidence(index, wholeField, role, lexicalKey = null) {
+      let source = await resolved(index, wholeField);
+      if (!source) { sourceUnknown = true;if(role==='semantic')accepted[index]=null; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if(rows[index].metadata)metadataDecisions.set(rows[index].fieldKey,null); return; }
+      const classification = strong(source.fieldText);
+      if (!classification.eligible) { if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, false); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, false); return; }
+      if (classification.reason) {
+        // The frozen policy removes strong fields after choosing K. Keep their
+        // lexical evidence, without adding semantic RRF weight or refilling K.
+        if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, true);
+        if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, true);
+        strongEvidence.push({ index, role, fieldKey: rows[index].fieldKey, reason: classification.reason }); return;
+      }
+      if (role === 'weak-lexical' || role === 'metadata') {
+        const choice = order.find(item => rows[item.index].fieldKey === rows[index].fieldKey);
+        if (!choice) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
+        const previous = source; index = choice.index; source = await resolved(index, false);
+        if (!source) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
+        if (['sourceId','field','revision','epoch','sourceRevision'].some(key => source.identity[key] !== previous.identity[key])) throw Error('composite.window_source_changed');
+      }
+      const key = hash([source.identity, source.text]);
+      // The actual producer may run in a fixture VM. Copy its trusted data-only
+      // identity into this realm; bridge validation still rejects non-data DTOs.
+      if (!work.has(key)) work.set(key, { source: { identity: JSON.parse(JSON.stringify(source.identity)), text: source.text }, uses: [] });
+      work.get(key).uses.push({ index, role, lexicalKey, metadataKey: rows[index].metadata ? rows[index].fieldKey : null });
+    }
+    // Select K before strong bypass. Never refill the K budget after bypass.
+    for (const index of selected) await evidence(index, false, 'semantic');
+    for (const item of lexical) {
+      if (!Number.isSafeInteger(item.index) || item.index < 0 || item.index >= rows.length) { lexicalDecisions.set(item.key, null); sourceUnknown = true; continue; }
+      windowContext.assertWeak(item.key,rows[item.index]);
+      if (!lexicalDecisions.has(item.key)) await evidence(item.index, true, 'weak-lexical', item.key);
+    }
+    // Metadata supplement is a distinct same-field consumer, never a session
+    // exemption. All supplied metadata fields need an explicit verdict.
+    const seenMetadata = new Set();
+    for (let index = 0; index < rows.length; index++) if (rows[index].metadata && !seenMetadata.has(rows[index].fieldKey)) {
+      seenMetadata.add(rows[index].fieldKey); await evidence(index, true, 'metadata');
+    }
+    const items = [...work.values()];
+    for (const item of items) for (const use of item.uses) requiredWork.push({ index: use.index, role: use.role, identity: item.source.identity });
+    // Each exact admitted window consumes its own already-computed cosine.
+    // No extra inference and no independent window search after a rejection.
+    const results=items.map(item=>{const values=item.uses.map(use=>scores[use.index]);
+      if(values.some(value=>!Number.isFinite(value)))return {accepted:null,score:null,cached:false};
+      if(values.some(value=>value < -1.00001||value > 1.00001||Math.abs(value-values[0])>1e-12))throw Error('bge.window_score_mismatch');
+      return {accepted:values[0]>=CONTRACT.threshold,score:values[0],cached:false};});
+    const verified={status:results.every(result=>result.accepted!==null)?'complete':'partial',results,
+      coverage:{complete:results.every(result=>result.accepted!==null),total:items.length,completed:results.filter(result=>result.accepted!==null).length}};
+    if (!Array.isArray(verified.results) || verified.results.length !== items.length) throw Error('composite.verifier_shape');
+    for (let n = 0; n < items.length; n++) {
+      const result = verified.results[n];
+      if (![true, false, null].includes(result.accepted)) throw Error('composite.verdict_invalid');
+      // The host's accepted value must implement this precise frozen policy.
+      if (result.accepted !== null && (typeof result.score !== 'number' || !Number.isFinite(result.score) || result.accepted !== (result.score >= CONTRACT.threshold))) throw Error('composite.policy_mismatch');
+      for (const use of items[n].uses) {
+        if (use.role === 'semantic') accepted[use.index] = result.accepted;
+        if (use.lexicalKey !== null) { lexicalDecisions.set(use.lexicalKey, result.accepted); if (result.accepted === true) lexicalWindowIndices.set(use.lexicalKey, use.index); }
+        if (use.metadataKey !== null) { metadataDecisions.set(use.metadataKey, result.accepted); if (result.accepted === true) metadataWindowIndices.set(use.metadataKey, use.index); }
+      }
+    }
+    await verify({ phase: 'finish', index: null, source: null });
+    const finished = globalComplete && !sourceUnknown && verified.coverage?.complete === true && Date.now() < deadline;
+    const decision=Object.freeze({policyId:CONTRACT.id,purpose:'search-relevance',answerability:'not-assessed',complete:finished,status:finished?'evaluated':'partial',
+      counts:Object.freeze({candidates:rows.length,eligible:eligible.filter(x=>x===true).length,excludedIdentifiers:eligible.filter(x=>x===false).length,selected:selected.length,weakWindows:lexicalWindowIndices.size,metadataWindows:metadataWindowIndices.size})});
+    issuedDecisions.set(decision,{context,validatePool:()=>{windowContext.assertPool(rows);for(const result of evidenceReads.keys())readScoreEvidence(result,{query,scopeId,modelFingerprint});},semanticAccepted:accepted.slice(),weakAccepted:new Map(lexicalDecisions),metadataAccepted:new Map(metadataDecisions),
+      weakWindowIndices:new Map(lexicalWindowIndices),metadataWindowIndices:new Map(metadataWindowIndices),globalSelectedIndices:selected.slice(),globalCoarseComplete:globalComplete});
+    return decision;
+  }
+  const lookup=(decision,context)=>{const stored=issuedDecisions.get(decision);if(!stored||stored.context!==context)throw Error('semantic.policy_context_invalid');stored.validatePool();return stored;};
+  return Object.freeze({ evaluate,contract:CONTRACT,dispose:(decision,context)=>{const stored=issuedDecisions.get(decision);if(!stored||stored.context!==context)throw Error('semantic.policy_context_invalid');issuedDecisions.delete(decision);},decisions:(decision,context)=>{const stored=lookup(decision,context);return {semanticAccepted:stored.semanticAccepted.slice(),weakAccepted:new Map(stored.weakAccepted),metadataAccepted:new Map(stored.metadataAccepted),weakWindowIndices:new Map(stored.weakWindowIndices),metadataWindowIndices:new Map(stored.metadataWindowIndices),globalSelectedIndices:stored.globalSelectedIndices.slice(),globalCoarseComplete:stored.globalCoarseComplete};} });
+}
+return {CONTRACT,createSemanticCoarsePolicy:options=>createSemanticCoarsePolicy({...options,readScoreEvidence})};
+
+})();
+const SemanticAdmissionRequest = (() => {
+// Trusted in-process adapter for consumers. Fields are original authorized text,
+// never projected DTO slices. Authority remains in verifyField/beforeVerify.
+const W=typeof SemanticOriginalWindows==='undefined'?null:SemanticOriginalWindows,{createSemanticCoarsePolicy,CONTRACT}=SemanticWindowPolicy;
+function create({query,scopeId,identify,normalize,terms,readScoreEvidence,modelFingerprint=CONTRACT.modelFingerprint,maxRows=4096}){
+ if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>4096)throw Error('semantic.request_limit_invalid');
+ const windowContext=W.createRequest({query,scopeId,modelFingerprint}),context=windowContext.context,policy=createSemanticCoarsePolicy({identify,normalize,terms,readScoreEvidence}),fields=new Map(),rowFields=[],rows=[],sources=[],docs=[],identities=[];let disposed=false,decision=null,truncated=false;
+ const active=()=>{if(disposed)throw Error('semantic.request_disposed');};
+ function addField(source,{kind='raw-original-v1',order,identityForWindow}={}){active();if(decision)throw Error('semantic.request_already_evaluated');if(!source||typeof source.text!=='string'||!Array.isArray(order))throw Error('semantic.field_invalid');const snapshot={identity:{...source.identity},text:source.text},token=windowContext.captureField(snapshot.identity,snapshot.text,kind),key=windowContext.weakKey(token),entry={token,key,snapshot,indices:[]};fields.set(key,entry);
+  const push=(window,cacheText)=>{if(rows.length>=Math.min(4096,maxRows)){truncated=true;return false;}const identity=identityForWindow?identityForWindow(window.identity):['original-field',...['sourceId','field','revision','epoch','sourceRevision','start','end'].map(k=>window.identity[k])],row=windowContext.row(window,order,identity);entry.indices.push(rows.length);rows.push(row);sources.push(window);rowFields.push(entry);docs.push(cacheText);identities.push(identity);return true;};
+  if(kind==='canonical-message-v3'){outer:for(const shard of windowContext.canonicalSlices(token))for(const part of W.rawSlices(shard.text)){if(!push(windowContext.canonicalWindow(token,shard,part.start,part.end-part.start),part.text))break outer;}}
+  else for(const part of windowContext.rawSlices(token))if(!push(windowContext.rawWindow(token,part.start,part.end),part.text))break;
+  return key;
+ }
+ async function evaluate(scored,{poolComplete,lexicalFields=[],deadline,signal,verifyField,beforeVerify}={}){active();if(decision)throw Error('semantic.request_already_evaluated');if(typeof verifyField!=='function'||typeof beforeVerify!=='function')throw Error('semantic.authority_missing');const lexical=[];for(const key of lexicalFields){const field=fields.get(key);if(!field)throw Error('semantic.weak_field_invalid');if(field.indices.length)lexical.push({key,index:field.indices[0]});else truncated=true;}
+  decision=await policy.evaluate({query,scopeId,modelFingerprint,windowContext,context,rows,lexical,scoreEntries:rows.map((_,index)=>scored?{result:scored,index}:null),poolComplete:poolComplete===true&&!truncated,signal,deadline,
+   resolve:async(index,whole)=>{const field=rowFields[index],current=await verifyField(field.snapshot,whole?'whole':'window');if(current===null)return null;if(!current||current.text!==field.snapshot.text||['sourceId','field','revision','epoch','sourceRevision'].some(k=>current.identity?.[k]!==field.snapshot.identity[k]))throw Error('semantic.source_changed');return whole?windowContext.wholeSource(field.token):sources[index];},beforeVerify});
+  return decision;
+ }
+ function read(){active();if(!decision)throw Error('semantic.request_not_evaluated');const d=policy.decisions(decision,context),weakAccepted=new Map(),weakWindowIndices=new Map(),metadataAccepted=new Map(),metadataWindowIndices=new Map();for(const [key,f]of fields){if(d.weakAccepted.has(key))weakAccepted.set(key,d.weakAccepted.get(key));if(d.weakWindowIndices.has(key))weakWindowIndices.set(key,d.weakWindowIndices.get(key));const fieldKey=windowContext.fieldKey(f.token);if(d.metadataAccepted.has(fieldKey))metadataAccepted.set(key,d.metadataAccepted.get(fieldKey));if(d.metadataWindowIndices.has(fieldKey))metadataWindowIndices.set(key,d.metadataWindowIndices.get(fieldKey));}return {...d,weakAccepted,weakWindowIndices,metadataAccepted,metadataWindowIndices};}
+ return Object.freeze({addField,evaluate,read,inputs:()=>{active();return {policyContext:windowContext,docs:docs.slice(),identities:identities.map(v=>Array.isArray(v)?v.slice():v),rowCount:rows.length,truncated};},window:index=>{active();if(!Number.isSafeInteger(index)||!sources[index])throw Error('semantic.window_invalid');const s=sources[index];return {identity:{...s.identity},text:s.text};},fieldAt:index=>{active();return rowFields[index]?.key??null;},dispose:()=>{if(disposed)return;if(decision)policy.dispose(decision,context);disposed=true;fields.clear();for(const list of [rows,sources,rowFields,docs,identities])list.length=0;decision=null;}});
+}
+return {create,CONTRACT};
+
+})();
+
+
+  return Object.freeze({create,assessAdmission,searchPolicy,structuredIds,structuredIdMatches,readScoreEvidence,windowPolicy:SemanticWindowPolicy,admissionRequest:SemanticAdmissionRequest,hasScoreEvidence:result=>scoreEvidenceRecords.has(result)});
+})(require('node:crypto'));
+
+// Compatibility aliases share the scorer's closed reader; no caller-supplied issuer.
+const SemanticWindowPolicy=SemanticRetrieval.windowPolicy;
+const SemanticAdmissionRequest=SemanticRetrieval.admissionRequest;
+// Registration is data only; readiness is evaluated exclusively by the host.
+const SemanticPolicyConsumers=new Set();
+
 // ============================================================================
 // 第 116 波 116a(27 号文 §11.3):工作台管家(Steward)引擎侧核心——纯函数与延迟绑定命名空间。
 //
@@ -45044,7 +45684,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'runtimeSummaryFactTableV1', 'summaryFactTableMaxSamplesV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'budgetGuardWarnRatioV1',
   'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'toolTimeBudgetWarnMsV1', 'toolTimeBudgetHardMsV1', 'toolByteBudgetShadowBytesV1',
   'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'execResultCacheMaxEntriesV1',
-  'runtimeMemoryVectorRecallV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
+  'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
   'toolEconomicsShadowV1', 'boundedReadSchedulerV1', 'boundedReadConcurrencyV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'toolLoadingMode',
   'autoCompactThreshold', 'contextWindowOverrides', 'thinkingBudget', 'claudeThinkingEffort', 'betaInterleavedThinking', 'maxTurns', 'openaiMaxToolIterations',
   // 136:管家压缩触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」那一类;管家只能递按钮。
@@ -45176,6 +45816,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['runtimeExecResultCacheV1', '命令结果缓存', 'Cache exec results'],
   ['execResultCacheMaxEntriesV1', '命令结果缓存最多多少条', 'Max exec cache entries'],
   ['runtimeMemoryVectorRecallV1', '记忆向量召回', 'Vector recall for memory'],
+  ['semanticRetrievalV1', '本地语义检索与记忆重排', 'Local semantic retrieval and memory reranking'],
   ['coreMemoryMaxItemsV1', '核心记忆最多多少条', 'Max core memory items'],
   ['coreMemoryCharBudgetV1', '核心记忆总字数预算', 'Core memory character budget'],
   ['memoryRelevanceMaxV1', '每轮按相关性带几条记忆', 'Memories recalled by relevance per turn'],
@@ -46014,7 +46655,11 @@ async function readMemoryDir(dir, scope) {
         const oldest = MEMORY_HEAD_CACHE.keys().next();
         if (!oldest.done) MEMORY_HEAD_CACHE.delete(oldest.value);
       }
-      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority, entry });
+      // Keep explicit header fields separate from the legacy display fallback
+      // that derives a description from the first body paragraph.
+      const semanticHeaderText=[id,(fm.name||id).slice(0,120),String(fm.description||'').slice(0,400),
+        String(fm.coresummary||fm.description||'').slice(0,CORE_MEMORY_SUMMARY_CAP),type].filter(Boolean).join(' ');
+      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority, entry, semanticHeaderText });
     }
   }
   return out;
@@ -46595,7 +47240,7 @@ async function syncAgentInstructionImportsUnlocked(opts) {
 async function resolveWorkbenchMemoryToolContext(ctx) {
   const sid = safeSessionId((ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || '');
   let session = ctx && ctx.session;
-  if (!session && sid) session = await loadSession(sid).catch(() => null);
+  if (!session && sid) session = await loadSession(sid);
   const config = (ctx && ctx.config) || await readConfig();
   const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), config.defaultWorkspace);
   return { sid, session, config, cwd };
@@ -46619,21 +47264,45 @@ async function listWorkbenchMemories(args, ctx) {
   if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
   // 带 query 时 preference/convention 无词命中也会入榜(默认应遵守的稳定规则,列出来是对的),但它们【没有被这次检索
   // 选中】—— 只给真命中的条目记一次使用(useCount/lastUsedAt 喂记忆的新鲜度与淘汰判断,不该被不相干的查询刷高)。
-  let matched = null;
+  let matched = null, semantic, semanticMatches, semanticCheck;
   if (query) {
-    const ranked = rankRelevantMemoriesScored(registry, query).slice(0, limit);
-    registry = ranked.map(x => x.entry);
-    matched = ranked.filter(x => x.shared > 0).map(x => x.entry);
+    const generation=configReadGeneration,rewind=Number(session?.rewindGen)||0,anchor=session?.createdAt,owner=ctx?.executionOwner;
+    const policyGuard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+    const configRevision=value=>JSON.stringify(Object.fromEntries(Object.entries(value||{}).filter(([key])=>/memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
+    const currentConfig=await readConfig(),configVersion=configRevision(currentConfig);
+    const stale=()=>{throw Object.assign(Error('memory_semantic.stale'),{code:'memory_semantic.stale',memorySemanticGuardFailure:true});};
+    const sync=()=>{
+      if(ctx?.signal?.aborted||owner?.cancelRequested)throw Object.assign(Error('memory_semantic.aborted'),{name:'AbortError',code:'ABORT_ERR',memorySemanticGuardFailure:true});
+      policyGuard();if(!context.valid()||configReadGeneration!==generation||(Number(session?.rewindGen)||0)!==rewind||session?.createdAt!==anchor||sessionObjectIsStale(session))stale();
+    };
+    semanticCheck=async()=>{
+      sync();if(owner?.authority)await revalidateSessionExecutionPermission(session.id,owner);sync();
+      if(!await context.current())stale();sync();
+      if(configRevision(await readConfig())!==configVersion)stale();sync();
+      if(!await memoryToolLibraryCurrent(cwd,libraryVersion))stale();sync();
+      if(!await context.current())stale();sync();
+    };
+    try{
+      const recalled=typeof MemorySemanticHooks.search==='function'
+        ?await MemorySemanticHooks.search(registry,query,limit,{...config,semanticRetrievalV1:config.semanticRetrievalV1!==false&&currentConfig.semanticRetrievalV1!==false,
+          runtimeMemoryVectorRecallV1:memoryVectorRecallEnabled(config)&&memoryVectorRecallEnabled(currentConfig)},
+          {scopeId:'memory-explicit:'+String(session?.id||'')+':'+projectKeyForCwd(cwd),signal:ctx?.signal,check:semanticCheck})
+        :null;
+      if(recalled){registry=recalled.entries;matched=recalled.matched;semantic=recalled.semantic;semanticMatches=recalled.matches;}
+      else{const ranked=rankRelevantMemoriesScored(registry,query).slice(0,limit);registry=ranked.map(x=>x.entry);matched=ranked.filter(x=>x.shared>0).map(x=>x.entry);}
+      await semanticCheck();
+    }catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}
   } else registry = registry.slice(0, limit);
   if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion)) return { ok: false, error: 'memory context changed or unavailable' };
   if (matched && matched.length) await touchMemoryUsage(matched, cwd, 'relevant');
   if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current()
     || registry.some(e => memoryIsExpired(e))) return { ok: false, error: 'memory context changed or unavailable' };
-  return { ok: true, query, scope, count: registry.length, core: coreState.stats,
+  if(semanticCheck){try{await semanticCheck();}catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}}
+  return { ok: true, query, scope, count: registry.length, core: coreState.stats,...(semantic?{semantic}:{}),
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
       createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
       reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount,
-      ...memoryToolSupersededStatus(m, superseded, eligible) })) };
+      ...memoryToolSupersededStatus(m, superseded, eligible),...(semanticMatches?.has(memoryRetrievalKey(m))?{retrieval:semanticMatches.get(memoryRetrievalKey(m))}:{}) })) };
 }
 
 async function readWorkbenchMemory(args, ctx) {
@@ -46666,7 +47335,9 @@ function memorySelectionSignature(session, cwd) {
 }
 
 function memoryToolLibraryVersion(registry, edges = []) {
-  return JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e.memoryVersion || '', memoryIsExpired(e)]), edges]);
+  // mtime/size is a cache hint, not a content identity. Include the actual
+  // metadata so same-sized edits with a preserved mtime cannot pass this guard.
+  return crypto.createHash('sha256').update(JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e, memoryIsExpired(e)]), edges])).digest('hex');
 }
 
 async function memoryToolLibraryCurrent(cwd, version) {
@@ -46681,20 +47352,21 @@ async function resolveWorkbenchMemoryReadContext(ctx) {
   const initialReg = rawSid ? activeChildren.get(rawSid) : null;
   const context = await resolveWorkbenchMemoryToolContext(initialSession ? { ...ctx, session: initialSession } : ctx);
   const { sid, session, cwd } = context;
+  const rewind=Number(session?.rewindGen)||0,anchor=session?.createdAt;
   const signature = initialSignature || memorySelectionSignature(session, cwd);
   context.valid = () => (typeof ctx?.memoryReadOwner !== 'function' || ctx.memoryReadOwner() === true)
     && (!rawSid || sid === rawSid && !!session) && !ctx?.signal?.aborted
     && (!session || normalizeCwd(session.cwd, context.config.defaultWorkspace) === cwd)
     && (ctx?.memoryLiveRead !== true || !!initialReg || typeof ctx?.memoryReadOwner === 'function' && ctx.memoryReadOwner() === true)
     && (ctx?.turnSeq == null || Number(ctx.turnSeq) === Number(session?.turnSeq))
-    && memorySelectionSignature(session, cwd) === signature
-    && (!initialReg || activeChildren.get(sid) === initialReg && !initialReg.exited && initialReg.state === 'running')
+    && memorySelectionSignature(session, cwd) === signature && (Number(session?.rewindGen)||0)===rewind && session?.createdAt===anchor
+    && (!initialReg || activeChildren.get(sid) === initialReg && initialReg.session===session && !initialReg.exited && initialReg.state === 'running')
     && (!sid || !activeChildren.has(sid) || activeChildren.get(sid) === initialReg);
   context.current = async () => {
     if (!context.valid()) return false;
     if (sid && !initialReg) {
-      const fresh = await loadSession(sid).catch(() => null);
-      if (!fresh || memorySelectionSignature(fresh, cwd) !== signature) return false;
+      const fresh = await loadSession(sid);
+      if (!fresh || memorySelectionSignature(fresh, cwd) !== signature || (Number(fresh.rewindGen)||0)!==rewind || fresh.createdAt!==anchor) return false;
     }
     return context.valid();
   };
@@ -47669,6 +48341,28 @@ function buildMemoryPromptSection(entries, engine, config, conflicts, opts) {
   return [coreSection, relatedSection].filter(Boolean).join('\n');
 }
 
+// Until automatic semantic admission is calibrated, a reranker cannot decide
+// which entries survive the existing character cap. Admit reranking only when
+// every selected header fits even with maximum legal relation tags, in either
+// provider-by-id or native-path rendering. The original renderer is the oracle.
+function memorySemanticBudgetSafe(entries, config) {
+  const peers = new Set(['a', 'b', 'c', 'd'].map(letter => letter.repeat(64)));
+  const marks = new Map(entries.map(entry => [entry.id, peers]));
+  marks.supersededBy = new Map(entries.map(entry => [memoryRetrievalKey(entry), peers]));
+  const pack = getPromptPack(config && config.locale), cap = memoryIndexCharCap(config);
+  for (const engine of ['claude', 'openai']) {
+    let readTool;
+    if (engine === 'claude' && config?.workDataEncryptionV1 === true) {
+      if (typeof MemoryCliHooks.readerTool !== 'function') return false;
+      readTool = MemoryCliHooks.readerTool(config);
+      if (typeof readTool !== 'string' || !readTool) return false;
+    }
+    const rendered = buildMemoryPromptSection(entries, engine, { ...config, memoryIndexCharCapV1: 100000 }, marks, { part: 'related', readTool });
+    if (rendered.length > cap || rendered.includes(pack.memoryTruncated)) return false;
+  }
+  return true;
+}
+
 // 每回合随 query 变化的那一半:检索回执 + 相关记忆索引(不含核心胶囊)。provider 引擎投到末条 user 尾部、Claude/Kimi 拼进回合信封,
 // 稳定的核心胶囊与指南留在缓存前缀 / 去重载荷里(#9/#10:修前这一半跟着前缀走,召回一变整段前缀缓存/去重载荷全断)。
 function buildMemoryTurnSection(entries, engine, config, conflicts, status) {
@@ -48255,6 +48949,11 @@ function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
 function memoryRetrievalText(entry) {
   return [entry.id, entry.name, entry.description, entry.coreSummary, entry.type].filter(Boolean).join(' ');
 }
+function memoryExplicitRetrievalText(entry) {
+  const cached=MEMORY_HEAD_CACHE.get(entry?.file);
+  return cached&&cached.key===entry.memoryVersion&&cached.entry.id===entry.id&&cached.entry.scope===entry.scope
+    ?cached.semanticHeaderText:null;
+}
 function memoryRetrievalKey(entry) {
   return `${entry.scope}:${entry.id}`;
 }
@@ -48448,15 +49147,79 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   // hunt2-mcp:相关记忆在【去掉已激活核心之后】的候选里排 Top-N。修前先在含核心的全集里取 Top-N、再滤核心,
   // 核心条目恰好最相关时名额全被它们占掉,related 变成空,而明明还有匹配的非核心记忆。
   const nonCore = eligible.filter(e => !coreKeys.has(e.scope + ':' + e.id));
-  let entries, fillKeys = new Set();
+  let entries, fillKeys = new Set(), semanticStatus, revalidateMemorySemantic;
+  const staleResult = () => ({ entries: [], coreEntries: [], status: { mode: 'stale', enabled: true, checked: false, candidateCount: 0, matchCount: 0,
+    projectMatches: 0, globalMatches: 0, excludedCount: exclusions.size, coreActiveCount: 0,
+    semantic: { status: 'stale', mode: 'rerank-only', automaticCandidates: false } } });
   if (explicit) entries = nonCore; // 固定选择不走排序，向量开关对它本来就不适用
   else {
-    const recalled = rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
-    entries = recalled.entries; fillKeys = recalled.fillKeys;
+    const signature = memorySelectionSignature(session, cwd), rewind = Number(session?.rewindGen) || 0;
+    const generation = configReadGeneration, owner = session?.id ? activeChildren.get(session.id) : null;
+    let policyGuard;
+    const stale = () => { throw Object.assign(Error('memory_semantic.stale'), { code: 'memory_semantic.stale' }); };
+    const assertCurrent = () => {
+      if (options.signal?.aborted || options.executionOwner?.cancelRequested) throw Object.assign(Error('memory_semantic.aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+      if (!policyGuard) policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : () => {};
+      policyGuard();
+      if (typeof options.executionOwnerCurrent === 'function' && options.executionOwnerCurrent() !== true) stale();
+      if (sessionObjectIsStale(session) || memorySelectionSignature(session, cwd) !== signature
+        || (Number(session?.rewindGen) || 0) !== rewind || configReadGeneration !== generation
+        || session?.id && activeChildren.get(session.id) !== owner || owner && (owner.cancelRequested || owner.exited || owner.session && owner.session !== session)) stale();
+    };
+    const revision = rows => JSON.stringify(rows.map(entry => [memoryRetrievalKey(entry), entry, memoryIsExpired(entry)]));
+    const coreRevision = active => JSON.stringify(active.map(entry => [memoryRetrievalKey(entry), memoryCoreLine(entry)]).sort((a, b) => a[0].localeCompare(b[0])));
+    const initialCore = coreRevision(coreEntries);
+    const initialRevision = revision(registry), initialEligible = revision(eligible);
+    let edgeVersion, configVersion;
+    const configRevision = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).filter(([key]) => /memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
+    const check = async phase => {
+      try {
+      const authority = async () => { assertCurrent(); if (typeof options.executionOwnerRevalidate === 'function') await options.executionOwnerRevalidate(); assertCurrent(); };
+      await authority();
+      const currentConfig = await readConfig(); await authority();
+      if (phase === 'start') configVersion = configRevision(currentConfig);
+      else if (configVersion !== configRevision(currentConfig)) stale();
+      const current = await loadMemoryRegistry(cwd); await authority();
+      const currentEligible = eligibleMemoryEntries(session, current, cwd, effectiveConfig);
+      if (nativeCli) { const kept = filterMemoryForNativeCli(currentEligible, nativeCli); currentEligible.length = 0; currentEligible.push(...kept); }
+      if (revision(current) !== initialRevision || revision(currentEligible) !== initialEligible) stale();
+      const currentCore = await resolveCoreMemoryState(cwd, currentEligible, effectiveConfig); await authority();
+      if (coreRevision(currentCore.active) !== initialCore) stale();
+      const edges = JSON.stringify(await readConfirmedSupersedeEdges(cwd)); await authority();
+      if (phase === 'start') { edgeVersion = edges; revalidateMemorySemantic = () => check('finish'); }
+      else if (edgeVersion !== edges) stale();
+      } catch (error) {
+        if (error && (typeof error === 'object' || typeof error === 'function')) {
+          let marked = false;
+          try { Object.defineProperty(error, 'memorySemanticGuardFailure', { value: true, configurable: true }); marked = true; } catch { /* Frozen failures need the explicit wrapper below. */ }
+          if (marked) throw error;
+        }
+        throw Object.assign(Error('memory_semantic.guard_failed', { cause: error }), { code: 'memory_semantic.guard_failed', memorySemanticGuardFailure: true });
+      }
+    };
+    let recalled;
+    try {
+      recalled = typeof MemorySemanticHooks.rank === 'function'
+        ? await MemorySemanticHooks.rank(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig,
+          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check })
+        : rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
+    } catch (error) {
+      if (error?.code !== 'memory_semantic.stale') throw error;
+      return staleResult();
+    }
+    semanticStatus = recalled.semantic;
+    // Relation suppression uses the previous baseline order. In particular a
+    // supersedes cycle must not select a different survivor due to reranking.
+    entries = recalled.baselineEntries || recalled.entries; fillKeys = recalled.fillKeys;
+    let supersededKeys = new Set();
     // #16 supersedes 的运行时效果:被 confirmed supersedes 指向的条目 —— 取代者已在本轮注入(核心或相关)就不再重复注入旧版本;
     // 取代者没进本轮则旧版本排到末尾(降权)并在索引行上标「[已被 X 取代]」。固定选择(explicit)是用户的明确选择,只标注、不增删。
     if (entries.length) {
-      const supersededBy = memoryValidSupersededBy(await readConfirmedSupersedeEdges(cwd).catch(() => []), byKey);
+      const supersededBy = memoryValidSupersededBy(await readConfirmedSupersedeEdges(cwd).catch(error => {
+        if (memoryBodyIsWorkDataError(error) || String(error?.code || '').startsWith('privacy.') || error?.memorySemanticGuardFailure === true) throw error;
+        return [];
+      }), byKey);
+      supersededKeys = new Set(supersededBy.keys());
       if (supersededBy.size) {
         const present = new Set([...coreEntries, ...entries].map(memoryRetrievalKey));
         const kept = [], demoted = [];
@@ -48470,11 +49233,20 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
         entries = kept.concat(demoted);
       }
     }
+    if (recalled.baselineEntries) {
+      const admitted = new Set(recalled.rankingKeys), order = new Map(recalled.entries.map((entry, index) => [memoryRetrievalKey(entry), index]));
+      const positions = []; entries.forEach((entry, index) => { const key = memoryRetrievalKey(entry); if (admitted.has(key) && !supersededKeys.has(key)) positions.push(index); });
+      const ranked = positions.map(index => entries[index]).sort((a, b) => order.get(memoryRetrievalKey(a)) - order.get(memoryRetrievalKey(b)));
+      entries = entries.slice(); positions.forEach((position, index) => { entries[position] = ranked[index]; });
+    }
   }
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
-  ]).catch(() => {});
+  ]).catch(error => { if (memoryBodyIsWorkDataError(error) || String(error?.code || '').startsWith('privacy.') || error?.memorySemanticGuardFailure === true) throw error; });
+  if (revalidateMemorySemantic) {
+    try { await revalidateMemorySemantic(); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleResult(); }
+  }
   return {
     entries, coreEntries,
     status: {
@@ -48487,6 +49259,7 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
       globalMatches: entries.filter(e => e.scope === 'global' && !fillKeys.has(memoryRetrievalKey(e))).length,
       excludedCount: exclusions.size,
       coreActiveCount: coreEntries.length,
+      ...(semanticStatus ? { semantic: semanticStatus } : {}),
     },
   };
 }
@@ -48497,6 +49270,118 @@ async function resolveEnabledMemoryEntries(session, cwd, onSourceMismatch, query
   return [...(result.coreEntries || []), ...(result.entries || [])];
 }
 
+
+// Semantic memory headers: automatic recall only reranks existing candidates;
+// explicit list(query) may discover additional eligible headers after admission.
+const MemorySemanticRecall = (() => {
+  function create(host) {
+    async function rank(registry, query, limit, config, context = {}) {
+      const baseline = host.fallback(registry, query, limit, config);
+      await context.check?.('start');
+      const state = async status => { await context.check?.('finish'); return { ...baseline, semantic: { status, mode: 'rerank-only', automaticCandidates: false } }; };
+      if (config?.semanticRetrievalV1 === false || !host.enabled(config)) return state('disabled');
+      const lexical = new Set(host.lexical(registry, query).filter(row => row.shared > 0).map(row => host.key(row.entry)));
+      const positions = [];
+      baseline.entries.forEach((entry, index) => { const key = host.key(entry); if (lexical.has(key) && !baseline.fillKeys.has(key)) positions.push(index); });
+      if (positions.length < 2) return state('not-needed');
+      if (positions.length > 16) return state('budget');
+      if (host.budgetSafe && !host.budgetSafe(baseline.entries, config)) return state('budget');
+      const selected = positions.map(index => baseline.entries[index]);
+      // Headers only. This bounded prefix is a reranking hint, never a claim that
+      // the memory body or the full metadata has been indexed or read.
+      const texts = selected.map(entry => host.text(entry).slice(0, 96));
+      const result = await host.score(query, texts, {
+        scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+        identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
+      });
+      if (!['ready', 'partial', 'disabled', 'unavailable', 'loading', 'timeout', 'overloaded', 'truncated'].includes(result?.status)) throw Error('memory_semantic.score_failed');
+      if (result.status !== 'ready' || result.scores?.length !== selected.length || !result.scores.every(Number.isFinite)) return state(result.status);
+      await context.check?.('finish');
+      const ordered = selected.map((entry, index) => ({ entry, score: result.scores[index], index })).sort((a, b) => b.score - a.score || a.index - b.index);
+      const entries = baseline.entries.slice();
+      positions.forEach((position, index) => { entries[position] = ordered[index].entry; });
+      return { entries, baselineEntries: baseline.entries, rankingKeys: selected.map(entry => host.key(entry)), fillKeys: baseline.fillKeys,
+        semantic: { status: 'reranked', mode: 'rerank-only', automaticCandidates: false, modelFingerprint: result.modelFingerprint, candidateCount: selected.length } };
+    }
+    async function search(registry, query, limit, config, context = {}) {
+      const lexical=host.lexical(registry,query),baseline=lexical.slice(0,limit);
+      const result=(rows,status,extra={})=>({entries:rows.map(row=>row.entry),matched:rows.filter(row=>row.shared>0||row.semanticOnly).map(row=>row.entry),
+        matches:new Map(rows.map(row=>[host.key(row.entry),{kind:row.semanticOnly?'semantic':row.shared>0?'lexical':'rule-fill',...(row.shared>0?{lexicalScore:row.score}:{}),...(Number.isFinite(row.semanticScore)?{semanticScore:row.semanticScore}:{})}])),
+        semantic:{status,mode:'explicit-header-search',automaticCandidates:false,...extra}});
+      const fallback=async status=>{await context.check?.('finish');return result(baseline,status);};
+      await context.check?.('start');
+      if(config?.semanticRetrievalV1===false||!host.enabled(config))return fallback('disabled');
+      if(!query||query.length>256||!registry.length)return fallback('not-needed');
+      // Full selected metadata is split before encoding; neither memory bodies
+      // nor text-bearing identities enter this path. Coverage is explicit.
+      const fragments=[],selected=registry.slice(0,64);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
+      for(const entry of selected){
+        const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096){omittedHeaders++;continue;}
+        let complete=true;
+        for(let start=0;start<text.length;){
+          let end=Math.min(text.length,start+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;
+          if(fragments.length>=128||fragmentChars+end-start>16384){complete=false;break;}
+          fragments.push({entry,start,end,text:text.slice(start,end)});fragmentChars+=end-start;
+          if(end===text.length)break;start=end-16;if(text.charCodeAt(start)>=0xdc00&&text.charCodeAt(start)<=0xdfff)start--;
+        }
+        if(!complete)omittedHeaders++;
+      }
+      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-64-eligible-headers',headerLimit:64,fragmentLimit:128,
+        candidateHeaders:registry.length,selectedHeaders:selected.length,fragments:fragments.length,omittedHeaders,headerComplete:omittedHeaders===0,
+        encodedFragments:0,admissionEvaluated:false,complete:false};
+      if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
+      if(typeof SemanticAdmissionRequest!=='undefined'&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null){
+        const deadline=Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
+        try{
+          for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
+          const input=request.inputs(),scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish')});await context.check?.('finish');
+          const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
+          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish'),verifyField:async snapshot=>{await context.check?.('finish');const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
+          const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];
+          for(let n=0;n<d.semanticAccepted.length;n++){if(d.semanticAccepted[n]!==true)continue;const field=request.fieldAt(n),entry=selected.find(item=>fields.get(host.key(item))===field);if(!entry||lexicalKeys.has(host.key(entry)))continue;added.push({entry,shared:0,semanticOnly:true,semanticScore:scored.scores[n]});}
+          added.sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
+          await context.check?.('finish');request.read();return result(rows,decision.complete?'ready':'partial',{modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,semanticOnlyMatches:rows.filter(row=>row.semanticOnly).length,coverage:{...coverage,encodedFragments:scored.coverage?.cached||0,admissionEvaluated:true,complete:decision.complete}});
+        }finally{request.dispose();}
+      }
+      const scored=await host.score(query,fragments.map(row=>row.text),{scopeId:context.scopeId,signal:context.signal,deadlineMs:1000,maxEncodeDocuments:128,purpose:'search',
+        identities:fragments.map(row=>[host.key(row.entry),row.entry.memoryVersion||'',row.start,row.end]),beforeEncode:()=>context.check?.('finish')});
+      await context.check?.('finish');
+      if(!['ready','partial','disabled','unavailable','loading','timeout','overloaded','truncated'].includes(scored?.status))throw Error('memory_semantic.score_failed');
+      const admissionEvaluated=!!scored.admission&&Array.isArray(scored.admission.accepted)&&scored.admission.accepted.length===fragments.length;
+      const finalCoverage={...coverage,encodedFragments:scored.coverage?.cached??0,admissionEvaluated,
+        complete:coverage.headerComplete&&scored.coverage?.complete===true&&admissionEvaluated&&['ready','partial'].includes(scored.status)};
+      if(!['ready','partial'].includes(scored.status))return result(baseline,scored.status,{coverage:finalCoverage});
+      if(!admissionEvaluated)return result(baseline,'admission-unavailable',{coverage:finalCoverage});
+      const accepted=new Map();
+      fragments.forEach((row,index)=>{const score=scored.scores?.[index];if(scored.admission.accepted[index]!==true||!Number.isFinite(score))return;const key=host.key(row.entry),prior=accepted.get(key);if(!prior||score>prior.semanticScore)accepted.set(key,{entry:row.entry,shared:0,semanticOnly:true,semanticScore:score});});
+      const lexicalKeys=new Set(lexical.filter(row=>row.shared>0).map(row=>host.key(row.entry)));
+      const added=[...accepted.values()].filter(row=>!lexicalKeys.has(host.key(row.entry))).sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));
+      const additions=new Set(added.map(row=>host.key(row.entry)));
+      const rows=[...lexical.filter(row=>row.shared>0),...added,...lexical.filter(row=>!row.shared&&!additions.has(host.key(row.entry)))].slice(0,limit);
+      return result(rows,scored.status,{modelFingerprint:scored.modelFingerprint,admissionPolicy:scored.admission.policyId,semanticOnlyMatches:rows.filter(row=>row.semanticOnly).length,
+        coverage:finalCoverage});
+    }
+    return Object.freeze({ rank, search });
+  }
+  return Object.freeze({ create });
+})();
+
+let memorySemanticRetrieval = null;
+const memorySemanticRecall = MemorySemanticRecall.create({
+  fallback: (registry, query, limit, config) => rankMemoriesForRecallDetailed(registry, query, limit, config),
+  lexical: (registry, query) => rankRelevantMemoriesScored(registry, query),
+  enabled: config => memoryVectorRecallEnabled(config),
+  budgetSafe: (entries, config) => memorySemanticBudgetSafe(entries, config),
+  key: entry => memoryRetrievalKey(entry), text: entry => memoryRetrievalText(entry),
+  searchText: entry => memoryExplicitRetrievalText(entry),
+  descriptor:()=>SemanticRuntimeHooks.descriptor(),
+  score: (query, texts, options) => {
+    if (!memorySemanticRetrieval) memorySemanticRetrieval = SemanticRetrieval.create(SemanticRuntimeHooks);
+    return memorySemanticRetrieval.score(query, texts, options);
+  },
+});
+Object.assign(MemorySemanticHooks, { rank: (...args) => memorySemanticRecall.rank(...args), search: (...args) => memorySemanticRecall.search(...args), clear: () => memorySemanticRetrieval?.clear() });
+if(typeof SemanticPolicyConsumers!=='undefined')SemanticPolicyConsumers.add('memory');
 
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
 // 让模型每回合都知道「整体目标是什么、还差哪几步」。fits-or-drop 语义(≤1200,超则整段丢,防截断毁闭合围栏);
@@ -57263,8 +58148,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(error => {
-        if (String(error?.code || '').startsWith('work_data')) throw error;
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '', signal: localCtrl?.signal }).catch(error => {
+        if (memoryPreflightMustPropagate(error)) throw error;
         return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 } };
       });
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
@@ -58321,7 +59206,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
       (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
       config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-    ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+      { signal: ctrl?.signal || executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) },
+    ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -58514,8 +59400,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // buildBody 内追加,不进 budgetPrompt。注入形态与去重守门是纯函数(10-context-governance),
   // 本闭包只管开关/跳过原因/遥测。
   let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
-  const appendSessionNotesPrompt = (msgs, history) => {
-    if (!sessionNotesInjectEnabled(config)) return;
+  const prepareSessionNotesPrompt = async history => {
+    if (!sessionNotesInjectEnabled(config)) return '';
     const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config, history);
     // Merged notes contribute only details missing from the current summary.
     let skipped = '';
@@ -58524,21 +59410,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       sessionNotesTeleDone = true;
       try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
     }
-    if (skipped) return;
-    appendPromptToLastUserMessage(msgs, notesPrompt);
+    if (skipped) return '';
+    return sealObservationRuntimeText(session.id, notesPrompt, observationReferenceCache);
   };
   const useVolatileTail = volatileTailLayoutEnabled(config) || wire.preferVolatileTail(model);
+  const observationReferenceCache = new Map();
   const buildBody = withTools => buildBodyWithLayout(withTools, undefined);
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
   // 正常调用恒传 undefined(走开关或协议缓存布局)。Claude 的 Anthropic 请求默认使用尾部；开关开时其它模型也从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
-  const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
-    if (useCachePromptLayers && JSON.stringify(effectiveSkillSelection(session, cacheSkillConfig)) !== cacheSkillSelection) {
-      currentSkillEntries = []; // Revocation after the async capture may only shrink the budgeted body.
-      renderPromptLayers();
-    }
-    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
-      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
+  const buildBodyWithLayout = async (withTools, layoutOverride, includePreparedMedia = false) => {
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : useVolatileTail;
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -58546,7 +59427,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
     const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, session.providerHistory) : session.providerHistory;
-    const viewHistory = actionAuditMap.size ? projectActionModelView(privacyHistory, actionAuditMap).history : privacyHistory;
+    // Historical reducer/index markers may predate opaque references. Convert
+    // only the outbound copy, after privacy projection and before protocol encoding.
+    const referenceHistory = await sealObservationHistoryReferences(session.id, privacyHistory, observationReferenceCache);
+    const viewHistory = actionAuditMap.size ? projectActionModelView(referenceHistory, actionAuditMap).history : referenceHistory;
+    const notesView = await prepareSessionNotesPrompt(viewHistory);
+    const scratchpadView = scratchpadPrompt ? await sealObservationRuntimeText(session.id, scratchpadPrompt, observationReferenceCache) : '';
+    // Complete reference crypto before the final synchronous selection guards.
+    // A revoked skill or memory selection must not survive an intervening await.
+    if (useCachePromptLayers && JSON.stringify(effectiveSkillSelection(session, cacheSkillConfig)) !== cacheSkillSelection) {
+      currentSkillEntries = [];
+      renderPromptLayers();
+    }
+    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
+      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     // 请求体(58 号批 1):消息视图(volatile 布局、recall、session notes)只构建一份,协议差异只剩登记表的
     // encodeMessages / applyTools —— chat 发 messages(+stream_options),Responses 发 instructions + input 项
     // (v1.8:服务端工具项 serverToolItems 接在翻译后的历史之后,DeepSeek 在服务端恢复搜索结果)。
@@ -58574,8 +59468,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     if (memoryTurnTail) appendPromptToLastUserMessage(msgs, memoryTurnTail); // #9: 每回合变化的记忆回执 + 相关索引,贴末条 user,非持久
     appendRecallPrompt(msgs, viewHistory);
-    appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
+    if (notesView) appendPromptToLastUserMessage(msgs, notesView); // 105d-A: 贴最后一条 user,非持久
+    if (scratchpadView) appendPromptToLastUserMessage(msgs, scratchpadView); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
@@ -59237,7 +60131,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
       await refreshMemoryPromptScope();
-      const call = await preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: buildRequestBody(),
+      const call = await preparedToolMedia.send(async assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: await buildRequestBody(),
         ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
       () => hasInterruptingSteer(reg), () => drainSteerQueue(reg, session, onEvent));
       // Decide if this outcome is a failover trigger (pre-first-byte only).
@@ -59327,7 +60221,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
+      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal, {executionOwner,saveOptions:turnSaveOpts})) {
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
@@ -59386,7 +60280,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       });
       const econThisIter = econSampledIter(iter);
       activeModelCallId = econThisIter ? makeId('mc') : '';
-      const econBody = econThisIter ? buildBody(useTools) : null;
+      const econBody = econThisIter ? await buildBody(useTools) : null;
       econTotals.modelCallAttempts += 1; // 不抽样:到达发出点的每次真实调用(重试/压缩后重试各自计一次)
       if (econThisIter) {
         econBatchToolMs = [];
@@ -59401,7 +60295,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         try {
           const sentLayout = useVolatileTail ? 'tail' : 'first';
           const altLayout = sentLayout === 'tail' ? 'first' : 'tail';
-          const altJson = JSON.stringify(buildBodyWithLayout(useTools, altLayout));
+          const altJson = JSON.stringify(await buildBodyWithLayout(useTools, altLayout));
           let prev = layoutShadowPrevBySessionMap.get(session.id);
           if (!prev) {
             prev = { first: '', tail: '' };
@@ -59493,9 +60387,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (!mediaEndpoint && !contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
-          const forced = await runForcedOverflowCompaction({
+          let precompactGuard=null;const forced = await runForcedOverflowCompaction({
             history: session.providerHistory, privacyHistoryOwner: session, scope: 'main', provider, model, config,
-            snapshot: () => writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => ''),
+            snapshot: async()=>{const history=session.providerHistory;precompactGuard=await observationCommitBeforeCompact(session,history,config,executionOwner,ctrl&&ctrl.signal,turnSaveOpts);const prefix=await writeHistorySnapshot(session.id,session.turnSeq,history,config.runtimeObservationReducerV1===true);if(precompactGuard)await precompactGuard();return prefix;},precompactGuard:()=>precompactGuard,
             onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,
@@ -61923,6 +62817,232 @@ async function writeHistorySnapshot(sessionId, turnSeq, history, stableRef = fal
   } catch { return ''; /* safety net, never fatal */ }
 }
 
+// Only a trusted main-session compaction may publish a persistent owner proof.
+// Unregistered legacy/child snapshots are never inferred from their names.
+const observationSnapshotOwners = new WeakMap();
+async function rememberObservationSnapshot(session, history, prefix, authorityGuard=null) {
+  if (!session || session.providerHistory !== history || !/^history:\d+:[a-f0-9]{16}$/.test(String(prefix || '')) || sessionObjectIsStale(session)) return;
+  try {
+    const source=createSessionFullTextSource(),selected=await source.inspect(session.id),generation=Number(session.rewindGen)||0;
+    if(!selected||typeof selected.head.createdAt!=='string'||!selected.head.createdAt||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation||Number(prefix.split(':')[1])>(Number(selected.head.turnSeq)||0))return;
+    const anchor=crypto.createHash('sha256').update(JSON.stringify([session.id,selected.head.createdAt])).digest('hex');
+    const guard=async()=>{if(authorityGuard)await authorityGuard();if(sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||session.providerHistory!==history||await source.epoch(session.id)!==selected.epoch||source.sequence(session.id)!==selected.sequence)throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});if(authorityGuard)await authorityGuard();};
+    const config=await readConfig(),digest=crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex');await guard();
+    const committed=config.workDataEncryptionV1===true&&await journalObservationSnapshotCommitted(session.id,selected.head,digest);await guard();
+    if(committed){const commitGuard=async()=>{await guard();if(!await journalObservationSnapshotCommitted(session.id,selected.head,digest))throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});await guard();};await journalRegisterObservationOwner(session.id,anchor,generation,prefix,commitGuard);}
+    else{
+      const parts=prefix.split(':'),verified=await journalReadHistory(session.id,`history-${parts[1]}-${parts[2]}.json.gz`,null,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024}),actual=crypto.createHash('sha256').update(JSON.stringify(verified)).digest('hex');
+      if(actual!==digest||!digest.startsWith(parts[2]))throw Error('observation_recall.owner_mismatch');await guard();
+      const prior=observationSnapshotOwners.get(session),items=prior&&prior.anchor===anchor&&prior.rewindGen===generation?prior.items.filter(row=>row.prefix!==prefix):[];
+      items.push({prefix,digest});if(items.length>16)items.shift();observationSnapshotOwners.set(session,{anchor,rewindGen:generation,items});
+    }
+  } catch(error) { if(error?.observationPrecompactGuardFailure)throw error;if(authorityGuard&&!['ENOSPC','EIO','EMFILE','ENFILE','EBUSY'].includes(error?.code))throw Object.assign(Error('observation_recall.precompact_owner',{cause:error}),{code:error?.code||'observation_recall.precompact_owner',observationPrecompactGuardFailure:true});try { logEvent({kind:'observation_owner_registration_failed',sessionId:session.id,error:String(error?.code||'registration_failed')}); } catch {} }
+}
+
+// A saved pre-compaction history is an independent committed fact, not proof
+// that the enclosing turn completed. The later owner still authenticates the
+// exact saved body and snapshot, and every read applies current authority.
+async function observationCommitBeforeCompact(session,history,config,executionOwner,signal,saveOptions={}) {
+  if(!executionOwner||!session||session.providerHistory!==history||config.workDataEncryptionV1!==true||!observationRecallEnabled(config))return null;
+  const id=session.id,anchor=session.createdAt,generation=Number(session.rewindGen)||0,turn=session.turnSeq,configGeneration=configReadGeneration;
+  const serialized=JSON.stringify(history);if(Buffer.byteLength(serialized)>16*1024*1024)return null;const digest=crypto.createHash('sha256').update(serialized).digest('hex');
+  const guardedError=cause=>Object.assign(Error('observation_recall.precompact_authority',{cause}),{code:cause?.code||'observation_recall.precompact_authority',observationPrecompactGuardFailure:true});
+  const guard=async()=>{try{if(signal?.aborted||executionOwner.cancelRequested||sessionObjectIsStale(session)||session.id!==id||session.createdAt!==anchor||(Number(session.rewindGen)||0)!==generation||session.turnSeq!==turn||session.providerHistory!==history||configReadGeneration!==configGeneration||crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==digest)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});assertSessionExecutionOwner(id,executionOwner);await revalidateSessionExecutionPermission(id,executionOwner);assertSessionExecutionOwner(id,executionOwner);if(signal?.aborted||executionOwner.cancelRequested||sessionObjectIsStale(session)||session.id!==id||session.createdAt!==anchor||session.providerHistory!==history||(Number(session.rewindGen)||0)!==generation||session.turnSeq!==turn||configReadGeneration!==configGeneration||crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==digest)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});}catch(error){throw guardedError(error);}};
+  try{await guard();const source=createSessionFullTextSource(),before=await source.inspect(id);await guard();if(!before||before.head.createdAt!==anchor||(Number(before.head.rewindGen)||0)!==generation)return null;
+  if(!await journalObservationSnapshotCommitted(id,before.head,digest)){
+    const sequence=sessionDiskWriteSeqOf(id);await guard();
+    try{await saveSession(session,{...saveOptions,executionOwner,throwIfTurnSuperseded:true,throwIfStale:true,ifUnwrittenSince:sequence,writer:'observation-before-compact'});}
+    catch(error){if(['ENOSPC','EIO','EMFILE','ENFILE','EBUSY'].includes(error?.code)){try{logEvent({kind:'observation_precompact_save_unavailable',sessionId:id,error:error.code});}catch{}return null;}throw guardedError(error);}
+  }
+  await guard();const after=await source.inspect(id);await guard();if(!after||after.head.createdAt!==anchor||(Number(after.head.rewindGen)||0)!==generation||!await journalObservationSnapshotCommitted(id,after.head,digest))return null;await guard();return guard;}catch(error){if(error?.observationPrecompactGuardFailure)throw error;throw guardedError(error);}
+}
+
+let observationSemanticRetrieval=null;
+async function observationWindowAdmission(query,fragments,{scopeId,signal,deadline,poolComplete,check,fieldText,identity,coordinates,order,identities,geometry='raw-original-v1'}) {
+  const request=SemanticOriginalWindows.createRequest({query,scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}),policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms}),fields=new Map(),rows=[],sources=[],keys=[],lexical=[],phrase=query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+  const codecEpoch=typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof.lifecycle():null,assertCurrent=()=>{if(codecEpoch&&SemanticRuntimeTransportProof.lifecycle()!==codecEpoch)throw Error('observation_recall.semantic_changed');};
+  const guard=async()=>{if(signal?.aborted)throw signal.reason===undefined?Error('observation_recall.aborted'):signal.reason;await check();if(signal?.aborted)throw signal.reason===undefined?Error('observation_recall.aborted'):signal.reason;assertCurrent();};
+  await guard();
+  for(let n=0;n<fragments.length;n++){const fragment=fragments[n],full=fieldText(fragment),id=identity(fragment),key=JSON.stringify(id);let field=fields.get(key);if(!field){const token=request.captureField(id,full,geometry);field={token,key:request.weakKey(token),text:full};fields.set(key,field);}else if(field.text!==full)throw Error('observation_recall.source_changed');const [start,end]=coordinates(fragment),source=request.rawWindow(field.token,start,end);if(source.text!==fragment.text)throw Error('observation_recall.source_changed');rows.push(request.row(source,order(fragment),identities[n]));sources.push({source,field});keys.push(field.key);const text=fragment.text.normalize('NFKC').toLowerCase(),matches=terms.filter(term=>text.includes(term)).length;if(text.includes(phrase)||matches>=Math.max(1,Math.ceil(terms.length/2)))lexical.push({key:field.key,index:n});}
+  const scored=await observationSemanticRetrieval.score(query,fragments.map(row=>row.text),{scopeId,signal,deadline,identities,maxEncodeDocuments:128,beforeEncode:guard,policyContext:request});await guard();const issued=SemanticRetrieval.hasScoreEvidence(scored);if(!issued&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
+  const decision=await policy.evaluate({query,scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows,lexical,scoreEntries:rows.map((_,index)=>issued?{result:scored,index}:null),poolComplete,context:request.context,windowContext:request,signal,deadline,beforeVerify:guard,resolve:async(index,whole)=>{await guard();const item=sources[index];const current=identity(fragments[index]);if(fieldText(fragments[index])!==item.field.text||['sourceId','field','revision','epoch','sourceRevision'].some(k=>current[k]!==item.source.identity[k]))throw Error('observation_recall.source_changed');return whole?request.wholeSource(item.field.token):item.source;}});
+  try{const d=policy.decisions(decision,request.context);return {scored:{...scored,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted:d.semanticAccepted},coverage:{...scored.coverage,complete:decision.complete}},complete:decision.complete,assertCurrent,keys,weak:d.weakAccepted,windows:d.weakWindowIndices};}finally{policy.dispose(decision,request.context);}
+}
+const observationResultChecks=new WeakMap(),observationResultFinal=new WeakMap(),observationResultMark=new WeakMap(),observationCandidateKey=new WeakMap();
+function observationMainReadAllowed(ctx) {
+  if(ctx?.mainTurn===true)return true;
+  if(typeof InternalMcpHooks!=='undefined'&&InternalMcpHooks.isContext(ctx))return InternalMcpHooks.assertObservationRead(ctx)===true;
+  return false;
+}
+function observationProjectedSpans(text) {return [...text.matchAll(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g)].map(match=>[match.index,match.index+match[0].length]);}
+function observationProjectedRange(text,start,end,spans=observationProjectedSpans(text)) {
+  let low=0,high=spans.length;while(low<high){const mid=(low+high)>>>1;if(spans[mid][1]<=start)low=mid+1;else high=mid;}
+  for(let index=low;index<spans.length;index++){const [left,right]=spans[index];if(left>=end&&left>=start)break;
+    if(start>left&&start<right)start=left;
+    if(end>left&&end<right)end=left>start?left:right;
+  }
+  return {start,end};
+}
+async function searchObservationSnapshots(session, query, ctx, maxChars) {
+  if(ctx.signal?.aborted||sessionObjectIsStale(session))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+  let semanticFeatureEnabled=true;
+  const generation=Number(session.rewindGen)||0,id=session.id;
+  const coverage={source:'tool-snapshots',persistence:'journal-owner',complete:false,reason:'registered-main-session-snapshots-only'};
+  const guard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+  const source=createSessionFullTextSource(),selected=await source.inspect(id),sequence=sessionFullTextSequence(id),epoch=selected?.epoch,turn=providerTurnQuotaKey(session),configGeneration=configReadGeneration;
+  if(!epoch||typeof selected.head.createdAt!=='string'||!selected.head.createdAt||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation)throw Object.assign(Error('observation_recall.source_unavailable'),{code:'observation_recall.source_unavailable'});
+  const createdAt=selected.head.createdAt,anchor=crypto.createHash('sha256').update(JSON.stringify([id,createdAt])).digest('hex'),owner=await journalReadObservationOwners(id),local=observationSnapshotOwners.get(session);
+  const owned=owner&&owner.anchor===anchor&&owner.rewindGen===generation?owner.items:[],temporary=local&&local.anchor===anchor&&local.rewindGen===generation?local.items:[];
+  if(!owned.length&&!temporary.length)return {mode:'search',candidates:[],coverage:{...coverage,reason:'no-owned-snapshots'},semantic:{status:'unavailable'}};
+  if(temporary.length)coverage.persistence=owned.length?'mixed':'process-local';
+  const unique=new Map([...owned,...temporary].map(row=>[row.prefix,row])),ownerHash=crypto.createHash('sha256').update(JSON.stringify(owner)).digest('hex'),refs=[...unique.values()].filter(row=>Number(row.prefix.split(':')[1])<=Math.min(Number(session.turnSeq)||0,Number(selected.head.turnSeq)||0)).slice(-8).reverse();
+  const check=async()=>{
+    if(ctx.session!==session||session.id!==id||session.createdAt!==createdAt||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||!observationMainReadAllowed(ctx)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||sessionFullTextSequence(id)!==sequence||observationSnapshotOwners.get(session)!==local||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+    guard();const config=await readConfig();guard();semanticFeatureEnabled=config.semanticRetrievalV1!==false;
+    if(!observationRecallEnabled(config)||nativeToolDisabledByPolicy('observation_recall',config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read','observation_recall',{})!=='allow')throw Object.assign(Error('observation_recall.tool_denied'),{code:'observation_recall.tool_denied'});
+    if(typeof InternalMcpHooks!=='undefined'&&InternalMcpHooks.isContext(ctx))InternalMcpHooks.assertTool(ctx,'observation_recall');
+    if(ctx.executionOwner?.authority)await revalidateSessionExecutionPermission(id,ctx.executionOwner);
+    if(await source.epoch(id)!==epoch||sessionFullTextSequence(id)!==sequence||ctx.signal?.aborted||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.source_changed'),{code:'observation_recall.source_changed'});
+    const current=await journalReadObservationOwners(id);if(crypto.createHash('sha256').update(JSON.stringify(current)).digest('hex')!==ownerHash)throw Object.assign(Error('observation_recall.owner_changed'),{code:'observation_recall.owner_changed'});guard();if(ctx.session!==session||session.id!==id||session.createdAt!==createdAt||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||sessionFullTextSequence(id)!==sequence||configReadGeneration!==configGeneration)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
+  };
+  const samePath=(a,b)=>process.platform==='win32'?path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase():path.resolve(a)===path.resolve(b);
+  const read=async proof=>{
+    const prefix=proof.prefix,m=/^history:(\d+):([a-f0-9]{16})$/.exec(prefix);if(!m)throw Error('observation_recall.invalid_owner');
+    const dir=journalDir(id),file=path.join(dir,`history-${m[1]}-${m[2]}.json.gz`);
+    try{for(const target of [dir,file]){const st=await fsp.lstat(target);if(st.isSymbolicLink()||target===dir&&!st.isDirectory()||target===file&&(!st.isFile()||st.nlink!==1)||!samePath(await fsp.realpath(target),target))throw Object.assign(Error('observation_recall.owner_changed'),{code:'observation_recall.owner_changed'});}const history=await journalReadHistory(id,path.basename(file),null,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024});if(crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex')!==proof.digest)throw Object.assign(Error('observation_recall.owner_mismatch'),{code:'observation_recall.owner_mismatch'});return history;}
+    catch(error){if(error.code==='ENOENT')return null;throw error;}
+  };
+  await check();const fragments=[],seen=new Set();let chars=0,truncated=unique.size>refs.length,missing=0;
+  for(const proof of refs){await check();const prefix=proof.prefix,history=await read(proof);if(!history){missing++;continue;}
+    for(let index=0;index<history.length;index++){const item=history[index];if(item?.role!=='tool'||typeof item.content!=='string')continue;
+      const hash=crypto.createHash('sha256').update(item.content).digest('hex').slice(0,16),dedup=hash+'\0'+item.content.length;if(seen.has(dedup))continue;seen.add(dedup);
+      const rawRef=prefix+':'+index+':'+hash;
+      for(let at=0;at<item.content.length;){if(fragments.length>=256||chars>=1024*1024){truncated=true;break;}
+        let end=Math.min(item.content.length,at+96);if(end<item.content.length&&item.content.charCodeAt(end)>=0xdc00&&item.content.charCodeAt(end)<=0xdfff)end--;
+        const text=item.content.slice(at,end);chars+=text.length;fragments.push({text,rawRef,offset:at,fieldText:item.content,snapshotRevision:proof.digest,toolCallId:String(item.tool_call_id||'').slice(0,256)});
+        if(end===item.content.length)break;at=end-16;if(item.content.charCodeAt(at)>=0xdc00&&item.content.charCodeAt(at)<=0xdfff)at--;
+      }
+    }
+  }
+  await check();const phrase=query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+  let semantic={status:'unavailable',scores:[]},windowAdmission=null;
+  if(fragments.length&&typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'){
+    if(!observationSemanticRetrieval)observationSemanticRetrieval=SemanticRetrieval.create(SemanticRuntimeHooks);
+    if(typeof SemanticWindowPolicy!=='undefined'&&semanticFeatureEnabled&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null){windowAdmission=await observationWindowAdmission(query,fragments,{scopeId:'observation:'+id,signal:ctx.signal,deadline:Date.now()+1000,poolComplete:!truncated&&!missing,check,fieldText:row=>row.fieldText,identity:row=>({sourceId:JSON.stringify([id,row.rawRef]),field:'tool.content',revision:row.snapshotRevision,epoch,sourceRevision:ownerHash}),coordinates:row=>[row.offset,row.offset+row.text.length],order:row=>[row.rawRef],identities:fragments.map(row=>[row.rawRef,row.offset])});semantic=windowAdmission.scored;}
+    else semantic=await observationSemanticRetrieval.score(query,fragments.map(row=>row.text),{scopeId:'observation:'+id,signal:ctx.signal,identities:fragments.map(row=>[row.rawRef,row.offset]),maxEncodeDocuments:128,beforeEncode:check});await check();
+  }
+  const minScore=semantic.minScore??0.85;
+  const ranked=fragments.map((row,n)=>{const text=row.text.normalize('NFKC').toLowerCase(),exact=text.includes(phrase),matches=terms.filter(term=>text.includes(term)).length;let lexical=exact?30+matches:matches>=Math.max(1,Math.ceil(terms.length/2))?matches:0,chosen=n;if(windowAdmission&&lexical){const key=windowAdmission.keys[n];if(windowAdmission.weak.get(key)!==true)lexical=0;else chosen=windowAdmission.windows.get(key)??n;}const score=semantic.scores[chosen];return {...fragments[chosen],lexical,semanticScore:score,semanticAccepted:!semantic.admission||semantic.admission.accepted?.[chosen]===true,rankScore:lexical?100+lexical:score};})
+    .filter(row=>row.lexical>0||row.semanticAccepted&&typeof row.semanticScore==='number'&&Number.isFinite(row.semanticScore)&&row.semanticScore>=minScore)
+    .sort((a,b)=>b.rankScore-a.rankScore||a.rawRef.localeCompare(b.rawRef)||a.offset-b.offset);
+  const chosen=[],used=new Set();for(const row of ranked){if(used.has(row.rawRef))continue;used.add(row.rawRef);chosen.push(row);if(chosen.length>=Math.min(8,Math.max(1,Math.floor(maxChars/320))))break;}
+  const verified=new Map(),candidates=[];
+  for(const row of chosen){const prefix=row.rawRef.split(':').slice(0,3).join(':');if(!verified.has(prefix))verified.set(prefix,await read(refs.find(proof=>proof.prefix===prefix)));const history=verified.get(prefix),parts=row.rawRef.split(':'),item=history?.[Number(parts[3])];
+    if(!item||item.role!=='tool'||typeof item.content!=='string'||crypto.createHash('sha256').update(item.content).digest('hex').slice(0,16)!==parts[4]||item.content.slice(row.offset,row.offset+row.text.length)!==row.text)continue;
+    const opaqueRef=await observationSealRawRef(id,row.rawRef);await check();candidates.push({rawRef:opaqueRef,offset:row.offset,snippet:row.text,toolCallId:row.toolCallId,rankScore:row.rankScore,...(row.lexical?{lexicalScore:row.lexical}:{semanticScore:row.semanticScore})});
+  }
+  await check();windowAdmission?.assertCurrent();const result={mode:'search',candidates,coverage:{...coverage,snapshots:refs.length,missing,truncated,...(windowAdmission?{complete:windowAdmission.complete}: {})},semantic:{status:semantic.status,minScore,answerability:'not-assessed',...(semantic.admission?{admissionPolicy:semantic.admission.policyId}:{})}};observationResultChecks.set(result,async()=>{await check();windowAdmission?.assertCurrent();});return result;
+}
+
+// New tool-snapshot references hide the legacy source and content digests. Old
+// references remain readable; their historical publication cannot be undone.
+async function observationSealRawRef(id, rawRef) {
+  const sealed=await PrivacyCore.configHooks.sealLocal(rawRef,'observation-raw-ref-v2',id),e=sealed.envelope,enc=x=>Buffer.from(x,'base64').toString('base64url');
+  return 'history:v2:'+sealed.instanceId+'.'+enc(e.nonce)+'.'+enc(e.ciphertext)+'.'+enc(e.tag);
+}
+async function observationOpenRawRef(id, token) {
+  const parts=token.slice('history:v2:'.length).split('.');
+  if(parts.length!==4||!/^[a-f0-9]{32}$/.test(parts[0])||parts.slice(1).some(x=>!x||!/^[A-Za-z0-9_-]+$/.test(x)||Buffer.from(x,'base64url').toString('base64url')!==x))throw Object.assign(Error('invalid rawRef'),{code:'observation_recall.invalid_ref'});
+  const dec=x=>Buffer.from(x,'base64url').toString('base64');
+  try{return await PrivacyCore.configHooks.openLocal({version:1,instanceId:parts[0],envelope:{version:1,algorithm:'A256GCM',keyId:'master-v1',nonce:dec(parts[1]),ciphertext:dec(parts[2]),tag:dec(parts[3])}},'observation-raw-ref-v2',id);}
+  catch(error){if(['credential_vault.decrypt_failed','credential_vault.binding_mismatch'].includes(error?.code))throw Object.assign(Error('invalid rawRef'),{code:'observation_recall.invalid_ref'});throw error;}
+}
+
+// Prepare capabilities outside the synchronous compactor; never fall back to
+// publishing a raw digest if a capability was not prepared for these bytes.
+async function observationPrepareRefLookup(id, history, prefix, cache) {
+  const refs=new Set();
+  for(const [i,m] of (Array.isArray(history)?history:[]).entries()){
+    if(m?.role==='tool'&&typeof m.content==='string'&&/^history:\d+:[a-f0-9]{16}$/.test(prefix||''))refs.add(prefix+':'+i+':'+crypto.createHash('sha256').update(m.content).digest('hex').slice(0,16));
+    if(typeof m?.content==='string'&&((m.role==='tool'&&(isReducedObservationView(m.content)||m.content.startsWith(READ_DEDUP_PREFIX)))||(m.role==='user'&&m.content.includes(COMPACTION_TOOL_INDEX_HEADER))))for(const match of m.content.matchAll(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g))refs.add(match[0]);
+  }
+  const lookup=new Map();for(const ref of refs){const key=id+'\0'+ref;let value=cache instanceof Map?cache.get(key):null;if(typeof value!=='string'||!value.startsWith('history:v2:')){value=await observationSealRawRef(id,ref);if(cache instanceof Map){if(cache.size>=1024)cache.delete(cache.keys().next().value);cache.set(key,value);}}lookup.set(ref,value);}return lookup;
+}
+// The caller supplies only trusted runtime sidecar text, never arbitrary user
+// prose. Copies are independent from persistent host history.
+async function sealObservationRuntimeText(id,text,cache) {
+  const value=String(text||''),refs=[...new Set(value.match(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g)||[])],lookup=new Map();
+  for(const ref of refs){const key=id+'\0'+ref;let sealed=id&&cache instanceof Map?cache.get(key):null;if(id&&(!sealed||!sealed.startsWith('history:v2:'))){sealed=await observationSealRawRef(id,ref);if(cache instanceof Map){if(cache.size>=1024)cache.delete(cache.keys().next().value);cache.set(key,sealed);}}lookup.set(ref,sealed||'[reference unavailable]');}
+  return value.replace(/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g,ref=>lookup.get(ref));
+}
+Object.assign(ObservationRecoveryHooks,{sealRuntimeText:sealObservationRuntimeText});
+async function sealObservationHistoryReferences(id, history, cache) {
+  const list=Array.isArray(history)?history:[],recallIds=new Set(),legacy=/history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+  for(const m of list)if(m?.role==='assistant'&&Array.isArray(m.tool_calls))for(const call of m.tool_calls)if(call?.function?.name==='observation_recall'&&call.id)recallIds.add(String(call.id));
+  const field=async text=>{let value;try{value=JSON.parse(text);}catch{if(legacy.test(text))throw Object.assign(Error('observation_recall.invalid_historical_ref'),{code:'observation_recall.invalid_historical_ref'});return text;}if(!value||typeof value!=='object'||Array.isArray(value)||typeof value.rawRef!=='string'||!legacy.test(value.rawRef))return text;value.rawRef=await sealObservationRuntimeText(id,value.rawRef,cache);return JSON.stringify(value);};
+  const out=[];for(const m of list){
+    if(m?.role==='assistant'&&Array.isArray(m.tool_calls)){
+      let changed=false;const calls=[];for(const call of m.tool_calls){if(call?.function?.name!=='observation_recall'||typeof call.function.arguments!=='string'){calls.push(call);continue;}const args=await field(call.function.arguments);changed ||= args!==call.function.arguments;calls.push(args===call.function.arguments?call:{...call,function:{...call.function,arguments:args}});}out.push(changed?{...m,tool_calls:calls}:m);continue;
+    }
+    if(typeof m?.content!=='string'){out.push(m);continue;}
+    const ownedTool=m.role==='tool'&&recallIds.has(String(m.tool_call_id||''));
+    const marker=(m.role==='tool'&&(isReducedObservationView(m.content)||m.content.startsWith(READ_DEDUP_PREFIX)))||(m.role==='user'&&m.content.includes(COMPACTION_TOOL_INDEX_HEADER));
+    if(!ownedTool&&!marker){out.push(m);continue;}
+    const content=ownedTool?await field(m.content):await sealObservationRuntimeText(id,m.content,cache);out.push(content===m.content?m:{...m,content});
+  }return out;
+}
+
+// Display messages have an independent committed owner. References contain no
+// authority: every use scans only the calling session and revalidates it.
+async function observationCommittedMessages(session,ctx,request) {
+  const fail=code=>Object.assign(Error('observation_recall.'+code),{code:'observation_recall.'+code});
+  if(!session||!observationMainReadAllowed(ctx)||safeSessionId(session.id)!==session.id)throw fail('scope_changed');
+  let semanticFeatureEnabled=true;
+  const id=session.id,source=createSessionFullTextSource(),selected=await source.inspect(id),generation=Number(session.rewindGen)||0,turn=providerTurnQuotaKey(session),configGeneration=configReadGeneration;
+  if(!selected||selected.head.createdAt!==session.createdAt||(Number(selected.head.rewindGen)||0)!==generation)throw fail('source_unavailable');
+  const anchor=selected.head.createdAt;
+  const guard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+  const sync=()=>{guard();if(ctx.session!==session||session.id!==id||session.createdAt!==anchor||(ctx.sessionId!==undefined&&ctx.sessionId!==id)||!observationMainReadAllowed(ctx)||ctx.signal?.aborted||ctx.executionOwner?.cancelRequested||sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==generation||providerTurnQuotaKey(session)!==turn||configReadGeneration!==configGeneration||source.sequence(id)!==selected.sequence)throw fail('scope_changed');};
+  const check=async()=>{sync();const config=await readConfig();sync();semanticFeatureEnabled=config.semanticRetrievalV1!==false;if(!observationRecallEnabled(config)||nativeToolDisabledByPolicy('observation_recall',config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read','observation_recall',{})!=='allow')throw fail('tool_denied');if(ctx.executionOwner?.authority)await revalidateSessionExecutionPermission(id,ctx.executionOwner);if(await source.epoch(id)!==selected.epoch)throw fail('source_changed');sync();};
+  const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
+  let wanted=null;if(request.messageRef){
+    const parts=String(request.messageRef).split(':');if(parts.length!==3||parts[0]!=='message'||parts[1]!=='v2'||!/^[A-Za-z0-9_.-]{1,2048}$/.test(parts[2]))throw fail('invalid_ref');
+    const fields=parts[2].split('.');if(fields.length!==4||!/^[a-f0-9]{32}$/.test(fields[0])||fields.slice(1).some(x=>!x||!/^[A-Za-z0-9_-]+$/.test(x)||Buffer.from(x,'base64url').toString('base64url')!==x))throw fail('invalid_ref');
+    const b64=x=>Buffer.from(x,'base64url').toString('base64');
+    let serialized;try{serialized=await PrivacyCore.configHooks.openLocal({version:1,instanceId:fields[0],envelope:{version:1,algorithm:'A256GCM',keyId:'master-v1',nonce:b64(fields[1]),ciphertext:b64(fields[2]),tag:b64(fields[3])}},'observation-message-ref-v2',id);}catch(error){if(['credential_vault.decrypt_failed','credential_vault.binding_mismatch'].includes(error?.code))throw fail('invalid_ref');throw error;}
+    sync();try{const a=JSON.parse(serialized),hex=x=>Buffer.from(x,'base64url').toString('hex');if(!Array.isArray(a)||a.length!==13)throw Error();wanted={v:1,generation:a[0],epoch:hex(a[1]),revision:hex(a[2]),ordinal:a[3],role:a[4],identity:hex(a[5]),raw:hex(a[6]),rawStart:0,rawEnd:a[7],projected:hex(a[8]),projectedStart:a[9],projectedEnd:a[10],anchor:hex(a[12])};if(a[11]!==1)throw Error();if(!wanted||wanted.v!==1||!Number.isSafeInteger(wanted.ordinal)||wanted.ordinal<0||!['user','assistant'].includes(wanted.role)||wanted.rawStart!==0||!Number.isSafeInteger(wanted.rawEnd)||wanted.rawEnd<0||!Number.isSafeInteger(wanted.projectedStart)||!Number.isSafeInteger(wanted.projectedEnd)||wanted.projectedStart<0||wanted.projectedEnd<=wanted.projectedStart||![wanted.epoch,wanted.revision,wanted.identity,wanted.raw,wanted.projected].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x))||wanted.generation!==generation||wanted.anchor!==digest(JSON.stringify([id,anchor])))throw Error();}catch{throw fail('invalid_ref');}}
+  if(request.ordinal!==undefined&&(!Number.isSafeInteger(request.ordinal)||request.ordinal<0))throw fail('invalid_ref');
+  const rows=[];let eligible=0,omitted=0,bytes=0;
+  await check();const proof=await source.scan(id,async(row,ordinal)=>{sync();if(!row||!['user','assistant'].includes(row.role)||row.role==='user'&&row.meta?.origin==='agent_wake')return;eligible++;
+    if(wanted&&ordinal!==wanted.ordinal||!wanted&&request.ordinal!==undefined&&ordinal!==request.ordinal)return;
+    if(typeof row.content!=='string'||Buffer.byteLength(row.content)>1024*1024){omitted++;return;}
+    const item={ordinal,role:row.role,identity:digest(JSON.stringify([ordinal,row.id??null,row.turnSeq??null,row.role])),raw:digest(row.content),content:row.content};rows.push(item);bytes+=Buffer.byteLength(item.content);
+    while(!wanted&&request.ordinal===undefined&&(rows.length>64||bytes>4*1024*1024)){bytes-=Buffer.byteLength(rows.shift().content);omitted++;}
+  },{signal:ctx.signal,check:sync});
+  if(!proof||proof.epoch!==selected.epoch)throw fail('source_changed');await check();
+  if(wanted&&(rows.length!==1||rows[0].identity!==wanted.identity||rows[0].raw!==wanted.raw||rows[0].content.length!==wanted.rawEnd||rows[0].role!==wanted.role))throw fail('source_changed');
+  const work=async()=>{const fragments=[],focused=[];let totalFragments=0;
+    for(const row of rows){sync();const redacted=redact(row.content),view=typeof PrivacyGateway!=='undefined'?await PrivacyGateway.projectSource(redacted,true):null,text=view?view.text:redacted;sync();row.projected=digest(text);row.text=text;row.view=view;row.redactedLength=redacted.length;const spans=observationProjectedSpans(text);
+      if(wanted){if(wanted.projected!==row.projected||wanted.projectedEnd>text.length)throw fail('source_changed');continue;}
+      for(let at=0;at<text.length;){let end=Math.min(text.length,at+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;const range=observationProjectedRange(text,at,end,spans);at=range.start;end=range.end;totalFragments++;const fragment={row,start:at,end,text:text.slice(at,end)};fragments.push(fragment);if(fragments.length>256)fragments.shift();if(request.ordinal!==undefined&&focused.length<32&&fragment.text.normalize('NFKC').toLowerCase().includes(request.query.normalize('NFKC').toLowerCase()))focused.push(fragment);if(end===text.length)break;let next=end-16;const adjusted=observationProjectedRange(text,next,end,spans);next=adjusted.start;if(next<=at)next=end;at=next;if(text.charCodeAt(at)>=0xdc00&&text.charCodeAt(at)<=0xdfff)at--;}
+    }
+    if(focused.length){const keep=new Set(focused.map(row=>row.start));fragments.splice(0,fragments.length,...focused,...fragments.filter(row=>!keep.has(row.start)).slice(-(256-focused.length)));}
+    const verifyViews=()=>{for(const row of rows)if(row.view&&PrivacyGateway.sliceSource(row.view,0,row.redactedLength).text!==row.text)throw fail('source_changed');};
+    await check();verifyViews();
+    if(wanted){const result={text:rows[0].text,role:rows[0].role};observationResultChecks.set(result,()=>typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,async()=>{await check();verifyViews();}):check());observationResultFinal.set(result,()=>{sync();verifyViews();});if(rows[0].view)observationResultMark.set(result,page=>{sync();verifyViews();PrivacyGateway.markSourceView(page,['/content'],rows[0].view);});return result;}
+    let semantic={status:'unavailable',scores:[]},windowAdmission=null;if(fragments.length&&typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'){
+      if(!observationSemanticRetrieval)observationSemanticRetrieval=SemanticRetrieval.create(SemanticRuntimeHooks);
+      if(typeof SemanticWindowPolicy!=='undefined'&&semanticFeatureEnabled&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null){windowAdmission=await observationWindowAdmission(request.query,fragments,{scopeId:'observation-message:'+id,signal:ctx.signal,deadline:Date.now()+1000,poolComplete:omitted===0&&totalFragments<=256,check:async()=>{await check();verifyViews();},geometry:'privacy-projected-v1',fieldText:row=>row.row.text,identity:row=>({sourceId:JSON.stringify([id,row.row.ordinal]),field:'message.projected-content',revision:row.row.projected,epoch:proof.epoch,sourceRevision:JSON.stringify([proof.revision,row.row.identity,row.row.raw])}),coordinates:row=>[row.start,row.end],order:row=>[id,row.row.ordinal,'content'],identities:fragments.map(row=>[proof.epoch,proof.revision,row.row.identity,row.row.raw,row.row.projected,row.start,row.end])});semantic=windowAdmission.scored;}
+      else semantic=await observationSemanticRetrieval.score(request.query,fragments.map(row=>row.text),{scopeId:'observation-message:'+id,signal:ctx.signal,identities:fragments.map(row=>[proof.epoch,proof.revision,row.row.identity,row.row.raw,row.row.projected,row.start,row.end]),maxEncodeDocuments:128,beforeEncode:async()=>{await check();verifyViews();}});await check();verifyViews();
+    }
+    const phrase=request.query.normalize('NFKC').toLowerCase(),terms=[...new Set(retrievalTerms(request.query).filter(x=>typeof x==='string'&&!x.startsWith('#')).map(x=>x.normalize('NFKC').toLowerCase()))];
+    const ranked=fragments.map((row,n)=>{const text=row.text.normalize('NFKC').toLowerCase(),exact=text.includes(phrase),matches=terms.filter(term=>text.includes(term)).length;let lexical=exact?30+matches:matches>=Math.max(1,Math.ceil(terms.length/2))?matches:0,chosen=n;if(windowAdmission&&lexical){const key=windowAdmission.keys[n];if(windowAdmission.weak.get(key)!==true)lexical=0;else chosen=windowAdmission.windows.get(key)??n;}const score=semantic.scores[chosen],accepted=!semantic.admission||semantic.admission.accepted?.[chosen]===true;return {...fragments[chosen],lexical,score,rankScore:lexical?100+lexical:score,accepted};}).filter(row=>row.lexical>0||row.accepted&&Number.isFinite(row.score)&&row.score>=(semantic.minScore??0.85)).sort((a,b)=>b.rankScore-a.rankScore||b.row.ordinal-a.row.ordinal||a.start-b.start);
+    const candidates=[],seen=new Set();for(const hit of ranked){if(seen.has(hit.row.ordinal))continue;seen.add(hit.row.ordinal);const ref={v:1,generation,epoch:proof.epoch,revision:proof.revision,ordinal:hit.row.ordinal,role:hit.row.role,identity:hit.row.identity,raw:hit.row.raw,rawStart:0,rawEnd:hit.row.content.length,projected:hit.row.projected,projectedStart:hit.start,projectedEnd:hit.end};const compact=[generation,...[ref.epoch,ref.revision].map(x=>Buffer.from(x,'hex').toString('base64url')),ref.ordinal,ref.role,...[ref.identity,ref.raw].map(x=>Buffer.from(x,'hex').toString('base64url')),ref.rawEnd,Buffer.from(ref.projected,'hex').toString('base64url'),ref.projectedStart,ref.projectedEnd,1,Buffer.from(digest(JSON.stringify([id,anchor])),'hex').toString('base64url')];const sealed=await PrivacyCore.configHooks.sealLocal(JSON.stringify(compact),'observation-message-ref-v2',id);sync();const env=sealed.envelope,toUrl=x=>Buffer.from(x,'base64').toString('base64url');const messageRef='message:v2:'+sealed.instanceId+'.'+toUrl(env.nonce)+'.'+toUrl(env.ciphertext)+'.'+toUrl(env.tag);const candidate={kind:'message',messageRef,role:hit.row.role,offset:hit.start,coordinate:'privacy-projected-utf16',snippet:hit.text,rankScore:hit.rankScore,...(hit.lexical?{lexicalScore:hit.lexical}:{semanticScore:hit.score})};if(hit.row.view)PrivacyGateway.markSourceView(candidate,['/snippet'],hit.row.view);observationCandidateKey.set(candidate,JSON.stringify([id,generation,proof.epoch,proof.revision,hit.row.ordinal,hit.row.identity,hit.start,hit.end]));candidates.push(candidate);if(candidates.length>=Math.min(8,Math.max(1,Math.floor(request.maxChars/320))))break;}
+    await check();verifyViews();windowAdmission?.assertCurrent();const result={candidates,coverage:{source:'committed-display-messages',complete:omitted===0&&totalFragments<=256&&(!windowAdmission||windowAdmission.complete),selection:'most-recent',eligibleMessages:eligible,scannedMessages:rows.length,omittedMessages:omitted,retainedMessageFragments:totalFragments,scannedFragments:fragments.length,truncated:omitted>0||totalFragments>256},semantic:{status:semantic.status,answerability:'not-assessed'}};observationResultChecks.set(result,()=>typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,async()=>{await check();verifyViews();windowAdmission?.assertCurrent();}):check());observationResultFinal.set(result,()=>{sync();verifyViews();windowAdmission?.assertCurrent();});return result;
+  };
+  return typeof PrivacyGateway!=='undefined'?PrivacyGateway.withPolicy(id,work):work();
+}
+
 const OBSERVATION_REDUCE_MIN = 1200;
 const OBSERVATION_TEXT_HEAD = 900;
 const OBSERVATION_TEXT_TAIL = 500;
@@ -62030,7 +63150,7 @@ function buildObservationRecallPrompt(history, config) {
   if (!observationRecallEnabled(config) || !Array.isArray(history)) return '';
   const refs = [];
   const seen = new Set();
-  const refPattern = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g;
+  const refPattern = /history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
   for (const message of history) {
     if (!message || typeof message.content !== 'string') continue;
     let content = message.content;
@@ -62051,6 +63171,7 @@ function buildObservationRecallPrompt(history, config) {
   const omitted = refs.length - visible.length;
   return '[Ruyi recovery index — runtime context, not user-authored]\n'
     + 'The reduced historical tool views below are incomplete but recoverable. If the request may depend on an exact omitted historical value or detail, call observation_recall with the relevant rawRef before answering or claiming that it is absent.\n'
+    + 'If a reference is unknown, call observation_recall({query}) for current-session evidence, then read the returned rawRef or messageRef. Partial coverage or an empty search does not prove absence; use thread_read to page older current-session messages.\n'
     + visible.map(ref => `- rawRef=${ref}`).join('\n')
     + (omitted > 0 ? `\n- ${omitted} older recoverable reference(s) omitted from this bounded index` : '');
 }
@@ -62277,7 +63398,7 @@ function fileReadDedupKey(raw) {
 // 从 from 起(= L1 的边界,也就是受保护的尾部起点)扫一遍:同一把键的**最新一次留全文**,
 // 较早那几次换成指针。指针里带后文那一条的 tool_call_id(模型在历史里看得见它)与 rawRef
 // (有快照前缀时),所以「要原文」这条路一直通着 —— 换掉的是重复,不是信息。
-function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix) {
+function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix, rawRefLookup) {
   const newest = new Map();
   for (let i = Math.max(0, from); i < history.length; i++) {
     const m = history[i];
@@ -62296,7 +63417,8 @@ function dedupeRepeatedReads(history, from, toolNames, rawRefPrefix) {
     if (!key || newest.get(key) === i) continue; // 最新那一次留全文
     const laterId = String(history[newest.get(key)].tool_call_id || '');
     const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-    const ref = rawRefPrefix ? `,原件 rawRef=${rawRefPrefix}:${i}:${contentHash}` : '';
+    const capability = rawRefLookup?.get(`${rawRefPrefix}:${i}:${contentHash}`);
+    const ref = capability ? `,原件 rawRef=${capability}` : '';
     m.content = `${READ_DEDUP_PREFIX}这次读到的内容与后文那次完全相同(tool_call_id=${laterId}),全文见那一条${ref}]`;
     count++;
   }
@@ -62343,7 +63465,9 @@ function evaporateHistory(history, opts) {
     if (protectedReason) continue;
     if (useReducer) {
       const contentHash = crypto.createHash('sha256').update(m.content).digest('hex').slice(0, 16);
-      const reduced = reduceObservationContent(toolName, m.content, `${opts.rawRefPrefix}:${i}:${contentHash}`, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
+      const capability = opts.rawRefLookup?.get(`${opts.rawRefPrefix}:${i}:${contentHash}`);
+      if (!capability) continue;
+      const reduced = reduceObservationContent(toolName, m.content, capability, { recallEnabled: opts.config.runtimeObservationRecallV1 === true });
       if (!reduced.reduced) continue;
       m.content = reduced.content; count++;
       if (typeof opts.onReduced === 'function') {
@@ -62359,7 +63483,7 @@ function evaporateHistory(history, opts) {
   // 126-111e:上面那一趟只动 boundary 之前(冷区,已经缩过)。重复读取真正还在占位置的地方是
   // 【受保护的尾部】—— 从 boundary 起再扫一遍。返回值把两者加在一起:它的语义是「L1 这一趟
   // 一共缩了几条观测」,调用方拿它判「L1 做没做事」,两种缩法都算数。
-  if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix);
+  if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix, opts && opts.rawRefLookup);
   return count;
 }
 
@@ -62477,6 +63601,9 @@ function measureObservationReductionShadow(history) {
   const candidateReducedCount = evaporateHistory(candidateHistory, {
     config: { runtimeObservationReducerV1: true },
     rawRefPrefix: 'history:0:0000000000000000',
+    // Shadow never publishes capabilities: approximate the encrypted reference's
+    // size without accessing keys or embedding source-derived bytes.
+    rawRefLookup: { get: () => 'history:v2:'+'S'.repeat(160) },
   });
   const toolNames = observationToolNames(history);
   let originalChars = 0, baselineVisibleChars = 0, candidateVisibleChars = 0, protectedCount = 0;
@@ -63574,6 +64701,8 @@ async function providerSummaryCall(provider, history, opts) {
       throw error;
     }
   }
+  history=await sealObservationHistoryReferences(opts?.privacyHistoryOwner?.id||opts?.auxCtx?.sessionId||'',history);
+  if(summaryStopSignal(opts)?.aborted)return summaryStoppedResult();
   const sc = await providerSummaryCallCore(provider, history, opts);
   // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
   // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
@@ -64050,7 +65179,7 @@ const COMPACTION_TOOL_INDEX_MAX_CHARS = 4000;
 const COMPACTION_TOOL_INDEX_SKIP = new Set(['todo_write', 'scratchpad_write', 'tool_search', 'tool_load', 'list_tools', 'observation_recall', 'checkpoint_list']);
 // 事后重跑复现不了的那一类:联网、命令/脚本、子代理、桌面/浏览器操作;桥接的外部 MCP 工具(名字带 __)一律算。
 const COMPACTION_TOOL_INDEX_ONESHOT = /__|^(web_fetch|web_search|http_request|http_download|powershell_run|script_run|shell_start|shell_poll|shell_send|orchestrate_agents|agent_result|wait_agents)$|^(desktop|browser)_/;
-const COMPACTION_RAWREF_PATTERN = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+const COMPACTION_RAWREF_PATTERN = /history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
 // keepTail:路径类参数掐中间、留尾巴 —— 文件名在尾部,Windows 的临时目录/工作区前缀一长,从尾部截就只剩盘符和用户目录。
 function compactionIndexText(value, max, keepTail = false) {
   const flat = String(value == null ? '' : value).replace(/\s+/g, ' ').replace(/</g, '＜').replace(/>/g, '＞').trim();
@@ -64108,10 +65237,13 @@ function buildCompactionToolIndex(history, opts = {}) {
     for (const line of lines) {
       if (!line.trim()) continue;
       if (!line.startsWith('- ')) break;
-      const ref = (line.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+      const foundRef = (line.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+      const ref = foundRef.startsWith('history:v2:') ? foundRef : (opts.rawRefLookup?.get(foundRef)||'');
+      if (foundRef && !ref) continue;
+      const safeLine = foundRef ? line.replace(foundRef,ref) : line;
       if (ref && seenRefs.has(ref)) continue;
       if (ref) seenRefs.add(ref);
-      entries.push({ line, oneShot: true, ref });
+      entries.push({ line: safeLine, oneShot: true, ref });
     }
   }
   for (let i = 0; i < upto; i++) {
@@ -64131,6 +65263,7 @@ function buildCompactionToolIndex(history, opts = {}) {
       if (canRecall && content) {
         ref = (content.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
         if (!ref && !content.startsWith(EVAPORATED_PREFIX)) ref = `${refPrefix}:${at}:${crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)}`;
+        if(ref && !ref.startsWith('history:v2:'))ref=opts.rawRefLookup?.get(ref)||'';
       }
       if (ref && seenRefs.has(ref)) continue;
       if (ref) seenRefs.add(ref);
@@ -64152,6 +65285,7 @@ function buildCompactionToolIndex(history, opts = {}) {
     anyRef
       ? '需要某条的确切原文时,调用 observation_recall({rawRef}) 取回当时的原始输出(只读);没有 rawRef 的已不可回捞,要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。'
       : '这些调用的原文已不可回捞;要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。',
+    canRecall ? '缺少引用时可先调用 observation_recall({query}) 定位当前会话证据,再用返回的 rawRef 或 messageRef 回读;覆盖不全或未命中时可用 thread_read 分页本会话旧消息。' : '',
     opts.scratchpadHint ? '之后还要原样用到的数字、链接、ID、rawRef,可以用 scratchpad_write 记下 —— 草稿本跨压缩保留。' : '',
   ].filter(Boolean).join('\n');
   return COMPACTION_TOOL_INDEX_HEADER + '\n' + entries.map(e => e.line).join('\n') + '\n' + footer;
@@ -64289,12 +65423,16 @@ async function runAutoCompaction(ctx) {
 
   // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+  if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
+  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  if(ctx.precompactGuard?.())await ctx.precompactGuard()();
+  if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
 
   let compacted = false;
   let lowWaterEscalation = false, sufficient = 0, l1After = 0;
   // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
   const evaporated = evaporateHistory(history, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
     dedupeReads: historyReadDedupEnabled(config), // 126-111e:同上,开关在调用点把门
     onReduced: meta => {
@@ -64379,7 +65517,7 @@ async function runAutoCompaction(ctx) {
   compactionSummaryFailures.delete(summaryKey);
   // 被摘要掉那段里的工具调用索引(见 buildCompactionToolIndex)。管家会话的摘要是另一套口径(promptOverride),不附。
   const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
-  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: scratchpadHint === true });
   const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
   if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
   // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
@@ -64419,8 +65557,12 @@ async function runForcedOverflowCompaction(ctx) {
   // 强压同样要等一次摘要调用:先报 started;level 1/2 由调用方重试前发 completed(带 afterTokens),零成果在这里发 failed。
   onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+  if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
+  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  if(ctx.precompactGuard?.())await ctx.precompactGuard()();
+  if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const evaporated = evaporateHistory(history, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     onReduced: meta => {
       onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...eventFields, ...meta });
       logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
@@ -64436,7 +65578,7 @@ async function runForcedOverflowCompaction(ctx) {
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
-    const toolIndex = buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+    const toolIndex = buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: scratchpadHint === true });
     const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
     if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
     return { level: 2, evaporated, reseeded, sc };
@@ -64550,11 +65692,14 @@ async function runProviderCompact(sessionId, opts = {}) {
   const work = hostHistory.map(m => (m && typeof m === 'object' ? { ...m } : m));
   const rawRefPrefix = sessionObjectIsStale(session) ? ''
     : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true).catch(() => '');
+  await rememberObservationSnapshot(session,history,rawRefPrefix);
+  const rawRefLookup=rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(session.id,history,rawRefPrefix):new Map();
+  if(sessionObjectIsStale(session)||(Number(session.rewindGen)||0)!==baseGen||history.length!==baseLength)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const model = String(provider.model || '');
   const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'manual', history: work, provider, model, config, conversationWindow: true });
   const beforeTokens = estimateHistoryTokens(work);
   const evaporated = evaporateHistory(work, {
-    config, rawRefPrefix,
+    config, rawRefPrefix, rawRefLookup,
     boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budgetPlan.budget : 0,
     dedupeReads: historyReadDedupEnabled(config),
   });
@@ -64633,7 +65778,7 @@ async function runProviderCompact(sessionId, opts = {}) {
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
   const indexHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, work) : work;
-  const toolIndex = buildCompactionToolIndex(indexHistory, { upto: work.length, rawRefPrefix, config, scratchpadHint: session.kind !== 'steward' });
+  const toolIndex = buildCompactionToolIndex(indexHistory, { upto: work.length, rawRefPrefix, rawRefLookup, config, scratchpadHint: session.kind !== 'steward' });
 
   let afterTokens = 0;
   const saved = await persist(fresh => {
@@ -64663,7 +65808,7 @@ async function runProviderCompact(sessionId, opts = {}) {
 // 🗜 system row into session.messages (upsertCompactMarker; repeated levels merge into the same open row). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
-async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal) {
+async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal, ownerOptions=null) {
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
@@ -64677,10 +65822,10 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       try { stewardBudget = Number(StewardHooks.contextBudget(session, config, window)) || 0; } catch { stewardBudget = 0; }
     }
     const budget = stewardBudget > 0 ? stewardBudget : budgetPlan.budget;
-    const r = await runAutoCompaction({
+    let precompactGuard=null;const r = await runAutoCompaction({
       history, privacyHistoryOwner: session, scope: 'main', provider, model, sys, tools, config, budget, window, watermark: session.autoCompactWatermark,
       // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
-      snapshot: () => (sessionObjectIsStale(session) ? '' : writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true)),
+      snapshot: async()=>{if(sessionObjectIsStale(session))return '';if(ownerOptions?.executionOwner)precompactGuard=await observationCommitBeforeCompact(session,history,config,ownerOptions.executionOwner,signal,ownerOptions.saveOptions);const prefix=await writeHistorySnapshot(session.id,session.turnSeq,history,config.runtimeObservationReducerV1===true);if(precompactGuard)await precompactGuard();return prefix;},precompactGuard:()=>precompactGuard,
       onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
       onLevel1: ({ evaporated, before, after }) => upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', evaporated, saved: before - after, beforeTokens: before, afterTokens: after }),
       summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
@@ -64704,6 +65849,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
+    if(e?.observationPrecompactGuardFailure)throw e;
     // Compaction is best-effort; a failure must never break the turn.
     try { logEvent({ kind: 'auto_compact', sessionId: session && session.id, ok: false, error: (e && e.message) || String(e) }); } catch { /* ignore */ }
     return false;
@@ -64986,7 +66132,7 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = {
     promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
-    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false,
+    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false, signal: executionAbort.signal,
     turnSeqAtStart: Number(session.turnSeq) || 0,
     authority: source === 'scheduler' && typeof body.executionAuthority?.assertCurrent === 'function' && typeof body.executionAuthority?.revalidate === 'function' ? body.executionAuthority : null,
     cancel(reason = 'stopped') {
@@ -65524,6 +66670,8 @@ async function streamChat(req, res) {
     }
   }
 }
+
+if(typeof SemanticPolicyConsumers!=='undefined'){SemanticPolicyConsumers.add('observation-snapshot');SemanticPolicyConsumers.add('observation-message');}
 
 // ===================================================================================================
 // v0.8-S2 — persistent PowerShell shell sessions (provider engine only).
@@ -73060,17 +74208,46 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      const hasQuery=typeof args?.query==='string'&&args.query.trim()!=='';
+      if(args?.query!==undefined&&!hasQuery)return {ok:false,error:'invalid_query',message:'query must contain 2–256 characters'};
+      if(hasQuery){
+        if(args.rawRef!==undefined||args.messageRef!==undefined||args.offset!==undefined||args.sessionId!==undefined||!session||!observationMainReadAllowed(ctx)||safeSessionId(sessionId)!==sessionId)return {ok:false,error:'invalid_query',message:'query requires the current main session and cannot be combined with a reference, offset, or sessionId'};
+        const query=args.query.trim();if(query.length<2||query.length>256)return {ok:false,error:'invalid_query',message:'query must contain 2–256 characters'};
+        const turnKey=providerTurnQuotaKey(session);if(!observationRecallQuotaTake(sessionId,turnKey))return {ok:false,error:'quota_exceeded',message:`observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA})`};
+        const raw=Number(args.maxChars),maxChars=Number.isFinite(raw)?Math.min(8000,Math.max(1000,Math.round(raw))):4000;
+        const result=await searchObservationSnapshots(session,query,ctx,maxChars),messages=await observationCommittedMessages(session,ctx,{query,maxChars});
+        const indexed=await SessionFullTextHooks.withObservation(ctx,()=>SessionFullTextHooks.search(query,1)),reference=indexed.results.find(hit=>hit.reference?.session?.id===sessionId&&hit.reference?.source==='content'&&Number.isSafeInteger(hit.reference?.messageOrdinal))?.reference;
+        const indexedMessage=reference?await observationCommittedMessages(session,ctx,{query,maxChars,ordinal:reference.messageOrdinal}):null,used=_recallQuota.get(sessionId)?.get(turnKey)||0;
+        const candidates=[],seen=new Set();let candidateChars=2,budgetTruncated=false;for(const candidate of [...result.candidates,...messages.candidates,...(indexedMessage?.candidates||[])].sort((a,b)=>b.rankScore-a.rankScore)){const key=observationCandidateKey.get(candidate)||candidate.messageRef||candidate.rawRef;if(seen.has(key))continue;seen.add(key);const size=JSON.stringify(candidate).length+(candidates.length?1:0);if(candidates.length>=8||candidateChars+size>maxChars){budgetTruncated=true;continue;}candidates.push(candidate);candidateChars+=size;}
+        if(indexedMessage&&observationResultChecks.has(indexedMessage))await observationResultChecks.get(indexedMessage)();if(observationResultChecks.has(messages))await observationResultChecks.get(messages)();if(observationResultChecks.has(result))await observationResultChecks.get(result)();if(observationResultFinal.has(indexedMessage))observationResultFinal.get(indexedMessage)();if(observationResultFinal.has(messages))observationResultFinal.get(messages)();
+        return {ok:true,...result,candidates,messageCoverage:messages.coverage,messageSemantic:messages.semantic,messageIndexCoverage:{...indexed.coverage,semantic:indexed.semantic?.coverage||'partial',selection:'one-session-one-citation',complete:false,reason:indexed.reason==='deadline'?'deadline':indexed.coverage?.phase==='disabled'?'index-disabled':indexed.coverage?.pendingSessions?'index-pending':'one-citation-limit'},budget:{callsRemaining:Math.max(0,OBSERVATION_RECALL_QUOTA-used),maxChars,candidateChars,truncated:budgetTruncated}};
+      }
+      if(args?.messageRef!==undefined){
+        if(args.rawRef!==undefined||args.query!==undefined||args.sessionId!==undefined||!session||!observationMainReadAllowed(ctx)||safeSessionId(sessionId)!==sessionId)return {ok:false,error:'invalid_ref',message:'messageRef requires the current main session and excludes query, rawRef, and sessionId'};
+        const messageRef=String(args.messageRef||'');if(!/^message:v2:[A-Za-z0-9_.-]{1,2048}$/.test(messageRef))return {ok:false,error:'invalid_ref',message:'invalid messageRef'};
+        const turnKey=providerTurnQuotaKey(session);if(!observationRecallQuotaTake(sessionId,turnKey))return {ok:false,error:'quota_exceeded',message:`observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA})`};
+        const result=await observationCommittedMessages(session,ctx,{messageRef}),raw=Number(args.maxChars),maxChars=Number.isFinite(raw)?Math.min(OBSERVATION_RECALL_MAX_CHARS.max,Math.max(OBSERVATION_RECALL_MAX_CHARS.min,Math.round(raw))):OBSERVATION_RECALL_MAX_CHARS.dflt;
+        await observationResultChecks.get(result)();observationResultFinal.get(result)();
+        const spans=observationProjectedSpans(result.text),requested=Math.min(result.text.length,Math.max(0,Math.floor(Number(args.offset)||0))),start=observationProjectedRange(result.text,requested,requested,spans).start;
+        const page=boundedReadPage(result.text,start,maxChars,(_content,end,offset)=>{const range=observationProjectedRange(result.text,offset,end,spans);return {ok:true,content:result.text.slice(range.start,range.end),messageRef,role:result.role,coordinate:'privacy-projected-utf16',totalChars:result.text.length,offset:range.start,truncated:range.end<result.text.length,...(range.end<result.text.length?{nextOffset:range.end}:{})};});if(observationResultMark.has(result))observationResultMark.get(result)(page);return page;
+      }
       // 精简视图里印的是 `rawRef=history:…`,模型常连前缀、引号、换行一起抄回来:先剥掉再认。形状不对的直接回
       // invalid_ref,【不】扣本回合配额(修前先扣后判,8 次抄错之后正确的 ref 也只能拿到 quota_exceeded)。
       const rawRef = String(args && args.rawRef || '').trim().replace(/^["'`]+|["'`]+$/g, '').replace(/^rawRef\s*[=:]\s*/i, '').trim();
-      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef)) {
+      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef) && !/^history:v2:[A-Za-z0-9_.-]{1,2048}$/.test(rawRef)) {
         return { ok: false, error: 'invalid_ref', message: 'rawRef must look like history:<turn>:<hash16>:<index>:<hash16> (copy it exactly from the reduced observation, without the "rawRef=" label)' };
       }
       const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }
-      const result = await rehydrateObservation(sessionId, rawRef);
+      let rawGeneration=configReadGeneration;const rawConfigSnapshot=JSON.stringify(config),rawAnchor=session?.createdAt,rawRewind=Number(session?.rewindGen)||0,rawGuard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
+      const rawCheck=(checkGeneration=true)=>{rawGuard();if(ctx?.signal?.aborted||ctx?.executionOwner?.cancelRequested||checkGeneration&&configReadGeneration!==rawGeneration||session&&(ctx.session!==session||session.id!==sessionId||session.createdAt!==rawAnchor||(Number(session.rewindGen)||0)!==rawRewind||sessionObjectIsStale(session)||providerTurnQuotaKey(session)!==turnKey)||(ctx?.sessionId!==undefined&&ctx.sessionId!==sessionId))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});};
+      const resolvedRef=rawRef.startsWith('history:v2:')?await observationOpenRawRef(sessionId,rawRef):rawRef;
+      const publicRef=rawRef.startsWith('history:v2:')?rawRef:await observationSealRawRef(sessionId,rawRef);rawCheck();
+      if(ctx?.executionOwner?.authority){assertSessionExecutionOwner(sessionId,ctx.executionOwner);await revalidateSessionExecutionPermission(sessionId,ctx.executionOwner);assertSessionExecutionOwner(sessionId,ctx.executionOwner);}rawCheck();
+      const currentConfig=await readConfig();rawCheck(false);if(JSON.stringify(currentConfig)!==rawConfigSnapshot)throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});rawGeneration=configReadGeneration;if(!observationRecallEnabled(currentConfig)||nativeToolDisabledByPolicy('observation_recall',currentConfig,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config:currentConfig}),'read','observation_recall',{})!=='allow')throw Object.assign(Error('observation_recall.tool_denied'),{code:'observation_recall.tool_denied'});rawCheck();
+      const result=await rehydrateObservation(sessionId,resolvedRef);rawCheck();
       if (!result.ok) {
         const code = observationRecallError(result.error);
         // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
@@ -73084,7 +74261,7 @@ const CORE_TOOL_HANDLERS = {
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
       const original = String(result.content || '');
       return boundedReadPage(original, args && args.offset, maxChars, (content, end, offset) => ({
-        ok: true, content, toolCallId: result.toolCallId, rawRef: result.rawRef,
+        ok: true, content, toolCallId: result.toolCallId, rawRef:publicRef,
         originalChars: original.length, totalChars: original.length, offset, truncated: end < original.length,
         ...(end < original.length ? { nextOffset: end } : {}),
       }));
@@ -76668,11 +77845,13 @@ const MCP_TOOLS = [
     // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
     // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
     name: 'observation_recall',
-    description: "Recover an earlier tool observation from its reduced view's rawRef (history:<turn>:<hash>:<index>:<hash>). For exact earlier values, read this before answering; omission is not absence. Current session, read-only. Use nextOffset for remaining content. Failure {ok:false,error}: invalid_ref | not_found | hash_mismatch | quota_exceeded (8 calls per turn; do not retry same ref) | disabled.",
+    description: "Read a reduced view's rawRef or messageRef for exact earlier values before answering; omission is not absence. Query finds current-session evidence. nextOffset paginates; all modes share 8 calls/turn.",
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['rawRef'],
+      type: 'object', additionalProperties: false,
       properties: {
         rawRef: { type: 'string', description: 'The rawRef= value embedded in a reduced observation view.' },
+        messageRef: { type: 'string', description: 'Current-session message reference from query.' },
+        query: { type: 'string', minLength: 2, maxLength: 256, description: 'Find evidence; excludes references and offset.' },
         offset: { type: 'integer', minimum: 0, description: 'Continue from nextOffset; default 0.' },
         maxChars: { type: 'integer', minimum: 1000, maximum: 60000, default: 8000, description: 'Page size; nextOffset continues remaining content.' },
       },
@@ -78152,6 +79331,27 @@ const PROVIDER_SESSION_TOOL_SCHEMAS = [
     },
   },
 ];
+
+// One trusted host installation; the pure core owns fixed-code transport issuance.
+const semanticRuntimeHostPorts = (() => {
+function legacySemanticRuntimeSettings() {
+  const base=externalRoot(),root=process.env.RUYI_SEMANTIC_RUNTIME_ROOT||path.join(base,'semantic-runtime'),worker=path.join(base,'semantic-runtime','worker.cjs');
+  const command=isPkg()?path.join(base,'runtime','node',process.platform==='win32'?'node.exe':'node'):process.execPath;
+  if(![worker,command,path.join(root,'package.json')].every(file=>fs.existsSync(file)))return null;
+  const env={};for(const [key,value]of Object.entries(process.env))if(/^(SystemRoot|WINDIR|TEMP|TMP|PATH|PATHEXT|COMSPEC|NUMBER_OF_PROCESSORS|PROCESSOR_ARCHITECTURE)$/i.test(key))env[key]=value;
+  env.HF_HUB_OFFLINE='1';env.TRANSFORMERS_OFFLINE='1';const args=[worker,'--root',root];if(process.env.RUYI_SEMANTIC_MODEL)args.push('--model',process.env.RUYI_SEMANTIC_MODEL);return {command,args,cwd:base,env};
+}
+
+return SemanticRuntimeCore.installHost({
+ enabled:async()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&(await readConfig()).semanticRetrievalV1!==false,
+ selectedMethod:()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&process.env.RUYI_SEMANTIC_BACKEND==='gemma2',
+ legacySettings:legacySemanticRuntimeSettings,
+ gemma2Settings:()=>({base:externalRoot(),directory:process.env.RUYI_SEMANTIC_GEMMA2_ROOT,pin:process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256}),
+ selection:async()=>{const config=await readConfig(),id=process.env.RUYI_SEMANTIC_BACKEND==='gemma2'?'gemma2':'legacy';return {enabled:process.env.RUYI_DISABLE_SEMANTIC!=='1'&&config.semanticRetrievalV1!==false,id,signature:JSON.stringify([id,process.env.RUYI_SEMANTIC_MODEL||'',process.env.RUYI_SEMANTIC_RUNTIME_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256||''])};},
+ policyDescriptor:value=>value?.modelId!=='embeddinggemma-2-text-q4'?value:{...value,policyReady:value.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint&&['session','memory','observation-snapshot','observation-message'].every(kind=>SemanticPolicyConsumers.has(kind))},
+});
+})();
+Object.assign(SemanticRuntimeHooks,semanticRuntimeHostPorts);
 
 // 118a-fix: 应用内手册阅读器的服务端事实源。
 // 反模式治理:118a 的完成页只给了一行相对路径 + 「复制路径」,等于把用户推到文件管理器里自己找手册。
@@ -80192,6 +81392,9 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // /health and the token handshake are live already. Boot consumers must now use
   // the real discovered CLI paths, including verified shim-to-exe upgrades.
   config = await readConfig();
+  // Fixed public warm input is encoded by the resident transport itself. No
+  // user query/cache is involved, and HTTP/UI readiness does not await loading.
+  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().catch(() => {}); });
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
@@ -80227,13 +81430,17 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
   // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
   const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { PrivacyLocalDriveProbe.stopSync(); } catch { /* ignore */ } try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  let semanticShutdown = null;
+  const shutdownSemanticRuntime = () => { if (!semanticShutdown) semanticShutdown = Promise.resolve().then(() => SemanticRuntimeHooks.shutdown?.()); return semanticShutdown; };
+  const exitAfterCleanup = async code => { cleanupMcp(); server.close(); let result;try { result=await shutdownSemanticRuntime(); } catch { process.exitCode=1;return; }if(result&&(result.cleanupStatus!=='observed'||result.workerExited!==true)){process.exitCode=1;return;}process.exit(code); };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
   // 128f-⑥:用量账本还没轮到的那几行也在这里同步补写(Brief §4.2 第 5 条「账本即发即忘」)。
   process.on('exit', () => { try { flushSessionIndexSync(); } catch { /* ignore */ } try { flushUsageLedgerSync(); } catch { /* ignore */ } cleanupMcp(); });
-  process.once('SIGINT', () => { cleanupMcp(); process.exit(0); });
-  process.once('SIGTERM', () => { cleanupMcp(); process.exit(0); });
+  server.once('close', () => { void shutdownSemanticRuntime().catch(() => {}); });
+  process.once('SIGINT', () => { void exitAfterCleanup(0); });
+  process.once('SIGTERM', () => { void exitAfterCleanup(0); });
   // v1.4.6-S5: top-level crash safety net (serve mode only — registered here, not at module load, so a
   // require()'d unit test keeps Node's default handling). Before this, an uncaught exception left no journal
   // trace and an unhandled rejection could die silently. Policy: a stray REJECTION is logged and the process
@@ -80247,8 +81454,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   process.on('uncaughtException', (err) => {
     try { logEvent({ kind: 'uncaught_exception', error: (err && err.stack) || (err && err.message) || String(err) }); } catch { /* logging must never re-throw */ }
     try { console.error('uncaughtException (exiting):', (err && err.stack) || err); } catch { /* ignore */ }
-    try { cleanupMcp(); } catch { /* ignore */ }
-    process.exit(1);
+    void exitAfterCleanup(1);
   });
   if (opts.open) {
     // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
@@ -88361,16 +89567,17 @@ async function stewardImplThreadsSearch(args, ctx, config) {
 
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
-  let degraded = '';let coverage=null;const matches=new Map();
-  if (sessionSearchIndexEnabled(config)) {
+  let degraded = '';let coverage=null;const matches=new Map(),sourceBoundMethod=typeof SessionFullTextHooks.usesSourceBoundMethod==='function'&&SessionFullTextHooks.usesSourceBoundMethod();
+  if (sessionSearchIndexEnabled(config)||sourceBoundMethod) {
     // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
     const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10));
     if (found && Array.isArray(found.results)) {
       indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;for(const match of found.results)matches.set(match.id,match);
       ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
     } else throw Object.assign(Error('session_search.result_invalid'),{code:'session_search.result_invalid'});
+    if(!sessionSearchIndexEnabled(config))degraded='index_disabled';
   } else degraded = 'index_disabled';
-  if (!ranked.length && !sessionSearchIndexEnabled(config)) {
+  if (!ranked.length && !sessionSearchIndexEnabled(config)&&!sourceBoundMethod) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
     ranked = metas
@@ -88401,7 +89608,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 116-2e(§11.1 第 2 项):已收工的速查线程默认不出现 —— 它答完那一句就没用了,留在结果里
     // 只会挤掉真正的任务线程。includeClosed:true 可以要回来(用户问「刚才那条速查说了啥」)。
     if (!includeClosed && stewardQuickClosed(head)) continue;
-    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead={...head,...publicMeta,threadBrief:publicMeta.brief||null};
+    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead=sourceBoundMethod?{...publicMeta,threadBrief:publicMeta.brief||null}:{...head,...publicMeta,threadBrief:publicMeta.brief||null};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
     // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
@@ -88417,7 +89624,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         ? deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true })
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
-    const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
+    const wsName = stewardWorkspaceNameOf(sourceBoundMethod?publicMeta.cwd:meta.cwd || (head && head.cwd), config, knownForNames);
     const recentUserRequest = stewardRecentUserRequest(publicHead);
     results.push({
       sessionId: row.id,
@@ -100042,7 +101249,7 @@ public static class RuyiSkillCapsule {
     if(!String.Equals(PathOf(handle),expected,StringComparison.OrdinalIgnoreCase))Reject("store_path_alias");
     if(volume!=null && !String.Equals(VolumeOf(handle),volume,StringComparison.Ordinal))Reject("store_volume_changed");
   }
-  static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume) {
+  static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume,string expectedId=null) {
     IntPtr buffer=Marshal.StringToHGlobalUni(part),name=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RelativeName))),iosb=Marshal.AllocHGlobal(IntPtr.Size*2);
     SafeFileHandle handle=null;
     try {
@@ -100055,9 +101262,30 @@ public static class RuyiSkillCapsule {
       int status=NtCreateFile(out handle,0xC0100000u,ref attributes,iosb,IntPtr.Zero,0,3,1,0x00204021u,IntPtr.Zero,0);
       if(status<0)throw new Win32Exception((int)RtlNtStatusToDosError(status));
       if(status!=0 || handle==null || handle.IsInvalid)Reject("store_relative_open");
-      CheckFlushDirectory(handle,expected,volume);return handle;
+      CheckFlushDirectory(handle,expected,volume,expectedId);return handle;
     } catch {if(handle!=null)handle.Dispose();throw;}
     finally {GC.KeepAlive(parent);Marshal.FreeHGlobal(buffer);Marshal.FreeHGlobal(name);Marshal.FreeHGlobal(iosb);}
+  }
+  // Research-only owned-restore flush: open each component from the held
+  // parent and compare the creation-time identity supplied by its owner.
+  static object FlushOwnedRestoreDirectories(Dictionary<string,object> args) {
+    string anchor=Str(args["root"]),relative=Str(args["relative"]);
+    object[] ids=args["ids"] as object[];
+    if(anchor.Length<3 || anchor.Length>32763 || !Char.IsLetter(anchor[0]) || anchor[1]!=':' || anchor[2]!='\\'
+      || !String.Equals(System.IO.Path.GetFullPath(anchor),anchor,StringComparison.OrdinalIgnoreCase))Reject("owned_restore_root");
+    string[] parts=relative==""?new string[0]:relative.Split('/');
+    if(parts.Length>512 || ids==null || ids.Length!=parts.Length+1)Reject("owned_restore_chain");
+    foreach(string part in parts)if(!FlushPart(part))Reject("owned_restore_chain");
+    foreach(object value in ids)if(!(value is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value,"^[a-f0-9]{24}$"))Reject("owned_restore_identity");
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
+    try {
+      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
+      handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null,(string)ids[0]);string volume=VolumeOf(root);SafeFileHandle current=root;
+      for(int i=0;i<parts.Length;i++){expected+=(expected.EndsWith("\\")?"":"\\")+parts[i];current=OpenFlushChild(current,parts[i],expected,volume,(string)ids[i+1]);handles.Add(current);}
+      Check(FlushFileBuffers(current));
+      return new Dictionary<string,object>{{"ok",true},{"root",anchor},{"relative",relative},{"ids",ids}};
+    } finally {try {for(int n=handles.Count-1;n>=0;n--)handles[n].Dispose();}finally {PreserveTimeHandles=previous;}}
   }
   static void FlushStoreDirectoryPreserved(string path,string anchor) {
     // Both paths are strict local DOS paths, validated lexically before any open.
@@ -100262,10 +101490,34 @@ public static class RuyiSkillCapsule {
       Step=prior;
     } finally {Marshal.FreeHGlobal(value);Marshal.FreeHGlobal(iosb);}
   }
+  // A read-only capture must never rewrite Basic metadata: doing so can
+  // re-enable a delayed access-time update when the directory handle closes,
+  // and can also mask a concurrent writer. Keep every captured field in the
+  // proof and reject a difference on the already held handles.
+  static void VerifyCapturedBasicUnchanged(List<Node> nodes) {
+    foreach(Node node in nodes) {
+      List<string> times = new List<string>(); foreach(object raw in (IEnumerable)node.Entry["times"]) times.Add(Str(raw));
+      Basic actual=BasicOf(node.Handle);
+      if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1]
+        || Str(actual.Write)!=times[2] || Str(actual.Change)!=times[3]
+        || actual.Attr!=Convert.ToUInt32(node.Entry["attrs"])) Reject("metadata_changed");
+    }
+  }
   static object CapturePreserved(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    Exception primary=null;
     try {return Capture(args);}
-    finally {try {RestoreBasic(new List<Node>(Nodes.Values));} finally {PreserveTimeHandles=previous;}}
+    catch(Exception error) {primary=error;throw;}
+    finally {
+      try {VerifyCapturedBasicUnchanged(new List<Node>(Nodes.Values));}
+      catch(Exception verificationError) {
+        // Never replace the original capture error. A failed verification can
+        // only accompany an already failed operation in this branch.
+        if(primary==null)throw;
+        primary.Data["preservedMetadataVerificationFailed"]=verificationError.GetType().Name;
+      }
+      finally {PreserveTimeHandles=previous;}
+    }
   }
   static object ReadPreservedControl(Dictionary<string,object> args) {
     string root=Str(args["root"]),relative=Str(args["relative"]),id=Str(args["id"]);
@@ -100481,6 +101733,7 @@ public static class RuyiSkillCapsule {
           else if (command == "publish") Publish(args);
           else if (command == "finish-published") FinishPublished(args);
           else if (command == "publish-check") CheckPublication(args);
+          else if (command == "owned-restore-flush") result=FlushOwnedRestoreDirectories(args);
           else if (command == "store-flush-bound") result=FlushStoreDirectoryBound(args);
           else if (command == "store-flush-by-id") FlushStoreDirectoryById(args);
           else if (command == "store-flush") {
@@ -101150,6 +102403,7 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
   return Object.freeze({ prepare, idle: () => Promise.all([...adoptions]), stats: () => Object.freeze({ ...counts, pending: adoptions.size,
     ...(cached ? { codeIdentity: Object.freeze({ contextKey: cached.key, sourceHash: cached.sourceHash, artifactSha256: cached.sha256, clr: cached.clr, mvid: cached.mvid }) } : {}) }) });
 })();
+const migrationCapsuleIssuedChildren = new Set();
 async function migrationCapsuleBroker() {
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
@@ -101169,6 +102423,9 @@ async function migrationCapsuleBroker() {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
+  migrationCapsuleIssuedChildren.add(child);
+  try {
+    child.once('close', () => migrationCapsuleIssuedChildren.delete(child));
   try { code?.observe(child); } catch { /* Optional code reuse cannot replace the original child/error pipeline. */ }
   const timers = require('node:timers');
   const decoder = new (require('node:string_decoder').StringDecoder)('utf8');
@@ -101206,7 +102463,7 @@ async function migrationCapsuleBroker() {
     // errors on a PID, and ambiguous error objects, still require actual close.
     let absent = false;
     try { absent = !spawned && child.pid == null && typeof cause?.syscall === 'string' && cause.syscall.startsWith('spawn '); } catch { /* unknown is not absent */ }
-    if (absent) { firstError ||= failure('native_unavailable', cause); finish(firstError); }
+    if (absent) { migrationCapsuleIssuedChildren.delete(child); firstError ||= failure('native_unavailable', cause); finish(firstError); }
     else stop('native_unavailable', cause);
   });
   child.on('exit', code => {
@@ -101273,6 +102530,10 @@ async function migrationCapsuleBroker() {
     return closePromise;
   };
   return Object.freeze({ command, close });
+  } catch (cause) {
+    migrationCapsuleBroker.helperMayStillRun = true;
+    throw failure('native_helper_uncertain', cause, true);
+  }
 }
 function migrationCapsulePortableShape(snapshot) {
   const keys=(value,names)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===names;
@@ -107718,7 +108979,20 @@ const ExternalBotRemoteViews = (() => {
     // hash. No adapter currently supplies the external docs66:118 contract.
     const proof = await ExternalChannelProtocols.prepareAudienceRevision?.(connection, item.conversationId);
     if (!proof || !externalBotRemoteDigest(proof.revision) || typeof proof.assert !== 'function') stale();
-    proof.assert(); return proof;
+    // Every call site uses this guard at a synchronous authority boundary.
+    // An asynchronous assertion cannot certify that boundary, even when its
+    // promise eventually resolves. Keep the revision and guard bound together.
+    const revision = proof.revision, check = proof.assert;
+    const assert = () => {
+      const result = check.call(proof);
+      if (result !== undefined) {
+        // Observe native Promise rejections without reading an arbitrary then
+        // property or invoking a thenable supplied by the adapter.
+        try { Promise.prototype.then.call(result, undefined, () => {}); } catch {}
+        stale();
+      }
+    };
+    assert(); return Object.freeze({ revision, assert });
   }
   function typedDecision(parsed, source) {
     const type = source.iv.type;
@@ -109495,6 +110769,13 @@ const InternalMcpRelay = (() => {
     const state = contextOwner(ctx);
     if (!cliToolAllowed(name, state.grant)) fail('tool_not_allowed');
   }
+  // This capability authorizes only current-session observation reads. It is
+  // not mainTurn and cannot enable any other main-turn-only operation.
+  function assertObservationRead(ctx) {
+    const state=contextOwner(ctx);
+    if(state.grant.nodeContext||!cliToolAllowed('observation_recall',state.grant))fail('tool_not_allowed');
+    return true;
+  }
   function resourceRefusal(ctx, name) {
     contextOwner(ctx);
     return name === 'mcp_resource' ? ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' }) : null;
@@ -109759,7 +111040,7 @@ const InternalMcpRelay = (() => {
     process.stdin.once('end', () => { inputEnded = true; if (active === 0) closed = true; }); process.stdin.once('error', close); process.once('SIGTERM', close);
   }
   function maintenanceState() { return { active: [...grants].reduce((sum, grant) => sum + grant.inflight, 0) }; }
-  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks, maintenanceState });
+  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, assertObservationRead, resourceRefusal, business, Hooks, maintenanceState });
 })();
 
 Object.assign(InternalMcpHooks, InternalMcpRelay);
@@ -113074,6 +114355,7 @@ const SessionFullTextIndex = ((io,p,c) => {
   function create(host){
     if(!host||['validSessionId','root','enabled','writeJson','catalog','epoch','scan','scope','authorize','assertAuthorized','project','assertScope','sourceSequence','noise','terms'].some(name=>typeof host[name]!=='function'))throw fail('host_invalid');
     const sessionResults=host.resultUnit==='sessions';
+    const semantic=host.semantic||null,searchProofs=new WeakMap();
     const canonical=id;const valid=value=>canonical(value)&&host.validSessionId(value)===value;
     const attachmentSource=host.attachmentSource;
     const attachmentField=/^attachments\.(\d+)\.extractedText$/;
@@ -113124,7 +114406,9 @@ const SessionFullTextIndex = ((io,p,c) => {
     // rebuilt as a missing derived pointer. A private symbol cannot be forged
     // by valid JSON and never softens key, schema, namespace or shard failures.
     const malformedManifest=Symbol('malformed-derived-manifest');
-    let chain=Promise.resolve(),paused=false,maintenancePaused=false,building=false;
+    let chain=Promise.resolve(),paused=false,maintenancePaused=false,building=false,mutationSerial=0,mutationActive=0;const preparationProgress=new Map();
+    const beginMutation=()=>{mutationSerial++;mutationActive++;return()=>{mutationActive--;mutationSerial++;};};
+    const mutationState=()=>({serial:mutationSerial,active:mutationActive});
     const run=work=>{const pending=chain.catch(()=>{}).then(work);chain=pending;return pending;};
     const pathKey=value=>process.platform==='win32'?p.resolve(value).toLowerCase():p.resolve(value);
     async function namespace(sid,name=null,max=null){
@@ -113165,24 +114449,24 @@ const SessionFullTextIndex = ((io,p,c) => {
     const state=phase=>write(null,'state.json',{schema:SCHEMA,phase},1024);
     const isPaused=()=>paused||maintenancePaused;
     const checkPaused=()=>{if(isPaused())throw fail('paused');};
-    async function removeOwned(sid,names){for(const name of names){try{await io.unlink(pathFor(sid,name));}catch(error){if(error.code!=='ENOENT')throw error;}}}
-    async function ownedNames(sid){
+    async function removeOwned(sid,names,check=()=>{}){for(const name of names){check();try{await io.unlink(pathFor(sid,name));}catch(error){if(error.code!=='ENOENT')throw error;}}}
+    async function ownedNames(sid,check=()=>{}){
       if(!valid(sid))throw fail('session_invalid');await namespace(sid);const directory=p.dirname(pathFor(sid,'manifest.json'));let names;
       try{names=await io.readdir(directory);}catch(error){if(error.code==='ENOENT')return null;throw error;}
       if(names.length>100000||names.some(name=>name!=='manifest.json'&&!/^[a-f0-9]{32}\.(?:0|[1-9][0-9]*)\.json$/.test(name)))throw fail('owned_namespace_changed');
-      for(const name of names){const stat=await io.lstat(p.join(directory,name));if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw fail('owned_namespace_changed');}
+      for(const name of names){check();const stat=await io.lstat(p.join(directory,name));if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw fail('owned_namespace_changed');}
       return names;
     }
-    async function purge(sid){
-      const names=await ownedNames(sid);if(names===null)return;const directory=p.dirname(pathFor(sid,'manifest.json'));
+    async function purge(sid,check=()=>{}){
+      check();const names=await ownedNames(sid,check);if(names===null)return;const directory=p.dirname(pathFor(sid,'manifest.json'));
       // Retire the selected generation only after validating the entire owned
       // namespace, before any immutable shard can disappear beneath its pointer.
-      if(names.includes('manifest.json'))await removeOwned(sid,['manifest.json']);
-      await removeOwned(sid,names.filter(name=>name!=='manifest.json'));await io.rmdir(directory);
+      const finish=beginMutation();try{if(names.includes('manifest.json'))await removeOwned(sid,['manifest.json'],check);
+      await removeOwned(sid,names.filter(name=>name!=='manifest.json'),check);check();await io.rmdir(directory);}finally{finish();}
     }
-    async function purgeMissing(catalog){
+    async function purgeMissing(catalog,check=()=>{}){
       let names;try{names=await io.readdir(pathFor(null,''),{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return;throw error;}
-      for(const name of names){if(name.name==='state.json'&&name.isFile()&&!name.isSymbolicLink())continue;if(!name.isDirectory()||name.isSymbolicLink()||!valid(name.name))throw fail('owned_namespace_changed');if(!catalog.includes(name.name))await purge(name.name);}
+      for(const name of names){check();if(name.name==='state.json'&&name.isFile()&&!name.isSymbolicLink())continue;if(!name.isDirectory()||name.isSymbolicLink()||!valid(name.name))throw fail('owned_namespace_changed');if(!catalog.includes(name.name))await purge(name.name,check);}
     }
     async function build(sid,check=checkPaused){
       check();const before=await host.epoch(sid);if(!HEX.test(before||''))return false;
@@ -113190,12 +114474,12 @@ const SessionFullTextIndex = ((io,p,c) => {
       if(prior?.epoch===before&&compatible(prior)&&(!attachmentSource||prior.attachments===0))return false;
       // Validate every old owned name before building. Keep the bad pointer and
       // all old bytes until a completely verified new generation is published.
-      const stale=prior===malformedManifest?await ownedNames(sid):null;
+      const stale=prior===malformedManifest?await ownedNames(sid,check):null;
       const identities=new Set(),previewAttachments=attachmentWitness(),previewBudget=attachmentBudget(),policy=await host.enabled();
       const preview=await host.scan(sid,async(row,ordinal)=>{
-        checkPaused();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}
+        check();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}
         if(!host.noise(row))previewAttachments.add(ordinal,await selectedAttachments(attachmentCandidates(row,previewBudget),policy));
-      });
+      },{check});
       const attachmentRevision=previewAttachments.finish();
       if(!preview||preview.epoch!==before||!HEX.test(preview.revision||'')||typeof preview.requiresEncryption!=='boolean'||typeof policy!=='boolean')throw fail('source_invalid');
       if(preview.requiresEncryption&&policy!==true)throw fail('source_policy_conflict');
@@ -113207,7 +114491,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         owned.push(name);await write(sid,name,value,SHARD_BYTES,policy);shards.push({ordinal,sha256:hash(text),records:rows.length});rows=[];bytes=0;};
       try{
         const proof=await host.scan(sid,async(row,ordinal)=>{
-          checkPaused();if(!integer(ordinal)||!row||typeof row!=='object')throw fail('source_invalid');
+          check();if(!integer(ordinal)||!row||typeof row!=='object')throw fail('source_invalid');
           if(row.role==='user'){turn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:turn+1;turnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
           const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){turn=explicit;turnBasis='explicit';}
           messages++;attachments+=Array.isArray(row.attachments)?row.attachments.length:0;if(host.noise(row))return;
@@ -113220,24 +114504,28 @@ const SessionFullTextIndex = ((io,p,c) => {
           for(const source of [...sources(row),...extracted]){
             const revision=source.revision?digest([contentRevision,source.revision]):contentRevision;
             for(const chunk of slices(source.text)){
-              checkPaused();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision:revision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
+              check();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision:revision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
               const size=Buffer.byteLength(JSON.stringify(entry));if(bytes+size>SHARD_BYTES-4096||rows.length>=64)await flush();rows.push(entry);bytes+=size;chunks++;
             }
           }
-        });
+        },{check});
         await flush();check();if(!proof||proof.epoch!==before||!HEX.test(proof.revision||'')||proof.count!==messages||proof.revision!==preview.revision||proof.requiresEncryption!==preview.requiresEncryption
           ||observedAttachments.finish()!==attachmentRevision||await host.epoch(sid)!==before)throw fail('source_changed');
         const value={schema:SCHEMA,format:FORMAT,normalizer:NORMALIZER,sessionId:sid,epoch:before,sourceRevision:proof.revision,generation,messages,attachments,chunks,shards,
           ...(attachmentSource&&attachments?{attachmentRevision,attachmentsIndexed,...(attachmentsDeferred?{attachmentsRetryAt:Date.now()+30000}:{})}:{})};
-        await write(sid,'manifest.json',value,MANIFEST_BYTES,policy,check);committed=true;
+        const finish=beginMutation();try{await write(sid,'manifest.json',value,MANIFEST_BYTES,policy,check);committed=true;}finally{finish();}
         if(prior===malformedManifest)await removeOwned(sid,stale.filter(name=>name!=='manifest.json'));
         else if(prior)await removeOwned(sid,prior.shards.map(row=>prior.generation+'.'+row.ordinal+'.json'));
         return true;
       }finally{if(!committed)await removeOwned(sid,owned);}
     }
-    async function rawCoverage(visibility=null){
+    async function rawCoverage(visibility=null,options={}){
+      const check=typeof options.check==='function'?options.check:()=>{};check();
       const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
-      let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;for(const sid of catalog){if(visibility){if(await host.authorize(sid,visibility.context,visibility.access)!==true)continue;visibility.seen.add(sid);}const sequence=host.sourceSequence(sid),value=await currentManifest(sid);if(value&&compatible(value)&&value.epoch===await host.epoch(sid)){
+      let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;const visit=async sid=>{check();if(visibility){const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,visibility.context,visibility.access)===true;if(!already&&await host.authorize(sid,visibility.context,visibility.access)!==true)return;visibility.seen.add(sid);}check();const sequence=host.sourceSequence(sid),value=await currentManifest(sid);check();options.observed?.set(sid,value?.generation||null);const reused=options.reuse?.get(sid),authorized=visibility&&typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,visibility.context,visibility.access):null;
+      if(value&&compatible(value)&&value.messages===0&&value.attachments===0&&value.chunks===0&&Array.isArray(value.shards)&&value.shards.length===0&&visibility&&typeof host.authorizedEmpty==='function'&&host.authorizedEmpty(sid,visibility.context,visibility.access)===true&&authorized===value.epoch){complete++;}
+      else if(value&&compatible(value)&&reused&&value.attachments===0&&reused.generation===value.generation&&reused.epoch===value.epoch&&reused.revision===value.sourceRevision&&reused.sequence===sequence&&authorized===value.epoch){complete++;unverifiedMessages+=reused.unverified;}
+      else if(value&&compatible(value)){
         // Unknown/non-text array members are still unverified. Read the actual
         // committed stream and bind the count to this selected source revision.
         let unsupported=0;
@@ -113246,16 +114534,19 @@ const SessionFullTextIndex = ((io,p,c) => {
           if(host.noise(row))return;
           if(inspectSources(row).unverified)unsupported++;
           if(value.attachmentRevision)witness.add(ordinal,await selectedAttachments(attachmentCandidates(row,budget),policy));
-        });
-        if(!proof||proof.epoch!==value.epoch||proof.revision!==value.sourceRevision||sequence!==host.sourceSequence(sid))throw fail('source_changed');
-        if(value.attachmentRevision&&(value.attachmentRevision!==witness.finish()||attachmentRetryDue(value)))pending++;
+        },{check});
+        if(!proof||sequence!==host.sourceSequence(sid))throw fail('source_changed');
+        if(proof.epoch!==value.epoch)pending++;
+        else if(proof.revision!==value.sourceRevision)throw fail('source_changed');
+        else if(value.attachmentRevision&&(value.attachmentRevision!==witness.finish()||attachmentRetryDue(value)))pending++;
         else{complete++;attachmentSources+=value.attachments-(value.attachmentsIndexed||0);unverifiedMessages+=unsupported;}
-      }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}}
+      }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}};
+      for(let start=0;start<catalog.length;start+=4){check();const batch=await Promise.allSettled(catalog.slice(start,start+4).map(visit)),failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;}
       return {phase:isPaused()?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
     }
-    async function coverage(context){
+    async function coverage(context,options={}){
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
-      const seen=new Set(),sequences=new Map(),value=await rawCoverage({context,access,seen,sequences});
+      const seen=new Set(),sequences=new Map(),value=await rawCoverage({context,access,seen,sequences},options);
       if(host.assertScope(context,access)!==true||[...seen].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sequences.get(sid)))throw fail('disclosure_changed');
       return value;
     }
@@ -113268,18 +114559,23 @@ const SessionFullTextIndex = ((io,p,c) => {
     });
     // The private production preparation path walks each catalog entry once.
     // Public step retains its bounded <=16 contract and original coverage result.
-    const prepare=context=>run(async()=>{
-      if(isPaused())return coverage(context);
+    const prepare=(context,options={})=>run(async()=>{
+      options.check?.();if(isPaused())return coverage(context,options);
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const assertAccess=()=>{if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');};
-      const finish=async()=>{assertAccess();const value=await coverage(context);assertAccess();return value;};
-      if(isPaused())return finish();
-      const check=()=>{checkPaused();assertAccess();};
+      const finish=async()=>{assertAccess();const value=await coverage(context,options);assertAccess();return value;};
+      if(isPaused())return options.incremental?{done:false}:finish();
+      if(options.incremental===true){const catalog=await host.catalog(),prior=preparationProgress.get(access.scopeId);options.check?.();assertAccess();if(Array.isArray(catalog)&&prior?.signature===hash(JSON.stringify(catalog))&&prior.next>=catalog.length)return {done:true};}
+      let singleSid=null,buildingSid=null;const check=()=>{checkPaused();assertAccess();const sid=singleSid||buildingSid;if(sid&&host.assertAuthorized(sid,context,access)!==true)throw fail('disclosure_changed');options.check?.();};
       check();building=true;let failed=false,failure;
       try{
         await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
-        await purgeMissing(catalog);check();let visited=0;
-        for(const sid of catalog){check();await build(sid,check);check();if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}
+        const authorized=async sid=>typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true||await host.authorize(sid,context,access)===true;
+        if(options.incremental===true){const signature=hash(JSON.stringify(catalog)),key=access.scopeId,prior=preparationProgress.get(key),progress=prior?.signature===signature?prior:{signature,next:0};preparationProgress.set(key,progress);while(preparationProgress.size>32)preparationProgress.delete(preparationProgress.keys().next().value);
+          const end=Math.min(catalog.length,progress.next+64);for(;progress.next<end;progress.next++){check();const sid=catalog[progress.next];if(await authorized(sid)){buildingSid=sid;check();await build(sid,check);check();buildingSid=null;}}
+        }else{if(options.single===true){if(catalog.length!==1||!await authorized(catalog[0]))throw fail('source_denied');singleSid=catalog[0];check();}
+          else await purgeMissing(catalog,check);check();let visited=0;
+          for(const sid of catalog){check();if(singleSid||await authorized(sid)){buildingSid=sid;check();await build(sid,check);check();buildingSid=null;}if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}}
       }catch(error){if(error?.code!=='session_fulltext.paused'){failed=true;failure=error;}}
       finally{building=false;}
       try{await state(paused?'paused':'idle');}catch(error){
@@ -113291,45 +114587,161 @@ const SessionFullTextIndex = ((io,p,c) => {
         throw combined;
       }
       if(failed)throw failure;
+      if(options.incremental===true){const progress=preparationProgress.get(access.scopeId),catalog=await host.catalog();check();return {done:!!progress&&progress.signature===hash(JSON.stringify(catalog))&&progress.next>=catalog.length};}
       return finish();
     });
-    async function search(query,context,limit=20){
+    function resetPreparation(scopeId){preparationProgress.delete(scopeId);}
+    async function search(query,context,limit=20,options={}){
+      const check=typeof options.check==='function'?options.check:()=>{};check();
       if(typeof query!=='string'||query.length<2||query.length>OVERLAP)throw fail('query_invalid');
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const terms=[...new Set(host.terms(query).filter(term=>typeof term==='string'&&!term.startsWith('#')).map(normalize))];
       const phrase=normalize(query);if(!phrase.length||phrase.length>OVERLAP||!phrase.trim())throw fail('query_invalid');
-      const needed=Math.max(1,Math.ceil(terms.length/2)),cap=Math.min(50,Math.max(1,Math.floor(Number(limit)||20))),candidates=[];
+      const identify=typeof SemanticRetrieval!=='undefined'&&typeof SemanticRetrieval.structuredIds==='function'?SemanticRetrieval.structuredIds:()=>[],requiredIds=identify(query);
+      const idChar=char=>[...char.normalize('NFKC').toLowerCase()].every(value=>'abcdefghijklmnopqrstuvwxyz0123456789-_:'.includes(value));
+      const identifierAt=(text,id)=>{const needle=id.toUpperCase();for(let at=text.indexOf(needle);at>=0;at=text.indexOf(needle,at+1)){let left=at,right=at+needle.length;while(left>0&&at-left<512&&idChar(text[left-1]))left--;while(right<text.length&&right-at-needle.length<512&&idChar(text[right]))right++;if(left>0&&idChar(text[left-1])||right<text.length&&idChar(text[right]))continue;if(identify(text.slice(left,right)).includes(id))return at;}return -1;};
+      const needed=Math.max(1,Math.ceil(terms.length/2)),cap=Math.min(50,Math.max(1,Math.floor(Number(limit)||20))),candidateLimit=4096,candidates=[],semanticRows=[],manifests=new Map();
+      let fragmentCount=0,entityTruncated=false,lexicalTruncated=false,lexicalPartial=false;
+      const semanticTotals=new Map(),semanticEvidence=new Map(),metadataTotals=new Map(),metadataEvidence=new Map(),sourceKeyOf=row=>JSON.stringify([row.sessionId,row.messageOrdinal,row.source,row.contentRevision]);
       // The public consumers limit session results. A dense session gets one
       // best citation, never all of the bounded global candidate slots.
       const compare=(a,b)=>b.score-a.score||a.row.sessionId.localeCompare(b.row.sessionId)||a.row.messageOrdinal-b.row.messageOrdinal||a.row.chunkOrdinal-b.row.chunkOrdinal||a.start-b.start||a.row.source.localeCompare(b.row.source);
       const catalog=await host.catalog();if(!Array.isArray(catalog)||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
-      for(const sid of catalog){
-        if(!valid(sid))throw fail('catalog_invalid');if(await host.authorize(sid,context,access)!==true)continue;
-        const value=await currentManifest(sid);if(!value||!compatible(value)||value.epoch!==await host.epoch(sid))continue;let best=null;
-        for(const ref of value.shards){
+      const scanIndex=async sid=>{check();const candidates=[],semanticRows=[],entitySources=new Map(),termSources=new Map();let fragmentCount=0,entityTruncated=false,lexicalTruncated=false;const totals=new Map();const addCandidate=hit=>{if(candidates.length<candidateLimit){let at=candidates.push(hit)-1;while(at>0){const parent=(at-1)>>1;if(compare(candidates[at],candidates[parent])<=0)break;[candidates[at],candidates[parent]]=[candidates[parent],candidates[at]];at=parent;}return;}lexicalTruncated=true;if(compare(hit,candidates[0])>=0)return;candidates[0]=hit;let at=0;for(;;){let child=at*2+1;if(child>=candidates.length)break;if(child+1<candidates.length&&compare(candidates[child+1],candidates[child])>0)child++;if(compare(candidates[child],candidates[at])<=0)break;[candidates[at],candidates[child]]=[candidates[child],candidates[at]];at=child;}};
+        if(!valid(sid))throw fail('catalog_invalid');
+        const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true;
+        if(!already&&await host.authorize(sid,context,access)!==true)return null;
+        const value=await currentManifest(sid),authorized=typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid);
+        if(!value||!compatible(value)||value.epoch!==authorized)return null;let best=null;
+        for(const ref of value.shards){check();
           const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES);if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.schema!==SCHEMA||shard.sessionId!==sid||shard.generation!==value.generation||shard.ordinal!==ref.ordinal||!Array.isArray(shard.rows)||shard.rows.length!==ref.records){if(await retired(sid,value))break;throw fail('shard_invalid');}
-          for(const row of shard.rows){
+          for(const row of shard.rows){check();
             if(keys(row)!=='canonicalStart,chunkOrdinal,contentRevision,coordinate,end,messageId,messageIdBasis,messageOrdinal,ranges,sessionId,source,start,text,turnSeq,turnSeqBasis'||row.coordinate!=='utf16'||!['explicit','legacy-inferred'].includes(row.turnSeqBasis)||!['intrinsic','physical-ordinal'].includes(row.messageIdBasis)||!(/^(?:content(?:\.\d+(?:\.text)?)?|blocks\.\d+(?:\.text)?|segments\.\d+\.text|attachments\.\d+\.(?:textPreview|transcript|ocrText|extractedText))$/).test(row.source)||row.sessionId!==sid||!integer(row.messageOrdinal)||!integer(row.turnSeq)||typeof row.messageId!=='string'||row.messageId.length>256||!HEX.test(row.contentRevision||'')||!integer(row.chunkOrdinal)||!integer(row.start)||!integer(row.end)||typeof row.source!=='string'||typeof row.text!=='string'||row.end<=row.start||!integer(row.canonicalStart)||!row.text.length||row.text.length>CHARS||!rangesValid(row))throw fail('shard_invalid');
-            const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term));if(exact<0&&matched.length<needed)continue;
-            const at=exact>=0?exact:row.text.indexOf(matched[0]),width=exact>=0?phrase.length:matched[0].length;
+            const sourceKey=JSON.stringify([row.messageOrdinal,row.source,row.contentRevision]),rowIds=requiredIds.length?identify(row.text).filter(id=>requiredIds.includes(id)&&identifierAt(row.text,id)>=0):[];let entity=entitySources.get(sourceKey);if(entity)entity.maxStart=Math.max(entity.maxStart,row.canonicalStart);
+            if(rowIds.length){if(!entity){if(entitySources.size>=4096)entityTruncated=true;else{entity={ids:new Set(),hits:[],maxStart:row.canonicalStart};entitySources.set(sourceKey,entity);}}if(entity)for(const id of rowIds)entity.ids.add(id);}
+            const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term)),windowHash=semantic||exact>=0||matched.length>0||rowIds.length?digest({text:row.text,ranges:row.ranges}):null;
+            if(semantic){for(let at=0;at<row.text.length;){check();const semanticKey=sourceKeyOf(row);totals.set(semanticKey,(totals.get(semanticKey)||0)+1);let next=Math.min(row.text.length,at+96);if(next<row.text.length&&row.text.charCodeAt(next)>=0xdc00&&row.text.charCodeAt(next)<=0xdfff)next--;
+              if(semanticRows.length<4096){const width=next-at,start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;
+                semanticRows.push({text:row.text.slice(at,next),identity:[sid,value.epoch,value.sourceRevision,value.generation,row.contentRevision,row.source,row.canonicalStart,at,start,end,windowHash],hit:{row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,start,end}});}fragmentCount++;
+              if(next===row.text.length)break;let following=next-16;if(row.text.charCodeAt(following)>=0xdc00&&row.text.charCodeAt(following)<=0xdfff)following--;at=following;}}
+            if(requiredIds.length&&!rowIds.length||!requiredIds.length&&exact<0&&!matched.length)continue;
+            const idTerm=requiredIds.length?rowIds[0].toUpperCase():null,at=requiredIds.length?identifierAt(row.text,rowIds[0]):exact>=0?exact:row.text.indexOf(matched[0]),width=requiredIds.length?idTerm.length:exact>=0?phrase.length:matched[0].length;
             const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,at+width-1).to;if(!integer(start)||!integer(end))throw fail('shard_invalid');
-            const hit={row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash:digest({text:row.text,ranges:row.ranges}),at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,score:(exact>=0?30:0)+matched.length,start,end};
-            if(sessionResults){if(!best||compare(hit,best)<0)best=hit;}
-            else{candidates.push(hit);candidates.sort((a,b)=>b.score-a.score||a.row.sessionId.localeCompare(b.row.sessionId)||a.start-b.start);if(candidates.length>cap*4)candidates.length=cap*4;}
+            const hit={row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,entity:requiredIds.length>0,edge:at+width===row.text.length,exact:exact>=0||requiredIds.length>0,score:requiredIds.length?(exact>=0?90:60)+matched.length:(exact>=0?30:0)+matched.length,start,end};
+            if(!requiredIds.length&&terms.length){let group=termSources.get(sourceKey);if(!group){if(termSources.size<4096){group={terms:new Set(),hit};termSources.set(sourceKey,group);}else lexicalTruncated=true;}if(group)for(const term of matched)group.terms.add(term);}
+            if(!requiredIds.length&&exact<0&&matched.length<needed)continue;
+            if(!requiredIds.length){const group=termSources.get(sourceKey);if(group)group.hasCandidate=true;}
+            if(requiredIds.length&&entity){if(entity.hits.length<32)entity.hits.push(hit);else{entityTruncated=true;const replace=entity.hits.findIndex(item=>item.edge);if(!hit.edge&&replace>=0)entity.hits[replace]=hit;}}
+            else addCandidate(hit);
           }
         }
-        if(sessionResults&&best){candidates.push(best);candidates.sort(compare);if(candidates.length>cap)candidates.length=cap;}
+        if(!requiredIds.length&&terms.length)for(const group of termSources.values())if(!group.hasCandidate&&terms.every(term=>group.terms.has(term)))addCandidate(group.hit);
+        if(candidates.length>candidateLimit){candidates.sort(compare);candidates.length=candidateLimit;lexicalTruncated=true;}
+        if(requiredIds.length){const eligible=new Set([...entitySources].filter(([,value])=>requiredIds.every(id=>value.ids.has(id))).map(([key])=>key));for(const [key,value]of entitySources)if(eligible.has(key))candidates.push(...value.hits.filter(hit=>!hit.edge||hit.canonicalStart===value.maxStart));for(let n=semanticRows.length-1;n>=0;n--){const row=semanticRows[n].hit.row;if(!eligible.has(JSON.stringify([row.messageOrdinal,row.source,row.contentRevision])))semanticRows.splice(n,1);}fragmentCount=0;for(const [key,count]of totals){const [,ordinal,source,revision]=JSON.parse(key);if(eligible.has(JSON.stringify([ordinal,source,revision])))fragmentCount+=count;}candidates.sort(compare);if(candidates.length>candidateLimit){entityTruncated=true;candidates.length=candidateLimit;}if(entityTruncated)fragmentCount++;}
+        if(sessionResults&&!requiredIds.length){const perSource=new Map();for(const hit of candidates.sort(compare)){const key=sourceKeyOf(hit.row);if(!perSource.has(key))perSource.set(key,hit);}const bounded=[...perSource.values()].sort(compare);if(bounded.length>candidateLimit)lexicalTruncated=true;candidates.splice(0,candidates.length,...bounded.slice(0,candidateLimit));}
+        return {sid,value,candidates,semanticRows,fragmentCount,entityTruncated,lexicalTruncated,totals};
+      };
+      for(let start=0;start<catalog.length;start+=4){check();const batch=await Promise.allSettled(catalog.slice(start,start+4).map(scanIndex)),failures=batch.filter(row=>row.status==='rejected');
+        if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;
+        for(const row of batch){const part=row.value;if(!part)continue;manifests.set(part.sid,part.value);fragmentCount+=part.fragmentCount;entityTruncated||=part.entityTruncated;lexicalTruncated||=part.lexicalTruncated;for(const [key,count]of part.totals)semanticTotals.set(key,(semanticTotals.get(key)||0)+count);
+          semanticRows.push(...part.semanticRows.slice(0,Math.max(0,4096-semanticRows.length)));candidates.push(...part.candidates);candidates.sort(compare);if(candidates.length>candidateLimit){if(requiredIds.length)entityTruncated=true;lexicalTruncated=true;candidates.length=candidateLimit;}}}
+      const metadataRows=[];let metadataTruncated=options.metadataEntriesTruncated===true;
+      if(semantic&&Array.isArray(options.metadataEntries)){for(const item of options.metadataEntries){check();if(!item||!valid(item.sid)||typeof item.field!=='string'||typeof item.text!=='string'||typeof item.epoch!=='string'||item.text.length>8192){metadataTruncated=true;continue;}const key=JSON.stringify([item.sid,item.field]);for(let at=0;at<item.text.length;){let end=Math.min(item.text.length,at+96);if(end<item.text.length&&item.text.charCodeAt(end)>=0xdc00&&item.text.charCodeAt(end)<=0xdfff)end--;metadataTotals.set(key,(metadataTotals.get(key)||0)+1);if(metadataRows.length<256)metadataRows.push({text:item.text.slice(at,end),identity:['metadata',item.sid,item.field,item.epoch,digest(item.text),at,end],metadata:item,metadataKey:key,hit:{row:{sessionId:item.sid},epoch:item.epoch}});else metadataTruncated=true;if(end===item.text.length)break;let next=end-16;if(item.text.charCodeAt(next)>=0xdc00&&item.text.charCodeAt(next)<=0xdfff)next--;at=next;}}}
+      if(metadataRows.length){if(semanticRows.length+metadataRows.length>4096)metadataTruncated=true;semanticRows.splice(0,0,...metadataRows);if(semanticRows.length>4096)semanticRows.length=4096;}
+      let semanticState={status:semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
+      let ranked=[],gemmaDecision=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method)?{complete:false,policyId:SemanticWindowPolicy.CONTRACT.id}:null;const gemmaMetadata=new Map(),gemmaWeak=new Map();
+      if(semantic&&semanticRows.length){
+        // Lexical shard text is uppercased. Resolve original spelling through
+        // the authenticated source owner only when a vector is not cached.
+        const semanticDeadline=Math.min(Date.now()+1000,Number.isFinite(options.deadline)?options.deadline:Infinity),policyContext=typeof SemanticOriginalWindows!=='undefined'?SemanticOriginalWindows.createRequest({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}):null;
+        const sourceExpired=Object.freeze({semanticSourceBudget:true}),sourceCheck=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw sourceExpired;};
+        const originalFragments=new Map(),originalFields=new Map(),loadedSources=new Set(),sourceSequences=new Map(),sourceGuards=new Map();let activeSids=[],activeMetadata=new Set();
+        const beforeEncode=async()=>{
+          check();
+          if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
+          for(const sid of activeSids){if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
+            const sample=semanticRows.find(entry=>entry.hit.row.sessionId===sid).hit;
+            if(await host.epoch(sid)!==sample.epoch||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
+            for(const guard of sourceGuards.get(sid)||[])if(!await guard())throw fail('source_changed');for(const item of activeMetadata)if(item.sid===sid&&!await options.verifyMetadata(item))throw fail('source_changed');
+          }
+          if(host.assertScope(context,access)!==true||activeSids.some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sourceSequences.get(sid)))throw fail('disclosure_changed');if(Date.now()>=semanticDeadline)throw sourceExpired;
+        };
+        const resolveTexts=async indices=>{
+          activeSids=[...new Set(indices.map(n=>semanticRows[n].hit.row.sessionId))];activeMetadata=new Set(indices.map(n=>semanticRows[n].metadata).filter(Boolean));
+          for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));}
+          for(const n of indices){sourceCheck();if(semanticRows[n].metadata)continue;const sid=semanticRows[n].hit.row.sessionId;if(loadedSources.has(sid))continue;
+            if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
+            const rows=semanticRows.map((entry,index)=>({entry,index})).filter(item=>!item.entry.metadata&&item.entry.hit.row.sessionId===sid);
+            const policy=attachmentSource&&rows.some(item=>attachmentField.test(item.entry.hit.row.source))?await host.enabled():null,budget=attachmentBudget();
+            let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set();
+            const proof=await host.scan(sid,async(row,ordinal)=>{
+              if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
+              const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
+              if(host.noise(row))return;
+              const attachments=policy!==null?attachmentCandidates(row,budget):[];
+              const chosen=rows.filter(item=>item.entry.hit.row.messageOrdinal===ordinal);if(!chosen.length)return;
+              const revision=digest(row),parts=sources(row);
+              if(policy!==null&&chosen.some(item=>attachmentField.test(item.entry.hit.row.source)))parts.push(...await extractedSources(row,policy,await selectedAttachments(attachments,policy)));
+              const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,windows=new Map(),neededWindows=new Set(chosen.map(item=>item.entry.hit.row.source+'\0'+item.entry.hit.canonicalStart));let chunkOrdinal=0;
+              for(const part of parts){for(const window of slices(part.text)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
+              for(const {entry,index}of chosen){const hit=entry.hit,source=parts.find(part=>part.field===hit.row.source);
+                if(!source||hit.end>source.text.length||hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
+                const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;
+                if(!window||found.chunkOrdinal!==hit.row.chunkOrdinal||window.start!==hit.row.start||window.end!==hit.row.end||hit.row.messageId!==messageId||hit.row.messageIdBasis!==(intrinsic?'intrinsic':'physical-ordinal')||hit.row.turnSeq!==sourceTurn||hit.row.turnSeqBasis!==sourceTurnBasis||digest({text:window.text,ranges:window.ranges})!==hit.windowHash||rangeAt(window.ranges,hit.at).from!==hit.start||rangeAt(window.ranges,hit.at+hit.width-1).to!==hit.end)throw fail('shard_source_mismatch');
+                if(source.revalidate&&!checks.has(source.revalidate)){if(!await source.revalidate())throw fail('source_changed');checks.add(source.revalidate);}
+                const text=source.text.slice(hit.start,hit.end);if(text.length<=8192)originalFragments.set(index,text);originalFields.set(index,source.text);
+              }
+            },{check:sourceCheck});
+            if(!proof||rows.some(item=>item.entry.hit.epoch!==proof.epoch||item.entry.hit.sourceRevision!==proof.revision)||await host.epoch(sid)!==proof.epoch||host.assertScope(context,access)!==true)throw fail('source_changed');
+            sourceSequences.set(sid,host.sourceSequence(sid));sourceGuards.set(sid,checks);loadedSources.add(sid);
+          }
+          await beforeEncode();
+          return indices.map(n=>semanticRows[n].metadata?semanticRows[n].text:(originalFragments.get(n)??null));
+        };
+        try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),maxEncodeDocuments:128,resolveTexts,beforeEncode,policyContext,deadline:semanticDeadline,signal:options.signal});check();}catch(error){if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}
+        if(policyContext&&(gemmaDecision||SemanticRetrieval.hasScoreEvidence(semanticState)||semanticState.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)){
+          const expired=Object.freeze({semanticBudget:true}),guard=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw expired;},policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify,normalize,terms:retrievalTerms}),rawRows=[],entries=[],rowSources=[],tokens=new Map(),fieldRows=new Map(),canonical=new Map(),sourceIndices=[];
+          try{
+            guard();await resolveTexts(semanticRows.map((_,n)=>n));guard();
+            for(let n=0;n<semanticRows.length;n++){guard();const row=semanticRows[n],full=row.metadata?row.metadata.text:originalFields.get(n);if(typeof full!=='string')continue;const identity=row.metadata?{sourceId:row.metadata.sid,field:'metadata.'+row.metadata.field,revision:digest(full),epoch:row.metadata.epoch,sourceRevision:row.metadata.epoch}:{sourceId:JSON.stringify([row.hit.row.sessionId,row.hit.row.messageId]),field:row.hit.row.source,revision:row.hit.row.contentRevision,epoch:row.hit.epoch,sourceRevision:row.hit.sourceRevision},token=policyContext.captureField(identity,full,row.metadata?'raw-metadata-v1':'canonical-message-v3');let source;
+              if(row.metadata)source=policyContext.rawWindow(token,row.identity.at(-2),row.identity.at(-1));else{let windows=canonical.get(token);if(!windows){windows=new Map();for(const window of policyContext.canonicalSlices(token)){guard();windows.set(window.canonicalStart,window);}canonical.set(token,windows);}source=policyContext.canonicalWindow(token,windows.get(row.hit.canonicalStart),row.hit.at,row.hit.width);}
+              const raw=policyContext.row(source,[row.hit.row.sessionId,row.hit.row.messageOrdinal??-1,row.hit.row.source??row.metadata.field],row.identity),key=row.metadata?row.metadataKey:sourceKeyOf(row.hit.row);if(!tokens.has(key))tokens.set(key,policyContext.weakKey(token));if(!fieldRows.has(key))fieldRows.set(key,rawRows.length);rawRows.push(raw);entries.push(SemanticRetrieval.hasScoreEvidence(semanticState)?{result:semanticState,index:n}:null);rowSources.push({source,token,full,n});sourceIndices.push(n);
+            }
+            const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired});guard();
+            const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:semanticDeadline,signal:options.signal,
+              resolve:async(index,whole)=>{guard();const item=rowSources[index];await resolveTexts([item.n]);guard();if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async()=>{guard();activeSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];activeMetadata=new Set(rowSources.map(item=>semanticRows[item.n].metadata).filter(Boolean));await beforeEncode();guard();}});
+            try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
+          }catch(error){if(error!==expired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
+        }
+        if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
+        const admission=semanticState.admission;
+        if(admission&&(!Array.isArray(admission.accepted)||admission.accepted.length!==semanticRows.length||admission.accepted.some(value=>value!==true&&value!==false&&value!==null)||!['evaluated','partial','uncalibrated'].includes(admission.status)))throw fail('semantic_policy_invalid');
+        for(let n=0;n<semanticRows.length;n++){const row=semanticRows[n],key=row.metadata?row.metadataKey:sourceKeyOf(row.hit.row),evidences=row.metadata?metadataEvidence:semanticEvidence,score=semanticState.scores[n],decision=admission?admission.accepted[n]:Number.isFinite(score)?score>=(semanticState.minScore??0.85):null;let entry=evidences.get(key);if(!entry){entry={scored:0,accepted:false};evidences.set(key,entry);}if(Number.isFinite(score)&&typeof decision==='boolean'){entry.scored++;if(decision)entry.accepted=true;}}
+        ranked=semanticRows.map((row,n)=>({...row.hit,metadata:!!row.metadata,semanticScore:semanticState.scores[n],score:semanticState.scores[n],rankScore:semanticState.scores[n]})).filter((hit,n)=>!hit.metadata&&typeof hit.semanticScore==='number'&&Number.isFinite(hit.semanticScore)&&(admission?admission.accepted[n]===true:hit.semanticScore>=(semanticState.minScore??0.85))).sort(compare);
+        // Exact phrases retain priority; other lexical and semantic evidence
+        // contribute comparable reciprocal ranks before the final result cap.
       }
+        {
+          const identity=hit=>[hit.row.sessionId,hit.row.messageId,hit.row.source,hit.canonicalStart].join('\0');
+          const fused=new Map();
+          candidates.sort(compare).forEach((hit,n)=>{const id=identity(hit);if(!fused.has(id))fused.set(id,{hit,rankScore:1/(61+n),exact:!!hit.exact,lexical:true,lexicalRank:n});});
+          const seen=new Set();let rank=0;
+          for(const hit of ranked){const id=identity(hit);if(seen.has(id))continue;seen.add(id);const prior=fused.get(id);
+            if(prior){prior.rankScore+=1/(61+rank);prior.semanticRank=rank;if(!prior.exact)prior.hit=hit;}
+            else fused.set(id,{hit,rankScore:1/(61+rank),exact:false,semanticRank:rank});rank++;
+          }
+          const merged=[...fused.values()].map(item=>({...item.hit,lexical:!!item.lexical,lexicalRank:item.lexicalRank,semanticRank:item.semanticRank,exact:item.exact,rankScore:item.rankScore+(item.exact?1:0)})).sort((a,b)=>b.rankScore-a.rankScore||compare(a,b));if(merged.length>candidateLimit)lexicalTruncated=true;candidates.splice(0,candidates.length,...merged.slice(0,candidateLimit));
+        }
       const selected=new Map();for(const hit of candidates){const key=[hit.row.sessionId,hit.row.messageId,hit.row.contentRevision,hit.row.source,hit.start,hit.end].join('\0');if(!selected.has(key))selected.set(key,hit);}
-      const results=[],sequences=new Map(),sourceChecks=[];
-      for(const sid of [...new Set([...selected.values()].map(hit=>hit.row.sessionId))]){
-        if(await host.authorize(sid,context,access)!==true)continue;const hits=[...selected.values()].filter(hit=>hit.row.sessionId===sid),resolved=[],retained=new Set();let retainedBytes=0;
+      const results=[],verifiedHits=[],sequences=new Map(),sourceChecks=[],coverageReuse=new Map(),retainedSources=new Set();let retainedBytes=0;
+      for(const sid of [...new Set([...selected.values()].map(hit=>hit.row.sessionId))]){check();
+        if(await host.authorize(sid,context,access)!==true)continue;const hits=[...selected.values()].filter(hit=>hit.row.sessionId===sid),resolved=[];
         const policy=attachmentSource&&hits.some(hit=>attachmentField.test(hit.row.source))?await host.enabled():null,budget=attachmentBudget();
-        let sourceTurn=0,sourceTurnBasis='legacy-inferred';
+        let sourceTurn=0,sourceTurnBasis='legacy-inferred',unverified=0;
         const proof=await host.scan(sid,async(row,ordinal)=>{
           if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
           const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
-          if(host.noise(row))return;
+          if(host.noise(row))return;if(inspectSources(row).unverified)unverified++;
           const candidates=policy!==null?attachmentCandidates(row,budget):[];
           const rowHits=hits.filter(hit=>hit.row.messageOrdinal===ordinal);
           if(!rowHits.length)return;
@@ -113337,30 +114749,60 @@ const SessionFullTextIndex = ((io,p,c) => {
           if(policy!==null&&rowHits.some(hit=>attachmentField.test(hit.row.source))){
             parts.push(...await extractedSources(row,policy,await selectedAttachments(candidates,policy)));
           }
+          const windows=new Map(),neededWindows=new Set(rowHits.map(hit=>hit.row.source+'\0'+hit.canonicalStart));let windowOrdinal=0;
+          for(const part of parts){for(const window of slices(part.text)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal:windowOrdinal});windowOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
           for(const hit of rowHits){
-            const source=parts.find(part=>part.field===hit.row.source);if(!source||hit.end>source.text.length)continue;
+            const source=parts.find(part=>part.field===hit.row.source);if(!source||hit.end>source.text.length)continue;const sourceIds=requiredIds.length?identify(source.text):[];if(requiredIds.some(id=>!sourceIds.includes(id)))continue;
+            if(hit.entity){const part=source.text.slice(hit.start,hit.end).normalize('NFKC').toLowerCase();let left=hit.start,right=hit.end;while(left>0&&hit.start-left<512&&idChar(source.text[left-1]))left--;while(right<source.text.length&&right-hit.end<512&&idChar(source.text[right]))right++;if(left>0&&idChar(source.text[left-1])||right<source.text.length&&idChar(source.text[right])||!requiredIds.includes(part)||!identify(source.text.slice(left,right)).includes(part))continue;}
             if(hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
-            let proven=false,finished=false,chunkOrdinal=0;for(const part of parts){for(const window of slices(part.text)){if(part.field===source.field&&window.canonicalStart===hit.canonicalStart){proven=chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;finished=true;break;}chunkOrdinal++;}if(finished)break;}if(!proven)throw fail('shard_source_mismatch');
-            const owner=ordinal+'\0'+source.field;if(!retained.has(owner)){retained.add(owner);retainedBytes+=Buffer.byteLength(source.text);if(retainedBytes>256*1024*1024)throw fail('projection_capacity');}
+            const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;const proven=!!window&&found.chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;if(!proven)throw fail('shard_source_mismatch');
+            if(hit.lexical){const original=normalize(source.text),strong=!!requiredIds.length||original.includes(phrase)||(terms.length>0&&terms.every(term=>original.includes(term)));if(!strong){const key=sourceKeyOf(hit.row);if(gemmaDecision){const decision=gemmaWeak.get(key);if(decision!==true){if(decision!==false)lexicalPartial=true;if(hit.semanticRank!==undefined){delete hit.lexicalRank;hit.lexical=false;}else continue;}}else{const evidence=semanticEvidence.get(key),total=semanticTotals.get(key)||0;if(evidence?.accepted){}else if(total>0&&evidence?.scored===total)continue;else lexicalPartial=true;}}}
+            const owner=sid+'\0'+ordinal+'\0'+source.field;if(!retainedSources.has(owner)){const size=Buffer.byteLength(source.text);if(retainedBytes+size>256*1024*1024){lexicalTruncated=true;continue;}retainedSources.add(owner);retainedBytes+=size;}
             const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
             resolved.push({hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
           }
-        });
-        if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision||await host.epoch(sid)!==proof.epoch)continue;
+        },{check});
+        if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision)continue;
         const sequence=host.sourceSequence(sid);if(typeof sequence!=='string'&&!(Number.isSafeInteger(sequence)&&sequence>=0))throw fail('source_invalid');
-        for(const {hit,sourceText,text,snippetEnd,snippetTruncated,revalidate}of resolved){const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,matchStart:hit.start,matchEnd:hit.end,snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access,revalidate});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
-          if(await host.authorize(sid,context,access)!==true||await host.epoch(sid)!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
-          if(revalidate){if(!await revalidate())continue;sourceChecks.push(revalidate);}
-          results.push({...disclosed,score:hit.score});sequences.set(sid,sequence);
-        }
+        const selectedManifest=manifests.get(sid);if(selectedManifest?.attachments===0)coverageReuse.set(sid,{generation:selectedManifest.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified});
+        for(const item of resolved)verifiedHits.push({...item,sid,proof,sequence});
       }
-      const covered=new Set(),coverageSequences=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences});
+      // Recompute reciprocal ranks only after source proof and admission. Apply
+      // the user cap before privacy projection, including one result per session.
+      const lexicalRanks=new Map(),semanticRanks=new Map();
+      verifiedHits.filter(row=>row.hit.lexicalRank!==undefined).sort((a,b)=>a.hit.lexicalRank-b.hit.lexicalRank).forEach((row,n)=>lexicalRanks.set(row,n));
+      verifiedHits.filter(row=>row.hit.semanticRank!==undefined).sort((a,b)=>a.hit.semanticRank-b.hit.semanticRank).forEach((row,n)=>semanticRanks.set(row,n));
+      for(const row of verifiedHits)row.hit.rankScore=(row.hit.exact?1:0)+(lexicalRanks.has(row)?1/(61+lexicalRanks.get(row)):0)+(semanticRanks.has(row)?1/(61+semanticRanks.get(row)):0);
+      verifiedHits.sort((a,b)=>b.hit.rankScore-a.hit.rankScore||compare(a.hit,b.hit));
+      const projectedSessions=new Set();let projectedCount=0;
+      for(const {hit,sourceText,text,snippetEnd,snippetTruncated,revalidate,sid,proof,sequence}of verifiedHits){check();if(projectedCount>=cap)break;if(sessionResults&&projectedSessions.has(sid))continue;
+        if(await host.authorize(sid,context,access)!==true||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+        if(revalidate&&!await revalidate())continue;
+        projectedCount++;const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,...(hit.semanticScore===undefined?{matchStart:hit.start,matchEnd:hit.end,...(hit.entity?{matchKind:'lexical-entity'}:hit.verifiedWindow?{matchKind:'verified-window'}:{})}:{matchKind:'semantic',matchStart:hit.start,matchEnd:hit.end}),snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access,revalidate});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
+        if(await host.authorize(sid,context,access)!==true||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+        if(revalidate){if(!await revalidate())continue;sourceChecks.push(revalidate);}
+        results.push({...disclosed,score:hit.score,rankScore:hit.rankScore??hit.score,...(hit.semanticScore===undefined?{}:{semanticScore:hit.semanticScore})});sequences.set(sid,sequence);projectedSessions.add(sid);
+      }
+      const covered=new Set(),coverageSequences=new Map(),observedManifests=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences},{...options,reuse:coverageReuse,observed:observedManifests});check();
       for(const check of sourceChecks)if(!await check(true))throw fail('source_changed');
       if(host.assertScope(context,access)!==true||[...sequences].some(([sid,seq])=>host.sourceSequence(sid)!==seq||host.assertAuthorized(sid,context,access)!==true)||[...covered].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==coverageSequences.get(sid)))throw fail('disclosure_changed');
-      return {query,results:results.sort((a,b)=>b.score-a.score).slice(0,cap),coverage:coverageState,scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
+      const sorted=results.sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score));const unique=sessionResults?sorted.filter((hit,n)=>sorted.findIndex(other=>other.reference.sessionId===hit.reference.sessionId)===n):sorted;
+      const result={query,results:unique.slice(0,cap),coverage:coverageState,ranking:'rrf-v1',lexicalAdmission:{partial:lexicalPartial||lexicalTruncated,truncated:lexicalTruncated},...(requiredIds.length?{entity:{required:requiredIds.length,partial:entityTruncated}}:{}),semantic:{status:semanticState.status,coverage:!coverageState.complete||fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||!semanticState.coverage?.complete?'partial':'complete',candidateFragments:semanticRows.length,cachedFragments:semanticState.coverage?.cached||0,truncated:fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||entityTruncated,minScore:semanticState.minScore??0.85,...(semanticState.admission?{admission:{policyId:semanticState.admission.policyId,status:semanticState.admission.status,purpose:semanticState.admission.purpose,answerability:semanticState.admission.answerability}}:{}),...(semanticState.modelFingerprint?{modelFingerprint:semanticState.modelFingerprint}:{})},scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
+      const selectedEpochs=new Map([...sequences.keys()].map(sid=>[sid,manifests.get(sid)?.epoch]));
+      searchProofs.set(result,{context,access,observedManifests,coverageSequences,selectedEpochs,metadataTotals,metadataEvidence,metadataTruncated,gemmaDecision,gemmaMetadata});return result;
+    }
+    async function revalidate(result,context,options={}){
+      const proof=searchProofs.get(result);if(!proof||proof.context!==context)throw fail('disclosure_changed');
+      const check=typeof options.check==='function'?options.check:()=>{},rows=[...proof.observedManifests];let changed=0;
+      for(let start=0;start<rows.length;start+=4){check();const batch=await Promise.allSettled(rows.slice(start,start+4).map(async([sid,generation])=>{
+        check();if(host.assertAuthorized(sid,context,proof.access)!==true||host.sourceSequence(sid)!==proof.coverageSequences.get(sid))throw fail('disclosure_changed');
+        if(proof.selectedEpochs.has(sid)&&await host.epoch(sid)!==proof.selectedEpochs.get(sid))throw fail('source_changed');
+        const current=await currentManifest(sid);check();return (current?.generation||null)!==generation;
+      }));const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;changed+=batch.filter(row=>row.value===true).length;}
+      check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
-    return Object.freeze({step,prepare,search,coverage,restorePause,invalidate:(sid,deleted=false)=>run(async()=>{await purge(sid);}),pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
+    return Object.freeze({step,prepare,resetPreparation,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
       setMaintenancePaused:value=>{maintenancePaused=value===true;},busy:()=>building,pending:()=>chain});
   }
   return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
@@ -113475,15 +114917,17 @@ let sessionFullTextOwner = null;
 function bindSessionFullTextIndex(disclosure,sessionResults=false) {
   const names=['scope','authorize','assertAuthorized','project','assertScope'];
   if(sessionFullTextOwner)throw Object.assign(Error('session_fulltext.already_bound'),{code:'session_fulltext.already_bound'});
-  if(!disclosure||Object.keys(disclosure).sort().join(',')!==names.slice().sort().join(',')||names.some(name=>typeof disclosure[name]!=='function'))
+  if(!disclosure||Object.keys(disclosure).some(name=>!names.includes(name)&&!['authorizedEpoch','authorizedEmpty','restrictedCatalog'].includes(name))||names.some(name=>typeof disclosure[name]!=='function')||['authorizedEpoch','authorizedEmpty','restrictedCatalog'].some(name=>disclosure[name]!==undefined&&typeof disclosure[name]!=='function'))
     throw Object.assign(Error('session_fulltext.scope_binding_required'),{code:'session_fulltext.scope_binding_required'});
-  const projection=Object.fromEntries(names.map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
+  const projection=Object.fromEntries([...names,...['authorizedEpoch','authorizedEmpty'].filter(name=>disclosure[name])].map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
   const instance=SessionFullTextIndex.create({...projection,resultUnit:sessionResults===true?'sessions':'references',root:()=>paths.sessions,keys:workDataKeys,writeJson:atomicWriteJson,
     validSessionId:safeSessionId,noise:sessionSearchRowIsNoise,terms:retrievalTerms,
+    ...(typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'?{semantic:SemanticRetrieval.create(SemanticRuntimeHooks)}:{}),
     ...(typeof paths.uploads==='string'?{attachmentSource:createSessionFullTextAttachmentSource()}:{}),
     enabled:async()=>{const config=await readConfig();return WorkDataRootHooks.mode?WorkDataRootHooks.mode(config.workDataEncryptionV1):config.workDataEncryptionV1===true;},
     epoch:source.epoch,scan:source.scan,sourceSequence:source.sequence,
     catalog:async()=>{
+      const restricted=disclosure.restrictedCatalog?.();if(restricted!==null&&restricted!==undefined)return restricted;
       let entries;try{entries=await fsp.readdir(paths.sessions,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return [];throw error;}
       const ids=[],physical=new Set(),pattern=process.platform==='win32'?/^([A-Za-z0-9_-]{1,64})\.json$/i:/^([A-Za-z0-9_-]{1,64})\.json$/;
       for(const entry of entries){const match=pattern.exec(entry.name);if(!match||safeSessionId(match[1])!==match[1])continue;
@@ -113495,7 +114939,7 @@ function bindSessionFullTextIndex(disclosure,sessionResults=false) {
     }});
   const admitted=work=>WorkDataMaintenanceHooks.run('session-fulltext-index',work);
   sessionFullTextOwner=instance;
-  return Object.freeze({search:instance.search,coverage:instance.coverage,prepare:context=>admitted(()=>instance.prepare(context)),
+  return Object.freeze({search:instance.search,revalidate:instance.revalidate,usesWindowPolicy:instance.usesWindowPolicy,metadataAdmission:instance.metadataAdmission,mutationState:instance.mutationState,coverage:instance.coverage,resetPreparation:instance.resetPreparation,prepare:(context,options)=>admitted(()=>instance.prepare(context,options)),
     restorePause:context=>admitted(()=>instance.restorePause(context)),step:(limit,context)=>admitted(()=>instance.step(limit,context)),
     pause:()=>admitted(()=>instance.pause()),resume:()=>admitted(()=>instance.resume()),
     invalidate:(id,deleted)=>admitted(()=>instance.invalidate(id,deleted))});
@@ -113507,6 +114951,8 @@ if(typeof SessionFullTextHooks!=='undefined')Object.assign(SessionFullTextHooks,
   maintenancePause:()=>{if(!sessionFullTextOwner)return null;sessionFullTextOwner.setMaintenancePaused(true);return true;},
   maintenanceResume:saved=>{if(saved&&sessionFullTextOwner)sessionFullTextOwner.setMaintenancePaused(false);},
 });
+
+if(typeof SemanticPolicyConsumers!=='undefined')SemanticPolicyConsumers.add('session');
 
 // Real search destinations own admission. Neither JSON/model arguments nor an
 // index scope label can issue this private, per-call disclosure capability.
@@ -113520,21 +114966,23 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     if(required.some(name=>typeof host?.[name]!=='function')||!host.privacy)throw fail('host_invalid');
     const source=host.source(),privacy=host.privacy;
     if(['epoch','scan','sequence','inspect'].some(name=>typeof source[name]!=='function'))throw fail('source_unavailable');
+    const selectedMethod=config=>config.semanticRetrievalV1!==false&&typeof SemanticRuntimeTransportProof!=='undefined'&&typeof SemanticRuntimeTransportProof.method==='function'?SemanticRuntimeTransportProof.method():null;
     function current(token=local.getStore()) {const cap=issued.get(token);if(!cap||cap.closed)throw fail('scope_required');cap.assert();return cap;}
     function projectFilter(value) {if(value===undefined||value===null||value==='')return null;if(typeof value!=='string'||!/^project:[a-f0-9]{16}$/.test(value))throw fail('project_invalid');return value;}
-    async function enter(kind,authority,filter,work) {
-      const selectedFilter=projectFilter(filter),policy=privacy.disclosurePolicyGuard(),generation=host.configGeneration(),config=await host.readConfig();policy();
+    async function enter(kind,authority,filter,work,exactSid=null) {
+      const startedAt=Date.now(),selectedFilter=projectFilter(filter),policy=privacy.disclosurePolicyGuard(),generation=host.configGeneration(),config=await host.readConfig();policy();
       if(host.configGeneration()!==generation)throw fail('destination_changed');const grant=await authority(config);policy();
       if(!grant||typeof grant.assert!=='function'||typeof grant.revalidate!=='function'||typeof grant.scopeId!=='string')throw fail('destination_invalid');
-      const token=Object.freeze({}),cap={kind,config,generation,grant,filter:selectedFilter,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],closed:false,emitted:false};
+      if(exactSid&&grant.scopeId!==exactSid)throw fail('destination_changed');
+      const token=Object.freeze({}),cap={kind,config,generation,grant,startedAt,method:selectedMethod(config),semanticEpoch:selectedMethod(config)?SemanticRuntimeTransportProof.lifecycle():null,relatedMetadata:null,filter:selectedFilter,exactSid,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],indexState:null,closed:false,emitted:false};
       cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
-      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation)throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
+      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
       issued.set(token,cap);
-      const perform=()=>local.run(token,async()=>{try{cap.assert();const value=await work();if(!cap.emitted)await final(cap);return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
-      try{grant.assert();return await(kind==='model'?privacy.withPolicy(grant.scopeId,perform):perform());}catch(error){grant.close?.();throw error;}
+      return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
     }
     async function authorize(sid,token,access) {
       const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
+      if(cap.exactSid&&sid!==cap.exactSid)return false;
       await cap.grant.revalidate();cap.assert();const selected=await source.inspect(sid);cap.assert();
       if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return false;
       const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
@@ -113542,10 +114990,12 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
       cap.sources.set(sid,{...selected,metadata});return true;
     }
-    function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function authorizedEpoch(sid,token,access) {if(!assertAuthorized(sid,token,access))return null;return current(token).sources.get(sid).epoch;}
+    function authorizedEmpty(sid,token,access) {return assertAuthorized(sid,token,access)&&current(token).sources.get(sid).head.messageCount===0;}
     async function final(cap,completeAttachmentCheck=true) {
       cap.assert();await cap.grant.revalidate();cap.assert();
-      for(const [sid,row]of cap.sources){if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}
+      const sources=[...cap.sources];for(let start=0;start<sources.length;start+=4){const batch=await Promise.allSettled(sources.slice(start,start+4).map(async([sid,row])=>{if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}));const failed=batch.find(row=>row.status==='rejected');if(failed)throw failed.reason;}
       for(const check of cap.attachmentChecks)if(!await check(completeAttachmentCheck))throw fail('source_changed');
       cap.assert();for(const guard of cap.disclosures)guard();
     }
@@ -113565,19 +115015,20 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       }
       const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[sid,cap.grant.scopeId],binding);cap.assert();cap.disclosures.push(prepared.assert);return prepared.value;
     }
+    function relatedMetadata(cap,sid,value){if(!cap.relatedMetadata)return value;const approved=cap.relatedMetadata.get(sid)||new Set(),out={...value,summary:approved.has('summary')?value.summary||'':''};if(out.brief)out.brief={...out.brief,gist:approved.has('brief.gist')?out.brief.gist||'':''};delete out.recentUserRequest;return out;}
     async function publicMetadata(sid) {
       const token=local.getStore(),cap=current(token);if(!await authorize(sid,token,cap.access))throw fail('source_denied');
       const row=cap.sources.get(sid),raw=cap.kind==='ui'?row.metadata:privacy.foreignView(row.metadata);
       // The routing identifier is never reattached after projection. A protected
       // identifier that cannot be used by the old destination contract refuses.
       if(raw.id!==sid)throw fail('identifier_sensitive');
-      const value=strings(await disclose(cap,sid,raw,'session-search:metadata'),host.redact);cap.assert();if(value.id!==sid)throw fail('identifier_projection');return value;
+      const value=strings(await disclose(cap,sid,raw,'session-search:metadata'),host.redact);cap.assert();if(value.id!==sid)throw fail('identifier_projection');return relatedMetadata(cap,sid,value);
     }
     async function projection(input) {
       const token=local.getStore(),cap=current(token),sid=input.reference.sessionId;
-      if(typeof input.sourceText!=='string'||!await authorize(sid,token,cap.access))throw fail('source_denied');
+      if(typeof input.sourceText!=='string')throw fail('source_denied');
+      const metadata=await publicMetadata(sid),reference=clone(input.reference);delete reference.text;delete reference.contentRevision;delete reference.sourceRevision;delete reference.windowHash;delete reference.epoch;delete reference.revision;delete reference.identity;
       if(input.revalidate)cap.attachmentChecks.push(input.revalidate);
-      const metadata=await publicMetadata(sid),reference=clone(input.reference);delete reference.text;
       let view;
       const prepared=await privacy.withPolicy(sid,async()=>{
         view=await privacy.projectSource(input.sourceText,true);
@@ -113598,30 +115049,54 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
       disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
     }
-    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,project:projection,
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
-    async function metadata() {const token=local.getStore(),cap=current(token),out=[];for(const sid of await host.catalog())if(await authorize(sid,token,cap.access))out.push(clone(cap.sources.get(sid).metadata));cap.assert();return out;}
-    async function searchOnce(query,limit) {
-      const token=local.getStore(),cap=current(token),q=String(query||'').trim();cap.query=q;
+    function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
+    async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();const ids=cap.exactSid?[cap.exactSid]:await host.catalog();
+      for(let start=0;start<ids.length;start+=4){check();const batch=await Promise.allSettled(ids.slice(start,start+4).map(async sid=>{check();return await authorize(sid,token,cap.access)?clone(cap.sources.get(sid).metadata):null;}));
+        const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==timeout)||failures[0]).reason;
+        for(const row of batch)if(row.value)out.push(row.value);}
+      cap.assert();check();return out;}
+    async function searchOnce(query,limit,check,deadline,timeout) {
+      const token=local.getStore(),cap=current(token),q=String(query||'').trim();cap.query=q;cap.relatedMetadata=null;
       if(q.length>256)throw fail('query_invalid');
       if(q.length<2)return{ok:true,query:q,results:[],indexed:0,scope:scope(cap.config.sessionSearchIndexV1!==false),reason:'query_too_short'};
-      const enabled=cap.config.sessionSearchIndexV1!==false,metas=await metadata(),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
+      check();const enabled=cap.config.sessionSearchIndexV1!==false,metas=await metadata(check,timeout),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
+      const fieldsOf=meta=>[['title',meta.title],['summary',meta.summary],['brief.title',meta.brief?.title],['brief.gist',meta.brief?.gist],['cwd',meta.cwd]].filter(([,text])=>typeof text==='string'&&text.length);
+      const metadataEntries=[],metadataIds=typeof SemanticRetrieval!=='undefined'?SemanticRetrieval.structuredIds(q):[],metadataPhrase=q.normalize('NFKC').toLowerCase();let metadataEntryTruncated=false;
+      for(const meta of metas){check();const fields=fieldsOf(meta);if(!cap.method&&fields.some(([,text])=>{const norm=text.normalize('NFKC').toLowerCase();return norm.includes(metadataPhrase)||terms.length>0&&terms.every(term=>norm.includes(term));}))continue;for(const [field,text]of fields){const norm=text.normalize('NFKC').toLowerCase(),ids=cap.method?SemanticRetrieval.structuredIds(text):[];if(cap.method&&metadataIds.some(id=>!ids.includes(id)))continue;const eligible=cap.method?(metadataIds.length>0||norm.includes(metadataPhrase)||terms.some(term=>norm.includes(term))):terms.some(term=>norm.includes(term));if(!eligible)continue;const selected=cap.sources.get(meta.id);if(!selected)throw fail('source_changed');if(metadataEntries.length<256)metadataEntries.push({sid:meta.id,field,text,epoch:selected.epoch,sequence:selected.sequence});else metadataEntryTruncated=true;}}
+
+      const verifyMetadata=async item=>{check();if(await authorize(item.sid,token,cap.access)!==true)throw fail('source_denied');check();const selected=cap.sources.get(item.sid),field=fieldsOf(selected.metadata).find(([name])=>name===item.field);if(selected.epoch!==item.epoch||selected.sequence!==item.sequence||field?.[1]!==item.text||await source.epoch(item.sid)!==item.epoch)throw fail('source_changed');check();return true;};
       let found={results:[],coverage:{phase:'disabled',sessions:metas.length,indexedSessions:0,pendingSessions:metas.length,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false}};
+      let proofResult=null;
       if(enabled){
-        cap.assert();const coverage=await index.coverage(token),paused=cap.config.sessionSearchIndexPausedV1===true;
-        if(!paused&&coverage.pendingSessions&&coverage.phase!=='paused'){await index.prepare(token);cap.assert();}
-        found=await index.search(q,token,limit);
-        if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
+        cap.assert();const paused=cap.config.sessionSearchIndexPausedV1===true;
+        const incremental=!cap.exactSid&&metas.length>64&&typeof index.resetPreparation==='function';let progress=null;if(incremental&&!paused)progress=await index.prepare(token,{check,timeout,incremental:true});
+        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});
+        if(!paused&&found.coverage.pendingSessions&&found.coverage.phase!=='paused'){
+          if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
+          else if(progress?.done){index.resetPreparation(cap.access.scopeId);await index.prepare(token,{check,timeout,incremental:true});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
+        }
+        proofResult=found;if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
       }
-      const results=new Map();
-      for(const hit of found.results){const meta=hit.reference.session;if(!meta||typeof meta.id!=='string')throw fail('projection_invalid');if(!results.has(meta.id))results.set(meta.id,{...meta,...(meta.brief?{briefTitle:meta.brief.title,briefGist:meta.brief.gist}:{}),snippet:hit.snippet,reference:hit.reference,score:hit.score});}
+      const windowPolicy=!!cap.method,identifyPolicy=typeof SemanticRetrieval!=='undefined'?SemanticRetrieval.structuredIds:()=>[],requiredPolicyIds=identifyPolicy(q);if(windowPolicy){cap.relatedMetadata=new Map();for(const meta of metas){const approved=new Set(fieldsOf(meta).filter(([field,value])=>{const ids=identifyPolicy(value),norm=value.normalize('NFKC').toLowerCase();return !requiredPolicyIds.some(id=>!ids.includes(id))&&(requiredPolicyIds.length>0||norm.includes(metadataPhrase)||(terms.length>0&&terms.every(term=>norm.includes(term)))||index.metadataAdmission(proofResult,meta.id,field,token)===true);}).map(([field])=>field));cap.relatedMetadata.set(meta.id,approved);}}const results=new Map();let lexicalPartial=!!found.lexicalAdmission?.partial||metadataEntryTruncated;
+      for(const hit of found.results){const meta=relatedMetadata(cap,hit.reference.session?.id,hit.reference.session);if(!meta||typeof meta.id!=='string')throw fail('projection_invalid');if(!results.has(meta.id))results.set(meta.id,{...meta,...(meta.brief?{briefTitle:meta.brief.title,briefGist:meta.brief.gist}:{}),snippet:hit.snippet,reference:windowPolicy?{...hit.reference,session:meta}:hit.reference,score:hit.score,rankScore:hit.rankScore,...(hit.semanticScore===undefined?{}:{semanticScore:hit.semanticScore})});}
       const ceiling=Math.min(50,Math.max(1,Math.floor(Number(limit)||20)));
-      for(const meta of metas.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))){if(results.size>=ceiling)break;const text=[meta.title,meta.summary,meta.brief?.title,meta.brief?.gist,meta.cwd].filter(Boolean).join('\n'),hay=text.normalize('NFKC').toLowerCase(),phrase=q.normalize('NFKC').toLowerCase();if(!hay.includes(phrase)&&terms.filter(term=>hay.includes(term)).length<Math.max(1,Math.ceil(terms.length/2)))continue;
-        if(!results.has(meta.id)){const safe=await publicMetadata(meta.id);results.set(meta.id,{...safe,...(safe.brief?{briefTitle:safe.brief.title,briefGist:safe.brief.gist}:{}),snippet:host.redact(safe.summary||safe.title||''),score:1,reference:null});}}
-      await final(cap,false);
-      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>b.score-a.score||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
+      const identify=typeof SemanticRetrieval!=='undefined'&&typeof SemanticRetrieval.structuredIds==='function'?SemanticRetrieval.structuredIds:()=>[],requiredIds=identify(q);
+      for(const meta of metas.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))){check();const fields=[meta.title,meta.summary,meta.brief?.title,meta.brief?.gist,meta.cwd].filter(Boolean),text=fields.join('\n'),hay=text.normalize('NFKC').toLowerCase(),phrase=q.normalize('NFKC').toLowerCase(),entityField=requiredIds.length&&fields.some(field=>{const ids=identify(field);return requiredIds.every(id=>ids.includes(id));});if(requiredIds.length?!entityField:!hay.includes(phrase)&&terms.filter(term=>hay.includes(term)).length<Math.max(1,Math.ceil(terms.length/2)))continue;
+        const exact=fields.some(field=>field.normalize('NFKC').toLowerCase().includes(phrase)),strong=!!entityField||exact||terms.length>0&&fields.some(field=>{const normalized=field.normalize('NFKC').toLowerCase();return terms.every(term=>normalized.includes(term));});if(!strong){const matching=fieldsOf(meta).filter(([,value])=>{const norm=value.normalize('NFKC').toLowerCase();return terms.some(term=>norm.includes(term));}),decisions=matching.map(([field])=>typeof index.metadataAdmission==='function'?index.metadataAdmission(proofResult,meta.id,field,token):null);if(decisions.length&&decisions.every(value=>value===false))continue;if(!decisions.some(value=>value===true)){lexicalPartial=true;if(windowPolicy)continue;}}const rankScore=found.ranking==='rrf-v1'?(exact?1+1/61:1/61):1;
+        if(!results.has(meta.id)){const safe=await publicMetadata(meta.id),safeFields=[safe.title,safe.summary,safe.brief?.title,safe.brief?.gist,safe.cwd].filter(Boolean);let excerpt=requiredIds.length?safeFields.find(field=>{const ids=identify(field);return requiredIds.every(id=>ids.includes(id));}):safe.summary||safe.title||'';if(windowPolicy){const approved=fieldsOf(meta).filter(([field,value])=>{const ids=identify(value),normalized=value.normalize('NFKC').toLowerCase();if(requiredIds.some(id=>!ids.includes(id)))return false;return requiredIds.length>0||normalized.includes(phrase)||(terms.length>0&&terms.every(term=>normalized.includes(term)))||index.metadataAdmission(proofResult,meta.id,field,token)===true;}).map(([field])=>field);const selected=approved.map(field=>fieldsOf(safe).find(([name])=>name===field)).find(Boolean);if(!selected){lexicalPartial=true;continue;}excerpt=selected[1];}if(requiredIds.length&&!excerpt)continue;results.set(meta.id,{...safe,...(safe.brief?{briefTitle:safe.brief.title,briefGist:safe.brief.gist}:{}),snippet:host.redact(excerpt),score:1,rankScore,...(requiredIds.length?{matchKind:'lexical-entity'}:{}),reference:null,...(windowPolicy?{matchKind:'metadata-context'}:{})});}
+        else if(exact&&found.ranking==='rrf-v1'){const prior=results.get(meta.id);prior.rankScore=Math.max(prior.rankScore??0,rankScore);}}
+      let verified=null,indexState=null;if(enabled&&typeof index.revalidate==='function'){if(typeof index.mutationState==='function')indexState=index.mutationState();verified=await index.revalidate(proofResult,token,{check,timeout});check();}
+      await final(cap,false);check();
+      if(indexState){const current=index.mutationState();if(indexState.active||current.active||current.serial!==indexState.serial)verified={...verified,changed:Math.max(1,verified.changed||0)};}
+      if(verified?.changed){const coverage={...found.coverage,phase:'pending',pendingSessions:Math.max(found.coverage.pendingSessions||0,verified.changed),complete:false};return{ok:true,query:q,results:[],indexed:Math.max(0,(found.coverage.indexedSessions||0)-verified.changed),coverage,partial:true,reason:'index_changed',...(found.semantic?{semantic:{...found.semantic,coverage:'partial'}}:{}),scope:{...scope(enabled),fullText:false}};}
+      if(indexState&&!cap.indexState)cap.indexState=indexState;
+      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
     }
-    async function search(query,limit){const cap=current();for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit);}catch(error){if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;cap.attachmentChecks.length=0;await final(cap);}}}
+    async function search(query,limit){const cap=current(),timeout=Object.freeze(Object.assign(Error('session_search.deadline'),{code:'session_search.deadline'})),budget=Math.max(1,Math.min(30000,Number(host.searchBudgetMs)||2500)),deadline=cap.startedAt+budget;
+      const check=()=>{cap.assert();if(Date.now()>=deadline)throw timeout;};
+      for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit,check,deadline,timeout);}catch(error){if(error===timeout){await final(cap);const enabled=cap.config.sessionSearchIndexV1!==false;return{ok:true,query:String(query||'').trim(),results:[],indexed:0,partial:true,reason:'deadline',coverage:{phase:'timeout',sessions:cap.sources.size,indexedSessions:0,pendingSessions:cap.sources.size,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false},semantic:{status:'timeout',coverage:'partial'},scope:scope(enabled)};}if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;cap.attachmentChecks.length=0;await final(cap);check();}}}
     function scope(enabled=true) {return{fullText:false,messageText:enabled,mode:enabled?'message_shards':'metadata_only',sampling:false,coordinate:'utf16',maxQueryChars:256,
       coverageUnit:'committed-display-message-sources',note:enabled?'搜索已提交的消息和可验证的附件正文。附件提取范围见 coverage。':'正文搜索已关闭，仅搜索会话元数据。'};}
     async function finish(value) {const cap=current();for(let pass=0;pass<4;pass++){try{const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[...cap.disclosed,cap.grant.scopeId],{recipient:cap.grant.scopeId,purpose:'session-search:result',sourceHash:hash(value)});cap.disclosures.push(prepared.assert);await final(cap);return prepared.value;}catch(error){if(error.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
@@ -113630,12 +115105,13 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(cap.kind!=='ui'||typeof emit!=='function')throw fail('destination_invalid');
       if(cap.attachmentChecks.length)await final(cap);
       cap.assert();for(const guard of cap.disclosures)guard();
+      assertIndexState(cap);
       cap.emitted=true;const result=emit(value);
       if(result&&typeof result.then==='function')throw fail('sink_invalid');
       return result;
     }
     return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work),
-      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),search,metadata,publicMetadata,finish,emitUI,scope,
+      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),withObservation:(ctx,work)=>{if(!ctx?.session?.id||!observationMainReadAllowed(ctx))throw fail('model_scope_required');return enter('observation',config=>host.modelAuthority(ctx,'observation_recall',config),null,work,ctx.session.id);},search,metadata,publicMetadata,usesSourceBoundMethod:()=>!!current().method,searchEvidenceActive:()=>!!current().relatedMetadata,finish,emitUI,scope,
       retireSession:id=>index.invalidate(id,true)});
   }
   return Object.freeze({create});
@@ -113647,13 +115123,13 @@ function getSessionFullTextConsumers() {
   if(sessionFullTextConsumers)return sessionFullTextConsumers;
   const deny=suffix=>{throw Object.assign(Error('session_search.'+suffix),{code:'session_search.'+suffix,apiCode:'session_search.'+suffix,statusCode:409});};
   const modelAuthority=async(ctx,tool,config)=>{
-    if(!ctx?.session||safeSessionId(ctx.session.id)!==ctx.session.id||ctx.sessionId&&ctx.sessionId!==ctx.session.id||!['threads_search','steward_threads_search'].includes(tool))deny('model_scope_required');
+    if(!ctx?.session||safeSessionId(ctx.session.id)!==ctx.session.id||ctx.sessionId&&ctx.sessionId!==ctx.session.id||!['threads_search','steward_threads_search','observation_recall'].includes(tool)||tool==='observation_recall'&&!observationMainReadAllowed(ctx))deny('model_scope_required');
     const session=ctx.session,id=session.id,kind=session.kind,turn=ctx.turnSeq??session.turnSeq,settler=turnSettlers.get(id),actor=ctx.externalActor;
     if(tool==='steward_threads_search'&&(kind!=='steward'||config.stewardEnabledV1!==true))deny('model_scope_required');
     if(nativeToolTier(tool)!=='read'||nativeToolDisabledByPolicy(tool,config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read',tool,{})!=='allow')deny('tool_denied');
     if(actor)await ExternalBotHooks.validateActor(actor);const actorSignal=actor?ExternalBotHooks.actorSignal(actor):null;
     if(actor&&!actorSignal)deny('model_scope_required');
-    const assert=()=>{if(ctx.session!==session||session.id!==id||session.kind!==kind||(ctx.turnSeq??session.turnSeq)!==turn||ctx.signal?.aborted||turnSettlers.get(id)!==settler||actor&&(ExternalBotHooks.actorSignal(actor)!==actorSignal||actorSignal.aborted))deny('destination_changed');if(InternalMcpHooks.isContext(ctx))InternalMcpHooks.assertTool(ctx,tool);};
+    const assert=()=>{if(ctx.session!==session||session.id!==id||session.kind!==kind||(ctx.turnSeq??session.turnSeq)!==turn||ctx.signal?.aborted||turnSettlers.get(id)!==settler||actor&&(ExternalBotHooks.actorSignal(actor)!==actorSignal||actorSignal.aborted)||tool==='observation_recall'&&!observationMainReadAllowed(ctx))deny('destination_changed');if(InternalMcpHooks.isContext(ctx))InternalMcpHooks.assertTool(ctx,tool);};
     return{scopeId:id,assert,revalidate:async()=>{assert();if(actor)await ExternalBotHooks.validateActor(actor);assert();}};
   };
   const uiAuthority=async(req,res)=>{if(!tokenOk(req)||!originOk(req))deny('user_scope_required');const token=RUNTIME.token;let closed=false;
@@ -113669,9 +115145,10 @@ function getSessionFullTextConsumers() {
 Object.assign(SessionFullTextHooks,{
   withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
   withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
+  withObservation:(ctx,work)=>getSessionFullTextConsumers().withObservation(ctx,work),
   search:(query,limit)=>getSessionFullTextConsumers().search(query,limit),metadata:()=>getSessionFullTextConsumers().metadata(),
   retireSession:id=>getSessionFullTextConsumers().retireSession(id),
-  publicMetadata:id=>getSessionFullTextConsumers().publicMetadata(id),finish:value=>getSessionFullTextConsumers().finish(value),
+  publicMetadata:id=>getSessionFullTextConsumers().publicMetadata(id),usesSourceBoundMethod:()=>getSessionFullTextConsumers().usesSourceBoundMethod(),searchEvidenceActive:()=>getSessionFullTextConsumers().searchEvidenceActive(),finish:value=>getSessionFullTextConsumers().finish(value),
   emitUI:(value,emit)=>getSessionFullTextConsumers().emitUI(value,emit),scope:enabled=>getSessionFullTextConsumers().scope(enabled),
 });
 
@@ -115459,6 +116936,81 @@ const MediaImageHost = (() => {
 // Production adapter building blocks only. No startup/configure side effect, no
 // claim/upload/activation implementation, and no public worker-ready capability.
 const WorkDataNativeAdapters = ((io, p, c) => {
+const WorkDataOwnedRestoreUnknown = (()=>{
+'use strict';
+// Research helper: only inspect data descriptors; proxies/getters/cycles are
+// uncertain. Preserve the original thrown value as the existing cause.
+const {types}=require('node:util');
+function isUnknown(value){const active=new Set(),done=new Set();let visited=0;function visit(item,depth){if(item===null||item===undefined||typeof item!=='object'&&typeof item!=='function')return false;if(++visited>1024||depth>=32||types.isProxy(item)||active.has(item))return true;if(done.has(item))return false;active.add(item);try{for(let p=item,level=0;p!==null;p=Object.getPrototypeOf(p),level++){if(level>=16||types.isProxy(p))return true;for(const key of ['helperMayStillRun','ownershipRetained','cause','errors']){const d=Object.getOwnPropertyDescriptor(p,key);if(!d)continue;if(!Object.hasOwn(d,'value'))return true;if(key==='helperMayStillRun'||key==='ownershipRetained'){if(d.value!==undefined&&d.value!==false)return true;}else if(key==='cause'){if(visit(d.value,depth+1))return true;}else{const a=d.value;if(!Array.isArray(a)||types.isProxy(a))return true;const length=Object.getOwnPropertyDescriptor(a,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>1024)return true;for(let i=0;i<length.value;i++){const entry=Object.getOwnPropertyDescriptor(a,String(i));if(!entry||!Object.hasOwn(entry,'value')||visit(entry.value,depth+1))return true;}}}}done.add(item);return false;}finally{active.delete(item);}}try{return visit(value,0);}catch{return true;}}
+function flags(value){return isUnknown(value)?{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true}:{};}
+return Object.freeze({isUnknown,flags});
+
+})();
+const WorkDataOwnedRestoreBarrier = (()=>{
+'use strict';
+// Research-only host contract. The injected native operation MUST open every
+// component relative to a held anchor and compare the entire identity chain.
+const path=require('node:path');
+const fail=code=>Object.assign(Error('restore_flush.'+code),{code:'restore_flush.'+code});
+const fold=x=>process.platform==='win32'?x.toUpperCase():x;
+function isInside(a,b){const r=path.relative(fold(a),fold(b));return r!==''&&r!=='..'&&!r.startsWith('..'+path.sep)&&!path.isAbsolute(r);}
+function validRel(value){return typeof value==='string'&&value.length<=1024&&(value===''||value.split('/').every(x=>x&&x!=='.'&&x!=='..'&&!/[\x00-\x1f<>:"|?*\\]/.test(x)&&!/[. ]$/.test(x)));}
+function prepare({target,source,records}){
+ if(typeof target!=='string'||typeof source!=='string'||!path.isAbsolute(target)||!path.isAbsolute(source))throw fail('scope');
+ target=path.resolve(target);source=path.resolve(source);if(fold(target)===fold(source)||isInside(target,source)||isInside(source,target))throw fail('scope');
+ if(!Array.isArray(records)||!records.length||records.length>100001)throw fail('records');
+ const byKey=new Map();for(const r of records){if(!r||!validRel(r.relative)||typeof r.identity!=='string'||!/^\d+:\d+$/.test(r.identity))throw fail('records');const key=fold(r.relative);if(byKey.has(key))throw fail('duplicate');byKey.set(key,Object.freeze({relative:r.relative,identity:r.identity}));}
+ if(!byKey.has(''))throw fail('root_missing');
+ for(const r of byKey.values()){if(!r.relative)continue;let parent=r.relative;while(parent){const at=parent.lastIndexOf('/');parent=at<0?'':parent.slice(0,at);if(!byKey.has(fold(parent)))throw fail('parent_missing');}}
+ const ordered=[...byKey.values()].sort((a,b)=>b.relative.split('/').length-a.relative.split('/').length||a.relative.localeCompare(b.relative));const rootAt=ordered.findIndex(x=>x.relative==='');ordered.push(...ordered.splice(rootAt,1));
+ return Object.freeze({target,source,byKey,ordered:Object.freeze(ordered)});
+}
+async function run(input,host){
+ const plan=prepare(input);if(!host||['admit','listDirectories','inspectDirectory','flushAnchored'].some(k=>typeof host[k]!=='function'))throw fail('host');
+ const assertOwner=async()=>{if(await host.admit(input.ownership,plan.target)!==true)throw fail('owner');};
+ const verify=async()=>{await assertOwner();const actual=await host.listDirectories(plan.target);if(!Array.isArray(actual)||actual.some(x=>!validRel(x)))throw fail('namespace');const names=actual.map(fold).sort(),expected=[...plan.byKey.keys()].sort();if(JSON.stringify(names)!==JSON.stringify(expected))throw fail('namespace');for(const r of plan.ordered){const observed=await host.inspectDirectory(plan.target,r.relative);if(!observed||observed.identity!==r.identity||observed.alias!==false)throw fail('identity_changed');await assertOwner();}};
+ await verify();for(const r of plan.ordered){await assertOwner();const names=r.relative?r.relative.split('/'):[],chain=[plan.byKey.get('')];let rel='';for(const name of names){rel=rel?rel+'/'+name:name;chain.push(plan.byKey.get(fold(rel)));}const value=await host.flushAnchored(Object.freeze({target:plan.target,relative:r.relative,chain:Object.freeze(chain)}));if(!value||Object.keys(value).sort().join(',')!=='identities,ok,relative,target'||value.ok!==true||value.target!==plan.target||value.relative!==r.relative||!Array.isArray(value.identities)||JSON.stringify(value.identities)!==JSON.stringify(chain.map(x=>x.identity)))throw fail('native_receipt');await assertOwner();}await verify();return Object.freeze({ok:true,directories:plan.ordered.length});
+}
+return Object.freeze({prepare,run});
+
+})();
+const WorkDataOwnedRestoreBroker = (()=>{
+'use strict';
+// Research-only broker lifetime owner. A possibly live helper and its broker
+// remain strongly reachable; the owner permanently fences further requests.
+const {isUnknown}=WorkDataOwnedRestoreUnknown;
+function create({start,helperUncertain}){
+ if(typeof start!=='function'||typeof helperUncertain!=='function')throw Error('broker.host');
+ const retained=new Set();let uncertain=false,busy=false;
+ const unknown=()=>{try{return helperUncertain()!==false;}catch{return true;}};
+ const safeCode=value=>{try{if(!value||typeof value!=='object')return null;const d=Object.getOwnPropertyDescriptor(value,'code');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'?d.value:null;}catch{return null;}};
+ const fenced=cause=>Object.assign(Error('restore_flush.broker_uncertain'),{code:'restore_flush.broker_uncertain',cause,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,retry:false});
+ return Object.freeze({
+  async run(work){
+   if(uncertain||unknown()){uncertain=true;throw fenced(null);}if(busy)throw Object.assign(Error('restore_flush.busy'),{code:'restore_flush.busy'});if(typeof work!=='function')throw Error('broker.work');busy=true;let broker,failed=false,primary,result;
+   try{
+    try{broker=await start();}catch(error){if(isUnknown(error)||unknown()){uncertain=true;throw fenced(error);}throw error;}
+    let closeDescriptor;try{if(broker&&!require('node:util').types.isProxy(broker))closeDescriptor=Object.getOwnPropertyDescriptor(broker,'close');}catch{}
+    if(!closeDescriptor||!Object.hasOwn(closeDescriptor,'value')||typeof closeDescriptor.value!=='function'||unknown()){uncertain=true;if(broker)retained.add(broker);throw fenced(null);}
+    try{result=await work(broker);}catch(error){failed=true;primary=error;}
+    if((failed&&isUnknown(primary))||unknown()){uncertain=true;retained.add(broker);throw fenced(failed?primary:null);}
+    let closeFailed=false,closeError;try{await Reflect.apply(closeDescriptor.value,broker,[]);}catch(error){closeFailed=true;closeError=error;}
+    if((closeFailed&&isUnknown(closeError))||unknown()){uncertain=true;retained.add(broker);throw fenced(failed?primary:closeError);}
+    // The existing broker repeats a proven command refusal at close. Preserve
+    // the original failure; a different close failure remains a cleanup error.
+    if(failed){if(closeFailed&&closeError!==primary&&(!safeCode(primary)||safeCode(closeError)!==safeCode(primary)))throw Object.assign(new AggregateError([primary,closeError],'restore_flush.close_failed',{cause:primary}),{code:'restore_flush.close_failed'});throw primary;}
+    if(closeFailed)throw closeError;return result;
+   }finally{busy=false;}
+  },
+  stats:()=>Object.freeze({uncertain,retained:retained.size,busy}),
+  owns:value=>retained.has(value),
+ });
+}
+return Object.freeze({create});
+
+})();
+const WorkDataOwnedRestoreRetainedOwners = new Set();
+
   const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
@@ -115489,7 +117041,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
   function productionBindings() {
     return {ownership:ServerOwnership, manifest:WorkDataManifest, fullSnapshot:WorkDataFullSnapshot,
       nativePublish:WorkDataNativePublish, disposableTree:WorkDataDisposableNativeTree, tree:WorkDataTree,
-      capturePreserved:migrationCapsuleCapturePreserved, protector:LocalSecretCrypto,
+      capturePreserved:migrationCapsuleCapturePreserved, openOwnedRestoreBroker:migrationCapsuleBroker, protector:LocalSecretCrypto,
       ...(process.platform==='win32'?{readRecoveryControl:(file,base)=>{
         if(typeof MigrationHooks.readWorkDataControlPreserved!=='function')throw fail('transition_recovery_header_reader_unavailable');
         return MigrationHooks.readWorkDataControlPreserved(file,base);
@@ -115515,6 +117067,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       return Object.freeze({command:verifierCommand.command,args:Object.freeze([...verifierCommand.args])});
     })();
     let unknown = false, verifying = false, heldTimer = null;
+    const ownedRestoreBroker=WorkDataOwnedRestoreBroker.create({start:()=>{if(typeof bindings.openOwnedRestoreBroker!=='function')throw fail('restore_flush_unavailable');return bindings.openOwnedRestoreBroker();},helperUncertain:()=>bindings.helperMayStillRun()});
     const receipts = new WeakSet();
     function latch(cause) {
       const isProxy = require('node:util').types.isProxy, active = new Set(), done = new Set();
@@ -115659,7 +117212,22 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           }
         }
       });
-      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector:snapshotProtector,
+
+      const ownedRestoreFlush = async input => {
+        const targetOwner=input.ownership;
+        const admit=async (candidate,target)=>candidate===targetOwner && target===input.target && exclusiveSync(ownership)===true && exclusiveSync(targetOwner)===true;
+        const file=(root,relative)=>relative?p.join(root,...relative.split('/')):root;
+        const inspectDirectory=async(root,relative)=>{const name=file(root,relative),stat=await io.lstat(name,{bigint:true});return {identity:String(stat.dev)+':'+String(stat.ino),alias:!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(name))!==fold(name)};};
+        const listDirectories=async root=>{const found=[''];async function walk(relative){for(const entry of await io.readdir(file(root,relative),{withFileTypes:true})){if(entry.isSymbolicLink())throw fail('restore_flush_alias');if(entry.isDirectory()){const next=relative?relative+'/'+entry.name:entry.name;found.push(next);await walk(next);}}}await walk('');return found;};
+        try { return await ownedRestoreBroker.run(broker=>WorkDataOwnedRestoreBarrier.run(input,{admit,listDirectories,inspectDirectory,flushAnchored:async({target,relative,chain})=>{
+          const ids=chain.map(({identity})=>{const parts=identity.split(':'),dev=BigInt(parts[0]).toString(16),ino=BigInt(parts[1]).toString(16);if(dev.length>8||ino.length>16)throw fail('restore_flush_identity');return dev.padStart(8,'0')+ino.padStart(16,'0');});
+          const value=await broker.command({cmd:'owned-restore-flush',root:target,relative,ids});
+          if(!value||Object.keys(value).sort().join(',')!=='ids,ok,relative,root'||value.ok!==true||value.root!==target||value.relative!==relative||!Array.isArray(value.ids)||JSON.stringify(value.ids)!==JSON.stringify(ids))throw fail('restore_flush_receipt');
+          return {ok:true,target,relative,identities:chain.map(x=>x.identity)};
+        }})); } finally { if(ownedRestoreBroker.stats().uncertain) WorkDataOwnedRestoreRetainedOwners.add(ownedRestoreBroker); }
+      };
+
+      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,ownedRestoreFlush,protector:snapshotProtector,
         externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof,restoredTreeFor,readCapturedAuthority});
       const captureRestored = (result,{target,ownership:targetOwner}) => withSource(ownership,base,() => withSource(targetOwner,target,async () => {
         const receipt=await owner.describeRestored(result);
@@ -116552,6 +118120,10 @@ function desktopLifetimeAdmit() {
   if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode:'work_data.maintenance_busy', statusCode: 409 });
 }
 async function desktopLifetimeStopInfrastructure() {
+  if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.shutdown === 'function') {
+    const semantic = await SemanticRuntimeHooks.shutdown();
+    if (semantic?.cleanupStatus !== 'observed' || semantic?.workerExited !== true) throw Error('desktop_lifetime.semantic_uncertain');
+  }
   if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop();
   if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox();
   stopScheduler();

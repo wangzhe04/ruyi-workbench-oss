@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "id": "content-query-function-words-v1",
+  "english": ["how", "what", "where", "when", "who", "which", "why", "whom", "whose", "is", "are", "am", "was", "were", "be", "been", "being", "do", "does", "did", "has", "have", "had", "a", "an", "the", "to", "of", "in", "for", "from", "about", "as", "and", "with", "i", "me", "my", "we", "us", "our", "you", "your", "it", "its", "they", "them", "their", "this", "that", "these", "those", "there", "here", "please", "find", "show", "tell", "explain", "give"],
+  "chinese": ["请告诉我", "我想知道", "我想了解", "请帮忙", "请帮我", "请问", "什么时候", "什么时间", "为什么", "怎样", "怎么", "如何", "什么", "哪个", "哪些", "哪种", "哪里", "哪儿", "多久", "多少", "是否", "能否", "可否", "这个", "那个", "一下"],
+  "preserved": "All numbers, mixed letter/digit identifiers, negations, modal verbs, temporal/conditional operators and domain nouns. No single-character Chinese stop list."
+}

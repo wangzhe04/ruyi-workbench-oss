@@ -803,8 +803,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(error => {
-        if (String(error?.code || '').startsWith('work_data')) throw error;
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '', signal: localCtrl?.signal }).catch(error => {
+        if (memoryPreflightMustPropagate(error)) throw error;
         return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 } };
       });
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
@@ -1861,7 +1861,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
       (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
       config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-    ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+      { signal: ctrl?.signal || executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) },
+    ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -2054,8 +2055,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // buildBody 内追加,不进 budgetPrompt。注入形态与去重守门是纯函数(10-context-governance),
   // 本闭包只管开关/跳过原因/遥测。
   let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
-  const appendSessionNotesPrompt = (msgs, history) => {
-    if (!sessionNotesInjectEnabled(config)) return;
+  const prepareSessionNotesPrompt = async history => {
+    if (!sessionNotesInjectEnabled(config)) return '';
     const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config, history);
     // Merged notes contribute only details missing from the current summary.
     let skipped = '';
@@ -2064,21 +2065,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       sessionNotesTeleDone = true;
       try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
     }
-    if (skipped) return;
-    appendPromptToLastUserMessage(msgs, notesPrompt);
+    if (skipped) return '';
+    return sealObservationRuntimeText(session.id, notesPrompt, observationReferenceCache);
   };
   const useVolatileTail = volatileTailLayoutEnabled(config) || wire.preferVolatileTail(model);
+  const observationReferenceCache = new Map();
   const buildBody = withTools => buildBodyWithLayout(withTools, undefined);
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
   // 正常调用恒传 undefined(走开关或协议缓存布局)。Claude 的 Anthropic 请求默认使用尾部；开关开时其它模型也从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
-  const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
-    if (useCachePromptLayers && JSON.stringify(effectiveSkillSelection(session, cacheSkillConfig)) !== cacheSkillSelection) {
-      currentSkillEntries = []; // Revocation after the async capture may only shrink the budgeted body.
-      renderPromptLayers();
-    }
-    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
-      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
+  const buildBodyWithLayout = async (withTools, layoutOverride, includePreparedMedia = false) => {
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : useVolatileTail;
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -2086,7 +2082,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
     const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, session.providerHistory) : session.providerHistory;
-    const viewHistory = actionAuditMap.size ? projectActionModelView(privacyHistory, actionAuditMap).history : privacyHistory;
+    // Historical reducer/index markers may predate opaque references. Convert
+    // only the outbound copy, after privacy projection and before protocol encoding.
+    const referenceHistory = await sealObservationHistoryReferences(session.id, privacyHistory, observationReferenceCache);
+    const viewHistory = actionAuditMap.size ? projectActionModelView(referenceHistory, actionAuditMap).history : referenceHistory;
+    const notesView = await prepareSessionNotesPrompt(viewHistory);
+    const scratchpadView = scratchpadPrompt ? await sealObservationRuntimeText(session.id, scratchpadPrompt, observationReferenceCache) : '';
+    // Complete reference crypto before the final synchronous selection guards.
+    // A revoked skill or memory selection must not survive an intervening await.
+    if (useCachePromptLayers && JSON.stringify(effectiveSkillSelection(session, cacheSkillConfig)) !== cacheSkillSelection) {
+      currentSkillEntries = [];
+      renderPromptLayers();
+    }
+    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
+      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     // 请求体(58 号批 1):消息视图(volatile 布局、recall、session notes)只构建一份,协议差异只剩登记表的
     // encodeMessages / applyTools —— chat 发 messages(+stream_options),Responses 发 instructions + input 项
     // (v1.8:服务端工具项 serverToolItems 接在翻译后的历史之后,DeepSeek 在服务端恢复搜索结果)。
@@ -2114,8 +2123,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     if (memoryTurnTail) appendPromptToLastUserMessage(msgs, memoryTurnTail); // #9: 每回合变化的记忆回执 + 相关索引,贴末条 user,非持久
     appendRecallPrompt(msgs, viewHistory);
-    appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
+    if (notesView) appendPromptToLastUserMessage(msgs, notesView); // 105d-A: 贴最后一条 user,非持久
+    if (scratchpadView) appendPromptToLastUserMessage(msgs, scratchpadView); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
@@ -2777,7 +2786,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
       await refreshMemoryPromptScope();
-      const call = await preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: buildRequestBody(),
+      const call = await preparedToolMedia.send(async assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: await buildRequestBody(),
         ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
       () => hasInterruptingSteer(reg), () => drainSteerQueue(reg, session, onEvent));
       // Decide if this outcome is a failover trigger (pre-first-byte only).
@@ -2867,7 +2876,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
+      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal, {executionOwner,saveOptions:turnSaveOpts})) {
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
@@ -2926,7 +2935,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       });
       const econThisIter = econSampledIter(iter);
       activeModelCallId = econThisIter ? makeId('mc') : '';
-      const econBody = econThisIter ? buildBody(useTools) : null;
+      const econBody = econThisIter ? await buildBody(useTools) : null;
       econTotals.modelCallAttempts += 1; // 不抽样:到达发出点的每次真实调用(重试/压缩后重试各自计一次)
       if (econThisIter) {
         econBatchToolMs = [];
@@ -2941,7 +2950,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         try {
           const sentLayout = useVolatileTail ? 'tail' : 'first';
           const altLayout = sentLayout === 'tail' ? 'first' : 'tail';
-          const altJson = JSON.stringify(buildBodyWithLayout(useTools, altLayout));
+          const altJson = JSON.stringify(await buildBodyWithLayout(useTools, altLayout));
           let prev = layoutShadowPrevBySessionMap.get(session.id);
           if (!prev) {
             prev = { first: '', tail: '' };
@@ -3033,9 +3042,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (!mediaEndpoint && !contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
-          const forced = await runForcedOverflowCompaction({
+          let precompactGuard=null;const forced = await runForcedOverflowCompaction({
             history: session.providerHistory, privacyHistoryOwner: session, scope: 'main', provider, model, config,
-            snapshot: () => writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => ''),
+            snapshot: async()=>{const history=session.providerHistory;precompactGuard=await observationCommitBeforeCompact(session,history,config,executionOwner,ctrl&&ctrl.signal,turnSaveOpts);const prefix=await writeHistorySnapshot(session.id,session.turnSeq,history,config.runtimeObservationReducerV1===true);if(precompactGuard)await precompactGuard();return prefix;},precompactGuard:()=>precompactGuard,
             onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,

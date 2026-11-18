@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T18:59:56.379Z",
+  "status": "V5_QUALITY_RED_NATIVE_OWNER_SCOPED_PASS_HEADLESS_UNMEASURED",
+  "limits": [
+    "v5 evaluated once with prior-evidence .46, sourceStable, any-result OOD21/80=.2625 RED; no post-result parameter tuning.",
+    "Nine structured-ID positive queries report partial despite all eligible vectors cached; separate synthetic coverage fix followed, no quality relabeling.",
+    "Only vector hashes and complete metrics/provenance are archived for development studies; full real vectors retained in ignored output, rerunnable from pinned assets.",
+    "Native 9c98 owner API and two real lifecycle reports are explicit unregistered backend only, not default/product/package qualification.",
+    "Headless code has static review only, no resource/numerical pass yet.",
+    "First fullfast RED preserved; second current-core run in progress, no all-green claim."
+  ],
+  "records": [
+    {
+      "source": "output/semantic-cap-fast-r1-receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/01-semantic-cap-fast-r1-receipt.json.gz",
+      "bytes": 467,
+      "sha256": "3f19d151f5591ed95cfad329e2806f39addfa75a4469289c6325fa0702c1da97",
+      "gzipBytes": 321,
+      "gzipSha256": "8c6217deb12e9ec1b3eae724af21f91b29d9146c26e3d9935e31644da2123ede"
+    },
+    {
+      "source": "output/semantic-cap-fast-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/02-semantic-cap-fast-r1.log.gz",
+      "bytes": 2642,
+      "sha256": "b8b1103f0aa3d409e383f8593fc5d2960a0e2267985a540a241db182b4d56d9e",
+      "gzipBytes": 1635,
+      "gzipSha256": "0ab6f2748fb877bb958b99a92c04b99410b415fb69008422d2c37c999c16bcbf"
+    },
+    {
+      "source": "output/semantic-cap-fast-r1-unit.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/03-semantic-cap-fast-r1-unit.log.gz",
+      "bytes": 714414,
+      "sha256": "66dfbd0430886d4bcf01652b5b5c110da71def403b6cbf838a22c902aae8fa28",
+      "gzipBytes": 260689,
+      "gzipSha256": "fabdd0c88c31fe68ba018bc0dbf9093ab775dd22559e73d38c73be895cb6dd34"
+    },
+    {
+      "source": "output/semantic-instruction-study-summary-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/04-semantic-instruction-study-summary-r1.json.gz",
+      "bytes": 688912,
+      "sha256": "c7f79b7058845571d3684a538d8911e8b008e543a6f22066c614070ffe670720",
+      "gzipBytes": 42403,
+      "gzipSha256": "7ae549e1c1b13ee589da37ed01e5ac114cab0b7055edf9d8d50eb46f74d5ff2e"
+    },
+    {
+      "source": "output/semantic-stateless-development-summary-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/05-semantic-stateless-development-summary-r1.json.gz",
+      "bytes": 744792,
+      "sha256": "673058af25b7cb374a6fa6f95a7b8f05203263b3419f46ef9e625c95d066a67c",
+      "gzipBytes": 56007,
+      "gzipSha256": "0113648b35068f59ed406bf044046b72f3adb30a99b7555f660eb4f378bd976a"
+    },
+    {
+      "source": "output/semantic-qwen3-evidence-preflight-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/06-semantic-qwen3-evidence-preflight-v1.json.gz",
+      "bytes": 1091,
+      "sha256": "8d67f84f91df59cf72c076614278d3f4771aea22cb381fa0f1ed57812ffd8277",
+      "gzipBytes": 644,
+      "gzipSha256": "11599f60b9314f9d3cdb7696bdca40f765bdcb64170e45e3f51f30b733689ca4"
+    },
+    {
+      "source": "output/semantic-qwen3-evidence-preflight-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/07-semantic-qwen3-evidence-preflight-v2.json.gz",
+      "bytes": 2540,
+      "sha256": "b87d8d6f382d5e22dab00c79bc55bdbc5ebc322a937900b053358c3c55020891",
+      "gzipBytes": 1162,
+      "gzipSha256": "7f44254dcdf03aab081e147d9e6cfbe41fc78efaba176194ca2e9e7ef23aa1a6"
+    },
+    {
+      "source": "output/semantic-qwen3-evidence-preflight-v3-stateless.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/08-semantic-qwen3-evidence-preflight-v3-stateless.json.gz",
+      "bytes": 3383,
+      "sha256": "e5a164af31fc2f732e8aae61bbedac6a33188de0949efb22420bbf2f34536e22",
+      "gzipBytes": 1278,
+      "gzipSha256": "8771b7803c94e65c612d0c8ed7cd8686e73581416c27ae3ed0991925503d74d2"
+    },
+    {
+      "source": "output/semantic-qwen3-evidence-repeat-diagnostic-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/09-semantic-qwen3-evidence-repeat-diagnostic-v1.json.gz",
+      "bytes": 2142,
+      "sha256": "e31cb3cf52093d74360e65bba205b152a4cd41f4a741cce7c3e7fa1b181201bf",
+      "gzipBytes": 263,
+      "gzipSha256": "a4f6460e2716294d1d4cbb3080d3f551a57242e45ce6e40e37820229aaa571a5"
+    },
+    {
+      "source": "output/semantic-qwen3-evidence-batch-diagnostic-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/10-semantic-qwen3-evidence-batch-diagnostic-v1.json.gz",
+      "bytes": 1767,
+      "sha256": "57e5435160d132bfec20909d6c7eb5891a068612565c44b65b28867a46becf33",
+      "gzipBytes": 404,
+      "gzipSha256": "a14f022788a3b1d62cf4497cf76e4b87fada95874a732a685bb9d4c932c63ccf"
+    },
+    {
+      "source": "output/semantic-qwen3-stateless-diagnostic-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/11-semantic-qwen3-stateless-diagnostic-v1.json.gz",
+      "bytes": 1906,
+      "sha256": "841034d0546989e9b3fca0ee638177235ddeb4985e966be6765c5b2814cde12e",
+      "gzipBytes": 823,
+      "gzipSha256": "8608509b06c358631ef93a9f22dd4d2da8935397165bfac9c72e0d1f7c180501"
+    },
+    {
+      "source": "output/semantic-qwen3-stateless-diagnostic-v3-erase-enabled.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/12-semantic-qwen3-stateless-diagnostic-v3-erase-enabled.json.gz",
+      "bytes": 1870,
+      "sha256": "59faa7c5f4864040f4c7a858b8fc9d2ec3261832b6bdd2ee8c24eec9855003ff",
+      "gzipBytes": 752,
+      "gzipSha256": "6dc79463cc114463ddc05843a4fb1cb4e28d588f99014252a2080a6764d38f26"
+    },
+    {
+      "source": "output/semantic-qwen3-v5-stateless-evidence.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/13-semantic-qwen3-v5-stateless-evidence.json.gz",
+      "bytes": 304746,
+      "sha256": "ace3343736b9e6e08e1430c3bc35ece94c30d3600c0bec0ceb920c9a7931d1e9",
+      "gzipBytes": 32356,
+      "gzipSha256": "f0f4475e4327e40b622ff987f208f192ec06e6dd10666ff228666a495acca392"
+    },
+    {
+      "source": "output/semantic-native-owner-independent-v1/final-independent-receipt-r5.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/14-final-independent-receipt-r5.json.gz",
+      "bytes": 8737,
+      "sha256": "bdea183d3afc3bdfadfa170ce8e7d2422b8259fc9fb3becfeb6b1a6c96018b06",
+      "gzipBytes": 3327,
+      "gzipSha256": "8ca18f8aec3652674a3809e78cae276766c0d4924223bb9157c1da83c57960bb"
+    },
+    {
+      "source": "output/semantic-native-owner-independent-v1/r5/report-r5.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/15-report-r5.json.gz",
+      "bytes": 2498,
+      "sha256": "16d0db32e571744fef81a42d3527500afe764e28c849e48aacbcf89306651f75",
+      "gzipBytes": 1084,
+      "gzipSha256": "b6fb93c4e4a631c10383a295a237a81f2cbaa59e80dcf05530866863b1dfab57"
+    },
+    {
+      "source": "output/semantic-native-owner-direct-background-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/16-semantic-native-owner-direct-background-final.json.gz",
+      "bytes": 5521,
+      "sha256": "23e7701a2193ec06b29e15c0f297535995e39328ac63fb97d451cacd94e1dca9",
+      "gzipBytes": 1250,
+      "gzipSha256": "4f6e93977e575e0b5d509caedf422078972b75bf3199924ade286e1daed99192"
+    },
+    {
+      "source": "output/semantic-native-owner-job-background-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/17-semantic-native-owner-job-background-final.json.gz",
+      "bytes": 6140,
+      "sha256": "64ec6f76422016dff0d0a8b572c91e6e10e88c69c99a738b8b264730ed280e1b",
+      "gzipBytes": 1517,
+      "gzipSha256": "23cd51333cc5262dee8d019a95036a3725df2cb053dc3e3f6b66de1806a63968"
+    },
+    {
+      "source": "output/semantic-evidence-profile-independent-v1/receipt-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/18-receipt-r1.json.gz",
+      "bytes": 4851,
+      "sha256": "1169a8ad0391500d049c26753482e9a457de300e09df608e432380aea8ed5987",
+      "gzipBytes": 2127,
+      "gzipSha256": "be2e40760ea0a0f3825b75f0495a688e76b7bfc166418938fb934d797c9305e2"
+    },
+    {
+      "source": "output/semantic-evidence-profile-independent-v1/report-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/19-report-r1.json.gz",
+      "bytes": 3723,
+      "sha256": "2da988095397e073721d74c292a938f0e0087551efa4506b4da844c0db1bad5e",
+      "gzipBytes": 1457,
+      "gzipSha256": "5c8aa8b8566a0e02adfb28700c7817df0fdd5f353b2705997ff433b27e0816d5"
+    },
+    {
+      "source": "output/evidence-profile-independent-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/20-evidence-profile-independent-r1.log.gz",
+      "bytes": 1105,
+      "sha256": "73cdedee5e25d5724a96cd26ed747b8676661ed16e07077c82b21113b44f094b",
+      "gzipBytes": 522,
+      "gzipSha256": "7f7c3ad154c14926ab01d6dcb3504a957ecac53c206b2bf32ffe3cc5b8089b5a"
+    },
+    {
+      "source": "output/native-headless-qwen-research/independent-static-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/21-independent-static-review-r1.json.gz",
+      "bytes": 3662,
+      "sha256": "065a0e10ba71ebdd838cae63ecfa0c25793c5b6de5c51589caf8ae00138dab7a",
+      "gzipBytes": 1696,
+      "gzipSha256": "cb34c901b446c6f5e75318f9d15b5c51a5b7edfe22376529f7bf0c753881bd92"
+    }
+  ]
+}

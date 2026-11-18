@@ -1,0 +1,9 @@
+
+test('actual paired Tree emits first/native, node-bind, final/native phases without replacing failure',async t=>{
+  const diagnostic=path.resolve(__dirname,'../../census-phase-test.json');for(const phase of ['first-native','node-bind','final-native']){try{fs.unlinkSync(diagnostic)}catch(e){if(e.code!=='ENOENT')throw e;}
+    const f=await fixture(t),sentinel=Object.assign(Error('synthetic phase failure'),{code:phase==='node-bind'?'work_data_tree.source_changed':'work_data_backup.metadata_changed'});await f.put('sessions/test.json','{}');
+    if(phase==='node-bind')f.state.bindPhaseFailure=true;else f.state.onNativeCapture=async()=>{if(f.state.native===(phase==='first-native'?1:2))throw sentinel;};
+    if(phase==='node-bind')await assert.rejects(()=>f.reader.capture(f.source),{code:sentinel.code});else await assert.rejects(()=>f.reader.capture(f.source),e=>e===sentinel);
+    const row=JSON.parse(fs.readFileSync(diagnostic,'utf8'));assert.deepEqual(row,{schema:1,phase,code:sentinel.code});
+  }fs.unlinkSync(diagnostic);
+});

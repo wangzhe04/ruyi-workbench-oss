@@ -1059,6 +1059,9 @@
   "session.running": "运行中",
   "session.search": "搜索线程",
   "session.searchCoverage": "已索引 {{indexed}} / {{total}} 个线程。",
+  "session.semanticLoading": "正在加载本地语义模型，关键词结果已可用。",
+  "session.semanticFallback": "语义检索暂不可用，当前显示关键词结果。",
+  "session.semanticPartial": "语义检索已准备 {{cached}} / {{total}} 个候选片段，结果可能不全。",
   "session.searchPaused": "索引构建已暂停。",
   "session.searchUnverifiedAttachments": "另有 {{count}} 个附件的全文待验证。",
   "session.searchUnverifiedMessages": "另有 {{count}} 条消息包含未验证的文字。",
@@ -3832,6 +3835,8 @@
   ,"settings.catalog.sessionSearchIndexPausedV1": "暂停构建搜索索引"
   ,"settings.catalog.sessionSearchIndexPausedV1.hint": "已建索引仍可搜索。关闭暂停后，下次搜索会继续构建。"
   ,"settings.catalog.runtimeMemoryVectorRecallV1": "记忆语义检索"
+  ,"settings.catalog.semanticRetrievalV1": "本地语义检索增强"
+  ,"settings.catalog.semanticRetrievalV1.hint": "按意思查找历史内容。启动后自动加载本地模型并常驻，后续线程共用；关闭可释放模型内存，不删除历史。模型加载中或不可用时继续使用关键词检索。"
   ,"settings.catalog.runtimeMemoryVectorRecallV1.hint": "除了关键词，再按意思找相关记忆（纯本机计算）。"
   ,"settings.catalog.runtimeSummarySingleShotV1": "摘要单发优先"
   ,"settings.catalog.runtimeSummarySingleShotV1.hint": "上下文不太长时一次调用出摘要（「高级」页上方的单发上限只在这里打开时生效）。"

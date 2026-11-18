@@ -1,0 +1,24 @@
+'use strict';
+// Exact reverse boundaries retained to verify the historical full-native pin.
+module.exports={
+  "edits": [
+    [
+      "static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume) {",
+      "static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume,string expectedId=null) {"
+    ],
+    [
+      "      CheckFlushDirectory(handle,expected,volume);return handle;",
+      "      CheckFlushDirectory(handle,expected,volume,expectedId);return handle;"
+    ],
+    [
+      "  static void FlushStoreDirectoryPreserved(string path,string anchor) {",
+      "  // Research-only owned-restore flush: open each component from the held\n  // parent and compare the creation-time identity supplied by its owner.\n  static object FlushOwnedRestoreDirectories(Dictionary<string,object> args) {\n    string anchor=Str(args[\"root\"]),relative=Str(args[\"relative\"]);\n    object[] ids=args[\"ids\"] as object[];\n    if(anchor.Length<3 || anchor.Length>32763 || !Char.IsLetter(anchor[0]) || anchor[1]!=':' || anchor[2]!='\\\\'\n      || !String.Equals(System.IO.Path.GetFullPath(anchor),anchor,StringComparison.OrdinalIgnoreCase))Reject(\"owned_restore_root\");\n    string[] parts=relative==\"\"?new string[0]:relative.Split('/');\n    if(parts.Length>512 || ids==null || ids.Length!=parts.Length+1)Reject(\"owned_restore_chain\");\n    foreach(string part in parts)if(!FlushPart(part))Reject(\"owned_restore_chain\");\n    foreach(object value in ids)if(!(value is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value,\"^[a-f0-9]{24}$\"))Reject(\"owned_restore_identity\");\n    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();\n    try {\n      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);\n      if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}\n      handles.Add(root);string expected=@\"\\\\?\\\"+anchor;CheckFlushDirectory(root,expected,null,(string)ids[0]);string volume=VolumeOf(root);SafeFileHandle current=root;\n      for(int i=0;i<parts.Length;i++){expected+=(expected.EndsWith(\"\\\\\")?\"\":\"\\\\\")+parts[i];current=OpenFlushChild(current,parts[i],expected,volume,(string)ids[i+1]);handles.Add(current);}\n      Check(FlushFileBuffers(current));\n      return new Dictionary<string,object>{{\"ok\",true},{\"root\",anchor},{\"relative\",relative},{\"ids\",ids}};\n    } finally {try {for(int n=handles.Count-1;n>=0;n--)handles[n].Dispose();}finally {PreserveTimeHandles=previous;}}\n  }\n  static void FlushStoreDirectoryPreserved(string path,string anchor) {"
+    ],
+    [
+      "          else if (command == \"store-flush-bound\") result=FlushStoreDirectoryBound(args);",
+      "          else if (command == \"owned-restore-flush\") result=FlushOwnedRestoreDirectories(args);\n          else if (command == \"store-flush-bound\") result=FlushStoreDirectoryBound(args);"
+    ]
+  ],
+  "guardOld": "  static object CapturePreserved(Dictionary<string,object> args) {\n    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;\n    try {return Capture(args);}\n    finally {try {RestoreBasic(new List<Node>(Nodes.Values));} finally {PreserveTimeHandles=previous;}}\n  }\n",
+  "guardNew": "  // A read-only capture must never rewrite Basic metadata: doing so can\n  // re-enable a delayed access-time update when the directory handle closes,\n  // and can also mask a concurrent writer. Keep every captured field in the\n  // proof and reject a difference on the already held handles.\n  static void VerifyCapturedBasicUnchanged(List<Node> nodes) {\n    foreach(Node node in nodes) {\n      List<string> times = new List<string>(); foreach(object raw in (IEnumerable)node.Entry[\"times\"]) times.Add(Str(raw));\n      Basic actual=BasicOf(node.Handle);\n      if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1]\n        || Str(actual.Write)!=times[2] || Str(actual.Change)!=times[3]\n        || actual.Attr!=Convert.ToUInt32(node.Entry[\"attrs\"])) Reject(\"metadata_changed\");\n    }\n  }\n  static object CapturePreserved(Dictionary<string,object> args) {\n    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;\n    Exception primary=null;\n    try {return Capture(args);}\n    catch(Exception error) {primary=error;throw;}\n    finally {\n      try {VerifyCapturedBasicUnchanged(new List<Node>(Nodes.Values));}\n      catch(Exception verificationError) {\n        // Never replace the original capture error. A failed verification can\n        // only accompany an already failed operation in this branch.\n        if(primary==null)throw;\n        primary.Data[\"preservedMetadataVerificationFailed\"]=verificationError.GetType().Name;\n      }\n      finally {PreserveTimeHandles=previous;}\n    }\n  }\n"
+};

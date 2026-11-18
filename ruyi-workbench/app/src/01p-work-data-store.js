@@ -606,9 +606,9 @@ function createBinary(host) {
         let legacy;
         if (captured) {
           assert();
-          if (gzipMagic(captured)) legacy = Buffer.from(captured);
+          if (gzipMagic(captured)) { if (Number.isSafeInteger(host.legacyReadLimit) && captured.length > host.legacyReadLimit) fail('binary_file_limit'); legacy = Buffer.from(captured); }
           else if (captured.length > WorkDataChunks.maxFileBytes(host.maxPlaintextBytes)) fail('binary_file_limit');
-        } else legacy = await readGzipLegacy(host, file());
+        } else legacy = await readGzipLegacy(host, file(), Number.isSafeInteger(host.legacyReadLimit) ? host.legacyReadLimit : Infinity);
         if (legacy) {
           try { validateBinaryLegacy(host, legacy, { sealed: false, enabled: false }); if (assert) assert(); return legacy; }
           catch (error) { if (captured) legacy.fill(0); throw error; }

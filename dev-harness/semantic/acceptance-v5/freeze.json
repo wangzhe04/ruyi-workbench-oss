@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "status": "FROZEN_NOT_EVALUATED",
+  "createdAt": "2026-11-16T18:27:58.723Z",
+  "fixture": {
+    "file": "dev-harness/semantic/acceptance-v5-fixture.cjs",
+    "bytes": 39787,
+    "sha256": "5507d687719b72673c4a0b7aa267e6bc8f55e62318b5575915e596e53ae12c44",
+    "exportSha256": "82ea08141329d3245dbb5e813f64d68c5dbc125cd5d53a7b2dd8be94080666c6"
+  },
+  "authoringToolSha256": "9b6244ffcdb92c76b1527b925114d38c0bd9dce04cb98967314e6e66273ad5dd",
+  "interfaceReference": {
+    "file": "dev-harness/semantic/acceptance-v4-integration.cjs",
+    "scope": "runner code shape only; never loaded old fixture or quality outputs"
+  },
+  "counts": {
+    "documents": 80,
+    "main": 40,
+    "adjacentDistractors": 40,
+    "positive": 80,
+    "positiveDirections": {
+      "zh-zh": 20,
+      "en-zh": 20,
+      "zh-en": 20,
+      "en-en": 20
+    },
+    "pureOod": 80,
+    "oodLanguages": {
+      "zh": 40,
+      "en": 40
+    },
+    "unsupportedDiagnostics": 16,
+    "unsupportedLanguages": {
+      "zh": 8,
+      "en": 8
+    },
+    "exact": 8,
+    "positiveQuestionsWithCompleteId": 9,
+    "exactIdQueries": 6
+  },
+  "checks": [
+    {
+      "name": "runner-compatible arrays and exact declared counts",
+      "passed": true
+    },
+    {
+      "name": "unique documents, independent main/distractor pairing and balanced source languages",
+      "passed": true
+    },
+    {
+      "name": "sources are two or three sentences and bounded nonempty UTF8 text",
+      "passed": true
+    },
+    {
+      "name": "twenty positives per language direction and two references per main source",
+      "passed": true
+    },
+    {
+      "name": "query identities are unique and positive questions are not copied source sentences",
+      "passed": true
+    },
+    {
+      "name": "pure OOD labels and languages are separate from unsupported diagnostics",
+      "passed": true
+    },
+    {
+      "name": "all184 question strings are distinct and OOD never names a complete corpus identifier",
+      "passed": true
+    },
+    {
+      "name": "every complete positive/exact ID matches its relevant original source",
+      "passed": true
+    },
+    {
+      "name": "recursive immutability and deterministic exports",
+      "passed": true
+    },
+    {
+      "name": "no previous acceptance fixture or model adapter imported",
+      "passed": true
+    }
+  ],
+  "modelsRun": 0,
+  "queriesEvaluated": 0,
+  "selectionAllowed": false,
+  "labelReview": {
+    "method": "Author reviewed each positive against its complete synthetic main source, each adjacent distractor against the distinct question intent, all OOD against the full authored corpus, and each near-topic missing attribute against its related source. No retrieval/model scores were consulted.",
+    "ood": "Pure OOD asks for no provided procedure/entity/fact. Broad everyday wording may overlap; questions about missing attributes of a corpus entity are separately labelled unsupported.",
+    "unsupported": "Absent names, schedules, counts, contact details, compensation, prices or extension limits remain diagnostic and never dilute the OOD denominator.",
+    "automatedScope": "The structural checks do not prove semantic label correctness or expected model quality."
+  },
+  "rules": [
+    "Do not tune model/threshold/prompts/implementation using this fixture. Existing train/calibration remains the only selection source.",
+    "No model or lexical/semantic retrieval run at freeze. Next final independent qualification must bind this exact fixture hash and the fixed candidate/source hashes.",
+    "No old acceptance-v2/v3/v4 fixture, specific queries or quality report was read for authoring. Runner code interface alone was inspected.",
+    "Synthetic names, identifiers, policies and examples only; no user data, medical/legal advice, factual-answerability or external-authority claims.",
+    "Do not share concrete queries with implementation agents. Report only hash, counts, schema checks and label-review limitations.",
+    "Do not overwrite freeze or change labels after any results; any correction needs a new explicitly versioned qualification decision."
+  ]
+}

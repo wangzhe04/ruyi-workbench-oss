@@ -1,0 +1,454 @@
+{
+  "schema": 1,
+  "status": "REVIEWED_DEVELOPMENT_ONLY_MIXED_DUAL_RED_BASELINE_OOD_RED_NOT_RELEASE",
+  "records": [
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-development-fixture.json",
+      "archive": "blobs/074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860.gz",
+      "bytes": 11344,
+      "sha256": "074cc8a579795ca2aa11483cebe01102f37e9f172bca69b4733e4125f3cb9860",
+      "gzipBytes": 2870,
+      "gzipSha256": "2f7f9082f090ec8204b837392bdc0aa4ac3cb1666e4b359d825b3e4716b4c14b"
+    },
+    {
+      "source": "dev-harness/semantic/calibration-fixture.cjs",
+      "archive": "blobs/ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25.gz",
+      "bytes": 19656,
+      "sha256": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
+      "gzipBytes": 9685,
+      "gzipSha256": "b3898ac95be9fcb9c2795034eec866363933badac26062641c6de02bac02d9b6"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-language-route-protocol.json",
+      "archive": "blobs/1a7f0eaafef2f9c1ca82db32dd0e3b927f2340cb4a19e2d9679c6bc98a172375.gz",
+      "bytes": 8097,
+      "sha256": "1a7f0eaafef2f9c1ca82db32dd0e3b927f2340cb4a19e2d9679c6bc98a172375",
+      "gzipBytes": 3864,
+      "gzipSha256": "59e899744352b5fd2d4453abc33f8614b63d404b40ea47b71903d07c275c6ec4"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-collection-protocol.json",
+      "archive": "blobs/0515cf9d101c940d38f950bd0b28eb5add81f6594240468bbd85a310fd205860.gz",
+      "bytes": 3085,
+      "sha256": "0515cf9d101c940d38f950bd0b28eb5add81f6594240468bbd85a310fd205860",
+      "gzipBytes": 1610,
+      "gzipSha256": "a0de3836f0b2d592323160c8418b6eae971a26205e8bd2164a0a0d0941f1b797"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-execution-freeze.json",
+      "archive": "blobs/991e9676451558c0042b7438f6827868291bf21b1440665f4e69753e0c0c7ed0.gz",
+      "bytes": 1344,
+      "sha256": "991e9676451558c0042b7438f6827868291bf21b1440665f4e69753e0c0c7ed0",
+      "gzipBytes": 717,
+      "gzipSha256": "6ea11a63661c7bc45ded7badce2accccc487dccf16783c3862beadd060849b97"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-execution-freeze-v2.json",
+      "archive": "blobs/318c3dafe1f7ebe039d1516cc2d2138193c1198e11441777294c05dd1acdaa98.gz",
+      "bytes": 1462,
+      "sha256": "318c3dafe1f7ebe039d1516cc2d2138193c1198e11441777294c05dd1acdaa98",
+      "gzipBytes": 790,
+      "gzipSha256": "b44c9156d57cd4e856bfa00c52c5873972bc6308e8da15b705aa6c16c14b3b52"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-baseline-protocol.json",
+      "archive": "blobs/9158cdbc097c2ad1d3d1712070d7d821a0edc5d47ae98ab865f3e39635501bd0.gz",
+      "bytes": 3258,
+      "sha256": "9158cdbc097c2ad1d3d1712070d7d821a0edc5d47ae98ab865f3e39635501bd0",
+      "gzipBytes": 1672,
+      "gzipSha256": "c124c1233a2c78ea5652529ae3212043ff8671eeee580803a24c135a073dba14"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-baseline-execution-freeze.json",
+      "archive": "blobs/e37ca3f0861ea479026a681412dff51c274ac765ca2d42c94b6b64394f5213b0.gz",
+      "bytes": 498,
+      "sha256": "e37ca3f0861ea479026a681412dff51c274ac765ca2d42c94b6b64394f5213b0",
+      "gzipBytes": 334,
+      "gzipSha256": "4ce147263df323475eddef7f7862e77df7f23de351f7004bec417770d985be11"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-evaluation-freeze.json",
+      "archive": "blobs/1f067ddaa1a7602876003717f82364b931d25647b1f312ae7bd137f0cdb57182.gz",
+      "bytes": 2167,
+      "sha256": "1f067ddaa1a7602876003717f82364b931d25647b1f312ae7bd137f0cdb57182",
+      "gzipBytes": 1042,
+      "gzipSha256": "0aeaaa6321446a6642421cc580cead4539c66abeb635ecc131fea6288ff5801c"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-language-router.cjs",
+      "archive": "blobs/716f03b862c09360ebd1a66623461dea6993ad53544239cb0c69ccf22cb643b2.gz",
+      "bytes": 670,
+      "sha256": "716f03b862c09360ebd1a66623461dea6993ad53544239cb0c69ccf22cb643b2",
+      "gzipBytes": 400,
+      "gzipSha256": "0fab83dcd2c4a11bfb07a7dda100392343aa414917a45e7a82440bfbc5bf260e"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-capture.cjs",
+      "archive": "blobs/381c78f7eae6e7a2fa0bf2c41866bb19a57bc1a41724f1379964d5eb94034c42.gz",
+      "bytes": 10896,
+      "sha256": "381c78f7eae6e7a2fa0bf2c41866bb19a57bc1a41724f1379964d5eb94034c42",
+      "gzipBytes": 3977,
+      "gzipSha256": "eab274acd03cedc377ab7b431829f0cc561a960917d957a796538c5464922f86"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-capture-test.cjs",
+      "archive": "blobs/aec647f2c0bd3b5ef045dd852492e71faf72b990765a7aac98ed70e103488d71.gz",
+      "bytes": 2028,
+      "sha256": "aec647f2c0bd3b5ef045dd852492e71faf72b990765a7aac98ed70e103488d71",
+      "gzipBytes": 846,
+      "gzipSha256": "fc220ec33c7147bf38ddc71adc500b1d08a8667375e938f4123877d6b8f41c4f"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-collect.cjs",
+      "archive": "blobs/d6f9d3b532517b310c300d2ddaa70470c89470a36eff230ab86c46d92416e98d.gz",
+      "bytes": 8119,
+      "sha256": "d6f9d3b532517b310c300d2ddaa70470c89470a36eff230ab86c46d92416e98d",
+      "gzipBytes": 3280,
+      "gzipSha256": "13c163757bdc4eb133b665195a6f3130668c06de684434e5bd8fbd7f82fb7a31"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-collect-test.cjs",
+      "archive": "blobs/9494baf0de589f790280a1b27b1c7a64e88e582f19c79178f7cd31084d92fc93.gz",
+      "bytes": 907,
+      "sha256": "9494baf0de589f790280a1b27b1c7a64e88e582f19c79178f7cd31084d92fc93",
+      "gzipBytes": 477,
+      "gzipSha256": "3f6231f2042550ad16fdfa69169e630d40c3f13dcf2b4e37a59ad95f2b91abae"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-baseline-collect.cjs",
+      "archive": "blobs/9ad6c14b977855af8879af6f70cf02fa923eddd24c2be972384784a5370a327c.gz",
+      "bytes": 8152,
+      "sha256": "9ad6c14b977855af8879af6f70cf02fa923eddd24c2be972384784a5370a327c",
+      "gzipBytes": 3298,
+      "gzipSha256": "485176fe006435d127d4ee243e8145b3e2293dbafb5f52e6a277b28690de158a"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-evaluate.cjs",
+      "archive": "blobs/ebb00ed3477f31c09aad93278f3bb3fac04baa916d4d0da587733d5310a17e09.gz",
+      "bytes": 6822,
+      "sha256": "ebb00ed3477f31c09aad93278f3bb3fac04baa916d4d0da587733d5310a17e09",
+      "gzipBytes": 2687,
+      "gzipSha256": "63baf2227bcf0f7edb79186b5b69eb383805842173a40ed8988ccb59c85ef214"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-mixed-evaluate-test.cjs",
+      "archive": "blobs/944ec32090c65d3cf20f46f6880811062ee369abd2755783d32e2b8d468eef44.gz",
+      "bytes": 1257,
+      "sha256": "944ec32090c65d3cf20f46f6880811062ee369abd2755783d32e2b8d468eef44",
+      "gzipBytes": 569,
+      "gzipSha256": "4d5a1ac28c3601268939880e0f01301d4cfb0020ca61ddfa333a850da1dd10dc"
+    },
+    {
+      "source": "output/bge-minilm-mixed-capture-v1.json",
+      "archive": "blobs/3e2964353007e861dd8e8cb07d62e658c5b42be56b2af1b722699eb5f410941d.gz",
+      "bytes": 347104,
+      "sha256": "3e2964353007e861dd8e8cb07d62e658c5b42be56b2af1b722699eb5f410941d",
+      "gzipBytes": 6129,
+      "gzipSha256": "c70117fcadeb1bbaf2e59d40377e6bc8952865364d7ef7c87ffc65b2a0142c34"
+    },
+    {
+      "source": "output/bge-minilm-mixed-capture-v2.json",
+      "archive": "blobs/3e2964353007e861dd8e8cb07d62e658c5b42be56b2af1b722699eb5f410941d.gz",
+      "bytes": 347104,
+      "sha256": "3e2964353007e861dd8e8cb07d62e658c5b42be56b2af1b722699eb5f410941d",
+      "gzipBytes": 6129,
+      "gzipSha256": "c70117fcadeb1bbaf2e59d40377e6bc8952865364d7ef7c87ffc65b2a0142c34"
+    },
+    {
+      "source": "output/bge-minilm-mixed-query-v1/observer-failure.json",
+      "archive": "blobs/61118b2fa22b391336e7a55392cfae75f5a04a8e28ae6fa7c2d25a0500836dcf.gz",
+      "bytes": 785,
+      "sha256": "61118b2fa22b391336e7a55392cfae75f5a04a8e28ae6fa7c2d25a0500836dcf",
+      "gzipBytes": 509,
+      "gzipSha256": "caac7166f6c2464ab48dc9ef82b2e9773a04cd73da37a257db377375081c55e6"
+    },
+    {
+      "source": "output/bge-minilm-mixed-query-v1/collector-frozen-snapshot.cjs",
+      "archive": "blobs/31187793d991cf08856d50c14cbf3e8fcc2c71eeb6751bfb8ac706b055b32ab7.gz",
+      "bytes": 8006,
+      "sha256": "31187793d991cf08856d50c14cbf3e8fcc2c71eeb6751bfb8ac706b055b32ab7",
+      "gzipBytes": 3238,
+      "gzipSha256": "d0a690d3ec325a56980e5c005dbd35f9c0bec543815afe006600b790693fb943"
+    },
+    {
+      "source": "output/bge-minilm-mixed-query-v2/mixed-query-vectors.json",
+      "archive": "blobs/3d5a505085ef25e768a963d0144ea59a5c061806bd56495232eba206e02445de.gz",
+      "bytes": 616529,
+      "sha256": "3d5a505085ef25e768a963d0144ea59a5c061806bd56495232eba206e02445de",
+      "gzipBytes": 269411,
+      "gzipSha256": "478b492087496d7103671faba9ebdc326fac685f11864a7599352dfcd76cb534"
+    },
+    {
+      "source": "output/bge-minilm-mixed-baseline-v1/baseline-query-vectors.json",
+      "archive": "blobs/a6e2eb71adee8d1416caeca538b0e8df00ffa227f484114591bd67b90e181d3f.gz",
+      "bytes": 264554,
+      "sha256": "a6e2eb71adee8d1416caeca538b0e8df00ffa227f484114591bd67b90e181d3f",
+      "gzipBytes": 116413,
+      "gzipSha256": "4dfba3f343fd4bd64174544a27d1847781a7ff9bb8d302344a0b193bb36295b9"
+    },
+    {
+      "source": "output/bge-minilm-mixed-evaluation-v1.json",
+      "archive": "blobs/19ad676b565789ccee688f5d2422255c1255a841c2c40787f427d35f5a24f495.gz",
+      "bytes": 57387,
+      "sha256": "19ad676b565789ccee688f5d2422255c1255a841c2c40787f427d35f5a24f495",
+      "gzipBytes": 2708,
+      "gzipSha256": "d12626813c32d8b58eb1251d228f7447986d0684aa53d4772ff167d305f40e73"
+    },
+    {
+      "source": "output/bge-minilm-mixed-root-review-r1.json",
+      "archive": "blobs/f6b52070d74af685eb83fd3d8e569482cc3713d7d315c3e15035d592704a2097.gz",
+      "bytes": 28057,
+      "sha256": "f6b52070d74af685eb83fd3d8e569482cc3713d7d315c3e15035d592704a2097",
+      "gzipBytes": 2161,
+      "gzipSha256": "ee8c34426e4dfdc14324ab043237e5aed102b994433e5c44e3b36629e554f983"
+    },
+    {
+      "source": "output/bge-minilm-mixed-archive-inventory-v1.json",
+      "archive": "blobs/c82df677a62751fe60ef763a2ca7c43441b2896d11e35777de6d094d860a0af8.gz",
+      "bytes": 7177,
+      "sha256": "c82df677a62751fe60ef763a2ca7c43441b2896d11e35777de6d094d860a0af8",
+      "gzipBytes": 2440,
+      "gzipSha256": "930a81dd444df380a13f29a84689fecb5ef4104e1e635cccb0e6d1a9e4a00c4e"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-language-route-evaluate.cjs",
+      "archive": "blobs/3fc08bdb4bbfda5ad6d917c40959f955c0bfbff7716df451ed7aa31f9d366047.gz",
+      "bytes": 11613,
+      "sha256": "3fc08bdb4bbfda5ad6d917c40959f955c0bfbff7716df451ed7aa31f9d366047",
+      "gzipBytes": 4576,
+      "gzipSha256": "3fe30cd5b2a9a20c58f494baca28858e1d81f867145bae670ff9583686ad4849"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-language-router-test.cjs",
+      "archive": "blobs/22d065daee37da9fe9b1b4605404b7ef41294829638707ddd2f9140d7906e3c4.gz",
+      "bytes": 690,
+      "sha256": "22d065daee37da9fe9b1b4605404b7ef41294829638707ddd2f9140d7906e3c4",
+      "gzipBytes": 443,
+      "gzipSha256": "30cb62f3d0f58ceaaaccb8705f502800696555c6be45c6c6b671f51847754dd5"
+    },
+    {
+      "source": "dev-harness/semantic/bge-minilm-paired-resource-probe.cjs",
+      "archive": "blobs/d4366f2e1958dcf6e7d5dc0cd5af6d032599e3a129c2981e8ed2434aa0f5b10a.gz",
+      "bytes": 8470,
+      "sha256": "d4366f2e1958dcf6e7d5dc0cd5af6d032599e3a129c2981e8ed2434aa0f5b10a",
+      "gzipBytes": 3436,
+      "gzipSha256": "50c218a8babf6ff6e82f3f88e37522116f08e2cd064bde7d81c80d3a8514c71c"
+    },
+    {
+      "source": "dev-harness/semantic/language-worker-resource-profiles.cjs",
+      "archive": "blobs/1ded6967eecb404aa29a16d025fca42725699ba56feaa2f85bb0068d305c7e18.gz",
+      "bytes": 1056,
+      "sha256": "1ded6967eecb404aa29a16d025fca42725699ba56feaa2f85bb0068d305c7e18",
+      "gzipBytes": 666,
+      "gzipSha256": "d8f3690bb43172899ea62f39d66af439dddbbf69d5d7b79400e00e1706004b03"
+    },
+    {
+      "source": "output/bge-minilm-language-route-development-v4.json",
+      "archive": "blobs/ba0ec158d0c44b3578642cc477bacc035c7c4c966fe0340f01799b248eddf018.gz",
+      "bytes": 315478,
+      "sha256": "ba0ec158d0c44b3578642cc477bacc035c7c4c966fe0340f01799b248eddf018",
+      "gzipBytes": 9008,
+      "gzipSha256": "06eefa1da08204f412247e52d72d7c6ec00d548febbf4a32b7b0dfff3087985a"
+    },
+    {
+      "source": "output/bge-minilm-language-route-root-review-r1.json",
+      "archive": "blobs/cebfb5cc0ebbe335c8aab21ec74ff5b33de922cb16161ab61ac3ea46c67b3a3b.gz",
+      "bytes": 4490,
+      "sha256": "cebfb5cc0ebbe335c8aab21ec74ff5b33de922cb16161ab61ac3ea46c67b3a3b",
+      "gzipBytes": 878,
+      "gzipSha256": "dea4c72110c1c5e7d8936267f3271f2a90c3f2d5f8d49364c0ba4a5a5cd9bed4"
+    },
+    {
+      "source": "output/bge-minilm-route-root-r1.cjs",
+      "archive": "blobs/e5de334d36e595c7ef6d1760e40236f85e07d3ce92a872a05d14f04a9fc28763.gz",
+      "bytes": 7429,
+      "sha256": "e5de334d36e595c7ef6d1760e40236f85e07d3ce92a872a05d14f04a9fc28763",
+      "gzipBytes": 3140,
+      "gzipSha256": "d1bba31c28bca949eff7e1ebac401f0a8f4fe866846639511063f75af42fbeac"
+    },
+    {
+      "source": "output/bge-minilm-mixed-root-r1.cjs",
+      "archive": "blobs/3898682b5cd8b59730d5b6e9ba8a56fe5c72f7b6784e10c132a42fc443c24776.gz",
+      "bytes": 6322,
+      "sha256": "3898682b5cd8b59730d5b6e9ba8a56fe5c72f7b6784e10c132a42fc443c24776",
+      "gzipBytes": 2789,
+      "gzipSha256": "ffb0126bff806e9b9b9576509ae589ab608621985ef852cb37b9f8820a7747f2"
+    },
+    {
+      "source": "output/bge-minilm-mixed-root-comparison-r1.json",
+      "archive": "blobs/2fe2af8bb20d2f4e9b6ba112a01e98694f458a61a698b16c02d3070cb7a0a3f0.gz",
+      "bytes": 262,
+      "sha256": "2fe2af8bb20d2f4e9b6ba112a01e98694f458a61a698b16c02d3070cb7a0a3f0",
+      "gzipBytes": 223,
+      "gzipSha256": "0c6ddcc8d03a0e092fcf63731cf734b964bf3ba18d1e31cd02a41a4cf34ddafd"
+    },
+    {
+      "source": "output/bge-minilm-paired-resource-r1.json",
+      "archive": "blobs/96f7bfef147b7e13c29d41ac3cf8216cc0706d81feb2bfd99f3f05b318059359.gz",
+      "bytes": 23394,
+      "sha256": "96f7bfef147b7e13c29d41ac3cf8216cc0706d81feb2bfd99f3f05b318059359",
+      "gzipBytes": 4434,
+      "gzipSha256": "3ca6d7b205697b19f1e32db2d11fea5e1ddf535add766e5c1b00d4f714b4b0a8"
+    },
+    {
+      "source": "output/bge-zh-worker-host-resource-r1.cjs",
+      "archive": "blobs/0ca211988e00a8980e8d4375e247673edf42da9f0c861526ce40cf6c8ce3ed6d.gz",
+      "bytes": 15716,
+      "sha256": "0ca211988e00a8980e8d4375e247673edf42da9f0c861526ce40cf6c8ce3ed6d",
+      "gzipBytes": 5412,
+      "gzipSha256": "f28e6822cda5b79b59ac0d1c00c55ee3bd404c8112e3b1da58908299f48502b0"
+    },
+    {
+      "source": "output/bge-zh-worker-host-resource-r1-reconstruction.json",
+      "archive": "blobs/28084f60318f68dbd93499ed877d7065f6fd5f369eed58c913198b7db504082e.gz",
+      "bytes": 2943,
+      "sha256": "28084f60318f68dbd93499ed877d7065f6fd5f369eed58c913198b7db504082e",
+      "gzipBytes": 1030,
+      "gzipSha256": "1648b49e0387137eb2756312a72a28bdbb7b243176db1cb2ce5dd70bf9b022e6"
+    },
+    {
+      "source": "output/reconstruct-bge-host-resource-r1.cjs",
+      "archive": "blobs/ea3aa18091a87effe279460a31c7f5c5264798add6066947e274bed4c4387ee5.gz",
+      "bytes": 3648,
+      "sha256": "ea3aa18091a87effe279460a31c7f5c5264798add6066947e274bed4c4387ee5",
+      "gzipBytes": 1330,
+      "gzipSha256": "6835a673ecd2c36d9f1e1782877685cb1b6688df01c9b6153238ebff0a4ab439"
+    },
+    {
+      "source": "output/semantic-bge-cn-coarse-v2/coarse-vectors.json",
+      "archive": "blobs/8da7e08d8db2c5749069cbb281bc06fb47042b3e99f4e89c116bea9208c84dac.gz",
+      "bytes": 5242214,
+      "sha256": "8da7e08d8db2c5749069cbb281bc06fb47042b3e99f4e89c116bea9208c84dac",
+      "gzipBytes": 1542281,
+      "gzipSha256": "3b159131234bcdc4810e0bcf07c6f9052ae5123228bbed62f654dbf6efd16121"
+    },
+    {
+      "source": "output/semantic-bge-cn-coarse-v2/asset-lock.json",
+      "archive": "blobs/949a4a0423530264cd867be5b65cd076ee22b282592578acf2ce41193055deff.gz",
+      "bytes": 7958,
+      "sha256": "949a4a0423530264cd867be5b65cd076ee22b282592578acf2ce41193055deff",
+      "gzipBytes": 2699,
+      "gzipSha256": "494b5d0f18db19289832e14b614214e3fccfac32d38c564b21a4ff71252599b6"
+    },
+    {
+      "source": "output/semantic-bge-cn-coarse-v2/worker.cjs",
+      "archive": "blobs/98d144c6e46352fe272c04e38030e61ccce31b3633f6f8133a300665cfd528f6.gz",
+      "bytes": 8766,
+      "sha256": "98d144c6e46352fe272c04e38030e61ccce31b3633f6f8133a300665cfd528f6",
+      "gzipBytes": 3438,
+      "gzipSha256": "b5958f05d168a43e8484152b61ad519df2424ef588e1e9de9cb10ac1706c924d"
+    },
+    {
+      "source": "dev-harness/semantic/bge-cn-coarse-collect.cjs",
+      "archive": "blobs/eaf0a428a6922ab0a9cb0fb651ef7d05e3f93d90207a635302bece52b0d7e1e9.gz",
+      "bytes": 9441,
+      "sha256": "eaf0a428a6922ab0a9cb0fb651ef7d05e3f93d90207a635302bece52b0d7e1e9",
+      "gzipBytes": 3728,
+      "gzipSha256": "13f404a06d2d529d0966749dc0cb0f19dc3cac3b5999bc34b020514dec23922b"
+    },
+    {
+      "source": "dev-harness/semantic/bge-cn-worker-verify.cjs",
+      "archive": "blobs/151b63f10d5f6a155a26d54d52047d5f42af2a2a7222b74181987ba4080ccfde.gz",
+      "bytes": 1871,
+      "sha256": "151b63f10d5f6a155a26d54d52047d5f42af2a2a7222b74181987ba4080ccfde",
+      "gzipBytes": 886,
+      "gzipSha256": "78ad6509a1e841459e9efd7b0d6dfca25df326c22976c809699b982a881c70d2"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-worker-verify.cjs",
+      "archive": "blobs/f3b0faeb63a1ec28453a06b23a2f566cd1f903eabee252a904f8f62d32ad1cda.gz",
+      "bytes": 1810,
+      "sha256": "f3b0faeb63a1ec28453a06b23a2f566cd1f903eabee252a904f8f62d32ad1cda",
+      "gzipBytes": 835,
+      "gzipSha256": "0dcd561bb0a23ac90fad368e44b60450a4d99b18b23faefc8831f1efa86af8bb"
+    },
+    {
+      "source": "dev-harness/semantic/bge-chinese-only-development-protocol.json",
+      "archive": "blobs/4eec51a7de65c469cd0f780d904e8dd0a3ccf7d6f305fa7dc5579f12ca60cb8b.gz",
+      "bytes": 4073,
+      "sha256": "4eec51a7de65c469cd0f780d904e8dd0a3ccf7d6f305fa7dc5579f12ca60cb8b",
+      "gzipBytes": 2165,
+      "gzipSha256": "ad55ee3fa477ca56df8211ed5ceb231643f8639a1a9927e6909a30a880f93239"
+    },
+    {
+      "source": "output/multilingual-minilm-embedding-inventory-v2.json",
+      "archive": "blobs/f027f39d3982e034fcc46d06c37a3dec050492012291b3252a5dba7f3e8d2fd8.gz",
+      "bytes": 15604,
+      "sha256": "f027f39d3982e034fcc46d06c37a3dec050492012291b3252a5dba7f3e8d2fd8",
+      "gzipBytes": 3449,
+      "gzipSha256": "a250c3ffb9ad79be3481e7ba8e25e9e16b07208bc7bec7864cf8ad3476278636"
+    },
+    {
+      "source": "dev-harness/semantic/multilingual-minilm-embedding-inventory.cjs",
+      "archive": "blobs/664eb58ee6fada2b3a51d9bf949f9214c962a829d908472616662fb640f6728b.gz",
+      "bytes": 5206,
+      "sha256": "664eb58ee6fada2b3a51d9bf949f9214c962a829d908472616662fb640f6728b",
+      "gzipBytes": 2331,
+      "gzipSha256": "633cbc23b5d6aa3164eccf36652f151c3201a7ec39975bfefb0f366eb64606ca"
+    },
+    {
+      "source": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\bge-minilm-route-archive-r1.cjs",
+      "archive": "blobs/5f84d6bf5c4c1ddb8a7886cfa7e8b1b234c0ba92e03dafe38a463a18ad48ca31.gz",
+      "bytes": 5849,
+      "sha256": "5f84d6bf5c4c1ddb8a7886cfa7e8b1b234c0ba92e03dafe38a463a18ad48ca31",
+      "gzipBytes": 2381,
+      "gzipSha256": "53b9c6a2a919fd214c508bc85c65833ffeb94ef62e805b8225378d04ac2e6ea3"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/asset-lock.json",
+      "archive": "blobs/2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474.gz",
+      "bytes": 21786,
+      "sha256": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+      "gzipBytes": 4182,
+      "gzipSha256": "e7b1e1fd4cd188829c026f7f426c43c165daab23624227aa3223a7b8e111b316"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/worker.cjs",
+      "archive": "blobs/4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216.gz",
+      "bytes": 8773,
+      "sha256": "4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216",
+      "gzipBytes": 3443,
+      "gzipSha256": "dad14f0c0d0a997dd82eefd4f8dabf1112f7b2921f38bb7c47393dbdca0e25be"
+    }
+  ],
+  "summary": {
+    "records": 51,
+    "rawBytes": 7501327,
+    "gzipBytes": 2056439,
+    "routeComparedRows": 496,
+    "mixedComparedRows": 96,
+    "dualMixedRecall": "10/16",
+    "dualMixedOod": "8/16",
+    "baselineMixedRecall": "15/16",
+    "baselineMixedOod": "5/16",
+    "pairedMaximumSampledWorkingSetBytes": 296550400
+  },
+  "externalInputs": [
+    {
+      "manifest": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-minilm-family-matrix-reviewed-r1/manifest.json",
+      "manifestSha256": "69062e07ef539a55b660feae65b87f3761fa328b40bbfb074cc9c2d72e8472b1",
+      "record": {
+        "source": "output/semantic-minilm-family-coarse-v1/coarse-vectors-v1.json",
+        "archive": "blobs/d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b.gz",
+        "bytes": 12758127,
+        "sha256": "d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b",
+        "gzipBytes": 3530498,
+        "gzipSha256": "6f94293d88a9a81a9d25e32c220c39ecdef872b8b197ddb016723b1a2f2b89bc"
+      }
+    }
+  ],
+  "checks": {
+    "allRawHashes": true,
+    "allGzipHashes": true,
+    "allRoundtrips": true,
+    "oldResourceHostByteExact": true,
+    "firstObserverFailureRetained": true,
+    "modelOrExecutableCopies": false
+  },
+  "limits": [
+    "Only development; neither mixed configuration meets pureOOD5% and no gate is closed. Existing independent MiniLM10/40 failure and unconsumed Chinese/v6 holdouts are not rewritten or included.",
+    "The resource-r1 host is an exact reconstructed historical snapshot. Later cancellation/startup fixes are not retroactively attributed to the measurements.",
+    "Native same-batch observations are discrete and shared pages can be counted twice; no overall desktop RAM, actual source/UI latency or all-lifecycle proof.",
+    "Referenced upstream model artifacts remain hash/lock references. Original English model vectors use the separately hash-verified existing durable archive. No new inference or fitting is performed by this archive."
+  ]
+}

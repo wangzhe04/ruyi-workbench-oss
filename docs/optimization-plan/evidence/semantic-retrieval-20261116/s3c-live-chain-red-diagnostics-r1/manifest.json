@@ -1,0 +1,373 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-17T02:21:15.510Z",
+  "status": "ACTUAL_CHAIN_RED_BUDGET_STARVATION",
+  "previousEvidence": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/manifest.json",
+    "sha256": "0caede3fcdd140a901710b786931a56a1f44116e527b12b6448627ad055e5c5d",
+    "records": 57
+  },
+  "checks": [
+    {
+      "name": "previous57 immutable archive independently read and roundtripped",
+      "passed": true
+    },
+    {
+      "name": "first actual248 chain RED retained and pure OOD not falsely treated as TN",
+      "passed": true
+    },
+    {
+      "name": "paired same-batch current memory sums and separate Node sample, not exclusive desktop delta",
+      "passed": true
+    },
+    {
+      "name": "historical execution freeze and immutable derived producer snapshots pinned",
+      "passed": true
+    },
+    {
+      "name": "six synthetic native budget diagnostic retains two predicted refusals and observed shutdown",
+      "passed": true
+    },
+    {
+      "name": "fake model actual UI source diagnostic preserves original call count and union intervals",
+      "passed": true
+    }
+  ],
+  "credentialFlags": 0,
+  "records": [
+    {
+      "source": "output/semantic-scalar-live-gcc-development-v1/receipt.json",
+      "group": "actual-live-chain-red",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/001-receipt.json.gz",
+      "bytes": 2313613,
+      "sha256": "2eae8bacf390eb08cf15ed61731c63b7bb070f2c49c401d4fd877c398a5ebcb2",
+      "gzipBytes": 87553,
+      "gzipSha256": "ef3940f826b02b2dd043d6844a7eb0072779211e01bb7ac91fe0ca7724c28271"
+    },
+    {
+      "source": "output/semantic-scalar-live-gcc-development-v1-freeze/freeze.json",
+      "group": "first-live-execution-freeze",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/002-freeze.json.gz",
+      "bytes": 71319,
+      "sha256": "01d8bd2327b85681270bb83e3ee839daa689ac69cdec0c6b2e744317978719b6",
+      "gzipBytes": 15929,
+      "gzipSha256": "2feb2de6ddcd4e66f7773db64d6eb6b816b7fa96de434e24818f04003ee4d7b6"
+    },
+    {
+      "source": "output/semantic-scalar-live-gcc-development-v1-freeze/launch.cjs",
+      "group": "first-live-frozen-preflight-launcher",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/003-launch.cjs.gz",
+      "bytes": 1103,
+      "sha256": "a3ceeff5d491fd980ae98e84fc8bfdbc089fa058ef9b65a81d20b177bcde5cca",
+      "gzipBytes": 574,
+      "gzipSha256": "26d18014289084739a177bec198cdb3a307e5b50e6bba95caf2d5d2bf8746e1c"
+    },
+    {
+      "source": "output/semantic-scalar-live-gcc-development-v1/source/producer-71e1f640cce72c26b351a109651cb53ae83d9d2618d3f68abd06a1762e4a4481.cjs",
+      "group": "historical-executed-derived-source",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/004-producer-71e1f640cce72c26b351a109651cb53ae83d9d2618d3f68abd06a1762e4a4481.cjs.gz",
+      "bytes": 84559,
+      "sha256": "71e1f640cce72c26b351a109651cb53ae83d9d2618d3f68abd06a1762e4a4481",
+      "gzipBytes": 22401,
+      "gzipSha256": "4bd38c12b4bc3e605361bec05e2eeec357eef5576fdbe0507fdf1ff00614f0a6"
+    },
+    {
+      "source": "output/semantic-scalar-live-gcc-development-v1/source/producer-89961ff6599a0a819968916575148e48ef3b898d6fa1a150a86233d0c29288e9.cjs",
+      "group": "historical-executed-derived-source",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/005-producer-89961ff6599a0a819968916575148e48ef3b898d6fa1a150a86233d0c29288e9.cjs.gz",
+      "bytes": 84881,
+      "sha256": "89961ff6599a0a819968916575148e48ef3b898d6fa1a150a86233d0c29288e9",
+      "gzipBytes": 22470,
+      "gzipSha256": "5ab0233320c320733e38b69d848991f32ed480d8b59ac848fe3008257fc56825"
+    },
+    {
+      "source": "output/semantic-scalar-budget-live-diagnostic-v1/plan.json",
+      "group": "native-budget-diagnostic",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/006-plan.json.gz",
+      "bytes": 9084,
+      "sha256": "3d76e56febfff37532ac460efe21a1d37c5e2a5e87760e493908c0ecaa8cfb84",
+      "gzipBytes": 2429,
+      "gzipSha256": "3e23534ba799ecd93b3af9b021d0923d911e74b6d43cb63d205ea55200357809"
+    },
+    {
+      "source": "output/semantic-scalar-budget-live-diagnostic-v1/receipt.json",
+      "group": "native-budget-diagnostic",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/007-receipt.json.gz",
+      "bytes": 58769,
+      "sha256": "4c270922a25aaf383326d4640a2f79e24f16901e67b6a188775cf83b28b59fb9",
+      "gzipBytes": 7642,
+      "gzipSha256": "2b8d205a53ed4ff9e97a086f66af29956bd22a88c65d41b1d5d9470bfa402ca4"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-budget-live-diagnostic.cjs",
+      "group": "native-budget-instrumentation-source",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/008-scalar-budget-live-diagnostic.cjs.gz",
+      "bytes": 8423,
+      "sha256": "1bdedcd703bf87da5ca98d065766c8c95ddcf4bacbcaa2b61557483c1ce88a51",
+      "gzipBytes": 3387,
+      "gzipSha256": "08e7704b947b65dd9be7d884a685c321e44d73c48f5ad43d210ff0b895fd1306"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-budget-trace-research.cjs",
+      "group": "native-budget-instrumentation-source",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/009-scalar-budget-trace-research.cjs.gz",
+      "bytes": 2838,
+      "sha256": "eb2fe85463e7a3570919a61093c03481e88dfe51faf65309d5ea133ff2769402",
+      "gzipBytes": 1167,
+      "gzipSha256": "27c90f05085c029d10540ab7175436614eb9493f6477b932bb7976170fcf8a15"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-budget-live-diagnostic.test.cjs",
+      "group": "diagnostic-test-source-not-rerun-by-archiver",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/010-scalar-budget-live-diagnostic.test.cjs.gz",
+      "bytes": 1696,
+      "sha256": "436e87bb1e4b94c96895ff4d860bd1202d64b89eda0bffa54a2ea58b3e2372a5",
+      "gzipBytes": 819,
+      "gzipSha256": "c4e7046ba2f540697dfa6ccbc6fd6dcf7b5fc9f321a87c120a06830436cd1c3c"
+    },
+    {
+      "source": "output/semantic-root-ui-cost-diagnostic-r1.json",
+      "group": "fake-model-actual-ui-cost-diagnostic",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/011-semantic-root-ui-cost-diagnostic-r1.json.gz",
+      "bytes": 12683,
+      "sha256": "e3b3ac21fde4898131d11ba83dfee66bf57174df8569a06564ba790e70a11266",
+      "gzipBytes": 2120,
+      "gzipSha256": "34d83be4c3debdf896d515b77a5bb77852b84f438b15bad772c2a0a654aa153f"
+    },
+    {
+      "source": "output/semantic-root-ui-cost-diagnostic-r1.cjs",
+      "group": "fake-model-actual-ui-diagnostic-driver",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/012-semantic-root-ui-cost-diagnostic-r1.cjs.gz",
+      "bytes": 4574,
+      "sha256": "b4896382b69991053d107af4c3353b8d344c0ff1b46d204d3478439dfadb8c92",
+      "gzipBytes": 2100,
+      "gzipSha256": "1dea5c13aa3cebff4592a121e1e7362b77ecc5c92ec9bfaa46bac8ddc6f384f7"
+    },
+    {
+      "source": "dev-harness/semantic/archive-live-chain-red-evidence.cjs",
+      "group": "archive-tool",
+      "status": "FROZEN_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-live-chain-red-diagnostics-r1/013-archive-live-chain-red-evidence.cjs.gz",
+      "bytes": 13697,
+      "sha256": "a82716fa8cb7afeeb161e30c84db057cabb91e18938153eaec7ffc3debf88f3d",
+      "gzipBytes": 5676,
+      "gzipSha256": "7d926d4dada68638588a265e541562685c639078dd85570e5955a8b9ba399437"
+    }
+  ],
+  "bindingAudits": [
+    {
+      "name": "live freeze; source metadata audit only, binary assets not read",
+      "nonBinaryChecked": 281,
+      "assetBindingsNotRead": [
+        {
+          "file": "C:\\r31-gcc-rank-research\\build\\bin\\llama-server.exe",
+          "bytes": 22605545,
+          "sha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-win32-x64-v1\\models\\qwen3-embedding-0.6b-q4km\\model.gguf",
+          "bytes": 396474560,
+          "sha256": "23d234bb57a42528a22a13e7beb8b57d8844b2b9cc741b4c27a8ff132abf0dfd"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-qwen-reranker-official-v1\\artifacts\\qwen3-reranker-0.6b-rank-q4_k_m.gguf",
+          "bytes": 396476288,
+          "sha256": "9787224d2920d37838ed8dcf88dc6f2b92d1629192627655c32b06aef04becc7"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-job-host\\native-job-host.exe",
+          "bytes": 9216,
+          "sha256": "c0c4a019131cce574be6f674e9ca3ad4597fe72f39ddb4194de5cfc2577edc7d"
+        }
+      ],
+      "currentSourceMismatches": []
+    },
+    {
+      "name": "native budget diagnostic historical source metadata",
+      "nonBinaryChecked": 32,
+      "assetBindingsNotRead": [
+        {
+          "file": "C:/r31-gcc-rank-research/build/bin/llama-server.exe",
+          "sha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-win32-x64-v1\\models\\qwen3-embedding-0.6b-q4km\\model.gguf",
+          "sha256": "23d234bb57a42528a22a13e7beb8b57d8844b2b9cc741b4c27a8ff132abf0dfd"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-qwen-reranker-official-v1\\artifacts\\qwen3-reranker-0.6b-rank-q4_k_m.gguf",
+          "sha256": "9787224d2920d37838ed8dcf88dc6f2b92d1629192627655c32b06aef04becc7"
+        },
+        {
+          "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-job-host\\native-job-host.exe",
+          "sha256": "c0c4a019131cce574be6f674e9ca3ad4597fe72f39ddb4194de5cfc2577edc7d"
+        }
+      ],
+      "currentSourceMismatches": []
+    },
+    {
+      "name": "UI diagnostic source metadata",
+      "nonBinaryChecked": 3,
+      "assetBindingsNotRead": [],
+      "currentSourceMismatches": []
+    }
+  ],
+  "actualChain": {
+    "receiptSha256": "2eae8bacf390eb08cf15ed61731c63b7bb070f2c49c401d4fd877c398a5ebcb2",
+    "queries": 248,
+    "complete": 121,
+    "partial": 127,
+    "rawStatus": "PARTIAL_LIVE_DEVELOPMENT_NOT_ACCEPTANCE",
+    "pureOod": {
+      "count": 80,
+      "partialNoResultUnknown": 80,
+      "trueNegatives": 0,
+      "fpr": null,
+      "fprBounds": [
+        0,
+        1
+      ]
+    },
+    "actualCoarseEmbeddingWrites": 286,
+    "actualRankWrites": 2,
+    "predictedScalarBudgetRefusals": 128,
+    "positiveResults": {
+      "train": {
+        "count": 72,
+        "recallAt5": 0.5138888888888888,
+        "mrr": 0.5138888888888888,
+        "partial": 35
+      },
+      "calibration": {
+        "count": 24,
+        "recallAt5": 0.5,
+        "mrr": 0.5,
+        "partial": 12
+      }
+    },
+    "finalCleanup": {
+      "coarse": {
+        "ok": true,
+        "state": "research-stop",
+        "workerExited": true,
+        "cleanupStatus": "observed"
+      },
+      "scalar": {
+        "code": 0,
+        "signal": null,
+        "cleanupStatus": "observed",
+        "nativeSpawnRequested": true,
+        "workerExited": true
+      }
+    },
+    "resources": {
+      "pairedOsBatchSamples": 18,
+      "observedPairedMaxWorkingSetBytes": 1341620224,
+      "observedPairedMaxPrivateBytes": 935395328,
+      "separateNodeMaxSampledRssBytes": 221966336,
+      "independentPeaksAdded": false,
+      "exclusiveDesktopDelta": false,
+      "trueProcessPeakClaimed": false,
+      "workingSetMayDoubleCountSharedPages": true
+    },
+    "timing": {
+      "prescribedQueryCount": 248,
+      "p95NearestRankMs": 1201.0735999999742,
+      "sourceFields": 60,
+      "formal1000FragmentQualification": false
+    }
+  },
+  "nativeBudgetDiagnostic": {
+    "syntheticQueries": 6,
+    "completed": 4,
+    "predictedRefused": 2,
+    "rankRequestTotalMsRange": [
+      178.29589999999735,
+      192.50220000000263
+    ],
+    "hostMsRange": [
+      207.08719999999812,
+      222.5697
+    ],
+    "refused": [
+      {
+        "remainingAtHostMs": 228,
+        "estimateMs": 318,
+        "httpWrites": 0
+      },
+      {
+        "remainingAtHostMs": 246,
+        "estimateMs": 318,
+        "httpWrites": 0
+      }
+    ],
+    "finalCleanup": {
+      "coarse": {
+        "ok": true,
+        "state": "diagnostic-stop",
+        "workerExited": true,
+        "cleanupStatus": "observed"
+      },
+      "scalar": {
+        "code": 0,
+        "signal": null,
+        "cleanupStatus": "observed",
+        "nativeSpawnRequested": true,
+        "workerExited": true
+      }
+    },
+    "scope": "Actual native synthetic diagnostic, not quality or1000-fragment qualification; nested timings must not be added."
+  },
+  "uiCostDiagnostic": {
+    "nativeStarts": 0,
+    "scope": "Synthetic immediate models, actual UI/source calls; no checks removed.",
+    "crossLanguageWarm": {
+      "elapsedMs": 966.3222000000005,
+      "scan": {
+        "calls": 121,
+        "cumulativeMs": 1294.082599999998,
+        "unionWallMs": 366.7581999999993
+      },
+      "inspect": {
+        "calls": 77,
+        "cumulativeMs": 216.38810000000103,
+        "unionWallMs": 87.56770000000142
+      },
+      "finalEpoch": {
+        "calls": 60,
+        "cumulativeMs": 176.7761000000046,
+        "unionWallMs": 47.68790000000081
+      }
+    },
+    "strongId": {
+      "elapsedMs": 902.8165999999992,
+      "scan": {
+        "calls": 121,
+        "cumulativeMs": 1246.5431000000053,
+        "unionWallMs": 357.00990000000274
+      }
+    },
+    "intervalsNestedDoNotAdd": true
+  },
+  "limits": [
+    "First actual248 chain RED is preserved. Prior GCC offline fixed-development and fake proofs remain valid only in their separate scopes; they do not supersede this result.",
+    "All80 pure OOD are partial/no-result unknown, not true negatives. Observed no-results cannot establish FPR0; conservative range[0,1].",
+    "Two native PID current working sets were summed within each OS sampling batch with creation identities. Shared pages may be counted twice; samples can miss peaks. Node RSS is separate and is not added to the native maximum.",
+    "60-field248-query nearest-rank p95 is not1000-fragment qualification. Diagnostic HTTP/host/guard spans are nested, not additive; no optimized performance PASS is claimed.",
+    "Only fixed freeze/launch and immutable generated producer snapshots are copied for historical live execution. Mutable runner/layout and their changing fixture sources are deliberately not copied. Full original hash bindings are retained as metadata.",
+    "Nonbinary source bindings matched at archive time; binary/model asset bindings are retained from producer receipts only, without new reads/copies. Diagnostic test source is preserved, not asserted rerun by archival.",
+    "No model/compile/install, v6 query/fixture access, production/default/model-manifest changes or formal SR gate-state changes. Independent v6,1000 workload, total desktop delta, lifecycle coverage and new package regression remain pending."
+  ]
+}

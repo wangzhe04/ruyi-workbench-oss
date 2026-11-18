@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:15:25.575Z",
+  "status": "PROGRESS_NOT_FINAL_QUALITY_ACCEPTANCE",
+  "limitations": [
+    "Native v3 attempts did not reach quality measurement: one explicit runtime abort and two incomplete label-independent prewarm receipts. No threshold or label tuning.",
+    "Late budget shrink fixes one source-await fixed point; runtime/host estimate mismatch still needs a common cost hint.",
+    "Message model-boundary/source-proof, private dedup and actual portable restore tests pass scoped; final full regression and new packages remain."
+  ],
+  "records": [
+    {
+      "source": "output/semantic-qwen3-v3-runtime-abort.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/01-semantic-qwen3-v3-runtime-abort.json.gz",
+      "sha256": "053ca255fad4f08c23f00a9c24886a0a8fa32148106bfceb6d6d9561f279e383",
+      "bytes": 718,
+      "gzipSha256": "898f167a385d28316312c0bc9c7bb3f9affd0053f0836bb1660bb96de430a7c9",
+      "gzipBytes": 482
+    },
+    {
+      "source": "output/semantic-qwen3-v3-availability-retry.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/02-semantic-qwen3-v3-availability-retry.json.gz",
+      "sha256": "a176cab0495a66c5b7ea7e31203e5b535d327d0c603721e21feaa2941ccaaf91",
+      "bytes": 121445,
+      "gzipSha256": "992b6a20dbc4dd53146d0bf4cb1f33934096287c8f1e99415ac3da13adae8791",
+      "gzipBytes": 3949
+    },
+    {
+      "source": "output/semantic-qwen3-v3-complete-scheduler.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/03-semantic-qwen3-v3-complete-scheduler.json.gz",
+      "sha256": "659aa0b20e6259e1e3e95977238068e222df2a98e146508457147e39c82db98e",
+      "bytes": 120406,
+      "gzipSha256": "504a9128cbe2fdaf0dd1b4ca3bddb05feec859b5b0dccc1f8af0729bee75445b",
+      "gzipBytes": 4085
+    },
+    {
+      "source": "output/semantic-budget-progress-before-fix.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/04-semantic-budget-progress-before-fix.log.gz",
+      "sha256": "7d228a414b593afd863828ae355aa36b5964e6653f21e6d272ead37ed2930a2e",
+      "bytes": 1195,
+      "gzipSha256": "be29e93a5e12d9cf14228c179b90516fde473ffcb78df2e990fc63e6f0f76849",
+      "gzipBytes": 622
+    },
+    {
+      "source": "output/semantic-budget-progress-after-fix.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/05-semantic-budget-progress-after-fix.log.gz",
+      "sha256": "95ec16e6c8d7d8602b4626d388254d252af993825e05fd28cf880bbd8363d4e4",
+      "bytes": 1394,
+      "gzipSha256": "138f80e51d5b530d286e3070a8d126c4dfc2bead34882a1c2c1c9ef1fb2c6adc",
+      "gzipBytes": 748
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/semantic-budget-review-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/06-semantic-budget-review-r1.log.gz",
+      "sha256": "8cddb779432668014848edb2c0b105a896d3c660f7d4093db5a095dccef1d351",
+      "bytes": 756,
+      "gzipSha256": "272e1d13028b28fd8b1b41b2d0a0ca1ae37930eb8a602b16710558e8df464758",
+      "gzipBytes": 424
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/semantic-budget-hole-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/07-semantic-budget-hole-review-r1.json.gz",
+      "sha256": "eae504af7c2541e6faf1703ba240e24cc05d2cfcd7107fdab24b58de98f5d184",
+      "bytes": 1761,
+      "gzipSha256": "ed515501ad3999da9a23468be648a96a71338bc9680f65bf1207a4f9a989f2a9",
+      "gzipBytes": 549
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/budget-probe-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/08-budget-probe-v1.json.gz",
+      "sha256": "ba180c8f7e643556b55eca1deca188f611cbcdd6603515926c78949cdfb98982",
+      "bytes": 13280,
+      "gzipSha256": "fb547d2402ad9837064970dd4a7f33cca77e44897092e345632cc971ddf4205d",
+      "gzipBytes": 2209
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/budget-probe-v2-role-split.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/09-budget-probe-v2-role-split.json.gz",
+      "sha256": "562d05984bb6ba77054973f2cd98246ec1b52634273c01b28d702a4e7f234b4f",
+      "bytes": 18220,
+      "gzipSha256": "344d2a9b431737cee00d94961c426dc3ef14d604bc7a14d6c3c50cce9862dd40",
+      "gzipBytes": 2735
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/budget-probe-v3-role-cold.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/10-budget-probe-v3-role-cold.json.gz",
+      "sha256": "f076a86ab2defbae1ee467d7378181dc60bdcc692cede2caa32cc7065d005561",
+      "bytes": 17829,
+      "gzipSha256": "b2f98a32c5547ac0d8b58e44643182d22d266fd4fe5ee121d897b4e748be3067",
+      "gzipBytes": 2696
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/budget-probe-v4-late-prefix-complete.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/11-budget-probe-v4-late-prefix-complete.json.gz",
+      "sha256": "639941c2c847be9541e23b13db6ce22b6de8182f1c0798e9f15588b180f38e27",
+      "bytes": 100951,
+      "gzipSha256": "f242718dd78d0eee00518173f55e41dcc606215d5a62842e2a3556a4916c1628",
+      "gzipBytes": 8259
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/adapter-selftest-v3-scheduling.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/12-adapter-selftest-v3-scheduling.json.gz",
+      "sha256": "c534b12ceb8d84265ca805cece16f0fb935ef87fe6d909e8d9ce6dac5c66dea3",
+      "bytes": 3858,
+      "gzipSha256": "0783633dce4197b10273d820ac1a73baa5d20f7b04a73b3eaa4cde7d2ec4a9a8",
+      "gzipBytes": 1555
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/background-hard-error-selftest-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/13-background-hard-error-selftest-v1.json.gz",
+      "sha256": "23eb6eb22574f1723903cec73f81101050fd49dc3a240b3e99c4d58ad1d57e69",
+      "bytes": 506,
+      "gzipSha256": "b04fbcd3fa20e4b8db1613b2fb6fae7d7b7421fa0cdde59c746decfc0db0f607",
+      "gzipBytes": 324
+    },
+    {
+      "source": "output/semantic-reference-egress-message-model-current.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/14-semantic-reference-egress-message-model-current.json.gz",
+      "sha256": "2c33b9d67e6ec7bef254a5515c65e25f677ef69fa83f3945269d71a0d34f8bc4",
+      "bytes": 3041,
+      "gzipSha256": "4756e7d304266440df4f480395a6a90fec0efe402edb0d51a7ffe7e6f6d32def",
+      "gzipBytes": 1187
+    },
+    {
+      "source": "output/semantic-reference-functional-r4/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/15-receipt.json.gz",
+      "sha256": "1eb16cff8b386d483a586234dc6b2d6c9f1eb9a46d9859dfb050a6a836def591",
+      "bytes": 21429,
+      "gzipSha256": "7ca70a4d7668725596800def9558f05e262999a2f873f5af7bf499dfbbd1429e",
+      "gzipBytes": 8403
+    },
+    {
+      "source": "output/semantic-message-full-restore-v2.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/16-semantic-message-full-restore-v2.log.gz",
+      "sha256": "af761112c9186f04cdd988bfe326452dbc7c87328fb5bed9f5190d6f0b4be9bb",
+      "bytes": 598,
+      "gzipSha256": "06a4048c97ac7b6d4104aca56cc8c66fbb7f9bda6d28019f6de973b8f9bf4563",
+      "gzipBytes": 351
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/c2-and-privacy-terrafix-receipt-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/17-c2-and-privacy-terrafix-receipt-r1.json.gz",
+      "sha256": "76f501bb638f3a8bc1e23437968704b78f8c74fadebd93e0db7a287a467792fd",
+      "bytes": 42389,
+      "gzipSha256": "8c1dd17dc8ecc313e0a7f53de0060411f1094980fd0c167bb9b74b6798cbeb97",
+      "gzipBytes": 10579
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/report-encoded-terrafix-r2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-runtime-budget-progress/18-report-encoded-terrafix-r2.json.gz",
+      "sha256": "6052cc88a1a7e2e20127109c7568b1e995344e3044462119624da84e3cd2e953",
+      "bytes": 38063,
+      "gzipSha256": "26c98ae0fbf029373bb416b1e36e0797bcd1cdb3e4d367a4a84307306213240e",
+      "gzipBytes": 9377
+    }
+  ]
+}

@@ -121,11 +121,13 @@ const MCP_TOOLS = [
     // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
     // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
     name: 'observation_recall',
-    description: "Recover an earlier tool observation from its reduced view's rawRef (history:<turn>:<hash>:<index>:<hash>). For exact earlier values, read this before answering; omission is not absence. Current session, read-only. Use nextOffset for remaining content. Failure {ok:false,error}: invalid_ref | not_found | hash_mismatch | quota_exceeded (8 calls per turn; do not retry same ref) | disabled.",
+    description: "Read a reduced view's rawRef or messageRef for exact earlier values before answering; omission is not absence. Query finds current-session evidence. nextOffset paginates; all modes share 8 calls/turn.",
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['rawRef'],
+      type: 'object', additionalProperties: false,
       properties: {
         rawRef: { type: 'string', description: 'The rawRef= value embedded in a reduced observation view.' },
+        messageRef: { type: 'string', description: 'Current-session message reference from query.' },
+        query: { type: 'string', minLength: 2, maxLength: 256, description: 'Find evidence; excludes references and offset.' },
         offset: { type: 'integer', minimum: 0, description: 'Continue from nextOffset; default 0.' },
         maxChars: { type: 'integer', minimum: 1000, maximum: 60000, default: 8000, description: 'Page size; nextOffset continues remaining content.' },
       },

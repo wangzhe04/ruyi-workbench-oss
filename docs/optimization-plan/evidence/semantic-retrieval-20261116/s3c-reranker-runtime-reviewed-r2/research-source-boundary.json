@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "status": "HISTORICAL_RESEARCH_SOURCE_BOUNDARY",
+  "sanityReport": "output/semantic-qwen-reranker-official-v1/sanity-rerank-only-v2.json",
+  "reportedHostSourceSha256": "6a5028375afba57e1ce8e0523e0ba16f5647975f28d99c3785db62da2997689d",
+  "r1CapturedHostSourceSha256": "ff16d40b0a1e416ed534058ff03011f0524237bdbaa880070672c011837c7521",
+  "reportedHostSnapshotLocatedByAuditor": false,
+  "explanation": "Research host changed under a later authorized task. Captured ff16 source is not substituted for the older6a sanity implementation; do not infer exact historical host reconstruction or current-source qualification from the original sanity report. Immutable model/converter/head/nativeCPP evidence remains separately verified."
+}

@@ -126,8 +126,9 @@ function writeCfg(flags) {
   ok(recallTool && /reduced view/.test(recallDescription) && /exact earlier values/.test(recallDescription)
     && /before answering/.test(recallDescription) && /omission is not absence/.test(recallDescription),
     'U15 双开时 offer observation_recall:精确旧值先回读缩减原文,省略不等于不存在');
-  const recallPrompt = srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOn);
-  ok(recallPrompt.includes(refDummy) && recallPrompt.includes('before answering') && srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOff) === '', 'U15b recovery index 双开时携带 rawRef、默认关闭时为空');
+  const opaqueDummy='history:v2:0123456789abcdef0123456789abcdef.nonce.ciphertext.tag', safeHint=withHint.content.replace(refDummy,opaqueDummy);
+  const recallPrompt = srv.buildObservationRecallPrompt([{ role: 'tool', content: safeHint }], cfgOn);
+  ok(recallPrompt.includes(opaqueDummy) && recallPrompt.includes('before answering') && !srv.buildObservationRecallPrompt([{role:'tool',content:withHint.content}],cfgOn).includes(refDummy) && srv.buildObservationRecallPrompt([{ role: 'tool', content: safeHint }], cfgOff) === '', 'U15b recovery index 仅携带密封引用、默认关闭时为空');
   // 目录门:adaptiveCatalogForMcp 同样按开关隐藏
   const catOff = await srv.adaptiveCatalogForMcp(cfgOff);
   const catOn = await srv.adaptiveCatalogForMcp(cfgOn);

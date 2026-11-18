@@ -4807,22 +4807,60 @@ async function withJournalArtifactOperation(work, supplied = null) {
 function journalJsonStore(sessionId, kind, operation = null, metadata = {}, directory = null) {
   const sid = assertSessionIdForPath(sessionId);
   const activeFile = kind === 'index' ? journalIndexPath(sid)
-    : kind === 'reverts' ? journalRevertLogPath(sid) : (() => { throw journalArtifactFailure('kind'); })();
+    : kind === 'reverts' ? journalRevertLogPath(sid) : kind === 'observation-owners-v1' ? path.join(journalDir(sid),'observation-owners-v1.json') : (() => { throw journalArtifactFailure('kind'); })();
   const file = directory === null ? activeFile : path.join(directory, path.basename(activeFile));
   return WorkDataStore.createText({
     file: () => file, purpose: 'session', schema: 1,
-    scopeId: sid, recordId: kind === 'index' ? 'journal-index' : 'journal-reverts',
+    scopeId: sid, recordId: kind === 'index' ? 'journal-index' : kind === 'reverts' ? 'journal-reverts' : 'journal-observation-owners-v1',
     keys: operation ? operation.keys : WorkDataStore.requireKeys(),
-    chunked: true, maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    chunked: true, maxPlaintextBytes: kind === 'observation-owners-v1' ? 65536 : JOURNAL_ARTIFACT_ENGINEERING_BYTES,
     enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: (target, value, options = {}) => atomicWriteJson(target, value, { ...options, retries: kind === 'index' ? 0 : 3 }),
     validateSealedText: plainText => {
     metadata.sealed = true;
     const value = safeJsonParse(plainText, null);
-    return kind === 'index' ? Array.isArray(value)
+    return kind === 'index' ? Array.isArray(value) : kind === 'observation-owners-v1' ? journalObservationOwnersValid(value,sid)
       : !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 && Array.isArray(value.items);
     },
   });
+}
+function journalObservationOwnersValid(value,sid) {
+  return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')==='anchor,items,mac,rewindGen,schema,sessionId'
+    &&value.schema===1&&value.sessionId===sid&&/^[a-f0-9]{64}$/.test(value.anchor||'')&&Number.isSafeInteger(value.rewindGen)&&value.rewindGen>=0
+    &&/^[a-f0-9]{64}$/.test(value.mac||'')&&Array.isArray(value.items)&&value.items.length<=128&&new Set(value.items.map(row=>row?.prefix)).size===value.items.length
+    &&value.items.every(row=>row&&typeof row==='object'&&!Array.isArray(row)&&Object.keys(row).sort().join(',')==='digest,prefix'
+      &&/^history:\d+:[a-f0-9]{16}$/.test(row.prefix||'')&&/^[a-f0-9]{64}$/.test(row.digest||'')&&row.prefix.endsWith(':'+row.digest.slice(0,16)));
+}
+async function journalReadObservationOwners(sessionId,operation=null) {
+  if(!operation)return withJournalArtifactOperation(scope=>journalReadObservationOwners(sessionId,scope));
+  let raw;try{raw=await journalJsonStore(sessionId,'observation-owners-v1',operation).read();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+  const value=safeJsonParse(raw,null);if(!journalObservationOwnersValid(value,sessionId))throw journalArtifactFailure('observation_owners_invalid');
+  const expected=await journalObservationOwnerMac(value,operation),actual=Buffer.from(value.mac,'hex');if(!crypto.timingSafeEqual(expected,actual))throw journalArtifactFailure('observation_owners_auth');return value;
+}
+async function journalObservationOwnerMac(value,operation) {
+  const lease=await operation.credential();return crypto.createHmac('sha256',lease.key).update(JSON.stringify(['ruyi-observation-owner-v1','main',lease.instanceId,value.sessionId,value.anchor,value.rewindGen,value.items])).digest();
+}
+async function journalRegisterObservationOwner(sessionId,anchor,rewindGen,prefix,guard) {
+  if(!/^[a-f0-9]{64}$/.test(anchor)||!Number.isSafeInteger(rewindGen)||rewindGen<0||!/^history:\d+:[a-f0-9]{16}$/.test(prefix)||typeof guard!=='function')throw journalArtifactFailure('observation_owners_invalid');
+  return withJournalWriteLock(sessionId,()=>withJournalArtifactOperation(async operation=>{
+    if(!operation.enabled)throw journalArtifactFailure('observation_owners_disabled');
+    await guard();const parts=prefix.split(':'),name=`history-${parts[1]}-${parts[2]}.json.gz`,history=await journalReadHistory(sessionId,name,operation,{maxDecodedBytes:16*1024*1024,maxCompressedBytes:8*1024*1024});
+    const digest=crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex');if(!digest.startsWith(parts[2]))throw journalArtifactFailure('observation_owner_mismatch');
+    const prior=await journalReadObservationOwners(sessionId,operation);await guard();
+    const items=prior&&prior.anchor===anchor&&prior.rewindGen===rewindGen?prior.items.filter(row=>row.prefix!==prefix):[];
+    items.push({prefix,digest});if(items.length>128)items.splice(0,items.length-128);
+    const value={schema:1,sessionId,anchor,rewindGen,items,mac:''};value.mac=(await journalObservationOwnerMac(value,operation)).toString('hex');if(!journalObservationOwnersValid(value,sessionId))throw journalArtifactFailure('observation_owners_invalid');
+    const file=path.join(journalDir(sessionId),'observation-owners-v1.json'),before=await fsp.stat(file).then(st=>st.size).catch(error=>{if(error.code==='ENOENT')return 0;throw error;});
+    // This records independently committed historical evidence, never a claim
+    // that its originating turn completed or still owns execution permission.
+    // Recheck after all preparation awaits. Once publication starts, cancellation
+    // or a crash may leave that valid fact on disk even if this call fails; every
+    // future read rechecks current scope/permission/rewind and the snapshot hash.
+    // No blind rollback/unlink: the in-process lock is not a filesystem CAS and
+    // restoring a prior record could erase a newer publisher's valid evidence.
+    await guard();
+    await journalJsonStore(sessionId,'observation-owners-v1',operation).write(JSON.stringify(value));journalBytesAdjust((await fsp.stat(file)).size-before);await guard();return value;
+  }));
 }
 function journalGzipIdentity(sessionId, name) {
   const sid = assertSessionIdForPath(sessionId), base = String(name || '');
@@ -4835,8 +4873,9 @@ function journalGzipStore(sessionId, name, metadata = {}, operation = null, dire
     file: () => directory === null ? identity.file : path.join(directory, identity.base), purpose: 'session', schema: 1,
     scopeId: identity.sid, recordId: identity.base,
     keys: operation ? operation.keys : WorkDataStore.requireKeys(), chunked: true,
-    maxBinaryBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
-    maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    maxBinaryBytes: metadata.maxCompressedBytes || JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    maxPlaintextBytes: metadata.maxCompressedBytes ? Math.ceil(metadata.maxCompressedBytes*4/3)+4096 : JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    ...(metadata.maxCompressedBytes?{legacyReadLimit:metadata.maxCompressedBytes}:{}),
     enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
     // Existing index writer is fail-fast across processes. All gzip publications
     // finish before the matching index commit and use the same no-retry policy.
@@ -4844,8 +4883,8 @@ function journalGzipStore(sessionId, name, metadata = {}, operation = null, dire
     validateLegacyBinary(bytes, context = { sealed: true, enabled: true }) {
       // Ordinary old history had no per-record cap. Only ON preparation/sealed
       // records acquire the new representation's engineering ceiling.
-      const bounded = !identity.history || context.sealed || context.enabled;
-      const options = bounded ? { maxOutputLength: identity.history ? JOURNAL_ARTIFACT_ENGINEERING_BYTES : JOURNAL_MAX_BEFORE_BYTES } : {};
+      const bounded = !identity.history || context.sealed || context.enabled || Number.isSafeInteger(metadata.maxDecodedBytes);
+      const options = bounded ? { maxOutputLength: identity.history ? Math.min(JOURNAL_ARTIFACT_ENGINEERING_BYTES,metadata.maxDecodedBytes||JOURNAL_ARTIFACT_ENGINEERING_BYTES) : JOURNAL_MAX_BEFORE_BYTES } : {};
       const decoded = zlib.gunzipSync(bytes, options);
       // Capture for this facade only, allowing callers to use the completed decode
       // rather than decompressing a large carrier a second time.
@@ -4885,10 +4924,97 @@ async function journalWriteBefore(sessionId, turnSeq, entrySeq, bytes, operation
   const afterSize = (await fsp.stat(identity.file)).size;
   journalBytesAdjust(afterSize - beforeSize);
 }
-async function journalReadHistory(sessionId, name, operation = null) {
+async function journalReadHistory(sessionId, name, operation = null, options = null) {
   const metadata = {};
+  for(const key of ['maxDecodedBytes','maxCompressedBytes'])if(options?.[key]!==undefined){if(!Number.isSafeInteger(options[key])||options[key]<1||options[key]>JOURNAL_ARTIFACT_ENGINEERING_BYTES)throw journalArtifactFailure('history_limit');metadata[key]=options[key];}
   await journalGzipStore(sessionId, name, metadata, operation).read();
   return metadata.history;
+}
+
+// Persistent observation authority requires the exact pre-compaction provider
+// history to have been committed by the session owner, not merely present in an
+// in-flight turn. No repair, truncation or fallback is performed here.
+async function journalObservationSnapshotCommitted(sessionId, head, digest, limits = null) {
+  if(!head||head.id!==sessionId||!/^[a-f0-9]{64}$/.test(digest||''))return false;
+  // Recovery eligibility has its own budget. The ordinary session loader may
+  // load a larger history, but cannot lend an unbounded read to this signer.
+  const ceiling={maxRawBytes:32*1024*1024,maxDecodedBytes:16*1024*1024,maxRecords:65536},budget={...ceiling};
+  const exhausted=(resource,limit,observed)=>Object.assign(journalArtifactFailure('observation_source_limit'),{resource,limit,observed});
+  for(const key of Object.keys(ceiling))if(limits?.[key]!==undefined){
+    if(!Number.isSafeInteger(limits[key])||limits[key]<1||limits[key]>ceiling[key])throw exhausted(key,ceiling[key],limits[key]);
+    budget[key]=limits[key];
+  }
+  const hash=crypto.createHash('sha256');hash.update('[');let canonicalBytes=2;
+  const feed=(value,ordinal)=>{
+    const line=JSON.stringify(value)??'null';canonicalBytes+=Buffer.byteLength(line)+(ordinal?1:0);
+    if(canonicalBytes>budget.maxDecodedBytes)throw exhausted('canonical-bytes',budget.maxDecodedBytes,canonicalBytes);
+    if(ordinal)hash.update(',');hash.update(line);
+  };
+  if(head.storageVersion===SESSION_STORAGE_VERSION){
+    const count=head.providerHistoryCount;if(!Number.isSafeInteger(count)||count<0)return false;
+    if(count>budget.maxRecords)throw exhausted('records',budget.maxRecords,count);
+    const file=sessionBodyPaths(sessionId).provider;let stat;try{stat=await fsp.lstat(file,{bigint:true});}catch(error){if(error.code==='ENOENT')throw journalArtifactFailure('observation_source_missing');throw error;}
+    const same=(a,b)=>process.platform==='win32'?path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase():path.resolve(a)===path.resolve(b);
+    const stamp=st=>[st.dev,st.ino,st.size,st.mtimeNs,st.ctimeNs,st.nlink].join(':');
+    const valid=st=>st.isFile()&&!st.isSymbolicLink()&&st.nlink===1n;
+    if(!valid(stat)||!same(await fsp.realpath(file),file))throw journalArtifactFailure('observation_source_alias');
+    if(stat.size>BigInt(budget.maxRawBytes))throw exhausted('raw-bytes',budget.maxRawBytes,Number(stat.size));
+    let handle=null,credential=null,failure=null;
+    try{
+      handle=await fsp.open(file,'r');
+      if(stamp(await handle.stat({bigint:true}))!==stamp(stat))throw journalArtifactFailure('observation_source_unverified');
+      const chunk=Buffer.allocUnsafe(64*1024),pieces=[];let pendingBytes=0,rawBytes=0,decodedBytes=0,records=0;
+      const record=async bytes=>{
+        if(!bytes.length)throw journalArtifactFailure('observation_source_unverified');
+        if(records>=budget.maxRecords)throw exhausted('records',budget.maxRecords,records+1);
+        let line=bytes.toString('utf8');
+        if(!Buffer.from(line,'utf8').equals(bytes))throw journalArtifactFailure('observation_source_unverified');
+        if(WorkDataRecords.isEncodedLine(line)){
+          if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+          // Physical ordinal, session and instance stay authenticated even for
+          // extra rows beyond the committed prefix. Key failures are not absence.
+          line=WorkDataRecords.decodeLine(line,credential.key,{instanceId:credential.instanceId,sessionId,kind:'provider',ordinal:records});
+        }
+        decodedBytes+=Buffer.byteLength(line)+1;
+        if(decodedBytes>budget.maxDecodedBytes)throw exhausted('decoded-bytes',budget.maxDecodedBytes,decodedBytes);
+        let value;try{value=JSON.parse(line);}catch{throw journalArtifactFailure('observation_source_unverified');}
+        if(records<count)feed(value,records);
+        records++;
+      };
+      for(;;){
+        const {bytesRead}=await handle.read(chunk,0,Math.min(chunk.length,budget.maxRawBytes-rawBytes+1),null);
+        if(!bytesRead)break;
+        rawBytes+=bytesRead;if(rawBytes>budget.maxRawBytes)throw exhausted('raw-bytes',budget.maxRawBytes,rawBytes);
+        let start=0;
+        for(;;){
+          const nl=chunk.indexOf(10,start);if(nl<0||nl>=bytesRead)break;
+          pieces.push(Buffer.from(chunk.subarray(start,nl)));pendingBytes+=nl-start;
+          await record(Buffer.concat(pieces,pendingBytes));pieces.length=0;pendingBytes=0;start=nl+1;
+        }
+        if(start<bytesRead){pieces.push(Buffer.from(chunk.subarray(start,bytesRead)));pendingBytes+=bytesRead-start;}
+      }
+      // Do not truncate a torn suffix or sign a successfully read prefix. A
+      // complete but uncommitted suffix is validated and excluded from the hash.
+      if(pendingBytes||records<count||BigInt(rawBytes)!==stat.size)throw journalArtifactFailure('observation_source_unverified');
+      const after=await fsp.lstat(file,{bigint:true});
+      if(!valid(after)||!same(await fsp.realpath(file),file)||stamp(after)!==stamp(stat)||stamp(await handle.stat({bigint:true}))!==stamp(stat))throw journalArtifactFailure('observation_source_unverified');
+    }catch(error){failure=error;throw error;}
+    finally{
+      const cleanup=[];
+      try{if(credential)await credential.release();}catch(error){cleanup.push(error);}
+      try{if(handle)await handle.close();}catch(error){cleanup.push(error);}
+      if(cleanup.length){
+        if(!failure&&cleanup.length===1)throw cleanup[0];
+        const errors=failure?[failure,...cleanup]:cleanup,combined=new AggregateError(errors,'observation source cleanup failed',{cause:errors[0]});
+        combined.code=errors[0].code||'work_data.journal_observation_source_cleanup';throw combined;
+      }
+    }
+  }else{
+    const history=head.providerHistory;if(!Array.isArray(history))return false;
+    if(history.length>budget.maxRecords)throw exhausted('records',budget.maxRecords,history.length);
+    for(let i=0;i<history.length;i++)feed(history[i],i);
+  }
+  return hash.update(']').digest('hex')===digest;
 }
 
 // Side-effect preflight is intentionally separate from normal UI reads: a sealed
@@ -5505,7 +5631,7 @@ async function journalRetentionAuthenticate(sessionId, name, operation, director
   const proof = await journalRetentionStat(file);
   const metadata = {};
   let index;
-  if (name === 'index.json' || name === 'reverts.json') {
+  if (name === 'index.json' || name === 'reverts.json' || name === 'observation-owners-v1.json') {
     const raw = await journalJsonStore(sessionId, name.slice(0, -5), operation, metadata, directory).read();
     if (name === 'index.json') index = JSON.parse(raw);
   } else {
@@ -6900,27 +7026,29 @@ function createSessionFullTextSource() {
     if(sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
     return {epoch:hash(raw+'\n'+stamp(body)),raw,head,count,modern,sequence,requiresEncryption:metadata.authenticated===true,bodyStamp:stamp(body)};
   }
-  async function scan(id,visit){
-    if(typeof visit!=='function')throw fail('visitor_invalid');const selected=await select(id);if(!selected)return null;
+  async function scan(id,visit,options={}){
+    const check=()=>{if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('session_fulltext_source.aborted'),{name:'AbortError',code:'ABORT_ERR'});if(typeof options.check==='function')options.check();};
+    if(typeof visit!=='function')throw fail('visitor_invalid');check();const selected=await select(id);check();if(!selected)return null;
     const revision=crypto.createHash('sha256').update(selected.raw).update('\n');let count=0,credential=null,handle=null,requiresEncryption=selected.requiresEncryption,result,workFailed=false,workError;
     const accept=async raw=>{
-      if(count>=selected.count)return;
+      check();if(count>=selected.count)return;
       const probe=WorkDataRecords.lineProbe();probe.feed(Buffer.from(raw));
       if(probe.reserved()){
         requiresEncryption=true;
-        if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+        if(!credential){credential=await WorkDataStore.acquireSnapshot(workDataKeys);check();}
         raw=await WorkDataRecords.decodeLine(raw,credential.key,{instanceId:credential.instanceId,sessionId:id,kind:'messages',ordinal:count});
+        check();
       }
       if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let row;try{row=JSON.parse(raw);}catch{throw fail('source_invalid');}
-      revision.update(raw).update('\n');await visit(row,count++);
+      revision.update(raw).update('\n');await visit(row,count++);check();
       if(selected.sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
     };
     try{
       if(!selected.modern){for(const row of selected.head.messages)await accept(JSON.stringify(row));}
       else if(selected.count){
-        handle=await fsp.open(sessionBodyPaths(id).messages,'r');if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+        check();handle=await fsp.open(sessionBodyPaths(id).messages,'r');check();if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');check();
         const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
-        while(!done){const read=await handle.read(buffer,0,buffer.length,null);if(!read.bytesRead)break;let start=0;
+        while(!done){check();const read=await handle.read(buffer,0,buffer.length,null);check();if(!read.bytesRead)break;let start=0;
           for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
             const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
             await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
@@ -6929,7 +7057,7 @@ function createSessionFullTextSource() {
         if(count!==selected.count)throw fail('committed_body_missing');
         if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
       }
-      const after=await select(id);if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
+      check();const after=await select(id);check();if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
       result=Object.freeze({epoch:selected.epoch,revision:revision.digest('hex'),count,requiresEncryption});
     }catch(error){workFailed=true;workError=error;}
     const errors=workFailed?[workError]:[];let closeFailed=false,releaseFailed=false;
@@ -6945,7 +7073,7 @@ function createSessionFullTextSource() {
       for(const name of ['helperMayStillRun','ownershipRetained','targetRetained'])if(errors.some(value=>own(value,name)===true))error[name]=true;
       throw error;
     }
-    return result;
+    check();return result;
   }
   async function inspect(id) {const selected=await select(id);if(!selected)return null;
     const head={...selected.head,messageCount:selected.count};delete head.messages;delete head.providerHistory;

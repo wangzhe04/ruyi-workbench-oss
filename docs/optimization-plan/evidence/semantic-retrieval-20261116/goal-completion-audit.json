@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T14:01:34.273063+00:00",
+  "status": "INCOMPLETE_CONTINUE_ACTIVE_GOAL",
+  "requirementsDerivedFrom": [
+    "active user goal",
+    "docs/optimization-plan/147-3.1-semantic-retrieval-and-recovery.md",
+    "user instruction to update 3.1 release gates and use Sol/Terra"
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Real local embeddings, fixed model/runtime provenance and offline assets",
+      "status": "partial",
+      "currentEvidence": "Default MiniLM and text-only native runtime implemented; final model decision, final package inventory and license material binding pending."
+    },
+    {
+      "id": "R2",
+      "requirement": "Declared Chinese/cross-language recall, MRR and no-answer rejection on frozen independent evaluation",
+      "status": "failed",
+      "currentEvidence": "Stateless Qwen prior-evidence .46 independent v5 R@5.9875/MRR.9458, pureOOD21/80=.2625 RED, no-answer coverage complete. Positive ID-scope coverage bug reproduced synthetically and fixed separately; precision layer still unqualified."
+    },
+    {
+      "id": "R3",
+      "requirement": "Complete-source 1000-fragment warm end-to-end p95<=500ms with source/privacy checks",
+      "status": "partial",
+      "currentEvidence": "Controlled final-before-ID-parser measurements: real1000 fragments30/30 complete,p95351.47ms,cold1.495s,13prewarm calls16.15s,sourceStable true. New parser/source must be rebound."
+    },
+    {
+      "id": "R4",
+      "requirement": "Cold indexing and many-session progress without enlarging per-request budget",
+      "status": "partial",
+      "currentEvidence": "Encrypted207-session warm20/20 complete,p952070.55ms. Real browser revealed idle-partial UI stops; fixed,5unit+207browser pass. Final current-tree binding pending."
+    },
+    {
+      "id": "R5",
+      "requirement": "Existing UI, threads_search and steward consumers retain exact lexical behavior and source citations",
+      "status": "partial",
+      "currentEvidence": "Independent cap and project budget bugs fixed in 13ap3fc9087a; independent55unit+8metadata and root5functional PASS/sourceStable. Fullfast/current-tree performance/final package rebinding remain."
+    },
+    {
+      "id": "R6",
+      "requirement": "Current-session original user/assistant message query and typed pagination after compression",
+      "status": "partial",
+      "currentEvidence": "Actual enhanced HTTP query/alias/dedup/messageRef/read15 checks pass scoped after sourceProof and stable-row anchor fix.38 message tests include append success and target/source/anchor/rewind/projection failures. Independent final review pending."
+    },
+    {
+      "id": "R7",
+      "requirement": "Precompact original-tool evidence persistence, repeated compaction, restart and readback",
+      "status": "partial",
+      "currentEvidence": "Root precompact4unit+5e2e scoped pass; snapshot ownership and original-message source remain distinct. Final source binding pending."
+    },
+    {
+      "id": "R8",
+      "requirement": "Memory semantic discovery preserves core/fixed/scope/expiry/exclusions/supersedes and usage",
+      "status": "partial",
+      "currentEvidence": "Explicit metadata search23synthetic+8real-model checks scoped pass; automatic remains eligible lexical rerank only. Final quality and regression pending."
+    },
+    {
+      "id": "R9",
+      "requirement": "No unauthorized disclosure; lifecycle, cancellation, keys and final async guards",
+      "status": "partial",
+      "currentEvidence": "Confirmed actual enhanced-privacy dictionary leak through raw reference digests. Opaque v2 refs and outgoing digest removal implemented; root real HTTP egress12 checks pass, persistent Vault component4 pass, final legacy echo/owner-await checks and frozen-tree qualification remain."
+    },
+    {
+      "id": "R10",
+      "requirement": "Measure model, runtime, ZIP and memory cost and choose balanced default",
+      "status": "partial",
+      "currentEvidence": "Default assets175926205B; bound native lifecycle6 pass. Native tokenizer rejected on modest gains/boundary differences; Jina and dual encoder rejected on quality. Final Qwen q4 research only, no production asset change. Final packages and desktop resource qualification pending."
+    },
+    {
+      "id": "R11",
+      "requirement": "New Slim and full-local actual packages, clean local runtime and offline failure/restart paths",
+      "status": "pending",
+      "currentEvidence": "Full-local ACC17631file hashes, media4987files+two source archives, Node materials and exact packager imports/OCR preflight pass. New actual Slim/full-local packages and qualification remain pending."
+    },
+    {
+      "id": "R12",
+      "requirement": "Documents and mandatory 3.1 gates bind final evidence and final source",
+      "status": "partial",
+      "currentEvidence": "147/86/92/index/gate updated. All gates remain pending; final source hashes, quantitative receipt and final fresh tests missing."
+    },
+    {
+      "id": "R13",
+      "requirement": "Comprehensive scoped acceptance then commit and push",
+      "status": "pending",
+      "currentEvidence": "Latest frozen665file full fast5452tests:5409pass/8fail/35skip,exit2,no static. Independently100static and11functional pass. Eight old-contract/async fixture repairs under verification; final current tree and packages/quality still pending."
+    }
+  ],
+  "completionRule": "Every applicable requirement must be proven on current source. No old r5, development fixture or partial scoped receipt proves final completion. Commit/push only after acceptance; no public release authorized.",
+  "updatedAt": "2026-11-16T18:59:56.385Z",
+  "latestEvidence": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/manifest.json",
+    "sha256": "7ffbc5bc541ed1839e7e9d1adf12c0a47c8661bb5da39c33ccb1f20de2d8d94c"
+  }
+}

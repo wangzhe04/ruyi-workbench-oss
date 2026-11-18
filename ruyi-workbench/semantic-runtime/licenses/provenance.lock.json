@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "licenses": [
+    {
+      "file": "bge-MIT.txt",
+      "repository": "FlagOpen/FlagEmbedding",
+      "revision": "c086741f5e117b7b8ce1745ea00b6c262f281a01",
+      "spdx": "MIT",
+      "url": "https://raw.githubusercontent.com/FlagOpen/FlagEmbedding/c086741f5e117b7b8ce1745ea00b6c262f281a01/LICENSE",
+      "bytes": 1065,
+      "sha256": "587a673933425dbc36ec61268d3b954051b2d3ef3c9b322ede357976055ffdd5"
+    },
+    {
+      "file": "e5-MIT.txt",
+      "repository": "microsoft/unilm",
+      "revision": "0e31c7c09737df491e7ff74ded19614b884c52b4",
+      "spdx": "MIT",
+      "url": "https://raw.githubusercontent.com/microsoft/unilm/0e31c7c09737df491e7ff74ded19614b884c52b4/LICENSE",
+      "bytes": 1104,
+      "sha256": "904dc4d8749877f1dba1cda48200d2462dccbeb7c134d5e4ef6fa75e0198c8fe"
+    },
+    {
+      "file": "minilm-Apache-2.0.txt",
+      "repository": "UKPLab/sentence-transformers",
+      "revision": "8df3ee50155394062734fde687fb1936e8396966",
+      "spdx": "Apache-2.0",
+      "url": "https://raw.githubusercontent.com/UKPLab/sentence-transformers/8df3ee50155394062734fde687fb1936e8396966/LICENSE",
+      "bytes": 11338,
+      "sha256": "624b030fd62b8b989dd502d5bb6322cbc0dbb524ab9c9708f32efe33d7275735"
+    },
+    {
+      "file": "transformers-js-Apache-2.0.txt",
+      "repository": "huggingface/transformers.js",
+      "revision": "9665c1e2f046782a61d34ce399c16682f96c7b0a",
+      "spdx": "Apache-2.0",
+      "url": "https://raw.githubusercontent.com/huggingface/transformers.js/9665c1e2f046782a61d34ce399c16682f96c7b0a/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  ],
+  "modelDeclarations": [
+    {
+      "repository": "BAAI/bge-small-zh-v1.5",
+      "revision": "7999e1d3359715c523056ef9478215996d62a620",
+      "spdx": "MIT",
+      "url": "https://huggingface.co/BAAI/bge-small-zh-v1.5/resolve/7999e1d3359715c523056ef9478215996d62a620/README.md",
+      "declaredLicense": "mit",
+      "modelCardSha256": "c48a4eeea77f6b1d38b48ec1c5b8d4f86d5550cc43fa345a0db1b2ca1d082369"
+    },
+    {
+      "repository": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "spdx": "MIT",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md",
+      "declaredLicense": "mit",
+      "modelCardSha256": "0038de97aee16258cecbad7ffda4b4febd6953e747a00e0ddbc8e6ed241e9c1c"
+    },
+    {
+      "repository": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+      "spdx": "Apache-2.0",
+      "url": "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/e8f8c211226b894fcb81acc59f3b34ba3efd5f42/README.md",
+      "declaredLicense": "apache-2.0",
+      "modelCardSha256": "1e98ea05b0de579fcaad3d625b62ea55647142ed674d5f5ebf1440e4bbbb6f23"
+    },
+    {
+      "repository": "Xenova/bge-small-zh-v1.5",
+      "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+      "spdx": "MIT",
+      "upstream": "BAAI/bge-small-zh-v1.5",
+      "url": "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/75c43b069aac4d136ba6bc1122f995fedcfd2781/README.md",
+      "declaredLicense": null,
+      "licenseBasis": "Original model declares this SPDX; conversion card identifies its base model but supplies no separate license declaration.",
+      "modelCardSha256": "cb22054df1a98f7ee9d5b281d023e67c27cc316e1733baf03fc994d95c3048ab"
+    },
+    {
+      "repository": "Xenova/multilingual-e5-small",
+      "revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+      "spdx": "MIT",
+      "upstream": "intfloat/multilingual-e5-small",
+      "url": "https://huggingface.co/Xenova/multilingual-e5-small/resolve/761b726dd34fb83930e26aab4e9ac3899aa1fa78/README.md",
+      "declaredLicense": null,
+      "licenseBasis": "Original model declares this SPDX; conversion card identifies its base model but supplies no separate license declaration.",
+      "modelCardSha256": "561a19594636657fe033f8b4427a7743b5f6f3a12f16cecc5f286feca0453245"
+    },
+    {
+      "repository": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+      "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
+      "spdx": "Apache-2.0",
+      "upstream": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "url": "https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2/resolve/2c4055b12046f11709e9df2c122e59ffbdc2f900/README.md",
+      "declaredLicense": null,
+      "licenseBasis": "Original model declares this SPDX; conversion card identifies its base model but supplies no separate license declaration.",
+      "modelCardSha256": "1faca2377fb36a7c5ee603ffdd170cf93126be37e7b3b422d319b8ed34081e73"
+    }
+  ]
+}

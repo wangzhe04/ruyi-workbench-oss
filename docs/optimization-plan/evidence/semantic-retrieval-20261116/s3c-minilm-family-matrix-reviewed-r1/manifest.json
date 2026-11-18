@@ -1,0 +1,571 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-17T03:18:57.619Z",
+  "status": "MINILM_FAMILY_DEVELOPMENT_RED_NOT_ADOPTED",
+  "records": [
+    {
+      "source": "dev-harness/semantic/minilm-family-matrix-protocol.json",
+      "archive": "blobs/3642ddb334a58b5249aa85c9c2cdceb6aa2a9bd9ebb1bdfe8e3aac56f077a1f1.gz",
+      "bytes": 4776,
+      "sha256": "3642ddb334a58b5249aa85c9c2cdceb6aa2a9bd9ebb1bdfe8e3aac56f077a1f1",
+      "gzipBytes": 2242,
+      "gzipSha256": "5b2c24f192521aff88489d915a44e55b880471254081256bd58e85f79829c0e6"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-assets.cjs",
+      "archive": "blobs/2645f10a350de212aa5c33ddaff78d34884108b8e64f26f7c09e0578773f4784.gz",
+      "bytes": 5763,
+      "sha256": "2645f10a350de212aa5c33ddaff78d34884108b8e64f26f7c09e0578773f4784",
+      "gzipBytes": 2236,
+      "gzipSha256": "e8b23d010b8abdc9300cdd64963320c84d310eccee78e67a3d23e668d96efb45"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-coarse-receipt.cjs",
+      "archive": "blobs/95dfee9ca732ebe9e7f46b992481fc78b54f403e7bc40aab5cd3fd66b33daeb8.gz",
+      "bytes": 6958,
+      "sha256": "95dfee9ca732ebe9e7f46b992481fc78b54f403e7bc40aab5cd3fd66b33daeb8",
+      "gzipBytes": 3137,
+      "gzipSha256": "004868c7c9367f0edbe11dc2e1b3a2fee14f5c784dbd9ce87b89415796522b04"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-collect.cjs",
+      "archive": "blobs/bd2f1ce9df0c8e9f4d260a27f15e4fc59d7e728f3787ac87613a82f44212f1da.gz",
+      "bytes": 14023,
+      "sha256": "bd2f1ce9df0c8e9f4d260a27f15e4fc59d7e728f3787ac87613a82f44212f1da",
+      "gzipBytes": 4985,
+      "gzipSha256": "236d8e17c2f18a3553fba48b227bd4c16a3af360cc252ea42588b2b865b16c95"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-collect.test.cjs",
+      "archive": "blobs/6a80e9607cfe1b85141c6564d15cb871713a96e93d35e474ed80019dd4051b9d.gz",
+      "bytes": 1263,
+      "sha256": "6a80e9607cfe1b85141c6564d15cb871713a96e93d35e474ed80019dd4051b9d",
+      "gzipBytes": 617,
+      "gzipSha256": "b64032eeab97422ec7076aedf68e4957cece94e9aca90b7f9b265dc99b676fb8"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-extra-assets.cjs",
+      "archive": "blobs/f880dae26adfe784ada59c4b815b00eed4db29cede711580d26181e03876bbd2.gz",
+      "bytes": 3284,
+      "sha256": "f880dae26adfe784ada59c4b815b00eed4db29cede711580d26181e03876bbd2",
+      "gzipBytes": 1558,
+      "gzipSha256": "0b19f6af159d962053678304b76f577cd67c3c1a9fefa525a4d03d9a5cc93df0"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-prepare.cjs",
+      "archive": "blobs/b57c535c1b2043667444677c612c60ddceb33a8eb535457abd93212d2ebc1dc0.gz",
+      "bytes": 8272,
+      "sha256": "b57c535c1b2043667444677c612c60ddceb33a8eb535457abd93212d2ebc1dc0",
+      "gzipBytes": 3262,
+      "gzipSha256": "d5fb6d8cb6879a2319a6ac51664aafaf9aec744eaa86ee7079a2e9e0cf90472d"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-family-worker-verify.cjs",
+      "archive": "blobs/f3b0faeb63a1ec28453a06b23a2f566cd1f903eabee252a904f8f62d32ad1cda.gz",
+      "bytes": 1810,
+      "sha256": "f3b0faeb63a1ec28453a06b23a2f566cd1f903eabee252a904f8f62d32ad1cda",
+      "gzipBytes": 835,
+      "gzipSha256": "0dcd561bb0a23ac90fad368e44b60450a4d99b18b23faefc8831f1efa86af8bb"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-independent-descriptive.cjs",
+      "archive": "blobs/e5c1edf94c2ca5cadefdf3c4048624efebae911d5fe4147dca91d9b6df8c3073.gz",
+      "bytes": 3496,
+      "sha256": "e5c1edf94c2ca5cadefdf3c4048624efebae911d5fe4147dca91d9b6df8c3073",
+      "gzipBytes": 1564,
+      "gzipSha256": "3df284b90bae1f84dbc3e63512048ac6ac5259e7d37a2f458b6f057ac59fcc4a"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-independent-per-query.cjs",
+      "archive": "blobs/d8df1b1080985de7ae0722e10394b67236a709bc362a83607a9b5a2249b63dc3.gz",
+      "bytes": 1574,
+      "sha256": "d8df1b1080985de7ae0722e10394b67236a709bc362a83607a9b5a2249b63dc3",
+      "gzipBytes": 896,
+      "gzipSha256": "672bcd58eff8e4b06ea31d530c6dacb6ed53b74987a3157fc10fe00a37c124ce"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-independent-replay.cjs",
+      "archive": "blobs/e8ff047259b16cbe2b0b966f20ed7eb567bf7c37a86de44084cebe274831f17e.gz",
+      "bytes": 6314,
+      "sha256": "e8ff047259b16cbe2b0b966f20ed7eb567bf7c37a86de44084cebe274831f17e",
+      "gzipBytes": 2557,
+      "gzipSha256": "1cb08f1195b5ce3b0c80d38b08afdfb237c832393871ffa2a9316d07462ee6cf"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-joint-evaluate.cjs",
+      "archive": "blobs/8085a7c14b7ddf22a86403488ced3d5ef6745bde9da685e87cd2433ae3eb53ee.gz",
+      "bytes": 19158,
+      "sha256": "8085a7c14b7ddf22a86403488ced3d5ef6745bde9da685e87cd2433ae3eb53ee",
+      "gzipBytes": 6808,
+      "gzipSha256": "9ddc885c56bf1f131a25cc78cdf1ec4d4b5c1351a5837dde5e04f5b3595d6ed8"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-joint-evaluate.test.cjs",
+      "archive": "blobs/8d6504e124e5170e776c1a1d989875011a3dde63ebf127217412f5865b2e907f.gz",
+      "bytes": 4759,
+      "sha256": "8d6504e124e5170e776c1a1d989875011a3dde63ebf127217412f5865b2e907f",
+      "gzipBytes": 1800,
+      "gzipSha256": "530aaf86ca32e8a2a29137532241d9465de9582699514aaeb8c1e2c9f0a91ed7"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-assets.cjs",
+      "archive": "blobs/194e38bbde103e9b19bcc7f75d6b6dbe855c43d58c672161a29504e97aeb0adf.gz",
+      "bytes": 4217,
+      "sha256": "194e38bbde103e9b19bcc7f75d6b6dbe855c43d58c672161a29504e97aeb0adf",
+      "gzipBytes": 2117,
+      "gzipSha256": "05e6d7a47b3ca07fd1ade85dfd119546344e48c5e414ea535e91878671623f89"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-collect.cjs",
+      "archive": "blobs/535e7e840d967dcbbff14e9d52eefdd6adc7bde2940c2d8739d9c3856013dd47.gz",
+      "bytes": 6057,
+      "sha256": "535e7e840d967dcbbff14e9d52eefdd6adc7bde2940c2d8739d9c3856013dd47",
+      "gzipBytes": 2595,
+      "gzipSha256": "697e53a56ce944a430abc6d073340373755ad952b3d8b21d96d7211802df6b3f"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-compare.cjs",
+      "archive": "blobs/2879e2715833d0f283e1666bac0ba707ada9b029d3df73280c6e8638876c6d17.gz",
+      "bytes": 2060,
+      "sha256": "2879e2715833d0f283e1666bac0ba707ada9b029d3df73280c6e8638876c6d17",
+      "gzipBytes": 956,
+      "gzipSha256": "8f22ecf1d6bafbd077bf1bd1a795ea3909b5d5a987219c9e9100859542326806"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-ledger.cjs",
+      "archive": "blobs/fcf3e5fc36ed003c904db0f9a78588f13cc8f5b0cb890084151912c262814291.gz",
+      "bytes": 5629,
+      "sha256": "fcf3e5fc36ed003c904db0f9a78588f13cc8f5b0cb890084151912c262814291",
+      "gzipBytes": 2475,
+      "gzipSha256": "81366035439f0ea5c5dfe909a71f3078adc77a9c40a50b4166bcad7b459abb07"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-protocol.cjs",
+      "archive": "blobs/56eefb9224732b5437ebd8f4d9ff64c9a20d07fde04a977d12a6a650e31163e1.gz",
+      "bytes": 2104,
+      "sha256": "56eefb9224732b5437ebd8f4d9ff64c9a20d07fde04a977d12a6a650e31163e1",
+      "gzipBytes": 1264,
+      "gzipSha256": "86470de1430bb616833a58ae4a01026eef6395ba5d5c9ed26a1d3eda9f9acb3b"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-run.cjs",
+      "archive": "blobs/47ef73afd68f3785393125af5f62be767b1e9450d46a7a02fb898b7aa4e758fb.gz",
+      "bytes": 2463,
+      "sha256": "47ef73afd68f3785393125af5f62be767b1e9450d46a7a02fb898b7aa4e758fb",
+      "gzipBytes": 1217,
+      "gzipSha256": "6b96a8b587845c21d0c0969a2bd450e6d17ef1e1bc3f11d43e38866884cb29fb"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-matrix-sample.cjs",
+      "archive": "blobs/a5d08560eb0724655991817e3c55084625c3ff5cbc0fb9a222d5a0a887ff84ab.gz",
+      "bytes": 1446,
+      "sha256": "a5d08560eb0724655991817e3c55084625c3ff5cbc0fb9a222d5a0a887ff84ab",
+      "gzipBytes": 769,
+      "gzipSha256": "76faee5c631c3b373e8fb08d5398a76ba800d43f934b11387a4b34b09d6673b7"
+    },
+    {
+      "source": "dev-harness/semantic/minilm-reranker-tokenizer-audit.cjs",
+      "archive": "blobs/955cd434fa141186f82e89caeff763f62ace593ef2672ec720d7f3ea5a8cbdff.gz",
+      "bytes": 2947,
+      "sha256": "955cd434fa141186f82e89caeff763f62ace593ef2672ec720d7f3ea5a8cbdff",
+      "gzipBytes": 1469,
+      "gzipSha256": "ddaa95273d0da65bfd835192d9b895a100f8c6cd055b93f54bf9a623012e458a"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/asset-lock.json",
+      "archive": "blobs/2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474.gz",
+      "bytes": 21786,
+      "sha256": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+      "gzipBytes": 4182,
+      "gzipSha256": "e7b1e1fd4cd188829c026f7f426c43c165daab23624227aa3223a7b8e111b316"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/protocol.json",
+      "archive": "blobs/3642ddb334a58b5249aa85c9c2cdceb6aa2a9bd9ebb1bdfe8e3aac56f077a1f1.gz",
+      "bytes": 4776,
+      "sha256": "3642ddb334a58b5249aa85c9c2cdceb6aa2a9bd9ebb1bdfe8e3aac56f077a1f1",
+      "gzipBytes": 2242,
+      "gzipSha256": "5b2c24f192521aff88489d915a44e55b880471254081256bd58e85f79829c0e6"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/train-cal-inputs.json",
+      "archive": "blobs/239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c.gz",
+      "bytes": 96363,
+      "sha256": "239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c",
+      "gzipBytes": 25451,
+      "gzipSha256": "65376cd668e324409508d71583ab57d7dd85da720875db8f3079489be1f0b3a0"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/coarse-vectors-v1.json",
+      "archive": "blobs/d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b.gz",
+      "bytes": 12758127,
+      "sha256": "d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b",
+      "gzipBytes": 3530498,
+      "gzipSha256": "6f94293d88a9a81a9d25e32c220c39ecdef872b8b197ddb016723b1a2f2b89bc"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/os-exit-proof.json",
+      "archive": "blobs/6b14bc207217ee4c6f4e497fba0fd7a4d13e883821ade52d9525cb62d548194b.gz",
+      "bytes": 1326,
+      "sha256": "6b14bc207217ee4c6f4e497fba0fd7a4d13e883821ade52d9525cb62d548194b",
+      "gzipBytes": 380,
+      "gzipSha256": "f19eeddf07a1e7ff0264778ebd3093bb22bd99dc8211036682fca1f5c713509c"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/receipt.json",
+      "archive": "blobs/59487c991582ba5bcbcc7bd5081a8c5c5485241b080e1af109d58ce95cd391b3.gz",
+      "bytes": 13376,
+      "sha256": "59487c991582ba5bcbcc7bd5081a8c5c5485241b080e1af109d58ce95cd391b3",
+      "gzipBytes": 4091,
+      "gzipSha256": "65d74dc95b24aab8cf3cd5d63b78e53f6791163a5927a7e135f27e3f3ca0e931"
+    },
+    {
+      "source": "output/semantic-minilm-family-coarse-v1/worker.cjs",
+      "archive": "blobs/4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216.gz",
+      "bytes": 8773,
+      "sha256": "4832437dd493349068fd540a4c803dfab4e65f782a9690ac18f6539a8e318216",
+      "gzipBytes": 3443,
+      "gzipSha256": "dad14f0c0d0a997dd82eefd4f8dabf1112f7b2921f38bb7c47393dbdca0e25be"
+    },
+    {
+      "source": "output/semantic-minilm-family-assets-v4/asset-receipt.json",
+      "archive": "blobs/fca9a53b217f42e5a6984ea9479325fb42a01dab0093d28f67cb61911bdf02ee.gz",
+      "bytes": 19818,
+      "sha256": "fca9a53b217f42e5a6984ea9479325fb42a01dab0093d28f67cb61911bdf02ee",
+      "gzipBytes": 2659,
+      "gzipSha256": "2d6562a8fd8b3ae575b189eb4b3564e0c129c580b48fe6ee83d21a6efe86b2f5"
+    },
+    {
+      "source": "output/semantic-minilm-family-assets-v4/extra-asset-receipt.json",
+      "archive": "blobs/b5ff7842f32c7a8d031a54eb3414d0c514a6c43970b1dd8066c5bc5f70fe7e5b.gz",
+      "bytes": 3196,
+      "sha256": "b5ff7842f32c7a8d031a54eb3414d0c514a6c43970b1dd8066c5bc5f70fe7e5b",
+      "gzipBytes": 1211,
+      "gzipSha256": "a3cb09383d28861b86bd445a9f86723eef599888e9061bb64f0d05074f449c78"
+    },
+    {
+      "source": "output/semantic-minilm-family-assets-v4/official-asset-plan.json",
+      "archive": "blobs/f39143a3d433bdde2e4f53cee2263b9a600fdd5aebd57f2faf46811bbf6360fb.gz",
+      "bytes": 9689,
+      "sha256": "f39143a3d433bdde2e4f53cee2263b9a600fdd5aebd57f2faf46811bbf6360fb",
+      "gzipBytes": 1556,
+      "gzipSha256": "5d807cf2179c9cf47c448a53580bf6c41a118d47eb3f075dc8e7770af12415e7"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/union-ledger.json",
+      "archive": "blobs/a91d4edf8c844b04bc4c15b60d27579afaeeadb2f1a132eaf7c74f23fd508293.gz",
+      "bytes": 547331,
+      "sha256": "a91d4edf8c844b04bc4c15b60d27579afaeeadb2f1a132eaf7c74f23fd508293",
+      "gzipBytes": 47401,
+      "gzipSha256": "4ee05e7ae0c0fc4fd19b6c2baa0ea3e4aef7feed48aaecfc1f2a30e909807583"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/sample-ledger.json",
+      "archive": "blobs/e2551b76ec3fe770c00c9e5d0e0a009aa8c7b24b8ef3e9e1a03a68800e5850f5.gz",
+      "bytes": 130788,
+      "sha256": "e2551b76ec3fe770c00c9e5d0e0a009aa8c7b24b8ef3e9e1a03a68800e5850f5",
+      "gzipBytes": 9911,
+      "gzipSha256": "750bc9afd2982766c005db1213baf4e4a9d51a5d890ce0208a697a332bd5e163"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/reranker-run-receipt.json",
+      "archive": "blobs/26bf2933860c4087dd1e7835be1291d7d713479a0033513ea79ed1e00040f1ca.gz",
+      "bytes": 3571,
+      "sha256": "26bf2933860c4087dd1e7835be1291d7d713479a0033513ea79ed1e00040f1ca",
+      "gzipBytes": 903,
+      "gzipSha256": "59e17d7d284c19cacf327a4891c642e594ac8842d087750d4466d58fbea06325"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/joint-development-selection-r2.json",
+      "archive": "blobs/c19840e673ab9ef4bdf8173e7849a4305075664ef092e0117c878186b6a9527e.gz",
+      "bytes": 4735048,
+      "sha256": "c19840e673ab9ef4bdf8173e7849a4305075664ef092e0117c878186b6a9527e",
+      "gzipBytes": 65149,
+      "gzipSha256": "61d1e4a2388072b9b9cf584b8da9ab2afbc660764cb8823e390b555238158e01"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/joint-development-summary-r2.json",
+      "archive": "blobs/e2776376f34b0187f3af3d6f9980b0e223b611344e9cec2c66471e39d13318d4.gz",
+      "bytes": 22332,
+      "sha256": "e2776376f34b0187f3af3d6f9980b0e223b611344e9cec2c66471e39d13318d4",
+      "gzipBytes": 1458,
+      "gzipSha256": "31fcde80991abb428afaea2f5a3b9a19aabb528863f415fa382ce6afe394d6c7"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/independent-joint-replay.json",
+      "archive": "blobs/b62465e52830a58bd0dc70bd1b84743b15e49d51c32ba2994f9abc1670f41d9a.gz",
+      "bytes": 2176,
+      "sha256": "b62465e52830a58bd0dc70bd1b84743b15e49d51c32ba2994f9abc1670f41d9a",
+      "gzipBytes": 484,
+      "gzipSha256": "a570af9bee1db5ae13bbcbc8484d26dcaeced47445d33216b8fc618d07feb7f3"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/independent-descriptive-boundaries.json",
+      "archive": "blobs/97051b21a97690b80746908ccf08498425a7677862341c9c8894800e26d45fbb.gz",
+      "bytes": 16172,
+      "sha256": "97051b21a97690b80746908ccf08498425a7677862341c9c8894800e26d45fbb",
+      "gzipBytes": 2636,
+      "gzipSha256": "4e1ea755e1c34754ee97a1647e4ec0c465478e8438ff04eee38c9fe7a13bcaaa"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/independent-per-query-boundaries.json",
+      "archive": "blobs/dbfb9d70661509c6d60502ac9fab278766b954f04ffcf56c7d5a38acef09be3f.gz",
+      "bytes": 84870,
+      "sha256": "dbfb9d70661509c6d60502ac9fab278766b954f04ffcf56c7d5a38acef09be3f",
+      "gzipBytes": 6729,
+      "gzipSha256": "ea400204eea939ca3b010def3322ab25ecbb68b2cf90d17ac82528659116de9f"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l6-q8-logits.json",
+      "archive": "blobs/e688320306ca9f617c0fac5015e54e7a9c6373bdb370bce699d9f470aaf23d7c.gz",
+      "bytes": 387759,
+      "sha256": "e688320306ca9f617c0fac5015e54e7a9c6373bdb370bce699d9f470aaf23d7c",
+      "gzipBytes": 54371,
+      "gzipSha256": "8a153199a58d2518c2059a8ff0eed8bd8c101fa35c2a6a3b2170a83b3f1fe31d"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l6-fp32-logits.json",
+      "archive": "blobs/653f04f4a6dd0fbe24da267b673af16a751be5222509e7e7ba117d4b73b81f69.gz",
+      "bytes": 34739,
+      "sha256": "653f04f4a6dd0fbe24da267b673af16a751be5222509e7e7ba117d4b73b81f69",
+      "gzipBytes": 7676,
+      "gzipSha256": "1160a807baaa7a4547726edf940b7e57f6ad5604162edda50d02d025a8bf56b1"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l6-q8-fp32-compare.json",
+      "archive": "blobs/6eadb2963ecd0088705bb549d9a9fae1618f03426797377a8f0effd53f436d04.gz",
+      "bytes": 21739,
+      "sha256": "6eadb2963ecd0088705bb549d9a9fae1618f03426797377a8f0effd53f436d04",
+      "gzipBytes": 4370,
+      "gzipSha256": "9afe1aecbdca86e9ea112cfda67751b4bb6d7aaa71ab64f784f650bbb47287c4"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l6-tokenizer-audit.json",
+      "archive": "blobs/a6a0c01512a79cb790700b98ac54e0e7f72aeabd76b74fde84b80b57ab24db32.gz",
+      "bytes": 17986,
+      "sha256": "a6a0c01512a79cb790700b98ac54e0e7f72aeabd76b74fde84b80b57ab24db32",
+      "gzipBytes": 1130,
+      "gzipSha256": "3924f28a4abec301ebf858c48366bf24e2e4cf045a31df63ede21b8150f22876"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l12-q8-logits.json",
+      "archive": "blobs/4d1b161af3dd149907f62320168d96db4b8fd418f1189b32a90e714efdec11e9.gz",
+      "bytes": 388442,
+      "sha256": "4d1b161af3dd149907f62320168d96db4b8fd418f1189b32a90e714efdec11e9",
+      "gzipBytes": 54946,
+      "gzipSha256": "158c8848d69bcb3172c8d12e3b5b9c843fa642fce2600ff0beaed08eaf55f87e"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l12-fp32-logits.json",
+      "archive": "blobs/69d1aa223a2a12a570bd0e0507688861da71609a60961daa47848dac09b93002.gz",
+      "bytes": 34820,
+      "sha256": "69d1aa223a2a12a570bd0e0507688861da71609a60961daa47848dac09b93002",
+      "gzipBytes": 7701,
+      "gzipSha256": "0fd7e8e484d1228bdf8e025ce4ab963b11e584a85bf49332ee94f43dc7cb0193"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l12-q8-fp32-compare.json",
+      "archive": "blobs/8b780a7cd9faad95b42c8038dfee0918c36284286f6faabccaaddc905c16bc39.gz",
+      "bytes": 21691,
+      "sha256": "8b780a7cd9faad95b42c8038dfee0918c36284286f6faabccaaddc905c16bc39",
+      "gzipBytes": 4364,
+      "gzipSha256": "dee758b2c527b3c0d0e54145aa4fa800ff94a907d7af2e51ff08a3320bfcfb14"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/l12-tokenizer-audit.json",
+      "archive": "blobs/57489fd9849dd40871b1430e514d307de0509831d089e36c48df1c8e0ac9a738.gz",
+      "bytes": 17987,
+      "sha256": "57489fd9849dd40871b1430e514d307de0509831d089e36c48df1c8e0ac9a738",
+      "gzipBytes": 1132,
+      "gzipSha256": "301f62d77d0f929ce09d92f2edcbc20fd24455b1ea7df02db819a8c5107bf575"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/mmarco-q8-logits.json",
+      "archive": "blobs/cb8e5a9e1f8f22da744c7463085695ea9086be371039a566f5e485efa5c4ca1a.gz",
+      "bytes": 388563,
+      "sha256": "cb8e5a9e1f8f22da744c7463085695ea9086be371039a566f5e485efa5c4ca1a",
+      "gzipBytes": 55084,
+      "gzipSha256": "1f84265afd408cf5f6b73d5e60620c917f5b18f5c0f823642ea56cc94cc9dcb1"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/mmarco-fp32-logits.json",
+      "archive": "blobs/ff3293da0a3aa0b4c4ce0fa189727327be157013807f7d232f420f03aa4fcc47.gz",
+      "bytes": 34939,
+      "sha256": "ff3293da0a3aa0b4c4ce0fa189727327be157013807f7d232f420f03aa4fcc47",
+      "gzipBytes": 7669,
+      "gzipSha256": "c90121f3917198d67ca69ffbf31fc53bcaa56b7d3f9e4c341616873a48049872"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/mmarco-q8-fp32-compare.json",
+      "archive": "blobs/8f10e1a4c0a27b96e9b75487da17c0573dbe304bfcd50ed3d405490b67397800.gz",
+      "bytes": 21720,
+      "sha256": "8f10e1a4c0a27b96e9b75487da17c0573dbe304bfcd50ed3d405490b67397800",
+      "gzipBytes": 4312,
+      "gzipSha256": "01b34b99cf09356bd4cf7dff646729fac8a1533db668958db2b49e2d026e2c5e"
+    },
+    {
+      "source": "output/semantic-minilm-reranker-matrix-v1/mmarco-tokenizer-audit.json",
+      "archive": "blobs/ade1e751759a6d56ab025828ba92dc91ecb2b1d6cd3f9bfb0604a87c1d86414e.gz",
+      "bytes": 16269,
+      "sha256": "ade1e751759a6d56ab025828ba92dc91ecb2b1d6cd3f9bfb0604a87c1d86414e",
+      "gzipBytes": 1240,
+      "gzipSha256": "21a919ad7ce71ec04ccbef7d86f1a141c011ad35496e9fb7ec1301e38b4161b7"
+    },
+    {
+      "source": "output/semantic-minilm-coarse-ceiling-root-r1.cjs",
+      "archive": "blobs/3fe43af941a055fd497e46fab103b55e6a2ac8d066b4a3052547ba814523b20c.gz",
+      "bytes": 2993,
+      "sha256": "3fe43af941a055fd497e46fab103b55e6a2ac8d066b4a3052547ba814523b20c",
+      "gzipBytes": 1486,
+      "gzipSha256": "047da5907260ce09c45eb715b5b59e7133e20e446fc33f8508ff4e7cb57db02a"
+    },
+    {
+      "source": "output/semantic-minilm-coarse-ceiling-root-r1.json",
+      "archive": "blobs/0c1504cfc16794def351cddf62910d4cafa17e788400c8abfdf57da870159ec8.gz",
+      "bytes": 47258,
+      "sha256": "0c1504cfc16794def351cddf62910d4cafa17e788400c8abfdf57da870159ec8",
+      "gzipBytes": 2541,
+      "gzipSha256": "a8cb13befb4652122820aab9e76bb2e887858414368d6c8c4fca976f5539c8e0"
+    },
+    {
+      "source": "output/semantic-minilm-existing-cutoff-probe-r1.cjs",
+      "archive": "blobs/e29d8d4291e2f3de6a26a9cbd7e49601699a11a2b56b7e3d4d3dfb7e5a1898fe.gz",
+      "bytes": 3616,
+      "sha256": "e29d8d4291e2f3de6a26a9cbd7e49601699a11a2b56b7e3d4d3dfb7e5a1898fe",
+      "gzipBytes": 1670,
+      "gzipSha256": "39315d0fd99ca075987dc26d12b6c2566d5e90711ab65b400f3ff3362c671f7f"
+    },
+    {
+      "source": "output/semantic-minilm-existing-cutoff-protocol-r1.json",
+      "archive": "blobs/ec2fc9983bc8cca5c5e4f12646270c40ce1b464e91501e1d4369b447a60fc9fa.gz",
+      "bytes": 829,
+      "sha256": "ec2fc9983bc8cca5c5e4f12646270c40ce1b464e91501e1d4369b447a60fc9fa",
+      "gzipBytes": 543,
+      "gzipSha256": "5b50b3f5f2871be573e38d1e2fb44233c3f4ae63c6ee63ce920f82b0dff2ce14"
+    },
+    {
+      "source": "output/semantic-minilm-existing-cutoff-evaluation-r1.json",
+      "archive": "blobs/aca25ef031c1ac81a74229be9cee5509ba9300a3e437b3d92fd6507b46d4a2ea.gz",
+      "bytes": 142049,
+      "sha256": "aca25ef031c1ac81a74229be9cee5509ba9300a3e437b3d92fd6507b46d4a2ea",
+      "gzipBytes": 5490,
+      "gzipSha256": "e4a25ae592ddce7e76dd47cd01f5063821a0bee67f0272901a3e752f3b0c1c18"
+    },
+    {
+      "source": "output/semantic-minilm-existing-cutoff-review-r1.json",
+      "archive": "blobs/a0485b78ac99a29a3876910efd302fa4c44537448d57a9d67c6d969efcd666f8.gz",
+      "bytes": 1668,
+      "sha256": "a0485b78ac99a29a3876910efd302fa4c44537448d57a9d67c6d969efcd666f8",
+      "gzipBytes": 903,
+      "gzipSha256": "14973ee3e603822a3508c2eab6232f109797e47bb451fd8994cfafe0f5847c70"
+    },
+    {
+      "source": "output/semantic-minilm-cutoff-independent-v1.cjs",
+      "archive": "blobs/85bf15afe85dd76b8a8050221da91e9128dc1049e1662b62e7b4907e7c6f8080.gz",
+      "bytes": 6227,
+      "sha256": "85bf15afe85dd76b8a8050221da91e9128dc1049e1662b62e7b4907e7c6f8080",
+      "gzipBytes": 2824,
+      "gzipSha256": "b19c9a2415020b363b46e87965b7906f0e07aecae0fca2bd801e301f09f3d64f"
+    },
+    {
+      "source": "output/semantic-minilm-cutoff-independent-v1.json",
+      "archive": "blobs/ba165458067798a678f31231d2291227fa7e2a25196bb8f884fb2b4222c731cf.gz",
+      "bytes": 1987,
+      "sha256": "ba165458067798a678f31231d2291227fa7e2a25196bb8f884fb2b4222c731cf",
+      "gzipBytes": 956,
+      "gzipSha256": "fcada92d7a42e9e672a2446d247061a0b5478d2cefeae0774af48ca27af2f87a"
+    }
+  ],
+  "summary": {
+    "coarseModels": 3,
+    "documentsPerModel": 60,
+    "trainCalibrationQueries": 248,
+    "verificationModels": 3,
+    "commonScoredPairsPerVerifier": 1378,
+    "fixedFp32ComparisonPairsPerVerifier": 109,
+    "matrixCandidates": 792,
+    "passingPolicies": 0,
+    "independentReview": {
+      "status": "PASS_INDEPENDENT_REPLAY",
+      "sourceSha256": "e8ff047259b16cbe2b0b966f20ed7eb567bf7c37a86de44084cebe274831f17e",
+      "ledgerSha256": "a91d4edf8c844b04bc4c15b60d27579afaeeadb2f1a132eaf7c74f23fd508293",
+      "evaluatorReportSha256": "c74c8d9a131c91ad58301b4bb32d88cb57ba591d21fdd179e488bf0e5943f5c4",
+      "candidates": 792,
+      "missingOrUnknown": 0,
+      "mismatches": [],
+      "groups": {
+        "sentence-transformers/all-MiniLM-L6-v2 / cross-encoder/ms-marco-MiniLM-L6-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/all-MiniLM-L6-v2 / cross-encoder/ms-marco-MiniLM-L12-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/all-MiniLM-L6-v2 / cross-encoder/mmarco-mMiniLMv2-L12-H384-v1": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/all-MiniLM-L12-v2 / cross-encoder/ms-marco-MiniLM-L6-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/all-MiniLM-L12-v2 / cross-encoder/ms-marco-MiniLM-L12-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/all-MiniLM-L12-v2 / cross-encoder/mmarco-mMiniLMv2-L12-H384-v1": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 0,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 / cross-encoder/ms-marco-MiniLM-L6-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 4,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 / cross-encoder/ms-marco-MiniLM-L12-v2": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 4,
+          "minWorstOod": 0
+        },
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 / cross-encoder/mmarco-mMiniLMv2-L12-H384-v1": {
+          "policies": 88,
+          "passing": 0,
+          "qualityPreserving": 16,
+          "minWorstOod": 0
+        }
+      }
+    },
+    "rawBytes": 20181172,
+    "gzipBytes": 3976151
+  },
+  "checks": {
+    "jsonParse": true,
+    "credentialLikeFlags": 0,
+    "allRawAndGzipHashesAndBytesVerified": true,
+    "allRoundtripEqual": true
+  },
+  "limits": [
+    "Train/calibration development and microbenchmarks only; not independent acceptance, packaged application or1000-fragment qualification.",
+    "Only fitting/scoring/selection on train/calibration; the common fixture module itself contains other records which are not selected.",
+    "All English variants and failed grid points remain in the result. No language quality gate is relaxed.",
+    "Original individual coarse model reports are structurally included in the aggregate vectors; binary model weights, dependencies, executables and vendor cards are not archived here.",
+    "Asset inventories pin exact official input files and provenance; a quantized checkpoint and its FP32 reference are not declared numerically equivalent.",
+    "Worker peaks and microbenchmarks are per process; do not add independent peaks or substitute them for full consumer latency.",
+    "All formal SR gates pending, default/production/release version unchanged, v6 unconsumed, no commit or push."
+  ]
+}

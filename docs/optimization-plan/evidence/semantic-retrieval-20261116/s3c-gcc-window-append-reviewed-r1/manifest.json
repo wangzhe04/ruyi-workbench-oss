@@ -1,0 +1,779 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T23:22:38.615Z",
+  "status": "GCC_FIXED_DEVELOPMENT_SMOKE_WINDOW_APPEND_SCOPED_PROOFS_NOT_RELEASE",
+  "checks": [
+    {
+      "name": "frozen independent GCC development and root fixed-policy recheck",
+      "passed": true
+    },
+    {
+      "name": "GCC factory exact pinned source,40 recorded vector comparisons and final cleanup",
+      "passed": true
+    },
+    {
+      "name": "long field corrected raw witness and fixed-window fake proof",
+      "passed": true
+    },
+    {
+      "name": "append frozen16 plus root grouped16/22 and baseline mistaken assertion retained",
+      "passed": true
+    },
+    {
+      "name": "real Job and synthetic HTTP fault proof is not GGUF fault injection",
+      "passed": true
+    }
+  ],
+  "records": [
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-receipt-v1.json",
+      "group": "gcc-development",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/001-gcc-development-receipt-v1.json.gz",
+      "bytes": 7699,
+      "sha256": "f101577bd1b9d33e89b8b06b4d743a929fd0bec842d7f0dd84fa229276e2a055",
+      "gzipBytes": 2199,
+      "gzipSha256": "9ad1273bac479194a75a0095d33eecb289ff29988a5fe22a1e47a7828782aa26"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/static-receipt.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/002-static-receipt.json.gz",
+      "bytes": 4066,
+      "sha256": "ac97b212e1b9e8280b809bfbaf095233c3984cfb3c0420ff93f9fd5803bad587",
+      "gzipBytes": 2095,
+      "gzipSha256": "bcc2663ee977ab6b21ac5a3a918ea2f39c33f0af91f32d4a7fba77ad6b06561f"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-contract-v1.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/003-gcc-development-contract-v1.json.gz",
+      "bytes": 4703,
+      "sha256": "f9aa955631196820d8ce4555ec2d6bfc04d3cdbffb78e257533475d64f06e506",
+      "gzipBytes": 2318,
+      "gzipSha256": "ee81311df1bc28ac0c7089dee3a35c47f45cbf7bb90e7c3ac7cd486ae6b34181"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-collect.cjs",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/004-gcc-development-collect.cjs.gz",
+      "bytes": 17294,
+      "sha256": "9b4c6fce6eb09dc4a72c506d5e6cf23b7da0b730799f4f30c18cdb9ef316504f",
+      "gzipBytes": 6516,
+      "gzipSha256": "d0b27242faf2b50a6741cbf04fd9b54bc448499ca017d9c9a438ec244f1bcd10"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-collect.log",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/005-gcc-development-collect.log.gz",
+      "bytes": 248,
+      "sha256": "85e6f45e9b6d570e6632c61f87d8eb580a32b1929ed158fbad2ff537a06fd5e2",
+      "gzipBytes": 176,
+      "gzipSha256": "63a67a5d1ed847ec72fbbabf5eb2ab63ba2387492c8584303fac771ba09a66c0"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-pair-ledger-v1.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/006-gcc-development-pair-ledger-v1.json.gz",
+      "bytes": 102558,
+      "sha256": "9dbb902be5e97b3052bf95397937c3350553c0f3fb318ff5a9331889540e612a",
+      "gzipBytes": 22675,
+      "gzipSha256": "6ff89fcda4265ef1d66159e8112132163254f345bc7195437ff5096945d9003d"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-observations-v1.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/007-gcc-development-observations-v1.json.gz",
+      "bytes": 6901562,
+      "sha256": "4776baf65caf836ce9f2a39ac656ea32f23b9f4dff62ab83ab3d156423842cac",
+      "gzipBytes": 2968929,
+      "gzipSha256": "5e75240eb58980ac8138700bd4abe092fc1b8cec61da7f0e7b9b346253f944cb"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-evaluate-v1.cjs",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/008-gcc-development-evaluate-v1.cjs.gz",
+      "bytes": 6922,
+      "sha256": "1bd7b23486194cfd0aabf752a8a42ff4e72f08e607ed527c80d725945aa1d7d7",
+      "gzipBytes": 2788,
+      "gzipSha256": "20b05ba3a63085b379e7fde8401ca5071da3e370cde9fe980a03eb72bea92022"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-evaluation-v1.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/009-gcc-development-evaluation-v1.json.gz",
+      "bytes": 7436,
+      "sha256": "9975aa578933245be4156f12765c395410b16b51a39646573905d75623a0d271",
+      "gzipBytes": 1354,
+      "gzipSha256": "fb3a6511f034e3c0bb50f07e3b3541ac7e11feaf271b1d77f6ec5aeae04f5444"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-delta-v1.cjs",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/010-gcc-development-delta-v1.cjs.gz",
+      "bytes": 2039,
+      "sha256": "c05c96bee7d9da78e70a112a373f3b210dfe0e53ac1478cfec1b30a25e6d5fc5",
+      "gzipBytes": 1053,
+      "gzipSha256": "b5f56552788f09ea695830e4a09e194ec2ede02273ba2f8b3971091fbaf334d4"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-development-delta-v1.json",
+      "group": "gcc-development-source-data",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/011-gcc-development-delta-v1.json.gz",
+      "bytes": 892,
+      "sha256": "590df10c76bf399ffc413d02ef9f723495ce7713f65796e7df51e0300aa36b6b",
+      "gzipBytes": 597,
+      "gzipSha256": "7c8b8cfd11e0e6edf96b302cd53e208f7861afb17383f5fc7b72d5af7cb28e50"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/root-fixed-development-review-r1.json",
+      "group": "root-independent-fixed-development",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/012-root-fixed-development-review-r1.json.gz",
+      "bytes": 2818,
+      "sha256": "924d2a597ca8a475302adc4d1744cb01c2751cf08a4c8352497ebf1ad2ba70ad",
+      "gzipBytes": 991,
+      "gzipSha256": "e833ea11ddc76c8c3859b1e07f04babf5bd81f415ac7135f718297bac91d4f17"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-live-gcc-smoke.cjs",
+      "group": "gcc-factory-smoke-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/013-scalar-live-gcc-smoke.cjs.gz",
+      "bytes": 6615,
+      "sha256": "95613867e06058122bb23642577465924ea8e047368f90493875b241982ad267",
+      "gzipBytes": 2524,
+      "gzipSha256": "e5dbdf0a830bd9d0ee1c8665ecdd586ea09ea2fbb668badc9fe1029c4e8964f2"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-live-gcc-profile.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/014-scalar-live-gcc-profile.cjs.gz",
+      "bytes": 3020,
+      "sha256": "ffa58390878f03b88abc39ae21598378fcd57d331cbe97a50b6679fe7c7057b9",
+      "gzipBytes": 1339,
+      "gzipSha256": "ff666342f7c0fc3ddc129d2f58b6240d39891f6c0d038eee0acb95ed9daa7c47"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-coarse-native-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/015-gcc-coarse-native-research.cjs.gz",
+      "bytes": 8922,
+      "sha256": "ec659a6fd084286c59589e14bba5e0affe3cce6ac4fd8964191f86fc14c68435",
+      "gzipBytes": 3109,
+      "gzipSha256": "0cd253100c11e0b2d752dd2c8591fc3588bc6fc6c7a9c27f9689dfb4c851c1e7"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-scalar-native-host-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/016-gcc-scalar-native-host-research.cjs.gz",
+      "bytes": 1476,
+      "sha256": "16d3953e0a0d4bc0f3d253c4359b5c699c1209422e64a3e3eefb19556a2dda14",
+      "gzipBytes": 846,
+      "gzipSha256": "cf453d6ccb75ccaf97646727bdb37d7a51f7fb314f593b5b787b40c622084452"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-rank-native-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/017-gcc-rank-native-research.cjs.gz",
+      "bytes": 2275,
+      "sha256": "0ae9f69a19b689fdcdb093918bd000a5aebe4c7eed354e227c75e38041764ff8",
+      "gzipBytes": 1101,
+      "gzipSha256": "673e37923d8a268f21faec3a259a4e7a9bf0c7c6c2de85c98e0e8a27a09667e3"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-native-profile-lock.json",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/018-gcc-native-profile-lock.json.gz",
+      "bytes": 813,
+      "sha256": "5bd146943d81c623e64d497c35231a5d2dea798fa9b5454f26e06a8d8724d28c",
+      "gzipBytes": 543,
+      "gzipSha256": "6a4e0d2e6e88e26bc4d752abd1f7560c1da1aac1c97b385a1bb856b05ef7850a"
+    },
+    {
+      "source": "dev-harness/semantic/native-host-prototype.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/019-native-host-prototype.cjs.gz",
+      "bytes": 30462,
+      "sha256": "9c98eb4a635a7748a51973a2c6789accc63a1cb2357309d470b16711506e4f21",
+      "gzipBytes": 9064,
+      "gzipSha256": "4f72af10204db3424ae672728cc3dfa992422492cf5a103ea9a084337b0d9b1c"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-native-host-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/020-scalar-native-host-research.cjs.gz",
+      "bytes": 12385,
+      "sha256": "e3d85c6c8c4b28fc47dc6c49021375d4a8e0e0ce1cd814bd0e6e73a46666753f",
+      "gzipBytes": 4020,
+      "gzipSha256": "daa5a79177ecd42bb093cb576f67331bf5a8e18bff3c68a808d67e3ca4627baf"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-owned-native-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/021-scalar-owned-native-research.cjs.gz",
+      "bytes": 1500,
+      "sha256": "4e09627f1f1563b97fd7703415d5c223bdd672d30625711cb099f11d4225b7d3",
+      "gzipBytes": 777,
+      "gzipSha256": "d5c9d366cfe9899bc190671e3f639b3dd5c710a1f3fadb9e968f5bb7d84e2c1d"
+    },
+    {
+      "source": "dev-harness/semantic/qwen-reranker-native.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/022-qwen-reranker-native.cjs.gz",
+      "bytes": 12126,
+      "sha256": "a2c8254b539bbff26a625365f399d15a483246453ba2fe9f556160da2c36d706",
+      "gzipBytes": 4635,
+      "gzipSha256": "4033b3059d96982c91f9ff103c0b85e5b1f12e39272db406218c1bdd71394ae9"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-composite-policy-research.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/023-scalar-composite-policy-research.cjs.gz",
+      "bytes": 8779,
+      "sha256": "cd7b52943b834269e989b084cef23a486d605390a7c09589fd0a27a718e4bf6c",
+      "gzipBytes": 3015,
+      "gzipSha256": "5e050f417e00323b91111dfe215a2f8f8262006a1eef2dab8071845714a8bad6"
+    },
+    {
+      "source": "dev-harness/semantic/native-job-launcher.cjs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/024-native-job-launcher.cjs.gz",
+      "bytes": 6355,
+      "sha256": "90c52c9e51df47a05e127758df2c4f7352d066774b23700ff945285df3b18718",
+      "gzipBytes": 2256,
+      "gzipSha256": "15d1faa63e5ca853613a18f7a7e67bdc9d199512d3a9c6a7f27243948df2a7e1"
+    },
+    {
+      "source": "dev-harness/semantic/native-job-host.cs",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/025-native-job-host.cs.gz",
+      "bytes": 4838,
+      "sha256": "e8457aaacfa525806461e9e33a185d46106eb06bf285bb8492f73deb67b2a734",
+      "gzipBytes": 1891,
+      "gzipSha256": "96ad39cf114083f8a6fa1718a28f8719b28b0ef67381e57accf722592f0e4720"
+    },
+    {
+      "source": "output/semantic-qwen-reranker-official-v1/artifact-inventory.json",
+      "group": "gcc-factory-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/026-artifact-inventory.json.gz",
+      "bytes": 102162,
+      "sha256": "3f442df23bb4e4eb5e14da9f59a3ee5d9770dfc6fd266deb44e2d22060abe204",
+      "gzipBytes": 3906,
+      "gzipSha256": "614abff16358b4a924e7e110340ed98d9a161ef59a8e426ab497a64d36218355"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-live-profile-smoke-plan-v1.json",
+      "group": "gcc-factory-smoke",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/027-gcc-live-profile-smoke-plan-v1.json.gz",
+      "bytes": 4327,
+      "sha256": "be5af8bf13f939a3535a46020c67e8d4afc81e281807e6144a183581e741662c",
+      "gzipBytes": 1518,
+      "gzipSha256": "dabe4cef1c5dcd5750056e2caeb3fac88824ff7aea3c1210545bf2fa2991a7fa"
+    },
+    {
+      "source": "output/semantic-native-mingw-research/gcc-live-profile-smoke-v1.json",
+      "group": "gcc-factory-smoke",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/028-gcc-live-profile-smoke-v1.json.gz",
+      "bytes": 8654,
+      "sha256": "4a05d360b5e478c825a45bbcc77d1259d215ab33f4d140e88aa2123a54c52456",
+      "gzipBytes": 2361,
+      "gzipSha256": "8a28dc793c5b01ec63b83a15db6975b2130fc5673918b97893262886e8b2c6c5"
+    },
+    {
+      "source": "output/semantic-scalar-long-field-repro-v1/receipt.json",
+      "group": "historical-misjudgment",
+      "status": "INVALID_VERDICT_ASSUMPTION_SUPERSEDED_BY_REPRO_V2_RAW_OBSERVATIONS_RETAINED",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/029-receipt.json.gz",
+      "bytes": 11904,
+      "sha256": "885a6f17ba4cfa7ff4d90115438e7821b407b59fc377193473d7330ff589ca17",
+      "gzipBytes": 2020,
+      "gzipSha256": "7c06c4ec90ab071a7f47862d2a841afdbfd9cb22ad568b0b0d5098d50d7fdfd5"
+    },
+    {
+      "source": "output/semantic-scalar-long-field-repro-v2/receipt.json",
+      "group": "long-field-repro",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/030-receipt.json.gz",
+      "bytes": 12212,
+      "sha256": "6f06b3163ef7217b4b86166e8e56948ebc2bb5434b973cd39ea327444499c7df",
+      "gzipBytes": 2202,
+      "gzipSha256": "bcd80b7d1505fcea9e41e7db127ecf1ca530cd956f67dd4f1c2c8a786f7059df"
+    },
+    {
+      "source": "output/semantic-scalar-window-long-field-v1/receipt.json",
+      "group": "fixed-window-proof",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/031-receipt.json.gz",
+      "bytes": 11636,
+      "sha256": "3cacf43fdb9654f74ef6a155ce469207a8faf4ce22ad5f7c9df3f5940f670162",
+      "gzipBytes": 2289,
+      "gzipSha256": "2e76749cf851ab69863779966826bd3659b62d7b83fbe62034883bfd057e4ee6"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-long-field-repro.cjs",
+      "group": "long-field-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/032-scalar-long-field-repro.cjs.gz",
+      "bytes": 8773,
+      "sha256": "13c676ff4e50e40cd226cbbda38c4a4e110b72d3a94fbf281e1715b64b2f3951",
+      "gzipBytes": 3529,
+      "gzipSha256": "9f7c6389cc3a865c0bef567a627205ec071bb2ecd0b9693724e551ea2a872fba"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-long-field-proof.cjs",
+      "group": "fixed-window-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/033-scalar-window-long-field-proof.cjs.gz",
+      "bytes": 2135,
+      "sha256": "29b3e879eb4ed0f532454e21daba7e2bbaa26407541f847d36340838c04f144d",
+      "gzipBytes": 1083,
+      "gzipSha256": "243d26ebb330961ca1b937fc90c1061e5fac96c2bbd76ba054f82add5dc5ce7d"
+    },
+    {
+      "source": "output/semantic-scalar-long-field-repro-v2/producer.cjs",
+      "group": "fixed-derived-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/034-producer.cjs.gz",
+      "bytes": 83343,
+      "sha256": "a46905f17d18f7cbab8cd8c63b7c969828567ec63467f441754b3ff2ad299a50",
+      "gzipBytes": 22075,
+      "gzipSha256": "edbb688b7cbb9f2a8663ecd56efdc5e441edbf10babe65dac79297787b8ca944"
+    },
+    {
+      "source": "output/semantic-scalar-window-long-field-v1/producer.cjs",
+      "group": "fixed-derived-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/035-producer.cjs.gz",
+      "bytes": 84038,
+      "sha256": "f25827ae02e38c6e66addf353a47dd232e600665af4630fc2d1129cbfab6d15f",
+      "gzipBytes": 22255,
+      "gzipSha256": "75f4e80af028da1cc6095ae79f988ac6a0511b33ce58d1484fbf3b3438cedcc7"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-policy-research.cjs",
+      "group": "fixed-window-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/036-scalar-window-policy-research.cjs.gz",
+      "bytes": 3857,
+      "sha256": "1d7eccdd39bdd3005d701164361504a5d18c5e0d70aef84dcba04857f8fd3ff6",
+      "gzipBytes": 1409,
+      "gzipSha256": "1255b5b6fd4a09b0f606726bb4edaf09cb56ec330da2a7f9c1dcd5492548a8e8"
+    },
+    {
+      "source": "ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "group": "frozen-core-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/037-06ha-semantic-retrieval.js.gz",
+      "bytes": 10179,
+      "sha256": "a0e846f4e4ec0199a6384172d7d6c67c9c8c4852258e130a0b7e660db1b9c8d1",
+      "gzipBytes": 3690,
+      "gzipSha256": "9e88fe2b7c739294847a97e5ab12df0316298804d59d491fa8ddbfd310748b52"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-producer-research-source.cjs",
+      "group": "old-fullfield-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/038-scalar-producer-research-source.cjs.gz",
+      "bytes": 11057,
+      "sha256": "6b93fd3e4fba2dd816c56b55b0bb50915d24c6f67371cb8db45744cc33c6bec1",
+      "gzipBytes": 3364,
+      "gzipSha256": "7b2ce81ab9c4a4b8de8e0b3110c08fcbc090e81b08c23cd7f3d4fea264bc2a0f"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-producer-research-source.cjs",
+      "group": "fixed-window-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/039-scalar-window-producer-research-source.cjs.gz",
+      "bytes": 3041,
+      "sha256": "362a092733a2027a3fecc8e4ce821c569d21a30ca9138f74ff2aa32b3c2e757d",
+      "gzipBytes": 1417,
+      "gzipSha256": "944f65b16dd93699dbf2e97db9739492b76124d68beaa2c000be49a342342284"
+    },
+    {
+      "source": "output/semantic-window-append-root-review-r1.json",
+      "group": "root-window-append-review",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/040-semantic-window-append-root-review-r1.json.gz",
+      "bytes": 4059,
+      "sha256": "7eec87fc04de00cc78869ca61cd3c14369aaeb580306027dda4dbb2c0560a659",
+      "gzipBytes": 1694,
+      "gzipSha256": "48d4b13620296e1a27e5abdeaafe3872d0fb72eff54ee161212d76fa940c0bdb"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-append-cache-research-source.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/041-scalar-window-append-cache-research-source.cjs.gz",
+      "bytes": 1828,
+      "sha256": "d1f31b193890f2c444f8230fbb6a0856ab57b4604726ca1a3b78026f7e56e75f",
+      "gzipBytes": 895,
+      "gzipSha256": "affe56b6a1ef836e97baf1a68a95af2e7c56b00aee98b217575d8f1b8b1308c5"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-append-cache-research.test.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/042-scalar-window-append-cache-research.test.cjs.gz",
+      "bytes": 10257,
+      "sha256": "a576991efa3586bb615e77c7b57228b719185d352e262571fb3b5a4da195a08d",
+      "gzipBytes": 3323,
+      "gzipSha256": "9e84425ab0d0b3740db9999ede377d4b2b380565d6fddb63cc924f4add61d13f"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-append-cache-policy.test.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/043-scalar-window-append-cache-policy.test.cjs.gz",
+      "bytes": 8112,
+      "sha256": "a8a6408471bbd8ae93b26f695fef2fa856eb6aece599d3dc4a2d630e94430594",
+      "gzipBytes": 2593,
+      "gzipSha256": "df4fd0894e7c11261f347f56e2a72a40ef78620f18bf2c090ca8fe6cbb23095c"
+    },
+    {
+      "source": "dev-harness/semantic/scalar-window-consumer-research-source.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/044-scalar-window-consumer-research-source.cjs.gz",
+      "bytes": 1538,
+      "sha256": "960fa566b4025fad09ccf3941e805d650fccaa6ad0ba4d6cb52c798c89108f09",
+      "gzipBytes": 834,
+      "gzipSha256": "806bd39108a680b12590702431e978ebf8eb1d6c16c85f4fb2edd972aa8eb291"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-coarse-native-faults.test.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/045-gcc-coarse-native-faults.test.cjs.gz",
+      "bytes": 6572,
+      "sha256": "9d77beeba44a343894eddde43789d308a697ef2afa4321de19dbbdafece54ec9",
+      "gzipBytes": 2443,
+      "gzipSha256": "a90b4bb336e91b2a66593279ad7ad664a736e29e8986c5ca1eb6e5a6b6e8bbeb"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-window-scalar-native-host-research.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/046-gcc-window-scalar-native-host-research.cjs.gz",
+      "bytes": 2588,
+      "sha256": "153341c0603ce878a3b47b90ac272a532e604edccd99dc253e6a473bd229b470",
+      "gzipBytes": 1109,
+      "gzipSha256": "aba6df06a4086ffdd0c64d3a3010e3d439f3f4b412c64abcc35dbe45a1281561"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-window-scalar-native-host-research.test.cjs",
+      "group": "window-append-frozen-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/047-gcc-window-scalar-native-host-research.test.cjs.gz",
+      "bytes": 4191,
+      "sha256": "6ded00b959c3899449d80b34adb03ceafb3d7eba8271a46a958621600568f779",
+      "gzipBytes": 1655,
+      "gzipSha256": "c0ca6cc5f243e759635533e662009b760a17c4543722ae5a510dd7c2a14b0278"
+    },
+    {
+      "source": "output/semantic-window-append-root-review-r1.cjs",
+      "group": "root-review-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/048-semantic-window-append-root-review-r1.cjs.gz",
+      "bytes": 3099,
+      "sha256": "21b678f58f60e2c665882dc9ee136b50f00afb2a9a43fe96c86a4c77389db97c",
+      "gzipBytes": 1468,
+      "gzipSha256": "8f2998515159f5194ed7c0e471b81e4cfabdef1bcee17b95db5373e7b759cce2"
+    },
+    {
+      "source": "output/semantic-window-append-cache-research-v1.log",
+      "group": "append16-test-log",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/049-semantic-window-append-cache-research-v1.log.gz",
+      "bytes": 1791,
+      "sha256": "4952c91fccf070d3f5c87d1cde0b13f20dd406dfb8fd6828a523cfede8b8a8b0",
+      "gzipBytes": 906,
+      "gzipSha256": "d45a40992a7aed775022fd68a257ce79363f29705cf58c6593484b8c4977a8f6"
+    },
+    {
+      "source": "output/semantic-message-append-cache-independent-v2.cjs",
+      "group": "append-independent-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/050-semantic-message-append-cache-independent-v2.cjs.gz",
+      "bytes": 3142,
+      "sha256": "1d2b465a920630ad929d7c9d64e028cc2ee36365036e3970d1820b9db59e61ae",
+      "gzipBytes": 1427,
+      "gzipSha256": "e289df9ace72aac1798c6ae86233a7f3f1ee76db86f94e7ed768df45e77af20e"
+    },
+    {
+      "source": "output/semantic-message-append-cache-independent-v2.json",
+      "group": "append-independent-baseline",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/051-semantic-message-append-cache-independent-v2.json.gz",
+      "bytes": 1445,
+      "sha256": "f613502629394e87c43a8c514e1a15e1cd0a2d2b85b0fe1e7aaff1244f410fc7",
+      "gzipBytes": 383,
+      "gzipSha256": "5177e346db660c105286a932f1cdf2283bbd4bfcdf582a6166ba1325e3c356b8"
+    },
+    {
+      "source": "output/semantic-message-append-cache-independent-v1.json",
+      "group": "historical-misjudgment",
+      "status": "ASSERTION_ERROR_SUPERSEDED_BY_INDEPENDENT_V2_NOT_PRODUCT_FAILURE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/052-semantic-message-append-cache-independent-v1.json.gz",
+      "bytes": 1364,
+      "sha256": "32c0b5ee52d1dd62958cfd0c50b77585a791f4be493da09c60b086dc42f80837",
+      "gzipBytes": 434,
+      "gzipSha256": "80ceac489f4675a8516622d3d4fc7fbb939a35bba67cb24d3290f78b33a8bcbc"
+    },
+    {
+      "source": "output/semantic-message-append-cache-independent-v1.cjs",
+      "group": "historical-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/053-semantic-message-append-cache-independent-v1.cjs.gz",
+      "bytes": 2796,
+      "sha256": "9133b6546019aa73e004049a47e5c564378061f62e67cd059a21114bff07efcf",
+      "gzipBytes": 1306,
+      "gzipSha256": "4ad09aea43897ae871fb05cc36665b27cf146bbce1533bc44a76dc75a4b71dba"
+    },
+    {
+      "source": "output/semantic-message-append-cache-repro-v1.json",
+      "group": "append-original-baseline",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/054-semantic-message-append-cache-repro-v1.json.gz",
+      "bytes": 1375,
+      "sha256": "d87dd3eff49ba5f0e1e2a5ddc45c09782801387c42fb9e8f5966710a2074f9d7",
+      "gzipBytes": 407,
+      "gzipSha256": "43a6a9ad7192df4fcf1f687101d0725f4f70db875ffdcebd56eb582bfeca543b"
+    },
+    {
+      "source": "output/semantic-gcc-coarse-real-fault-v1.json",
+      "group": "job-http-synthetic-fault",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/055-semantic-gcc-coarse-real-fault-v1.json.gz",
+      "bytes": 899,
+      "sha256": "1d3bec06f0b528294be1bff116495a39bbafc7c15ff8f2da53ca5b63a7935d36",
+      "gzipBytes": 407,
+      "gzipSha256": "ad43a83f76455914de292b3c3d2906fe9ef0c5d98b692e33a092fd581601608b"
+    },
+    {
+      "source": "dev-harness/semantic/gcc-coarse-native-real-fault.cjs",
+      "group": "job-http-synthetic-fault-source",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/056-gcc-coarse-native-real-fault.cjs.gz",
+      "bytes": 4161,
+      "sha256": "70fccc3ac76e78cb92a1c65e5468805f29bd5fbf6f2df100fdd76e09dde1be41",
+      "gzipBytes": 1997,
+      "gzipSha256": "b403174a0c654cd3d1965a01556f8f4f4b19bca3e373ccf92a591a898ddd1c5b"
+    },
+    {
+      "source": "dev-harness/semantic/archive-gcc-window-append-evidence.cjs",
+      "group": "archive-tool",
+      "status": "CURRENT_SCOPED_EVIDENCE",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gcc-window-append-reviewed-r1/057-archive-gcc-window-append-evidence.cjs.gz",
+      "bytes": 12895,
+      "sha256": "77baea5c0ee582c7b327b8d0851d5430bb73262fe93ae5a336a713bbbd64c1ee",
+      "gzipBytes": 5274,
+      "gzipSha256": "0125d5dff14154c86cc849ea9af9b7c6fbacb66c6e91086f42ccbc9828af675d"
+    }
+  ],
+  "assetBindingsPreservedAsMetadataOnly": [
+    {
+      "file": "C:/r31-gcc-rank-research/build/bin/llama-server.exe",
+      "sha256": "6e03bcaf87e96763730f41352732c72a9fe19a12baa2e588bafba85cda05bb3f"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-win32-x64-v1\\models\\qwen3-embedding-0.6b-q4km\\model.gguf",
+      "sha256": "23d234bb57a42528a22a13e7beb8b57d8844b2b9cc741b4c27a8ff132abf0dfd"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-qwen-reranker-official-v1\\artifacts\\qwen3-reranker-0.6b-rank-q4_k_m.gguf",
+      "sha256": "9787224d2920d37838ed8dcf88dc6f2b92d1629192627655c32b06aef04becc7"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\output\\semantic-native-job-host\\native-job-host.exe",
+      "sha256": "c0c4a019131cce574be6f674e9ca3ad4597fe72f39ddb4194de5cfc2577edc7d"
+    }
+  ],
+  "gccDevelopment": {
+    "documents": 60,
+    "queries": 248,
+    "newScalarPairs": 128,
+    "threshold": 0.95,
+    "rawK": 1,
+    "trainPositive": 72,
+    "calibrationPositive": 24,
+    "pureOod": 80,
+    "idMismatch": 24,
+    "developmentResults": {
+      "train": {
+        "quality": {
+          "count": 72,
+          "recallAt5": 1,
+          "mrr": 1
+        },
+        "directions": {
+          "zh-zh": {
+            "count": 9,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "zh-en": {
+            "count": 9,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-zh": {
+            "count": 9,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-en": {
+            "count": 9,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        },
+        "pureOod": {
+          "count": 60,
+          "anyResultFpr": 0
+        },
+        "entityMismatch": {
+          "count": 18,
+          "anyResultFpr": 0
+        }
+      },
+      "calibration": {
+        "quality": {
+          "count": 24,
+          "recallAt5": 1,
+          "mrr": 1
+        },
+        "directions": {
+          "zh-zh": {
+            "count": 3,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "zh-en": {
+            "count": 3,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-zh": {
+            "count": 3,
+            "recallAt5": 1,
+            "mrr": 1
+          },
+          "en-en": {
+            "count": 3,
+            "recallAt5": 1,
+            "mrr": 1
+          }
+        },
+        "pureOod": {
+          "count": 20,
+          "anyResultFpr": 0
+        },
+        "entityMismatch": {
+          "count": 6,
+          "anyResultFpr": 0
+        }
+      }
+    },
+    "compilerEquivalent": false
+  },
+  "factorySmoke": {
+    "encodes": 40,
+    "uniqueDocuments": 10,
+    "uniqueTrainQueries": 10,
+    "orders": 2,
+    "maxAbs": 0,
+    "scalarSmoke": true,
+    "finalCleanup": {
+      "coarse": {
+        "ok": true,
+        "state": "stopped",
+        "workerExited": true,
+        "cleanupStatus": "observed"
+      },
+      "scalar": {
+        "code": 0,
+        "signal": null,
+        "cleanupStatus": "observed",
+        "nativeSpawnRequested": true,
+        "workerExited": true
+      }
+    },
+    "bodyStatsAreNotFinalExitProof": true
+  },
+  "longField": {
+    "oldVerdictMisjudgmentPreserved": true,
+    "fullTokens": 1281,
+    "windowTokens": 115,
+    "oldFullfield": {
+      "resultsPerRun": [
+        0,
+        0
+      ],
+      "partial": true
+    },
+    "fixedWindow": {
+      "resultsPerRun": [
+        1,
+        1
+      ],
+      "complete": true,
+      "actualScalarInputs": 1,
+      "characters": 96,
+      "modelInference": false
+    }
+  },
+  "append": {
+    "tests": 16,
+    "rootGroups": [
+      16,
+      22
+    ],
+    "overlap": 6,
+    "notClaimed38Unique": true,
+    "scope": "Only ordinary-message encoding identity excludes session-wide authority changes; scope/model/purpose/normalizer/canonical text/row revision/window remain. Metadata/attachments retain old keys. Authority/citation validation remains every use."
+  },
+  "faultProof": {
+    "cases": 2,
+    "realWindowsJobAndHttp": true,
+    "syntheticNodeEndpoint": true,
+    "modelAssetValidation": false,
+    "actualGgufFaultTest": false,
+    "embeddingWrites": 0,
+    "cleanup": "observed"
+  },
+  "limits": [
+    "GCC is a separate fixed development profile, not MSVC numerical equivalence; earlier comparison RED and priorv6 decision remain.",
+    "Factory smoke validates selected forward/reverse vectors and normal scalar/ownership, not complete actual consumers, cold/idle/disable,1000-fragment or combined residency.",
+    "Long-field/window/append tests inject coarse/scalar encoders. Official tokenizer counts are real; no model inference in those proofs. Their live effect remains pending.",
+    "Root16 and22 grouped runs have6 overlaps; no38unique claim. Root receipt is a frozen historical proof; changing live runner/layout and runner tests are not archived.",
+    "Old longfieldNOT_REPRODUCED verdict and appendv1 assertion error remain with explicit superseding interpretation; original observations are not rewritten.",
+    "No candidate binary/weight was read or copied; their producer hash bindings are metadata only. Archived code/data source hashes were rechecked.",
+    "No v6 query/fixture or mutable live runner/layout was read, no model/compile/install/default/production/gate status changed by archival."
+  ]
+}

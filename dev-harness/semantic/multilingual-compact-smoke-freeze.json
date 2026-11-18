@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "status": "FROZEN_COMPACT_FULL_WORKER_READ_RESTRICTED_SMOKE",
+  "bindings": {
+    "dev-harness/semantic/multilingual-compact-smoke-launcher.cjs": "d5bc1c64ce729591669c6e008a221d605aab7baf7f9358f8eb9cefee49ad872e",
+    "dev-harness/semantic/multilingual-compact-smoke-receiver.cjs": "160742ec67a34588bf336ff50561be03ded084b76663fb9382bc5b1a51489b61",
+    "dev-harness/semantic/multilingual-compact-smoke-test.cjs": "92c8b16e8a2ed1752bbcb506b6626b1a7684e7459769f672f123daa5be0e65f2",
+    "output/multilingual-minilm-compact-profile-v3/profile-lock.json": "9da0513a5f3ee0130fa4604404f74399daedd1536a29004021eefd71e9d29a60",
+    "output/semantic-minilm-family-coarse-v1/train-cal-inputs.json": "239e179e3b42bc9ca07c1183a765ede610a4fa03e3bd4eb03cef2dd2e3628d9c",
+    "output/semantic-minilm-family-coarse-v1/coarse-vectors-v1.json": "d30bd25dbef093fcea56fcf609bf4e15a7d4593d2f7865f5467b472ece0fa37b",
+    "output/semantic-minilm-family-coarse-v1/asset-lock.json": "2a7fbd52eafaa2c759ea762f4f4b8fc0d2c4321fca0f5858babb2d17cd142474",
+    "dev-harness/semantic/multilingual-prune-mechanism-probes.json": "cde95fa781fda508a9f611d87e48d0677a5d9a367d2073334cf7e9d0a97228ff"
+  },
+  "expectedFingerprint": "sha256:9cb4c12594a4fe637bf8420215f2471270b64a938689a1373096957dea0c1978",
+  "samples": [
+    {
+      "cohort": "document",
+      "id": "apiary",
+      "textSha256": "e839572d2bc76c055d9273c8556f6dca57eed632afc606634dad259828a3e42c"
+    },
+    {
+      "cohort": "document",
+      "id": "kiln",
+      "textSha256": "ce637109ea6216c3b2f21b83cff89f532b04956dbbf4e0443bba86efa116a11b"
+    },
+    {
+      "cohort": "document",
+      "id": "choir",
+      "textSha256": "701899a5b6e0c4f102c17cad1043918a376b5600d184b1a9b147c48d879cbe22"
+    },
+    {
+      "cohort": "document",
+      "id": "balloon",
+      "textSha256": "9d696a1f50d4a3388b95c9bff072b81e3694d22d9bc036ffec1739a3157578a8"
+    },
+    {
+      "cohort": "query",
+      "id": "apiary-zh",
+      "textSha256": "18b3f149e31455fd0c687249b19146204f869453adfff73c47845cd98339e77c"
+    },
+    {
+      "cohort": "query",
+      "id": "kiln-zh",
+      "textSha256": "3754aa5fb2585551c8920de8da512082eefe2bc8243f40cd1fef9aac04c7836e"
+    },
+    {
+      "cohort": "query",
+      "id": "choir-en",
+      "textSha256": "9329a3d66a93c534234d7052fe57d0033e56996845786d1ec680576bad131e1e"
+    },
+    {
+      "cohort": "query",
+      "id": "balloon-en",
+      "textSha256": "78e3f59b129277ed5a92f3dedf4f3774e70ec09734f0de86974152f2792fd24c"
+    },
+    {
+      "cohort": "probe",
+      "id": "kana",
+      "textSha256": "9885f9e8f77d259d746123c6690a6cbee40482dfa0d68bcb5f81adeea03eec70"
+    },
+    {
+      "cohort": "probe",
+      "id": "arabic",
+      "textSha256": "9262a0a791605071a500c1a15bef2d5efcc6c8f198567105e9ab364811377e9f"
+    },
+    {
+      "cohort": "probe",
+      "id": "late-unsupported",
+      "textSha256": "ca76b392c46311fc9da99e0dc3aee3a0c8bc762e54a92a50d6acf2655dd8d4f4"
+    }
+  ],
+  "method": "external built-in launcher installs fs deny and ORT model-path observer before requiring profile worker; no Node --require/--import/execArgv flags",
+  "scope": "8 original observed texts compared against original vectors; three existing unsupported mechanism probes; no acceptance input",
+  "limits": [
+    "Node fs hooks do not observe all native addon or Node-internal loader filesystem reads; ORT session path is asserted explicitly.",
+    "No lifecycle, quality, application integration, or performance qualification."
+  ]
+}

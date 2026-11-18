@@ -1,0 +1,7 @@
+'use strict';
+const{test}=require('node:test'),assert=require('node:assert/strict'),{pooled,passes,frontier}=require('./calibration-pooled-resolution-audit.cjs');
+function summary(n,recall,oodCount,oodRate){const q={count:n,recallAt5:recall,mrr:recall};return{quality:{all:q,groups:{'zh-zh':q,'zh-en':q,'en-zh':q}},ood:{count:oodCount,anyResultFpr:oodRate}};}
+test('weighted9+3 language pooling yields11/12, not unweighted split mean',()=>{const x=pooled(summary(9,1,60,0),summary(3,2/3,20,0));assert.equal(x.quality.groups['zh-zh'].recallAt5,11/12);assert.equal(x.quality.all.mrr,11/12);assert.equal(passes(x),true);});
+test('pure OOD denominator is80 and cannot be diluted by entity mismatches',()=>{const x=pooled(summary(9,1,60,.05),summary(3,1,20,.10));assert.equal(x.ood.admittedQueries,5);assert.equal(x.ood.count,80);assert.equal(x.ood.rate,5/80);assert.equal(passes(x),false);assert.ok(5/104<=.05);});
+test('Pareto retains non-dominated recall versus OOD tradeoffs and groups ties',()=>{const a=pooled(summary(9,1,60,0),summary(3,1,20,0)),b=pooled(summary(9,1,60,.05),summary(3,1,20,0)),c=pooled(summary(9,8/9,60,0),summary(3,1,20,0));const p=frontier([{index:0,pooled:a},{index:1,pooled:b},{index:2,pooled:c},{index:3,pooled:a}]);assert.equal(p.length,1);assert.deepEqual(p[0].candidates,[0,3]);});
+test('missing pure OOD summaries or nonintegral admitted counts fail the audit',()=>{const x=summary(9,1,60,.01);assert.throws(()=>pooled(x,x),/Nonintegral/);delete x.ood;assert.throws(()=>pooled(x,x),/Pure OOD/);});

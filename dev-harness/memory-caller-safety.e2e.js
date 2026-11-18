@@ -1,0 +1,22 @@
+'use strict';
+require('./lib/self-isolate-home');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),Module=require('node:module');
+const {createRunner}=require('./lib/harness'),{startFakeProvider,textFrames}=require('./lib/fake-openai-provider');
+const t=createRunner('MEMORY CALLER SAFETY'),{ok}=t,home=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-memory-caller-'));
+process.env.RUYI_HOME=home;process.env.WIN_CLAUDE_WORKBENCH_HOME=home;process.env.RUYI_DISABLE_SEMANTIC='1';process.env.WCW_TEST_NO_NET_ANCHORS='1';
+const app=path.resolve(__dirname,'../ruyi-workbench/app'),manifest=JSON.parse(fs.readFileSync(path.join(app,'src/manifest.json'),'utf8'));
+const bundled=manifest.modules.map(m=>fs.readFileSync(path.join(app,'src',typeof m==='string'?m:m.file),'utf8')).join('\n');
+const mod=new Module(path.join(app,'server.js'),module);mod.filename=path.join(app,'server.js');mod.paths=Module._nodeModulePaths(app);
+mod._compile(bundled+'\nresolveMemoryPreflight=(...args)=>globalThis.__memoryCallerProbe(...args);',mod.filename);const srv=mod.exports;
+(async()=>{const fake=await startFakeProvider({handler:()=>textFrames('ordinary fallback reached')});try{
+ const config=extra=>fs.writeFileSync(path.join(home,'config.json'),JSON.stringify({configSchema:13,permissionMode:'bypass',defaultWorkspace:home,autoImportClaudeCodeMcp:false,desktopMcp:{enabled:false},...extra}));
+ async function turn(label,patch,probe){config(patch);globalThis.__memoryCallerProbe=probe;const session=await srv.createSession({title:label,cwd:home}),events=[];await srv.runSessionTurn({sessionId:session.id,message:'memory safety test',cwd:home,onEvent:event=>events.push(event)});return events;}
+ let providerSignal=false;const denial=Object.assign(Error('synthetic privacy denial'),{code:'privacy.policy_changed'}),provider={providers:[{id:'p',label:'Fake',type:'openai-compat',baseUrl:fake.url,apiKey:'k',model:'fake-model'}],activeProvider:'p'};
+ const one=await turn('provider',provider,async(...args)=>{providerSignal=!!args[5]?.signal;throw denial;});ok(providerSignal,'provider caller passes cancellation signal');ok(one.some(x=>x.type==='error'&&x.error==='synthetic privacy denial')&&fake.requests.length===0,'provider caller propagates privacy failure before request');
+ const authority=await turn('revalidate',provider,async(...args)=>{const options=args[5];options.executionOwner.authority={assertCurrent(){},async revalidate(){throw Object.assign(Error('synthetic authority revoked'),{code:'privacy.revoked'});}};await options.executionOwnerRevalidate();});ok(authority.some(x=>x.type==='error'&&x.error==='synthetic authority revoked')&&fake.requests.length===0,'execution authority is revalidated before provider request');
+ process.env.WCW_FAKE_CLAUDE=path.resolve(app,'../tools/fake-claude.js');let claudeSignal=false;
+ const two=await turn('claude',{engineMode:'print',providers:[],activeProvider:''},async(...args)=>{claudeSignal=!!args[5]?.signal;throw Object.assign(Error('synthetic authority denial'),{code:'EXTERNAL_AUTHORITY_DENIED',memorySemanticGuardFailure:true});});
+ ok(claudeSignal,'Claude caller passes execution-owner cancellation signal');ok(two.some(x=>x.type==='error'&&x.error==='synthetic authority denial')&&!two.some(x=>x.type==='process'&&x.state==='running'),'Claude caller propagates marked authority failure before launch');
+ const prior=fake.requests.length;let cancelled=false;const stopped=await turn('cancel',provider,async(...args)=>new Promise((resolve,reject)=>{const options=args[5];options.signal.addEventListener('abort',()=>{cancelled=true;reject(new DOMException('synthetic stop','AbortError'));},{once:true});options.executionOwner.cancel();}));ok(cancelled&&fake.requests.length===prior&&!stopped.some(x=>x.type==='result'&&x.ok===true),'owner stop aborts in-flight preflight before provider request');
+ const three=await turn('ordinary',provider,async()=>{throw Error('synthetic ordinary io failure');});ok(fake.requests.length>0&&!three.some(x=>x.type==='error'&&x.error==='synthetic ordinary io failure'),'ordinary preflight failure retains unavailable fallback');
+}finally{delete globalThis.__memoryCallerProbe;delete process.env.WCW_FAKE_CLAUDE;await fake.close();if(path.dirname(home)!==path.resolve(os.tmpdir())||!path.basename(home).startsWith('ruyi-memory-caller-'))throw Error('fixture cleanup outside owned temp');fs.rmSync(home,{recursive:true,force:true});}t.done();})().catch(e=>{console.error(e);process.exit(1);});

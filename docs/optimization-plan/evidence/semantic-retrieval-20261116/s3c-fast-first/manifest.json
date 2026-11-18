@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T14:09:10.305778+00:00",
+  "status": "FAIL_UNIT_GATE_STATIC_NOT_RUN",
+  "command": "node dev-harness/run-all.js --fast",
+  "exitCode": 1,
+  "sourceFiles": 657,
+  "sourceStable": true,
+  "unit": {
+    "tests": 5433,
+    "passed": 5396,
+    "failed": 2,
+    "skipped": 35
+  },
+  "failures": [
+    {
+      "test": "consumer search tolerates actual index retirement after epoch observation and exposes pending coverage",
+      "classification": "reproduced actual index retirement race; implementation fix required"
+    },
+    {
+      "test": "actual cold consumer uses one admitted private preparation and warm search never rebuilds",
+      "classification": "default full-concurrency run crossed2.5s; standalone1.48s pass; next full run uses existing explicit --parallel4 resource control, production budget unchanged"
+    }
+  ],
+  "files": [
+    {
+      "path": "semantic-s3c-fast.log.gz",
+      "sha256": "a3b1f521cf9d7166e82b8421ee48d44b387de69658d3b9407ef5221425574ba6",
+      "decodedSha256": "c4023fc3f9805540e2bf76d94c987b32785759b021dacc505de08477288bc6c2",
+      "bytes": 1002,
+      "decodedBytes": 2064
+    },
+    {
+      "path": "semantic-s3c-fast-first-unit.log.gz",
+      "sha256": "38b89fc85806ee2db4221120198537bfd6ed56f6dcfcaaea46e0e9d7bebdd292",
+      "decodedSha256": "17622b65105abc1021898b6a1687e03a1c32b0b7422c971d4e3b0ca2c2e6adb0",
+      "bytes": 256836,
+      "decodedBytes": 712060
+    },
+    {
+      "path": "semantic-s3c-fast-source-before.json.gz",
+      "sha256": "62fc8dfe9352780b468e170f1e6ca3b9505b11c100f8ace6db39ff4bee333b9b",
+      "decodedSha256": "9b46a926abff81fca27bc44d874f746f17e4dc3c4f8ef6db3f5b5b3edc0411e8",
+      "bytes": 33705,
+      "decodedBytes": 105726
+    },
+    {
+      "path": "semantic-s3c-fast-source-after.json.gz",
+      "sha256": "2c80a71cc8f45c0b96a391f8b464fc91c09b3016a006f61f7442feb9800af9f1",
+      "decodedSha256": "33a1ef64767ba3c3ba936e880897b80d67da226fc83c7dca40cf21a94119e6d1",
+      "bytes": 76,
+      "decodedBytes": 69
+    }
+  ]
+}

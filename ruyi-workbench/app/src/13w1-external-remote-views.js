@@ -143,7 +143,20 @@ const ExternalBotRemoteViews = (() => {
     // hash. No adapter currently supplies the external docs66:118 contract.
     const proof = await ExternalChannelProtocols.prepareAudienceRevision?.(connection, item.conversationId);
     if (!proof || !externalBotRemoteDigest(proof.revision) || typeof proof.assert !== 'function') stale();
-    proof.assert(); return proof;
+    // Every call site uses this guard at a synchronous authority boundary.
+    // An asynchronous assertion cannot certify that boundary, even when its
+    // promise eventually resolves. Keep the revision and guard bound together.
+    const revision = proof.revision, check = proof.assert;
+    const assert = () => {
+      const result = check.call(proof);
+      if (result !== undefined) {
+        // Observe native Promise rejections without reading an arbitrary then
+        // property or invoking a thenable supplied by the adapter.
+        try { Promise.prototype.then.call(result, undefined, () => {}); } catch {}
+        stale();
+      }
+    };
+    assert(); return Object.freeze({ revision, assert });
   }
   function typedDecision(parsed, source) {
     const type = source.iv.type;

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "status": "R1_INCREMENT_SUPERSEDED_ORIGINAL_POLICY_RESTORED_SCC_BUDGET_NOT_RAISED",
+  "reviewSha256": "1a5ca88771cde0c1499ffd939f78650eadb3a221c4bbd72434a7444593692ae6",
+  "staticFailure": {
+    "sccCount": 1,
+    "size": 34,
+    "maximumSize": 31
+  },
+  "restoredPolicySha256": "0e05a9356822d031e7c0126f35dec2b9f76bdbc604e079a29d28f507fb147a9f",
+  "next": "Refactor semantic core into host-independent acyclic factories and wire lifecycle/config in existing host layer; preserve strict result authority and frozen method. No static cap bump or whole-policy bootstrap."
+}

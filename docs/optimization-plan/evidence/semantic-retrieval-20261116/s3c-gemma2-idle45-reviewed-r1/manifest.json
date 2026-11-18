@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "status": "SINGLE_SYNTHETIC_IDLE45_RESOURCE_PROBE_NOT_LIFECYCLE_OR_APP_TOTAL_ACCEPTANCE",
+  "records": [
+    {
+      "source": "output/embeddinggemma2-idle-memory-v1/freeze.json",
+      "member": "0001.gz",
+      "rawBytes": 2465,
+      "rawSha256": "cf4b5cb2b174028b697568769b2d8b10a07307166a19b2b759e2b492f2dab5d4",
+      "gzipBytes": 1004,
+      "gzipSha256": "8a3673fa8693131fbcd9bd782ad980fe44a543ddd1026440bfff51c6e5ca63af"
+    },
+    {
+      "source": "output/embeddinggemma2-idle-memory-v1/CONSUMED",
+      "member": "0002.gz",
+      "rawBytes": 107,
+      "rawSha256": "efd87f7ef7035903f353c301094ae9eb09621740ef5b7f392e45187c44c6708f",
+      "gzipBytes": 111,
+      "gzipSha256": "fcd6171626f8380e8947f944a8e018f4548a34152fc6c4d8298866e784359bc6"
+    },
+    {
+      "source": "output/embeddinggemma2-idle-memory-v1/receipt.json",
+      "member": "0003.gz",
+      "rawBytes": 2833,
+      "rawSha256": "39eb3ae8b586ed501a503135e3528cf62cd331f53962405e6a512ab9dd8f2df8",
+      "gzipBytes": 1172,
+      "gzipSha256": "4eb6dd5dbdbcb617ae77e85f590b7b140374071def59dcdfec8b9a73b08b3b65"
+    },
+    {
+      "source": "dev-harness/semantic/embeddinggemma2-idle-memory-probe.cjs",
+      "member": "0004.gz",
+      "rawBytes": 4938,
+      "rawSha256": "daf57c0335b4d9efe33ac3c5434098469a913095e96274682104313d3b3b958f",
+      "gzipBytes": 2127,
+      "gzipSha256": "1f069b08b79175f166712daf131520bda77843f7d4e7f48449879993c7ddc9ac"
+    }
+  ],
+  "coldReadyMs": 3985.3453,
+  "throughFirstWarmQueryMs": 4077.0018000000005,
+  "idle45": {
+    "targetMs": 45000,
+    "elapsedIdleMs": 45307.9281,
+    "exists": true,
+    "pid": 20544,
+    "creationFileTime": "134393769027699351",
+    "workingSetBytes": 310980608,
+    "privateBytes": 296247296
+  },
+  "workerLifetimePeakBytes": 561377280,
+  "cleanup": {
+    "ok": true,
+    "cleanupStatus": "observed",
+    "workerExited": true,
+    "identity": {
+      "exists": true,
+      "pid": 20544,
+      "creationFileTime": "134393769027699351",
+      "workingSetBytes": 78376960,
+      "privateBytes": 90955776
+    },
+    "postStopOs": {
+      "exists": false
+    },
+    "close": {
+      "observed": true,
+      "code": 0,
+      "signal": null
+    },
+    "homeClean": true,
+    "state": "probe-complete"
+  },
+  "baseRuntimeArchive": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-gemma2-codec-and-bootstrap-reviewed-r1/manifest.json",
+    "sha256": "e878e322a92c121e402d7db8f5b1258bd9595bd46b786d89064e63c2e49d8125"
+  },
+  "limits": [
+    "One run, one fixed synthetic input; no user/source/quality/holdout data.",
+    "Research host default idle60 remains unchanged; samples end at45s, not resident implementation qualification.",
+    "Cold measurement includes host integrity/startup/IPC; no OS reboot or cleared disk-cache claim.",
+    "Worker samples exclude parent/application total and model vector indexes."
+  ]
+}

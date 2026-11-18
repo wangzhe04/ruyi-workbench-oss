@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "status": "ROOT_REVIEWED_GENUINE_TRANSPORT_SCORER_COMPONENT_SCOPED_PASS",
+  "records": [
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/001-06h9-semantic-policy.js",
+      "originalSource": "ruyi-workbench/app/src/06h9-semantic-policy.js",
+      "member": "0001.gz",
+      "rawBytes": 32356,
+      "rawSha256": "395ac6a14725ad1d39032488115f3bdc8a3c1c90317dfa918ecaa8556a95afef",
+      "gzipBytes": 9778,
+      "gzipSha256": "befe98b85129bc571de0abc395282cb940b386dd90230b1dccfa72ac9e9c0927"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/002-06ha-semantic-retrieval.js",
+      "originalSource": "ruyi-workbench/app/src/06ha-semantic-retrieval.js",
+      "member": "0002.gz",
+      "rawBytes": 15781,
+      "rawSha256": "bad17170389555cd63252a21ba2b2a7d66dd6c129e2fb6b059e1e82545cf4303",
+      "gzipBytes": 5092,
+      "gzipSha256": "f2f72e398ebf0f68da4ea440672ef2e3977167676f2abfc370758a5863258e9d"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/003-06hb-semantic-runtime.js",
+      "originalSource": "ruyi-workbench/app/src/06hb-semantic-runtime.js",
+      "member": "0003.gz",
+      "rawBytes": 30508,
+      "rawSha256": "6a2105f4dba0924197a216dec1fc4d43a9eb65f116696894e68c57282b32917a",
+      "gzipBytes": 8483,
+      "gzipSha256": "b5803598144435758c18019c8418de87c2c10ec98e90489b70fd3d3d0cd65265"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/004-gemma2-production-transport-proof-smoke.cjs",
+      "originalSource": "dev-harness/semantic/gemma2-production-transport-proof-smoke.cjs",
+      "member": "0004.gz",
+      "rawBytes": 10461,
+      "rawSha256": "452593587baa63fcceba69f320a62183690486ab375adadbf7868d18f1ca062f",
+      "gzipBytes": 3942,
+      "gzipSha256": "5795701edd151295d296911cd26df31da676024614635face93d44caacade9ae"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/005-gemma2-transport-proof-smoke-keeper.ps1",
+      "originalSource": "dev-harness/semantic/gemma2-transport-proof-smoke-keeper.ps1",
+      "member": "0005.gz",
+      "rawBytes": 9699,
+      "rawSha256": "dc3644a1c28817e1808c19fd5e29cce04522473d6c6d3c1d1f77cebbc8f8d622",
+      "gzipBytes": 3103,
+      "gzipSha256": "e5ffe760599d2cb5d46bb1bca9c53e57ed167f95362cad45c02e26a33afe8fbc"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/006-gemma2-provider.cjs",
+      "originalSource": "ruyi-workbench/semantic-runtime/gemma2-provider.cjs",
+      "member": "0006.gz",
+      "rawBytes": 3662,
+      "rawSha256": "40713b6792d39558374c8f08c58738288db075194baa33707a4130fefdb61c95",
+      "gzipBytes": 1616,
+      "gzipSha256": "eae9b9d328e214169b7b47903633214762b45e0bd8e0dc5f18bc40eb5ffb2702"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/007-gemma2-profile-validation.cjs",
+      "originalSource": "ruyi-workbench/semantic-runtime/gemma2-profile-validation.cjs",
+      "member": "0007.gz",
+      "rawBytes": 3325,
+      "rawSha256": "caf838b85a8cafff670f693dacee6bd1e0ac94abd54d704d5c09e4ef1c42ac57",
+      "gzipBytes": 1625,
+      "gzipSha256": "c7973e70c582910febabddb92586e631d11bb4fc68e10fb30a7d60f322408c46"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/source-snapshot/008-asset-lock.json",
+      "originalSource": "output/embeddinggemma2-live-host-profile-v1/asset-lock.json",
+      "member": "0008.gz",
+      "rawBytes": 107240,
+      "rawSha256": "df0842983e334a247b96c8d010afaf7d6dca5225e729ada75a26d36cbf1268e6",
+      "gzipBytes": 28562,
+      "gzipSha256": "9f6580ea6ad2335306aad73dc7f99515d398f261332995571df0900228a09cf0"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/freeze.json",
+      "member": "0009.gz",
+      "rawBytes": 3203,
+      "rawSha256": "984d2fd8d0037928aa762bc1ccc4eadc9357755b9d105eaf7416d70e67f99e9f",
+      "gzipBytes": 1245,
+      "gzipSha256": "fab89f1bb8a6e9dcd121c67326e5c6afb0fcb3014fada827acf26881f563420f"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/receipt.json",
+      "member": "0010.gz",
+      "rawBytes": 1663,
+      "rawSha256": "b72a460180dcbb8c55010c42ec5e6eebc42282aba84adf4dadd4cc869b8afa61",
+      "gzipBytes": 689,
+      "gzipSha256": "935784ef6752898d524e5597656cb2f4f280678248f51be6fea9dda896de051a"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/outer-job-receipt.json",
+      "member": "0011.gz",
+      "rawBytes": 811,
+      "rawSha256": "b7cea76e4d6cdea77b99cb9eafda949a0c3cdcec134024f23ae3d80819899889",
+      "gzipBytes": 300,
+      "gzipSha256": "ebeaebfe3e8b440da21427e548739f32f50e9f2c0f1f3f56db2f498c915c0179"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/root-preflight.json",
+      "member": "0012.gz",
+      "rawBytes": 778,
+      "rawSha256": "a69586bc785782f09072d5bc205f0c65ad94b5d65131ed75e78647320e8beb25",
+      "gzipBytes": 546,
+      "gzipSha256": "dc274b55bfbd557e7d727ee6441adb8c09ff52508ad2774db9fb2b4ec3ec1085"
+    },
+    {
+      "source": "output/gemma2-production-transport-proof-smoke-v1/root-review.json",
+      "member": "0013.gz",
+      "rawBytes": 4410,
+      "rawSha256": "b8a974326c6a23c7643e285863b6687fdc1fdb3cd9cbc8baf81db11180ba890c",
+      "gzipBytes": 1699,
+      "gzipSha256": "672809e9e1f093e05dbff1c59d9b4c4963813d333ae3f3a3b71b66ee701aaf01"
+    },
+    {
+      "source": "dev-harness/semantic/gemma2-resident-smoke-keeper.ps1",
+      "member": "0014.gz",
+      "rawBytes": 9689,
+      "rawSha256": "d570cb4c38794d4c0034bcf285e47db19b472d88f7599e6ddd7b9d12fb5ca563",
+      "gzipBytes": 3099,
+      "gzipSha256": "d613a70a138e1237d779a75486db561974f964de937e68cba10c04fd21f52317"
+    },
+    {
+      "source": "dev-harness/semantic/archive-production-transport-proof.cjs",
+      "member": "0015.gz",
+      "rawBytes": 3033,
+      "rawSha256": "8eebd99c6ec2d7a1e0e51d7f1a0e9ed1c2ceb6af2245877aa7c7139b08083c90",
+      "gzipBytes": 1445,
+      "gzipSha256": "dcc56c8b1e3af0e60a485d59140738e4587ee6c155db06595b94f6420b4507af"
+    }
+  ],
+  "external": [
+    {
+      "file": "C:\\Program Files\\nodejs\\node.exe",
+      "bytes": 91380224,
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    }
+  ],
+  "totalRawBytes": 236619,
+  "totalGzipBytes": 71224,
+  "reconstruction": "Eight frozen non-executable inputs copied before component freeze released; originalSource preserves module/provider/profile paths. New keeper differs from pinned resident keeper only in expected status/error labels; WinAPI/control byte block identical.",
+  "limits": [
+    "Actual production06h9/06ha/06hb and genuine strict Gemma2 provider/worker; synthetic VM config and four consumer registration labels. No HTTP/source/DPAPI/quality/hard-parent-exit qualification.",
+    "Actual fixed strict-provider encode frames issued readable score envelopes; cached result also readable; fake runtime cannot obtain production seal.",
+    "Original envelope clone/query/scope replay rejected; disable invalidates both issued envelopes and cache; worker exited and home empty.",
+    "Two public synthetic strings only. No retrieval quality or latency p95; no actual consumer/HTTP/privacy/encrypted-source or hard-parent-exit qualification.",
+    "No raw model vectors stored; root audited trusted transport/scorer plus cases and process lifetime. All release gates pending."
+  ]
+}

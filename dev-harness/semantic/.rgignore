@@ -1,0 +1,4 @@
+# Blind evaluation material must not appear in ordinary repository text searches.
+# Read a named fixture only through its explicitly frozen one-shot evaluation.
+acceptance*.cjs
+acceptance-*/

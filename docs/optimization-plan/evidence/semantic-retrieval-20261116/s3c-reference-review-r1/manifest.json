@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T16:42:24.431Z",
+  "status": "PROGRESS_WITH_UNRESOLVED_FAILURES",
+  "description": "Full fast unit gate failed8; independent narrower suites passed. Model-facing alias/source-proof and nonce-dedup failures were then confirmed and are being repaired. Earlier message HTTP v1/v2 had no protected alias inside the clipped snippet; v3 confirms final model-facing withholding. Qwen train/cal candidate and adapter self-tests are research only; independent v3 evaluation is separate.",
+  "records": [
+    {
+      "source": "output/semantic-reference-fast-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/01-semantic-reference-fast-r1.log.gz",
+      "bytes": 2272,
+      "sha256": "9725b3a84b9988063dbfef4a4032c8d3aceb5a1eed7fc30c99daaaf52101499b",
+      "gzipBytes": 1085,
+      "gzipSha256": "19ba8e90f3b6c8cd851ba910a731900029a5f6801c2c03ffd96cd8de82249126"
+    },
+    {
+      "source": "output/semantic-reference-fast-r1-unit.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/02-semantic-reference-fast-r1-unit.log.gz",
+      "bytes": 720616,
+      "sha256": "cbdbf6beb3f17d4bf7ca24165a0091788e18efab08b768cb9a3d7a59439fedbe",
+      "gzipBytes": 260886,
+      "gzipSha256": "b6a884a5b9cd8356fded2c0e6c1229e0f10c35cd0500bed4b1677f638e3ef523"
+    },
+    {
+      "source": "output/semantic-reference-fast-source-before.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/03-semantic-reference-fast-source-before.json.gz",
+      "bytes": 81824,
+      "sha256": "51b370e38793fcad3cde136cec62671636dc7b50e00a42b3743281f3559a49ca",
+      "gzipBytes": 31917,
+      "gzipSha256": "dc120d707d94b9df5028b85d7703c1a578bd3d83ffe8f6584b7e4acd51a24777"
+    },
+    {
+      "source": "output/semantic-reference-fast-source-after.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/04-semantic-reference-fast-source-after.json.gz",
+      "bytes": 81865,
+      "sha256": "8d12fb7d4a36505e97b911cfdfef50b9e4b3e437adf9b6f80ce20858d3bb8edb",
+      "gzipBytes": 31952,
+      "gzipSha256": "e4d464aed813415f757b3c5a59994980810891599006d9a1655d035c11b97ea5"
+    },
+    {
+      "source": "output/semantic-reference-static-r1/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/05-receipt.json.gz",
+      "bytes": 61074,
+      "sha256": "39852b491756a7f99f3c02f6b62c1987a46b4eea6e0e906a24e00865a167a373",
+      "gzipBytes": 18030,
+      "gzipSha256": "f8da4331723c9f909f29f2dc8232529666d5a4243b3010b00b4d9ab4457fb7f8"
+    },
+    {
+      "source": "output/semantic-reference-functional-r2/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/06-receipt.json.gz",
+      "bytes": 22232,
+      "sha256": "a8a32610eb28f4142ca68f904a9754eee0e074d72eb94d3ead40f3801de42d7d",
+      "gzipBytes": 8629,
+      "gzipSha256": "653ad694fc44ef026eb7c9056d844d77677ee75353a9314a656f4d6fdc2b9efb"
+    },
+    {
+      "source": "output/semantic-reference-functional-r3/receipt.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/07-receipt.json.gz",
+      "bytes": 23543,
+      "sha256": "1aa58bec1aaef4ab945c0fbf82fee6066875c5fbb8ddd5a8f40f3fe53ce89247",
+      "gzipBytes": 8933,
+      "gzipSha256": "43deecb9b74db02619878b2851528c02576efc406c624dc2616cc3b69e9d7b8f"
+    },
+    {
+      "source": "output/semantic-reference-egress-tool-replay-red.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/08-semantic-reference-egress-tool-replay-red.json.gz",
+      "bytes": 2741,
+      "sha256": "12eb9ca5a7f2538de74846247c6b2969851813ce59c125b5e6aedd736b87cd40",
+      "gzipBytes": 1205,
+      "gzipSha256": "8ba5ff9b8b9ee367fb14132d9d01fec5173c560efe660e78b9b60e2b3360ef0d"
+    },
+    {
+      "source": "output/semantic-reference-egress-message-model-red.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/09-semantic-reference-egress-message-model-red.json.gz",
+      "bytes": 3566,
+      "sha256": "4a2d5dc8850046e25b629d40cb33118f7f28533af68ccdc650a66df1bdcad398",
+      "gzipBytes": 1297,
+      "gzipSha256": "007c70f98a9ac6bd78b4b7a5ec23de3374888b02552fca5a31bfa4278dc0cee7"
+    },
+    {
+      "source": "output/semantic-reference-egress-message-model-red-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/10-semantic-reference-egress-message-model-red-v2.json.gz",
+      "bytes": 3748,
+      "sha256": "e235274fb5a1092ecf0a6236f33384703c5d2c1cf24fccf54f485041b4be3411",
+      "gzipBytes": 1345,
+      "gzipSha256": "29612805e01ff113314b49eb996db60aac9e87d7748e6cec17d0bff90f231edc"
+    },
+    {
+      "source": "output/semantic-reference-egress-message-model-red-v3.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/11-semantic-reference-egress-message-model-red-v3.json.gz",
+      "bytes": 3486,
+      "sha256": "eddc664b27b5bb87afd3d44c0856a1791b157240b26acf3cb5d2544c78bd5f3f",
+      "gzipBytes": 1303,
+      "gzipSha256": "bdb0450198cddd9ef5ea216a8fc84515c4ae874d892f157b737db96cfaa037b0"
+    },
+    {
+      "source": "output/semantic-reference-egress-text-current.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/12-semantic-reference-egress-text-current.json.gz",
+      "bytes": 2500,
+      "sha256": "a1c88a54a40ee8610732b3634ef6aedeffd8cc6c76302c3ee4f92ee38562f496",
+      "gzipBytes": 1044,
+      "gzipSha256": "ea86b2ca5d6b2cc421edf9f3ed2e23e0b579042b24c5f89df5b5531adcc52d56"
+    },
+    {
+      "source": "output/semantic-reference-egress-json-current.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/13-semantic-reference-egress-json-current.json.gz",
+      "bytes": 2500,
+      "sha256": "0af0d02084835e90616601483d664cf23076bba31f9e9feee89dca345334ee71",
+      "gzipBytes": 1046,
+      "gzipSha256": "5a98bf3294675c1e46cb521954a49334aad0d91d53e446a99a2f26b3bf67ac89"
+    },
+    {
+      "source": "output/semantic-reference-egress-replay-current.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/14-semantic-reference-egress-replay-current.json.gz",
+      "bytes": 2499,
+      "sha256": "fc04d4541c3f351d66e75ab538499e7bd29ac2bf18c26672fd0b16bec2a1d103",
+      "gzipBytes": 1045,
+      "gzipSha256": "d944f682fff9091f3f0b6e8072ea2bf957e40713a86d0e5a7054fdd95d8abf4d"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/report-model-facing.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/15-report-model-facing.json.gz",
+      "bytes": 1893,
+      "sha256": "2d27f384849de87a6ddf680fb408ae77cae974042d0a5d6680f8f4892422627c",
+      "gzipBytes": 981,
+      "gzipSha256": "37efc1882e191ab8c1599e817548f62f12a6bcc572065075a65e86b452d71030"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/report-dedup.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/16-report-dedup.json.gz",
+      "bytes": 8443,
+      "sha256": "66a0f594d946f45323e2c65f9f3030df5101fec4119d4c4e22677d9b9c644a96",
+      "gzipBytes": 2656,
+      "gzipSha256": "b6c1832b09096a706cf178e8d78bd3280f5ab1ec2cc899973b7441d5e65d602b"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/egress-report-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/17-egress-report-v2.json.gz",
+      "bytes": 19003,
+      "sha256": "f1cbbf6694adbea387c5dba7c71cf3a1f0ebcf4952a71969166ede8ab96b5f2a",
+      "gzipBytes": 3350,
+      "gzipSha256": "f314a000d6940eb5db0677d3faf629d569ca52509a720f3feb2c779234e13e45"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/egress-report-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/18-egress-report-final.json.gz",
+      "bytes": 30071,
+      "sha256": "4e2515ea74e0951aae3cfb6a0ec2650f886e35fcf33e27b98e657860bac900a7",
+      "gzipBytes": 3887,
+      "gzipSha256": "ae3add2b3aec73e0a1beaffafa556061ac8737fc0bde613badc7ddec982f14b5"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/cli-hook-report-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/19-cli-hook-report-v1.json.gz",
+      "bytes": 12098,
+      "sha256": "0a19398427208ac7e68c5f6145390a3ef949286a33167efbc80020227915ba2e",
+      "gzipBytes": 6236,
+      "gzipSha256": "e0dab6dd31178286bc83841a58fdefccb92cfec5192e2de1ee06e724669df4c6"
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/post-review-status.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/20-post-review-status.json.gz",
+      "bytes": 2411,
+      "sha256": "e8965bb67f44645b5dc1c0a686ab5c95bfb7ac782985e5bb76c4290b7056a14b",
+      "gzipBytes": 1202,
+      "gzipSha256": "12449ef86a21779f4480a9ef514fd6f9e4da6fc968f657bfed97a64a30fadceb"
+    },
+    {
+      "source": "output/semantic-calibration-csls-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/21-semantic-calibration-csls-v1.json.gz",
+      "bytes": 596454,
+      "sha256": "b6791df1befd6e2047cc4207d02877bc26db799ad1c5bfc58b4f311257ac1223",
+      "gzipBytes": 18118,
+      "gzipSha256": "fd524e1678a0a7273034ca8ba9b965b71397a9c0388f5b3c98bfa6c467c8d51a"
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/candidate-contract-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/22-candidate-contract-v1.json.gz",
+      "bytes": 62592,
+      "sha256": "606edee2e6b8eed0899819d701e2aa9b56028590a60b18f6d9333014c011887a",
+      "gzipBytes": 7319,
+      "gzipSha256": "f2421fec175ebdca16f58e1c30e5c2f139ce038a35a69a88a0b6d1cb2e02185b"
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/raw-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/23-raw-v1.json.gz",
+      "bytes": 9576,
+      "sha256": "9a8b80166148382a916f233fd037ca71c5ae018fd16fdbdb2518a18565c8d3a7",
+      "gzipBytes": 1508,
+      "gzipSha256": "b8a7b80b0055ad1df7d49550d9d5a227aad1b38311c6cdeaf0d22bf91c9fdd6e"
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/hybrid-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/24-hybrid-v1.json.gz",
+      "bytes": 400082,
+      "sha256": "0a0dcd311e6b9de5a7ff395ed3e12deeec14aa70db550954b1c83e8fe9f03f0f",
+      "gzipBytes": 13311,
+      "gzipSha256": "f8f525565375366c741a2059521841d59e2e20a7679cd4e8dd6e3c7a2175f67e"
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/adapter-selftest-v1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/25-adapter-selftest-v1.json.gz",
+      "bytes": 791,
+      "sha256": "06e3feafc8b4598e6f0c4d5ec27f45c697b87202ac497095285de5bb979b5f2d",
+      "gzipBytes": 529,
+      "gzipSha256": "2a1661dde22eaf7e960a942dc053e6c1e6fdb36f3412dd6569e416ca37ee1a0d"
+    },
+    {
+      "source": "output/semantic-qwen3-q4-research-v1/adapter-selftest-v2.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-reference-review-r1/26-adapter-selftest-v2.json.gz",
+      "bytes": 3099,
+      "sha256": "02c8aae1399a53910d79d0a83f3ee86a602a21a7c278d0cb5bc3d768f8867382",
+      "gzipBytes": 1359,
+      "gzipSha256": "fb744ff01b29956a0bc69e96ddf7d987f8c61f3ef72c3a1e34454a2973bb1c5e"
+    }
+  ]
+}

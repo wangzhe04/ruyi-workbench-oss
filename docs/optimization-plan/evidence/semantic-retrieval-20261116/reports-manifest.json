@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "scope": "synthetic-model-and-source-integration-evidence",
+  "generatedAt": "2026-11-16T11:19:26.276Z",
+  "limitations": [
+    "Earlier failed reports are preserved and are not final-tree acceptance.",
+    "No OS firewall, packaged EXE, GUI, cross-machine restore or 1000-fragment performance claim."
+  ],
+  "files": [
+    {
+      "path": "semantic-evaluation.json",
+      "bytes": 87628,
+      "sha256": "9a81428eff4393e5576b668aa5769429957898a7362e4aa728dade3a7ec1b5fc"
+    },
+    {
+      "path": "semantic-evaluation-single.json",
+      "bytes": 87681,
+      "sha256": "c0ed986b671a2465eba426b7e1a7992c3101c008fe41dfd4f6b2ca4358227632"
+    },
+    {
+      "path": "semantic-evaluation-holdout-once.json",
+      "bytes": 145971,
+      "sha256": "fd67781b894a1118c989413753e5380cf7f274bd3b144d34e6ae5c68fd1257a1"
+    },
+    {
+      "path": "semantic-evaluation-pilot-final.json",
+      "bytes": 120524,
+      "sha256": "11b48828770508613558562d3b8def4c7de346f9f17571e27e0a753f80b7b57b"
+    },
+    {
+      "path": "semantic-diag-original-1.json",
+      "bytes": 31726,
+      "sha256": "6664cd756b6749790145beb1ef5fef53ac2673274fbdacb25d5317ffb5ee1905"
+    },
+    {
+      "path": "semantic-diag-original-4.json",
+      "bytes": 31719,
+      "sha256": "b63d420b14e0d0e19482a435b748b8d4fa995ca3928e9ed0fc1942159c1c3741"
+    },
+    {
+      "path": "semantic-diag-original-8.json",
+      "bytes": 31736,
+      "sha256": "a0124ca3616ca032676e7540cd248632af16589c9219cb7d3138155789ce8890"
+    },
+    {
+      "path": "semantic-diag-upper-4.json",
+      "bytes": 31734,
+      "sha256": "ed79c658ba73df870c3d02536998c8073266e97433b4666efaf9f7d5d2627e76"
+    },
+    {
+      "path": "semantic-fixed-single-1.json",
+      "bytes": 31728,
+      "sha256": "e6f92800eaea717b4d67644324c75603f7efdaedf63f4735d326db2c0e88b0fc"
+    },
+    {
+      "path": "semantic-fixed-single-4.json",
+      "bytes": 31725,
+      "sha256": "b1ed3087dcc238fff4e6aa2a7d0c9ab326a42fecf650756343b15be1851654bf"
+    },
+    {
+      "path": "semantic-fixed-single-8.json",
+      "bytes": 31716,
+      "sha256": "d65b48bde4864a248627a7cf7db0e7e8518f5c249cef87fff7e27fff086bafc1"
+    },
+    {
+      "path": "semantic-integration.json",
+      "bytes": 83701,
+      "sha256": "0d50ce5cb37218c4194df3015925c3f8928a17fc59c78d7d097ff9deb2e94e16"
+    },
+    {
+      "path": "semantic-integration-rrf.json",
+      "bytes": 84203,
+      "sha256": "88d99dc0d9b86ff5461ecf0f4aaedd294edb68e104d9492b1e42b7c6240618e5"
+    },
+    {
+      "path": "semantic-integration-rawtext-single.json",
+      "bytes": 83289,
+      "sha256": "d426e712ac6ebce78ed92b13995ee6e6ff10f08bb0211c7020a77b6b8d931689"
+    }
+  ]
+}

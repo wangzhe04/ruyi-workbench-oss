@@ -1,6 +1,23 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {make,request}=require('../lib/external-bots-remote-views-fixture');
+test('group audience guard is synchronous, revision-bound and checked at every boundary',async t=>{
+ const {f}=await make(t),api=f.context.ExternalBotHooks.remoteViews,item={conversationType:'group',conversationId:'synthetic'},protocol=f.context.ExternalChannelProtocols;
+ protocol.prepareAudienceRevision=undefined;
+ await a.rejects(api.receiptAudience({},item),{code:'external_channel.delivery_changed'});
+ let getterReads=0;const hostile=Object.defineProperty({},'then',{get(){getterReads++;throw Error('getter');}});
+ for(const check of [async()=>{},async()=>{throw Error('revoked');},()=>Promise.resolve(),()=>false,()=>hostile,()=>new Proxy({}, {get(){throw Error('proxy');}})]){
+  protocol.prepareAudienceRevision=async()=>({revision:'b'.repeat(64),assert:check});
+  await a.rejects(api.receiptAudience({},item),{code:'external_channel.delivery_changed'});
+ }
+ a.equal(getterReads,0);
+ let revoked=false;const proof={revision:'b'.repeat(64),assert(){if(revoked)throw Error('changed');}};
+ protocol.prepareAudienceRevision=async()=>proof;
+ const witness=await api.receiptAudience({},item);proof.revision='c'.repeat(64);proof.assert=()=>{};
+ a.equal(witness.revision,'b'.repeat(64));witness.assert();revoked=true;a.throws(()=>witness.assert(),/changed/);
+ const direct=await api.receiptAudience({},{conversationType:'direct'});a.equal(direct.revision,'');direct.assert();
+ a.equal(f.counts().runs,0);a.equal(f.counts().sends,0);
+});
 test('reserved deterministic parser rejects malformed commands and duplicate JSON without any model fallback',async t=>{
  const {f,api}=await make(t),code=f.context.externalBotRemoteNewCode().code,id='rv_'+Buffer.alloc(16,7).toString('base64url');
  for(const text of ['normal business text','please /pending later'])a.equal(api.parse(text),null);

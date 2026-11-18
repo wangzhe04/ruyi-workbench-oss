@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T17:55:19.743Z",
+  "status": "QUALITY_RED_IMPLEMENTATION_CAP_REPAIR_PENDING",
+  "limitations": [
+    "All model documents and queries in these reports are synthetic isolated sources.",
+    "v3 and v4 have been evaluated once; no threshold or output-dimension selection against either.",
+    "Weak lexical developer replay uses saved real vectors, not a live worker.",
+    "Metadata native sample is an integration observation, not a quality or latency gate.",
+    "Independent cap-before-filter and projection budget regressions remain blocking; no final source/package qualification."
+  ],
+  "records": [
+    {
+      "source": "output/semantic-qwen3-v3-fixed-cost.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/01-semantic-qwen3-v3-fixed-cost.json.gz",
+      "sha256": "1ccf897ea1721e6d5986d618b40b370c529142d7f07f8e219662057e14bd76c0",
+      "bytes": 102225,
+      "gzipSha256": "e1e692e087523f80569c17c53a97d914ca48bbe618a12620549ba21c862f814b",
+      "gzipBytes": 8949
+    },
+    {
+      "source": "output/semantic-qwen3-v4-fixed-weak-lexical.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/02-semantic-qwen3-v4-fixed-weak-lexical.json.gz",
+      "sha256": "d079f0ec564c68d8d7592e7260cbebb6dc3290b85cf17d56b061a8f84505ddb6",
+      "bytes": 154939,
+      "gzipSha256": "cc9804156628567f29c25a12eaf20b3e0f7eff561fa780deeae8bd159736959b",
+      "gzipBytes": 11134
+    },
+    {
+      "source": "output/semantic-weak-lexical-dev-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/03-semantic-weak-lexical-dev-final.json.gz",
+      "sha256": "730e2ff3b1453431993be264ef925656a2109e4edce187793c3d41bc9eb99806",
+      "bytes": 554721,
+      "gzipSha256": "4bcdccb29cfc537496c83a67f019694bb2a63f6307d4031e98efa392170d6cd5",
+      "gzipBytes": 22671
+    },
+    {
+      "source": "output/semantic-metadata-qwen-live-final.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/04-semantic-metadata-qwen-live-final.json.gz",
+      "sha256": "17bd3fe158381e89dae999d1f5f86ba01f629bc0cdc2d86ced86b9949f8fa10d",
+      "bytes": 1314,
+      "gzipSha256": "fe6e008f313b2874eb182731129f18382741185ba23dd230f34be1fd00d499e0",
+      "gzipBytes": 703
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-lexical-cap-repro-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/05-weak-lexical-cap-repro-r1.json.gz",
+      "sha256": "586807c169af2cb60c6961bf1d9f1eadaa2d4318c5035ab83cb1c0ce5cf69652",
+      "bytes": 460,
+      "gzipSha256": "d1dd83d3c44926a93155675b5c484b5139b4353b0e82688598c7f0fc09e404fd",
+      "gzipBytes": 326
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/weak-metadata-review-unit-r1.log",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/06-weak-metadata-review-unit-r1.log.gz",
+      "sha256": "d37b5ebe0f17585ce7376adff38d254eaceade74ec7a3cbb467286346141a5d7",
+      "bytes": 6843,
+      "gzipSha256": "845c55cb8d97a8129c29d25be55483b87bffaf92ae029d8009f08974d9d1f669",
+      "gzipBytes": 2921
+    },
+    {
+      "source": "output/privacy-ref-fixed-v1/metadata-boundary-review-r1.json",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-precision-review-r1/07-metadata-boundary-review-r1.json.gz",
+      "sha256": "7f1db651b87288d694c7bfcc2168f5b4c4a19b8fabb6b8772387ae7d9b6dc3da",
+      "bytes": 3501,
+      "gzipSha256": "e8b4752aaf33445f291ac1e0db75b96cd558430c4e7a1b8762479d17d6cbb5d6",
+      "gzipBytes": 937
+    }
+  ]
+}

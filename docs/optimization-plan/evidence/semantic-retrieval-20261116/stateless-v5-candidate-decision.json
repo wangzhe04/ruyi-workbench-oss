@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-16T18:39:53.190Z",
+  "status": "FROZEN_BEFORE_V5_EVALUATION",
+  "development": {
+    "path": "output/semantic-qwen3-stateless-development-v1.json",
+    "sha256": "cd36fa9ab95988e89f1267d548b48bb0baf7f5e09dcdb18eb02ec7e46d79878f",
+    "sourceStable": true
+  },
+  "selected": {
+    "queryPrefix": "Instruct: Given a user question, retrieve prior messages that contain evidence relevant to answering it\nQuery:",
+    "minimumCosine": 0.46,
+    "structuredIdentifiers": true,
+    "dimensions": 1024,
+    "pooling": "last-unmasked-token",
+    "normalize": "L2",
+    "maxTokens": 512,
+    "physicalBatch": 1,
+    "nativeCachePolicy": {
+      "physicalSequences": 1,
+      "slotEraseBeforeEveryInference": true,
+      "cacheRamMiB": 0,
+      "slotSaveRestoreRequests": false,
+      "sourceGuardAfterErase": true
+    }
+  },
+  "preflight": {
+    "path": "output/semantic-qwen3-evidence-preflight-v3-stateless.json",
+    "sha256": "e5a164af31fc2f732e8aae61bbedac6a33188de0949efb22420bbf2f34536e22"
+  },
+  "bindings": {
+    "dev-harness/semantic/acceptance-v5-fixture.cjs": "5507d687719b72673c4a0b7aa267e6bc8f55e62318b5575915e596e53ae12c44",
+    "dev-harness/semantic/acceptance-v5-integration.cjs": "c4a053cd6d02fabd5c459f661c146f57b7455c2b0dada20cc3762b8fe08b923f",
+    "dev-harness/semantic/qwen-evidence-research-adapter.cjs": "7ecd5e33acaaa1a306f84cc32e1605f07bc5ec1eafa2b1b485f707198884374e",
+    "dev-harness/semantic/qwen-research-adapter.cjs": "fb2b86d3646374d80a5481bf14b3ff88e16451444d5ed52a76f40383da74f89f",
+    "ruyi-workbench/app/src/06ha-semantic-retrieval.js": "a0e846f4e4ec0199a6384172d7d6c67c9c8c4852258e130a0b7e660db1b9c8d1",
+    "ruyi-workbench/app/src/13ap-session-fulltext-index.js": "b2a1b9a707827dc48c964f0eea52eb79e2d152fe0823442d57aa459b442bad50"
+  },
+  "thresholds": {
+    "chineseRecallAt5": 0.9,
+    "zhEnRecallAt5": 0.85,
+    "enZhRecallAt5": 0.85,
+    "mrr": 0.75,
+    "pureOodFalsePositiveRate": 0.05
+  },
+  "independentFixturePreviouslyEvaluated": false,
+  "limits": [
+    "No v2/v3/v4 or v5 results select the new profile.",
+    "Old cache-dependent observations remain preserved; new development vectors are recollected with explicit slot erase.",
+    "Once v5 evaluated no post-result parameter tuning.",
+    "Index source-owner integration only; final UI/native backend/package/current1000 performance still required."
+  ]
+}

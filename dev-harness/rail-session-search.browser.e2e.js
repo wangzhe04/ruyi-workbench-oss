@@ -63,13 +63,25 @@ const { ok } = t;
     }))()`);
     ok(before && !before.hasOld, `S1 前提:老会话不在左栏已取到的那一页里(当前 ${before && before.count} 行)`);
 
-    await fx.evaluate(`(() => { const s = document.getElementById('sessionSearch'); s.value = '断点续传'; s.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    await fx.evaluate(`(() => {
+      const original = window.fetch; window.__searchReceipts = [];
+      window.fetch = async (...args) => {
+        const response = await original(...args);
+        if (String(args[0]).includes('/api/sessions/search?')) {
+          const value = await response.clone().json();
+          window.__searchReceipts.push({ partial: value.partial, reason: value.reason, coverage: value.coverage, semantic: value.semantic, count: value.results?.length });
+        }
+        return response;
+      };
+      const s = document.getElementById('sessionSearch'); s.value = '断点续传'; s.dispatchEvent(new Event('input', { bubbles: true })); return true;
+    })()`);
     const found = await fx.waitForEval(`(() => {
       const row = document.querySelector('#railList [data-session-id="${oldId}"]');
       if (!row) return null;
       const snip = row.querySelector('.rail-search-snippet');
       return { snippet: snip ? snip.textContent : '' };
     })()`, 400);
+    console.log('SEARCH RECEIPTS ' + JSON.stringify(await fx.evaluate('window.__searchReceipts')));
     ok(Boolean(found), 'S1 老会话中间那句搜得到,并且画进了左栏(按 id 补取了它的行)');
     ok(found && /断点续传/.test(found.snippet), `S2 命中行下挂着摘录(${found && found.snippet})`);
     const titledShown = await fx.evaluate(`Boolean(document.querySelector('#railList [data-session-id="${titled}"]'))`);

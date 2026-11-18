@@ -1,0 +1,305 @@
+{
+  "schema": 1,
+  "status": "FIXTURE_REPRESENTATIVENESS_CORRECTION_NOT_PRODUCT_OPTIMIZATION_OR500MS_PASS",
+  "previous": {
+    "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-ui-tentative-reviewed-r1/manifest.json",
+    "sha256": "3a30d76898dd52221ef95743ca8854e33a01ddd2660e509b334911ae878c9c9f"
+  },
+  "records": [
+    {
+      "source": "output/owner-lexical-binding-diagnostic-r1.json",
+      "group": "pure-binding-diagnostic",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/001-owner-lexical-binding-diagnostic-r1.json.gz",
+      "bytes": 2850,
+      "sha256": "72bc6eb64fce429cd8c888ff91556364f5bf63f63f7e9d30f75b5c7e94f4fdee",
+      "gzipBytes": 1067,
+      "gzipSha256": "7b357d19ceca79ae40b21a7b28e0d65837df7a3c7f8fde1b9887b767b4316369"
+    },
+    {
+      "source": "output/owner-lexical-root-cost-review-r1.json",
+      "group": "root40-row-cost-audit",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/002-owner-lexical-root-cost-review-r1.json.gz",
+      "bytes": 2311,
+      "sha256": "ee2d18c018fd14166733a97b9a267ae7d18d7dfae555b75f36084b9517f046ef",
+      "gzipBytes": 958,
+      "gzipSha256": "c610fc55db645d968209f7e6f097253c1b6673f0a468f7567067b510d623247c"
+    },
+    {
+      "source": "output/semantic-owner-lexical-cost-contrast-r1/receipt.json",
+      "group": "lexical-fixture-raw-cost",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/003-receipt.json.gz",
+      "bytes": 108339,
+      "sha256": "0862a367b7897e84c4fa928b67951fb321cb1bd6c7f7d9bd1e05ac2976ba9a70",
+      "gzipBytes": 4712,
+      "gzipSha256": "bac712b249d3d6f1b5014332a91ea82f56451e75096dff1f334cf1a191e6de51"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-binding-diagnostic.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/004-owner-lexical-binding-diagnostic.cjs.gz",
+      "bytes": 3720,
+      "sha256": "40e67e01df2e3bd86244ca26cd1a9f164a1e259a45b145dfcc565c9b0c8fd24e",
+      "gzipBytes": 1750,
+      "gzipSha256": "513ffcf0c6cb96268818b1876ad035db6348ddb35765f42057b6067090c3403a"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-fixture-binding.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/005-owner-lexical-fixture-binding.cjs.gz",
+      "bytes": 2070,
+      "sha256": "ea97489fd4b225dff43ca4af4df0ebcbb98bbe35d1baa05e52f6eae01261f6bc",
+      "gzipBytes": 929,
+      "gzipSha256": "5725a465fc0fb3b1ec9f192c5f796a972bafad6efeb7ec23ecd410ce61865c3f"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-source-fixture.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/006-owner-lexical-source-fixture.cjs.gz",
+      "bytes": 170,
+      "sha256": "c9e746d38d6ef39edcc8b4e1e89f111e192ceee4c6447ab0a4a9278e73e78808",
+      "gzipBytes": 144,
+      "gzipSha256": "d82db29b460d3af920668b3cbebaa1ea91f3030ac36e6a68c2556b28c4c3bf91"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-ui-fixture.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/007-owner-lexical-ui-fixture.cjs.gz",
+      "bytes": 175,
+      "sha256": "c2292bd486893c186ab82a490f899ae4472578a10f77ec292bf11daa10c51e7e",
+      "gzipBytes": 147,
+      "gzipSha256": "7da5973a9ed9a69649b14db3914ad1f13db7f08327950f8e00f1170a94e359c7"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-cost-fixture.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/008-owner-lexical-cost-fixture.cjs.gz",
+      "bytes": 171,
+      "sha256": "62552850dba75b4f43f68a340bccc747168a2032b34c440102fcfad7e0a99b9b",
+      "gzipBytes": 144,
+      "gzipSha256": "cf267a79fc2a5c41d296c78ccb3ffb48cc732bc1e6d70a7dd105c09fae51f051"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-ui-regression.test.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/009-owner-lexical-ui-regression.test.cjs.gz",
+      "bytes": 611,
+      "sha256": "27032a1a8a2368ea34a0736713ce3727670045c3582254ebe331d28f7a5b63c1",
+      "gzipBytes": 341,
+      "gzipSha256": "15d0c31d8bf6bcdbc559254cd4f1fa7eacbed68be10e0a44a4946501e652785e"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-cost-runner.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/010-owner-lexical-cost-runner.cjs.gz",
+      "bytes": 9364,
+      "sha256": "0d2e4d3c5063c08ad00cfab397ca5d9cfd49010997668fbfacc23f06ca1eee66",
+      "gzipBytes": 3812,
+      "gzipSha256": "331eaa2eff448897a46e441c38f3f3cd92bf214cfdd82c93311b0815ec5a3ef5"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-cost-freeze.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/011-owner-lexical-cost-freeze.cjs.gz",
+      "bytes": 3280,
+      "sha256": "222965bb693fac022657f1cb8af3a780f6384f30c004621bc723cbe42c5863c6",
+      "gzipBytes": 1504,
+      "gzipSha256": "a4064258ef52de7a485813c30d9e8dc6d6375e72bdaff9226491b80bf4cc7750"
+    },
+    {
+      "source": "dev-harness/semantic/owner-lexical-root-cost-review.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/012-owner-lexical-root-cost-review.cjs.gz",
+      "bytes": 3822,
+      "sha256": "3cdccc044fe115524064e8a95946838dfdcd6dfdf3c59693b041e6ba4f3a93e7",
+      "gzipBytes": 1883,
+      "gzipSha256": "23954837ce3a0734ce91624906df4d1b9b2008e3c56e9ce227b4dff9aada55f4"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-owner-audit.test.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/013-gemma-q4-lexical-owner-audit.test.cjs.gz",
+      "bytes": 1743,
+      "sha256": "8f02e6da8334be5d7b9ea572ff4a12eff6fac0a104812977189fdb982980f847",
+      "gzipBytes": 798,
+      "gzipSha256": "2ebdaf4dd466d3a5df5cf222b7e5444b76abee9b13059aef183ca37a6906bcfe"
+    },
+    {
+      "source": "dev-harness/semantic/gemma-q4-lexical-owner-source.test.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/014-gemma-q4-lexical-owner-source.test.cjs.gz",
+      "bytes": 1122,
+      "sha256": "1b5d55e2ccaa99165b2f351cd098bd513155117af30e4e96adf85003766a4b65",
+      "gzipBytes": 585,
+      "gzipSha256": "37bf1ccb02a26ca9544d847b01025f238855225e7fe7b80288bacec879ec01e3"
+    },
+    {
+      "source": "dev-harness/semantic/archive-owner-lexical-fixture-evidence.cjs",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/015-archive-owner-lexical-fixture-evidence.cjs.gz",
+      "bytes": 5599,
+      "sha256": "a84f770d7d544678538f87e67308e1f9d9c12a48f853130646cefd245921774f",
+      "gzipBytes": 2436,
+      "gzipSha256": "51188d8ac2b275aaade66eadc8ffca4681bfeca10d8ac4519468b51fb0af5ef7"
+    },
+    {
+      "source": "output/owner-lexical-cost-derivation-r1.json",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/016-owner-lexical-cost-derivation-r1.json.gz",
+      "bytes": 1091,
+      "sha256": "87197a7e64f0f2c0ee89572627c20e11d5cf2237eaeac89bfadf2eaf2afc156d",
+      "gzipBytes": 518,
+      "gzipSha256": "59d24f85817ad7a6e10022aab8d31e41b73eaacbad96c37e472aad8481e6861c"
+    },
+    {
+      "source": "output/owner-lexical-root-cost-derivation-r1.json",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/017-owner-lexical-root-cost-derivation-r1.json.gz",
+      "bytes": 1174,
+      "sha256": "e06e44752664e337bb49c4277aad324a3ad84b6b70867ee05be617301dd239f9",
+      "gzipBytes": 564,
+      "gzipSha256": "2ff345d87b7a4d89753f60ef5b865812ab11ecda5ec7c4c28fc3a4afc7ddf733"
+    },
+    {
+      "source": "output/semantic-owner-lexical-cost-freeze-r1/freeze.json",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/018-freeze.json.gz",
+      "bytes": 63297,
+      "sha256": "e34fed3ebb19ebb3411438dade480732bdbc006b8e1175b332ca66f9e2d99a75",
+      "gzipBytes": 14453,
+      "gzipSha256": "e7434266f663b8b830eb47382b0021fdb4af47b02beadb190104a67728a12e1f"
+    },
+    {
+      "source": "output/ui-tentative-cpu-profile-r1/summary.json",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/019-summary.json.gz",
+      "bytes": 4430,
+      "sha256": "47b0d359bebce4d289ef1b25112ad54d2ade747fcae76f8ca2cefb4f5cb4566d",
+      "gzipBytes": 1153,
+      "gzipSha256": "49313462e4c9c93ac77302ef9d612c54405c34549647f827af258fc128ef0525"
+    },
+    {
+      "source": "output/semantic-ui-tentative-profile-cost-r1/receipt.json",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/020-receipt.json.gz",
+      "bytes": 109661,
+      "sha256": "258c7a6bdb64d724a0aaa1e9f2b8689d2a8f05b722f76dcdf8ede5a2a91e22d6",
+      "gzipBytes": 4771,
+      "gzipSha256": "1543992dd3dc09c77d25fec100190fa5664cc613f76f58ec17fadc6b0d11a3ce"
+    },
+    {
+      "source": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "group": "exact-sources-and-context",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/021-02d-session-overrides.js.gz",
+      "bytes": 5740,
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+      "gzipBytes": 2613,
+      "gzipSha256": "3d72e75e9e82aaa3de702531c52539be9151d54a8d667f7643508026deddc91b"
+    },
+    {
+      "source": "output/ui-tentative-cpu-profile-r1/CPU.20261117.135730.17928.0.001.cpuprofile",
+      "group": "whole-two-arm-cpu-diagnostic",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/022-CPU.20261117.135730.17928.0.001.cpuprofile.gz",
+      "bytes": 1039051,
+      "sha256": "8ea905619f79a83384b0ab24ffc581fbbe93d977e5575fae4c1d82896e1444c8",
+      "gzipBytes": 124910,
+      "gzipSha256": "911db8aea2e48009cc59087374f6bdbd99a3043b98130bd14ecfb1da5111129a"
+    },
+    {
+      "source": "output/semantic-owner-lexical-cost-freeze-r1/baseline-consumer.js",
+      "group": "derived-consumer",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/023-baseline-consumer.js.gz",
+      "bytes": 26379,
+      "sha256": "c9b2818e79dbbdc358004e7d13e8e549f4017ab222a167fcdb6df76de9fc8842",
+      "gzipBytes": 7790,
+      "gzipSha256": "71caea1ac4cc2f5194b4ddef549e96f4bc8b508eeceb230bda1e0b51f7e6af25"
+    },
+    {
+      "source": "output/semantic-owner-lexical-cost-freeze-r1/staged-consumer.js",
+      "group": "derived-consumer",
+      "archive": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-owner-lexical-fixture-reviewed-r1/024-staged-consumer.js.gz",
+      "bytes": 28408,
+      "sha256": "d1fec89f747bf3c6fa98d37a53af6c5e39f9354b9f38babd2ec313e4b7f0b857",
+      "gzipBytes": 8202,
+      "gzipSha256": "1d095d53f03d39da92f97e566a836c1a7df38b729e1c7be84f9e1b2d50d02315"
+    }
+  ],
+  "checks": {
+    "sameLiveMaps": true,
+    "twoOriginalHelperBodiesUnchanged": true,
+    "originalValueComparisons": 68,
+    "rootObservedUiSourceRegression": {
+      "command": "node --test dev-harness/semantic/owner-lexical-ui-regression.test.cjs",
+      "session": 89009,
+      "exitCode": 0,
+      "tests": 38,
+      "pass": 38,
+      "fail": 0,
+      "scope": "Tool output observed by root; this archive stores exact test/fixture source, not an independently generated raw stdout log."
+    },
+    "rootCostRows": 40,
+    "rootCostBindings": 272
+  },
+  "cost": [
+    {
+      "mode": "baseline",
+      "first": {
+        "count": 10,
+        "meanMs": 635.2430499999997,
+        "maximumMs": 670.7447000000002,
+        "manifestReadAttempts": [
+          240
+        ]
+      },
+      "repeat": {
+        "count": 10,
+        "meanMs": 613.0662200000008,
+        "maximumMs": 638.3838000000032,
+        "manifestReadAttempts": [
+          240
+        ]
+      },
+      "cold": {
+        "modelLoading": "not measured: genuine vector replay only",
+        "fixtureCreationMs": 121.84490000000002,
+        "sourceWritingMs": 146.38389999999998,
+        "indexPreparationMs": 1475.6048,
+        "indexManifestReads": 120
+      },
+      "prewarmPartialsPreserved": 1
+    },
+    {
+      "mode": "staged",
+      "first": {
+        "count": 10,
+        "meanMs": 583.5441500000009,
+        "maximumMs": 647.4347000000016,
+        "manifestReadAttempts": [
+          120
+        ]
+      },
+      "repeat": {
+        "count": 10,
+        "meanMs": 600.5356499999998,
+        "maximumMs": 695.2122000000018,
+        "manifestReadAttempts": [
+          120
+        ]
+      },
+      "cold": {
+        "modelLoading": "not measured: genuine vector replay only",
+        "fixtureCreationMs": 89.59850000000006,
+        "sourceWritingMs": 134.71810000000187,
+        "indexPreparationMs": 1582.145800000002,
+        "indexManifestReads": 120
+      },
+      "prewarmPartialsPreserved": 1
+    }
+  ],
+  "limits": [
+    "Only four actual-const owner Map bindings and two module-local helpers aligned with production lexical scope. Same live values and all five reads/JSON/toJSON still run; no source guard or freshness check removed.",
+    "External mutation of retained Map objects remains observable. Replacing the entire test-global Map object does not replace a captured const, matching production const identity; remaining VM/test-host environment is not proven equivalent to desktop.",
+    "Old global-fixture timing receipts are preserved in the previous archive; new values are not claimed as production speedup. Both remain above500ms and are not1000-fragment qualification.",
+    "Whole-process CPU profile includes both arms,index/source construction and partial prewarm; no staged-only attribution. Profiler run is separate from frozen observer-free costs.",
+    "No native/model/holdout input, production/default/version change or gate closure."
+  ]
+}
