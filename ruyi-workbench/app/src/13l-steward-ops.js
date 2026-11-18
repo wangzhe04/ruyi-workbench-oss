@@ -922,7 +922,10 @@ async function stewardImplMissions(args, ctx, config) {
   // total 才是库里一共有多少。
   const limit = stewardClampInt(args && args.limit, 1, STEWARD_MISSIONS_LIMIT_MAX, STEWARD_MISSIONS_LIMIT_DEFAULT);
   const shown = missions.slice(0, limit);
-  return { ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit };
+  // 150 号文 §4 P8:事项标题、目标、验收项、线程标题与摘要都来自别的线程 —— 与 steward_thread_status /
+  // threads_search 同口径整份过 foreignView,外线程代号换成占位文字,而不是让网关把整份结果扣成
+  // privacy.tool_result_withheld(管家就看不到任何事项)。
+  return stewardForeignProjection({ ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit });
 }
 
 // ════════════════════════════════════════════════════════════════════════════

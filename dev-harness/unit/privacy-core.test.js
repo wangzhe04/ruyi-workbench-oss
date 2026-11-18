@@ -73,9 +73,11 @@ test('legacy whitespace tokens retain validation and restoration without global 
 
 test('opaque-reference scanning ignores internal active and revoked short values but preserves outside rejection', () => {
   const s = scope(), token = '[[RUYI_PVT:EMAIL:' + 'a'.repeat(32) + ']]';
-  s.importState({ version: 1, scopeId: 'session-test', entries: [{ token, value: 'opaque@example.test', category: 'EMAIL', expiresAt: Date.now() + 60000 }], revokedValues: ['a'] });
+  // 150 号文 §4 P4: one-character values are no longer learned patterns; an 8-character revoked value
+  // (no word-boundary requirement) still occurs inside the opaque token hex and keeps this test's point.
+  s.importState({ version: 1, scopeId: 'session-test', entries: [{ token, value: 'opaque@example.test', category: 'EMAIL', expiresAt: Date.now() + 60000 }], revokedValues: ['aaaaaaaa'] });
   assert.equal(s.detect(token, { opaqueReferences: true }).length, 0);
-  assertCode(() => s.detect(token + ' a', { opaqueReferences: true }), 'reference_revoked');
+  assertCode(() => s.detect(token + ' aaaaaaaa', { opaqueReferences: true }), 'reference_revoked');
   assertCode(() => s.detect(token.replace(/a/g, 'b'), { opaqueReferences: true }), 'reference_unknown');
   assertCode(() => s.detect(token + ' [[RUYI_PVT:bad', { opaqueReferences: true }), 'reference_malformed');
 });
@@ -206,9 +208,10 @@ test('learned exact values survive prose, restart and overlap while remaining is
   assert.equal(fresh.protectRaw(value).text, value);
   const restarted = scope({ detector }); restarted.importState(s.exportState());
   assert.equal(restarted.protectRaw(value).text, token);
-  const outer = s.protectValue('ABCDE', 'INTERNAL'); s.protectValue('ABC', 'CREDENTIAL');
-  assert.equal(s.protectRaw('ABCDE').text, outer);
-  assert.equal(s.detect('ABCDE')[0].category, 'CREDENTIAL');
+  // P4: overlap values are long enough to be learned patterns (>= 8 characters, no word-boundary rule).
+  const outer = s.protectValue('ABCDEFGHIJ', 'INTERNAL'); s.protectValue('ABCDEFGH', 'CREDENTIAL');
+  assert.equal(s.protectRaw('ABCDEFGHIJ').text, outer);
+  assert.equal(s.detect('ABCDEFGHIJ')[0].category, 'CREDENTIAL');
   assertCode(() => s.restoreForTool(outer, allowed({ authorize: ref => ref.category !== 'CREDENTIAL' })), 'restore_denied');
 });
 
@@ -273,28 +276,32 @@ test('revocation of an escaped alias also invalidates the remaining representati
   assertCode(() => restarted.protectRaw(decoded), 'reference_revoked');
 });
 
-test('learned matching has shared comparison and pre-merge hit budgets, including one-character secrets', () => {
+test('learned matching has shared comparison and pre-merge hit budgets; one-character values are not learned patterns', () => {
   const s = scope({ detector: core.createDetector() }); s.protectValue('abcabcabd', 'INTERNAL');
   const budget = core.createMatchBudget(80);
   assert.deepEqual(plain(s.detect('z'.repeat(30), { budget })), []);
   assertCode(() => s.detect('z'.repeat(60), { budget }), 'learned_scan_limit');
   assert.deepEqual(plain(s.detect('z'.repeat(60))), [], 'a separate default-bounded operation gets a new budget');
+  // 150 号文 §4 P4: a one-character value keeps its reference but never rewrites later text.
   const tiny = scope({ detector: core.createDetector() }); const token = tiny.protectValue('x', 'INTERNAL');
-  assert.equal(tiny.protectRaw('x').text, token);
-  tiny.protectValue('xx', 'INTERNAL');
-  assertCode(() => tiny.detect('xxxx', { budget: core.createMatchBudget(100, 5) }), 'learned_scan_limit');
+  assert.equal(tiny.protectRaw('x').text, 'x');
+  assert.equal(tiny.validateProtected(token), token);
+  // Overlapping hits still count against the pre-merge hit budget for learnable values.
+  tiny.protectValue('xyxyxyxy', 'INTERNAL'); tiny.protectValue('xyxyxyxyxy', 'INTERNAL');
+  assertCode(() => tiny.detect('xy'.repeat(10), { budget: core.createMatchBudget(1000, 5) }), 'learned_scan_limit');
   assertCode(() => tiny.detect('x', { budget: {} }), 'scan_budget_invalid');
 });
 
 test('learned multi-pattern scanning covers suffixes, UTF-16 offsets and cache changes within the same bounded budget', () => {
   const s = scope({ detector: core.createDetector() });
-  s.protectValue('he', 'INTERNAL'); s.protectValue('she', 'INTERNAL'); s.protectValue('hers', 'CREDENTIAL');
+  // P4: the classic he/she/hers suffix shape, lengthened past the learning and word-boundary thresholds.
+  s.protectValue('zzzzzzhe', 'INTERNAL'); s.protectValue('szzzzzzhe', 'INTERNAL'); s.protectValue('zzzzzzhers', 'CREDENTIAL');
   s.protectValue('😀私密', 'INTERNAL');
-  const matches = plain(s.detect('ushers 😀私密'));
+  const matches = plain(s.detect('uszzzzzzhers 😀私密'));
   assert.deepEqual(matches.map(({ start, end, category }) => ({ start, end, category })),
-    [{ start: 1, end: 6, category: 'CREDENTIAL' }, { start: 7, end: 11, category: 'INTERNAL' }]);
-  s.protectValue('she', 'CREDENTIAL');
-  assert.equal(s.detect('she')[0].category, 'CREDENTIAL');
+    [{ start: 1, end: 12, category: 'CREDENTIAL' }, { start: 13, end: 17, category: 'INTERNAL' }]);
+  s.protectValue('szzzzzzhe', 'CREDENTIAL');
+  assert.equal(s.detect('szzzzzzhe')[0].category, 'CREDENTIAL');
   const late = s.protectValue('late-value', 'INTERNAL');
   assert.equal(s.protectRaw('late-value').text, late);
   s.revoke(late); assertCode(() => s.detect('late-value'), 'reference_revoked');

@@ -485,8 +485,9 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   const credentialContext = (span, start, end) => span.category === 'CREDENTIAL' && span.start < end && span.end > start
     && (span.start < start || span.end > end || span.start === start && span.end === end);
-  function protectString(input, context, pointer, raw = false, budget, proof) {
+  function protectString(input, context, pointer, raw = false, budget, proof, learned = true) {
     if (typeof input !== 'string') return input;
+    const learnedMatching = learned ? undefined : false;
     let sourceCursor = 0;
     const protect = (value, offset = 0, sourceMatches) => {
       let result;
@@ -505,7 +506,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           from = match.end;
         }
         result = { text: protectedSegment + value.slice(from), matches };
-      } else result = context.scope.protectRaw(value, { pointer, budget });
+      } else result = context.scope.protectRaw(value, { pointer, budget, learnedMatching });
       for (const match of result.matches) {
         if (context.trace) context.trace.push({ pointer, ...match });
         if (proof) {
@@ -518,7 +519,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     if (raw || !input.includes(PREFIX)) return protect(input);
     let matches;
-    try { matches = context.scope.detect(input, { pointer, budget, opaqueReferences: true }); }
+    try { matches = context.scope.detect(input, { pointer, budget, opaqueReferences: true, learnedMatching }); }
     catch (error) { if (error.code === 'privacy.reference_malformed') fail('reserved_literal'); throw error; }
     const credentials = matches.filter(match => match.category === 'CREDENTIAL');
     let output = '', from = 0, referenceCursor = 0;
@@ -735,7 +736,11 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           if (parsed && typeof parsed === 'object') return yield* protectJson(item, depth + 1, proof, allowReferences, parsed);
         }
         if (item.startsWith('data:') || /\/(?:image|audio|video)(?:_url)?(?:\/url)?$/.test(pointer)) fail('media_not_supported');
-        const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof);
+        // Protocol identifier controls (role/type enums, tool names) are workbench/protocol vocabulary, not user
+        // content: a short learned value such as "read" must not refuse a request whose tools include file_read
+        // (1B1 re-review). Built-in and explicit rules still fail closed on them; model/id stay fully strict.
+        const identifierControl = !structuredData && /\/(?:role|type|name)$/.test(pointer);
+        const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof, !identifierControl);
         if (!structuredData && /\/(?:model|role|type|id|call_id|tool_call_id|name|signature)$/.test(pointer) && result !== item) fail('control_field_sensitive');
         if (!structuredData && /\/(?:thinking|signature|encrypted_content)$/.test(pointer) && item) fail('opaque_content_not_supported');
         return result;
@@ -766,7 +771,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         const result = Object.create(null);
         for (const [key, row] of Object.entries(item)) {
           yield { bytes: Buffer.byteLength(key) };
-          const protectedKey = protectString(key, context, '', raw, budget);
+          // Protocol object keys (message/tool/schema spelling, incl. tool parameter names) skip learned
+          // matching (150 号文 §4 P4); built-in and explicit rules still fail closed on them. Keys of
+          // structured data (tool input, JSON text) keep learned matching and are rewritten, not refused.
+          const protectedKey = protectString(key, context, '', raw, budget, undefined, structuredData);
           if (!structuredData && protectedKey !== key) fail('control_field_sensitive');
           const nextKey = structuredData ? protectedKey : key;
           if (Object.hasOwn(result, nextKey)) fail('key_collision');

@@ -1,7 +1,9 @@
 // 81-P1: Versioned offline rule extensions. Input and matching budgets are enforced by PrivacyCore;
 // built-in delimiter runs are linear, and no user regex runs here.
 const PrivacyRuleCatalog = (() => {
-  const version = 5;
+  // 6: 3.1 phase 1 (150 号文 §4 P2/P3/P4) changed built-in detection in PrivacyCore; bumping invalidates
+  // rule-bound derived artifacts (rulesHash / ruleVersion) produced under the previous detection.
+  const version = 6;
   const rules = [];
   const add = (id, category, tier, pattern, capture = 0) => rules.push(Object.freeze({ id, category, tier, pattern, capture }));
   // Quoted JSON/property labels and prose labels carry the same privacy evidence. The optional

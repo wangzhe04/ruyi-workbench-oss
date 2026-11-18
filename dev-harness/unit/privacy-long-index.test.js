@@ -51,13 +51,15 @@ test('long membership changes preserve the short cache and invalid imports prese
 });
 
 test('comparison and premerge hit budgets are shared by short and long tries', () => {
-  const s = scope(), long = 'x'.repeat(4097);
-  s.protectValue('x', 'INTERNAL'); s.protectValue(long, 'INTERNAL'); s.detectLearned(long);
+  // 150 号文 §4 P4: the short pattern must itself be learnable (8 characters, no word-boundary rule);
+  // it still hits at every offset from 7 on, so the short trie's hits plus the long hit exceed long.length - 8.
+  const s = scope(), long = 'q'.repeat(4097), short = 'q'.repeat(8);
+  s.protectValue(short, 'INTERNAL'); s.protectValue(long, 'INTERNAL'); s.detectLearned(long);
   code(() => s.detectLearned(long, { budget: core.createMatchBudget(2 * long.length - 1) }), 'learned_scan_limit');
-  code(() => s.detectLearned(long, { budget: core.createMatchBudget(undefined, long.length) }), 'learned_scan_limit');
+  code(() => s.detectLearned(long, { budget: core.createMatchBudget(undefined, long.length - short.length) }), 'learned_scan_limit');
   const reused = core.createMatchBudget(3 * long.length + 20);
   s.detectLearned(long, { budget: reused });
-  code(() => s.detectLearned('x'.repeat(21), { budget: reused }), 'learned_scan_limit');
+  code(() => s.detectLearned('q'.repeat(21), { budget: reused }), 'learned_scan_limit');
 });
 
 test('cached indexes never cache authority: alias category, revoke, expiry and imports stay live', () => {
@@ -95,10 +97,20 @@ test('retained imported long whitespace restores locally but is never a global l
   assert.deepEqual(plain(s.detectLearned(value, { budget: core.createMatchBudget(1) })), []);
 });
 
+// 150 号文 §4 P4 model, written independently of PrivacyCore: a value is a learned pattern only if it has
+// >= 2 code points with CJK or >= 4 otherwise; one shorter than 8 UTF-16 units needs ASCII
+// alphanumeric word boundaries at its alphanumeric edges.
+const asciiWord = /[A-Za-z0-9]/;
+const learnable = value => [...value].length >= (/[一-鿿]/.test(value) ? 2 : 4);
+const bounded = (text, value, start, end) => value.length >= 8
+  || !(asciiWord.test(value[0]) && asciiWord.test(text[start - 1] || '')) && !(asciiWord.test(value.at(-1)) && asciiWord.test(text[end] || ''));
 function oracle(text, patterns) {
   const found = [];
   for (const { value, category } of patterns) {
-    for (let start = text.indexOf(value); start >= 0; start = text.indexOf(value, start + 1)) found.push({ start, end: start + value.length, category });
+    if (!learnable(value)) continue;
+    for (let start = text.indexOf(value); start >= 0; start = text.indexOf(value, start + 1)) {
+      if (bounded(text, value, start, start + value.length)) found.push({ start, end: start + value.length, category });
+    }
   }
   found.sort((a, b) => a.start - b.start || b.end - a.end);
   const out = [];
@@ -116,13 +128,16 @@ test('seeded exact-match oracle covers mixed long/short suffixes, Unicode, rebui
   const word = n => Array.from({ length: n }, () => alphabet[random(alphabet.length)]).join('');
   for (let iteration = 0; iteration < 160; iteration++) {
     let s = scope();
-    const patterns = new Map(), add = value => patterns.set(value, { value, category: random(4) ? 'INTERNAL' : 'CREDENTIAL' });
-    for (let n = 0; n < 8; n++) add(word(2 + random(8)));
+    // A repeated short value keeps its first category (the scope would keep the stricter one).
+    const patterns = new Map(), add = value => { const category = random(4) ? 'INTERNAL' : 'CREDENTIAL'; if (!patterns.has(value)) patterns.set(value, { value, category }); };
+    // 150 号文 §4 P4: short patterns (1–15 symbols) exercise the learning threshold and the < 8-unit
+    // word-boundary rule; the oracle above models both.
+    for (let n = 0; n < 8; n++) add(word(1 + random(15)));
     const base = word(4100); add(base); add(base.slice(1)); add(base.slice(2));
     for (const { value, category } of patterns.values()) s.protectValue(value, category);
     const text = word(20) + base + word(10) + [...patterns.keys()][random(8)] + word(20);
     s.detectLearned(text);
-    add(word(3)); const fresh = [...patterns.values()].at(-1); s.protectValue(fresh.value, fresh.category);
+    add(word(3 + random(6))); const fresh = [...patterns.values()].at(-1); s.protectValue(fresh.value, fresh.category);
     if (iteration % 2) { const copy = scope(); copy.importState(plain(s.exportState())); s = copy; }
     assert.deepEqual(spans(s.detectLearned(text)), oracle(text, [...patterns.values()]), 'iteration ' + iteration);
   }

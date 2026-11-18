@@ -198,8 +198,10 @@ test('explicit history limit checks preserve normal learned scans when the full 
   api.configure(policy);
   await api.run('explicit-history-budget', policy, () => {
     const scope = api.active().scope;
-    scope.protectValue('Z', 'INTERNAL');
-    const content = 'password=' + 'Y'.repeat(6000) + 'Z'.repeat(5000);
+    // 150 号文 §4 P4: one character is no longer a learned pattern; a 4-character value with
+    // non-alphanumeric edges still yields 5000 adjacent (unmerged) learned hits.
+    scope.protectValue('#Zz#', 'INTERNAL');
+    const content = 'password=' + 'Y'.repeat(6000) + '#Zz#'.repeat(5000);
     const old = { role: 'user', content }, owner = {}, fresh = { role: 'user', content: 'continue' };
     assert.equal(scope.detectLearned(content).length, 5000);
     assert.equal(scope.detect(content).length, 1);

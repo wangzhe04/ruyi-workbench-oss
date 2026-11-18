@@ -44,8 +44,10 @@ test('business-number phone exclusions survive complete JSON requests and tool r
     assert.equal(prepared.privacyError, undefined); assert.equal(JSON.parse(prepared.rawArgs).content, '13900000088');
   });
 });
-for (const generation of ['second', 'third']) test(generation + ' scenarios preserve the same privacy contract through user input, JSON tool returns and exact tool restoration', async () => {
-  const corpus = generation === 'second' ? require('../privacy-31/second-scenario-corpus').createSecondCorpus() : require('../privacy-31/third-scenario-corpus').createThirdCorpus();
+for (const generation of ['second', 'third', 'format-gap']) test(generation + ' scenarios preserve the same privacy contract through user input, JSON tool returns and exact tool restoration', async () => {
+  const corpus = generation === 'second' ? require('../privacy-31/second-scenario-corpus').createSecondCorpus()
+    : generation === 'third' ? require('../privacy-31/third-scenario-corpus').createThirdCorpus() : require('../privacy-31/format-gap-corpus').createFormatGapCorpus();
+  corpus.technical = corpus.technical || [];
   for (const mode of ['off', 'basic', 'enhanced', 'strict']) {
     const config = policy(mode, false);
     await scoped(config, async () => {

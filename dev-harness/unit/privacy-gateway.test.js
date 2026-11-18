@@ -264,8 +264,9 @@ test('escaped credential aliases and previously exposed aliases retain credentia
 test('learned credential overlap upgrades a stable longer reference and learned numbers fail closed', async t => {
   const { api } = await setup(t);
   await api.run('learned-classification', config, async () => {
-    const scope = api.active().scope, longer = scope.protectValue('ABCDE', 'INTERNAL'); scope.protectValue('ABC', 'CREDENTIAL');
-    assert.equal((await api.toolResult({ content: 'ABCDE' })).content, longer);
+    // 150 号文 §4 P4: learned overlap values must be long enough to be learned patterns at all.
+    const scope = api.active().scope, longer = scope.protectValue('ABCDEFGHIJ', 'INTERNAL'); scope.protectValue('ABCDEFGH', 'CREDENTIAL');
+    assert.equal((await api.toolResult({ content: 'ABCDEFGHIJ' })).content, longer);
     assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: longer }) })).privacyError);
     scope.protectValue('foo"bar', 'CREDENTIAL');
     const encoded = await api.toolResult({ content: '{"other":"foo\\"bar"}' });
@@ -275,8 +276,11 @@ test('learned credential overlap upgrades a stable longer reference and learned 
     scope.protectValue('12345', 'INTERNAL');
     await assert.rejects(() => api.toolResult({ value: 12345 }), /numeric_sensitive/);
     await assert.rejects(() => api.toolResult({ content: '{"value":12345}' }), /numeric_sensitive/);
+    // A learned value in a protocol control VALUE still fails closed (P4 only exempts keys and too-short values).
+    scope.protectValue('synthetic-learned-model', 'INTERNAL');
+    await assert.rejects(() => api.beforeRequest({ model: 'synthetic-learned-model' }), /control_field_sensitive/);
     scope.protectValue('x', 'INTERNAL');
-    await assert.rejects(() => api.beforeRequest({ model: 'x' }), /control_field_sensitive/);
+    assert.equal((await api.beforeRequest({ model: 'x' })).model, 'x', 'a one-character value is not a learned pattern');
   });
 });
 

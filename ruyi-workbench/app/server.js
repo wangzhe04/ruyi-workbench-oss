@@ -2678,7 +2678,9 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
 // 81-P1: Versioned offline rule extensions. Input and matching budgets are enforced by PrivacyCore;
 // built-in delimiter runs are linear, and no user regex runs here.
 const PrivacyRuleCatalog = (() => {
-  const version = 5;
+  // 6: 3.1 phase 1 (150 号文 §4 P2/P3/P4) changed built-in detection in PrivacyCore; bumping invalidates
+  // rule-bound derived artifacts (rulesHash / ruleVersion) produced under the previous detection.
+  const version = 6;
   const rules = [];
   const add = (id, category, tier, pattern, capture = 0) => rules.push(Object.freeze({ id, category, tier, pattern, capture }));
   // Quoted JSON/property labels and prose labels carry the same privacy evidence. The optional
@@ -2992,6 +2994,37 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
     return '10X98765432'[weights.reduce((sum, weight, i) => sum + weight * Number(value[i]), 0) % 11] === value[17];
   }
+  // 150 号文 §4 P4. Two separate predicates:
+  // - placeholderValue: a label's value that is configuration syntax, not a secret (on/none/TODO/****).
+  //   Only these are skipped by the bare label rules; every other value, however short, is still
+  //   protected where it appears.
+  // - learnableValue: whether a protected value may become a scope-wide learned pattern. A learned
+  //   value is matched in every later text, so it must not collide with ordinary words, type names
+  //   or protocol enum values (a learned "string"/"user"/"function" would refuse whole requests).
+  //   Thresholds follow this module's existing classes: CJK (one character is a surname or a word,
+  //   two already form a name or a deliberate value) needs 2 code points; pure digits keep 3 because
+  //   the catalog's shortest numeric credential is a 3-digit CVV/CVC and short numbers already get
+  //   embeddedShortNumber's boundary guard; every other value needs 4 code points.
+  const TRIVIAL_VALUES = new Set(['on', 'off', 'true', 'false', 'yes', 'no', 'none', 'null', 'nil', 'undefined', 'nan',
+    '0', '1', 'empty', 'unset', 'default', 'enabled', 'disabled', 'enable', 'disable', 'required', 'optional', 'auto', 'n/a',
+    'tbd', 'todo', 'redacted', 'hidden', 'placeholder',
+    '空', '无', '是', '否', '暂无', '没有', '未知', '未设置', '默认', '保密', '省略', '隐藏', '同上', '待定', '不详']);
+  const PROTOCOL_WORDS = new Set(['string', 'number', 'integer', 'boolean', 'bool', 'object', 'array', 'any', 'unknown', 'void',
+    'never', 'bigint', 'symbol', 'int', 'float', 'double', 'str', 'char', 'byte', 'bytes', 'date', 'datetime', 'json', 'map', 'list',
+    'user', 'assistant', 'system', 'tool', 'developer', 'function', 'text', 'image', 'input_text', 'output_text', 'tool_use',
+    'tool_result', 'message', 'messages', 'content', 'role', 'type', 'name', 'model', 'auto', 'required', 'stop', 'length']);
+  function placeholderValue(value) {
+    const key = String(value).trim().toLowerCase();
+    return TRIVIAL_VALUES.has(key) || [...key].length <= 32 && /^[*＊×•·.…_~#=xX-]+$/.test(key);
+  }
+  const CJK_TEXT = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
+  function learnableValue(value) {
+    if (typeof value !== 'string' || !/\S/.test(value)) return false;
+    const length = [...value].length;
+    if (placeholderValue(value) || PROTOCOL_WORDS.has(value.trim().toLowerCase())) return false;
+    if (CJK_TEXT.test(value)) return length >= 2;
+    return length >= (/^[0-9]+$/.test(value) ? 3 : 4);
+  }
   function luhn(value) {
     const digits = value.replace(/[ -]/g, '');
     if (!/^\d{13,19}$/.test(digits) || /^(\d)\1+$/.test(digits)) return false;
@@ -3071,10 +3104,36 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       scan(/(?<![A-Za-z0-9_-])sk-[A-Za-z0-9][A-Za-z0-9_-]{15,}(?![A-Za-z0-9_-])/g, 'CREDENTIAL', 'builtin.provider-key');
       scan(/(?<![A-Za-z0-9_-])(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})(?![A-Za-z0-9_-])/g, 'CREDENTIAL', 'builtin.platform-token');
       // PEM is handled with delimiters, not an unbounded multi-line backtracking regex.
-      const pem = /-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----/g;
+      const pem = /-----BEGIN (?:(?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY|PGP (?:PRIVATE|SECRET) KEY BLOCK)-----/g;
       for (const m of privacyText.matchAll(pem)) {
         const endMarker = m[0].replace('BEGIN', 'END'), end = privacyText.indexOf(endMarker, m.index + m[0].length);
         add(m.index, end < 0 ? privacyText.length : end + endMarker.length, 'CREDENTIAL', 'builtin.private-key');
+      }
+      // PuTTY .ppk: from the header through its Private-MAC (v2/v3) or Private-Hash (v1) line. The file
+      // is only `Key: value` and base64 lines; a truncated copy stops at the first blank or other line.
+      let puttyCovered = -1;
+      for (const m of privacyText.matchAll(/PuTTY-User-Key-File-\d{1,2}:[^\r\n]*/g)) {
+        if (m.index < puttyCovered) continue;
+        const line = /\r?\n([^\r\n]*)/y; let end = m.index + m[0].length;
+        for (;;) {
+          line.lastIndex = end; const row = line.exec(privacyText);
+          if (!row || !/^[ \t]*(?:[A-Za-z][A-Za-z0-9-]{0,63}:[^\r\n]*|[A-Za-z0-9+/=]+[ \t]*)$/.test(row[1])) break;
+          end = line.lastIndex;
+          if (/^[ \t]*Private-(?:MAC|Hash):/.test(row[1])) break;
+        }
+        puttyCovered = end;
+        add(m.index, end, 'CREDENTIAL', 'builtin.putty-private-key');
+      }
+      // A pasted private half without its header: "Private-Lines: N" then N base64 lines.
+      for (const m of privacyText.matchAll(/(?:^|[\r\n])[ \t]*Private-Lines:[ \t]*(\d{1,4})[ \t]*(?=\r?\n)/g)) {
+        const line = /\r?\n[ \t]*([A-Za-z0-9+/=]+)[ \t]*(?=\r?\n|$)/y;
+        let start = -1, end = m.index + m[0].length;
+        for (let i = 0; i < Number(m[1]); i++) {
+          line.lastIndex = end; const row = line.exec(privacyText); if (!row) break;
+          if (start < 0) start = row.index + row[0].lastIndexOf(row[1]);
+          end = row.index + row[0].lastIndexOf(row[1]) + row[1].length;
+        }
+        if (start >= 0) add(start, end, 'CREDENTIAL', 'builtin.putty-private-key');
       }
       scan(/\b(?:Bearer|Basic)\s+([^\s"'<>]{4,})/gi, 'CREDENTIAL', 'builtin.authorization', 1);
       for (const match of privacyText.matchAll(/(?:^|[\r\n])[ \t]*(?:Authorization|Proxy-Authorization)[ \t]*:[ \t]*([^\r\n]*(?:\r?\n[ \t]+[^\r\n]+)*)/gi)) {
@@ -3089,8 +3148,54 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       }
       scan(/\beyJ[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\b/g, 'CREDENTIAL', 'builtin.jwt');
       scan(/(?:^|[\r\n])[ \t]*(?:Cookie|Set-Cookie)[ \t]*:[ \t]*([^\r\n]+)/gi, 'CREDENTIAL', 'builtin.cookie', 1, value => /\S/.test(value));
+      // URL userinfo as WHATWG parses it: the authority ends at the first / ? # (or whitespace), and
+      // every @ before that end belongs to the userinfo, so the host follows the LAST @. The password
+      // is everything after the userinfo's first colon (150 号文 §4 P2: `admin:p@ssw0rd@db`).
       // JSON wrapper spelling cannot form userinfo across quotes or escapes. Actual
       // decoded string values retain the full raw URL rule, including apostrophes.
+      {
+        const automatic = context[lexicalJsonSource] === 'automatic';
+        // First match at or after `at`; calls are monotone per cursor, so total scanning stays linear.
+        const cursor = find => { let from = -1, found = -1; return at => { if (at < from || at > found) { from = at; found = find(at); } return found; }; };
+        const nextMatch = regex => cursor(at => { regex.lastIndex = at; const m = regex.exec(privacyText); return m ? m.index : privacyText.length; });
+        const nextAtSign = () => cursor(at => { const i = privacyText.indexOf('@', at); return i < 0 ? privacyText.length : i; });
+        const authorityEnd = nextMatch(automatic ? /[\s/?#"\\<>]/g : /[\s/?#]/g), userinfoAt = nextAtSign();
+        const runEnd = nextMatch(automatic ? /[\s"\\<>]/g : /\s/g), spillAt = nextAtSign(), spillEnd = nextMatch(automatic ? /[\s/?#"\\<>]/g : /[\s/?#]/g);
+        const spillTail = nextAtSign();
+        let spillFrom = -1, spillLast = -1, spillStop = -1, spillHost = false, spillAdded = -1;
+        for (const m of privacyText.matchAll(/\b[a-z][a-z0-9+.-]{0,20}:\/\//gi)) {
+          const start = m.index + m[0].length, end = authorityEnd(start);
+          let last = -1;
+          for (let at = userinfoAt(start); at < end; at = userinfoAt(at + 1)) last = at;
+          if (last >= 0) {
+            const colon = privacyText.indexOf(':', start);
+            if (colon >= 0 && colon + 1 < last) add(colon + 1, last, 'CREDENTIAL', 'builtin.url-password');
+            continue;
+          }
+          // Capture incomplete: no @ before / ? #, yet the text after the first colon is not a port, so
+          // the parser cannot have stopped at a host — the password itself contains / ? #. Protect the
+          // whole userinfo through the last @ of that run (redis://cache:Syn/thetic@host). Code that
+          // builds URLs (`http://localhost:{port}/@vite/client`, `"http://h:"+port+"/a";x("a@b")`) is
+          // not userinfo: the span may not contain quotes, braces, `$`, `+` or another `://`, must stay within the v5
+          // userinfo bound, and the last @ must be followed by a host. One span per target @ keeps
+          // repeated prefixes far below the match limit.
+          if (end >= privacyText.length || privacyText[start] === '[' || /\s/.test(privacyText[end])) continue;
+          const colon = privacyText.indexOf(':', start);
+          if (colon < 0 || colon >= end || /^[0-9]*$/.test(privacyText.slice(colon + 1, end))) continue;
+          const first = spillAt(end);
+          if (first >= runEnd(end) || first - start > 4352 || first === spillAdded) continue;
+          if (first !== spillFrom) {
+            spillFrom = first; spillLast = first; spillStop = spillEnd(first + 1);
+            for (let at = spillTail(first + 1); at < spillStop && at - first <= 4096; at = spillTail(at + 1)) spillLast = at;
+            spillHost = /^(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,252}[A-Za-z0-9])?|\[[0-9A-Fa-f:.]{2,45}(?:%[A-Za-z0-9]{1,16})?\])(?::[0-9]{0,5})?[\]"'>),;.]*$/.test(privacyText.slice(spillLast + 1, spillStop));
+          }
+          if (!spillHost || spillLast - start > 4352 || /["'`{}$+]|:\/\//.test(privacyText.slice(start, spillLast))) continue;
+          spillAdded = first;
+          add(start, spillLast, 'CREDENTIAL', 'builtin.url-password');
+        }
+      }
+      // The v5 rule stays as a union member, so P2 only ever adds coverage: it also covers a numeric
+      // password segment before / ? # (`mysql://root:2024#Pass@h`) and a user name containing # or ?.
       scan(context[lexicalJsonSource] === 'automatic'
         ? /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/"\\<>]{1,256}:([^\s@/"\\<>]{1,4096})@/gi
         : /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/]{1,256}:([^\s@/]{1,4096})@/gi, 'CREDENTIAL', 'builtin.url-password', 1);
@@ -3098,13 +3203,29 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       // Match field names exactly at their suffix. maxTokens/tokenCount stay intact.
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*"([^"\r\n]+)"/gi, 'CREDENTIAL', 'builtin.quoted-field', 1);
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*'([^'\r\n]+)'/gi, 'CREDENTIAL', 'builtin.single-field', 1);
-      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*([^\s"'{}\[\],;&|]+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1);
+      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*([^\s"'{}\[\],;&|]+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1, value => !placeholderValue(value));
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?["“]([^"”\r\n]+)["”]/gi, 'CREDENTIAL', 'builtin.cn-secret-double', 1);
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?['‘]([^'’\r\n]+)['’]/gi, 'CREDENTIAL', 'builtin.cn-secret-single', 1);
-      scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?([^\s"'“”‘’{}\[\],，;；&|<>]+)/gi, 'CREDENTIAL', 'builtin.cn-secret-bare', 1);
+      scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?([^\s"'“”‘’{}\[\],，;；&|<>]+)/gi, 'CREDENTIAL', 'builtin.cn-secret-bare', 1, value => !placeholderValue(value));
       scan(/(?:^|\s)--?(?:password|passwd|token|secret|api-key)\s+(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^\s"';&|]+))/gi, 'CREDENTIAL', 'builtin.cli-secret-double', 1);
       scan(/(?:^|\s)--?(?:password|passwd|token|secret|api-key)\s+'([^'\r\n]+)'/gi, 'CREDENTIAL', 'builtin.cli-secret-single', 1);
       scan(/(?:^|\s)--?(?:password|passwd|token|secret|api-key)\s+([^\s"';&|]+)/gi, 'CREDENTIAL', 'builtin.cli-secret', 1);
+      // MySQL/MariaDB clients take the password attached to -p. "-p" followed by a space prompts
+      // interactively (the next word is the database) and "-P 3306" is the port, so -p is case-sensitive.
+      // A container named mysql (`docker run --name mysql -p3306:3306 …`) is not the client, and a
+      // host:container port mapping is not a password.
+      for (const m of privacyText.matchAll(/(?<!--name[ \t=]{1,4})\b(?:mysql(?:dump|admin|import|show|check|pump|binlog|slap)?|mariadb(?:-?dump|-?admin)?)(?:\.exe)?(?=[ \t])[^\r\n|;&]{0,512}?[ \t]-p(?:'([^'\r\n]+)'|"([^"\r\n]+)"|([^\s"'`;&|]+))/g)) {
+        const value = m[1] ?? m[2] ?? m[3], at = m.index + m[0].lastIndexOf(value);
+        if (m[3] !== undefined && /^[0-9]+(?::[0-9]+)+(?:\/(?:tcp|udp))?$/i.test(value)) continue;
+        add(at, at + value.length, 'CREDENTIAL', 'builtin.mysql-password');
+      }
+      // Azure Storage / Service Bus / Event Hubs connection-string secrets; each segment ends at ';'.
+      // SharedAccessKeyName is the public policy name and does not match `SharedAccessKey=`. Keys must be
+      // base64-shaped and a SAS must look like one, so `accountKey = process.env…` or prose stays visible.
+      scan(/(?:^|[\s;"'{,])(?:AccountKey|SharedAccessKey)[ \t]*=[ \t]*([^;\s"'<>]+)/gi, 'CREDENTIAL', 'builtin.azure-connection-secret', 1,
+        value => /^[A-Za-z0-9+/]{20,}={0,2}$/.test(value));
+      scan(/(?:^|[\s;"'{,])SharedAccessSignature[ \t]*=[ \t]*([^;\s"'<>]+)/gi, 'CREDENTIAL', 'builtin.azure-connection-secret', 1,
+        value => /(?:^|&)(?:sv|sig|se|sp)=/i.test(value));
       if (personal) {
         scan(/\b[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,253}[A-Za-z0-9])?\.[A-Za-z]{2,63}\b/g, 'EMAIL', 'builtin.email', 0, value => !ruleCatalog?.alreadyMasked?.(value, 'EMAIL'));
         // A phone-shaped value in an explicitly named business identifier is not
@@ -3318,7 +3439,10 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     const shortestLearned = [Infinity, Infinity];
     let valueBytes = 0, revision = 0;
     function rememberLearned(value, token) {
-      if (!/\S/.test(value)) return; // retained legacy whitespace references are never global patterns
+      // Retained legacy whitespace references and short/trivial values (P4) are never global patterns.
+      // Their entries stay resolvable, so existing references in history keep validating; importState
+      // goes through here, which withdraws such values that an older build had persisted.
+      if (!learnableValue(value)) return;
       const bucket = value.length <= 4096 ? 0 : 1;
       learnedValues[bucket].set(value, token);
       shortestLearned[bucket] = Math.min(shortestLearned[bucket], value.length);
@@ -3400,9 +3524,13 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function appendLearned(privacyText, budget, found, intervals) {
       const embeddedShortNumber = (value, start, end) => /^[0-9]{1,6}$/.test(value)
         && (/[\p{L}\p{N}_.-]/u.test(privacyText[start - 1] || '') || /[\p{L}\p{N}_.-]/u.test(privacyText[end] || ''));
+      // A short learned value is a word, not an infix: "Qz7k" must not rewrite "xQz7ky".
+      const word = /[A-Za-z0-9]/;
+      const embeddedShortWord = (value, start, end) => value.length < 8
+        && (word.test(value[0]) && word.test(privacyText[start - 1] || '') || word.test(value[value.length - 1]) && word.test(privacyText[end] || ''));
       if (!entries.size && !revokedValues.size) return mergeMatches(found);
       const accept = (value, token, start, end) => {
-        if (insideOpaque(start, end, intervals) || embeddedShortNumber(value, start, end)) return;
+        if (insideOpaque(start, end, intervals) || embeddedShortNumber(value, start, end) || embeddedShortWord(value, start, end)) return;
         if (token === null) fail('reference_revoked');
         const entry = entries.get(token);
         if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
@@ -3455,7 +3583,9 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       const mode = context.lexicalJsonSource === true ? 'explicit' : context.automaticJsonSource === true ? 'automatic' : undefined;
       const found = detector.detect(privacyText, { ...context, [opaqueIntervals]: intervals, [lexicalJsonSource]: mode });
       spend(budget, 'matches', found.length);
-      return mode === 'automatic' ? found : appendLearned(privacyText, budget, found, intervals);
+      // learnedMatching:false is for host protocol spelling (request object keys, tool parameter names):
+      // an exact learned value there can only make the request fail, never protect user data.
+      return mode === 'automatic' || context.learnedMatching === false ? found : appendLearned(privacyText, budget, found, intervals);
     }
     function protectRaw(privacyText, context = {}) {
       checkText(privacyText);
@@ -23962,8 +24092,9 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   const credentialContext = (span, start, end) => span.category === 'CREDENTIAL' && span.start < end && span.end > start
     && (span.start < start || span.end > end || span.start === start && span.end === end);
-  function protectString(input, context, pointer, raw = false, budget, proof) {
+  function protectString(input, context, pointer, raw = false, budget, proof, learned = true) {
     if (typeof input !== 'string') return input;
+    const learnedMatching = learned ? undefined : false;
     let sourceCursor = 0;
     const protect = (value, offset = 0, sourceMatches) => {
       let result;
@@ -23982,7 +24113,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           from = match.end;
         }
         result = { text: protectedSegment + value.slice(from), matches };
-      } else result = context.scope.protectRaw(value, { pointer, budget });
+      } else result = context.scope.protectRaw(value, { pointer, budget, learnedMatching });
       for (const match of result.matches) {
         if (context.trace) context.trace.push({ pointer, ...match });
         if (proof) {
@@ -23995,7 +24126,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     if (raw || !input.includes(PREFIX)) return protect(input);
     let matches;
-    try { matches = context.scope.detect(input, { pointer, budget, opaqueReferences: true }); }
+    try { matches = context.scope.detect(input, { pointer, budget, opaqueReferences: true, learnedMatching }); }
     catch (error) { if (error.code === 'privacy.reference_malformed') fail('reserved_literal'); throw error; }
     const credentials = matches.filter(match => match.category === 'CREDENTIAL');
     let output = '', from = 0, referenceCursor = 0;
@@ -24212,7 +24343,11 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           if (parsed && typeof parsed === 'object') return yield* protectJson(item, depth + 1, proof, allowReferences, parsed);
         }
         if (item.startsWith('data:') || /\/(?:image|audio|video)(?:_url)?(?:\/url)?$/.test(pointer)) fail('media_not_supported');
-        const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof);
+        // Protocol identifier controls (role/type enums, tool names) are workbench/protocol vocabulary, not user
+        // content: a short learned value such as "read" must not refuse a request whose tools include file_read
+        // (1B1 re-review). Built-in and explicit rules still fail closed on them; model/id stay fully strict.
+        const identifierControl = !structuredData && /\/(?:role|type|name)$/.test(pointer);
+        const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof, !identifierControl);
         if (!structuredData && /\/(?:model|role|type|id|call_id|tool_call_id|name|signature)$/.test(pointer) && result !== item) fail('control_field_sensitive');
         if (!structuredData && /\/(?:thinking|signature|encrypted_content)$/.test(pointer) && item) fail('opaque_content_not_supported');
         return result;
@@ -24243,7 +24378,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         const result = Object.create(null);
         for (const [key, row] of Object.entries(item)) {
           yield { bytes: Buffer.byteLength(key) };
-          const protectedKey = protectString(key, context, '', raw, budget);
+          // Protocol object keys (message/tool/schema spelling, incl. tool parameter names) skip learned
+          // matching (150 号文 §4 P4); built-in and explicit rules still fail closed on them. Keys of
+          // structured data (tool input, JSON text) keep learned matching and are rewritten, not refused.
+          const protectedKey = protectString(key, context, '', raw, budget, undefined, structuredData);
           if (!structuredData && protectedKey !== key) fail('control_field_sensitive');
           const nextKey = structuredData ? protectedKey : key;
           if (Object.hasOwn(result, nextKey)) fail('key_collision');
@@ -83767,7 +83905,8 @@ async function buildMissionAggregateRows(options = {}) {
       state: derived.state,
       stateLabel: derived.label,
       permissionMode: meta.permissionMode || null,
-      lastAssistantText: stewardSanitizeText(meta.summary || '').slice(0, 120),
+      // 150 号文 §4 P8:先投影外线程代号再截 120 字(与 13k 的管家视图同口径),截断不会留下半个代号。
+      lastAssistantText: stewardSanitizeText(meta.summary || '', true).slice(0, 120),
       updatedAt: String(meta.updatedAt || ''),
       cwd: String(meta.cwd || ''),   // W7:这条线程开在哪个目录(事项的 workspace 从这里派生)
       workspace: workspaceOf(meta.cwd),
@@ -91435,7 +91574,10 @@ async function stewardImplMissions(args, ctx, config) {
   // total 才是库里一共有多少。
   const limit = stewardClampInt(args && args.limit, 1, STEWARD_MISSIONS_LIMIT_MAX, STEWARD_MISSIONS_LIMIT_DEFAULT);
   const shown = missions.slice(0, limit);
-  return { ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit };
+  // 150 号文 §4 P8:事项标题、目标、验收项、线程标题与摘要都来自别的线程 —— 与 steward_thread_status /
+  // threads_search 同口径整份过 foreignView,外线程代号换成占位文字,而不是让网关把整份结果扣成
+  // privacy.tool_result_withheld(管家就看不到任何事项)。
+  return stewardForeignProjection({ ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit });
 }
 
 // ════════════════════════════════════════════════════════════════════════════

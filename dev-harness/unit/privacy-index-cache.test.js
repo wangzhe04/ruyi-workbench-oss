@@ -112,7 +112,8 @@ test('single long KMP cache is four bytes per code unit; a second pattern change
 
 test('caller-supplied comparison budget is not reset when another scope uses the same global cache', () => {
   const core = load(), a = create(core, 'shared-a'), b = create(core, 'shared-b');
-  a.protectValue('a', 'INTERNAL'); b.protectValue('b', 'INTERNAL');
+  // 150 号文 §4 P4: learned patterns must pass the minimum length; one-character values are not indexed.
+  a.protectValue('synthetic-a', 'INTERNAL'); b.protectValue('synthetic-b', 'INTERNAL');
   a.detectLearned('z'); b.detectLearned('z');
   const budget = core.createMatchBudget(2500);
   assert.deepEqual(plain(a.detectLearned('z'.repeat(2000), { budget })), []);

@@ -15,6 +15,36 @@ const second = require('../privacy-31/second-scenario-corpus').createSecondCorpu
 for (const row of second.cases) test('second scenarios: complete ' + row.id, () => verify(row.sample, row.secret, row.tier === 'basic' ? {} : { personal: true }));
 const third = require('../privacy-31/third-scenario-corpus').createThirdCorpus();
 for (const row of third.cases) test('third scenarios: complete ' + row.id, () => verify(row.sample, row.secret, row.tier === 'basic' ? {} : { personal: true }));
+// 150 号文 §4 P2/P3: URL userinfo through the last @, PGP/PuTTY private keys, Azure connection secrets, mysql -p<password>.
+const formatGap = require('../privacy-31/format-gap-corpus').createFormatGapCorpus();
+for (const row of formatGap.cases) test('format gaps: complete ' + row.id, () => verify(row.sample, row.secret, row.tier === 'basic' ? {} : { personal: true }));
+test('format gaps keep usernames, ports, interactive -p and public key blocks visible', () => {
+  for (const options of [{}, { personal: true }]) {
+    const detector = core.createDetector(options);
+    for (const sample of formatGap.negatives) assert.equal(detector.detect(sample).length, 0, sample);
+  }
+  // WHATWG: the userinfo/host split is the last @ of the authority, never a later @ in the path or query.
+  const exact = (sample, secret) => {
+    const found = core.createDetector().detect(sample).filter(match => match.ruleIds.includes('builtin.url-password'));
+    assert.deepEqual([...found.map(match => sample.slice(match.start, match.end))], [secret], sample);
+  };
+  exact('postgres://admin:p@ssw0rd!2024@db.internal:5432/x', 'p@ssw0rd!2024');
+  exact('https://u:pw@host.example.test/path@x?mail=a@b.test', 'pw');
+  exact('https://u:pw@host.example.test?mail=a@b.test#frag@x', 'pw');
+  exact('"postgres://svc:Syn@thetic@db.example.test/x"', 'Syn@thetic');
+  exact('jdbc:mysql://root:Synthetic#2026pass@10.0.0.8:3306/orderdb?useSSL=false', 'root:Synthetic#2026pass');
+  // v5 coverage is kept (union), and the incomplete-capture span is one per target @ (no matches_limit).
+  exact('mysql://root:2024#Pass@localhost:3306/db', '2024#Pass');
+  exact('amqp://guest:2023?x@rabbit/', '2023?x');
+  const repeated = 'a://h:x?'.repeat(20000) + '@host.example.test/';
+  assert.ok(core.createDetector().detect(repeated).length <= 1, 'repeated prefixes stay far below the match limit');
+  // The JSON-wrapper (automatic lexical) spelling stays inside one string value.
+  const scope = core.createScope({ scopeId: 'format-gap-json', detector: core.createDetector() });
+  try {
+    const json = JSON.stringify({ a: 'postgres://u:p@ss@h.example.test/x', b: 'plain' });
+    for (const match of scope.detect(json, { automaticJsonSource: true })) assert.ok(!json.slice(match.start, match.end).includes('"'), 'match crosses JSON syntax');
+  } finally { scope.clear(); }
+});
 test('third scenarios preserve business identifiers, redacted content, public encodings and disabled technical fields', () => {
   const detector = core.createDetector({ personal: true });
   for (const sample of [...third.negatives, ...third.technical]) assert.equal(detector.detect(sample).length, 0, sample);
@@ -90,7 +120,7 @@ function verify(sample, secret, options = all, context = {}) {
 const baseline = createCorpus('adversarial-catalog-only');
 test('every executable catalog rule has synthetic positive, negative, boundary and tier coverage', () => {
   assert.equal(metadata.size, 45);
-  assert.equal(catalog.version, 5);
+  assert.equal(catalog.version, 6); // 5 -> 6: 3.1 phase 1 built-in detection changes (P2/P3/P4)
   assert.deepEqual(baseline.map(row => row.id).sort(), [...metadata.keys()].sort());
   assert.deepEqual(createValidationCorpus().map(row => row.id).sort(), [...metadata.keys()].sort());
 });

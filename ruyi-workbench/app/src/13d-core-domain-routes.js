@@ -771,7 +771,8 @@ async function buildMissionAggregateRows(options = {}) {
       state: derived.state,
       stateLabel: derived.label,
       permissionMode: meta.permissionMode || null,
-      lastAssistantText: stewardSanitizeText(meta.summary || '').slice(0, 120),
+      // 150 号文 §4 P8:先投影外线程代号再截 120 字(与 13k 的管家视图同口径),截断不会留下半个代号。
+      lastAssistantText: stewardSanitizeText(meta.summary || '', true).slice(0, 120),
       updatedAt: String(meta.updatedAt || ''),
       cwd: String(meta.cwd || ''),   // W7:这条线程开在哪个目录(事项的 workspace 从这里派生)
       workspace: workspaceOf(meta.cwd),
