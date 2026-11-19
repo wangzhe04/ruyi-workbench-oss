@@ -4842,6 +4842,7 @@
   ,"error.code.workDataJournalShape": "运行日志格式无法识别，为保护数据没有继续。请重启如意；问题持续时先导出完整恢复包保留数据。"
   ,"error.code.workDataJournalSourceChanged": "读取运行日志期间它被改动了，这次没有完成。请稍后重试。"
   ,"error.code.workDataKeyChanged": "工作数据的加密密钥在操作期间变了（例如刚启用或停用了加密），这次没有完成。请重启如意后再试。"
+  ,"error.code.workDataKeyUnavailable": "暂时读不到工作数据的密钥（Windows 数据保护没有及时响应，或密钥文件正被其他程序占用），这不代表密钥丢失。请稍后再试。"
   ,"error.code.workDataSetupPathInvalid": "选择的文件夹路径无效（需要本机上已存在的绝对路径）。请重新选择文件夹。"
   ,"error.code.workDataSetupRehearsalChanged": "演练目录在检查期间被改动，操作已停止。维护期间请不要改动备份目录，然后重新开始。"
   ,"error.code.workDataStoreBinding": "工作数据存储的绑定校验没有通过，没有保存。请重启如意后再试。"

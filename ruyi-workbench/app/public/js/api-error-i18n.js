@@ -43,7 +43,7 @@ const CODE_COPY = new Set([
   'upload.sealed_unavailable', 'voice.lexicon_bad_request', 'voice.lexicon_unreadable', 'voice.observe_bad_request', 'voice.observe_too_large',
   'work_data_backup.native_helper_uncertain', 'work_data_backup.portable_create_uncertain', 'work_data_backup.portable_install_uncertain',
   'work_data_backup.portable_stage_failed', 'work_data_journal.archive_mismatch', 'work_data_journal.downgrade_refused', 'work_data_journal.shape',
-  'work_data_journal.source_changed', 'work_data_key.changed', 'work_data_setup.path_invalid', 'work_data_setup.rehearsal_changed',
+  'work_data_journal.source_changed', 'work_data_key.changed', 'work_data_key.unavailable', 'work_data_setup.path_invalid', 'work_data_setup.rehearsal_changed',
   'work_data_store.binding', 'work_data_store.downgrade_refused', 'work_data_store.physical_check_unproven', 'work_data_store.snapshot_release',
   'work_data_store.storage_unavailable', 'work_data_store.switch_unavailable', 'work_data_store.validate',
   'work_data_tree.captured_file_owner_uncertain', 'work_data.encryption_requires_setup', 'work_data.maintenance_busy', 'credential_recovery.busy',

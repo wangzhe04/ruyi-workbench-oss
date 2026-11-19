@@ -123,6 +123,254 @@ async function clearBootRootPreference() {
   if (after && after.present === true) throw refusal('root_preference_clear_unverified');
   console.log('boot-root preference: cleared');
 }
+// 150 W6: the rewrap host for the CLI below. Header/vault/bot-credential IO on the bound root, real
+// DPAPI staging (01o stageRecovered, 01k/13y recovery staging), the package opener (01t) and AEAD
+// sample authentication (01n).
+const WORK_DATA_REWRAP_TEMP = /^\.work-data-key-rewrap-[a-f0-9]{24}\.tmp$/;
+function workDataKeyRewrapHost() {
+  const headerFile = () => path.join(paths.data, 'work-data-key-v1.json');
+  const vaultFile = () => path.join(paths.data, 'credential-vault-v1.json');
+  const botsFile = () => path.join(paths.data, 'external-bot-credentials.json');
+  const refuse = suffix => Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix });
+  async function readBytes(file) {
+    let stat;
+    try { stat = await fsp.lstat(file); } catch (error) { if (error.code === 'ENOENT') return null; throw refuse('rewrap_target_invalid'); }
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) throw refuse('rewrap_target_invalid');
+    return fsp.readFile(file);
+  }
+  // Raw bytes (a rollback restores even a non-UTF-8 damaged file exactly), fsync before the rename.
+  // The temporary name never starts with a protected file name, so a torn temp left by a crash is
+  // not mistaken for a key header/vault by later exports, and only this command creates that prefix.
+  async function writeFileAtomic(file, bytes) {
+    // A random, exclusive ('wx') name per write; not a fixed '<file>.tmp' shared with any other writer.
+    const tmp = path.join(path.dirname(file), `.work-data-key-rewrap-${crypto.randomBytes(12).toString('hex')}.tmp`);
+    let handle;
+    try {
+      handle = await fsp.open(tmp, 'wx', 0o600);
+      await handle.writeFile(bytes); await handle.sync(); await handle.close(); handle = null;
+      for (let attempt = 0; ; attempt++) {
+        try { await fsp.rename(tmp, file); return; }
+        catch (error) {
+          if (['EPERM', 'EBUSY', 'EACCES'].includes(error?.code) && attempt < 8) { await new Promise(resolve => setTimeout(resolve, 15 + attempt * 20)); continue; }
+          throw error;
+        }
+      }
+    } catch (error) {
+      if (handle) await handle.close().catch(() => {});
+      await fsp.unlink(tmp).catch(() => {});
+      throw error;
+    }
+  }
+  const writeBytes = file => async bytes => {
+    if (bytes === null) { await fsp.unlink(file).catch(error => { if (error.code !== 'ENOENT') throw error; }); return; }
+    await writeFileAtomic(file, Buffer.from(bytes));
+  };
+  const fileKeys = () => WorkDataKeys.create({ protector: LocalSecretCrypto, enabled: () => false, store: { read: async () => {
+    const bytes = await readBytes(headerFile()); if (bytes === null) return WorkDataKeys.empty(); return JSON.parse(bytes.toString('utf8'));
+  } } });
+  // Self-describing v2 containers: the AEAD open proves a master without trusting any header.
+  async function samples(limit) {
+    const found = [];
+    let examined = 0;
+    for (const family of ['sessions', 'memory', 'agent-runs', 'missions', 'scheduler', 'steward']) {
+      let names = [];
+      try { names = (await fsp.readdir(path.join(paths.data, family), { withFileTypes: true })).filter(entry => entry.isFile() && /\.json$/i.test(entry.name)).map(entry => entry.name).sort(); }
+      catch { continue; }
+      for (const name of names) {
+        if (found.length >= limit || examined >= 4000) return found;
+        examined++;
+        const file = path.join(paths.data, family, name);
+        try {
+          const stat = await fsp.lstat(file); if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4 * 1024 * 1024) continue;
+          const parsed = JSON.parse(await fsp.readFile(file, 'utf8'));
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.workData !== 2) continue;
+          const { workData, ...container } = parsed;
+          if (typeof container.instanceId !== 'string' || !/^[a-f0-9]{32}$/.test(container.instanceId) || !container.envelope) continue;
+          found.push(Object.freeze({ instanceId: container.instanceId, container }));
+        } catch { /* unusable sample: not evidence either way */ }
+      }
+    }
+    return found;
+  }
+  function authenticate(container, master) {
+    const generation = /^work-data-v2\.k([1-9][0-9]?)$/.exec(String(container?.keyId || ''));
+    if (!generation) return null;
+    try {
+      WorkDataCrypto.open(container, master, { purpose: container.purpose, instanceId: container.instanceId, schema: container.schema,
+        scopeId: container.scopeId, recordId: container.recordId, seq: container.seq, generation: Number(generation[1]) });
+      return true;
+    } catch (error) { return error?.code === 'work_data.decrypt_failed' ? false : null; }
+  }
+  const botOwner = () => ExternalBotCredentials.create({ file: botsFile() });
+  async function botsInspect() {
+    let snap;
+    try { snap = await botOwner().snapshotForWorkDataRecovery(); }
+    catch (error) {
+      if (error?.helperMayStillRun === true) throw error;
+      const code = String(error?.code || '');
+      if (code === 'external_credentials.decrypt_failed') return 'locked';
+      if (code === 'external_credentials.storage_unavailable' || code === 'external_credentials.recovery_invalid') return 'damaged';
+      return 'unavailable';
+    }
+    try { return 'healthy'; } finally { snap.release(); }
+  }
+  const vaultHooks = PrivacyCore.configHooks;
+  return {
+    keys: workDataKeys, freshKeys: fileKeys, encrypted: workDataKeyEncryptionMode, samples, authenticate,
+    readHeaderBytes: () => readBytes(headerFile()), writeHeaderBytes: writeBytes(headerFile()),
+    stage: value => fileKeys().stageRecovered(value),
+    openPackage: (serialized, password) => WorkDataRecovery.open(serialized, password),
+    vault: typeof vaultHooks.snapshotForWorkDataRecovery === 'function' ? {
+      readBytes: () => readBytes(vaultFile()), writeBytes: writeBytes(vaultFile()),
+      snapshot: () => vaultHooks.snapshotForWorkDataRecovery(), stage: value => vaultHooks.stageRecoveredForWorkData(value),
+      clear: () => { if (typeof vaultHooks.clear === 'function') vaultHooks.clear(); },
+    } : null,
+    bots: {
+      readBytes: () => readBytes(botsFile()), writeBytes: writeBytes(botsFile()), inspect: botsInspect,
+      stage: ({ bytes, portable }) => botOwner().stageRecoveredForWorkData({ state: JSON.parse(bytes.toString('utf8')), portable }),
+    },
+    // Weak (instanceId-only) proof: keep the replaced header beside the data, never under a protected name.
+    async keepSideCopy(bytes) {
+      const dir = path.join(paths.data, 'key-rewrap-backups');
+      await fsp.mkdir(dir, { recursive: true });
+      const file = path.join(dir, 'previous-header-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + crypto.randomBytes(4).toString('hex') + '.json');
+      const handle = await fsp.open(file, 'wx', 0o600);
+      try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+      return file;
+    },
+    removeSideCopy: file => fsp.unlink(file),
+    // Torn temporaries of an interrupted earlier run of this command (its own exclusive prefix only).
+    async cleanupTemporaries() {
+      let names = [];
+      try { names = await fsp.readdir(paths.data); } catch { return; }
+      for (const name of names) if (WORK_DATA_REWRAP_TEMP.test(name)) await fsp.unlink(path.join(paths.data, name)).catch(() => {});
+    },
+    // Test-only fault injection; inert unless this explicit test variable names the point.
+    fault(point) {
+      if (process.env.RUYI_TEST_WORK_DATA_REWRAP_FAULT === point) throw refuse('rewrap_test_fault');
+    },
+  };
+}
+// 150 W6: user-facing recovery CLI (no UI needed): rewrap this root's key header from a full
+// recovery package. The password is read only from the keyboard (hidden), a pipe or
+// --password-file, never from argv; the package and password are read before the root is owned,
+// then the same owner/inspection/bind path as doctor runs the orchestrator in 01o.
+function workDataRewrapRefusal(suffix) {
+  return Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix, retry: false });
+}
+// Password bytes from a file or a pipe: UTF-8 (with or without BOM) or UTF-16LE/BE with BOM, as
+// Notepad, PowerShell and cmd write them. Only the line break is removed; spaces are kept verbatim.
+function workDataRewrapPasswordFromBytes(bytes) {
+  let text;
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) text = bytes.subarray(2, 2 + ((bytes.length - 2) & ~1)).toString('utf16le');
+  else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    const swapped = Buffer.from(bytes.subarray(2, 2 + ((bytes.length - 2) & ~1)));
+    try { text = swapped.swap16().toString('utf16le'); } finally { swapped.fill(0); }
+  } else text = bytes.toString('utf8');
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const end = text.search(/\r\n|\n|\r/);
+  return end < 0 ? text : text.slice(0, end);
+}
+function workDataRewrapHiddenPrompt(label) {
+  return new Promise((resolve, reject) => {
+    // Multi-byte safe: a UTF-8 character split across reads is decoded whole (no per-chunk toString).
+    const input = process.stdin, chars = [], decoder = new (require('node:string_decoder').StringDecoder)('utf8');
+    let done = false;
+    const finish = (error, value) => {
+      if (done) return; done = true;
+      input.removeListener('data', onData); input.removeListener('end', onEnd); input.removeListener('error', onEnd);
+      try { input.setRawMode(false); } catch { /* best effort */ }
+      input.pause(); process.stderr.write('\n');
+      if (error) reject(error); else resolve(value);
+    };
+    function onEnd() { finish(workDataRewrapRefusal('rewrap_password_unreadable')); }
+    function onData(data) {
+      for (const ch of decoder.write(data)) {
+        if (ch === '\r' || ch === '\n') return finish(null, chars.join(''));
+        if (ch === '\u0003' || ch === '\u0004') return finish(workDataRewrapRefusal('rewrap_password_unreadable'));
+        if (ch === '\u0008' || ch === '\u007f') { chars.pop(); continue; }
+        chars.push(ch);
+      }
+    }
+    process.stderr.write(label);
+    input.on('end', onEnd); input.on('error', onEnd);
+    input.setRawMode(true); input.resume(); input.on('data', onData);
+  });
+}
+async function readWorkDataRewrapPassword(file) {
+  if (file !== undefined) {
+    let bytes;
+    try {
+      const stat = await fsp.lstat(file);
+      if (!stat.isFile() || stat.size > 8192) throw workDataRewrapRefusal('rewrap_password_unreadable');
+      bytes = await fsp.readFile(file);
+      return workDataRewrapPasswordFromBytes(bytes);
+    } catch (error) { if (error?.code === 'work_data_key.rewrap_password_unreadable') throw error; throw workDataRewrapRefusal('rewrap_password_unreadable'); }
+    finally { if (bytes) bytes.fill(0); }
+  }
+  if (process.stdin.isTTY) return workDataRewrapHiddenPrompt('恢复包口令 / Recovery package password: ');
+  // A pipe: read to EOF (bounded) so a UTF-16 line break byte cannot cut a character in half.
+  const chunks = []; let size = 0, all;
+  try {
+    for await (const chunk of process.stdin) {
+      size += chunk.length; chunks.push(chunk);
+      if (size > 8192) throw workDataRewrapRefusal('rewrap_password_unreadable');
+    }
+    all = Buffer.concat(chunks);
+    return workDataRewrapPasswordFromBytes(all);
+  } finally { for (const chunk of chunks) chunk.fill(0); if (all) all.fill(0); }
+}
+async function runWorkDataKeyRewrap() {
+  const raw = process.argv.slice(2);
+  // Refuse any password-like option before anything else is read or owned; the refusal never echoes it.
+  if (raw.some(value => /^--?pass(?:word|phrase)?(?:=|$)/i.test(value))) throw workDataRewrapRefusal('rewrap_password_argv_forbidden');
+  const options = {};
+  for (let i = 1; i < raw.length; i += 2) {
+    const name = raw[i], value = raw[i + 1];
+    if (!['--package', '--password-file'].includes(name) || Object.hasOwn(options, name) || typeof value !== 'string' || !value || value.startsWith('--')) throw workDataRewrapRefusal('rewrap_usage');
+    options[name] = path.resolve(value);
+  }
+  if (raw[0] !== WorkDataKeyRewrap.COMMAND || !options['--package']) throw workDataRewrapRefusal('rewrap_usage');
+  let serialized;
+  try {
+    const stat = await fsp.lstat(options['--package']);
+    if (!stat.isFile() || stat.size > WorkDataRecovery.LIMITS.serialized) throw new Error('package');
+    serialized = await fsp.readFile(options['--package'], 'utf8');
+  } catch { throw workDataRewrapRefusal('rewrap_package_unreadable'); }
+  let password = await readWorkDataRewrapPassword(options['--password-file']);
+  const trailingSpace = /\s$/.test(password);
+  try {
+    let root = '';
+    const result = await withSelectedWorkDataRoot(async () => {
+      root = paths.data;
+      const host = workDataKeyRewrapHost();
+      try {
+        await host.cleanupTemporaries();
+        const outcome = await WorkDataKeyRewrap.create(host).rewrap({ serialized, password });
+        logEvent({ kind: 'work_data_key_rewrap', ok: true, changed: outcome.changed, workDataKey: outcome.workDataKey, credentialVault: outcome.credentialVault,
+          externalBotCredentials: outcome.externalBotCredentials, unreadableRecords: outcome.unreadableRecords || 0, proof: outcome.proof || 'sealed-records' });
+        return outcome;
+      } catch (error) {
+        logEvent({ kind: 'work_data_key_rewrap', ok: false, code: String(error?.code || 'unknown').slice(0, 80), rolledBack: error?.rolledBack === true });
+        throw error;
+      }
+    }).catch(error => {
+      if (error?.code === 'DATA_ROOT_IN_USE') throw workDataRewrapRefusal('rewrap_root_busy');
+      if (error?.code === 'work_data_recovery.authentication' && trailingSpace && !Object.isFrozen(error)) error.passwordTrailingSpace = true;
+      throw error;
+    });
+    console.log('数据目录 / Data root: ' + root);
+    console.log(result.changed
+      ? '已用完整恢复包重新包裹密钥，现在可以照常启动如意。 / Key rewrapped from the full recovery package; start Ruyi normally.'
+      : '当前密钥可以正常解开，无需重新包裹。 / The current key unlocks normally; no rewrap was needed.');
+    if (result.externalBotCredentials === 'locked') console.log('外部机器人凭据无法从这个恢复包恢复（导出后有改动或不在包里），请在「设置 → 外部渠道」重新填写机器人密钥。 / External bot secrets could not be restored from this package; re-enter them in Settings.');
+    if (result.unreadableRecords) console.log(`有 ${result.unreadableRecords} 条加密记录本身已损坏、读不出；其余记录已核对与恢复包一致。 / ${result.unreadableRecords} sealed record(s) are themselves unreadable; the rest match the package.`);
+    if (result.proof === 'instance-id') console.log('没有可核对的加密记录，仅按密钥标识核对；原密钥头已另存到数据目录的 key-rewrap-backups 文件夹。 / No sealed record to verify against; the previous header was kept in key-rewrap-backups.');
+    if (options['--password-file']) console.log('请删除口令文件：' + options['--password-file'] + ' / Delete the password file now.');
+    console.log(JSON.stringify(result));
+    return result;
+  } finally { password = ''; serialized = ''; }
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -176,6 +424,7 @@ async function main() {
     return run();
   }
   if (command === 'serve') return startWorkbenchServe(argv);
+  if (typeof WorkDataKeyRewrap !== 'undefined' && command === WorkDataKeyRewrap.COMMAND) return runWorkDataKeyRewrap();
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') {
@@ -202,7 +451,7 @@ if (require.main === module) {
     if (workDataCliHelperUnknown(err)) {
       holdWorkDataCliOwner();console.error('work_data_setup.native_helper_uncertain');return;
     }
-    const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);
+    const recoveryHelp = (typeof workDataKeyGuidance === 'function' ? workDataKeyGuidance(err) : '') || PrivacyCore.configHooks.startupGuidance?.(err);
     console.error(recoveryHelp || err.stack || err.message || String(err));
     // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting
     // exitCode leaves those handles alive and makes the failed CLI look hung; a direct invocation must fail fast.

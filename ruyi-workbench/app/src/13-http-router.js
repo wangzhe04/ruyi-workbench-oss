@@ -1695,7 +1695,7 @@ async function startServer(opts) {
     }
     if (!WorkDataRootHooks.ready()) throw error; // Invalid authority must not trigger a startup error writer.
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
-    const recoveryHelp = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '';
+    const recoveryHelp = (typeof workDataKeyGuidance === 'function' ? workDataKeyGuidance(error) : '') || (typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '');
     const message = String(recoveryHelp || (error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
@@ -1782,6 +1782,76 @@ async function warmWorkbenchServices(config){
   ]);
 }
 
+// 150 W6: work-data key header boot check (the rewrap CLI host lives in 14-main). Both run only after
+// WorkDataRootHooks.bind, so paths.data is the selected generation (or the legacy flat root).
+// 'manifest' = active generation is encrypted; 'legacy' = generation-zero root with the config flag on
+// (an unreadable config is treated as on: fail closed). Plain roots never refuse here.
+async function workDataKeyEncryptionMode() {
+  if (!WorkDataRootHooks.ready()) return false;
+  if (WorkDataRootHooks.guarded()) return WorkDataRootHooks.mode(false) === true ? 'manifest' : false;
+  try { return JSON.parse(await fsp.readFile(paths.config, 'utf8'))?.workDataEncryptionV1 === true ? 'legacy' : false; }
+  catch (error) { return error?.code === 'ENOENT' ? false : 'legacy'; }
+}
+async function assertWorkDataKeyUsableAtBoot() {
+  // Boot needs only the classification; the package/vault host lives with the CLI (14), outside the cycle.
+  const { refusal, status } = await WorkDataKeyRewrap.create({ keys: workDataKeys, encrypted: workDataKeyEncryptionMode }).inspect();
+  if (refusal) throw refusal;
+  // Helper slow/unstartable or header not readable this time: not key loss. Boot continues (sealed
+  // reads/writes still fail closed on their own and retry); leave a visible diagnostic instead.
+  if (status === 'unavailable') {
+    console.log('[start] work-data key could not be unlocked right now (work_data_key.unlock_unavailable); encrypted data stays unavailable until Windows data protection answers. Retry later; this is not key loss.');
+    try { logEvent({ kind: 'work_data_key_boot_check', status: 'unavailable' }); } catch { /* diagnostics never block boot */ }
+  }
+}
+function workDataRewrapCommandText() {
+  const quote = value => '"' + value + '"';
+  const launcher = isPkg() ? quote(process.execPath) : quote(process.execPath) + ' ' + quote(__filename);
+  return `${launcher} ${WorkDataKeyRewrap.COMMAND} --package "<完整恢复包文件>"`;
+}
+// Plain-language guidance for the work-data key refusals and the rewrap CLI. Codes only; it never
+// echoes a password, master or package content. '' means "not ours" (callers fall back).
+function workDataKeyGuidance(error) {
+  const code = String(error?.code || '');
+  const steps = () => `处理方法：关闭如意，用之前导出的「完整恢复包」和它的导出口令重新包裹密钥，在命令提示符运行：${workDataRewrapCommandText()}`
+    + '。按提示输入口令（只从键盘、管道或 --password-file 指定的文件读取，不要写在命令行里）。命令先核对恢复包确属这个数据目录，不符就拒绝且不改任何文件，中途失败会原样回滚；完成后照常启动如意。'
+    + (process.env.RUYI_HOME ? '运行时保持同样的 RUYI_HOME 设置。' : '')
+    + '请保留原数据目录，不要删除密钥文件或改用新目录；用过的口令文件请在完成后删除。'
+    + ` / Rewrap the key with your full recovery package: ${WorkDataKeyRewrap.COMMAND} --package <file> (password from stdin or --password-file, never argv).`;
+  const untouched = '没有改动任何文件。';
+  const rolled = error?.rolledBack === true ? '已回滚，密钥头、凭据库与机器人凭据恢复为原来的字节。' : untouched;
+  const table = {
+    'work_data_key.rewrap_required': () => `工作数据密钥在当前 Windows 账户下解不开（${code}），常见于重装系统、换电脑或管理员重置了密码；加密数据仍在。` + steps(),
+    'work_data_key.header_damaged': () => `工作数据密钥头文件损坏或读不出（${code}）；加密数据仍在。` + steps(),
+    'work_data_key.header_missing': () => `加密的工作数据缺少密钥头文件（${code}）；加密数据仍在。` + steps(),
+    'work_data_key.unlock_unavailable': () => `暂时无法调用 Windows 数据保护解开工作数据密钥（${code}）。这通常是系统繁忙或 PowerShell 被策略禁用，并不代表密钥丢失；请稍后再试，反复出现时请检查 PowerShell 是否可用。不需要重新包裹密钥。`,
+    'work_data_key.rewrap_unsupported': () => `重新包裹工作数据密钥只能在 Windows 上进行（${code}）。` + untouched,
+    'work_data_key.rewrap_usage': () => `用法：${WorkDataKeyRewrap.COMMAND} --package <完整恢复包文件> [--password-file <口令文件>]（${code}）。` + untouched,
+    'work_data_key.rewrap_password_argv_forbidden': () => `不接受在命令行参数里写口令（${code}）：请按提示输入，或用 --password-file 指定只含口令的文件。` + untouched,
+    'work_data_key.rewrap_password_unreadable': () => `没有读到口令（${code}）：请按提示输入，或用 --password-file 指定只含口令的文件。` + untouched,
+    'work_data_key.rewrap_package_unreadable': () => `读不出指定的恢复包文件（${code}）。请确认路径正确、文件完整。` + untouched,
+    'work_data_key.rewrap_package_mismatch': () => `这个恢复包不属于当前数据目录：包里没有能解开现有加密数据的工作数据密钥（${code}）。` + untouched + '请换用从这个数据目录导出的完整恢复包。',
+    'work_data_key.rewrap_credential_mismatch': () => `本地凭据库也需要重新包裹，但这个恢复包里没有与它对应的凭据库密钥（${code}）。` + untouched + '请换用从这个数据目录导出的完整恢复包。',
+    'work_data_key.rewrap_target_unknown': () => `找不到可核对的加密数据或密钥头，无法确认恢复包与当前数据目录的对应关系（${code}）。` + untouched,
+    'work_data_key.rewrap_target_invalid': () => `密钥头或凭据库不是普通文件，无法安全替换（${code}）。` + untouched,
+    'work_data_key.rewrap_root_busy': () => `这个数据目录正被如意或另一个重新包裹命令占用（${code}）。请先完全关闭如意（包括托盘与桌面窗口），等另一个命令结束后再运行。` + untouched,
+    'work_data_key.rewrap_changed': () => `核对期间密钥头或凭据库被改动（${code}）。请确认如意已关闭后再运行一次。` + untouched,
+    'work_data_key.rewrap_verify_failed': () => `新密钥写入后核对失败（${code}）。` + rolled,
+    'work_data_key.rewrap_test_fault': () => `测试注入的失败（${code}）。` + rolled,
+    'work_data_key.rewrap_rollback_failed': () => `新密钥核对失败，且没能确认原文件已恢复（${code}）。请不要启动如意或删除数据目录，保留恢复包，再运行一次本命令。`,
+    'work_data_recovery.authentication': () => `恢复包口令不对，或恢复包文件已损坏（${code}）。` + untouched
+      + (error?.passwordTrailingSpace === true ? '读到的口令末尾带空格或制表符（例如 echo 口令 | 命令 会多出一个空格）；口令原样使用、不会自动去掉，若导出时没有这个空格，请去掉后重试。' : ''),
+    'work_data_recovery.password_invalid': () => `口令格式不对：恢复包口令至少 12 个字符（${code}）。` + untouched,
+    'work_data_recovery.busy': () => `正在核对另一个恢复包，请稍后再试（${code}）。` + untouched,
+  };
+  if (table[code]) return table[code]();
+  if (/^work_data_recovery\./.test(code)) return `这个文件不是有效的完整恢复包（${code}）。` + untouched;
+  if (code === 'credential_vault.unlock_failed' && WorkDataRootHooks.ready() && WorkDataRootHooks.guarded() && WorkDataRootHooks.mode(false) === true) {
+    return `本地凭据库无法在当前 Windows 账户下解锁（${code}）。若是重装系统、换电脑或重置密码导致，可以用工作数据「完整恢复包」把凭据库与工作数据密钥一并重新包裹：${workDataRewrapCommandText()}。没有完整恢复包时：`
+      + (PrivacyCore.configHooks.startupGuidance?.(error) || '');
+  }
+  return '';
+}
+
 async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
   beginBootCliPathProbes();
   try {
@@ -1804,6 +1874,10 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
     console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
     try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
   }
+  // 150 W6: an encrypted root whose key header cannot be unlocked (reinstall, new machine, password
+  // reset) or is damaged/missing refuses here with a stable code and rewrap guidance, before any
+  // boot consumer reads or rewrites sealed data. A helper timeout is a distinct, retryable code.
+  await assertWorkDataKeyUsableAtBoot();
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)

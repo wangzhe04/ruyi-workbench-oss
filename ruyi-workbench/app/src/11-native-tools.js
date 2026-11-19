@@ -1867,7 +1867,7 @@ function sensitiveGlobsForRg(base) {
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
       ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots() : [])])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json', 'key-rewrap-backups']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
         const generationRel = path.relative(base, path.join(r, '.work-data', 'generations'));
@@ -1878,12 +1878,14 @@ function sensitiveGlobsForRg(base) {
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
+      // 151 phase 3E: the rewrap CLI's own header temp files (DPAPI-wrapped key material) stay out of model file tools.
+      if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/.work-data-key-rewrap-*.tmp');
       const controlRel = path.relative(base, path.join(r, '.work-data'));
       if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
         const prefix = '!/' + controlRel.split(path.sep).join('/');
         globs.push(prefix + '/active-v1.json*', prefix + '/.active-v1.stage-*', prefix + '/generations/*/config.json*',
           prefix + '/generations/*/credential-vault-v1.json*', prefix + '/generations/*/external-bot-credentials.json*',
-          prefix + '/generations/*/work-data-key-v1.json*');
+          prefix + '/generations/*/work-data-key-v1.json*', prefix + '/generations/*/.work-data-key-rewrap-*.tmp');
       }
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }

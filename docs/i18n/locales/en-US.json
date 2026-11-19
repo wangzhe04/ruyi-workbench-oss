@@ -4842,6 +4842,7 @@
   ,"error.code.workDataJournalShape": "The run journal format was not recognized, so nothing continued to protect your data. Restart Ruyi; if it persists, export a full recovery package first."
   ,"error.code.workDataJournalSourceChanged": "The run journal changed while being read, so this did not complete. Try again shortly."
   ,"error.code.workDataKeyChanged": "The work data encryption key changed during this operation (for example, encryption was just turned on or off), so it did not complete. Restart Ruyi and try again."
+  ,"error.code.workDataKeyUnavailable": "The work-data key could not be read right now (Windows data protection did not answer in time, or the key file is in use by another program). This is not key loss; please try again shortly."
   ,"error.code.workDataSetupPathInvalid": "The selected folder path is invalid (it must be an existing absolute path on this computer). Choose the folder again."
   ,"error.code.workDataSetupRehearsalChanged": "The rehearsal folder changed during checks, so the operation stopped. Leave the backup folder untouched during maintenance and start again."
   ,"error.code.workDataStoreBinding": "The work data store binding check failed and nothing was saved. Restart Ruyi and try again."

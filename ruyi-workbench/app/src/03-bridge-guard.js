@@ -514,7 +514,7 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json', 'key-rewrap-backups'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
     ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
@@ -524,7 +524,7 @@ function isSensitiveDataPath(p) {
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
   try {
     const base = path.basename(p);
-    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json)(\.|$)/i.test(base)) {
+    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json|\.work-data-key-rewrap-[a-f0-9]{24}\.tmp)(\.|$)/i.test(base)) {
       const dir = path.resolve(path.dirname(p));
       for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
     }

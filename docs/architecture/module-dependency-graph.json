@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 144,
-    "providedSymbols": 4410,
-    "requiredSymbols": 4374,
-    "edges": 958,
+    "providedSymbols": 4422,
+    "requiredSymbols": 4388,
+    "edges": 963,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1341,6 +1341,7 @@
       "layer": "foundation",
       "note": "M3-2: independent DPAPI-wrapped work-data master key; created only by an explicit enable flow, never by a read or write",
       "provides": [
+        "WorkDataKeyRewrap",
         "WorkDataKeys"
       ],
       "requires": []
@@ -16357,6 +16358,7 @@
         "START_ERROR_KINDS",
         "START_NOTICE",
         "agentWorkflowLoopbackRoute",
+        "assertWorkDataKeyUsableAtBoot",
         "buildModelHint",
         "consumeStartError",
         "discoverKimiModels",
@@ -16404,6 +16406,9 @@
         "stopKimiModelProbes",
         "tierModelForNode",
         "warmWorkbenchServices",
+        "workDataKeyEncryptionMode",
+        "workDataKeyGuidance",
+        "workDataRewrapCommandText",
         "writeStartError"
       ],
       "requires": [
@@ -17146,6 +17151,13 @@
         {
           "provider": "01h-privacy-core.js",
           "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeyRewrap",
           "kinds": [
             "read"
           ]
@@ -32258,14 +32270,21 @@
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
+        "WORK_DATA_REWRAP_TEMP",
         "clearBootRootPreference",
         "holdWorkDataCliOwner",
         "main",
+        "readWorkDataRewrapPassword",
+        "runWorkDataKeyRewrap",
         "startWorkbenchServe",
         "withSelectedWorkDataRoot",
         "workDataCliHelperHeld",
         "workDataCliHelperHoldTimer",
-        "workDataCliHelperUnknown"
+        "workDataCliHelperUnknown",
+        "workDataKeyRewrapHost",
+        "workDataRewrapHiddenPrompt",
+        "workDataRewrapPasswordFromBytes",
+        "workDataRewrapRefusal"
       ],
       "requires": [
         {
@@ -32312,6 +32331,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "dataRoot",
           "kinds": [
             "call"
@@ -32347,6 +32373,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "hashArgs",
           "kinds": [
             "read"
@@ -32362,6 +32395,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
           "kinds": [
             "read"
           ]
@@ -32907,6 +32954,34 @@
           ]
         },
         {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeyRewrap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [
@@ -33258,6 +33333,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "workDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
           "kinds": [
             "read"
@@ -33541,6 +33623,13 @@
           "symbol": "killOwnProcessTree",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -36183,6 +36272,21 @@
           ]
         },
         {
+          "provider": "13-http-router.js",
+          "symbol": "workDataKeyEncryptionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "workDataKeyGuidance",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
           "provider": "13ar-work-data-verifier-entry.js",
           "symbol": "WorkDataVerifierEntry",
           "kinds": [
@@ -36494,6 +36598,13 @@
         {
           "provider": "13s-scheduler.js",
           "symbol": "stopScheduler",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
           "kinds": [
             "read"
           ]
@@ -41158,6 +41269,14 @@
       "to": "01h-privacy-core.js",
       "symbols": [
         "PrivacyCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
+      "to": "01o-work-data-keys.js",
+      "symbols": [
+        "WorkDataKeyRewrap"
       ],
       "direction": "backward"
     },
@@ -46624,11 +46743,15 @@
         "appendUsageLedger",
         "buildUsageSummary",
         "createNdjsonLineFeeder",
+        "crypto",
         "dataRoot",
         "flushUsageLedgerSync",
         "forEachUsageRow",
+        "fsp",
         "hashArgs",
         "neutralizeFenceTag",
+        "path",
+        "paths",
         "readUsageRows",
         "runKeyedChain",
         "spawnDetachedChecked",
@@ -46770,6 +46893,31 @@
     },
     {
       "from": "14-main.js",
+      "to": "01n-work-data-crypto.js",
+      "symbols": [
+        "WorkDataCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "01o-work-data-keys.js",
+      "symbols": [
+        "WorkDataKeyRewrap",
+        "WorkDataKeys"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "01t-work-data-recovery.js",
+      "symbols": [
+        "WorkDataRecovery"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
       "to": "02-session-store.js",
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
@@ -46822,6 +46970,7 @@
         "setSessionIndexRebuildScanHookForTest",
         "transitionInterventionState",
         "updateSessionMeta",
+        "workDataKeys",
         "writeSessionNotes"
       ],
       "direction": "backward"
@@ -46908,6 +47057,7 @@
         "killAllMcpClients",
         "killChildTree",
         "killOwnProcessTree",
+        "logEvent",
         "makeAttachmentRecord",
         "mcpChildExitResult",
         "nativeClaudeAgentResultInfo",
@@ -47449,7 +47599,9 @@
         "installIntegration",
         "parseArgs",
         "startMcp",
-        "startServer"
+        "startServer",
+        "workDataKeyEncryptionMode",
+        "workDataKeyGuidance"
       ],
       "direction": "backward"
     },
@@ -47579,6 +47731,14 @@
         "schedulerRuntimeSnapshot",
         "startScheduler",
         "stopScheduler"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13y-external-bot-credentials.js",
+      "symbols": [
+        "ExternalBotCredentials"
       ],
       "direction": "backward"
     }

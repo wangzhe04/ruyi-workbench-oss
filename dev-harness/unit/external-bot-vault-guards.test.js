@@ -24,3 +24,12 @@ test('vault and pending-temp hardlinks cannot evade the existing inode gate; unr
  const identities=await context.sensitiveFileIdentities();assert.equal(await context.isSensitiveHardlinkStat(await fs.promises.stat(cl,{bigint:true}),identities),true);assert.equal(await context.isSensitiveHardlinkStat(await fs.promises.stat(a,{bigint:true}),identities),true);assert.equal(await context.isSensitiveHardlinkStat(await fs.promises.stat(b,{bigint:true}),identities),true);assert.equal(await context.isSensitiveHardlinkStat(await fs.promises.stat(ordinaryLink,{bigint:true}),identities),false);
  const botDir=path.join(data,'external-bots');fs.mkdirSync(botDir);for(const name of ['state-v1.json','state-v1.json.123.random.tmp']){const source=path.join(botDir,name),link=path.join(root,'hard-'+name);fs.writeFileSync(source,'owner authorization');fs.linkSync(source,link);assert.equal(await context.isSensitiveHardlinkStat(await fs.promises.stat(link,{bigint:true}),await context.sensitiveFileIdentities()),true);}
 });
+test('151 phase 3E: the key-rewrap side copies and the rewrap CLI temp files are hidden from model file tools', () => {
+ for (const base of [data, alias]) for (const name of ['key-rewrap-backups/work-data-key-v1.20261119T000000.json', '.work-data-key-rewrap-0123456789abcdef01234567.tmp']) {
+  const file = path.join(base, name); assert.equal(context.isSensitiveDataPath(file), true, file);
+ }
+ assert.equal(context.isSensitiveDataPath(path.join(root, 'project', 'key-rewrap-backups', 'x.json')), false, 'only the data root copy is protected');
+ const globs = context.sensitiveGlobsForRg(root);
+ assert.ok(globs.includes('!/data/key-rewrap-backups'), 'the side-copy directory is excluded from search');
+ assert.ok(globs.includes('!/data/.work-data-key-rewrap-*.tmp'), 'the rewrap temp files are excluded from search');
+});

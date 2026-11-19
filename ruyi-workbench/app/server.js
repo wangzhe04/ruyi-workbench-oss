@@ -8858,7 +8858,14 @@ const WorkDataKeys = ((cryptoApi) => {
     const clear = () => { epoch++; evict(); };
     async function stateRead() {
       let state;
-      try { state = await host.store.read(); } catch { evict(); fail('unavailable'); }
+      try { state = await host.store.read(); }
+      catch (cause) {
+        evict();
+        // Same verdict as DurableJsonStore's settled-read rule: malformed content is settled damage;
+        // EBUSY/EACCES/EMFILE-style failures are "not read this time". Only the cause class is kept.
+        const settled = cause instanceof SyntaxError || String(cause?.code || '').startsWith('EDURABLE_');
+        throw Object.assign(new Error('work_data_key.unavailable'), { code: 'work_data_key.unavailable', apiCode: 'work_data_key.unavailable', settled });
+      }
       if (!validate(state)) { evict(); fail('invalid'); }
       const header = { schema: state.schema, instanceId: state.instanceId, protectedKey: state.protectedKey };
       if (cache && !sameHeader(cache, header)) evict();
@@ -8988,9 +8995,241 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!state.instanceId) fail('absent');
       return state.instanceId;
     }
-    return Object.freeze({ unlock, ensure, snapshot, stageNew, stageRecovered, status, instance, clear, validate, empty });
+    // 150 W6: classify the active header for boot and the recovery-package rewrap without ever
+    // creating a key. snapshot() deliberately collapses every protector failure into decrypt_failed;
+    // only a definitive DPAPI refusal (the helper ran and Unprotect rejected this blob) is 'locked'.
+    // A helper timeout, spawn failure or capacity refusal is 'unavailable' and is never reported as
+    // key loss. 'damaged' covers a malformed header (settled read failure or invalid shape); a header
+    // file that could not be read this time (EBUSY/EACCES...) is 'unavailable', never 'damaged'.
+    async function probe() {
+      if (!host.protector.supported()) return Object.freeze({ status: 'unsupported' });
+      let state;
+      try { state = await stateRead(); }
+      catch (error) { return Object.freeze({ status: error?.code === 'work_data_key.invalid' || error?.settled === true ? 'damaged' : 'unavailable' }); }
+      if (!state.instanceId) return Object.freeze({ status: 'absent' });
+      const startedEpoch = epoch;
+      try { (await snapshot()).release(); return Object.freeze({ status: 'healthy', instanceId: state.instanceId }); }
+      catch (error) {
+        if (error?.code !== 'work_data_key.decrypt_failed') return Object.freeze({ status: 'unavailable', instanceId: state.instanceId });
+      }
+      let wrapped, domain, key;
+      try {
+        wrapped = Buffer.from(state.protectedKey, 'base64'); domain = entropy(state.instanceId);
+        try { key = await host.protector.run('unprotect', wrapped, domain); }
+        catch (error) {
+          return Object.freeze({ status: error?.code === 'local_crypto.decrypt_failed' ? 'locked' : 'unavailable', instanceId: state.instanceId });
+        }
+        // A blob that opens to anything but a 32-byte master is not this root's key under this account.
+        if (!Buffer.isBuffer(key) || key.length !== 32) return Object.freeze({ status: 'locked', instanceId: state.instanceId });
+        // The first failure was transient (e.g. a cold PowerShell start timed out) and the retry opened
+        // the key: it is healthy. Warm the cache only from the same exact, still-current header.
+        let current;
+        try { current = await stateRead(); } catch { return Object.freeze({ status: 'unavailable', instanceId: state.instanceId }); }
+        if (!sameHeader(state, current)) return Object.freeze({ status: 'unavailable', instanceId: state.instanceId });
+        if (epoch === startedEpoch) { evict(); cache = { ...state, key: Buffer.from(key) }; }
+        return Object.freeze({ status: 'healthy', instanceId: state.instanceId });
+      } finally {
+        if (Buffer.isBuffer(key)) key.fill(0);
+        if (wrapped) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
+    }
+    return Object.freeze({ unlock, ensure, snapshot, stageNew, stageRecovered, status, instance, probe, clear, validate, empty });
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
+})(require('node:crypto'));
+
+// 150 W6: rewrap the CURRENT root's work-data master from a password-protected full recovery package
+// after a reinstall, machine change or administrator password reset. When their DPAPI wrapping is lost
+// as well, the credential-vault master and the external-bot credentials are restaged from the same
+// package inside the same all-or-nothing replacement. Pure orchestration: the host injects the file IO,
+// the real protector staging (stageRecovered), the package opener and sealed-record samples.
+// Invariants:
+//   - nothing is written unless the package key is shown to belong to this root: its instanceId must
+//     match the root's evidence and, whenever decidable sealed records exist, it must authenticate them
+//     (AEAD open). Undecidable (malformed) samples count neither way; a minority of records that fail
+//     (bit rot) is reported, not used to block a key that opens the rest. With no decidable record the
+//     proof is the 128-bit instanceId only, and the replaced header is kept as a side copy;
+//   - the replacement is staged and DPAPI round-tripped before any write, each file is replaced
+//     atomically, re-read and re-unlocked from disk; any failure after the first write restores the
+//     exact previous bytes (or absence) of every replaced file and removes the side copy it created;
+//   - passwords and masters never enter errors, logs or results (codes, statuses and counts only).
+const WorkDataKeyRewrap = ((cryptoApi) => {
+  const COMMAND = 'work-data-rewrap-key';
+  const SAMPLE_LIMIT = 64;
+  const fail = (suffix, extra = {}) => { throw Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix, statusCode: 409, ...extra }); };
+  const same = (a, b) => a === null || b === null ? a === b : Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
+  const rethrowUncertain = error => { if (error?.helperMayStillRun === true) throw error; };
+  // Boot refuses only on settled evidence about the key itself. 'unavailable' (the DPAPI helper timed
+  // out or could not start, or the header file was not readable this time) does not refuse: it is not
+  // key loss, every sealed read/write still fails closed on its own (no plaintext fallback, no key
+  // creation), and the next read retries. The caller logs a visible diagnostic instead.
+  const BOOT_REFUSAL = Object.freeze({ locked: 'rewrap_required', damaged: 'header_damaged', absent: 'header_missing' });
+  function bootRefusal(probe, encrypted) {
+    const suffix = probe && BOOT_REFUSAL[probe.status];
+    if (!suffix || !encrypted || probe.status === 'absent' && encrypted !== 'manifest') return null;
+    return Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix, statusCode: 503, ruyiStartErrorKind: 'startup-failed' });
+  }
+  function create(host) {
+    async function vaultStatus() {
+      if (!host.vault) return { status: 'absent', bytes: null };
+      const bytes = await host.vault.readBytes();
+      if (bytes === null) return { status: 'absent', bytes };
+      let snap;
+      try { snap = await host.vault.snapshot(); }
+      catch (error) {
+        rethrowUncertain(error);
+        if (error?.code !== 'credential_vault.unlock_failed') return { status: 'damaged', bytes };
+        let state; try { state = JSON.parse(bytes.toString('utf8')); } catch { return { status: 'damaged', bytes }; }
+        return { status: 'locked', bytes, state };
+      }
+      if (!snap) return { status: 'empty', bytes };
+      snap.lease.release();
+      return { status: 'healthy', bytes };
+    }
+    async function botsStatus() {
+      if (!host.bots) return { status: 'absent', bytes: null };
+      const bytes = await host.bots.readBytes();
+      if (bytes === null) return { status: 'absent', bytes };
+      return { status: await host.bots.inspect(), bytes };
+    }
+    async function inspect() {
+      const encrypted = await host.encrypted();
+      if (!encrypted) return Object.freeze({ refusal: null, status: 'plain' });
+      const probe = await host.keys.probe();
+      return Object.freeze({ refusal: bootRefusal(probe, encrypted), status: probe.status });
+    }
+    async function rewrap({ serialized, password } = {}) {
+      const probe = await host.keys.probe();
+      if (probe.status === 'unsupported') fail('rewrap_unsupported');
+      if (probe.status === 'unavailable') fail('unlock_unavailable');
+      const encrypted = await host.encrypted();
+      const samples = probe.status === 'healthy' ? [] : await host.samples(SAMPLE_LIMIT);
+      const needWork = probe.status === 'locked' || probe.status === 'damaged'
+        || probe.status === 'absent' && (encrypted === 'manifest' || samples.length > 0);
+      const vault = await vaultStatus(), bots = await botsStatus();
+      const needVault = vault.status === 'locked', needBots = bots.status === 'locked';
+      if (!needWork && !needVault && !needBots) return Object.freeze({ ok: true, changed: false, workDataKey: probe.status, credentialVault: vault.status, externalBotCredentials: bots.status });
+      const headerBefore = await host.readHeaderBytes();
+      const opened = await host.openPackage(serialized, password);
+      const disposable = [opened];
+      try {
+        const keys = Array.isArray(opened.snapshot?.keys) ? opened.snapshot.keys : [];
+        const plan = [], extra = {};
+        let workKey = null, instanceId = null, proven = [], weak = false;
+        if (needWork) {
+          // The sealed records are the root's authority; a header that disagrees with them is damage.
+          const ids = [...new Set(samples.map(row => row.instanceId))];
+          if (ids.length === 1) instanceId = ids[0];
+          else if (ids.length > 1) instanceId = ids.includes(probe.instanceId) ? probe.instanceId : null;
+          else instanceId = probe.instanceId || null;
+          if (!instanceId) fail('rewrap_target_unknown');
+          workKey = keys.find(key => key && key.purpose === 'work-data' && key.instanceId === instanceId) || null;
+          if (!workKey || !Buffer.isBuffer(workKey.master) || workKey.master.length !== 32) fail('rewrap_package_mismatch');
+          let failed = 0;
+          for (const row of samples.filter(item => item.instanceId === instanceId)) {
+            const verdict = host.authenticate(row.container, workKey.master);
+            if (verdict === true) proven.push(row); else if (verdict === false) failed++;
+          }
+          // More records must authenticate than fail: a tie (one planted record next to one genuine one) is refused.
+          if (failed && failed >= proven.length) fail('rewrap_package_mismatch');
+          if (failed) extra.unreadableRecords = failed;
+          // No decidable record: the 128-bit instanceId of the existing header is the only evidence.
+          weak = !proven.length;
+          if (weak && probe.instanceId !== instanceId) fail('rewrap_target_unknown');
+          const staged = await host.stage({ instanceId, key: workKey.master });
+          disposable.push(staged.lease);
+          if (staged.header.instanceId !== instanceId) fail('rewrap_verify_failed');
+          plan.push({ name: 'workDataKey', before: headerBefore, after: Buffer.from(JSON.stringify(staged.header), 'utf8'),
+            read: host.readHeaderBytes, write: host.writeHeaderBytes });
+        }
+        let vaultKey = null;
+        if (needVault) {
+          vaultKey = keys.find(key => key && key.purpose === 'credential' && key.instanceId === vault.state?.instanceId) || null;
+          if (!vaultKey || !Buffer.isBuffer(vaultKey.master) || vaultKey.master.length !== 32) fail('rewrap_credential_mismatch');
+          let staged;
+          try { staged = await host.vault.stage({ state: vault.state, key: vaultKey.master }); }
+          catch (error) {
+            rethrowUncertain(error);
+            if (/^credential_vault\.recovery_/.test(String(error?.code || ''))) fail('rewrap_credential_mismatch');
+            throw error;
+          }
+          disposable.push(staged.lease);
+          plan.push({ name: 'credentialVault', before: vault.bytes, after: Buffer.from(JSON.stringify(staged.state), 'utf8'),
+            read: host.vault.readBytes, write: host.vault.writeBytes });
+        }
+        let botsRestaged = false;
+        if (needBots) {
+          // The package's portable copy restages only if every row's binding/revision still matches
+          // (random 128-bit revisions): bots changed after the export cannot be restored from it.
+          const portable = (Array.isArray(opened.snapshot?.auxiliaries) ? opened.snapshot.auxiliaries : []).filter(row => row?.type === 'external-bot-credentials');
+          for (const row of portable) {
+            let staged;
+            try { staged = await host.bots.stage({ bytes: bots.bytes, portable: row.data }); }
+            catch (error) {
+              rethrowUncertain(error);
+              if (error?.code === 'external_credentials.recovery_invalid') continue;
+              throw error;
+            }
+            plan.push({ name: 'externalBotCredentials', before: bots.bytes, after: Buffer.from(JSON.stringify(staged.state), 'utf8'),
+              read: host.bots.readBytes, write: host.bots.writeBytes });
+            botsRestaged = true; break;
+          }
+        }
+        if (!plan.length) return Object.freeze({ ok: true, changed: false, workDataKey: probe.status, credentialVault: vault.status, externalBotCredentials: bots.status });
+        const written = [];
+        let sideCopy = null;
+        try {
+          host.fault('before-write');
+          // Keep the old header whenever the proof is not clean (instanceId only, or some records failed),
+          // so a wrong decision stays reversible after the new key is healthy.
+          if ((weak || extra.unreadableRecords) && headerBefore !== null) sideCopy = await host.keepSideCopy(headerBefore);
+          for (const step of plan) {
+            // Exclusive ownership is held by the caller; this re-read still refuses a concurrent edit.
+            if (!same(await step.read(), step.before)) fail('rewrap_changed');
+            written.push(step); await step.write(step.after);
+            host.fault('after-write');
+          }
+          for (const step of plan) if (!same(await step.read(), step.after)) fail('rewrap_verify_failed');
+          if (workKey) {
+            const lease = await host.freshKeys().snapshot();
+            try {
+              if (lease.instanceId !== instanceId || !cryptoApi.timingSafeEqual(lease.key, workKey.master)) fail('rewrap_verify_failed');
+              for (const row of proven) if (host.authenticate(row.container, lease.key) !== true) fail('rewrap_verify_failed');
+            } finally { lease.release(); }
+          }
+          if (vaultKey) {
+            host.vault.clear();
+            const snap = await host.vault.snapshot();
+            try { if (!snap || snap.state.instanceId !== vault.state.instanceId || !cryptoApi.timingSafeEqual(snap.lease.key, vaultKey.master)) fail('rewrap_verify_failed'); }
+            finally { snap?.lease.release(); }
+          }
+          if (botsRestaged && await host.bots.inspect() !== 'healthy') fail('rewrap_verify_failed');
+          host.fault('after-verify');
+        } catch (error) {
+          let rollbackFailed = false;
+          for (const step of written.reverse()) {
+            try { await step.write(step.before); if (!same(await step.read(), step.before)) rollbackFailed = true; }
+            catch { rollbackFailed = true; }
+          }
+          if (sideCopy !== null) { try { await host.removeSideCopy(sideCopy); } catch { /* an extra copy of the old header is harmless */ } }
+          host.vault?.clear();
+          if (!written.length) throw error;
+          if (rollbackFailed) fail('rewrap_rollback_failed', { helperMayStillRun: error?.helperMayStillRun === true });
+          if (error && typeof error === 'object' && !Object.isFrozen(error)) error.rolledBack = true;
+          throw error;
+        }
+        return Object.freeze({ ok: true, changed: true,
+          workDataKey: workKey ? 'rewrapped' : probe.status, credentialVault: vaultKey ? 'rewrapped' : vault.status,
+          externalBotCredentials: botsRestaged ? 'rewrapped' : bots.status, ...extra,
+          ...(weak ? { proof: 'instance-id', previousHeaderKept: sideCopy !== null } : extra.unreadableRecords ? { previousHeaderKept: sideCopy !== null } : {}) });
+      } finally {
+        for (const item of disposable.reverse()) { try { item.release(); } catch { /* best effort zeroing */ } }
+      }
+    }
+    return Object.freeze({ inspect, rewrap });
+  }
+  return Object.freeze({ COMMAND, SAMPLE_LIMIT, BOOT_REFUSAL, bootRefusal, create });
 })(require('node:crypto'));
 
 // The process-wide key set. Families create their stores with it; enabled() reads the config switch
@@ -22647,7 +22886,7 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json', 'key-rewrap-backups'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
     ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
@@ -22657,7 +22896,7 @@ function isSensitiveDataPath(p) {
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
   try {
     const base = path.basename(p);
-    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json)(\.|$)/i.test(base)) {
+    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json|\.work-data-key-rewrap-[a-f0-9]{24}\.tmp)(\.|$)/i.test(base)) {
       const dir = path.resolve(path.dirname(p));
       for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
     }
@@ -69978,7 +70217,7 @@ function sensitiveGlobsForRg(base) {
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
       ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots() : [])])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json', 'key-rewrap-backups']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
         const generationRel = path.relative(base, path.join(r, '.work-data', 'generations'));
@@ -69989,12 +70228,14 @@ function sensitiveGlobsForRg(base) {
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
+      // 151 phase 3E: the rewrap CLI's own header temp files (DPAPI-wrapped key material) stay out of model file tools.
+      if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/.work-data-key-rewrap-*.tmp');
       const controlRel = path.relative(base, path.join(r, '.work-data'));
       if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
         const prefix = '!/' + controlRel.split(path.sep).join('/');
         globs.push(prefix + '/active-v1.json*', prefix + '/.active-v1.stage-*', prefix + '/generations/*/config.json*',
           prefix + '/generations/*/credential-vault-v1.json*', prefix + '/generations/*/external-bot-credentials.json*',
-          prefix + '/generations/*/work-data-key-v1.json*');
+          prefix + '/generations/*/work-data-key-v1.json*', prefix + '/generations/*/.work-data-key-rewrap-*.tmp');
       }
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
@@ -82464,7 +82705,7 @@ async function startServer(opts) {
     }
     if (!WorkDataRootHooks.ready()) throw error; // Invalid authority must not trigger a startup error writer.
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
-    const recoveryHelp = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '';
+    const recoveryHelp = (typeof workDataKeyGuidance === 'function' ? workDataKeyGuidance(error) : '') || (typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '');
     const message = String(recoveryHelp || (error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
@@ -82551,6 +82792,76 @@ async function warmWorkbenchServices(config){
   ]);
 }
 
+// 150 W6: work-data key header boot check (the rewrap CLI host lives in 14-main). Both run only after
+// WorkDataRootHooks.bind, so paths.data is the selected generation (or the legacy flat root).
+// 'manifest' = active generation is encrypted; 'legacy' = generation-zero root with the config flag on
+// (an unreadable config is treated as on: fail closed). Plain roots never refuse here.
+async function workDataKeyEncryptionMode() {
+  if (!WorkDataRootHooks.ready()) return false;
+  if (WorkDataRootHooks.guarded()) return WorkDataRootHooks.mode(false) === true ? 'manifest' : false;
+  try { return JSON.parse(await fsp.readFile(paths.config, 'utf8'))?.workDataEncryptionV1 === true ? 'legacy' : false; }
+  catch (error) { return error?.code === 'ENOENT' ? false : 'legacy'; }
+}
+async function assertWorkDataKeyUsableAtBoot() {
+  // Boot needs only the classification; the package/vault host lives with the CLI (14), outside the cycle.
+  const { refusal, status } = await WorkDataKeyRewrap.create({ keys: workDataKeys, encrypted: workDataKeyEncryptionMode }).inspect();
+  if (refusal) throw refusal;
+  // Helper slow/unstartable or header not readable this time: not key loss. Boot continues (sealed
+  // reads/writes still fail closed on their own and retry); leave a visible diagnostic instead.
+  if (status === 'unavailable') {
+    console.log('[start] work-data key could not be unlocked right now (work_data_key.unlock_unavailable); encrypted data stays unavailable until Windows data protection answers. Retry later; this is not key loss.');
+    try { logEvent({ kind: 'work_data_key_boot_check', status: 'unavailable' }); } catch { /* diagnostics never block boot */ }
+  }
+}
+function workDataRewrapCommandText() {
+  const quote = value => '"' + value + '"';
+  const launcher = isPkg() ? quote(process.execPath) : quote(process.execPath) + ' ' + quote(__filename);
+  return `${launcher} ${WorkDataKeyRewrap.COMMAND} --package "<完整恢复包文件>"`;
+}
+// Plain-language guidance for the work-data key refusals and the rewrap CLI. Codes only; it never
+// echoes a password, master or package content. '' means "not ours" (callers fall back).
+function workDataKeyGuidance(error) {
+  const code = String(error?.code || '');
+  const steps = () => `处理方法：关闭如意，用之前导出的「完整恢复包」和它的导出口令重新包裹密钥，在命令提示符运行：${workDataRewrapCommandText()}`
+    + '。按提示输入口令（只从键盘、管道或 --password-file 指定的文件读取，不要写在命令行里）。命令先核对恢复包确属这个数据目录，不符就拒绝且不改任何文件，中途失败会原样回滚；完成后照常启动如意。'
+    + (process.env.RUYI_HOME ? '运行时保持同样的 RUYI_HOME 设置。' : '')
+    + '请保留原数据目录，不要删除密钥文件或改用新目录；用过的口令文件请在完成后删除。'
+    + ` / Rewrap the key with your full recovery package: ${WorkDataKeyRewrap.COMMAND} --package <file> (password from stdin or --password-file, never argv).`;
+  const untouched = '没有改动任何文件。';
+  const rolled = error?.rolledBack === true ? '已回滚，密钥头、凭据库与机器人凭据恢复为原来的字节。' : untouched;
+  const table = {
+    'work_data_key.rewrap_required': () => `工作数据密钥在当前 Windows 账户下解不开（${code}），常见于重装系统、换电脑或管理员重置了密码；加密数据仍在。` + steps(),
+    'work_data_key.header_damaged': () => `工作数据密钥头文件损坏或读不出（${code}）；加密数据仍在。` + steps(),
+    'work_data_key.header_missing': () => `加密的工作数据缺少密钥头文件（${code}）；加密数据仍在。` + steps(),
+    'work_data_key.unlock_unavailable': () => `暂时无法调用 Windows 数据保护解开工作数据密钥（${code}）。这通常是系统繁忙或 PowerShell 被策略禁用，并不代表密钥丢失；请稍后再试，反复出现时请检查 PowerShell 是否可用。不需要重新包裹密钥。`,
+    'work_data_key.rewrap_unsupported': () => `重新包裹工作数据密钥只能在 Windows 上进行（${code}）。` + untouched,
+    'work_data_key.rewrap_usage': () => `用法：${WorkDataKeyRewrap.COMMAND} --package <完整恢复包文件> [--password-file <口令文件>]（${code}）。` + untouched,
+    'work_data_key.rewrap_password_argv_forbidden': () => `不接受在命令行参数里写口令（${code}）：请按提示输入，或用 --password-file 指定只含口令的文件。` + untouched,
+    'work_data_key.rewrap_password_unreadable': () => `没有读到口令（${code}）：请按提示输入，或用 --password-file 指定只含口令的文件。` + untouched,
+    'work_data_key.rewrap_package_unreadable': () => `读不出指定的恢复包文件（${code}）。请确认路径正确、文件完整。` + untouched,
+    'work_data_key.rewrap_package_mismatch': () => `这个恢复包不属于当前数据目录：包里没有能解开现有加密数据的工作数据密钥（${code}）。` + untouched + '请换用从这个数据目录导出的完整恢复包。',
+    'work_data_key.rewrap_credential_mismatch': () => `本地凭据库也需要重新包裹，但这个恢复包里没有与它对应的凭据库密钥（${code}）。` + untouched + '请换用从这个数据目录导出的完整恢复包。',
+    'work_data_key.rewrap_target_unknown': () => `找不到可核对的加密数据或密钥头，无法确认恢复包与当前数据目录的对应关系（${code}）。` + untouched,
+    'work_data_key.rewrap_target_invalid': () => `密钥头或凭据库不是普通文件，无法安全替换（${code}）。` + untouched,
+    'work_data_key.rewrap_root_busy': () => `这个数据目录正被如意或另一个重新包裹命令占用（${code}）。请先完全关闭如意（包括托盘与桌面窗口），等另一个命令结束后再运行。` + untouched,
+    'work_data_key.rewrap_changed': () => `核对期间密钥头或凭据库被改动（${code}）。请确认如意已关闭后再运行一次。` + untouched,
+    'work_data_key.rewrap_verify_failed': () => `新密钥写入后核对失败（${code}）。` + rolled,
+    'work_data_key.rewrap_test_fault': () => `测试注入的失败（${code}）。` + rolled,
+    'work_data_key.rewrap_rollback_failed': () => `新密钥核对失败，且没能确认原文件已恢复（${code}）。请不要启动如意或删除数据目录，保留恢复包，再运行一次本命令。`,
+    'work_data_recovery.authentication': () => `恢复包口令不对，或恢复包文件已损坏（${code}）。` + untouched
+      + (error?.passwordTrailingSpace === true ? '读到的口令末尾带空格或制表符（例如 echo 口令 | 命令 会多出一个空格）；口令原样使用、不会自动去掉，若导出时没有这个空格，请去掉后重试。' : ''),
+    'work_data_recovery.password_invalid': () => `口令格式不对：恢复包口令至少 12 个字符（${code}）。` + untouched,
+    'work_data_recovery.busy': () => `正在核对另一个恢复包，请稍后再试（${code}）。` + untouched,
+  };
+  if (table[code]) return table[code]();
+  if (/^work_data_recovery\./.test(code)) return `这个文件不是有效的完整恢复包（${code}）。` + untouched;
+  if (code === 'credential_vault.unlock_failed' && WorkDataRootHooks.ready() && WorkDataRootHooks.guarded() && WorkDataRootHooks.mode(false) === true) {
+    return `本地凭据库无法在当前 Windows 账户下解锁（${code}）。若是重装系统、换电脑或重置密码导致，可以用工作数据「完整恢复包」把凭据库与工作数据密钥一并重新包裹：${workDataRewrapCommandText()}。没有完整恢复包时：`
+      + (PrivacyCore.configHooks.startupGuidance?.(error) || '');
+  }
+  return '';
+}
+
 async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
   beginBootCliPathProbes();
   try {
@@ -82573,6 +82884,10 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
     console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
     try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
   }
+  // 150 W6: an encrypted root whose key header cannot be unlocked (reinstall, new machine, password
+  // reset) or is damaged/missing refuses here with a stable code and rewrap guidance, before any
+  // boot consumer reads or rewrites sealed data. A helper timeout is a distinct, retryable code.
+  await assertWorkDataKeyUsableAtBoot();
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
@@ -121485,6 +121800,254 @@ async function clearBootRootPreference() {
   if (after && after.present === true) throw refusal('root_preference_clear_unverified');
   console.log('boot-root preference: cleared');
 }
+// 150 W6: the rewrap host for the CLI below. Header/vault/bot-credential IO on the bound root, real
+// DPAPI staging (01o stageRecovered, 01k/13y recovery staging), the package opener (01t) and AEAD
+// sample authentication (01n).
+const WORK_DATA_REWRAP_TEMP = /^\.work-data-key-rewrap-[a-f0-9]{24}\.tmp$/;
+function workDataKeyRewrapHost() {
+  const headerFile = () => path.join(paths.data, 'work-data-key-v1.json');
+  const vaultFile = () => path.join(paths.data, 'credential-vault-v1.json');
+  const botsFile = () => path.join(paths.data, 'external-bot-credentials.json');
+  const refuse = suffix => Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix });
+  async function readBytes(file) {
+    let stat;
+    try { stat = await fsp.lstat(file); } catch (error) { if (error.code === 'ENOENT') return null; throw refuse('rewrap_target_invalid'); }
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) throw refuse('rewrap_target_invalid');
+    return fsp.readFile(file);
+  }
+  // Raw bytes (a rollback restores even a non-UTF-8 damaged file exactly), fsync before the rename.
+  // The temporary name never starts with a protected file name, so a torn temp left by a crash is
+  // not mistaken for a key header/vault by later exports, and only this command creates that prefix.
+  async function writeFileAtomic(file, bytes) {
+    // A random, exclusive ('wx') name per write; not a fixed '<file>.tmp' shared with any other writer.
+    const tmp = path.join(path.dirname(file), `.work-data-key-rewrap-${crypto.randomBytes(12).toString('hex')}.tmp`);
+    let handle;
+    try {
+      handle = await fsp.open(tmp, 'wx', 0o600);
+      await handle.writeFile(bytes); await handle.sync(); await handle.close(); handle = null;
+      for (let attempt = 0; ; attempt++) {
+        try { await fsp.rename(tmp, file); return; }
+        catch (error) {
+          if (['EPERM', 'EBUSY', 'EACCES'].includes(error?.code) && attempt < 8) { await new Promise(resolve => setTimeout(resolve, 15 + attempt * 20)); continue; }
+          throw error;
+        }
+      }
+    } catch (error) {
+      if (handle) await handle.close().catch(() => {});
+      await fsp.unlink(tmp).catch(() => {});
+      throw error;
+    }
+  }
+  const writeBytes = file => async bytes => {
+    if (bytes === null) { await fsp.unlink(file).catch(error => { if (error.code !== 'ENOENT') throw error; }); return; }
+    await writeFileAtomic(file, Buffer.from(bytes));
+  };
+  const fileKeys = () => WorkDataKeys.create({ protector: LocalSecretCrypto, enabled: () => false, store: { read: async () => {
+    const bytes = await readBytes(headerFile()); if (bytes === null) return WorkDataKeys.empty(); return JSON.parse(bytes.toString('utf8'));
+  } } });
+  // Self-describing v2 containers: the AEAD open proves a master without trusting any header.
+  async function samples(limit) {
+    const found = [];
+    let examined = 0;
+    for (const family of ['sessions', 'memory', 'agent-runs', 'missions', 'scheduler', 'steward']) {
+      let names = [];
+      try { names = (await fsp.readdir(path.join(paths.data, family), { withFileTypes: true })).filter(entry => entry.isFile() && /\.json$/i.test(entry.name)).map(entry => entry.name).sort(); }
+      catch { continue; }
+      for (const name of names) {
+        if (found.length >= limit || examined >= 4000) return found;
+        examined++;
+        const file = path.join(paths.data, family, name);
+        try {
+          const stat = await fsp.lstat(file); if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4 * 1024 * 1024) continue;
+          const parsed = JSON.parse(await fsp.readFile(file, 'utf8'));
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.workData !== 2) continue;
+          const { workData, ...container } = parsed;
+          if (typeof container.instanceId !== 'string' || !/^[a-f0-9]{32}$/.test(container.instanceId) || !container.envelope) continue;
+          found.push(Object.freeze({ instanceId: container.instanceId, container }));
+        } catch { /* unusable sample: not evidence either way */ }
+      }
+    }
+    return found;
+  }
+  function authenticate(container, master) {
+    const generation = /^work-data-v2\.k([1-9][0-9]?)$/.exec(String(container?.keyId || ''));
+    if (!generation) return null;
+    try {
+      WorkDataCrypto.open(container, master, { purpose: container.purpose, instanceId: container.instanceId, schema: container.schema,
+        scopeId: container.scopeId, recordId: container.recordId, seq: container.seq, generation: Number(generation[1]) });
+      return true;
+    } catch (error) { return error?.code === 'work_data.decrypt_failed' ? false : null; }
+  }
+  const botOwner = () => ExternalBotCredentials.create({ file: botsFile() });
+  async function botsInspect() {
+    let snap;
+    try { snap = await botOwner().snapshotForWorkDataRecovery(); }
+    catch (error) {
+      if (error?.helperMayStillRun === true) throw error;
+      const code = String(error?.code || '');
+      if (code === 'external_credentials.decrypt_failed') return 'locked';
+      if (code === 'external_credentials.storage_unavailable' || code === 'external_credentials.recovery_invalid') return 'damaged';
+      return 'unavailable';
+    }
+    try { return 'healthy'; } finally { snap.release(); }
+  }
+  const vaultHooks = PrivacyCore.configHooks;
+  return {
+    keys: workDataKeys, freshKeys: fileKeys, encrypted: workDataKeyEncryptionMode, samples, authenticate,
+    readHeaderBytes: () => readBytes(headerFile()), writeHeaderBytes: writeBytes(headerFile()),
+    stage: value => fileKeys().stageRecovered(value),
+    openPackage: (serialized, password) => WorkDataRecovery.open(serialized, password),
+    vault: typeof vaultHooks.snapshotForWorkDataRecovery === 'function' ? {
+      readBytes: () => readBytes(vaultFile()), writeBytes: writeBytes(vaultFile()),
+      snapshot: () => vaultHooks.snapshotForWorkDataRecovery(), stage: value => vaultHooks.stageRecoveredForWorkData(value),
+      clear: () => { if (typeof vaultHooks.clear === 'function') vaultHooks.clear(); },
+    } : null,
+    bots: {
+      readBytes: () => readBytes(botsFile()), writeBytes: writeBytes(botsFile()), inspect: botsInspect,
+      stage: ({ bytes, portable }) => botOwner().stageRecoveredForWorkData({ state: JSON.parse(bytes.toString('utf8')), portable }),
+    },
+    // Weak (instanceId-only) proof: keep the replaced header beside the data, never under a protected name.
+    async keepSideCopy(bytes) {
+      const dir = path.join(paths.data, 'key-rewrap-backups');
+      await fsp.mkdir(dir, { recursive: true });
+      const file = path.join(dir, 'previous-header-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + crypto.randomBytes(4).toString('hex') + '.json');
+      const handle = await fsp.open(file, 'wx', 0o600);
+      try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+      return file;
+    },
+    removeSideCopy: file => fsp.unlink(file),
+    // Torn temporaries of an interrupted earlier run of this command (its own exclusive prefix only).
+    async cleanupTemporaries() {
+      let names = [];
+      try { names = await fsp.readdir(paths.data); } catch { return; }
+      for (const name of names) if (WORK_DATA_REWRAP_TEMP.test(name)) await fsp.unlink(path.join(paths.data, name)).catch(() => {});
+    },
+    // Test-only fault injection; inert unless this explicit test variable names the point.
+    fault(point) {
+      if (process.env.RUYI_TEST_WORK_DATA_REWRAP_FAULT === point) throw refuse('rewrap_test_fault');
+    },
+  };
+}
+// 150 W6: user-facing recovery CLI (no UI needed): rewrap this root's key header from a full
+// recovery package. The password is read only from the keyboard (hidden), a pipe or
+// --password-file, never from argv; the package and password are read before the root is owned,
+// then the same owner/inspection/bind path as doctor runs the orchestrator in 01o.
+function workDataRewrapRefusal(suffix) {
+  return Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix, retry: false });
+}
+// Password bytes from a file or a pipe: UTF-8 (with or without BOM) or UTF-16LE/BE with BOM, as
+// Notepad, PowerShell and cmd write them. Only the line break is removed; spaces are kept verbatim.
+function workDataRewrapPasswordFromBytes(bytes) {
+  let text;
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) text = bytes.subarray(2, 2 + ((bytes.length - 2) & ~1)).toString('utf16le');
+  else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    const swapped = Buffer.from(bytes.subarray(2, 2 + ((bytes.length - 2) & ~1)));
+    try { text = swapped.swap16().toString('utf16le'); } finally { swapped.fill(0); }
+  } else text = bytes.toString('utf8');
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const end = text.search(/\r\n|\n|\r/);
+  return end < 0 ? text : text.slice(0, end);
+}
+function workDataRewrapHiddenPrompt(label) {
+  return new Promise((resolve, reject) => {
+    // Multi-byte safe: a UTF-8 character split across reads is decoded whole (no per-chunk toString).
+    const input = process.stdin, chars = [], decoder = new (require('node:string_decoder').StringDecoder)('utf8');
+    let done = false;
+    const finish = (error, value) => {
+      if (done) return; done = true;
+      input.removeListener('data', onData); input.removeListener('end', onEnd); input.removeListener('error', onEnd);
+      try { input.setRawMode(false); } catch { /* best effort */ }
+      input.pause(); process.stderr.write('\n');
+      if (error) reject(error); else resolve(value);
+    };
+    function onEnd() { finish(workDataRewrapRefusal('rewrap_password_unreadable')); }
+    function onData(data) {
+      for (const ch of decoder.write(data)) {
+        if (ch === '\r' || ch === '\n') return finish(null, chars.join(''));
+        if (ch === '\u0003' || ch === '\u0004') return finish(workDataRewrapRefusal('rewrap_password_unreadable'));
+        if (ch === '\u0008' || ch === '\u007f') { chars.pop(); continue; }
+        chars.push(ch);
+      }
+    }
+    process.stderr.write(label);
+    input.on('end', onEnd); input.on('error', onEnd);
+    input.setRawMode(true); input.resume(); input.on('data', onData);
+  });
+}
+async function readWorkDataRewrapPassword(file) {
+  if (file !== undefined) {
+    let bytes;
+    try {
+      const stat = await fsp.lstat(file);
+      if (!stat.isFile() || stat.size > 8192) throw workDataRewrapRefusal('rewrap_password_unreadable');
+      bytes = await fsp.readFile(file);
+      return workDataRewrapPasswordFromBytes(bytes);
+    } catch (error) { if (error?.code === 'work_data_key.rewrap_password_unreadable') throw error; throw workDataRewrapRefusal('rewrap_password_unreadable'); }
+    finally { if (bytes) bytes.fill(0); }
+  }
+  if (process.stdin.isTTY) return workDataRewrapHiddenPrompt('恢复包口令 / Recovery package password: ');
+  // A pipe: read to EOF (bounded) so a UTF-16 line break byte cannot cut a character in half.
+  const chunks = []; let size = 0, all;
+  try {
+    for await (const chunk of process.stdin) {
+      size += chunk.length; chunks.push(chunk);
+      if (size > 8192) throw workDataRewrapRefusal('rewrap_password_unreadable');
+    }
+    all = Buffer.concat(chunks);
+    return workDataRewrapPasswordFromBytes(all);
+  } finally { for (const chunk of chunks) chunk.fill(0); if (all) all.fill(0); }
+}
+async function runWorkDataKeyRewrap() {
+  const raw = process.argv.slice(2);
+  // Refuse any password-like option before anything else is read or owned; the refusal never echoes it.
+  if (raw.some(value => /^--?pass(?:word|phrase)?(?:=|$)/i.test(value))) throw workDataRewrapRefusal('rewrap_password_argv_forbidden');
+  const options = {};
+  for (let i = 1; i < raw.length; i += 2) {
+    const name = raw[i], value = raw[i + 1];
+    if (!['--package', '--password-file'].includes(name) || Object.hasOwn(options, name) || typeof value !== 'string' || !value || value.startsWith('--')) throw workDataRewrapRefusal('rewrap_usage');
+    options[name] = path.resolve(value);
+  }
+  if (raw[0] !== WorkDataKeyRewrap.COMMAND || !options['--package']) throw workDataRewrapRefusal('rewrap_usage');
+  let serialized;
+  try {
+    const stat = await fsp.lstat(options['--package']);
+    if (!stat.isFile() || stat.size > WorkDataRecovery.LIMITS.serialized) throw new Error('package');
+    serialized = await fsp.readFile(options['--package'], 'utf8');
+  } catch { throw workDataRewrapRefusal('rewrap_package_unreadable'); }
+  let password = await readWorkDataRewrapPassword(options['--password-file']);
+  const trailingSpace = /\s$/.test(password);
+  try {
+    let root = '';
+    const result = await withSelectedWorkDataRoot(async () => {
+      root = paths.data;
+      const host = workDataKeyRewrapHost();
+      try {
+        await host.cleanupTemporaries();
+        const outcome = await WorkDataKeyRewrap.create(host).rewrap({ serialized, password });
+        logEvent({ kind: 'work_data_key_rewrap', ok: true, changed: outcome.changed, workDataKey: outcome.workDataKey, credentialVault: outcome.credentialVault,
+          externalBotCredentials: outcome.externalBotCredentials, unreadableRecords: outcome.unreadableRecords || 0, proof: outcome.proof || 'sealed-records' });
+        return outcome;
+      } catch (error) {
+        logEvent({ kind: 'work_data_key_rewrap', ok: false, code: String(error?.code || 'unknown').slice(0, 80), rolledBack: error?.rolledBack === true });
+        throw error;
+      }
+    }).catch(error => {
+      if (error?.code === 'DATA_ROOT_IN_USE') throw workDataRewrapRefusal('rewrap_root_busy');
+      if (error?.code === 'work_data_recovery.authentication' && trailingSpace && !Object.isFrozen(error)) error.passwordTrailingSpace = true;
+      throw error;
+    });
+    console.log('数据目录 / Data root: ' + root);
+    console.log(result.changed
+      ? '已用完整恢复包重新包裹密钥，现在可以照常启动如意。 / Key rewrapped from the full recovery package; start Ruyi normally.'
+      : '当前密钥可以正常解开，无需重新包裹。 / The current key unlocks normally; no rewrap was needed.');
+    if (result.externalBotCredentials === 'locked') console.log('外部机器人凭据无法从这个恢复包恢复（导出后有改动或不在包里），请在「设置 → 外部渠道」重新填写机器人密钥。 / External bot secrets could not be restored from this package; re-enter them in Settings.');
+    if (result.unreadableRecords) console.log(`有 ${result.unreadableRecords} 条加密记录本身已损坏、读不出；其余记录已核对与恢复包一致。 / ${result.unreadableRecords} sealed record(s) are themselves unreadable; the rest match the package.`);
+    if (result.proof === 'instance-id') console.log('没有可核对的加密记录，仅按密钥标识核对；原密钥头已另存到数据目录的 key-rewrap-backups 文件夹。 / No sealed record to verify against; the previous header was kept in key-rewrap-backups.');
+    if (options['--password-file']) console.log('请删除口令文件：' + options['--password-file'] + ' / Delete the password file now.');
+    console.log(JSON.stringify(result));
+    return result;
+  } finally { password = ''; serialized = ''; }
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -121538,6 +122101,7 @@ async function main() {
     return run();
   }
   if (command === 'serve') return startWorkbenchServe(argv);
+  if (typeof WorkDataKeyRewrap !== 'undefined' && command === WorkDataKeyRewrap.COMMAND) return runWorkDataKeyRewrap();
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') {
@@ -121564,7 +122128,7 @@ if (require.main === module) {
     if (workDataCliHelperUnknown(err)) {
       holdWorkDataCliOwner();console.error('work_data_setup.native_helper_uncertain');return;
     }
-    const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);
+    const recoveryHelp = (typeof workDataKeyGuidance === 'function' ? workDataKeyGuidance(err) : '') || PrivacyCore.configHooks.startupGuidance?.(err);
     console.error(recoveryHelp || err.stack || err.message || String(err));
     // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting
     // exitCode leaves those handles alive and makes the failed CLI look hung; a direct invocation must fail fast.
