@@ -2,6 +2,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const {fixture,actual}=require('../lib/fulltext-consumer-fixture');
 async function setup(t){const f=await fixture();t.after(()=>f.close());let mode='ready',mutate=null;
+ // 2C 复审应改 2:冻结夹具时钟(同 semantic-gemma2-consumers),负载下 1 s 语义预算不再被机器吃光、把「Reject」误判成未评分。
+ const now=Date.now();f.context.Date=class extends Date{static now(){return now;}};
  const api=vm.runInContext(actual('06ha-semantic-retrieval.js')+'\nSemanticRetrieval;',f.context);
  Object.assign(f.context,{SemanticRetrieval:api,SemanticRuntimeHooks:{prepare:async()=>mode==='disabled'?{available:false,reason:'disabled'}:{available:true,modelId:'metadata-fake',modelFingerprint:'metadata-fake-v1',retrievalThresholds:{search:.44}},encode:async(texts,options)=>{if(mode==='timeout')return{ok:false,reason:'timeout'};if(options.role==='document'&&mutate){const fn=mutate;mutate=null;await fn();}await options.beforeEncode?.();return{ok:true,modelFingerprint:'metadata-fake-v1',vectors:texts.map(text=>options.role==='query'||text.includes('accepted')?[1,0]:[0,1])};}}});
  return{f,setMode:value=>mode=value,setMutate:fn=>mutate=fn};}

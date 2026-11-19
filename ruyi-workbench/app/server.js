@@ -21951,6 +21951,22 @@ function sessionFullTextSequence(id) {
   return JSON.stringify([sessionDiskWriteSeqOf(id),sessionFullTextHeadWriteSeq.get(id)||0,
     sessionDeleteTombstones.get(id)?.at||0,sessionPermissionModeOverrides.get(id)||null,sessionDesktopToolsOverrides.get(id)||null]);
 }
+// 150 号文 S6:全库共用的「来源可能变了」计数器。sessionFullTextSequence 读的五张表任何一次 set/delete/clear 都推它,
+// 消费方(13as 的 cap.assert)计数器没动就不必逐源重算 sequence。第一次读时才给五张表装计数(此时各模块都已加载完;
+// 装之前的变动无所谓 —— 消费方只比较两次读之间是否变过)。dev-harness/unit/fulltext-source-serial.test.js 钉住五张表都装上了。
+let sessionFullTextSourceSerialValue = 0, sessionFullTextSourceSerialWatched = false;
+function sessionFullTextSourceSerial() {
+  if (!sessionFullTextSourceSerialWatched) {
+    for (const map of [sessionDiskWriteSeq, sessionFullTextHeadWriteSeq, sessionDeleteTombstones, sessionPermissionModeOverrides, sessionDesktopToolsOverrides]) {
+      for (const name of ['set', 'delete', 'clear']) {
+        const original = Map.prototype[name];
+        Object.defineProperty(map, name, { configurable: true, writable: true, value(...args) { sessionFullTextSourceSerialValue++; return original.apply(this, args); } });
+      }
+    }
+    sessionFullTextSourceSerialWatched = true;
+  }
+  return sessionFullTextSourceSerialValue;
+}
 function createSessionFullTextSource() {
   const fail=suffix=>Object.assign(Error('session_fulltext_source.'+suffix),{code:'session_fulltext_source.'+suffix,apiCode:'session_fulltext_source.'+suffix,statusCode:409});
   const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
@@ -44232,9 +44248,9 @@ try{await r.identityReady;}catch{/* Missing identity remains unproved. */}try{r.
    record.identityReady=Promise.resolve().then(()=>observe(child.pid)).then(identity=>{if(identity?.exists===false)record.absentAtIdentity=identity;if(!identity?.exists||identity.pid!==child.pid||!/^\d+$/.test(identity.creationFileTime||''))throw fault('semantic.owner_identity');record.identity=identity;}).catch(e=>{if(e&&typeof e==='object')availabilityErrors.add(e);throw e;});staged();await record.identityReady;publish();return await readyPromise;
   }catch(e){primaryFailure={value:e};if(record.child){try{await stop('fault');}catch{}}else{if(record.key&&owners.get(record.key)===record)owners.delete(record.key);if(owner===record)owner=null;}if(e?.code==='semantic.preparation_stopped')return unavailable('unavailable');if(availabilityFailure(e)){markFaulted();descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:e?.code||'unavailable'};return unavailable('unavailable');}startingFailure={value:e};descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:typeof e?.code==='string'?e.code:'semantic.startup_failed'};throw e;}finally{clearTimeout(timer);let cleanupFailure=null;if(!record.child&&settings?.onSpawnFailure)try{await settings.onSpawnFailure();}catch(e){record.cleanupFailure={value:e};cleanupFailure={value:e};metrics.cleanupFailures++;}staged();if(starting===record)starting=null;if(cleanupFailure&&!primaryFailure){startingFailure=cleanupFailure;throw cleanupFailure.value;}}})();record.promise.catch(()=>{});return record.promise;}
  async function prepare(options={}){const g=generation;aborted(options.signal);const enabled=await host.enabled();aborted(options.signal);if(enabled!==true){await stop('disabled');aborted(options.signal);return unavailable('disabled');}if(startingFailure)throw startingFailure.value;if(disposed)return unavailable('disabled');if(g!==generation)return unavailable('unavailable');const remaining=Math.min(Number.isFinite(options.deadline)?options.deadline-Date.now():20000,Number.isFinite(options.budgetMs)?Math.max(0,options.budgetMs):250);if(remaining<=0)return unavailable('timeout');if(owner&&['unknown','stopping','closing','cleanup-failed'].includes(owner.state))return unavailable('unavailable',owner.state);const task=start();if(owner?.state==='ready'&&descriptorValue.available)return {ok:true,...descriptor()};return new Promise((resolve,reject)=>{let done=false;const finish=(v,e,failed=false)=>{if(done)return;done=true;clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);if(failed)reject(e);else if(options.signal?.aborted)reject(options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason);else resolve(v);},cancel=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>finish(null,e,true),()=>finish(null,e,true));},timer=setTimeout(()=>finish(unavailable('unavailable','loading')),Math.min(20000,remaining));options.signal?.addEventListener('abort',cancel,{once:true});if(options.signal?.aborted)cancel();task.then(v=>finish(v),e=>finish(null,e,true));});}
- async function encode(texts,options={}){aborted(options.signal);if(!Array.isArray(texts)||!texts.length||texts.length>16||texts.some(x=>typeof x!=='string'||x.length>8192)||texts.reduce((n,x)=>n+x.length,0)>32768)throw TypeError('semantic.invalid_texts');if(!['query','document'].includes(options.role))throw TypeError('semantic.invalid_role');const deadline=Math.min(Number.isFinite(options.deadline)?options.deadline:Infinity,Date.now()+(Number.isFinite(options.budgetMs)?Math.max(0,Math.min(1000,options.budgetMs)):1000));let r,lease=false,wrote=false,callbackFailure=false;const guard=async()=>{if(options.beforeEncode)try{await options.beforeEncode();}catch(e){callbackFailure=true;throw e;}};const enabled=async()=>{try{return await host.enabled();}catch(e){callbackFailure=true;throw e;}};
-  try{const d=options[WARM]?{available:true}:await prepare({...options,deadline,budgetMs:Math.max(0,deadline-Date.now())});aborted(options.signal);if(!d.available)return d;if(busy)return unavailable('overloaded');busy=true;lease=true;r=owner;const on=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(on!==true){await stop('disabled');return unavailable('disabled');}current(r,options.signal);const minimum=Math.max(estimateEncodingBudget(options.role,texts.length),Number.isFinite(options.minimumBudgetMs)?Math.max(0,Math.min(60000,options.minimumBudgetMs)):0);if(deadline-Date.now()<minimum)return unavailable('timeout');const id=String(++serial),value=await new Promise((resolve,reject)=>{const abort=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>settle(id,null,e,true),()=>settle(id,null,e,true));},timer=setTimeout(()=>{void stop('timeout').then(()=>settle(id,unavailable('timeout')));},Math.max(1,deadline-Date.now()));pending.set(id,{resolve,reject,timer,signal:options.signal,abort});options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted){abort();return;}try{current(r,options.signal);wrote=true;metrics.requests++;metrics[options[WARM]?'warmupTexts':options.role==='query'?'queryTexts':'documentTexts']+=texts.length;r.child.stdin.write(JSON.stringify({requestId:id,op:'encode',role:options.role,texts,deadlineMs:deadline})+'\n');}catch(e){settle(id,null,e,true);}});
-   aborted(options.signal);const onAfter=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(onAfter!==true){await stop('disabled');return unavailable('disabled');}if(value.ok!==true)return unavailable(value.reason==='timeout'||/deadline|timeout/i.test(value.error?.code||'')?'timeout':'unavailable');current(r,options.signal);const dimension=descriptorValue.dimensions;if(value.modelFingerprint!==descriptorValue.modelFingerprint||!Array.isArray(value.vectors)||value.vectors.length!==texts.length||value.vectors.some(v=>!Array.isArray(v)||v.length!==dimension||!v.every(Number.isFinite)||Math.abs(Math.hypot(...v)-1)>1e-4))throw fault('semantic.vector_contract');if(value.truncated!==undefined&&(!Array.isArray(value.truncated)||value.truncated.length!==texts.length||value.truncated.some(x=>typeof x!=='boolean')))throw fault('semantic.token_contract');if(host.validateReply)host.validateReply(value,texts,r.settings);const cost=value.metrics?.workerEncodeMs/texts.length;if(!options[WARM]&&Number.isFinite(cost)&&cost>0&&cost<60000)recent[options.role]=Math.min(5000,Math.max(1,recent[options.role]*.6+cost*.4));metrics.peakRssBytes=Math.max(metrics.peakRssBytes,Number.isFinite(value.metrics?.peakRssBytes)?value.metrics.peakRssBytes:0);/* 150 S10: passing warmup is not stability. A worker that warms up then dies on its first real encode must keep doubling its cooldown, so the streak is forgiven only after a real encode on a worker alive for the stable window. */if(!options[WARM]&&faultStreak>0&&stableFor(r))faultStreak=0;return value;
+ async function encode(texts,options={}){aborted(options.signal);if(!Array.isArray(texts)||!texts.length||texts.length>16||texts.some(x=>typeof x!=='string'||x.length>8192)||texts.reduce((n,x)=>n+x.length,0)>32768)throw TypeError('semantic.invalid_texts');if(!['query','document'].includes(options.role))throw TypeError('semantic.invalid_role');const deadline=Math.min(Number.isFinite(options.deadline)?options.deadline:Infinity,Date.now()+(Number.isFinite(options.budgetMs)?Math.max(0,Math.min(1000,options.budgetMs)):1000));let r,lease=false,wrote=false,callbackFailure=false,sentAt=0;const guard=async()=>{if(options.beforeEncode)try{await options.beforeEncode();}catch(e){callbackFailure=true;throw e;}};const enabled=async()=>{try{return await host.enabled();}catch(e){callbackFailure=true;throw e;}};
+  try{const d=options[WARM]?{available:true}:await prepare({...options,deadline,budgetMs:Math.max(0,deadline-Date.now())});aborted(options.signal);if(!d.available)return d;if(busy)return unavailable('overloaded');busy=true;lease=true;r=owner;const on=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(on!==true){await stop('disabled');return unavailable('disabled');}current(r,options.signal);const minimum=Math.max(estimateEncodingBudget(options.role,texts.length),Number.isFinite(options.minimumBudgetMs)?Math.max(0,Math.min(60000,options.minimumBudgetMs)):0);if(deadline-Date.now()<minimum)return unavailable('timeout');const id=String(++serial),value=await new Promise((resolve,reject)=>{const abort=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>settle(id,null,e,true),()=>settle(id,null,e,true));},timer=setTimeout(()=>{/* 151 阶段 2:超时先回话、再收进程。修前要等 stop 里那次进程观测(Windows 上起一个 PowerShell,约 0.8 s)做完才回 timeout,检索回复被拖过自己的截止。收进程照旧做:owner 进入 stopping,下一发 prepare 见到就报不可用,不会把文本写给正在被收的进程。 */const stopping=stop('timeout');settle(id,unavailable('timeout'));void stopping.catch(()=>{});},Math.max(1,deadline-Date.now()));pending.set(id,{resolve,reject,timer,signal:options.signal,abort});options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted){abort();return;}try{current(r,options.signal);wrote=true;metrics.requests++;metrics[options[WARM]?'warmupTexts':options.role==='query'?'queryTexts':'documentTexts']+=texts.length;sentAt=Date.now();r.child.stdin.write(JSON.stringify({requestId:id,op:'encode',role:options.role,texts,deadlineMs:deadline})+'\n');}catch(e){settle(id,null,e,true);}});const repliedAt=Date.now();
+   aborted(options.signal);const onAfter=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(onAfter!==true){await stop('disabled');return unavailable('disabled');}if(value.ok!==true)return unavailable(value.reason==='timeout'||/deadline|timeout/i.test(value.error?.code||'')?'timeout':'unavailable');current(r,options.signal);const dimension=descriptorValue.dimensions;if(value.modelFingerprint!==descriptorValue.modelFingerprint||!Array.isArray(value.vectors)||value.vectors.length!==texts.length||value.vectors.some(v=>!Array.isArray(v)||v.length!==dimension||!v.every(Number.isFinite)||Math.abs(Math.hypot(...v)-1)>1e-4))throw fault('semantic.vector_contract');if(value.truncated!==undefined&&(!Array.isArray(value.truncated)||value.truncated.length!==texts.length||value.truncated.some(x=>typeof x!=='boolean')))throw fault('semantic.token_contract');if(host.validateReply)host.validateReply(value,texts,r.settings);/* 150 S9: worker 从不回 metrics.workerEncodeMs(加字段会改模型指纹),修前估计永远停在初值(文档 110 ms/条,4 条要留 592 ms)。没有就用写入到回包的往返计时。 */const reported=value.metrics?.workerEncodeMs,cost=(Number.isFinite(reported)?reported:repliedAt-sentAt)/texts.length;if(!options[WARM]&&Number.isFinite(cost)&&cost>0&&cost<60000)recent[options.role]=Math.min(5000,Math.max(1,recent[options.role]*.6+cost*.4));metrics.peakRssBytes=Math.max(metrics.peakRssBytes,Number.isFinite(value.metrics?.peakRssBytes)?value.metrics.peakRssBytes:0);/* 150 S10: passing warmup is not stability. A worker that warms up then dies on its first real encode must keep doubling its cooldown, so the streak is forgiven only after a real encode on a worker alive for the stable window. */if(!options[WARM]&&faultStreak>0&&stableFor(r))faultStreak=0;return value;
   }catch(e){if(wrote&&!callbackFailure){try{await stop(options.signal?.aborted?'cancelled':'fault');}catch{}}throw e;}finally{if(lease)busy=false;}}
  return Object.freeze({descriptor,prepare,encode,stop,estimateEncodingBudget,identity:()=>owner?.identity?{...owner.identity,state:owner.state}:null,stats:()=>({...metrics,ownership:owner?.state||(starting?'loading':'observed-none'),pending:pending.size,resident:true}),prewarm:()=>{const task=prepare({budgetMs:20000,deadline:Date.now()+20000});task.catch(()=>{});return task;},restart:async()=>{const result=await stop('model-change');if(!result.workerExited||result.cleanupStatus!=='observed')return unavailable('unavailable','unknown');startingFailure=null;return prepare({budgetMs:20000,deadline:Date.now()+20000});},shutdown:async()=>{disposed=true;return stop('shutdown');}});}
 return Object.freeze({create,observeProcess});
@@ -44411,7 +44427,9 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         let count=Math.min(4,selected.length-offset);
         while(count>1&&minimumBudget('document',count)>deadline-Date.now())count--;
         let batch=selected.slice(offset,offset+count);
-        if(Date.now()>=deadline){if(beforeEncode)await beforeEncode();status='timeout';break;}
+        // 151 阶段 2:剩下的预算连一片都编不完时就不再去解析下一批来源(解析要回读会话正文,修前读完才发现编不了,
+        // 白白把本次 score 拖过自己的截止)。
+        if(Date.now()>=deadline||minimumBudget('document',1)>deadline-Date.now()){if(beforeEncode)await beforeEncode();status='timeout';break;}
         let texts=typeof resolveTexts==='function'?await resolveTexts(batch,{signal,deadline}):batch.map(n=>docs[n]);
         if(!Array.isArray(texts)||texts.length!==batch.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
         const usable=batch.map((n,i)=>({n,position:i,text:texts[i]})).filter(item=>typeof item.text==='string'&&item.text.length>0&&item.text.length<=8192);
@@ -115405,6 +115423,7 @@ const SessionFullTextIndex = ((io,p,c) => {
   // 150 号文 S1 的失败分类(00-boot);单文件 vm 夹具没装它时保守:不包、不降级(同修前)。
   const semanticFailures=typeof SemanticFailurePolicy!=='undefined'?SemanticFailurePolicy:{guard:fn=>fn,degradable:()=>false};
   const FORMAT=3,SCHEMA=1,CHARS=4096,OVERLAP=256,SHARD_BYTES=256*1024,MANIFEST_BYTES=4*1024*1024;
+  const PREPARE_SLICE_MS=1500;
   const ATTACHMENT_REFS_PER_MESSAGE=16,ATTACHMENT_REFS_PER_SESSION=64,ATTACHMENT_DOCS_PER_SESSION=2;
   const HEX=/^[a-f0-9]{64}$/,GEN=/^[a-f0-9]{32}$/;
   const NORMALIZER='fullfield-nfkc-upper-nfkc-space/v1;unicode='+process.versions.unicode+';icu='+process.versions.icu+';v8='+process.versions.v8;
@@ -115571,8 +115590,11 @@ const SessionFullTextIndex = ((io,p,c) => {
       return pending;
     };
     const pathKey=value=>process.platform==='win32'?p.resolve(value).toLowerCase():p.resolve(value);
-    async function namespace(sid,name=null,max=null){
-      const directories=[host.root(),p.join(host.root(),'_fulltext-index-v1'),...(sid?[p.dirname(pathFor(sid,'manifest.json'))]:[])];
+    // directoriesVerified:逐会话检索时第一个 shard 紧跟 manifest 读,中间只隔 manifest 的读取与解析那几次 await,目录链
+    // (数据根/索引根/会话目录)刚由 manifest 那一次核过,这一个 shard 不再重核;其后的 shard 之间隔着整片的逐行处理,照旧逐个重核。
+    // 每个 shard 自己的文件级核对(普通文件、非链接、nlink=1、尺寸)都做。150 S6:单 shard 会话(绝大多数)每发省 6 次 lstat/realpath。
+    async function namespace(sid,name=null,max=null,directoriesVerified=false){
+      const directories=directoriesVerified?[]:[host.root(),p.join(host.root(),'_fulltext-index-v1'),...(sid?[p.dirname(pathFor(sid,'manifest.json'))]:[])];
       for(const directory of directories){let stat;try{stat=await io.lstat(directory);}catch(error){if(error.code==='ENOENT')return;throw error;}
         if(!stat.isDirectory()||stat.isSymbolicLink()||pathKey(await io.realpath(directory))!==pathKey(directory))throw fail('owned_namespace_changed');
       }
@@ -115583,7 +115605,7 @@ const SessionFullTextIndex = ((io,p,c) => {
     }
     const pathFor=(sid,name)=>p.join(host.root(),'_fulltext-index-v1',...(sid?[sid]:[]),name);
     const storage=(sid,name,max=SHARD_BYTES,policy=undefined)=>WorkDataStore.createText({file:()=>pathFor(sid,name),purpose:'search-index',schema:SCHEMA,scopeId:'sessions',recordId:'fulltext-index:'+(sid?sid+':':'')+name.replace(/\.json$/,''),chunked:true,maxPlaintextBytes:max,keys:host.keys,enabled:policy===undefined?host.enabled:()=>policy,writeJson:host.writeJson});
-    const read=async(sid,name,max)=>{try{await namespace(sid,name,max);const text=await storage(sid,name,max).read();if(Buffer.byteLength(text)>max)throw fail('capacity');let value;try{value=JSON.parse(text);}catch{if(sid&&name==='manifest.json')return malformedManifest;throw fail('record_invalid');}return value;}catch(error){if(error.code==='ENOENT')return null;throw error;}};
+    const read=async(sid,name,max,directoriesVerified=false)=>{try{await namespace(sid,name,max,directoriesVerified);const text=await storage(sid,name,max).read();if(Buffer.byteLength(text)>max)throw fail('capacity');let value;try{value=JSON.parse(text);}catch{if(sid&&name==='manifest.json')return malformedManifest;throw fail('record_invalid');}return value;}catch(error){if(error.code==='ENOENT')return null;throw error;}};
     const write=async(sid,name,value,max,policy=undefined,check=undefined)=>{const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);check?.();await storage(sid,name,max,policy).write(text);};
     function manifest(value,sid){
       if(!value)return null;
@@ -115684,10 +115706,20 @@ const SessionFullTextIndex = ((io,p,c) => {
         return true;
       }finally{if(!committed)await removeOwned(sid,owned);}
     }
+    // 150 S6:覆盖率要证明「选中的 manifest 仍对应当前提交的正文」,修前每一发搜索都把【没有命中】的会话正文整份重扫一遍。
+    // 同一发里已有 reuse(命中回读时顺带证明过的那几条);这里把证明跨请求留住,判据与 reuse 完全相同:同一 generation、
+    // 同一 epoch(会话头原文哈希 + 正文 stat 戳,本 scope 刚授权时现读)、同一 sourceRevision、进程内 sequence 未变、无附件。
+    // 任一不符就照旧重扫。只存计数,不存正文。
+    const coverageProofs=new Map();
+    // 150 S6:同一发搜索里 manifest 原来读三遍(检索、覆盖率、revalidate)。索引只由本进程这一个实例写(owned namespace,
+    // 第二个 serve 实例在恢复前被拒),每次写 manifest/清会话都经 beginMutation 推 mutationSerial —— 自检索起计数没动、
+    // 也没有在飞的写,就沿用检索那一刻读到的 manifest;动过就照旧重读。
+    const indexUnchanged=since=>!!since&&since.active===0&&mutationActive===0&&!maintenancePaused&&mutationSerial===since.serial;
+    const rememberCoverage=(sid,proof)=>{coverageProofs.delete(sid);coverageProofs.set(sid,Object.freeze(proof));while(coverageProofs.size>65536)coverageProofs.delete(coverageProofs.keys().next().value);};
     async function rawCoverage(visibility=null,options={}){
       const check=typeof options.check==='function'?options.check:()=>{};check();
       const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
-      let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;const visit=async sid=>{check();if(visibility){const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,visibility.context,visibility.access)===true;if(!already&&await host.authorize(sid,visibility.context,visibility.access)!==true)return;visibility.seen.add(sid);}check();const sequence=host.sourceSequence(sid),value=await currentManifest(sid);check();options.observed?.set(sid,value?.generation||null);const reused=options.reuse?.get(sid),authorized=visibility&&typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,visibility.context,visibility.access):null;
+      let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;const visit=async sid=>{check();if(visibility){const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,visibility.context,visibility.access)===true;if(!already&&await host.authorize(sid,visibility.context,visibility.access)!==true)return;visibility.seen.add(sid);}check();const sequence=host.sourceSequence(sid),value=options.manifests?.has(sid)&&indexUnchanged(options.mutation)?options.manifests.get(sid):await currentManifest(sid);check();options.observed?.set(sid,value?.generation||null);const reused=options.reuse?.get(sid)||coverageProofs.get(sid),authorized=visibility&&typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,visibility.context,visibility.access):null;
       if(value&&compatible(value)&&value.messages===0&&value.attachments===0&&value.chunks===0&&Array.isArray(value.shards)&&value.shards.length===0&&visibility&&typeof host.authorizedEmpty==='function'&&host.authorizedEmpty(sid,visibility.context,visibility.access)===true&&authorized===value.epoch){complete++;}
       else if(value&&compatible(value)&&reused&&value.attachments===0&&reused.generation===value.generation&&reused.epoch===value.epoch&&reused.revision===value.sourceRevision&&reused.sequence===sequence&&authorized===value.epoch){complete++;unverifiedMessages+=reused.unverified;}
       else if(value&&compatible(value)){
@@ -115704,7 +115736,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         if(proof.epoch!==value.epoch)pending++;
         else if(proof.revision!==value.sourceRevision)throw fail('source_changed');
         else if(value.attachmentRevision&&(value.attachmentRevision!==witness.finish()||attachmentRetryDue(value)))pending++;
-        else{complete++;attachmentSources+=value.attachments-(value.attachmentsIndexed||0);unverifiedMessages+=unsupported;}
+        else{complete++;attachmentSources+=value.attachments-(value.attachmentsIndexed||0);unverifiedMessages+=unsupported;if(value.attachments===0)rememberCoverage(sid,{generation:value.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified:unsupported});}
       }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}};
       for(let start=0;start<catalog.length;start+=4){check();const batch=await Promise.allSettled(catalog.slice(start,start+4).map(visit)),failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;}
       return {phase:isPaused()?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
@@ -115738,8 +115770,10 @@ const SessionFullTextIndex = ((io,p,c) => {
         await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
         const authorized=async sid=>typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true||await host.authorize(sid,context,access)===true;
         if(options.incremental===true){const signature=hash(JSON.stringify(catalog)),prior=preparationProgress.get(preparationKey),progress=prior?.signature===signature?prior:{signature,next:0};preparationProgress.set(preparationKey,progress);while(preparationProgress.size>32)preparationProgress.delete(preparationProgress.keys().next().value);
-          const batchSize=options.threadSearch===true?16:64;
-          const end=Math.min(catalog.length,progress.next+batchSize);for(;progress.next<end;progress.next++){check();const sid=catalog[progress.next];if(await authorized(sid)){buildingSid=sid;check();if(await build(sid,check))options.onPrepared?.();check();buildingSid=null;}}
+          // 150 S6:线程搜索原来每发只建 16 个会话,随后对全库复核,建完 N 个会话要 N/16 发。改为按时间片:每发至少推进 16 个
+          // (修前的保证,负载下也不比修前少;显式传 options.sliceMs 时至少 1 个),之后片用完(默认 1.5 s)或到条数上限(256)才停;进度照旧只在一条会话建完后推进(失败的那条下一发重试)。
+          const threadSlice=options.threadSearch===true,batchSize=threadSlice?256:64,sliceMs=Number.isFinite(options.sliceMs)?Math.max(0,options.sliceMs):threadSlice?PREPARE_SLICE_MS:Infinity,sliceEnd=Date.now()+sliceMs,minimum=threadSlice&&!Number.isFinite(options.sliceMs)?16:1;let advanced=0;
+          const end=Math.min(catalog.length,progress.next+batchSize);for(;progress.next<end;){check();const sid=catalog[progress.next];if(await authorized(sid)){buildingSid=sid;check();if(await build(sid,check))options.onPrepared?.();check();buildingSid=null;}progress.next++;if(++advanced>=minimum&&Date.now()>=sliceEnd)break;}
         }else{if(options.single===true){if(catalog.length!==1||!await authorized(catalog[0]))throw fail('source_denied');singleSid=catalog[0];check();}
           else await purgeMissing(catalog,check);check();let visited=0;
           for(const sid of catalog){check();if(singleSid||await authorized(sid)){buildingSid=sid;check();await build(sid,check);check();buildingSid=null;}if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}}
@@ -115761,7 +115795,9 @@ const SessionFullTextIndex = ((io,p,c) => {
     function preparationComplete(scopeId){return preparationProgress.get(scopeId)?.done===true;}
     async function search(query,context,limit=20,options={}){
       const check=typeof options.check==='function'?options.check:()=>{};check();
-      const semantic=options.lexicalOnly===true?null:host.semantic||null;
+      // 150 S15:调用方已知语义关(配置 semanticRetrievalV1:false)时零语义开销 —— 不建语义行、不算窗口摘要、不碰运行时。
+      // semanticDeferred:调用方这一发还在建正文索引,语义留到下一发(状态 deferred,与纯词法预览同口径,但命中照旧全量回读)。
+      const semanticOff=options.semanticDisabled===true,semanticLater=options.lexicalOnly===true||options.semanticDeferred===true,semantic=semanticLater||semanticOff?null:host.semantic||null;
       if(typeof query!=='string'||query.length<2||query.length>OVERLAP)throw fail('query_invalid');
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const terms=[...new Set(host.terms(query).filter(term=>typeof term==='string'&&!term.startsWith('#')).map(normalize))];
@@ -115775,21 +115811,23 @@ const SessionFullTextIndex = ((io,p,c) => {
       // The public consumers limit session results. A dense session gets one
       // best citation, never all of the bounded global candidate slots.
       const compare=(a,b)=>b.score-a.score||a.row.sessionId.localeCompare(b.row.sessionId)||a.row.messageOrdinal-b.row.messageOrdinal||a.row.chunkOrdinal-b.row.chunkOrdinal||a.start-b.start||a.row.source.localeCompare(b.row.source);
-      const catalog=await host.catalog();if(!Array.isArray(catalog)||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
+      const searchMutation=mutationState(),scannedManifests=new Map();const catalog=await host.catalog();if(!Array.isArray(catalog)||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
       const scanIndex=async sid=>{check();const candidates=[],semanticRows=[],entitySources=new Map(),termSources=new Map();let fragmentCount=0,entityTruncated=false,lexicalTruncated=false;const totals=new Map();const addCandidate=hit=>{if(candidates.length<candidateLimit){let at=candidates.push(hit)-1;while(at>0){const parent=(at-1)>>1;if(compare(candidates[at],candidates[parent])<=0)break;[candidates[at],candidates[parent]]=[candidates[parent],candidates[at]];at=parent;}return;}lexicalTruncated=true;if(compare(hit,candidates[0])>=0)return;candidates[0]=hit;let at=0;for(;;){let child=at*2+1;if(child>=candidates.length)break;if(child+1<candidates.length&&compare(candidates[child+1],candidates[child])>0)child++;if(compare(candidates[child],candidates[at])<=0)break;[candidates[at],candidates[child]]=[candidates[child],candidates[at]];at=child;}};
         if(!valid(sid))throw fail('catalog_invalid');
         const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true;
         if(!already&&await host.authorize(sid,context,access)!==true)return null;
-        const value=await currentManifest(sid),authorized=typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid);
+        const value=await currentManifest(sid),authorized=typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid);scannedManifests.set(sid,value);
         if(!value||!compatible(value)||value.epoch!==authorized)return null;let best=null;
         for(const ref of value.shards){check();
-          const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES);if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.schema!==SCHEMA||shard.sessionId!==sid||shard.generation!==value.generation||shard.ordinal!==ref.ordinal||!Array.isArray(shard.rows)||shard.rows.length!==ref.records){if(await retired(sid,value))break;throw fail('shard_invalid');}
+          const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES,ref.ordinal===0);if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.schema!==SCHEMA||shard.sessionId!==sid||shard.generation!==value.generation||shard.ordinal!==ref.ordinal||!Array.isArray(shard.rows)||shard.rows.length!==ref.records){if(await retired(sid,value))break;throw fail('shard_invalid');}
           for(const row of shard.rows){check();
             if(keys(row)!=='canonicalStart,chunkOrdinal,contentRevision,coordinate,end,messageId,messageIdBasis,messageOrdinal,ranges,sessionId,source,start,text,turnSeq,turnSeqBasis'||row.coordinate!=='utf16'||!['explicit','legacy-inferred'].includes(row.turnSeqBasis)||!['intrinsic','physical-ordinal'].includes(row.messageIdBasis)||!(/^(?:content(?:\.\d+(?:\.text)?)?|blocks\.\d+(?:\.text)?|segments\.\d+\.text|attachments\.\d+\.(?:textPreview|transcript|ocrText|extractedText))$/).test(row.source)||row.sessionId!==sid||!integer(row.messageOrdinal)||!integer(row.turnSeq)||typeof row.messageId!=='string'||row.messageId.length>256||!HEX.test(row.contentRevision||'')||!integer(row.chunkOrdinal)||!integer(row.start)||!integer(row.end)||typeof row.source!=='string'||typeof row.text!=='string'||row.end<=row.start||!integer(row.canonicalStart)||!row.text.length||row.text.length>CHARS||!rangesValid(row))throw fail('shard_invalid');
             const sourceKey=JSON.stringify([row.messageOrdinal,row.source,row.contentRevision]),rowIds=requiredIds.length?identify(row.text).filter(id=>requiredIds.includes(id)&&identifierAt(row.text,id)>=0):[];let entity=entitySources.get(sourceKey);if(entity)entity.maxStart=Math.max(entity.maxStart,row.canonicalStart);
             if(rowIds.length){if(!entity){if(entitySources.size>=4096)entityTruncated=true;else{entity={ids:new Set(),hits:[],maxStart:row.canonicalStart};entitySources.set(sourceKey,entity);}}if(entity)for(const id of rowIds)entity.ids.add(id);}
             const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term)),windowHash=semantic||exact>=0||matched.length>0||rowIds.length?digest({text:row.text,ranges:row.ranges}):null;
-            if(semantic){for(let at=0;at<row.text.length;){check();const semanticKey=sourceKeyOf(row);totals.set(semanticKey,(totals.get(semanticKey)||0)+1);let next=Math.min(row.text.length,at+96);if(next<row.text.length&&row.text.charCodeAt(next)>=0xdc00&&row.text.charCodeAt(next)<=0xdfff)next--;
+            // 150 S6:check 只在逐行处做一次(上面 for 循环头);逐 96 字窗不再各调一次。窗口循环是同步的纯计算,
+            // 一行至多 4096 字 ≈ 43 窗,行间的那次 check 照样能截住撤权、取消与截止。
+            if(semantic){for(let at=0;at<row.text.length;){const semanticKey=sourceKeyOf(row);totals.set(semanticKey,(totals.get(semanticKey)||0)+1);let next=Math.min(row.text.length,at+96);if(next<row.text.length&&row.text.charCodeAt(next)>=0xdc00&&row.text.charCodeAt(next)<=0xdfff)next--;
               if(semanticRows.length<4096){const width=next-at,start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;
                 semanticRows.push({text:row.text.slice(at,next),identity:[sid,value.epoch,value.sourceRevision,value.generation,row.contentRevision,row.source,row.canonicalStart,at,start,end,windowHash],hit:{row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,start,end}});}fragmentCount++;
               if(next===row.text.length)break;let following=next-16;if(row.text.charCodeAt(following)>=0xdc00&&row.text.charCodeAt(following)<=0xdfff)following--;at=following;}}
@@ -115817,7 +115855,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       const metadataRows=[];let metadataTruncated=options.metadataEntriesTruncated===true;
       if(semantic&&Array.isArray(options.metadataEntries)){for(const item of options.metadataEntries){check();if(!item||!valid(item.sid)||typeof item.field!=='string'||typeof item.text!=='string'||typeof item.epoch!=='string'||item.text.length>8192){metadataTruncated=true;continue;}const key=JSON.stringify([item.sid,item.field]);for(let at=0;at<item.text.length;){let end=Math.min(item.text.length,at+96);if(end<item.text.length&&item.text.charCodeAt(end)>=0xdc00&&item.text.charCodeAt(end)<=0xdfff)end--;metadataTotals.set(key,(metadataTotals.get(key)||0)+1);if(metadataRows.length<256)metadataRows.push({text:item.text.slice(at,end),identity:['metadata',item.sid,item.field,item.epoch,digest(item.text),at,end],metadata:item,metadataKey:key,hit:{row:{sessionId:item.sid},epoch:item.epoch}});else metadataTruncated=true;if(end===item.text.length)break;let next=end-16;if(item.text.charCodeAt(next)>=0xdc00&&item.text.charCodeAt(next)<=0xdfff)next--;at=next;}}}
       if(metadataRows.length){if(semanticRows.length+metadataRows.length>4096)metadataTruncated=true;semanticRows.splice(0,0,...metadataRows);if(semanticRows.length>4096)semanticRows.length=4096;}
-      let semanticState={status:options.lexicalOnly===true?'deferred':semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
+      let semanticState={status:options.lexicalOnly===true?'deferred':semanticOff?'disabled':semanticLater?'deferred':semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
       let ranked=[],gemmaDecision=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method)?{complete:false,policyId:SemanticWindowPolicy.CONTRACT.id}:null;const gemmaMetadata=new Map(),gemmaWeak=new Map();
       if(semantic&&semanticRows.length){
         // Lexical shard text is uppercased. Resolve original spelling through
@@ -115825,24 +115863,38 @@ const SessionFullTextIndex = ((io,p,c) => {
         const semanticDeadline=Math.min(Date.now()+1000,Number.isFinite(options.deadline)?options.deadline:Infinity),policyContext=typeof SemanticOriginalWindows!=='undefined'?SemanticOriginalWindows.createRequest({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}):null;
         const sourceExpired=Object.freeze({semanticSourceBudget:true}),sourceCheck=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw sourceExpired;};
         const originalFragments=new Map(),originalFields=new Map(),loadedSources=new Set(),sourceSequences=new Map(),sourceGuards=new Map();let activeSids=[],activeMetadata=new Set();
+        // 150 S8:回验分两档。权威复核(重读会话头与 epoch、附件与元数据复核)只在来源解析时(host.scan 首尾读头并核 epoch)
+        // 和整次 score 结束后各做一次;编码前后那几次(06ha 前后各一、06hb 写入前与回包后各一)改为同步的廉价比对:
+        // scope、授权表、进程内 sequence —— 进程内任何写都推 sequence,撤权与改写在下一次比对就拦住;外部改盘由结束时
+        // 的权威复核拦住,该次结果整体作废(与修前编码中途撤权同一结局:整次搜索报错,不披露)。窗口策略(Gemma2)
+        // 自己的 start/finish 两次 verify 也走权威档,逐窗 resolved 那几次走廉价档。
+        // 截止只由语义层自己判(06ha 每批前看期限、06hb 写入前看期限),回验不再抛「预算用完」—— 修前编码刚回来、回包后那次
+        // 回验撞上截止就把刚算好的整批连同本次全部进度一起丢掉,回报 cached=0(S13)。
+        const sampleEpoch=sid=>semanticRows.find(entry=>entry.hit.row.sessionId===sid).hit.epoch,verifiedMetadata=new Set();
         const beforeEncode=async()=>{
           check();
           if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
-          for(const sid of activeSids){if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
-            const sample=semanticRows.find(entry=>entry.hit.row.sessionId===sid).hit;
-            if(await host.epoch(sid)!==sample.epoch||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
-            for(const guard of sourceGuards.get(sid)||[])if(!await guard())throw fail('source_changed');for(const item of activeMetadata)if(item.sid===sid&&!await options.verifyMetadata(item))throw fail('source_changed');
+          // 还没核实过的来源(截止前没来得及回读)交回的是 null,不会进编码;只比对已核实的。
+          for(const sid of activeSids){if(!sourceSequences.has(sid))continue;if(host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');if(host.assertAuthorized(sid,context,access)!==true)throw fail('source_denied');}
+        };
+        const authoritative=async()=>{
+          check();
+          if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
+          const sids=[...new Set([...loadedSources,...[...verifiedMetadata].map(item=>item.sid)])];
+          for(const sid of sids){if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
+            if(await host.epoch(sid)!==sampleEpoch(sid)||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
+            for(const guard of sourceGuards.get(sid)||[])if(!await guard())throw fail('source_changed');for(const item of verifiedMetadata)if(item.sid===sid&&!await options.verifyMetadata(item))throw fail('source_changed');
           }
-          if(host.assertScope(context,access)!==true||activeSids.some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sourceSequences.get(sid)))throw fail('disclosure_changed');if(Date.now()>=semanticDeadline)throw sourceExpired;
+          if(host.assertScope(context,access)!==true||sids.some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sourceSequences.get(sid)))throw fail('disclosure_changed');
         };
         const resolveTexts=async indices=>{
           activeSids=[...new Set(indices.map(n=>semanticRows[n].hit.row.sessionId))];activeMetadata=new Set(indices.map(n=>semanticRows[n].metadata).filter(Boolean));
-          for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));}
+          for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));verifiedMetadata.add(meta);}
           for(const n of indices){sourceCheck();if(semanticRows[n].metadata)continue;const sid=semanticRows[n].hit.row.sessionId;if(loadedSources.has(sid))continue;
             if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
             const rows=semanticRows.map((entry,index)=>({entry,index})).filter(item=>!item.entry.metadata&&item.entry.hit.row.sessionId===sid);
             const policy=attachmentSource&&rows.some(item=>attachmentField.test(item.entry.hit.row.source))?await host.enabled():null,budget=attachmentBudget();
-            let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set();
+            let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set(),fragments=new Map(),fields=new Map();
             const proof=await host.scan(sid,async(row,ordinal)=>{
               if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
               const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
@@ -115858,19 +115910,27 @@ const SessionFullTextIndex = ((io,p,c) => {
                 const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;
                 if(!window||found.chunkOrdinal!==hit.row.chunkOrdinal||window.start!==hit.row.start||window.end!==hit.row.end||hit.row.messageId!==messageId||hit.row.messageIdBasis!==(intrinsic?'intrinsic':'physical-ordinal')||hit.row.turnSeq!==sourceTurn||hit.row.turnSeqBasis!==sourceTurnBasis||digest({text:window.text,ranges:window.ranges})!==hit.windowHash||rangeAt(window.ranges,hit.at).from!==hit.start||rangeAt(window.ranges,hit.at+hit.width-1).to!==hit.end)throw fail('shard_source_mismatch');
                 if(source.revalidate&&!checks.has(source.revalidate)){if(!await source.revalidate())throw fail('source_changed');checks.add(source.revalidate);}
-                const text=source.text.slice(hit.start,hit.end);if(text.length<=8192)originalFragments.set(index,text);originalFields.set(index,source.text);
+                const text=source.text.slice(hit.start,hit.end);if(text.length<=8192)fragments.set(index,text);fields.set(index,source.text);
               }
             },{check:sourceCheck});
             if(!proof||rows.some(item=>item.entry.hit.epoch!==proof.epoch||item.entry.hit.sourceRevision!==proof.revision)||await host.epoch(sid)!==proof.epoch||host.assertScope(context,access)!==true)throw fail('source_changed');
+            // 原文片段只在整条来源回读完、epoch 与 revision 都核过之后才并入;中途撞截止的那条一字不留。
+            for(const [index,text]of fragments)originalFragments.set(index,text);for(const [index,text]of fields)originalFields.set(index,text);
             sourceSequences.set(sid,host.sourceSequence(sid));sourceGuards.set(sid,checks);loadedSources.add(sid);
           }
           await beforeEncode();
           return indices.map(n=>semanticRows[n].metadata?semanticRows[n].text:(originalFragments.get(n)??null));
         };
+        // 交给 06ha 的那一份:解析途中撞上截止不再整次抛出(修前抛到 score 外,本次已编好的批次连同计数一起作废),而是交回
+        // 已核实的那部分,其余记 null —— 06ha 照旧只编可用的、下一批之前看期限收尾,已缓存的向量计入本次覆盖。
+        const budgetedResolve=async indices=>{
+          try{return await resolveTexts(indices);}
+          catch(error){if(error!==sourceExpired)throw error;await beforeEncode();return indices.map(n=>semanticRows[n].metadata?(verifiedMetadata.has(semanticRows[n].metadata)?semanticRows[n].text:null):(originalFragments.get(n)??null));}
+        };
         // 150 号文 S1:语义层自己的非守卫失败(运行时起不来、契约违例)退回词法结果并标 unavailable,不再 500;
         // 交给语义层的两个回调经 SemanticFailurePolicy.guard 包过,它们抛的(撤权、源变化、取消、privacy)照常上抛。
-        try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),maxEncodeDocuments:128,resolveTexts:semanticFailures.guard(resolveTexts),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,deadline:semanticDeadline,signal:options.signal});}catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
-        check();
+        try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),maxEncodeDocuments:128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,deadline:semanticDeadline,signal:options.signal});}catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
+        check();await authoritative();
         if(policyContext&&(gemmaDecision||SemanticRetrieval.hasScoreEvidence(semanticState)||semanticState.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)){
           const expired=Object.freeze({semanticBudget:true}),guard=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw expired;},policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify,normalize,terms:retrievalTerms}),rawRows=[],entries=[],rowSources=[],tokens=new Map(),fieldRows=new Map(),canonical=new Map(),sourceIndices=[];
           try{
@@ -115881,7 +115941,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             }
             const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired});guard();
             const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:semanticDeadline,signal:options.signal,
-              resolve:async(index,whole)=>{guard();const item=rowSources[index];await resolveTexts([item.n]);guard();if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async()=>{guard();activeSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];activeMetadata=new Set(rowSources.map(item=>semanticRows[item.n].metadata).filter(Boolean));await beforeEncode();guard();}});
+              resolve:async(index,whole)=>{guard();const item=rowSources[index];await resolveTexts([item.n]);guard();if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async event=>{guard();activeSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];activeMetadata=new Set(rowSources.map(item=>semanticRows[item.n].metadata).filter(Boolean));if(event?.phase==='resolved')await beforeEncode();else await authoritative();guard();}});
             try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
           }catch(error){if(error!==expired&&error!==sourceExpired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
         }
@@ -115906,8 +115966,13 @@ const SessionFullTextIndex = ((io,p,c) => {
         }
       const selected=new Map();for(const hit of candidates){const key=[hit.row.sessionId,hit.row.messageId,hit.row.contentRevision,hit.row.source,hit.start,hit.end].join('\0');if(!selected.has(key))selected.set(key,hit);}
       const results=[],verifiedHits=[],sequences=new Map(),sourceChecks=[],coverageReuse=new Map(),retainedSources=new Set();let retainedBytes=0;
-      for(const sid of [...new Set([...selected.values()].map(hit=>hit.row.sessionId))]){check();
-        if(await host.authorize(sid,context,access)!==true)continue;const hits=[...selected.values()].filter(hit=>hit.row.sessionId===sid),resolved=[];
+      // 150 S6:逐会话回读源头核对命中,原来串行一条一条等 I/O;改成 4 路并发(与 scanIndex 同口径),保留字节的账在
+      // 回读全部结束后按原来的会话顺序、原来的命中顺序记,截断判据与修前同序。已在本 scope 授权且 sequence 未变的会话
+      // 不再重读会话头(scanIndex 刚读过;回读本身 host.scan 首尾各读一次头并核 epoch,外部改盘照样认得出)。
+      const hitsBySid=new Map();for(const hit of selected.values()){const list=hitsBySid.get(hit.row.sessionId);if(list)list.push(hit);else hitsBySid.set(hit.row.sessionId,[hit]);}
+      const verifySource=async sid=>{check();
+        const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true;
+        if(!already&&await host.authorize(sid,context,access)!==true)return null;const hits=hitsBySid.get(sid),resolved=[];
         const policy=attachmentSource&&hits.some(hit=>attachmentField.test(hit.row.source))?await host.enabled():null,budget=attachmentBudget();
         let sourceTurn=0,sourceTurnBasis='legacy-inferred',unverified=0;
         const proof=await host.scan(sid,async(row,ordinal)=>{
@@ -115929,16 +115994,25 @@ const SessionFullTextIndex = ((io,p,c) => {
             if(hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
             const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;const proven=!!window&&found.chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;if(!proven)throw fail('shard_source_mismatch');
             if(hit.lexical){const original=normalize(source.text),strong=!!requiredIds.length||original.includes(phrase)||(terms.length>0&&terms.every(term=>original.includes(term)));if(!strong){const key=sourceKeyOf(hit.row);if(gemmaDecision){const decision=gemmaWeak.get(key);if(decision!==true){if(decision!==false)lexicalPartial=true;if(hit.semanticRank!==undefined){delete hit.lexicalRank;hit.lexical=false;}else continue;}}else{const evidence=semanticEvidence.get(key),total=semanticTotals.get(key)||0;if(evidence?.accepted){}else if(total>0&&evidence?.scored===total)continue;else lexicalPartial=true;}}}
-            const owner=sid+'\0'+ordinal+'\0'+source.field;if(!retainedSources.has(owner)){const size=Buffer.byteLength(source.text);if(retainedBytes+size>256*1024*1024){lexicalTruncated=true;continue;}retainedSources.add(owner);retainedBytes+=size;}
+            const owner=sid+'\0'+ordinal+'\0'+source.field;
             const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
-            resolved.push({hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
+            resolved.push({owner,hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
           }
         },{check});
-        if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision)continue;
+        if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision)return null;
         const sequence=host.sourceSequence(sid);if(typeof sequence!=='string'&&!(Number.isSafeInteger(sequence)&&sequence>=0))throw fail('source_invalid');
-        const selectedManifest=manifests.get(sid);if(selectedManifest?.attachments===0)coverageReuse.set(sid,{generation:selectedManifest.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified});
-        for(const item of resolved)verifiedHits.push({...item,sid,proof,sequence});
-      }
+        return {sid,proof,sequence,unverified,resolved};
+      };
+      // 关键词先回(151 阶段 2):纯词法预览(lexicalOnly)没有语义名次,回读后的最终名次就是候选顺序(精确命中在前、
+      // 其余按词法分)。会话按候选顺序回读,已核实的会话(或条目)够上限再多 4 个就停:前 cap 个与全量回读相同,只有
+      // 某会话首条命中在回读里被剔掉的极端情况下名次可能略有出入。预览本来就标 partial,随后的非预览请求照旧全量回读。
+      // 修前预览把每个有命中的会话(宽查询下是全库)都回读一遍。
+      let previewStopped=false;const verifySids=[...hitsBySid.keys()],enoughForPreview=()=>options.lexicalOnly===true&&(sessionResults?new Set(verifiedHits.map(row=>row.sid)).size:verifiedHits.length)>=cap+4;
+      for(let start=0;start<verifySids.length;start+=4){check();if(enoughForPreview()){previewStopped=true;break;}const batch=await Promise.allSettled(verifySids.slice(start,start+4).map(verifySource)),failures=batch.filter(row=>row.status==='rejected');
+        if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;
+        for(const row of batch){const part=row.value;if(!part)continue;const {sid,proof,sequence,unverified}=part;
+          const selectedManifest=manifests.get(sid);if(selectedManifest?.attachments===0){const reuse={generation:selectedManifest.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified};coverageReuse.set(sid,reuse);if(selectedManifest.epoch===proof.epoch&&selectedManifest.sourceRevision===proof.revision)rememberCoverage(sid,reuse);}
+          for(const {owner,...item}of part.resolved){if(!retainedSources.has(owner)){const size=Buffer.byteLength(item.sourceText);if(retainedBytes+size>256*1024*1024){lexicalTruncated=true;continue;}retainedSources.add(owner);retainedBytes+=size;}verifiedHits.push({...item,sid,proof,sequence});}}}
       // Recompute reciprocal ranks only after source proof and admission. Apply
       // the user cap before privacy projection, including one result per session.
       const lexicalRanks=new Map(),semanticRanks=new Map();
@@ -115946,22 +116020,25 @@ const SessionFullTextIndex = ((io,p,c) => {
       verifiedHits.filter(row=>row.hit.semanticRank!==undefined).sort((a,b)=>a.hit.semanticRank-b.hit.semanticRank).forEach((row,n)=>semanticRanks.set(row,n));
       for(const row of verifiedHits)row.hit.rankScore=(row.hit.exact?1:0)+(lexicalRanks.has(row)?1/(61+lexicalRanks.get(row)):0)+(semanticRanks.has(row)?1/(61+semanticRanks.get(row)):0);
       verifiedHits.sort((a,b)=>b.hit.rankScore-a.hit.rankScore||compare(a.hit,b.hit));
+      const stillAuthorized=async sid=>typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true||await host.authorize(sid,context,access)===true;
       const projectedSessions=new Set();let projectedCount=0;
       for(const {hit,sourceText,text,snippetEnd,snippetTruncated,revalidate,sid,proof,sequence}of verifiedHits){check();if(projectedCount>=cap)break;if(sessionResults&&projectedSessions.has(sid))continue;
-        if(await host.authorize(sid,context,access)!==true||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+        // 150 S6:投影前后两次原来各重读一遍会话头(host.authorize);本 scope 已授权且 sequence 未变时改为同步比对。
+        // 权威复核不删,合并到出口:消费方在披露前对本 scope 的全部来源逐个重读 epoch(13as final),外部改盘在那里拦下。
+        if(!await stillAuthorized(sid)||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
         if(revalidate&&!await revalidate())continue;
         projectedCount++;const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,...(hit.semanticScore===undefined?{matchStart:hit.start,matchEnd:hit.end,...(hit.entity?{matchKind:'lexical-entity'}:hit.verifiedWindow?{matchKind:'verified-window'}:{})}:{matchKind:'semantic',matchStart:hit.start,matchEnd:hit.end}),snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access,revalidate});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
-        if(await host.authorize(sid,context,access)!==true||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+        if(!await stillAuthorized(sid)||(typeof host.authorizedEpoch==='function'?host.authorizedEpoch(sid,context,access):await host.epoch(sid))!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
         if(revalidate){if(!await revalidate())continue;sourceChecks.push(revalidate);}
         results.push({...disclosed,score:hit.score,rankScore:hit.rankScore??hit.score,...(hit.semanticScore===undefined?{}:{semanticScore:hit.semanticScore})});sequences.set(sid,sequence);projectedSessions.add(sid);
       }
-      const covered=new Set(),coverageSequences=new Map(),observedManifests=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences},{...options,reuse:coverageReuse,observed:observedManifests});check();
+      const covered=new Set(),coverageSequences=new Map(),observedManifests=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences},{...options,reuse:coverageReuse,observed:observedManifests,manifests:scannedManifests,mutation:searchMutation});check();
       for(const check of sourceChecks)if(!await check(true))throw fail('source_changed');
       if(host.assertScope(context,access)!==true||[...sequences].some(([sid,seq])=>host.sourceSequence(sid)!==seq||host.assertAuthorized(sid,context,access)!==true)||[...covered].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==coverageSequences.get(sid)))throw fail('disclosure_changed');
       const sorted=results.sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score));const unique=sessionResults?sorted.filter((hit,n)=>sorted.findIndex(other=>other.reference.sessionId===hit.reference.sessionId)===n):sorted;
-      const result={query,results:unique.slice(0,cap),coverage:coverageState,ranking:'rrf-v1',lexicalAdmission:{partial:lexicalPartial||lexicalTruncated,truncated:lexicalTruncated},...(requiredIds.length?{entity:{required:requiredIds.length,partial:entityTruncated}}:{}),semantic:{status:semanticState.status,coverage:!coverageState.complete||fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||!semanticState.coverage?.complete?'partial':'complete',candidateFragments:semanticRows.length,cachedFragments:semanticState.coverage?.cached||0,truncated:fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||entityTruncated,minScore:semanticState.minScore??0.85,...(semanticState.admission?{admission:{policyId:semanticState.admission.policyId,status:semanticState.admission.status,purpose:semanticState.admission.purpose,answerability:semanticState.admission.answerability}}:{}),...(semanticState.modelFingerprint?{modelFingerprint:semanticState.modelFingerprint}:{})},scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
+      const result={query,results:unique.slice(0,cap),coverage:coverageState,ranking:'rrf-v1',...(previewStopped?{previewIncomplete:true}:{}),lexicalAdmission:{partial:lexicalPartial||lexicalTruncated,truncated:lexicalTruncated},...(requiredIds.length?{entity:{required:requiredIds.length,partial:entityTruncated}}:{}),semantic:{status:semanticState.status,coverage:!coverageState.complete||fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||!semanticState.coverage?.complete?'partial':'complete',candidateFragments:semanticRows.length,cachedFragments:semanticState.coverage?.cached||0,truncated:fragmentCount>semanticRows.length-metadataRows.length||metadataTruncated||entityTruncated,minScore:semanticState.minScore??0.85,...(semanticState.admission?{admission:{policyId:semanticState.admission.policyId,status:semanticState.admission.status,purpose:semanticState.admission.purpose,answerability:semanticState.admission.answerability}}:{}),...(semanticState.modelFingerprint?{modelFingerprint:semanticState.modelFingerprint}:{})},scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
       const selectedEpochs=new Map([...sequences.keys()].map(sid=>[sid,manifests.get(sid)?.epoch]));
-      searchProofs.set(result,{context,access,observedManifests,coverageSequences,selectedEpochs,metadataTotals,metadataEvidence,metadataTruncated,gemmaDecision,gemmaMetadata});return result;
+      searchProofs.set(result,{context,access,mutation:searchMutation,observedManifests,coverageSequences,selectedEpochs,metadataTotals,metadataEvidence,metadataTruncated,gemmaDecision,gemmaMetadata});return result;
     }
     async function revalidate(result,context,options={}){
       const proof=searchProofs.get(result);if(!proof||proof.context!==context)throw fail('disclosure_changed');
@@ -115969,13 +116046,13 @@ const SessionFullTextIndex = ((io,p,c) => {
       for(let start=0;start<rows.length;start+=4){check();const batch=await Promise.allSettled(rows.slice(start,start+4).map(async([sid,generation])=>{
         check();if(host.assertAuthorized(sid,context,proof.access)!==true||host.sourceSequence(sid)!==proof.coverageSequences.get(sid))throw fail('disclosure_changed');
         if(proof.selectedEpochs.has(sid)&&await host.epoch(sid)!==proof.selectedEpochs.get(sid))throw fail('source_changed');
-        const current=await currentManifest(sid);check();return (current?.generation||null)!==generation;
+        if(indexUnchanged(proof.mutation))return false;const current=await currentManifest(sid);check();return (current?.generation||null)!==generation;
       }));const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;changed+=batch.filter(row=>row.value===true).length;}
       check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
-    return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
-      setMaintenancePaused:value=>{maintenancePaused=value===true;},busy:()=>building,pending:()=>maintenanceChain});
+    return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();coverageProofs.delete(sid);await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
+      setMaintenancePaused:value=>{const next=value===true;/* 2C 复审建议 4:工作数据维护期间迁移编解码(01x/01ad)会重写 _fulltext-index-v1 而不经 beginMutation;进出维护各推一次 mutationSerial,沿用 manifest 的捷径与 13as 的 index_changed 判据都因此失效重读。 */if(next!==maintenancePaused)mutationSerial++;maintenancePaused=next;},busy:()=>building,pending:()=>maintenanceChain});
   }
   return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -116136,7 +116213,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     const local=new AsyncLocalStorage(),issued=new WeakMap(),threadPreviews=new Map();
     const required=['readConfig','configGeneration','uiAuthority','modelAuthority','source','catalog','metadata','projectKey','terms','redact','bindIndex'];
     if(required.some(name=>typeof host?.[name]!=='function')||!host.privacy)throw fail('host_invalid');
-    const source=host.source(),privacy=host.privacy;
+    const source=host.source(),privacy=host.privacy,sourceSerial=typeof host.sourceSerial==='function'?host.sourceSerial:null;
     if(['epoch','scan','sequence','inspect'].some(name=>typeof source[name]!=='function'))throw fail('source_unavailable');
     const selectedMethod=config=>config.semanticRetrievalV1!==false&&typeof SemanticRuntimeTransportProof!=='undefined'&&typeof SemanticRuntimeTransportProof.method==='function'?SemanticRuntimeTransportProof.method():null;
     function current(token=local.getStore()) {const cap=issued.get(token);if(!cap||cap.closed)throw fail('scope_required');cap.assert();return cap;}
@@ -116149,9 +116226,17 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const token=Object.freeze({}),cap={kind,config,generation,grant,startedAt,method:selectedMethod(config),semanticEpoch:selectedMethod(config)?SemanticRuntimeTransportProof.lifecycle():null,relatedMetadata:null,filter:selectedFilter,exactSid,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],indexState:null,closed:false,emitted:false};
       cap.threadSearch=threadSearch;cap.preparedSessions=0;
       cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
-      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
+      // 150 号文 S6:逐源比对 sequence 原来是 O(N),又被乘进逐行/逐 shard 的 check。来源宿主给了进程内写计数器
+      // (sourceSerial:任何会话的写序号/头写/删除墓碑/权限与桌面覆盖表变动都推它)时,计数器没动就只比对本 scope 新授权、
+      // 还没比过的那几条;动了才整表逐源比对。没有计数器的宿主(单文件 vm 夹具)照旧每次整表比对。
+      cap.checkedSerial=null;cap.unchecked=new Set();
+      const compareSources=ids=>{for(const sid of ids){const row=cap.sources.get(sid);if(row&&source.sequence(sid)!==row.sequence)throw fail('source_changed');}};
+      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();
+        const serial=sourceSerial?sourceSerial():null;
+        if(serial===null||serial!==cap.checkedSerial){compareSources(cap.sources.keys());cap.unchecked.clear();cap.checkedSerial=serial;}
+        else if(cap.unchecked.size){compareSources(cap.unchecked);cap.unchecked.clear();}};
       issued.set(token,cap);
-      return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
+      return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.unchecked.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
     }
     async function authorize(sid,token,access) {
       const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
@@ -116161,13 +116246,15 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
       if(cap.filter&&project!==cap.filter)return false;
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
-      cap.sources.set(sid,{...selected,metadata});return true;
+      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
     }
     function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
     function authorizedEpoch(sid,token,access) {if(!assertAuthorized(sid,token,access))return null;return current(token).sources.get(sid).epoch;}
     function authorizedEmpty(sid,token,access) {return assertAuthorized(sid,token,access)&&current(token).sources.get(sid).head.messageCount===0;}
     async function final(cap,completeAttachmentCheck=true) {
       cap.assert();await cap.grant.revalidate();cap.assert();
+      // 披露前的权威复核对本 scope 授权过的【每一条】来源重读 epoch:元数据(标题、相关线程、存在与否)可以不经
+      // disclose 就进到输出(13k 的 relatedThreads 取自 metadata()),所以不能只复核 cap.disclosed(2C 复审阻塞 1)。
       const sources=[...cap.sources];for(let start=0;start<sources.length;start+=4){const batch=await Promise.allSettled(sources.slice(start,start+4).map(async([sid,row])=>{if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}));const failed=batch.find(row=>row.status==='rejected');if(failed)throw failed.reason;}
       for(const check of cap.attachmentChecks)if(!await check(completeAttachmentCheck))throw fail('source_changed');
       cap.assert();for(const guard of cap.disclosures)guard();
@@ -116190,7 +116277,8 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     }
     function relatedMetadata(cap,sid,value){if(!cap.relatedMetadata)return value;const approved=cap.relatedMetadata.get(sid)||new Set(),out={...value,summary:approved.has('summary')?value.summary||'':''};if(out.brief)out.brief={...out.brief,gist:approved.has('brief.gist')?out.brief.gist||'':''};delete out.recentUserRequest;return out;}
     async function publicMetadata(sid) {
-      const token=local.getStore(),cap=current(token);if(!await authorize(sid,token,cap.access))throw fail('source_denied');
+      // 150 S6:本 scope 已授权且 sequence 未变的会话不再重读会话头;披露前 final 对全部来源重读 epoch 的那一次权威复核照旧。
+      const token=local.getStore(),cap=current(token);if(!assertAuthorized(sid,token,cap.access)&&!await authorize(sid,token,cap.access))throw fail('source_denied');
       const row=cap.sources.get(sid),raw=cap.kind==='ui'?row.metadata:privacy.foreignView(row.metadata);
       // The routing identifier is never reattached after projection. A protected
       // identifier that cannot be used by the old destination contract refuses.
@@ -116250,11 +116338,13 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       let proofResult=null;
       if(enabled){
         cap.assert();
+        // 关键词先回、语义后补(151 阶段 2):这一发还在增量建正文索引(progress.done===false)时,只交词法结果、语义标
+        // deferred,预算全留给建索引;索引建完的下一发起才做语义打分。修前建索引期间每一发都再花约 1 s 编码。
         const incremental=early||!cap.exactSid&&metas.length>64&&resumable;if(!early&&incremental&&!paused&&!lexicalPreview)progress=await prepare();
-        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata,lexicalOnly:lexicalPreview});
+        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,semanticDeferred:progress?.done===false,verifyMetadata,lexicalOnly:lexicalPreview});
         if(!lexicalPreview&&!paused&&found.coverage.pendingSessions&&found.coverage.phase!=='paused'){
-          if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
-          else if(progress?.done){index.resetPreparation(preparationKey);if(!cap.threadSearch||metas.length<=16){await prepare();check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}}
+          if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,verifyMetadata});}
+          else if(progress?.done){index.resetPreparation(preparationKey);if(!cap.threadSearch||metas.length<=16){await prepare();check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,verifyMetadata});}}
         }
         proofResult=found;if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
       }
@@ -116271,7 +116361,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(indexState){const current=index.mutationState();if(indexState.active||current.active||current.serial!==indexState.serial)verified={...verified,changed:Math.max(1,verified.changed||0)};}
       if(verified?.changed){const coverage={...found.coverage,phase:'pending',pendingSessions:Math.max(found.coverage.pendingSessions||0,verified.changed),complete:false};return{ok:true,query:q,results:[],indexed:Math.max(0,(found.coverage.indexedSessions||0)-verified.changed),coverage,partial:true,reason:'index_changed',...(found.semantic?{semantic:{...found.semantic,coverage:'partial'}}:{}),scope:{...scope(enabled),fullText:false}};}
       if(indexState&&!cap.indexState)cap.indexState=indexState;
-      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(lexicalPreview?{lexicalPreview:true,partial:!found.coverage.complete}:{}),...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
+      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(lexicalPreview?{lexicalPreview:true,partial:!found.coverage.complete||found.previewIncomplete===true}:{}),...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
     }
     async function search(query,limit,options={}){const cap=current(),timeout=Object.freeze(Object.assign(Error('session_search.deadline'),{code:'session_search.deadline'})),budget=Math.max(1,Math.min(30000,Number(host.searchBudgetMs)||(cap.threadSearch?15000:2500))),deadline=cap.startedAt+budget;
       const check=()=>{cap.assert();if(Date.now()>=deadline)throw timeout;};
@@ -116328,7 +116418,7 @@ function getSessionFullTextConsumers() {
     return{scopeId:'user-session-search',assert,revalidate:async()=>assert(),close(){res.removeListener('close',close);req.removeListener('aborted',abort);}};
   };
   sessionFullTextConsumers=SessionFullTextConsumers.create({readConfig,configGeneration:()=>configReadGeneration,uiAuthority,modelAuthority,
-    source:createSessionFullTextSource,metadata:head=>sessionMeta(head,null,{committedOnly:true}),projectKey:cwd=>cwd?'project:'+projectKeyForCwd(cwd):'',terms:retrievalTerms,redact,privacy:PrivacyGateway,
+    source:createSessionFullTextSource,sourceSerial:typeof sessionFullTextSourceSerial==='function'?sessionFullTextSourceSerial:undefined,metadata:head=>sessionMeta(head,null,{committedOnly:true}),projectKey:cwd=>cwd?'project:'+projectKeyForCwd(cwd):'',terms:retrievalTerms,redact,privacy:PrivacyGateway,
     catalog:async()=>{const entries=await fsp.readdir(paths.sessions,{withFileTypes:true}),ids=[];const seen=new Set();for(const entry of entries){const match=/^([A-Za-z0-9_-]{1,64})\.json$/i.exec(entry.name);if(!match||safeSessionId(match[1])!==match[1])continue;const key=process.platform==='win32'?match[1].toLowerCase():match[1];if(!entry.isFile()||entry.isSymbolicLink()||seen.has(key))deny('catalog_invalid');seen.add(key);ids.push(match[1]);}return ids.sort();},bindIndex:disclosure=>SessionFullTextHooks.bindSessions(disclosure)});
   return sessionFullTextConsumers;
 }

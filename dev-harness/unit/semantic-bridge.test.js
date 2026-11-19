@@ -66,12 +66,13 @@ test('absolute deadline reaps stalled worker; aborted request is an error', asyn
     // Reaping starts at the caller's 220 ms deadline, not at encode's implicit 1000 ms budget cap.
     // 墙钟上界豁免:实得 220-233 ms(单跑、4 路并发、CPU 打满都一样),界 900 ms;失败形态是忽略截止、按隐含的 1000 ms 预算才回收(反向实测 1008 ms)。
     assert.ok(reapMs < 900, `worker reaping began ${reapMs}ms after the request`);
-    // The reply is held until the post-stop OS observation finishes. That observation is a PowerShell spawn
-    // (0.75-0.9 s under 4-way test concurrency), so it is measured and excluded instead of racing the old 1 s
-    // bound; everything else still has to fit that bound.
-    // 墙钟上界豁免:扣掉 OS 观测后实得约 250 ms,界沿用原来的 1000 ms;失败形态是回复被观测以外的等待扣住(反向:多扣 1.2 s → 1451 ms)。
-    assert.ok(osMs > 0, 'the bridge observed the OS process table after stopping the worker');
-    assert.ok(elapsed - osMs < 1000, `reply ${elapsed}ms after the request, ${osMs}ms of it in the OS observation`);
+    // 151 阶段 2(超时回复不等 PowerShell 观测):修前回复扣在停进程后的那次 OS 观测(PowerShell,4 路并发下 0.75-0.9 s)
+    // 之后,这里原先断言「回复时观测已做完」(osMs > 0)并把观测从 1 s 界里扣掉。现在超时先回话:回复不含观测,
+    // 直接受 900 ms 界(实得约 230 ms;反向:修前回复 = 截止 + 观测 ≈ 1.0-1.2 s)。收进程与观测照旧做完,下面等它出现。
+    assert.ok(elapsed < 900, `reply ${elapsed}ms after the request (${osMs}ms of OS observation had finished by then)`);
+    assert.equal(osMs, 0, 'the reply did not wait for the post-stop OS observation (pre-fix: osMs > 0 at reply time)');
+    for (let n = 0; n < 500 && !f.observationMs(start); n++) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.ok(f.observationMs(start) > 0, 'the bridge still observed the OS process table after stopping the worker');
   } finally { await f.close(); }
   const g = fixture('hang');
   try {

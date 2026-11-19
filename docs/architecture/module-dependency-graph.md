@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 144 | 4372 | 4355 | 958 | 67 | 0 | 1 |
+| 144 | 4375 | 4356 | 958 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -56,7 +56,7 @@
 | 38 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 39 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 40 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 41 | `02-session-store.js` | foundation | 429 | 86 | 23 |
+| 41 | `02-session-store.js` | foundation | 432 | 86 | 23 |
 | 42 | `03-bridge-guard.js` | foundation | 121 | 31 | 7 |
 | 43 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 44 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -146,7 +146,7 @@
 | 128 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 9 | 8 |
 | 129 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
 | 130 | `13ap-session-fulltext-index.js` | unclassified | 1 | 28 | 12 |
-| 131 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 27 | 13 |
+| 131 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 28 | 13 |
 | 132 | `13ba-media-image-contract.js` | unclassified | 1 | 1 | 1 |
 | 133 | `13bb-media-derived-store.js` | unclassified | 1 | 2 | 2 |
 | 134 | `13bc-media-image-processor.js` | unclassified | 1 | 0 | 0 |
@@ -752,7 +752,7 @@
 | `13as-session-fulltext-consumers.js` | `00-boot.js` | backward | `ExternalBotHooks`, `InternalMcpHooks`, `SessionFullTextHooks`, `fsp`, `paths`, `text` |
 | `13as-session-fulltext-consumers.js` | `01-config.js` | backward | `RUNTIME`, `configReadGeneration`, `originOk`, `readConfig`, `safeSessionId`, `tokenOk` |
 | `13as-session-fulltext-consumers.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
-| `13as-session-fulltext-consumers.js` | `02-session-store.js` | backward | `createSessionFullTextSource`, `sessionMeta` |
+| `13as-session-fulltext-consumers.js` | `02-session-store.js` | backward | `createSessionFullTextSource`, `sessionFullTextSourceSerial`, `sessionMeta` |
 | `13as-session-fulltext-consumers.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
 | `13as-session-fulltext-consumers.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `13as-session-fulltext-consumers.js` | `04-permission-runtime.js` | backward | `redact`, `turnSettlers` |

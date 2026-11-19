@@ -83,16 +83,24 @@ test('incremental preparation retains committed progress across deadline without
  f.allowed.set('C',false);f.host.epoch=async sid=>{if(stop&&sid==='B')hitDeadline=true;return epoch(sid);};f.host.scan=async(sid,...args)=>{scans.push(sid);return scan(sid,...args);};const index=vm.runInNewContext('SessionFullTextIndex',f.hookContext).create(f.host);
  await a.rejects(index.prepare(null,{incremental:true,timeout,check(){if(hitDeadline)throw timeout;}}),error=>error===timeout);a.ok(scans.includes('A'));a.ok(!scans.includes('C'));stop=false;hitDeadline=false;scans=[];const next=await index.prepare(null,{incremental:true,timeout,check(){}});a.equal(next.done,true);a.ok(scans.includes('B'));a.ok(!scans.includes('A'),'already committed prefix is not rebuilt');a.ok(!scans.includes('C'),'denied source never scanned');
 });
+// 150 S6:线程搜索的冷准备从「每发固定 16 个会话」改为按时间片(默认 1.5 s,上限 256 个/发)。修前这里断言 [16,32,33];
+// 现在用最小时间片(sliceMs:0 = 每发恰好 1 个)钉住「有界、跨发续做、只在建完后才找得到较晚的会话」,再用足够长的时间片
+// 钉住「片够就一发建完、不再停在 16」(修前要 3 发)。
 test('cold thread queries prepare bounded slices and find a later session on repeat',async t=>{
  const f=await producer({enabled:true});t.after(()=>f.close());
  for(let n=0;n<33;n++)await f.put('S'+String(n).padStart(2,'0'),[{role:'user',id:'m',content:n===32?'周末那班大巴':'synthetic '+n}]);
  const index=vm.runInNewContext('SessionFullTextIndex',f.hookContext).create(f.host);
- for(const count of [16,32,33]){
-   const progress=await index.prepare(null,{incremental:true,threadSearch:true});
+ for(const count of [1,2,3]){
+   const progress=await index.prepare(null,{incremental:true,threadSearch:true,sliceMs:0});
    const found=await index.search('大巴',null,5);
-   a.equal(found.coverage.indexedSessions,count);a.equal(progress.done,count===33);
-   a.equal(found.results.some(row=>row.reference.session?.id==='S32'||row.reference.sessionId==='S32'),count===33);
+   a.equal(found.coverage.indexedSessions,count);a.equal(progress.done,false);
+   a.equal(found.results.some(row=>row.reference.session?.id==='S32'||row.reference.sessionId==='S32'),false);
  }
+ // A slice long enough for the rest (the default 1.5 s does this in an idle process; fixed here so load cannot flake it).
+ const progress=await index.prepare(null,{incremental:true,threadSearch:true,sliceMs:60000});
+ const found=await index.search('大巴',null,5);
+ a.equal(found.coverage.indexedSessions,33,'one call finishes the library when the time slice allows (was 16 per call)');a.equal(progress.done,true);
+ a.equal(found.results.some(row=>row.reference.session?.id==='S32'||row.reference.sessionId==='S32'),true);
 });
 test('ordinary private preparation cannot scan a denied source or finish after revocation',async t=>{const f=await producer({enabled:true});t.after(()=>f.close());for(const sid of ['Allowed','Denied'])await f.put(sid,[{role:'user',id:'m',content:'synthetic '+sid}]);f.allowed.set('Denied',false);const scan=f.host.scan;let seen=[];f.host.scan=async(sid,...args)=>{seen.push(sid);return scan(sid,...args);};const index=vm.runInNewContext('SessionFullTextIndex',f.hookContext).create(f.host);await index.prepare(null);a.ok(seen.includes('Allowed'));a.ok(!seen.includes('Denied'));
  await f.put('Allowed',[{role:'user',id:'m',content:'changed'}]);let revoked=false;f.host.scan=async(sid,visit,options)=>scan(sid,async(...args)=>{if(!revoked){revoked=true;f.allowed.set('Allowed',false);}return visit(...args);},options);await a.rejects(index.prepare(null),{code:'session_fulltext.disclosure_changed'});

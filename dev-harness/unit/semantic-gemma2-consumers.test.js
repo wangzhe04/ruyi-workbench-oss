@@ -49,7 +49,8 @@ async function finalAdmissionFixture(t, effect) {
     async epoch(...args) {
       // Intercept source I/O after the admission guard and before its revalidation returns.
       const stack=String(Error().stack);
-      if(!crossedThisSearch&&/\bbeforeEncode\b/.test(stack)&&/\bbeforeVerify\b/.test(stack)) {
+      // 151 阶段 2(S8):窗口策略的权威回验从 beforeEncode 挪到同一处的 authoritative(start/finish 两次);两个名字都认。
+      if(!crossedThisSearch&&/\b(?:beforeEncode|authoritative)\b/.test(stack)&&/\bbeforeVerify\b/.test(stack)) {
         crossedThisSearch=true;
         intercepted=true;
         clock+=1001;

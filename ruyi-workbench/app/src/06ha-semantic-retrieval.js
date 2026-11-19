@@ -117,7 +117,9 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         let count=Math.min(4,selected.length-offset);
         while(count>1&&minimumBudget('document',count)>deadline-Date.now())count--;
         let batch=selected.slice(offset,offset+count);
-        if(Date.now()>=deadline){if(beforeEncode)await beforeEncode();status='timeout';break;}
+        // 151 阶段 2:剩下的预算连一片都编不完时就不再去解析下一批来源(解析要回读会话正文,修前读完才发现编不了,
+        // 白白把本次 score 拖过自己的截止)。
+        if(Date.now()>=deadline||minimumBudget('document',1)>deadline-Date.now()){if(beforeEncode)await beforeEncode();status='timeout';break;}
         let texts=typeof resolveTexts==='function'?await resolveTexts(batch,{signal,deadline}):batch.map(n=>docs[n]);
         if(!Array.isArray(texts)||texts.length!==batch.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
         const usable=batch.map((n,i)=>({n,position:i,text:texts[i]})).filter(item=>typeof item.text==='string'&&item.text.length>0&&item.text.length<=8192);

@@ -8,7 +8,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     const local=new AsyncLocalStorage(),issued=new WeakMap(),threadPreviews=new Map();
     const required=['readConfig','configGeneration','uiAuthority','modelAuthority','source','catalog','metadata','projectKey','terms','redact','bindIndex'];
     if(required.some(name=>typeof host?.[name]!=='function')||!host.privacy)throw fail('host_invalid');
-    const source=host.source(),privacy=host.privacy;
+    const source=host.source(),privacy=host.privacy,sourceSerial=typeof host.sourceSerial==='function'?host.sourceSerial:null;
     if(['epoch','scan','sequence','inspect'].some(name=>typeof source[name]!=='function'))throw fail('source_unavailable');
     const selectedMethod=config=>config.semanticRetrievalV1!==false&&typeof SemanticRuntimeTransportProof!=='undefined'&&typeof SemanticRuntimeTransportProof.method==='function'?SemanticRuntimeTransportProof.method():null;
     function current(token=local.getStore()) {const cap=issued.get(token);if(!cap||cap.closed)throw fail('scope_required');cap.assert();return cap;}
@@ -21,9 +21,17 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const token=Object.freeze({}),cap={kind,config,generation,grant,startedAt,method:selectedMethod(config),semanticEpoch:selectedMethod(config)?SemanticRuntimeTransportProof.lifecycle():null,relatedMetadata:null,filter:selectedFilter,exactSid,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],indexState:null,closed:false,emitted:false};
       cap.threadSearch=threadSearch;cap.preparedSessions=0;
       cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
-      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
+      // 150 号文 S6:逐源比对 sequence 原来是 O(N),又被乘进逐行/逐 shard 的 check。来源宿主给了进程内写计数器
+      // (sourceSerial:任何会话的写序号/头写/删除墓碑/权限与桌面覆盖表变动都推它)时,计数器没动就只比对本 scope 新授权、
+      // 还没比过的那几条;动了才整表逐源比对。没有计数器的宿主(单文件 vm 夹具)照旧每次整表比对。
+      cap.checkedSerial=null;cap.unchecked=new Set();
+      const compareSources=ids=>{for(const sid of ids){const row=cap.sources.get(sid);if(row&&source.sequence(sid)!==row.sequence)throw fail('source_changed');}};
+      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation||cap.method!==selectedMethod(config)||cap.method&&cap.semanticEpoch!==SemanticRuntimeTransportProof.lifecycle())throw fail('destination_changed');policy();grant.assert();
+        const serial=sourceSerial?sourceSerial():null;
+        if(serial===null||serial!==cap.checkedSerial){compareSources(cap.sources.keys());cap.unchecked.clear();cap.checkedSerial=serial;}
+        else if(cap.unchecked.size){compareSources(cap.unchecked);cap.unchecked.clear();}};
       issued.set(token,cap);
-      return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
+      return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.unchecked.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
     }
     async function authorize(sid,token,access) {
       const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
@@ -33,13 +41,15 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
       if(cap.filter&&project!==cap.filter)return false;
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
-      cap.sources.set(sid,{...selected,metadata});return true;
+      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
     }
     function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
     function authorizedEpoch(sid,token,access) {if(!assertAuthorized(sid,token,access))return null;return current(token).sources.get(sid).epoch;}
     function authorizedEmpty(sid,token,access) {return assertAuthorized(sid,token,access)&&current(token).sources.get(sid).head.messageCount===0;}
     async function final(cap,completeAttachmentCheck=true) {
       cap.assert();await cap.grant.revalidate();cap.assert();
+      // 披露前的权威复核对本 scope 授权过的【每一条】来源重读 epoch:元数据(标题、相关线程、存在与否)可以不经
+      // disclose 就进到输出(13k 的 relatedThreads 取自 metadata()),所以不能只复核 cap.disclosed(2C 复审阻塞 1)。
       const sources=[...cap.sources];for(let start=0;start<sources.length;start+=4){const batch=await Promise.allSettled(sources.slice(start,start+4).map(async([sid,row])=>{if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}));const failed=batch.find(row=>row.status==='rejected');if(failed)throw failed.reason;}
       for(const check of cap.attachmentChecks)if(!await check(completeAttachmentCheck))throw fail('source_changed');
       cap.assert();for(const guard of cap.disclosures)guard();
@@ -62,7 +72,8 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     }
     function relatedMetadata(cap,sid,value){if(!cap.relatedMetadata)return value;const approved=cap.relatedMetadata.get(sid)||new Set(),out={...value,summary:approved.has('summary')?value.summary||'':''};if(out.brief)out.brief={...out.brief,gist:approved.has('brief.gist')?out.brief.gist||'':''};delete out.recentUserRequest;return out;}
     async function publicMetadata(sid) {
-      const token=local.getStore(),cap=current(token);if(!await authorize(sid,token,cap.access))throw fail('source_denied');
+      // 150 S6:本 scope 已授权且 sequence 未变的会话不再重读会话头;披露前 final 对全部来源重读 epoch 的那一次权威复核照旧。
+      const token=local.getStore(),cap=current(token);if(!assertAuthorized(sid,token,cap.access)&&!await authorize(sid,token,cap.access))throw fail('source_denied');
       const row=cap.sources.get(sid),raw=cap.kind==='ui'?row.metadata:privacy.foreignView(row.metadata);
       // The routing identifier is never reattached after projection. A protected
       // identifier that cannot be used by the old destination contract refuses.
@@ -122,11 +133,13 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       let proofResult=null;
       if(enabled){
         cap.assert();
+        // 关键词先回、语义后补(151 阶段 2):这一发还在增量建正文索引(progress.done===false)时,只交词法结果、语义标
+        // deferred,预算全留给建索引;索引建完的下一发起才做语义打分。修前建索引期间每一发都再花约 1 s 编码。
         const incremental=early||!cap.exactSid&&metas.length>64&&resumable;if(!early&&incremental&&!paused&&!lexicalPreview)progress=await prepare();
-        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata,lexicalOnly:lexicalPreview});
+        found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,semanticDeferred:progress?.done===false,verifyMetadata,lexicalOnly:lexicalPreview});
         if(!lexicalPreview&&!paused&&found.coverage.pendingSessions&&found.coverage.phase!=='paused'){
-          if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}
-          else if(progress?.done){index.resetPreparation(preparationKey);if(!cap.threadSearch||metas.length<=16){await prepare();check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,verifyMetadata});}}
+          if(!incremental){await index.prepare(token,{check,timeout,...(cap.exactSid?{single:true}:{})});check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,verifyMetadata});}
+          else if(progress?.done){index.resetPreparation(preparationKey);if(!cap.threadSearch||metas.length<=16){await prepare();check();found=await index.search(q,token,limit,{check,deadline,timeout,metadataEntries,metadataEntriesTruncated:metadataEntryTruncated,method:cap.method,semanticDisabled:cap.config.semanticRetrievalV1===false,verifyMetadata});}}
         }
         proofResult=found;if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
       }
@@ -143,7 +156,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(indexState){const current=index.mutationState();if(indexState.active||current.active||current.serial!==indexState.serial)verified={...verified,changed:Math.max(1,verified.changed||0)};}
       if(verified?.changed){const coverage={...found.coverage,phase:'pending',pendingSessions:Math.max(found.coverage.pendingSessions||0,verified.changed),complete:false};return{ok:true,query:q,results:[],indexed:Math.max(0,(found.coverage.indexedSessions||0)-verified.changed),coverage,partial:true,reason:'index_changed',...(found.semantic?{semantic:{...found.semantic,coverage:'partial'}}:{}),scope:{...scope(enabled),fullText:false}};}
       if(indexState&&!cap.indexState)cap.indexState=indexState;
-      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(lexicalPreview?{lexicalPreview:true,partial:!found.coverage.complete}:{}),...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
+      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>(b.rankScore??b.score)-(a.rankScore??a.score)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,lexicalAdmission:{partial:lexicalPartial,truncated:!!found.lexicalAdmission?.truncated},...(lexicalPreview?{lexicalPreview:true,partial:!found.coverage.complete||found.previewIncomplete===true}:{}),...(found.entity?{entity:found.entity}:{}),...(found.semantic?{semantic:found.semantic}:{}),scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
     }
     async function search(query,limit,options={}){const cap=current(),timeout=Object.freeze(Object.assign(Error('session_search.deadline'),{code:'session_search.deadline'})),budget=Math.max(1,Math.min(30000,Number(host.searchBudgetMs)||(cap.threadSearch?15000:2500))),deadline=cap.startedAt+budget;
       const check=()=>{cap.assert();if(Date.now()>=deadline)throw timeout;};
@@ -200,7 +213,7 @@ function getSessionFullTextConsumers() {
     return{scopeId:'user-session-search',assert,revalidate:async()=>assert(),close(){res.removeListener('close',close);req.removeListener('aborted',abort);}};
   };
   sessionFullTextConsumers=SessionFullTextConsumers.create({readConfig,configGeneration:()=>configReadGeneration,uiAuthority,modelAuthority,
-    source:createSessionFullTextSource,metadata:head=>sessionMeta(head,null,{committedOnly:true}),projectKey:cwd=>cwd?'project:'+projectKeyForCwd(cwd):'',terms:retrievalTerms,redact,privacy:PrivacyGateway,
+    source:createSessionFullTextSource,sourceSerial:typeof sessionFullTextSourceSerial==='function'?sessionFullTextSourceSerial:undefined,metadata:head=>sessionMeta(head,null,{committedOnly:true}),projectKey:cwd=>cwd?'project:'+projectKeyForCwd(cwd):'',terms:retrievalTerms,redact,privacy:PrivacyGateway,
     catalog:async()=>{const entries=await fsp.readdir(paths.sessions,{withFileTypes:true}),ids=[];const seen=new Set();for(const entry of entries){const match=/^([A-Za-z0-9_-]{1,64})\.json$/i.exec(entry.name);if(!match||safeSessionId(match[1])!==match[1])continue;const key=process.platform==='win32'?match[1].toLowerCase():match[1];if(!entry.isFile()||entry.isSymbolicLink()||seen.has(key))deny('catalog_invalid');seen.add(key);ids.push(match[1]);}return ids.sort();},bindIndex:disclosure=>SessionFullTextHooks.bindSessions(disclosure)});
   return sessionFullTextConsumers;
 }

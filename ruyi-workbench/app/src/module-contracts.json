@@ -2263,6 +2263,9 @@
         "sessionFullTextHeadWriteSeq",
         "sessionFullTextHeadWrites",
         "sessionFullTextSequence",
+        "sessionFullTextSourceSerial",
+        "sessionFullTextSourceSerialValue",
+        "sessionFullTextSourceSerialWatched",
         "sessionHeadIsWorkDataError",
         "sessionHeadStampOf",
         "sessionHeadStore",
@@ -30860,6 +30863,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "createSessionFullTextSource",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionFullTextSourceSerial",
           "kinds": [
             "read"
           ]

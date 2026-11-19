@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 144,
-    "providedSymbols": 4372,
-    "requiredSymbols": 4355,
+    "providedSymbols": 4375,
+    "requiredSymbols": 4356,
     "edges": 958,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2357,6 +2357,9 @@
         "sessionFullTextHeadWriteSeq",
         "sessionFullTextHeadWrites",
         "sessionFullTextSequence",
+        "sessionFullTextSourceSerial",
+        "sessionFullTextSourceSerialValue",
+        "sessionFullTextSourceSerialWatched",
         "sessionHeadIsWorkDataError",
         "sessionHeadStampOf",
         "sessionHeadStore",
@@ -31140,6 +31143,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionFullTextSourceSerial",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMeta",
           "kinds": [
             "call"
@@ -42886,6 +42896,7 @@
       "to": "02-session-store.js",
       "symbols": [
         "createSessionFullTextSource",
+        "sessionFullTextSourceSerial",
         "sessionMeta"
       ],
       "direction": "backward"

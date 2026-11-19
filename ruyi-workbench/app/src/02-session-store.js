@@ -7060,6 +7060,22 @@ function sessionFullTextSequence(id) {
   return JSON.stringify([sessionDiskWriteSeqOf(id),sessionFullTextHeadWriteSeq.get(id)||0,
     sessionDeleteTombstones.get(id)?.at||0,sessionPermissionModeOverrides.get(id)||null,sessionDesktopToolsOverrides.get(id)||null]);
 }
+// 150 号文 S6:全库共用的「来源可能变了」计数器。sessionFullTextSequence 读的五张表任何一次 set/delete/clear 都推它,
+// 消费方(13as 的 cap.assert)计数器没动就不必逐源重算 sequence。第一次读时才给五张表装计数(此时各模块都已加载完;
+// 装之前的变动无所谓 —— 消费方只比较两次读之间是否变过)。dev-harness/unit/fulltext-source-serial.test.js 钉住五张表都装上了。
+let sessionFullTextSourceSerialValue = 0, sessionFullTextSourceSerialWatched = false;
+function sessionFullTextSourceSerial() {
+  if (!sessionFullTextSourceSerialWatched) {
+    for (const map of [sessionDiskWriteSeq, sessionFullTextHeadWriteSeq, sessionDeleteTombstones, sessionPermissionModeOverrides, sessionDesktopToolsOverrides]) {
+      for (const name of ['set', 'delete', 'clear']) {
+        const original = Map.prototype[name];
+        Object.defineProperty(map, name, { configurable: true, writable: true, value(...args) { sessionFullTextSourceSerialValue++; return original.apply(this, args); } });
+      }
+    }
+    sessionFullTextSourceSerialWatched = true;
+  }
+  return sessionFullTextSourceSerialValue;
+}
 function createSessionFullTextSource() {
   const fail=suffix=>Object.assign(Error('session_fulltext_source.'+suffix),{code:'session_fulltext_source.'+suffix,apiCode:'session_fulltext_source.'+suffix,statusCode:409});
   const hash=value=>crypto.createHash('sha256').update(value).digest('hex');

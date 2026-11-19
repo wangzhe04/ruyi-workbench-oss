@@ -19,16 +19,22 @@ test('empty-source coverage shortcut still refuses a source created before final
  const create=f.context.createSessionFullTextSource;let changed=false,armed=false;f.context.createSessionFullTextSource=()=>{const source=create();return {...source,epoch:async sid=>{const value=await source.epoch(sid);if(armed&&sid==='Empty'&&!changed){changed=true;await f.put('Empty',[{role:'user',id:'new',turnSeq:1,content:'new material'}]);}return value;}};};
  await f.ui('visible needle');armed=true;await assert.rejects(f.ui('visible needle'),error=>['session_search.source_changed','session_fulltext.disclosure_changed'].includes(error.code));assert.equal(changed,true);
 });
+// 151 阶段 2C:索引 revalidate 在「检索以来索引没被写过」时不再重读 manifest(mutationSerial 捷径),注入点从
+// revalidate 里的 manifest 读挪到 revalidate 里仍然存在的那次源头 epoch 复核(命中来源逐个重读 epoch)。
+// 断言的结局不变;mutated/retired 仍钉住注入确实发生。
+const hookRevalidateEpoch=(f,armed,effect)=>{const create=f.context.createSessionFullTextSource;let fired=false;f.context.createSessionFullTextSource=()=>{const source=create();return {...source,epoch:async sid=>{const value=await source.epoch(sid);if(!fired&&armed()&&sid==='A'&&String(new Error().stack).includes('Object.revalidate')){fired=true;await effect();}return value;}};};return ()=>fired;};
 test('external source rewrite during index revalidation cannot disclose a stale snippet',async t=>{
- const f=await fixture();t.after(()=>f.close());await f.put('A',[{role:'user',id:'m',turnSeq:1,content:'needle old committed evidence'}]);await f.ui('needle');
- const read=fs.readFile,write=fs.writeFile,body=path.join(f.sessions,'A.messages.ndjson');let mutated=false;
- fs.readFile=async function(file,...args){const value=await read.call(this,file,...args);if(!mutated&&String(file).endsWith(path.join('A','manifest.json'))&&String(new Error().stack).includes('Object.revalidate')){mutated=true;const bytes=await read.call(this,body,'utf8');await write.call(this,body,bytes.replace('needle old committed evidence','changed external evidence'));}return value;};
- try{await assert.rejects(f.ui('needle'),error=>/source_changed|disclosure_changed/.test(error.code||''));assert.equal(mutated,true);}finally{fs.readFile=read;}
+ const f=await fixture();t.after(()=>f.close());await f.put('A',[{role:'user',id:'m',turnSeq:1,content:'needle old committed evidence'}]);
+ const body=path.join(f.sessions,'A.messages.ndjson');let armed=false;
+ const mutated=hookRevalidateEpoch(f,()=>armed,async()=>{const bytes=await fs.readFile(body,'utf8');await fs.writeFile(body,bytes.replace('needle old committed evidence','changed external evidence'));});
+ await f.ui('needle');armed=true;
+ await assert.rejects(f.ui('needle'),error=>/source_changed|disclosure_changed/.test(error.code||''));assert.equal(mutated(),true);
 });
 test('index retired during its own revalidation yields pending, not stale results',async t=>{
- const f=await fixture();t.after(()=>f.close());await f.put('A',[{role:'user',id:'m',turnSeq:1,content:'needle old committed evidence'}]);await f.ui('needle');const read=fs.readFile;let retired=false;
- fs.readFile=async function(file,...args){const value=await read.call(this,file,...args);if(!retired&&String(file).endsWith(path.join('A','manifest.json'))&&String(new Error().stack).includes('Object.revalidate')){retired=true;await require('node:vm').runInContext('sessionFullTextOwner',f.context).invalidate('A');}return value;};
- try{const result=await f.ui('needle');assert.equal(retired,true);assert.equal(result.results.length,0);assert.equal(result.coverage.pendingSessions,1);}finally{fs.readFile=read;}
+ const f=await fixture();t.after(()=>f.close());await f.put('A',[{role:'user',id:'m',turnSeq:1,content:'needle old committed evidence'}]);let armed=false;
+ const retired=hookRevalidateEpoch(f,()=>armed,async()=>{await require('node:vm').runInContext('sessionFullTextOwner',f.context).invalidate('A');});
+ await f.ui('needle');armed=true;
+ const result=await f.ui('needle');assert.equal(retired(),true);assert.equal(result.results.length,0);assert.equal(result.coverage.pendingSessions,1);
 });
 test('model and observation reject source or privacy policy changes while withPolicy exits',async t=>{
  const vm=require('node:vm'),{actual}=require('../lib/fulltext-consumer-fixture'),{functionBlock}=require('../lib/source-slice');
