@@ -29,13 +29,28 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
   function createMatchBudget(comparisons = LIMITS.learnedComparisons, matches = LIMITS.matches) {
     if (!Number.isSafeInteger(comparisons) || comparisons < 1 || comparisons > LIMITS.learnedComparisons
       || !Number.isSafeInteger(matches) || matches < 1 || matches > LIMITS.matches) fail('scan_budget_invalid');
-    const budget = Object.freeze({}); budgets.set(budget, { comparisons, matches }); return budget;
+    // indexBuilt/touches: learned-index build work and per-bucket index use (150 P14 exact replay).
+    const budget = Object.freeze({}); budgets.set(budget, { comparisons, matches, indexBuilt: 0, touches: [0, 0] }); return budget;
   }
   function spend(budget, kind, amount = 1) {
     const state = budgets.get(budget);
     if (!state || !Number.isSafeInteger(amount) || amount < 0) fail('scan_budget_invalid');
     if (state[kind] < amount) fail('learned_scan_limit');
     state[kind] -= amount;
+  }
+  // 150 P14: the gateway's in-memory projection cache replays the exact work a cached
+  // slot spent, so a hit cannot let a request pass a per-request budget it would exceed.
+  // A learned-index build is a one-off cost of whichever scan first needs the index; it is
+  // reported separately so a hit replays only its scan and rebuilds (charging) a missing index.
+  function budgetRemaining(budget) {
+    const state = budgets.get(budget); if (!state) fail('scan_budget_invalid');
+    return { comparisons: state.comparisons, matches: state.matches, indexBuilt: state.indexBuilt, touches: [...state.touches] };
+  }
+  function replayBudget(budget, used) {
+    const state = budgets.get(budget);
+    if (!state || !Number.isSafeInteger(used?.comparisons) || used.comparisons < 0 || !Number.isSafeInteger(used?.matches) || used.matches < 0) fail('scan_budget_invalid');
+    if (state.comparisons < used.comparisons || state.matches < used.matches) return false;
+    state.comparisons -= used.comparisons; state.matches -= used.matches; return true;
   }
   const stricter = (a, b) => a === 'CREDENTIAL' || b === 'CREDENTIAL' ? 'CREDENTIAL' : a === b ? a : 'INTERNAL';
   function mergeMatches(found) {
@@ -586,10 +601,19 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     // Separate failure-linked tries share the caller's work/hit budget. Each collection
     // is invalidated only by its own membership changes. Output links avoid quadratic suffix lists.
     function exactIndex(bucket, budget) {
+      const state = budgets.get(budget); if (state) state.touches[bucket]++;
       const cached = learnedIndexCache.get(learnedIndexes[bucket]); if (cached) return cached;
       const values = [...learnedValues[bucket]].map(([value, token]) => ({ value, token }));
+      const before = state?.comparisons;
       const built = buildLearnedIndex(values, budget, bucket === 1);
+      if (state) state.indexBuilt += before - state.comparisons;
       learnedIndexes[bucket] = built.handle; return built.index;
+    }
+    // 150 P14: a cache hit performs the index lookups its original scan made; a missing index is
+    // built and charged here exactly as the uncached scan would have built it.
+    function warmLearnedIndexes(buckets, budget) {
+      if (!Array.isArray(buckets) || !budgets.has(budget)) fail('scan_budget_invalid');
+      for (const bucket of buckets) { if (bucket !== 0 && bucket !== 1) fail('scan_budget_invalid'); if (learnedValues[bucket].size) exactIndex(bucket, budget); }
     }
     function appendLearned(privacyText, budget, found, intervals) {
       const embeddedShortNumber = (value, start, end) => /^[0-9]{1,6}$/.test(value)
@@ -755,7 +779,15 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       }
       revision++;
     }
-    return Object.freeze({ detect, detectLearned, protectRaw, protectValue: (value, type, context = {}) => { checkText(value); category(type); if (!value) fail('rule_empty'); return issue(value, type, context.budget); },
+    // 150 P14: expiry is the only scope-state change that does not bump revision. A cached
+    // projection made at revision R stays valid only before the next expiry after it was made.
+    function expiryHorizon() {
+      const now = clock(); let next = Infinity;
+      for (const entry of entries.values()) if (entry.expiresAt > now && entry.expiresAt < next) next = entry.expiresAt;
+      for (const group of aliases.values()) if (group.expiresAt > now && group.expiresAt < next) next = group.expiresAt;
+      return next;
+    }
+    return Object.freeze({ detect, detectLearned, protectRaw, expiryHorizon, warmLearnedIndexes, reachedHorizon: horizon => clock() >= horizon, protectValue: (value, type, context = {}) => { checkText(value); category(type); if (!value) fail('rule_empty'); return issue(value, type, context.budget); },
       protectAlias, revision: () => revision, validateProtected, restoreForTool, revoke, clear, exportState, importState, size: () => entries.size });
   }
   function checkKey(key) { if (!Buffer.isBuffer(key) || key.length !== 32) fail('key_invalid'); }
@@ -805,5 +837,5 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
   }
   // Filled by the storage adapter after config primitives exist; no forward dependency from config.
   const configHooks = {};
-  return Object.freeze({ LIMITS, ruleCatalogVersion: ruleCatalog?.version || 1, createMatchBudget, createDetector, createScope, seal, open, configHooks });
+  return Object.freeze({ LIMITS, ruleCatalogVersion: ruleCatalog?.version || 1, createMatchBudget, budgetRemaining, replayBudget, createDetector, createScope, seal, open, configHooks });
 })(require('node:crypto'), typeof PrivacyRuleCatalog === 'undefined' ? null : PrivacyRuleCatalog);

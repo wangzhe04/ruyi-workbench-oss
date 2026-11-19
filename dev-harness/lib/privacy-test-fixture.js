@@ -2,9 +2,12 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const { constBlock } = require('./source-slice');
 const read = name => fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src', name), 'utf8');
 const source = read('01i-privacy-rules.js') + '\n' + read('01h-privacy-core.js') + '\n' + read('01m-privacy-regex.js') + '\n' + constBlock(read('01k-credential-vault.js'), 'CredentialVault') + '\n' + constBlock(read('01l-credential-recovery.js'), 'CredentialRecovery');
-const primitives = vm.runInNewContext(source + '\n({PrivacyCore,PrivacyRegex,CredentialVault,CredentialRecovery})', { require, Buffer, URL, structuredClone, setTimeout, clearTimeout });
+// globals: extra sandbox bindings, for example a controllable Date for reference-expiry tests.
+const loadPrimitives = (globals = {}) => vm.runInNewContext(source + '\n({PrivacyCore,PrivacyRegex,CredentialVault,CredentialRecovery})', { require, Buffer, URL, structuredClone, setTimeout, clearTimeout, ...globals });
+const defaultPrimitives = loadPrimitives();
 const clone = value => structuredClone(value);
-function fixture() {
+function fixture(options = {}) {
+  const primitives = options.primitives || defaultPrimitives;
   let state = primitives.CredentialVault.empty(), serial = 0;
   const host = { core: primitives.PrivacyCore, size: async () => Buffer.byteLength(JSON.stringify(state)), supportedDefault: () => true,
     store: { read: async () => clone(state), write: async value => { state = clone(value); serial++; }, invalidate() {} },
@@ -23,9 +26,9 @@ function syntheticComparisonPlan(name) {
 }
 function gateway(root, f, options = {}) {
   return vm.runInNewContext((options.source || read('03a-privacy-gateway.js')) + '\nPrivacyGateway.setHost({ data: paths.data, planDisclosure: syntheticComparisonPlan, makeStore: file => ({ read: async () => JSON.parse(await fsp.readFile(file, "utf8")), write: value => atomicWriteJson(file, value) }) }); PrivacyGateway', {
-    require, Buffer, structuredClone, URL, syntheticComparisonPlan, PrivacyRegex: f.PrivacyRegex, PrivacyCore: { ...f.PrivacyCore, configHooks: { sealLocal: f.vault.sealLocal, openLocal: f.vault.openLocal } },
+    require, Buffer, structuredClone, URL, syntheticComparisonPlan, PrivacyRegex: f.PrivacyRegex, PrivacyCore: options.core || { ...f.PrivacyCore, configHooks: { sealLocal: f.vault.sealLocal, openLocal: f.vault.openLocal } },
     fsp: fs.promises, path, paths: { data: root }, atomicWriteJson: async (file, value) => { await fs.promises.writeFile(file, JSON.stringify(value)); },
     setImmediate: options.setImmediate || setImmediate,
   });
 }
-module.exports = { fixture, gateway, clone, syntheticComparisonPlan };
+module.exports = { fixture, gateway, clone, syntheticComparisonPlan, loadPrimitives };

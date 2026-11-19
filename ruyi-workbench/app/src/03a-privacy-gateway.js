@@ -6,7 +6,111 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
   let policyEpoch = 0;
-  function setUnavailable(value) { if (unavailable !== value) { policyEpoch++; host.invalidateMedia?.(); } unavailable = value; }
+  // 150 P14: process-memory cache of unchanged history slots (request messages/input items and
+  // host-history verdicts). Never persisted or logged; keys hold digests and policy signatures,
+  // never originals. A slot is reused only under the same scope object and revision, policy
+  // signature and epoch, detector options and rule catalog version, before the scope's next
+  // reference expiry, and only if its first projection changed no scope state, used no host
+  // media capability and its input did not change during the walk. Hits replay the exact
+  // node/byte/match-budget work (learned-index builds are charged where they still occur), so
+  // limits stay identical. Entries of a scope are released when it moves to a newer revision,
+  // is cleared, closed or evicted, or when the policy changes.
+  const projectionCache = (() => {
+    const MAX_ENTRIES = 8192, MAX_BYTES = 64 * 1024 * 1024, MAX_ENTRY_BYTES = 8 * 1024 * 1024;
+    const entries = new Map(), scopeIds = new WeakMap(), owners = new Map();
+    const counters = { hits: 0, misses: 0, stores: 0, evictions: 0, clears: 0, purges: 0, oversize: 0 };
+    let bytes = 0, nextScopeId = 0;
+    const drop = key => { const entry = entries.get(key); if (!entry) return; entries.delete(key); bytes -= entry.size; owners.get(entry.owner)?.keys.delete(key); };
+    const purge = id => {
+      const owned = owners.get(id); if (!owned) return;
+      owners.delete(id); counters.purges++;
+      for (const key of owned.keys) { const entry = entries.get(key); if (entry) { entries.delete(key); bytes -= entry.size; } }
+    };
+    // Object identity, not scopeId: a recreated scope (policy/options change, eviction) never hits.
+    const scopeId = scope => { let id = scopeIds.get(scope); if (id === undefined) { id = ++nextScopeId; scopeIds.set(scope, id); } return id; };
+    return Object.freeze({
+      MAX_ENTRY_BYTES, scopeId, noteOversize: () => { counters.oversize++; },
+      get(key, scope) {
+        const entry = entries.get(key);
+        if (!entry || scope.reachedHorizon(entry.horizon)) { if (entry) drop(key); counters.misses++; return null; }
+        entries.delete(key); entries.set(key, entry); counters.hits++; return entry;
+      },
+      set(key, entry, size, scope, revision) {
+        if (!Number.isSafeInteger(size) || size < 0 || size > MAX_ENTRY_BYTES) return;
+        const id = scopeId(scope); let owned = owners.get(id);
+        // Revisions only grow: entries of an older revision can never hit again.
+        if (owned && owned.revision !== revision) { purge(id); owned = null; }
+        if (!owned) owners.set(id, owned = { revision, keys: new Set() });
+        drop(key); entry.size = size; entry.owner = id;
+        while (entries.size && (entries.size >= MAX_ENTRIES || bytes + size > MAX_BYTES)) { drop(entries.keys().next().value); counters.evictions++; }
+        entries.set(key, entry); owned.keys.add(key); bytes += size; counters.stores++;
+      },
+      purgeScope(scope) { const id = scopeIds.get(scope); if (id !== undefined) purge(id); },
+      clear() { if (entries.size) counters.clears++; entries.clear(); owners.clear(); bytes = 0; },
+      stats: () => ({ ...counters, entries: entries.size, bytes, maxEntries: MAX_ENTRIES, maxBytes: MAX_BYTES }),
+    });
+  })();
+  // Injective, type-tagged digest input (UTF-16 code units, so lone surrogates stay distinct).
+  // Anything that is not plain data (class instances, functions, symbols, bigint) is not cached,
+  // and neither is a slot whose text alone exceeds the per-entry cap (checked before any join).
+  function projectionFingerprint(value) {
+    const parts = []; let nodes = 0, chars = 0;
+    // Stored size counts 2 B per input char plus 2 B per output char, so a slot over a quarter of the entry cap can never be stored.
+    const charLimit = projectionCache.MAX_ENTRY_BYTES / 4;
+    const plain = item => { const proto = Object.getPrototypeOf(item); return proto === null || Object.getPrototypeOf(proto) === null && typeof proto.hasOwnProperty === 'function' && Object.prototype.toString.call(item) === '[object Object]'; };
+    const visit = (item, depth) => {
+      if (++nodes > 50000 || depth > 34) return false;
+      if (typeof item === 'string') { if ((chars += item.length) > charLimit) return false; parts.push('s' + item.length + ':', item); return true; }
+      if (typeof item === 'number') { parts.push(Object.is(item, -0) ? 'n-0;' : 'n' + item + ';'); return true; }
+      if (typeof item === 'boolean') { parts.push(item ? 't' : 'f'); return true; }
+      if (item === undefined) { parts.push('u'); return true; }
+      if (item === null) { parts.push('z'); return true; }
+      if (typeof item !== 'object') return false;
+      if (Array.isArray(item)) {
+        parts.push('[' + item.length + ';');
+        for (let i = 0; i < item.length; i++) { if (!(i in item)) parts.push('h'); else if (!visit(item[i], depth + 1)) return false; }
+        parts.push(']'); return true;
+      }
+      if (!plain(item)) return false;
+      const rows = Object.entries(item);
+      parts.push((Object.getPrototypeOf(item) === null ? 'O' : 'o') + rows.length + ';');
+      for (const [key, row] of rows) { if ((chars += key.length) > charLimit) return false; parts.push(key.length + ':', key); if (!visit(row, depth + 1)) return false; }
+      parts.push('}'); return true;
+    };
+    if (!visit(value, 0)) { if (chars > charLimit) projectionCache.noteOversize(); return null; }
+    const text = parts.join('');
+    return { digest: cryptoApi.createHash('sha256').update(text, 'utf16le').digest('hex'), chars };
+  }
+  // Upper bound of the heap a stored entry retains: the projection (strings at two bytes per code
+  // unit plus header, dictionary-mode objects, arrays), the input text its strings may still
+  // reference as slices/cons parts, and the entry record with its key.
+  function projectionSize(value, inputChars, keyLength) {
+    let size = 1024 + 2 * keyLength + 2 * inputChars, nodes = 0;
+    const visit = item => {
+      if (++nodes > 50000 || size > projectionCache.MAX_ENTRY_BYTES) return;
+      if (typeof item === 'string') { size += 40 + 2 * item.length; return; }
+      if (!item || typeof item !== 'object') { size += 16; return; }
+      if (Array.isArray(item)) { size += 64 + 16 * item.length; for (let i = 0; i < item.length; i++) if (i in item) visit(item[i]); return; }
+      size += 160;
+      for (const [key, row] of Object.entries(item)) { size += 104 + 2 * key.length; visit(row); }
+    };
+    visit(value);
+    return nodes > 50000 ? Infinity : size;
+  }
+  // Projection outputs are arrays, null-prototype objects and primitives; holes are preserved.
+  function cloneProjection(value) {
+    if (Array.isArray(value)) { const rows = new Array(value.length); for (let i = 0; i < value.length; i++) if (i in value) rows[i] = cloneProjection(value[i]); return rows; }
+    if (!value || typeof value !== 'object') return value;
+    const bare = Object.getPrototypeOf(value) === null, next = bare ? Object.create(null) : {};
+    // A null-prototype object has no __proto__ setter; ordinary objects define that key explicitly.
+    for (const [key, row] of Object.entries(value)) {
+      if (bare || key !== '__proto__') next[key] = cloneProjection(row);
+      else Object.defineProperty(next, key, { value: cloneProjection(row), writable: true, enumerable: true, configurable: true });
+    }
+    return next;
+  }
+  const projectionDigest = parts => cryptoApi.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  function setUnavailable(value) { if (unavailable !== value) { policyEpoch++; projectionCache.clear(); host.invalidateMedia?.(); } unavailable = value; }
   const fail = suffix => { throw Object.assign(new Error('privacy.' + suffix), { code: 'privacy.' + suffix, statusCode: 409 }); };
   const enabled = config => ['basic', 'enhanced', 'strict'].includes(config?.privacyModeV1);
   function assertPolicyAvailable(config) {
@@ -64,10 +168,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const mode = config.privacyModeV1 || 'off';
     // The disabled path must not enumerate secrets, build detectors or start workers.
     // A mode change still invalidates any already-running protected context.
-    if (mode === 'off') { if (currentPolicy.signature !== 'off') { policyEpoch++; host.invalidateMedia?.(); } currentPolicy = { mode, signature: 'off', config }; return; }
+    if (mode === 'off') { if (currentPolicy.signature !== 'off') { policyEpoch++; projectionCache.clear(); host.invalidateMedia?.(); } currentPolicy = { mode, signature: 'off', config }; return; }
     const signature = cryptoApi.createHash('sha256').update(JSON.stringify([mode, options(config)])).digest('hex');
     const policy = { mode, signature, config: structuredClone(config) };
-    if (currentPolicy.signature !== signature) { policyEpoch++; host.invalidateMedia?.(); }
+    if (currentPolicy.signature !== signature) { policyEpoch++; projectionCache.clear(); host.invalidateMedia?.(); }
     currentPolicy = policy;
     } catch (error) { setUnavailable(true); throw error; }
   }
@@ -110,7 +214,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         const victim = [...loaded].find(([, value]) => !value.busy && value.value?.isPersisted()); if (!victim) fail('scope_capacity');
         const evicted = await victim[1].promise;
         if (loaded.get(victim[0]) !== victim[1] || victim[1].busy || !evicted.isPersisted()) fail('scope_capacity');
-        evicted.scope.clear(); loaded.delete(victim[0]);
+        projectionCache.purgeScope(evicted.scope); evicted.scope.clear(); loaded.delete(victim[0]);
       }
       const previous = entry;
       entry = { signature, busy: 0, token: Object.freeze({}), value: null };
@@ -120,7 +224,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         const file = pathApi.join(host.data, 'privacy-scopes', key + '.json');
         const store = host.makeStore(file, key);
         let persistedRevision = -1;
-        if (previous) scope.importState((await previous.promise).scope.exportState());
+        if (previous) { const superseded = (await previous.promise).scope; scope.importState(superseded.exportState()); projectionCache.purgeScope(superseded); }
         else {
           try {
             const stat = await fileApi.lstat(file); if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) fail('mapping_invalid');
@@ -414,7 +518,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   function createConnectionScope() {
     const scopeId = 'consumer-' + cryptoApi.randomBytes(24).toString('hex');
     let context = null, busy = 0, closed = false;
-    const clear = () => { context?.scope.clear(); context = null; };
+    const clear = () => { if (context) projectionCache.purgeScope(context.scope); context?.scope.clear(); context = null; };
     const close = () => { closed = true; if (!busy) clear(); };
     const run = async work => {
       if (closed) fail('connection_closed');
@@ -538,7 +642,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     if (Buffer.byteLength(output) > core.LIMITS.bytes) fail('text_limit');
     return output;
   }
-  function* transformSteps(value, context, { raw = false, data = false, trustedToolSchemas = false, budget, proof, trustedLeaves, recoveryPaths } = {}) {
+  function* transformSteps(value, context, { raw = false, data = false, trustedToolSchemas = false, budget, proof, trustedLeaves, recoveryPaths, historyCache = false } = {}) {
     let nodes = 0, bytes = 0;
     const detect = (input, pointer, allowReferences = false, lexicalJsonSource = false, automaticJsonSource = false) => {
       try { return context.scope.detect(input, { pointer, budget, opaqueReferences: (!raw || allowReferences) && input.includes(PREFIX), lexicalJsonSource, automaticJsonSource }); }
@@ -546,7 +650,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     // Typed values cannot be reversibly substituted by the text serializer. Apply field-based
     // classification for the selected mode; ordinary protocol objects keep their shape.
-    const typedDetector = core.createDetector({ personal: options(context.config).personal, rules: (context.config.privacyRulesV1 || []).filter(rule => rule.kind === 'field') });
+    const contextOptions = options(context.config);
+    const typedDetector = core.createDetector({ personal: contextOptions.personal, rules: (context.config.privacyRulesV1 || []).filter(rule => rule.kind === 'field') });
     const typedPointers = new Map();
     const explicitFields = new Set((context.config.privacyRulesV1 || []).filter(rule => rule.kind === 'field').map(rule => rule.value));
     const declarations = new Set();
@@ -715,7 +820,54 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (proof) { proof.edits.push(...replacements); proof.covered.push(...concealed); proof.references ||= hasReferences; }
       return output + source.slice(from);
     }
-    function* walk(item, pointer, depth, structuredData = data, proof, allowReferences = false) {
+    // 150 P14: top-level history slots (chat/Anthropic messages, Responses input items) reuse a
+    // cached projection. Raw/proof/trusted-leaf/trace transforms always take the direct walk.
+    const cacheSlots = historyCache === true && !raw && !proof && !trustedLeaves && !context.trace && budget !== undefined;
+    let mediaUses = 0, slotPrefix = null, slotHorizon = null;
+    const slotKey = (revision, structuredData, pointer, digest) => {
+      if (slotPrefix?.revision !== revision) {
+        slotPrefix = { revision, value: projectionDigest(['request-slot', projectionCache.scopeId(context.scope), revision, context.policy, currentPolicy.signature, policyEpoch,
+          projectionDigest([core.ruleCatalogVersion || 1, contextOptions]), core.ruleCatalogVersion || 1, raw, data, trustedToolSchemas, !!recoveryPaths]) };
+      }
+      return slotPrefix.value + '|' + structuredData + '|' + pointer + '|' + digest;
+    };
+    const horizonAt = revision => {
+      if (slotHorizon?.revision !== revision) slotHorizon = { revision, value: context.scope.expiryHorizon() };
+      return slotHorizon.value;
+    };
+    function* cachedSlot(item, pointer, structuredData) {
+      const fingerprint = projectionFingerprint(item);
+      if (!fingerprint) return yield* walkDirect(item, pointer, 2, structuredData);
+      const revision = context.scope.revision(), key = slotKey(revision, structuredData, pointer, fingerprint.digest);
+      const cached = projectionCache.get(key, context.scope);
+      if (cached && nodes + cached.nodes <= 50000 && bytes + cached.bytes <= 8 * 1024 * 1024) {
+        // Index lookups first (a missing learned index is built and charged as the scan would),
+        // then the slot's own scan work; a refused replay falls back to the real walk.
+        context.scope.warmLearnedIndexes(cached.indexBuckets, budget);
+        if (core.replayBudget(budget, cached.budget)) {
+          nodes += cached.nodes; bytes += cached.bytes;
+          yield { bytes: cached.bytes };
+          return cloneProjection(cached.value);
+        }
+      }
+      // The horizon is read before the walk: every reference it touches is then unexpired after it.
+      const horizon = horizonAt(revision), startNodes = nodes, startBytes = bytes, startMedia = mediaUses, before = core.budgetRemaining(budget);
+      const result = yield* walkDirect(item, pointer, 2, structuredData);
+      // A slot that taught or tightened the scope (revision moved), used host media, or whose input
+      // object changed while the walk yielded (the digest no longer names what was projected) is never reused.
+      if (context.scope.revision() === revision && mediaUses === startMedia && projectionFingerprint(item)?.digest === fingerprint.digest) {
+        const after = core.budgetRemaining(budget), value = cloneProjection(result);
+        projectionCache.set(key, { value, nodes: nodes - startNodes, bytes: bytes - startBytes, horizon,
+          budget: { comparisons: before.comparisons - after.comparisons - (after.indexBuilt - before.indexBuilt), matches: before.matches - after.matches },
+          indexBuckets: [0, 1].filter(bucket => after.touches[bucket] > before.touches[bucket]) },
+        projectionSize(value, fingerprint.chars, key.length), context.scope, revision);
+      }
+      return result;
+    }
+    // direct: the cache's own miss path; every other node keeps a single generator frame.
+    const walkDirect = (item, pointer, depth, structuredData) => walk(item, pointer, depth, structuredData, undefined, false, true);
+    function* walk(item, pointer, depth, structuredData = data, proof, allowReferences = false, direct = false) {
+      if (cacheSlots && !direct && depth === 2 && proof === undefined && !allowReferences && /^\/(?:messages|input)\/\d+$/.test(pointer)) return yield* cachedSlot(item, pointer, structuredData);
       try { return yield* visit(item, pointer, depth, structuredData, proof, allowReferences); }
       catch (error) {
         if (!recoveryPaths?.has(pointer) || !contentRecoveryError(error)) throw error;
@@ -758,6 +910,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // original fail-closed media/string checks below.
         const media = typeof host.projectMediaPart === 'function' ? host.projectMediaPart(item, { scopeId: context.scopeId, pointer }) : null;
         if (media) {
+          mediaUses++;
           // A field rule naming any payload/control descendant cannot disappear
           // behind the host capability. Pixels are not a textual field rewrite.
           function* inspectMediaFields(value, at) {
@@ -800,7 +953,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       literalRuleCount: rules.some(rule => rule.kind === 'regex') ? 0 : rules.filter(rule => rule.kind === 'literal').length,
       strictUsers: new Set(), originals: new WeakMap() });
   }
-  function projectHistoryCopy(history, scope, binding, referenceHints) {
+  function projectHistoryCopy(history, scope, binding, referenceHints, cacheContext) {
     let nodes = 0, bytes = 0;
     const fieldDetector = core.createDetector();
     const inspect = (value, pointer = '', depth = 0, checkMatchLimit = false) => {
@@ -864,12 +1017,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (value && typeof value === 'object') { let bad = false; for (const [key, row] of Object.entries(value)) { bad = inspect(key, '', depth + 1) || bad; bad = inspect(row, pointer + '/' + key.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1) || bad; } return bad; }
       return false;
     };
+    // replayClean: a cached clean row rebuilds its exact copy shape without rescanning.
+    let replayClean = false, issues = 0;
     const contentIssue = (value, omitLimits, checkMatchLimit = omitLimits) => {
-      try { return inspect(value, '', 0, checkMatchLimit) ? 'reference' : ''; }
+      if (replayClean) return '';
+      try { const issue = inspect(value, '', 0, checkMatchLimit) ? 'reference' : ''; if (issue) issues++; return issue; }
       catch (error) {
         // Omit a locally unscannable data slot, keeping the full-history budget.
         // Current user input and tool dispatch still use strict validation.
-        if (omitLimits && !referenceHints && nodes <= 50000 && ['privacy.text_limit', 'privacy.structure_limit', 'privacy.matches_limit'].includes(error?.code)) return 'limit';
+        if (omitLimits && !referenceHints && nodes <= 50000 && ['privacy.text_limit', 'privacy.structure_limit', 'privacy.matches_limit'].includes(error?.code)) { issues++; return 'limit'; }
         throw error;
       }
     };
@@ -888,9 +1044,40 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         return next;
       });
     };
+    // 150 P14: a row whose inspection found no unavailable reference and no withheld slot is
+    // reused by digest: its scan is skipped, its copy shape and originals link are rebuilt the
+    // same way and its node/byte counts are replayed. Fresh user input is always inspected.
+    const cacheRows = !referenceHints && scope && cacheContext?.scope === scope;
+    let rowPrefix = null, rowHorizon = null;
+    const rowKey = (historical, digest) => {
+      const revision = scope.revision();
+      if (rowPrefix?.revision !== revision) rowPrefix = { revision, value: projectionDigest(['host-history-row', projectionCache.scopeId(scope), revision, cacheContext.policy, currentPolicy.signature, policyEpoch,
+        projectionDigest([core.ruleCatalogVersion || 1, options(cacheContext.config)]), core.ruleCatalogVersion || 1, binding.literalRuleCount]) };
+      return rowPrefix.value + '|' + historical + '|' + digest;
+    };
     return history.map(message => {
       if (!message || typeof message !== 'object') return message;
       const historical = binding.historicalRows.has(message);
+      let key = null, revision, horizon, startNodes, startBytes;
+      if (cacheRows && (historical || message.role !== 'user')) {
+        const fingerprint = projectionFingerprint(message);
+        if (fingerprint) {
+          key = rowKey(historical, fingerprint.digest);
+          const cached = projectionCache.get(key, scope);
+          if (cached && nodes + cached.nodes <= 50000 && bytes + cached.bytes <= 8 * 1024 * 1024) {
+            replayClean = true;
+            try { const next = projectRow(message, historical); nodes += cached.nodes; bytes += cached.bytes; return next; } finally { replayClean = false; }
+          }
+          revision = scope.revision();
+          if (rowHorizon?.revision !== revision) rowHorizon = { revision, value: scope.expiryHorizon() };
+          horizon = rowHorizon.value; startNodes = nodes; startBytes = bytes;
+        }
+      }
+      const startIssues = issues, next = projectRow(message, historical);
+      if (key && issues === startIssues && scope.revision() === revision) projectionCache.set(key, { nodes: nodes - startNodes, bytes: bytes - startBytes, horizon }, 512 + 2 * key.length, scope, revision);
+      return next;
+    });
+    function projectRow(message, historical) {
       let next = message;
       if (message.role === 'user') {
         if (!historical) {
@@ -915,7 +1102,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       }
       if (next !== message) binding.originals.set(next, message);
       return next;
-    });
+    }
   }
   function projectHostHistory(owner, history) {
     const context = active();
@@ -926,7 +1113,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     assertPolicyAvailable();
     const binding = historyBindings.get(owner);
     if (!binding || binding.scope !== context.scope || !Array.isArray(history)) fail('history_projection_invalid');
-    return projectHistoryCopy(history, context.scope, binding);
+    return projectHistoryCopy(history, context.scope, binding, undefined, context);
   }
   function restoreHostHistoryProjection(owner, history, compacted = false) {
     const binding = historyBindings.get(owner); if (!binding) return history;
@@ -1010,7 +1197,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       else prepared.messages = [{ role: 'system', content: instruction + recoveryInstruction }, ...narrationBody.messages];
     } else if (Array.isArray(body.input)) prepared.instructions = instruction + recoveryInstruction + '\n' + String(body.instructions || '');
     const recoveryPaths = recoverContent ? await consumeSteps(contentRecoverySteps(prepared)) : undefined;
-    const result = await protectedTransform(prepared, context, { trustedToolSchemas: true, ...(recoverContent ? { recoveryPaths } : {}) });
+    // 150 P14: unchanged history slots reuse their cached projection (see projectionCache).
+    const result = await protectedTransform(prepared, context, { trustedToolSchemas: true, historyCache: true, ...(recoverContent ? { recoveryPaths } : {}) });
     // Commit the map before a network call can expose its references, including on retries.
     await context.persist(); assertPolicyAvailable();
     assertOperation(operation);
@@ -1928,7 +2116,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       } });
     return snapshot;
   }
-  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ captureMediaPolicy, projectionCacheStats: () => projectionCache.stats(), enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
