@@ -100,5 +100,6 @@ async function request(route, body) {
 })().catch(error => t.fail(error?.stack || String(error))).finally(async () => {
   if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
   for (const api of runtimes) { await api.flushWorkbenchLogs({ allowFailure: true }); api.stopStewardInbox(); api.stopScheduler(); clearTimeout(api.pretenderIndexRuntime.verifyTimer); clearTimeout(api.pretenderIndexRuntime.persistTimer); api.workDataKeys.clear(); }
-  assert.equal(path.dirname(root), base); assert.ok(path.basename(root).startsWith('ruyi-audit-work-data-')); fs.rmSync(root, { recursive: true, force: true }); t.done();
+  assert.equal(path.dirname(root), base); assert.ok(path.basename(root).startsWith('ruyi-audit-work-data-')); // Windows may still hold a handle on the temp root briefly after the servers exit (EPERM/ENOTEMPTY seen twice under load); retry instead of failing an otherwise green run.
+  fs.rmSync(root, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 }); t.done();
 });

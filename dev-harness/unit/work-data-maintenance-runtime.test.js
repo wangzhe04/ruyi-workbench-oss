@@ -581,6 +581,7 @@ test('a held cold failure names the specific cause behind the wrapper code witho
  const typed=(suffix,extra={})=>Object.assign(Error('work_data_setup.'+suffix),{code:'work_data_setup.'+suffix,...extra});
  const sys=(code,file)=>Object.assign(Error(code+': operation failed, open \''+file+'\''),{code,path:file,syscall:'open'});
  const secretPath='C:\\Users\\someone\\private\\notes.json';
+ const limitError=(limit,areas)=>Object.assign(Error('work_data_tree.preserved_native_engineering_limit'),{code:'work_data_tree.preserved_native_engineering_limit',limit,areas,cause:sys('EIO',secretPath)});
  const cases=[
   ['space with bytes',wrap(typed('space_insufficient',{requiredBytes:'5368709120',availableBytes:'1024'})),'work_data_setup.space_insufficient',{requiredBytes:'5368709120',availableBytes:'1024'}],
   ['nested typed cause under a typed wrapper',wrap(typed('space_unavailable',{cause:sys('EACCES',secretPath)})),'work_data_setup.space_unavailable',undefined],
@@ -591,12 +592,17 @@ test('a held cold failure names the specific cause behind the wrapper code witho
   ['space bytes in the wrong shape are dropped',wrap(typed('space_insufficient',{requiredBytes:5,availableBytes:'1'})),'work_data_setup.space_insufficient',undefined],
   ['unknown cause stays silent',wrap(Object.assign(Error(secretPath),{code:'EWEIRD'})),undefined,undefined],
   ['no cause at all',typed('preparation_failed'),undefined,undefined],
+  // 150 W3: an over-budget census carries its typed limit (kind, decimal maximum, product areas only) as limitDetail.
+  ['census over budget',wrap(limitError({kind:'entries',maximum:200001},[{area:'sessions',entries:150000,bytes:1024},{area:'C:\\Users\\someone',entries:1,bytes:1},{area:'uploads',entries:'9',bytes:1}])),
+   'work_data_tree.preserved_native_engineering_limit',undefined,{kind:'entries',maximum:'200001',areas:[{area:'sessions',entries:'150000',bytes:'1024'}]}],
+  ['top-level census limit (its own cause still named)',limitError({kind:'bytes',maximum:125829120},[]),'work_data_setup.io_error',undefined,{kind:'bytes',maximum:'125829120',areas:[]}],
+  ['forged limit kind is dropped',wrap(limitError({kind:'C:\\evil',maximum:1},[])),'work_data_tree.preserved_native_engineering_limit',undefined,undefined],
  ];
  // 一个夹具(一份真 OS 所有权)给全部用例,每例起一个新 Runtime。修前每例各起一个夹具:9 次真所有权获取/释放在满载的
  // 并发 unit 里会拖慢同文件后面依赖 waitStatus 的用例(1E 复审「另」项)。
  const f=await fixture(t);
  f.host.readAuthority=async()=>({generation:0,id:null,mode:'plain',proof:{sha256:null}});
- for(const [name,error,reason,detail] of cases){
+ for(const [name,error,reason,detail,limitDetail] of cases){
   const state={};
   f.host.httpApi={create:options=>{state.status=options.readStatus;return{listen:async()=>{},close:async()=>{}};}};
   f.host.operations=()=>({execute:async()=>{throw error;}});
@@ -606,6 +612,7 @@ test('a held cold failure names the specific cause behind the wrapper code witho
   const status=await waitStatus(state);assert.ok(status,name+' publishes a typed hold status');
   assert.equal(status.job.reason,reason,name);
   assert.deepEqual(status.job.reasonDetail===undefined?undefined:JSON.parse(JSON.stringify(status.job.reasonDetail)),detail,name);
+  assert.deepEqual(status.job.limitDetail===undefined?undefined:JSON.parse(JSON.stringify(status.job.limitDetail)),limitDetail,name+' limit detail');
   const text=JSON.stringify(status.job);
   assert.ok(!text.includes('someone')&&!text.includes('operation failed')&&!text.includes('EWEIRD'),name+' leaks no message, path or raw errno');
  }

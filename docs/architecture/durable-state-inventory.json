@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 82,
+  "count": 83,
   "lifecycleCounts": {
-    "dedicated-exemption": 28,
+    "dedicated-exemption": 29,
     "external-exemption": 10,
     "regenerable-exemption": 12,
     "shared-lifecycle": 32
@@ -79,6 +79,20 @@
       "recovery": "doctor --clear-boot-root removes only the exact inspected sha/dev/ino receipt through the maintenance/test path; the next boot then uses the default root; a hard crash stage (.boot-root-v1.stage-*) requires owner-verified manual cleanup",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "long-lived serving-root preference, never authority: manifest and ownership bind still fail closed, and TEMP activation is never promoted"
+    },
+    {
+      "id": "work-data-leftover-quarantine",
+      "pattern": "<root>/quarantine-v1/<stamp>/manifest-v1.json and data/<original relative path>",
+      "owner": "01ac-work-data-root-hygiene.js",
+      "anchor": "'manifest-v1.json'",
+      "schema": "schema 1: stamp, root prefix ('' or .work-data/generations/<id>), state (moving/moved/rolled-back/partial/restored/partially-restored), items with base-relative original path, logical quarantined path, size, sha256, leftover reason and source area (active/superseded: superseded copies stay plaintext and keep an inspect advice until undone or deleted by the user); no keys or decrypted content",
+      "writePrimitive": "one area and manifest per root per run (one stamp); create-only wx 0600 manifest with file sync before the first rename; state changes through atomicWriteJson; files move by same-volume rename only",
+      "corruption": "an unreadable or schema-invalid manifest refuses undo; every path read back is validated (relative, inside its root, no ./.., drive, stream or backslash, from = root + to) and no alias may sit on either path; every restore target must be a leftover under the data-root policy; quarantine refuses while an alias sits at or below quarantine-v1; undo restores only files whose bytes still match the recorded sha256 and whose original path is free; an empty area or one holding only a torn manifest and no data (crash before the first move) is reported incomplete and removed by the next run after alias checks (single-link regular manifest unlink, then rmdir)",
+      "capacity": "one manifest per quarantine run; 64MiB bounded read; no automatic deletion",
+      "cache": "none",
+      "recovery": "undoQuarantine moves files back; a partially failed run records state partial and its stamp for explicit undo",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "inert crash leftovers of other owners; the census policy omits quarantine-v1 from packages and new generations"
     },
     {
       "id": "mcp-consumers-v1",

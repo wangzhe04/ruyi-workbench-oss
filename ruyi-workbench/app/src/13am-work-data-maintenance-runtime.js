@@ -50,22 +50,35 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     EBUSY:'work_data_setup.file_busy',ETXTBSY:'work_data_setup.file_busy',ENOENT:'work_data_setup.file_missing',EROFS:'work_data_setup.read_only_volume',
     EMFILE:'work_data_setup.too_many_open_files',ENFILE:'work_data_setup.too_many_open_files',EIO:'work_data_setup.io_error',ENAMETOOLONG:'work_data_setup.path_too_long'});
   const bytes=value=>typeof value==='string'&&/^\d{1,20}$/.test(value);
+  // 150 W3:普查/打包超工程预算(01aa 的 limit {kind,maximum} 与当时已普查到的顶层区域)。只出固定枚举的种类、
+  // 十进制上限与产品自有的顶层区域名(01aa 已把其余名字归成 other);不出路径、message 或任何自由文本。
+  const LIMIT_CODES=new Set(['work_data_tree.preserved_native_engineering_limit','work_data_tree.engineering_limit']);
+  const LIMIT_KINDS=new Set(['entries','files','directories','bytes','file-bytes','transport','depth']);
+  const limitDetail=value=>{
+    const limit=value.limit;
+    if(!LIMIT_CODES.has(String(value.code||''))||!limit||typeof limit!=='object'||!LIMIT_KINDS.has(limit.kind)||!Number.isSafeInteger(limit.maximum)||limit.maximum<1)return null;
+    const areas=(Array.isArray(value.areas)?value.areas:[]).filter(row=>row&&typeof row==='object'&&typeof row.area==='string'&&/^[a-z0-9.-]{1,32}$/.test(row.area)
+      &&Number.isSafeInteger(row.entries)&&row.entries>=0&&Number.isSafeInteger(row.bytes)&&row.bytes>=0).slice(0,5)
+      .map(row=>({area:row.area,entries:String(row.entries),bytes:String(row.bytes)}));
+    return {kind:limit.kind,maximum:String(limit.maximum),areas};
+  };
   const failureReason=error=>{
-    const top=safeCode(error),seen=new Set();let value=error;
+    const top=safeCode(error),seen=new Set();let value=error,found=null,limited=null;
     for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
       seen.add(value);
       try{
         const code=String(value.code||'');
-        if(depth>0&&code!==top&&!WRAPPER_CODES.has(code)&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(code)){
-          return code==='work_data_setup.space_insufficient'&&bytes(value.requiredBytes)&&bytes(value.availableBytes)
+        if(!limited)limited=limitDetail(value);
+        if(!found&&depth>0&&code!==top&&!WRAPPER_CODES.has(code)&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(code)){
+          found=code==='work_data_setup.space_insufficient'&&bytes(value.requiredBytes)&&bytes(value.availableBytes)
             ?{reason:code,reasonDetail:{requiredBytes:value.requiredBytes,availableBytes:value.availableBytes}}:{reason:code};
         }
         // 外层本身就是裸系统错误时 safeCode 已退成通用码,这一层同样值得说出来,所以不限 depth。
-        if(Object.hasOwn(SYSTEM_REASONS,code))return {reason:SYSTEM_REASONS[code]};
+        if(!found&&Object.hasOwn(SYSTEM_REASONS,code))found={reason:SYSTEM_REASONS[code]};
         value=value.cause;
       }catch{break;}
     }
-    return {};
+    return {...(found||{}),...(limited?{limitDetail:limited}:{})};
   };
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;

@@ -1,10 +1,78 @@
 // Complete byte census for a quiesced, owner-held tree. No repair, filtering,
 // publication or domain-validation claims. The host owns native metadata and
 // portable conversions (notably original-object skill capsules) separately.
+// rootScope below is a separate, pure data-root content policy: the census
+// itself never consults it, so every proof/digest still covers every object.
 const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
-  const fail = suffix => { throw Object.assign(new Error('work_data_tree.' + suffix), {
-    code: 'work_data_tree.' + suffix, apiCode: 'work_data_tree.' + suffix, statusCode: 409,
+  const fail = (suffix, details = {}) => { throw Object.assign(new Error('work_data_tree.' + suffix), {
+    code: 'work_data_tree.' + suffix, apiCode: 'work_data_tree.' + suffix, statusCode: 409, ...details,
   }); };
+  // One engineering budget for a preserved native census of a whole data root
+  // (the 13u broker applies it to data-root censuses; skill-backup capsule
+  // captures keep their own 10,000-entry / 96,000,000-byte capsule caps).
+  // It replaces the former fixed 10,000-entry / 96,000,000-byte whole-root cap:
+  //   files / directories  each at most 100,000 (01aa reader limits);
+  //   entries        files + directories + root (200,001);
+  //   bytes          all default + named DATA streams, 120 MiB. Its base64 is
+  //                  160 MiB, leaving about 79 MiB of the 239 MiB reply budget
+  //                  (transportBytes minus 1 MiB) for metadata: enough for about
+  //                  100,000 files with short ASCII paths at ~800 bytes each.
+  //                  Larger metadata mixes stop with the typed 'transport'
+  //                  limit; the census never reaches a capsule (capsule
+  //                  captures keep 96,000,000 bytes / 10,000 entries);
+  //   fileBytes      one stream (96,000,000, the capsule per-file cap);
+  //   transportBytes one broker response line in UTF-8 bytes: 13u
+  //                  MIGRATION_CAPSULE_ARCHIVE_LIMIT counts bytes; the C#
+  //                  pre-serialisation estimate counts escaped/non-ASCII
+  //                  characters at 6 bytes and MaxJsonLength (chars) equals it;
+  //   depth          path segments below the census root (the broker's 256).
+  // The census still covers the whole root (proofs stay complete), so trees the
+  // package omits (webcache, worktrees, retired generations) count here too.
+  const NATIVE_BUDGET = Object.freeze({ files: 100000, directories: 100000, entries: 200001,
+    bytes: 120 * 1024 * 1024, fileBytes: 96000000, transportBytes: 240 * 1024 * 1024, depth: 256 });
+  // Product-owned top-level names an over-budget report may name; any other
+  // top-level name (user-created, possibly private) is reported as 'other'.
+  // Inside a generation namespace the logical top-level name is used.
+  const AREA_NAMES = Object.freeze(['sessions', 'uploads', 'logs', 'generated', 'checkpoints', 'playbooks', 'skills', 'webcache',
+    'agent-runs', 'agent-workflows', 'agent-worktrees', 'usage', 'memory', 'migrations', 'steward', 'missions', 'scheduler',
+    'privacy-scopes', 'external-bots', 'desktop', 'overlay-tool', 'quarantine-v1', '.work-data']);
+  const AREA_SET = new Set(AREA_NAMES);
+  // One area row from untrusted broker/report input: {area, entries, bytes}
+  // with a known name (else 'other') and safe non-negative integers.
+  function limitAreas(rows) {
+    if (!Array.isArray(rows)) return Object.freeze([]);
+    const merged = new Map();
+    for (const row of rows.slice(0, 64)) {
+      if (!row || typeof row !== 'object') continue;
+      const raw = typeof row.area === 'string' ? row.area.toLowerCase() : '', area = AREA_SET.has(raw) ? raw : 'other';
+      const entries = row.entries, bytes = row.bytes;
+      if (!Number.isSafeInteger(entries) || entries < 0 || !Number.isSafeInteger(bytes) || bytes < 0) continue;
+      const value = merged.get(area) || { area, entries: 0, bytes: 0 };
+      value.entries += entries; value.bytes += bytes; merged.set(area, value);
+    }
+    return Object.freeze([...merged.values()].sort((a, b) => b.bytes - a.bytes || b.entries - a.entries || (a.area < b.area ? -1 : 1))
+      .slice(0, 5).map(value => Object.freeze(value)));
+  }
+  // The single typed over-budget error of a preserved census (also raised for
+  // the broker's own census_*_limit refusals): code + limit {kind, maximum} +
+  // flat params for UI copy, and the top areas seen when known. The areas are
+  // what the census had already covered when it stopped: together they exceed
+  // the limit, other areas may add more.
+  const LIMIT_KINDS = new Set(['entries', 'files', 'directories', 'bytes', 'file-bytes', 'transport', 'depth']);
+  const limitMaximum = kind => ({ entries: NATIVE_BUDGET.entries, files: NATIVE_BUDGET.files, directories: NATIVE_BUDGET.directories,
+    'file-bytes': NATIVE_BUDGET.fileBytes, transport: NATIVE_BUDGET.transportBytes, depth: NATIVE_BUDGET.depth })[kind] ?? NATIVE_BUDGET.bytes;
+  function limitDetails(kind, configured, areas) {
+    if (!LIMIT_KINDS.has(kind)) kind = 'bytes';
+    const maximum = Number.isSafeInteger(configured) && configured > 0 ? configured : limitMaximum(kind);
+    return { retry: false, limit: Object.freeze({ kind, maximum }), areas: limitAreas(areas),
+      params: Object.freeze({ kind, maximum, maxFiles: NATIVE_BUDGET.files, maxMegabytes: Math.floor(NATIVE_BUDGET.bytes / 1048576),
+        maxFileMegabytes: Math.floor(NATIVE_BUDGET.fileBytes / 1048576) }) };
+  }
+  function engineeringLimit(kind, cause, configured, areas) {
+    const code = 'work_data_tree.preserved_native_engineering_limit';
+    return Object.assign(new Error(code, cause === undefined ? undefined : { cause }), { code, apiCode: code, statusCode: 409,
+      ...limitDetails(kind, configured, areas) });
+  }
   const digest = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
   const identity = stat => String(stat.dev) + ':' + String(stat.ino);
   const pathKey = name => process.platform === 'win32' ? name.toUpperCase() : name;
@@ -106,13 +174,18 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       || /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name)) fail('name_invalid');
     return name;
   };
-  async function realDirectory(directory) {
+  // verified: optional per-pass set. A directory proven real once in one
+  // binding pass is not re-walked for each child; every row still compares
+  // its own realpath and native identity, which re-covers all its ancestors.
+  async function realDirectory(directory, verified) {
     const absolute = pathApi.resolve(directory), parsed = pathApi.parse(absolute); let cursor = parsed.root;
     for (const part of ['', ...absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean)]) {
       if (part) cursor = pathApi.join(cursor, part);
+      if (verified && verified.has(pathKey(cursor))) continue;
       const stat = await fsApi.lstat(cursor, { bigint: true });
       if (!stat.isDirectory() || stat.isSymbolicLink()
         || pathKey(pathApi.resolve(await fsApi.realpath(cursor))) !== pathKey(cursor)) fail('path_alias');
+      if (verified) verified.add(pathKey(cursor));
     }
   }
   function create({ bytes = 256 * 1024 * 1024, files = 100000, directories = 100000, pathLength = 1024 } = {}) {
@@ -139,11 +212,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
             const file = pathApi.join(root, entry), stat = await fsApi.lstat(file, { bigint: true });
             if (stat.isSymbolicLink()) fail('path_alias');
             if (stat.isDirectory()) {
-              if (result.directories.length >= directories) fail('engineering_limit');
+              if (result.directories.length >= directories) fail('engineering_limit', limitDetails('directories', directories));
               result.directories.push({ path: entry, identity: identity(stat) }); await visit(entry); continue;
             }
             if (!stat.isFile() || stat.nlink !== 1n) fail('file_capability');
-            if (result.files.length >= files || stat.size > BigInt(bytes - used)) fail('engineering_limit');
+            if (result.files.length >= files) fail('engineering_limit', limitDetails('files', files));
+            if (stat.size > BigInt(bytes - used)) fail('engineering_limit', limitDetails('bytes', bytes));
             const handle = await fsApi.open(file, 'r'), chunks = [], hasher = cryptoApi.createHash('sha256'), scratch = Buffer.alloc(65536);
             let count = 0, transferred = false;
             try {
@@ -153,7 +227,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
                 const read = await handle.read(scratch, 0, Math.min(scratch.length, bytes - used - count + 1), null);
                 if (!read.bytesRead) break;
                 count += read.bytesRead;
-                if (count > bytes - used) fail('engineering_limit');
+                if (count > bytes - used) fail('engineering_limit', limitDetails('bytes', bytes));
                 const part = scratch.subarray(0, read.bytesRead); hasher.update(part);
                 if (retain) chunks.push(Buffer.from(part));
               }
@@ -204,16 +278,18 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   // Explicit, owner-held native reader. Ordinary capture/verify above retain
   // their original byte contract. This mode issues the same private receipt,
   // without reopening file data or enumerating directories through Node.
-  // Explicit bounded-native-v1 engineering profile: the existing native owner
-  // caps 10,000 entries and 96,000,000 bytes including all ADS. Selecting this
-  // reader never changes the default reader's larger original budgets.
+  // Explicit bounded-native-v1 engineering profile: entries follow the
+  // configured file/directory limits and all default + named DATA streams
+  // share NATIVE_BUDGET.bytes (overridable as limits.nativeBytes, never above
+  // the broker transport budget). The default reader keeps its own budgets.
   function createPreserved({ capturePreserved, ownership, assertExclusive, assertExclusiveSync, candidateAuthority, limits = {} } = {}) {
     if (typeof capturePreserved !== 'function' || typeof assertExclusive !== 'function'
       || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
       || candidateAuthority !== undefined && typeof candidateAuthority !== 'function'
       || !ownership || !Array.isArray(ownership.roots)) fail('preserved_owner_required');
-    const { bytes = 256 * 1024 * 1024, files = 100000, directories = 100000, pathLength = 1024 } = limits;
-    if ([bytes, files, directories, pathLength].some(value => !Number.isSafeInteger(value) || value < 1)) fail('limits_invalid');
+    const { bytes = 256 * 1024 * 1024, files = 100000, directories = 100000, pathLength = 1024, nativeBytes: nativeByteLimit = NATIVE_BUDGET.bytes } = limits;
+    if ([bytes, files, directories, pathLength, nativeByteLimit].some(value => !Number.isSafeInteger(value) || value < 1)
+      || nativeByteLimit > NATIVE_BUDGET.bytes) fail('limits_invalid');
     const issued = new WeakMap(), exactKeys = (value, expected) => value && typeof value === 'object'
       && !Array.isArray(value) && Object.keys(value).sort().join(',') === expected;
     const hash = value => cryptoApi.createHash('sha256').update(value).digest('hex');
@@ -251,8 +327,9 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       try {
         if (!exactKeys(snapshot, 'entries,platform,revision,schema') || snapshot.schema !== 1
           || snapshot.platform !== 'ntfs-objects-v1' || !/^[a-f0-9]{64}$/.test(snapshot.revision || '')
-          || !Array.isArray(snapshot.entries) || snapshot.entries.length < 1
-          || snapshot.entries.length > files + directories + 1 || snapshot.entries.length > 10000) fail('preserved_native_invalid');
+          || !Array.isArray(snapshot.entries) || snapshot.entries.length < 1) fail('preserved_native_invalid');
+        if (snapshot.entries.length > files + directories + 1)
+          throw engineeringLimit('entries', undefined, files + directories + 1);
         for (const entry of snapshot.entries) {
           if (!exactKeys(entry, 'attrs,dir,id,opaque,rel,shortName,streams,times')
             || typeof entry.rel !== 'string' || entry.rel.length > pathLength
@@ -271,8 +348,9 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           paths.add(entry.rel.toUpperCase()); ids.add(entry.id);
           const row = { rel: entry.rel, id: entry.id, dir: entry.dir, attrs: entry.attrs,
             times: [...entry.times], shortName: entry.shortName, streams: [] };
-          if (entry.dir) { if (entry.rel && ++dirCount > directories) fail('engineering_limit'); }
-          else if (!entry.rel || ++fileCount > files) fail('preserved_native_invalid');
+          if (entry.dir) { if (entry.rel && ++dirCount > directories) throw engineeringLimit('directories', undefined, directories); }
+          else if (!entry.rel) fail('preserved_native_invalid');
+          else if (++fileCount > files) throw engineeringLimit('files', undefined, files);
           const streams = new Set();
           for (const stream of entry.streams) {
             if (!exactKeys(stream, 'data,hash,name,size') || typeof stream.name !== 'string' || stream.name.length > 1024
@@ -281,10 +359,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
               || stream.size < 0 || !/^[a-f0-9]{64}$/.test(stream.hash || '')
               || typeof stream.data !== 'string' || stream.data.length !== 4 * Math.ceil(stream.size / 3)) fail('preserved_native_invalid');
             streams.add(stream.name.toUpperCase()); nativeBytes += stream.size;
-            if (nativeBytes > 96000000) fail('preserved_native_engineering_limit');
+            if (stream.size > NATIVE_BUDGET.fileBytes) throw engineeringLimit('file-bytes');
+            if (nativeBytes > nativeByteLimit) throw engineeringLimit('bytes', undefined, nativeByteLimit);
             const content = Buffer.from(stream.data, 'base64'); data.push(content);
             if (content.length !== stream.size || content.toString('base64') !== stream.data || hash(content) !== stream.hash) fail('preserved_native_invalid');
-            if (stream.name === '') { row.data = content; used += content.length; if (used > bytes) fail('engineering_limit'); }
+            if (stream.name === '') { row.data = content; used += content.length; if (used > bytes) fail('engineering_limit', limitDetails('bytes', bytes)); }
             row.streams.push({ name: stream.name, size: content.length, hash: stream.hash });
           }
           if (!entry.dir && !streams.has('')) fail('preserved_native_invalid');
@@ -311,12 +390,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         if(snapshot?.revision!==firstRevision)fail('preserved_native_invalid');
         first = parse(snapshot);
         await admitted(root);
-        result = { root, directories: [], files: [], bytes: first.used }; const bound = new Map();
+        result = { root, directories: [], files: [], bytes: first.used }; const bound = new Map(), verified = new Set();
         // All Node metadata/namespace checks precede the final, closed native
         // readback. No Node open/read/readdir occurs in this owner at all.
         for (const row of first.rows) {
           const file = row.rel ? pathApi.join(root, ...row.rel.split('/')) : root;
-          await realDirectory(row.dir ? file : pathApi.dirname(file));
+          await realDirectory(row.dir ? file : pathApi.dirname(file), verified);
           const stat = await fsApi.lstat(file, { bigint: true });
           if (stat.isSymbolicLink() || row.dir !== stat.isDirectory() || !row.dir && (!stat.isFile() || stat.nlink !== 1n)
             || !samePath(await fsApi.realpath(file), file)) fail('path_alias');
@@ -431,6 +510,145 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     return Object.freeze({ capture, verify, fingerprint, nativeFingerprint });
   }
 
+  // Data-root content policy (150 W3/W4/W13). Pure classification of paths in
+  // a complete census; it never filters a census, proof or digest. A package or
+  // a new generation omits these objects and leaves them exactly where they are
+  // (nothing here deletes, moves or repairs). Classes:
+  //   excluded  regenerable caches, external VCS trees and the product's own
+  //             quarantine area (by top-level logical name, in a data root or in
+  //             one generation namespace);
+  //   leftover  crash leftovers in product-generated shapes: <file>.corrupt[-N]
+  //             (quarantine copies) and <file>.<pid>.<8hex>.tmp (atomic stage),
+  //             never inside skills/ or uploads/ (user-chosen names keep their
+  //             owner refusal) and never under any .work-data control namespace;
+  //   retired / legacy  only with a valid active pointer (generation >= 1) and
+  //             no native skill-backup object anywhere: the other generations and
+  //             the superseded base-level root. Leftovers inside them are still
+  //             reported individually (area 'superseded'): they may be plaintext.
+  // Control paths and every skill-backup (native owner) scope are never
+  // classified: their owners keep refusing. Audit logs migrate with their
+  // owner; a torn last row is handled by the record codecs (committed prefix).
+  const rootScope = (() => {
+    const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+    // regenerable: classified regenerable by the durable-state inventory.
+    const rule = (reason, inventory, regenerable) => Object.freeze({ reason, inventory, regenerable });
+    const EXCLUDED = new Map([
+      ['webcache', rule('regenerable-cache', 'web-cache', true)],
+      ['proxy-models-cache.json', rule('regenerable-cache', 'proxy-models-cache', true)],
+      ['storage-trend.json', rule('regenerable-telemetry', 'storage-trend', true)],
+      ['last-start-error.json', rule('regenerable-telemetry', 'last-start-error', true)],
+      ['agent-worktrees', rule('external-vcs-worktree', null, false)],
+      ['quarantine-v1', rule('product-quarantine', null, false)],
+    ]);
+    const CORRUPT = /\.corrupt(?:-\d{1,20})?$/, STAGE = /\.\d{1,10}\.[a-f0-9]{8}\.tmp$/;
+    const GENERATION = /^\.work-data\/generations\/([a-f0-9]{48})(?:\/(.*))?$/;
+    // Also every copy of the binding store (e.g. its .corrupt-<ts> quarantine): owner refusal, never a leftover.
+    const SKILL_BACKUP = /^(?:migrations\/skill-backups(?:\/|$)|migrations\/skill-backup-bindings-v2\.sealed(?:$|[.-]))/;
+    // 06 archiveAgentRunEvents stages <run>.events.ndjson.gz.tmp under agent-runs/ (single tmp name).
+    const ARCHIVE_STAGE = /\.events\.ndjson\.gz\.tmp$/;
+    const USER_NAMED = new Set(['skills', 'uploads']);
+    // Split a base-relative path into its generation prefix and logical path.
+    function locate(relative, base) {
+      const folded = fold(relative);
+      if (!base) return { prefix: '', generation: null, logical: folded, control: false };
+      const found = GENERATION.exec(folded);
+      if (found) return { prefix: '.work-data/generations/' + found[1] + '/', generation: found[1], logical: found[2] || '', control: !found[2] };
+      return { prefix: '', generation: null, logical: folded, control: folded === '.work-data' || folded.startsWith('.work-data/') };
+    }
+    const controlLogical = logical => logical === '.work-data' || logical.startsWith('.work-data/');
+    function leftoverOf(relative, where) {
+      const parts = where.logical.split('/');
+      if (USER_NAMED.has(parts[0])) return null;
+      if (parts[0] === 'agent-runs' && parts.length > 1 && ARCHIVE_STAGE.test(parts[parts.length - 1]))
+        return Object.freeze({ class: 'leftover', reason: 'archive-stage', inventory: null, regenerable: false, scope: relative });
+      let offset = where.prefix.length;
+      for (const part of parts) {
+        offset += part.length;
+        const kind = STAGE.test(part) ? 'crash-stage' : CORRUPT.test(part) ? 'quarantined-corrupt' : '';
+        if (kind) return Object.freeze({ class: 'leftover', reason: kind, inventory: null, regenerable: false, scope: relative.slice(0, offset) });
+        offset += 1;
+      }
+      return null;
+    }
+    // Static policy only: excluded classes and leftovers, relative to a data
+    // root (base:true also understands one generation namespace prefix).
+    function classify(relative, { base = false } = {}) {
+      if (typeof relative !== 'string' || !relative) return null;
+      const where = locate(relative, base);
+      if (where.control || !where.logical || controlLogical(where.logical) || SKILL_BACKUP.test(where.logical)) return null;
+      const top = where.logical.split('/')[0], excluded = EXCLUDED.get(top);
+      if (excluded) return Object.freeze({ class: 'excluded', ...excluded, scope: relative.slice(0, where.prefix.length + top.length) });
+      return leftoverOf(relative, where);
+    }
+    const sizeOf = row => Buffer.isBuffer(row.data) ? row.data.length : Number.isSafeInteger(row.size) ? row.size : 0;
+    // The active pointer as checkAuthority reads it; anything else disables
+    // the retired/legacy classes (the snapshot's own authority check decides).
+    function activeOf(files, directories) {
+      const pointer = files.find(row => fold(row.path) === '.work-data/active-v1.json');
+      if (!pointer || !Buffer.isBuffer(pointer.data)) return null;
+      let value; try { value = JSON.parse(pointer.data.toString('utf8')); } catch { return null; }
+      if (!value || typeof value !== 'object' || Object.keys(value).sort().join(',') !== 'activeRoot,generation,id,mode,schema'
+        || value.schema !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || !/^[a-f0-9]{48}$/.test(value.id || '')
+        || value.activeRoot !== 'generations/' + value.id
+        || !directories.some(name => fold(name) === '.work-data/generations/' + value.id)) return null;
+      return Object.freeze({ id: value.id, generation: value.generation, mode: value.mode });
+    }
+    // Partition a complete base-relative census. Omitted subtrees are reported
+    // (path, counts, bytes); omitted leftovers are listed individually with
+    // their area: 'active' (current root) or 'superseded' (legacy/retired).
+    function partition(files, directories, { active: given, listLimit = 200 } = {}) {
+      if (!Array.isArray(files) || !Array.isArray(directories)) fail('scope_invalid');
+      const active = given === undefined ? activeOf(files, directories) : given;
+      // Any native skill-backup object (legacy, per generation or the control
+      // store) may depend on key headers or provenance in a superseded root:
+      // its owner, not this policy, decides, so nothing is retired/legacy then.
+      const nativePresent = [...directories, ...files.map(row => row.path)].some(name => {
+        const where = locate(name, true), folded = fold(name);
+        return SKILL_BACKUP.test(where.logical) || folded === '.work-data/skill-backups' || folded.startsWith('.work-data/skill-backups/');
+      });
+      const superseded = active && !nativePresent ? active : null;
+      const decide = name => {
+        const where = locate(name, true);
+        if (superseded) {
+          const retired = where.generation && where.generation !== superseded.id, legacy = !where.generation && !where.control;
+          if (retired || legacy) {
+            // Excluded trees (quarantine copies, worktrees, caches) never yield leftovers.
+            const leftover = !controlLogical(where.logical) && where.logical && !SKILL_BACKUP.test(where.logical) && !EXCLUDED.has(where.logical.split('/')[0]) ? leftoverOf(name, where) : null;
+            if (leftover) return { ...leftover, area: 'superseded' };
+            return retired ? { class: 'retired', reason: 'superseded-generation', inventory: null, scope: name.slice(0, '.work-data/generations/'.length + 48) }
+              : { class: 'legacy', reason: 'superseded-plain-root', inventory: null, scope: name.split('/')[0] };
+          }
+        }
+        const verdict = classify(name, { base: true });
+        return verdict && verdict.class === 'leftover' ? { ...verdict, area: 'active' } : verdict;
+      };
+      const groups = new Map(), leftovers = [], keptFiles = [], keptDirectories = [];
+      let leftoverCount = 0, leftoverBytes = 0, includedBytes = 0, supersededLeftovers = 0;
+      const group = (verdict, directory, bytes) => {
+        const id = verdict.class + '\0' + fold(verdict.scope);
+        if (!groups.has(id)) groups.set(id, { class: verdict.class, reason: verdict.reason, inventory: verdict.inventory, regenerable: verdict.regenerable === true, path: verdict.scope, files: 0, directories: 0, bytes: 0 });
+        const value = groups.get(id); if (directory) value.directories++; else { value.files++; value.bytes += bytes; }
+      };
+      const leftover = (verdict, path, directory, bytes) => {
+        leftoverCount++; leftoverBytes += bytes; if (verdict.area === 'superseded') supersededLeftovers++;
+        if (leftovers.length < listLimit) leftovers.push({ path, directory, reason: verdict.reason, area: verdict.area, bytes });
+      };
+      for (const name of directories) { const verdict = decide(name); if (!verdict) keptDirectories.push(name); else if (verdict.class === 'leftover') leftover(verdict, name, true, 0); else group(verdict, true, 0); }
+      for (const row of files) {
+        const verdict = decide(row.path), bytes = sizeOf(row);
+        if (!verdict) { keptFiles.push(row); includedBytes += bytes; }
+        else if (verdict.class === 'leftover') leftover(verdict, row.path, false, bytes);
+        else group(verdict, false, bytes);
+      }
+      const report = Object.freeze({ schema: 1, active: active ? Object.freeze({ id: active.id, generation: active.generation }) : null, supersededOmitted: !!superseded,
+        included: Object.freeze({ files: keptFiles.length, directories: keptDirectories.length, bytes: includedBytes }),
+        omitted: Object.freeze([...groups.values()].sort((a, b) => b.bytes - a.bytes || (a.path < b.path ? -1 : 1)).map(value => Object.freeze(value))),
+        leftovers: Object.freeze(leftovers.map(value => Object.freeze(value))), leftoverCount, leftoverBytes, supersededLeftovers, leftoversTruncated: leftoverCount > leftovers.length });
+      return Object.freeze({ files: keptFiles, directories: keptDirectories, report });
+    }
+    return Object.freeze({ classify, partition, activeOf, EXCLUDED_NAMES: Object.freeze([...EXCLUDED.keys()]) });
+  })();
+
   // Late, immutable adapter: only this module can validate its private issued
   // capabilities. The store keeps its parser and cryptographic context.
   if (typeof WorkDataStore !== 'undefined' && WorkDataStore.Hooks) Object.defineProperty(WorkDataStore.Hooks, 'capturedFiles', {
@@ -438,5 +656,5 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
     }),
   });
-  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope, rootScope, NATIVE_BUDGET, AREA_NAMES, engineeringLimit, limitAreas });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

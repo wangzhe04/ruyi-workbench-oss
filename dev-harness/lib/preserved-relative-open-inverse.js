@@ -302,8 +302,41 @@ function removePreservedRelativeOpen(native) {
   return prior;
 }
 
+// 150 W3: the data-root census budget (entries/bytes/file/transport/depth with
+// typed census_*_limit refusals, areas, and the MaxJsonLength reply guard)
+// replaced the fixed 10,000-entry / 96,000,000-byte native caps. Exact reviewed inverse.
+function removeNativeCensusBudget(native) {
+  for (const [current, previous] of [
+    ["  static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 251658240, RecursionLimit = 512 };",
+      "  static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 180000000, RecursionLimit = 512 };"],
+    ["  // Capsule caps by default (per stream and total 96,000,000 bytes, 10,000\n  // entries). A data-root census (args budget \"data-root\") uses\n  // WorkDataTree.NATIVE_BUDGET (01aa): 200,001 entries, 120 MiB total, one\n  // response line of at most 240 MiB UTF-8 bytes. MaxBytes stays per stream.\n  static long MaxBytes = 96000000, TotalBytes, MaxTotal = 96000000, Transport, MaxTransport = 251658240 - 1048576;\n  static int MaxEntries = 10000;\n  static bool DataRootBudget = false;\n  static void ApplyBudget(Dictionary<string,object> args) {\n    object raw; DataRootBudget = args.TryGetValue(\"budget\", out raw) && raw is string && (string)raw == \"data-root\";\n    MaxEntries = DataRootBudget ? 200001 : 10000; MaxTotal = DataRootBudget ? 125829120 : 96000000; Transport = 0;\n  }\n  static void ResetBudget() { DataRootBudget = false; MaxEntries = 10000; MaxTotal = 96000000; Transport = 0; Areas.Clear(); }\n  // Data-root census only: entries/bytes per top-level area seen so far, sent\n  // with a census_*_limit refusal (the Node side maps names to product areas).\n  static readonly Dictionary<string,long[]> Areas = new Dictionary<string,long[]>(StringComparer.OrdinalIgnoreCase);\n  static string AreaOf(string rel) {\n    if (rel == \"\") return \"\";\n    string[] parts = rel.Split('/');\n    if (String.Equals(parts[0], \".work-data\", StringComparison.OrdinalIgnoreCase))\n      return parts.Length >= 4 && String.Equals(parts[1], \"generations\", StringComparison.OrdinalIgnoreCase) ? parts[3] : \".work-data\";\n    return parts[0];\n  }\n  static void AreaAdd(string rel, long entries, long bytes) {\n    if (!DataRootBudget) return; string area = AreaOf(rel); if (area == \"\") return;\n    long[] value; if (!Areas.TryGetValue(area, out value)) { value = new long[2]; Areas.Add(area, value); } value[0] += entries; value[1] += bytes;\n  }\n  sealed class BudgetException : InvalidOperationException { public readonly List<object> AreaRows; public BudgetException(string code, List<object> rows) : base(code) { AreaRows = rows; } }\n  static void BudgetReject(string code) {\n    List<KeyValuePair<string,long[]>> pairs = new List<KeyValuePair<string,long[]>>(Areas);\n    pairs.Sort((a, b) => b.Value[1] != a.Value[1] ? b.Value[1].CompareTo(a.Value[1]) : b.Value[0].CompareTo(a.Value[0]));\n    List<object> rows = new List<object>();\n    for (int i = 0; i < pairs.Count && i < 16; i++) rows.Add(new Dictionary<string,object> { { \"area\", pairs[i].Key }, { \"entries\", pairs[i].Value[0] }, { \"bytes\", pairs[i].Value[1] } });\n    throw new BudgetException(code, rows);\n  }\n  // Conservative UTF-8 size of one JSON string: escaped and non-ASCII chars\n  // count 6 bytes (a six-character escape, >= their UTF-8 size), so Node's byte line limit and\n  // MaxJsonLength (chars) both hold whenever this estimate does.\n  static long JsonBytes(string value) { long n = 2; foreach (char c in value) n += c < 0x20 || c == '\"' || c == '\\\\' || c == '<' || c == '>' || c == '&' || c == '\\'' || c >= 0x80 ? 6 : 1; return n; }\n  static void AddTransport(long bytes) { Transport += bytes; if (Transport > MaxTransport) { if (DataRootBudget) BudgetReject(\"census_transport_limit\"); Reject(\"archive_limit\"); } }",
+      "  static long MaxBytes = 96000000, TotalBytes;"],
+    ["        long size = BitConverter.ToInt64(header, 8);\n        if (DataRootBudget && size > MaxBytes) BudgetReject(\"census_file_limit\");",
+      "        long size = BitConverter.ToInt64(header, 8);"],
+    ["            if(children.Count>=MaxEntries){if(DataRootBudget)BudgetReject(\"census_entries_limit\");Reject(\"directory_census\");}\n            if(String.IsNullOrEmpty(name)||name.IndexOfAny(new char[]{'\\\\','/',':','\\0'})>=0)Reject(\"directory_census\");",
+      "            if(String.IsNullOrEmpty(name)||name.IndexOfAny(new char[]{'\\\\','/',':','\\0'})>=0||children.Count>=10000)Reject(\"directory_census\");"],
+    ["    if (entries.Count >= MaxEntries) { if (DataRootBudget) { AreaAdd(rel, 1, 0); BudgetReject(\"census_entries_limit\"); } Reject(\"archive_limit\"); }\n    if (rel.Split('/').Length > 256) { if (DataRootBudget) BudgetReject(\"census_depth_limit\"); Reject(\"archive_limit\"); }",
+      "    if (entries.Count >= 10000 || rel.Split('/').Length > 256) Reject(\"archive_limit\");"],
+    ["      Nodes.Add(id, node); entries.Add(node.Entry);\n      if (capture) { AreaAdd(rel, 1, 0); AddTransport(512 + JsonBytes(rel) + JsonBytes(Str(node.Entry[\"shortName\"]))); }",
+      "      Nodes.Add(id, node); entries.Add(node.Entry);"],
+    ["          if (DataRootBudget) {\n            long size; Check(GetFileSizeEx(handle, out size));\n            if (size > MaxBytes) { AreaAdd(rel, 0, size); BudgetReject(\"census_file_limit\"); }\n            if (TotalBytes + size > MaxTotal) { AreaAdd(rel, 0, size); BudgetReject(\"census_bytes_limit\"); }\n          }\n          byte[] bytes = Read(handle); TotalBytes += bytes.Length; AreaAdd(rel, 0, bytes.Length);\n          if (TotalBytes > MaxTotal) { if (DataRootBudget) BudgetReject(\"census_bytes_limit\"); Reject(\"archive_limit\"); }\n          AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));",
+      "          byte[] bytes = Read(handle); TotalBytes += bytes.Length;\n          if (TotalBytes > MaxBytes) Reject(\"archive_limit\");"],
+    ["    if (Nodes.Count != 0) Reject(\"already_open\"); TotalBytes = 0; ApplyBudget(args);\n    List<object> entries = new List<object>(); try { Walk(Str(args[\"root\"]), \"\", entries, true, preserved); } finally { ResetBudget(); }",
+      "    if (Nodes.Count != 0) Reject(\"already_open\"); TotalBytes = 0;\n    List<object> entries = new List<object>(); Walk(Str(args[\"root\"]), \"\", entries, true, preserved);"],
+    ["          string reply = null;\n          try { reply = Json.Serialize(new Dictionary<string,object> { { \"ok\", true }, { \"value\", result } }); } catch (InvalidOperationException) { reply = null; }\n          result = null; if (reply == null) Reject(\"census_transport_limit\");\n          Console.WriteLine(reply);",
+      "          Console.WriteLine(Json.Serialize(new Dictionary<string,object> { { \"ok\", true }, { \"value\", result } }));"],
+    ["          var failureRow=new Dictionary<string,object> { { \"ok\", false }, { \"code\", code } }; if(error is BudgetException)failureRow.Add(\"areas\",((BudgetException)error).AreaRows); if(code==\"census_first_close_unverified\" && error.InnerException!=null) {var inner=error.InnerException;string safe=inner is Win32Exception?\"native_win32_\"+((Win32Exception)inner).NativeErrorCode:inner is InvalidOperationException?inner.Message:\"native_failure\";if(System.Text.RegularExpressions.Regex.IsMatch(safe,\"^[a-z0-9_]{1,128}$\"))failureRow.Add(\"primaryCode\",safe);} Console.WriteLine(Json.Serialize(failureRow));",
+      "          var failureRow=new Dictionary<string,object> { { \"ok\", false }, { \"code\", code } }; if(code==\"census_first_close_unverified\" && error.InnerException!=null) {var inner=error.InnerException;string safe=inner is Win32Exception?\"native_win32_\"+((Win32Exception)inner).NativeErrorCode:inner is InvalidOperationException?inner.Message:\"native_failure\";if(System.Text.RegularExpressions.Regex.IsMatch(safe,\"^[a-z0-9_]{1,128}$\"))failureRow.Add(\"primaryCode\",safe);} Console.WriteLine(Json.Serialize(failureRow));"],
+  ]) {
+    assert.equal(native.split(current).length, 2, 'unique native census budget change');
+    native = native.replace(current, previous);
+  }
+  return native;
+}
+
 function restorePreRelativeOpenNative(native) {
   for (const undo of [
+    removeNativeCensusBudget,
     removeForwardPlainPublication,
     removePreservedCloseCertification,
     removePortableBasicPublication,
@@ -314,4 +347,4 @@ function restorePreRelativeOpenNative(native) {
   return native;
 }
 
-module.exports = { removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };
+module.exports = { removeNativeCensusBudget, removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };

@@ -211,6 +211,9 @@ return Object.freeze({isUnknown,flags});
         const { workData, ...container } = parsed; return bounded(WorkDataCrypto.open(container, key.master, binding));
       };
       const recordText = async (file, descriptor, data) => {
+        // 150 W4: an audit log's torn last row is not committed; validate the committed
+        // prefix only. The package still carries the file's exact bytes.
+        if (descriptor.family === 'audit-log' && data.length && data[data.length - 1] !== 0x0a) data = data.subarray(0, data.lastIndexOf(0x0a) + 1);
         const text = decode(data); if (!text) return '';
         if (!text.endsWith('\n')) fail('special_owner_required', { file: file.path, reason: 'uncommitted-journal-tail' });
         const result = [];
@@ -334,9 +337,13 @@ return Object.freeze({isUnknown,flags});
         await verifyRecoveryControl(captured.files);
         const before=readCapturedAuthority?.(captured),generation=before?.generation??requestedGeneration;
         if(before&&requestedGeneration!==null&&generation!==requestedGeneration)fail('authority_mismatch');
-        const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
-        const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
-        const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
+        // The census and every source proof below stay complete. Only the
+        // package omits the data-root policy's regenerable/out-of-band trees,
+        // crash leftovers and superseded roots; they remain untouched in place.
+        const scoped=WorkDataTree.rootScope.partition(captured.files,captured.directories);
+        const native=nativeSource(scoped.files,scoped.directories);checkAuthority(scoped.files,scoped.directories,generation,native);
+        const analyzed=await analyze(scoped.files,[],null,scoped.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
+        const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...scoped.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
         await admission();const proof=await tree.verify(captured);
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
@@ -354,7 +361,7 @@ return Object.freeze({isUnknown,flags});
           ...(nativePlan.profile.originalObjects==='new-owned-portable'?{portableSha256:nativePlan.portable.nativeWitnessSha256}:{}),
         }):null;
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),...(after?{verifiedGeneration:after.generation}:{}),
-          profile:PROFILE,specialCoverage,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
+          profile:PROFILE,specialCoverage,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length,scope:scoped.report});
       });
     }
     async function realDirectory(directory) {

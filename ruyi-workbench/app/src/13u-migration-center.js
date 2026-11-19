@@ -554,12 +554,50 @@ public static class RuyiSkillCapsule {
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileExW(string source,string target,uint flags);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool SetFileShortName(SafeFileHandle h,string name);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CheckNameLegalDOS8Dot3(string name,IntPtr oem,uint size,out bool spaces,out bool legal);
-  static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 180000000, RecursionLimit = 512 };
+  static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 251658240, RecursionLimit = 512 };
   static readonly Dictionary<string, Node> Nodes = new Dictionary<string, Node>();
   static Dictionary<string,object> Snapshot;
   static SafeFileHandle Capsule;
   static string OriginalRoot;
-  static long MaxBytes = 96000000, TotalBytes;
+  // Capsule caps by default (per stream and total 96,000,000 bytes, 10,000
+  // entries). A data-root census (args budget "data-root") uses
+  // WorkDataTree.NATIVE_BUDGET (01aa): 200,001 entries, 120 MiB total, one
+  // response line of at most 240 MiB UTF-8 bytes. MaxBytes stays per stream.
+  static long MaxBytes = 96000000, TotalBytes, MaxTotal = 96000000, Transport, MaxTransport = 251658240 - 1048576;
+  static int MaxEntries = 10000;
+  static bool DataRootBudget = false;
+  static void ApplyBudget(Dictionary<string,object> args) {
+    object raw; DataRootBudget = args.TryGetValue("budget", out raw) && raw is string && (string)raw == "data-root";
+    MaxEntries = DataRootBudget ? 200001 : 10000; MaxTotal = DataRootBudget ? 125829120 : 96000000; Transport = 0;
+  }
+  static void ResetBudget() { DataRootBudget = false; MaxEntries = 10000; MaxTotal = 96000000; Transport = 0; Areas.Clear(); }
+  // Data-root census only: entries/bytes per top-level area seen so far, sent
+  // with a census_*_limit refusal (the Node side maps names to product areas).
+  static readonly Dictionary<string,long[]> Areas = new Dictionary<string,long[]>(StringComparer.OrdinalIgnoreCase);
+  static string AreaOf(string rel) {
+    if (rel == "") return "";
+    string[] parts = rel.Split('/');
+    if (String.Equals(parts[0], ".work-data", StringComparison.OrdinalIgnoreCase))
+      return parts.Length >= 4 && String.Equals(parts[1], "generations", StringComparison.OrdinalIgnoreCase) ? parts[3] : ".work-data";
+    return parts[0];
+  }
+  static void AreaAdd(string rel, long entries, long bytes) {
+    if (!DataRootBudget) return; string area = AreaOf(rel); if (area == "") return;
+    long[] value; if (!Areas.TryGetValue(area, out value)) { value = new long[2]; Areas.Add(area, value); } value[0] += entries; value[1] += bytes;
+  }
+  sealed class BudgetException : InvalidOperationException { public readonly List<object> AreaRows; public BudgetException(string code, List<object> rows) : base(code) { AreaRows = rows; } }
+  static void BudgetReject(string code) {
+    List<KeyValuePair<string,long[]>> pairs = new List<KeyValuePair<string,long[]>>(Areas);
+    pairs.Sort((a, b) => b.Value[1] != a.Value[1] ? b.Value[1].CompareTo(a.Value[1]) : b.Value[0].CompareTo(a.Value[0]));
+    List<object> rows = new List<object>();
+    for (int i = 0; i < pairs.Count && i < 16; i++) rows.Add(new Dictionary<string,object> { { "area", pairs[i].Key }, { "entries", pairs[i].Value[0] }, { "bytes", pairs[i].Value[1] } });
+    throw new BudgetException(code, rows);
+  }
+  // Conservative UTF-8 size of one JSON string: escaped and non-ASCII chars
+  // count 6 bytes (a six-character escape, >= their UTF-8 size), so Node's byte line limit and
+  // MaxJsonLength (chars) both hold whenever this estimate does.
+  static long JsonBytes(string value) { long n = 2; foreach (char c in value) n += c < 0x20 || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' || c == '\'' || c >= 0x80 ? 6 : 1; return n; }
+  static void AddTransport(long bytes) { Transport += bytes; if (Transport > MaxTransport) { if (DataRootBudget) BudgetReject("census_transport_limit"); Reject("archive_limit"); } }
   static string Step = "idle";
   static bool PreserveTimeHandles = false;
   sealed class Node {
@@ -690,6 +728,7 @@ public static class RuyiSkillCapsule {
         byte[] header = BackupBytes(node.Handle, 20, ref context, true); if (header == null) break;
         uint kind = BitConverter.ToUInt32(header, 0), flags = BitConverter.ToUInt32(header, 4), length = BitConverter.ToUInt32(header, 16);
         long size = BitConverter.ToInt64(header, 8);
+        if (DataRootBudget && size > MaxBytes) BudgetReject("census_file_limit");
         if (length > 65536 || size < 0 || size > MaxBytes || flags != 0) Reject("unsupported_stream");
         string name = length == 0 ? "" : Encoding.Unicode.GetString(BackupBytes(node.Handle, (int)length, ref context, false));
         if (kind != 1 && kind != 4) Reject("unsupported_stream");
@@ -729,7 +768,8 @@ public static class RuyiSkillCapsule {
           if(size<2||(size&1)!=0||size>used-offset-header||next<0||next!=0&&(next<header+size||next>used-offset-header))Reject("directory_census");
           string name=Marshal.PtrToStringUni(IntPtr.Add(bytes,offset+header),size/2);
           if(name!="."&&name!=".."){
-            if(String.IsNullOrEmpty(name)||name.IndexOfAny(new char[]{'\\','/',':','\0'})>=0||children.Count>=10000)Reject("directory_census");
+            if(children.Count>=MaxEntries){if(DataRootBudget)BudgetReject("census_entries_limit");Reject("directory_census");}
+            if(String.IsNullOrEmpty(name)||name.IndexOfAny(new char[]{'\\','/',':','\0'})>=0)Reject("directory_census");
             children.Add(System.IO.Path.Combine(path,name));
           }
           if(next==0)break;
@@ -870,7 +910,8 @@ public static class RuyiSkillCapsule {
   }
   static void Walk(string path, string rel, List<object> entries, bool capture, bool preserved = false, SafeFileHandle parent = null, string name = null) {
     path=NativePath(path);
-    if (entries.Count >= 10000 || rel.Split('/').Length > 256) Reject("archive_limit");
+    if (entries.Count >= MaxEntries) { if (DataRootBudget) { AreaAdd(rel, 1, 0); BudgetReject("census_entries_limit"); } Reject("archive_limit"); }
+    if (rel.Split('/').Length > 256) { if (DataRootBudget) BudgetReject("census_depth_limit"); Reject("archive_limit"); }
     Node node = new Node();
     node.Handle = preserved ? OpenPreserved(parent, name, path, false, out node.Writable) : Open(path, out node.Writable);
     try {
@@ -880,6 +921,7 @@ public static class RuyiSkillCapsule {
         { "shortName", ShortName(node.Handle) }, { "times", new string[] { Str(basic.Creation), Str(basic.Access), Str(basic.Write), Str(basic.Change) } } };
       LegalShortName(Str(node.Entry["shortName"]));
       Nodes.Add(id, node); entries.Add(node.Entry);
+      if (capture) { AreaAdd(rel, 1, 0); AddTransport(512 + JsonBytes(rel) + JsonBytes(Str(node.Entry["shortName"]))); }
       List<object> streams = new List<object>();
       foreach (string streamName in StreamNames(node)) {
         if (directory && streamName == "") Reject("directory_data");
@@ -893,8 +935,14 @@ public static class RuyiSkillCapsule {
           if (!writable) node.ReadOnlyStreams.Add(streamName);
         }
         if (capture) {
-          byte[] bytes = Read(handle); TotalBytes += bytes.Length;
-          if (TotalBytes > MaxBytes) Reject("archive_limit");
+          if (DataRootBudget) {
+            long size; Check(GetFileSizeEx(handle, out size));
+            if (size > MaxBytes) { AreaAdd(rel, 0, size); BudgetReject("census_file_limit"); }
+            if (TotalBytes + size > MaxTotal) { AreaAdd(rel, 0, size); BudgetReject("census_bytes_limit"); }
+          }
+          byte[] bytes = Read(handle); TotalBytes += bytes.Length; AreaAdd(rel, 0, bytes.Length);
+          if (TotalBytes > MaxTotal) { if (DataRootBudget) BudgetReject("census_bytes_limit"); Reject("archive_limit"); }
+          AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));
           streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });
           Array.Clear(bytes, 0, bytes.Length);
         }
@@ -950,8 +998,8 @@ public static class RuyiSkillCapsule {
   static object CandidateAllocationClose(Dictionary<string,object> args) {CandidateAllocationAuth(args);var addresses=new HashSet<IntPtr>();foreach(var h in CandidateAllocationHandles.Values){if(h.IsClosed||h.IsInvalid||!addresses.Add(h.DangerousGetHandle()))Reject("census_first_close_unverified");}foreach(var h in CandidateAllocationHandles.Values){try{h.Dispose();}catch{Reject("census_first_close_unverified");}}foreach(IntPtr address in addresses){uint flags;if(GetHandleInformation(address,out flags)||Marshal.GetLastWin32Error()!=6)Reject("census_first_close_unverified");}CandidateAllocationHandles.Clear();CandidateAllocationIds.Clear();CandidateAllocationBase=null;CandidateAllocationRoot=null;CandidateAllocationToken=null;CandidateAllocationAnchorParts=null;CandidateAllocationAnchorIds=null;return new Dictionary<string,object>{{"closed",true}};}
 
   static object Capture(Dictionary<string,object> args, bool preserved = false) {
-    if (Nodes.Count != 0) Reject("already_open"); TotalBytes = 0;
-    List<object> entries = new List<object>(); Walk(Str(args["root"]), "", entries, true, preserved);
+    if (Nodes.Count != 0) Reject("already_open"); TotalBytes = 0; ApplyBudget(args);
+    List<object> entries = new List<object>(); try { Walk(Str(args["root"]), "", entries, true, preserved); } finally { ResetBudget(); }
     StringBuilder filesystem = new StringBuilder(64); uint serial, component, flags;
     Check(GetVolumeInformationByHandleW(RootNode().Handle, null, 0, out serial, out component, out flags, filesystem, 64));
     if (filesystem.ToString() != "NTFS") Reject("filesystem_unsupported");
@@ -1973,11 +2021,14 @@ public static class RuyiSkillCapsule {
           else if (command == "verify") Verify(Convert.ToBoolean(args["cleared"]), true);
           else if (command == "close") { Close(); Console.WriteLine("{\"ok\":true}"); return; }
           else Reject("command_invalid");
-          Console.WriteLine(Json.Serialize(new Dictionary<string,object> { { "ok", true }, { "value", result } }));
+          string reply = null;
+          try { reply = Json.Serialize(new Dictionary<string,object> { { "ok", true }, { "value", result } }); } catch (InvalidOperationException) { reply = null; }
+          result = null; if (reply == null) Reject("census_transport_limit");
+          Console.WriteLine(reply);
         } catch (Exception error) {
           Win32Exception native = error as Win32Exception;
           string code = native == null ? error is InvalidOperationException ? error.Message : "native_failure" : Step.Replace('-','_') + "_win32_" + native.NativeErrorCode;
-          var failureRow=new Dictionary<string,object> { { "ok", false }, { "code", code } }; if(code=="census_first_close_unverified" && error.InnerException!=null) {var inner=error.InnerException;string safe=inner is Win32Exception?"native_win32_"+((Win32Exception)inner).NativeErrorCode:inner is InvalidOperationException?inner.Message:"native_failure";if(System.Text.RegularExpressions.Regex.IsMatch(safe,"^[a-z0-9_]{1,128}$"))failureRow.Add("primaryCode",safe);} Console.WriteLine(Json.Serialize(failureRow));
+          var failureRow=new Dictionary<string,object> { { "ok", false }, { "code", code } }; if(error is BudgetException)failureRow.Add("areas",((BudgetException)error).AreaRows); if(code=="census_first_close_unverified" && error.InnerException!=null) {var inner=error.InnerException;string safe=inner is Win32Exception?"native_win32_"+((Win32Exception)inner).NativeErrorCode:inner is InvalidOperationException?inner.Message:"native_failure";if(System.Text.RegularExpressions.Regex.IsMatch(safe,"^[a-z0-9_]{1,128}$"))failureRow.Add("primaryCode",safe);} Console.WriteLine(Json.Serialize(failureRow));
         }
       }
     } finally { Close(); }
@@ -1989,8 +2040,12 @@ public static class RuyiSkillCapsule {
 // security descriptors). Only DATA bytes/names are archived; no key reaches the broker.
 // The private directory is not a cross-process CAS against a hostile same-account peer.
 const MIGRATION_CAPSULE_MARKER = '.ruyi-capsule-v1';
-const MIGRATION_CAPSULE_ARCHIVE_LIMIT = 160 * 1024 * 1024;
+// Broker response line budget in UTF-8 bytes; equals WorkDataTree.NATIVE_BUDGET.transportBytes (01aa).
+const MIGRATION_CAPSULE_ARCHIVE_LIMIT = 240 * 1024 * 1024;
 const MIGRATION_CAPSULE_BINARY_LIMIT = 128 * 1024 * 1024;
+// Mirrors WorkDataTree.NATIVE_BUDGET entries/bytes/fileBytes (01aa; a unit lock compares them):
+// 13u is also loaded on its own by capsule fixtures, so the shape check keeps literals.
+const MIGRATION_CENSUS_BUDGET = Object.freeze({ files: 100000, directories: 100000, entries: 200001, bytes: 120 * 1024 * 1024, fileBytes: 96000000 });
 function migrationCapsuleFail(reason, uncertain = false) {
   const code = 'work_data_backup.' + reason;
   throw Object.assign(new Error(code), { code, apiCode: code, statusCode: 503,
@@ -2005,9 +2060,11 @@ function migrationCapsuleDescriptor(backup) {
     ...(migrationBackupAuthority?.variants.get(rel[0] + '/' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1])) || {}) };
 }
 function migrationCapsuleShape(snapshot) {
+  // Literal bounds (= MIGRATION_CENSUS_BUDGET entries/bytes): fixtures slice this function alone.
+  const maxEntries = 200001, maxBytes = 120 * 1024 * 1024;
   if (!snapshot || snapshot.schema !== 1 || snapshot.platform !== 'ntfs-objects-v1'
       || !/^[a-f0-9]{64}$/.test(snapshot.revision || '') || !Array.isArray(snapshot.entries)
-      || snapshot.entries.length < 1 || snapshot.entries.length > 10000) return false;
+      || snapshot.entries.length < 1 || snapshot.entries.length > maxEntries) return false;
   const names = new Set(), ids = new Set(), opaque = new Set();
   let total = 0;
   for (const entry of snapshot.entries) {
@@ -2040,7 +2097,7 @@ function migrationCapsuleShape(snapshot) {
       const valid = bytes.length === stream.size && bytes.toString('base64') === stream.data
         && crypto.createHash('sha256').update(bytes).digest('hex') === stream.hash;
       total += bytes.length; bytes.fill(0);
-      if (!valid || total > 96000000) return false;
+      if (!valid || total > maxBytes) return false;
     }
     if (!entry.dir && !streams.has('')) return false;
   }
@@ -2723,7 +2780,10 @@ async function migrationCapsuleBroker() {
         if (response?.ok === true) entry.resolve(response.value);
         else {
           const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
-          const primarySuffix=/^[a-z0-9_]{1,128}$/.test(response?.primaryCode||'')?response.primaryCode:null;const error = failure(suffix,primarySuffix?failure(primarySuffix):undefined); firstError ||= error; entry.reject(error);
+          const primarySuffix=/^[a-z0-9_]{1,128}$/.test(response?.primaryCode||'')?response.primaryCode:null;const error = failure(suffix,primarySuffix?failure(primarySuffix):undefined);
+          // Census budget refusals carry the areas seen so far (sanitised to product names).
+          if(/^census_[a-z]+_limit$/.test(suffix)&&Array.isArray(response?.areas)&&typeof WorkDataTree==='object')error.areas=WorkDataTree.limitAreas(response.areas);
+          firstError ||= error; entry.reject(error);
         }
       }
     });
@@ -2955,8 +3015,45 @@ async function migrationCreateCandidateBoundary({candidate,root,sourceProof,asse
   if(failed)throw primary;return result;
 }
 
+// Census budget selection: a capture rooted in a skill-backup store keeps the
+// capsule caps; every other preserved census (a data root, a generation, a
+// rehearsal/restored target) uses the data-root budget of WorkDataTree.
+function migrationCensusBudget(root) {
+  return /[\\/](?:migrations[\\/]skill-backups|\.work-data[\\/]skill-backups)(?:[\\/]|$)/i.test(path.resolve(String(root))) ? 'capsule' : 'data-root';
+}
+// The broker's census_*_limit refusals (and a response line over the Node
+// transport limit) become the single typed over-budget error. A refusal that
+// left the helper uncertain keeps its uncertainty error: that decides first.
+const MIGRATION_CENSUS_LIMITS = Object.freeze({ 'work_data_backup.census_entries_limit': 'entries',
+  'work_data_backup.census_bytes_limit': 'bytes', 'work_data_backup.census_file_limit': 'file-bytes',
+  'work_data_backup.census_transport_limit': 'transport', 'work_data_backup.census_depth_limit': 'depth',
+  'work_data_backup.native_limit': 'transport' });
+function migrationCensusLimitError(error) {
+  const kind = error && typeof error.code === 'string' && Object.hasOwn(MIGRATION_CENSUS_LIMITS, error.code) ? MIGRATION_CENSUS_LIMITS[error.code] : null;
+  if (!kind || error.helperMayStillRun === true || error.operationMayHaveExecuted === true) return error;
+  return WorkDataTree.engineeringLimit(kind, error, undefined, error.areas);
+}
+// A data-root census reply is checked against the census budget before its
+// shape, so an over-budget reply is the typed limit, never a 'shape' failure.
+function migrationCensusBudgetCheck(snapshot, budget) {
+  if (budget !== 'data-root' || !snapshot || !Array.isArray(snapshot.entries)) return;
+  const B = MIGRATION_CENSUS_BUDGET;
+  if (snapshot.entries.length > B.entries) throw WorkDataTree.engineeringLimit('entries');
+  // Files and directories each have their own budget below the entry total (01aa reader limits).
+  let files = 0, directories = 0;
+  for (const entry of snapshot.entries) {
+    if (entry?.dir === true) { if (entry.rel && ++directories > B.directories) throw WorkDataTree.engineeringLimit('directories'); }
+    else if (entry?.dir === false && ++files > B.files) throw WorkDataTree.engineeringLimit('files');
+  }
+  let total = 0;
+  for (const entry of snapshot.entries) for (const stream of Array.isArray(entry?.streams) ? entry.streams : []) {
+    if (!Number.isSafeInteger(stream?.size)) continue;
+    if (stream.size > B.fileBytes) throw WorkDataTree.engineeringLimit('file-bytes');
+    if ((total += stream.size) > B.bytes) throw WorkDataTree.engineeringLimit('bytes');
+  }
+}
 async function migrationCapsuleCapturePreserved(root, revision, readback) {
-  const paired=readback!==undefined;
+  const paired=readback!==undefined,budget=migrationCensusBudget(root);
   const readbackContext=paired?(typeof WorkDataTree.claimPreservedReadbackContext==='function'?WorkDataTree.claimPreservedReadbackContext(readback,root,revision):(WorkDataTree.claimPreservedReadback(readback,root,revision)?{candidateBoundary:null}:null)):null;
   if(paired&&!readbackContext)migrationCapsuleFail('census_scope');
   const candidateBoundary=readbackContext?.candidateBoundary||null;
@@ -2965,8 +3062,9 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
     ||!/^[a-f0-9]{64}$/.test(revision)||!/^[a-f0-9]{64}$/.test(finalRevision)||finalRevision===revision))migrationCapsuleFail('census_scope');
   const broker = await migrationCapsuleBroker();
   if(!paired){
-    try{const snapshot=await broker.command({cmd:'capture-preserved',root,revision});if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('shape');return snapshot;}
-    finally{await broker.close();}
+    // close() settles with the command's own failure: map whichever error leaves this block.
+    try{try{const snapshot=await broker.command({cmd:'capture-preserved',root,revision,budget});migrationCensusBudgetCheck(snapshot,budget);if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('shape');return snapshot;}
+    finally{await broker.close();}}catch(cause){throw migrationCensusLimitError(cause);}
   }
   let primary,failed=false,final,firstCloseCause,idleClose;
   try {
@@ -2977,8 +3075,9 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       return Object.assign(new Error(code,{cause}),{code,apiCode:code,statusCode:503,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
     };
     let first;
-    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,...(candidateBoundary?{candidateBoundary}:{})});}
+    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,budget,...(candidateBoundary?{candidateBoundary}:{})});}
     catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    migrationCensusBudgetCheck(first?.snapshot,budget);
     if(!first||Object.keys(first).sort().join(',')!=='closedHandles,revision,snapshot'||first.revision!==revision
       ||!migrationCapsuleShape(first.snapshot)||first.snapshot.revision!==revision
       ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0)+(candidateBoundary?1:0))throw unverified();
@@ -2994,14 +3093,15 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
     catch(cause){if(idleError)throw Object.assign(new AggregateError([cause,idleError],idleError.code,{cause}),{code:idleError.code,retry:false});throw cause;}
     finally{timers.clearTimeout(timer);}
     if(idleError)throw idleError;
-    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,budget,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    migrationCensusBudgetCheck(final,budget);
     if(!migrationCapsuleShape(final)||final.revision!==finalRevision)migrationCapsuleFail('shape');
   }catch(cause){failed=true;primary=cause;}
   try{await (idleClose||broker.close());}catch(cause){
     if(!failed)throw cause;
     if(cause!==primary&&(firstCloseCause===undefined||cause!==firstCloseCause))throw migrationCapturedCleanupFailure(primary,true,[cause],false);
   }
-  if(failed)throw primary;return final;
+  if(failed)throw migrationCensusLimitError(primary);return final;
 }
 function migrationCapsuleSameMetadata(actual, expected) {
   if (!migrationCapsuleSame(actual, migrationCapsuleFingerprint(expected))) return false;

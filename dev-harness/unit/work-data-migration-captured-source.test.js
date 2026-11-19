@@ -167,7 +167,9 @@ test('paired census preserves a distinct binding uncertainty after the provider 
 
 function censusProducerModel(fault){
   const src=fs.readFileSync(path.join(rootDir,'13u-migration-center.js'),'utf8');
-  const functions=['migrationCapsuleShape','migrationCapsuleFail','migrationCapturedCleanupFailure','migrationCapsuleCapturePreserved'].map(name=>functionBlock(src,name));
+  // 150 W3: the capture also selects its census budget and maps census refusals to the typed limit.
+  const functions=['migrationCapsuleShape','migrationCapsuleFail','migrationCapturedCleanupFailure','migrationCensusBudget','migrationCensusLimitError','migrationCensusBudgetCheck','migrationCapsuleCapturePreserved'].map(name=>functionBlock(src,name))
+    .concat(['MIGRATION_CENSUS_BUDGET','MIGRATION_CENSUS_LIMITS'].map(name=>constBlock(src,name)));
   assert.ok(functions.every(Boolean));
   const root='synthetic-owned-root',first='1'.repeat(64),last='2'.repeat(64),events=[];
   const snapshot=revision=>({schema:1,platform:'ntfs-objects-v1',revision,entries:[
@@ -192,7 +194,7 @@ function censusProducerModel(fault){
   };};
   const issued=new WeakSet(),WorkDataTree={claimPreservedReadback(token,selected,revision){return selected===root&&revision===first&&issued.delete(token);}};
   const timers={setTimeout(callback,ms){assert.equal(ms,120000);idle=callback;return 1;},clearTimeout(){idle=null;}};
-  const capture=vm.runInNewContext(functions.join('\n')+'\nmigrationCapsuleCapturePreserved;',{Buffer,crypto,migrationCapsuleBroker,WorkDataTree,require(name){assert.equal(name,'node:timers');return timers;}});
+  const capture=vm.runInNewContext(functions.join('\n')+'\nmigrationCapsuleCapturePreserved;',{Buffer,crypto,path,migrationCapsuleBroker,WorkDataTree,require(name){assert.equal(name,'node:timers');return timers;}});
   return {events,first,last,root,release,closing,unknown:()=>migrationCapsuleBroker.helperMayStillRun,
     fireIdle(){assert.equal(typeof idle,'function');idle();},
     run(bind,{forged=false}={}){const token=Object.freeze({revision:last,bind});if(!forged)issued.add(token);return capture(root,first,token);}};

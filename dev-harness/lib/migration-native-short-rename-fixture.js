@@ -6,7 +6,10 @@ const LIMITS=Object.freeze({outerMs:120000,commandMs:120000,closeMs:2000,metadat
 const RELS=Object.freeze(['','D','D/A','D/B']);
 const PHASES=Object.freeze([['initial-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['initial-verify',['capture-preserved-census-first','capture-preserved-census-final']],['N0',['capture-preserved']],['seal',['attach','seal-attached','verify']],['restore',['attach','publish-check','restore','publish']],['final-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['final-verify',['capture-preserved-census-first','capture-preserved-census-final']],['final-native',['capture-preserved']]]);
 const HISTORICAL_FACTORY_SHA='d32f7de37b6f8c16df0eb7a773303051003a90a1e9b64453bde4f4160bfe32b8';
-const FACTORY_SHA='fb42b03828475b2e0c93b763a93e1684d92a776a5c50baf6de029134bdb8a89c';
+// 150 W3 (3C): the reviewed factory additionally carries a census_*_limit refusal's areas
+// (sanitised by WorkDataTree.limitAreas) on the rejected error; command/close lifecycle unchanged.
+// Previous reviewed factory: fb42b03828475b2e0c93b763a93e1684d92a776a5c50baf6de029134bdb8a89c.
+const FACTORY_SHA='00d8964ffffe4f7ba8259ba694047af83e23f64235a7e2f3933434b069ca8c5d';
 function error(code,cause){return Object.assign(Error(code),{code,...(cause===undefined?{}:{cause})});}
 class State{
  constructor(now,started=now(),retain=()=>{}){a.equal(typeof now,'function');a(Number.isSafeInteger(started)&&started>=0&&started<=now());this.now=now;this.started=started;this.deadline=started+LIMITS.outerMs;this.first=null;this.unknown=false;this.native=0;this.metadata=0;this.retainOwner=retain;}

@@ -1854,6 +1854,29 @@
       ]
     },
     {
+      "file": "01ac-work-data-root-hygiene.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataRootHygiene"
+      ],
+      "requires": [
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -26930,6 +26953,8 @@
         "MIGRATION_CAPSULE_ARCHIVE_LIMIT",
         "MIGRATION_CAPSULE_BINARY_LIMIT",
         "MIGRATION_CAPSULE_MARKER",
+        "MIGRATION_CENSUS_BUDGET",
+        "MIGRATION_CENSUS_LIMITS",
         "MIGRATION_LOG_SCHEMA",
         "MIGRATION_SIZE_BUDGET_MS",
         "MIGRATION_SIZE_FILE_CAP",
@@ -26981,6 +27006,9 @@
         "migrationCapsuleVerifyReady",
         "migrationCapsuleWriteIntent",
         "migrationCapturedCleanupFailure",
+        "migrationCensusBudget",
+        "migrationCensusBudgetCheck",
+        "migrationCensusLimitError",
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",

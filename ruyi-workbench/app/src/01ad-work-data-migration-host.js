@@ -15,6 +15,9 @@ const WorkDataMigrationHost = ((io,p,c) => {
       fail('special_owner_required',{file:name});
     }
     if(nativeScope(name))return {kind:'special-backup'};
+    // Data-root policy (01aa rootScope): regenerable/out-of-band trees and crash
+    // leftovers stay in the source root and never enter the new generation.
+    const scoped=WorkDataTree.rootScope.classify(name,{base:legacy});if(scoped)return {kind:'excluded',scope:scoped};
     if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
     // The tree census supplies this flag; a file cannot borrow directory admission.
     if(directory&&/^sessions\/_fulltext-index-v1(?:\/|$)/.test(folded)){
@@ -365,7 +368,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
           await transformSourceScope(plan,async readScope=>{
             const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...readScope});
             for(const row of rows){
-              if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;
+              if(row.kind==='stable-owner'||row.kind==='special-backup'||row.kind==='excluded'||key(row.path)==='work-data-key-v1.json')continue;
               await admission();
               if(row.kind==='codec'||row.kind==='retained'){
                 const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});
@@ -375,7 +378,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             }
           });
           if(!rows.some(row=>row.kind==='config'))await plannedWrite(plan,'config.json',Buffer.from(configMirror('{}',targetMode==='encrypted')));
-          for(const name of source.directories){const kind=classify(name,legacy,true).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
+          for(const name of source.directories){const kind=classify(name,legacy,true).kind;if(kind!=='stable-owner'&&kind!=='special-backup'&&kind!=='excluded'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
           // Uploads owner (M3 attachments): the raw copy above is replaced by a
           // sealed tree; every produced file/directory is re-registered so the
           // existing target census still proves the whole candidate generation.

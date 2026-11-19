@@ -472,3 +472,18 @@ test('3B review: a confirmation closed because the form became busy hands focus 
  assert.equal(f.find('workDataConfirm').hidden,true,'a job seen by the refresh closes the question');
  assert.deepEqual(focused,['workDataProgress'],'focus moves to the visible progress region, not to body');f.panel.dispose();
 });
+// 150 W3:普查/打包超工程预算时，面板说清楚多大、主要在哪些区域、怎么办；形状不对就不说。
+test('an over-budget census explains the limit, the largest areas and what to do, in both languages, and drops forged detail',async()=>{
+ const scenario=async(extra,lang='en-US')=>{const j=job({state:'failed',cancellable:false,takeover:true,error:'work_data_setup.preparation_failed',...extra});const f=fixture(route=>route.includes('/jobs/')?{ok:true,job:j}:status({maintenance:{phase:'retired',accepting:false},capabilities:{worker:false,upload:false,download:false},job:j}));if(lang!=='en-US')f.language(lang);await f.panel.refresh();const text=f.find('workDataProgress').textContent;f.panel.dispose();return text;};
+ const limit={kind:'entries',maximum:'200001',areas:[{area:'agent-worktrees',entries:'150000',bytes:'1048576'},{area:'other',entries:'60000',bytes:'2048'}]};
+ const en=await scenario({reason:'work_data_tree.preserved_native_engineering_limit',limitDetail:limit});
+ assert.match(en,/Underlying cause: The data root is larger than one encryption, export or disable run can handle/);
+ assert.match(en,/more files and folders than the limit \(200,001 entries\)/);assert.match(en,/agent-worktrees 150,000 entries, 1\.0 MB; other locations 60,000 entries/);
+ assert.match(en,/Files in the original data root were not changed\. Move large or numerous items/);assert.match(en,/about 1\.4x/);assert.match(en,/did not complete/);
+ const zh=await scenario({error:'work_data_tree.preserved_native_engineering_limit',limitDetail:{kind:'bytes',maximum:'125829120',areas:[]}},'zh-CN');
+ assert.match(zh,/数据根超出了加密、导出或停用一次能处理的规模/);assert.match(zh,/文件内容总量超过了上限（120\.0 MB）/);assert.doesNotMatch(zh,/已统计到的主要区域/);assert.match(zh,/原数据根里的文件没有被改动/);assert.match(zh,/约 1\.4 倍/);assert.doesNotMatch(zh,/之前停下/);
+ for(const forged of [{kind:'evil',maximum:'1',areas:[]},{kind:'bytes',maximum:12},{kind:'bytes',maximum:'1',areas:[{area:'C:\\private',entries:'1',bytes:'1'}]}]){
+  const text=await scenario({reason:'work_data_tree.preserved_native_engineering_limit',limitDetail:forged});assert.ok(!text.includes('private'),JSON.stringify(forged));
+  if(forged.kind==='evil'||typeof forged.maximum!=='string')assert.doesNotMatch(text,/Files in the original data root were not changed/,JSON.stringify(forged));
+ }
+});

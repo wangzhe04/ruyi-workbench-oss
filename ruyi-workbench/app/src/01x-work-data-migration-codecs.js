@@ -234,6 +234,12 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         ...(which === 'source' ? sourceGrant(file) : {}),
       });
       async function records(bytes, which) {
+        // 150 W4: an audit log's torn last row (crash mid-append) is never a committed
+        // row for its owner (01s committedBytes/tornBytes). Only the committed prefix
+        // migrates; the torn bytes stay untouched in the source. Byte-level split, so a
+        // torn multi-byte character cannot fail UTF-8 validation of committed rows.
+        if (which === 'source' && descriptor.family === 'audit-log' && bytes.length && bytes[bytes.length - 1] !== 0x0a)
+          bytes = bytes.subarray(0, bytes.lastIndexOf(0x0a) + 1);
         const raw = utf8(bytes);
         if (!raw) return { rows: [], logical: Buffer.alloc(0), authenticated: 0 };
         if (!raw.endsWith('\n')) fail('special_owner_required', { reason: 'uncommitted-or-no-lf-tail' });

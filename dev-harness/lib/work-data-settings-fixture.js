@@ -46,7 +46,7 @@ function fixture(respond,rawRespond){
   if(typeof rawRespond!=='function')throw Error('unexpected raw request in this test: '+route);
   return rawRespond(route,options,record,rawCalls);
  };
- const context={document,window,WeakMap,Set,TextEncoder,URL,Blob,Response,api,apiRaw,t,apiErrorCopyKey,fmtBytes,apiErrorInfo:error=>({code:error?.error?.code||error?.code||(error?.name==='TypeError'?'net.disconnected':'')}),setTimeout:fn=>{const id=++serial;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id),
+ const context={document,window,WeakMap,Set,TextEncoder,URL,Blob,Response,api,apiRaw,t,getLocale:()=>locale,apiErrorCopyKey,fmtBytes,apiErrorInfo:error=>({code:error?.error?.code||error?.code||(error?.name==='TypeError'?'net.disconnected':'')}),setTimeout:fn=>{const id=++serial;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id),
   localStorage:{setItem(){throw Error('UI stored a secret');}},sessionStorage:{setItem(){throw Error('UI stored a secret');}}};
  const mount=vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'')+'\nmountWorkDataSettings;',context);
  const panel=mount();

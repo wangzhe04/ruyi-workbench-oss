@@ -197,6 +197,20 @@ test('cold progress carries a validated failure reason and space detail, and dro
   }
   const page=await rawRequest(f.port,'/');assert.ok(!page.text.includes('disk_full')&&!page.text.includes('space_insufficient'),'the maintenance page still carries no code');
 });
+// 150 W3:超工程预算时冷端带上种类、上限与产品自有顶层区域(job.limitDetail);逐字段白名单,形状不对就整块丢掉。
+test('cold progress carries a validated census limit detail and drops forged ones',async t=>{
+  const value=ordinary(),f=await fixture(t,{readStatus:()=>value});
+  value.job.state='failed';value.job.error='work_data_setup.preparation_failed';value.job.reason='work_data_tree.preserved_native_engineering_limit';
+  value.job.limitDetail={kind:'entries',maximum:'200001',areas:[{area:'sessions',entries:'150000',bytes:'1024',path:'C:\\private'}],extra:'C:\\private'};
+  let result=await request(f.port,undefined,{headers:f.headers});assert.equal(result.status,200);
+  assert.deepEqual(result.value.job.limitDetail,{kind:'entries',maximum:'200001',areas:[{area:'sessions',entries:'150000',bytes:'1024'}]});
+  assert.ok(!result.text.includes('private'));
+  for(const detail of [{kind:'evil',maximum:'1',areas:[]},{kind:'bytes',maximum:12,areas:[]},{kind:'bytes',maximum:'1',areas:[{area:'C:\\private',entries:'1',bytes:'1'}]},
+    {kind:'bytes',maximum:'1',areas:new Array(6).fill({area:'logs',entries:'1',bytes:'1'})},{kind:'bytes',maximum:'1'},'entries']){
+    value.job.limitDetail=detail;result=await request(f.port,undefined,{headers:f.headers});
+    assert.equal(result.status,200,'a malformed limit never makes progress unreadable');assert.equal(result.value.job.limitDetail,undefined,JSON.stringify(detail));
+  }
+});
 test('arbitrary remote or DNS bind hosts are rejected before listener creation',()=>{
   for(const bindHost of ['0.0.0.0','::','evil.test','127.0.0.1.evil','[::1]',''])assert.throws(()=>api.create({id,port:34567,bindHost,assertColdOwner:()=>true,readStatus:ordinary}),{code:'work_data_setup.http_host_invalid'});
 });

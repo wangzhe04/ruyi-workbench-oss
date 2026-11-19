@@ -82,6 +82,12 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         const detail = source.reasonDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
         if (object(detail) && decimal(detail.requiredBytes) && decimal(detail.availableBytes)) job.reasonDetail = {requiredBytes:detail.requiredBytes,availableBytes:detail.availableBytes};
       }
+      // 150 W3:超工程预算时的种类、上限与产品自有顶层区域(13am limitDetail)。逐字段白名单,形状不对就不带。
+      const limit = source.limitDetail, decimalText = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
+      if (object(limit) && ['entries','files','directories','bytes','file-bytes','transport','depth'].includes(limit.kind) && decimalText(limit.maximum)
+        && Array.isArray(limit.areas) && limit.areas.length <= 5
+        && limit.areas.every(row => object(row) && typeof row.area === 'string' && /^[a-z0-9.-]{1,32}$/.test(row.area) && decimalText(row.entries) && decimalText(row.bytes)))
+        job.limitDetail = {kind:limit.kind,maximum:limit.maximum,areas:limit.areas.map(row => ({area:row.area,entries:row.entries,bytes:row.bytes}))};
       return {ok:true,authority:authority(value.authority),configMirror:null,maintenance:{phase:'retired',accepting:false},job,lastResult:null,
         capabilities:{worker:false,upload:false,download:false},processRestartRequired:true};
     };

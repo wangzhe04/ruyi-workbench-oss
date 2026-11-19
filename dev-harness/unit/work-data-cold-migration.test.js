@@ -99,12 +99,17 @@ test('one cold enable authenticates, backs up and transforms every ordinary requ
  const result=await x.operation.execute(x.context),active=result.authority.active;
  const freeze=require('../../docs/architecture/encrypted-storage-freeze.json');
  const separateOwners=new Set(['uploads-attachment','uploads-tool-image','migration-skill-backups']);
- const expected=freeze.entries.filter(row=>row.encryption==='required'&&!separateOwners.has(row.id)).map(row=>row.id).sort();
+ // 150 W3: regenerable caches are left in the source root by the data-root policy (01aa rootScope), not migrated.
+ const omittedRegenerable=new Set(['web-cache','proxy-models-cache']),omittedFiles=new Set(textCases.filter(([family])=>omittedRegenerable.has(family)).map(([,file])=>file));
+ assert.equal(omittedFiles.size,2);
+ const expected=freeze.entries.filter(row=>row.encryption==='required'&&!separateOwners.has(row.id)&&!omittedRegenerable.has(row.id)).map(row=>row.id).sort();
  assert.deepEqual([...new Set(preparedRows.map(row=>row.family))].sort(),expected);
- assert.deepEqual(preparedRows.map(row=>row.path).sort(),[...seed.keys()].sort());
+ assert.deepEqual(preparedRows.map(row=>row.path).sort(),[...seed.keys()].filter(file=>!omittedFiles.has(file)).sort());
+ for(const file of omittedFiles)assert.ok(fs.existsSync(path.join(x.f.base,...file.split('/'))),'left in place: '+file);
  assert.equal(active.mode,'encrypted');
  for(const [file,bytes] of seed){
   assert.deepEqual(await fsp.readFile(path.join(x.f.base,file)),bytes,file);
+  if(omittedFiles.has(file)){assert.equal(fs.existsSync(path.join(active.root,file)),false,'not migrated: '+file);continue;}
   const sealed=await fsp.readFile(path.join(active.root,file));
   assert.notDeepEqual(sealed,bytes,file);
   assert.equal(sealed.includes(marker),false,file);

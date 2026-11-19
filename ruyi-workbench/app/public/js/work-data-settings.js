@@ -1,5 +1,5 @@
 import { api, apiErrorInfo, apiRaw } from './net.js';
-import { t } from './i18n.js';
+import { t, getLocale } from './i18n.js';
 import { apiErrorCopyKey } from './api-error-i18n.js';
 import { fmtBytes } from './util.js';
 
@@ -62,6 +62,22 @@ export function workDataBackupNoticeKey(lastResult) {
 export function workDataBackupBlocksSave(lastResult) {
   const state = lastResult && typeof lastResult.backupState === 'string' ? lastResult.backupState : '';
   return state === 'missing' || state === 'changed';
+}
+// 150 W3：普查/打包超出工程预算时，冷端在 job.limitDetail 里带上种类、上限与已普查到的顶层区域（13am limitDetail）。
+// 说清楚多大、主要在哪些区域、怎么办；形状不对就不说。
+const LIMIT_KINDS = { entries: 'Entries', files: 'Files', directories: 'Directories', bytes: 'Bytes', 'file-bytes': 'FileBytes', transport: 'Transport', depth: 'Depth' };
+export function workDataJobLimit(job) {
+  const limit = job && job.limitDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
+  if (!limit || !Object.hasOwn(LIMIT_KINDS, limit.kind) || !decimal(limit.maximum)) return [];
+  const count = ['entries', 'files', 'directories', 'depth'].includes(limit.kind);
+  const maximum = count ? Number(limit.maximum).toLocaleString(getLocale()) : fmtBytes(Number(limit.maximum));
+  const lines = [t('workData.limit' + LIMIT_KINDS[limit.kind], { maximum })];
+  const areas = Array.isArray(limit.areas) ? limit.areas.filter(row => row && typeof row.area === 'string' && /^[a-z0-9.-]{1,32}$/.test(row.area)
+    && decimal(row.entries) && decimal(row.bytes)).slice(0, 5) : [];
+  if (areas.length) lines.push(t('workData.limitAreas', { areas: areas.map(row => t('workData.limitArea', {
+    area: row.area === 'other' ? t('workData.limitAreaOther') : row.area, entries: Number(row.entries).toLocaleString(getLocale()), bytes: fmtBytes(Number(row.bytes)) })).join(t('workData.limitAreaSeparator')) }));
+  lines.push(t('workData.limitAdvice'));
+  return lines;
 }
 // 码 → 人话（仍带着码，便于对照）；没有专属文案的码沿用原来那句带码的通用话。
 function codeText(code, fallbackKey) {
@@ -255,6 +271,7 @@ export function mountWorkDataSettings() {
         if (reasonKey) { const reason = node('p', null, 'field-help work-data-reason'); reason.textContent = t(reasonKey); progress.append(reason); }
         const cause = workDataJobCause(job, value);
         if (cause) { const line = node('p', null, 'field-help work-data-cause'); line.textContent = cause; progress.append(line); }
+        for (const text of workDataJobLimit(job)) { const line = node('p', null, 'field-help work-data-cause'); line.textContent = text; progress.append(line); }
         const code = node('code'); code.textContent = value + (cause ? ' · ' + job.reason : ''); progress.append(code);
       }
       if (workDataRestartRequired(current, job)) { const restart = node('p', 'restartRequired', 'work-data-restart'); restart.setAttribute('role', 'alert'); progress.append(restart); }
