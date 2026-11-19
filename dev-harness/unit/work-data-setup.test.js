@@ -13,13 +13,13 @@ const Setup=vm.runInNewContext(constBlock(setupSource,'WorkDataSetup')+'\nWorkDa
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{resolve,reject,promise};},tick=()=>new Promise(setImmediate),until=async predicate=>{for(let i=0;i<60;i++){if(await predicate())return;await tick();}throw Error('condition did not settle');};
 const authority={generation:0,id:null,mode:'plain',sha256:null},clone=value=>JSON.parse(JSON.stringify(value)),secret='synthetic setup password only';
 function request(body,method='POST'){const bytes=Buffer.from(typeof body==='string'?body:JSON.stringify(body));return{method,async *[Symbol.asyncIterator](){yield bytes;}};}
-function fixture(){let counter=0,response;const owners=new Set(),events=[],queue=[],state={authority:clone(authority),resume:0,flush:0},ready=deferred();
+function fixture(options={}){let counter=0,response;const owners=new Set(),events=[],queue=[],state={authority:clone(authority),resume:0,flush:0},ready=deferred();
  const m=Maintenance.create({owns:owner=>owners.has(owner),snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>{events.push('pause');return{};},resume:()=>{state.resume++;events.push('resume');},progress:async()=>{},flush:async()=>{state.flush++;},yield:tick});
  const handle={ready:ready.promise,cancel:async()=>{events.push('cancel-child');},handoff:async()=>{events.push('handoff');}};
  const worker={start:async input=>{state.workerInput=input;events.push('start');return handle;}};
  const host={maintenance:m,inspect:async()=>({authority:clone(state.authority),base:'C:/synthetic/base',configMirror:false}),validateDirectories:async()=>{events.push('validate-paths');},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},
   respondPackage:(_res,pkg)=>{response={package:pkg};},
-  receiptPath:p=>p==='/api/permission/decision',receiptOwner:(_p,body)=>body.requestId==='old'?state.owner:null};
+  receiptPath:p=>p==='/api/permission/decision',receiptOwner:(_p,body)=>body.requestId==='old'?state.owner:null,...options};
  const api=Setup.create(host),body=(patch={})=>({operation:'enable',password:secret,expectedAuthority:clone(state.authority),backupDirectory:'C:/synthetic/backups',...patch});
  const get=async id=>{await api.handle({method:'GET'},{},'/api/work-data/jobs/'+id);return response.body.job;};
  return{api,m,host,worker,handle,state,ready,events,queue,body,owners,get,response:()=>response,start:()=>queue.shift()()};
@@ -234,6 +234,9 @@ test('status keeps the three capability keys, follows real readiness and never a
  f.worker.readResult=async()=>result;assert.equal((await f.api.status()).capabilities.download,false,'the method and a result alone still do not advertise');
  f.worker.packageTransfer=true;assert.equal((await f.api.status()).capabilities.download,true,'the installed transfer marker plus a current result advertise');
  f.worker.readResult=async()=>null;assert.equal((await f.api.status()).capabilities.download,false,'no current result means no package to advertise');
+ // 151 phase 3B review: a package that moved, was replaced or vanished is not advertised, matching the route that would refuse it.
+ for(const backupState of ['missing','changed','unavailable']){f.worker.readResult=async()=>({...result,backupState});assert.equal((await f.api.status()).capabilities.download,false,'backupState '+backupState+' is not advertised');}
+ f.worker.readResult=async()=>({...result,backupState:'present'});assert.equal((await f.api.status()).capabilities.download,true,'a present package is advertised');
 });
 
 test('restore status reports the selected stable base and the actual upload bound without equating generation-zero roots',async()=>{
@@ -337,4 +340,79 @@ test('a restore launch failure never retries or resolves a second grant',async t
  f.start();await until(async()=>(await f.get(job.id)).state==='failed');
  assert.equal(grants,1);assert.equal(f.events.filter(value=>value==='start').length,1);assert.equal(f.events.includes('handoff'),false);
  assert.equal((await f.get(job.id)).error,'work_data_setup.worker_failed');assert.equal(f.m.accepting(),true);
+});
+
+// ── 151 阶段 3B · 150 W14：draining 设上限并说出谁在阻塞；150 W9：作业期间 status 不读回执 ─────────
+test('W14: draining names its blockers and, past the limit, fails with drain_timeout and resumes intake without aborting the owner',async()=>{
+ const f=fixture({drainLimitMs:60,timers:{setTimeout,clearTimeout}}),old=deferred();let completed=false;
+ const turn=f.m.run('http',async()=>{await old.promise;completed=true;});
+ const job=await f.api.submit(f.body());f.start();await until(()=>f.m.status().phase==='waiting');
+ const draining=await f.get(job.id);assert.equal(draining.state,'draining');assert.equal(draining.cancellable,true);
+ assert.equal(draining.drain.timedOut,false);assert.equal(draining.drain.limitMs,60);assert.ok(Number.isSafeInteger(draining.drain.waitedMs)&&draining.drain.waitedMs>=0);
+ assert.deepEqual(clone(draining.drain.blockers),[{kind:'requests',count:1}],'the admitted turn is named as one in-flight request');
+ assert.equal(f.m.accepting(),false,'intake is paused while draining');
+ for(let i=0;i<400&&(await f.get(job.id)).state!=='failed';i++)await new Promise(resolve=>setTimeout(resolve,5));
+ const failed=await f.get(job.id);assert.equal(failed.error,'work_data_setup.drain_timeout');assert.equal(failed.cancellable,false);assert.equal(failed.takeover,false);
+ assert.equal(failed.drain.timedOut,true);assert.ok(failed.drain.waitedMs>=50,'waited about the limit (Node timers may fire a millisecond before Date.now reaches it)');assert.deepEqual(clone(failed.drain.blockers),[{kind:'requests',count:1}]);
+ assert.equal(f.m.accepting(),true,'intake resumes after the limit');assert.equal(f.events.includes('start'),false,'no worker was launched');
+ assert.equal(completed,false,'the business owner was never aborted');old.resolve();await turn;assert.equal(completed,true);
+ // A fresh submission is admitted again once the blocker is gone.
+ const next=await f.api.submit(f.body());assert.equal(next.state,'queued');
+});
+
+test('W14: a drain that finishes inside the limit clears its timer and proceeds unchanged',async()=>{
+ const f=fixture({drainLimitMs:5000,timers:{setTimeout,clearTimeout}}),job=await f.api.submit(f.body());f.start();
+ await until(()=>f.events.includes('start'));const prepared=await f.get(job.id);assert.equal(prepared.state,'preparing');assert.equal(prepared.drain,undefined,'the drain view exists only while draining');
+ f.ready.resolve();await until(()=>f.events.includes('handoff'));assert.equal((await f.get(job.id)).state,'handoff');
+});
+
+test('W9: status never reads the result while a job is admitted, draining, preparing or handing off; it reports the last observation',async()=>{
+ const f=fixture();let reads=0;const receipt=Object.freeze({id:'e'.repeat(48),authority:clone(authority)});
+ f.worker.observeResult=async()=>{reads++;return receipt;};
+ assert.deepEqual(clone((await f.api.status()).lastResult),clone(receipt));assert.equal(reads,1);
+ const job=await f.api.submit(f.body());assert.deepEqual(clone((await f.api.status()).lastResult),clone(receipt));
+ f.start();await until(()=>f.events.includes('start'));assert.deepEqual(clone((await f.api.status()).lastResult),clone(receipt));
+ f.ready.resolve();await until(()=>f.events.includes('handoff'));const late=await f.api.status();
+ assert.equal(late.job.state,'handoff');assert.deepEqual(clone(late.lastResult),clone(receipt));assert.equal(reads,1,'no status read crossed the job or the retirement boundary');
+ assert.equal((await f.get(job.id)).state,'handoff');
+});
+
+test('W2: a failing result reader becomes lastResultError and never refuses status; a deferred read reuses the observation',async()=>{
+ const f=fixture();let mode='ok';const receipt=Object.freeze({id:'e'.repeat(48),authority:clone(authority)});
+ f.worker.observeResult=async()=>{if(mode==='fail')throw Object.assign(Error('x'),{code:'work_data_setup.result_unavailable'});if(mode==='deferred')throw Object.assign(Error('x'),{code:'work_data_setup.result_deferred'});if(mode==='raw')throw Error(secret);return receipt;};
+ assert.equal((await f.api.status()).lastResult.id,receipt.id);
+ // 3B 复审应改 1：没有本设置自己的作业时，运行时的 deferred 不再拿旧观察顶上，而是如实报出。
+ mode='deferred';let status=await f.api.status();assert.equal(status.lastResult,null);assert.equal(status.lastResultError,'work_data_setup.result_deferred');
+ mode='fail';status=await f.api.status();assert.equal(status.ok,true);assert.equal(status.lastResult,null);assert.equal(status.lastResultError,'work_data_setup.result_unavailable');
+ mode='raw';status=await f.api.status();assert.equal(status.lastResultError,'work_data_setup.result_unavailable');assert.equal(JSON.stringify(status).includes(secret),false);
+ // The cached observation is bound to the authority it was read under.
+ mode='ok';await f.api.status();f.state.authority={generation:1,id:'b'.repeat(48),mode:'encrypted',sha256:'c'.repeat(64)};mode='deferred';
+ assert.equal((await f.api.status()).lastResult,null,'an observation under another authority is never reused');
+});
+test('W14 review: a broken clock still ends the drain on time, resumes intake and leaves a typed failure',async()=>{
+ const f=fixture({drainLimitMs:30,timers:{setTimeout,clearTimeout},clock:()=>Number.NaN}),old=deferred();
+ const turn=f.m.run('http',async()=>{await old.promise;});const job=await f.api.submit(f.body());f.start();
+ for(let i=0;i<400&&(await f.get(job.id)).state!=='failed';i++)await new Promise(resolve=>setTimeout(resolve,5));
+ const failed=await f.get(job.id);assert.equal(failed.error,'work_data_setup.drain_timeout');assert.equal(failed.drain.timedOut,true);assert.equal(failed.drain.startedAt,null);
+ assert.equal(f.m.accepting(),true);old.resolve();await turn;
+});
+test('W14 review: admitted non-request owners are not double-counted as requests',async()=>{
+ const f=fixture({drainLimitMs:5000,timers:{setTimeout,clearTimeout}}),old=deferred();
+ const tick=f.m.run('scheduler-tick',async()=>{await old.promise;});const job=await f.api.submit(f.body());f.start();await until(()=>f.m.status().phase==='waiting');
+ assert.deepEqual(clone((await f.get(job.id)).drain.blockers),[{kind:'other',count:1}],'with no busy counter to name it, an unnamed owner is reported once as other');
+ await f.api.cancel(job.id);old.resolve();await tick;
+});
+test('W14 review: a fractional clock still yields an integer wait and keeps the blocker snapshot',async()=>{
+ let now=1000.25;const f=fixture({drainLimitMs:30,timers:{setTimeout,clearTimeout},clock:()=>(now+=7.3)}),old=deferred();
+ const turn=f.m.run('http',async()=>{await old.promise;});const job=await f.api.submit(f.body());f.start();
+ for(let i=0;i<400&&(await f.get(job.id)).state!=='failed';i++)await new Promise(resolve=>setTimeout(resolve,5));
+ const failed=await f.get(job.id);assert.equal(failed.error,'work_data_setup.drain_timeout');assert.ok(Number.isSafeInteger(failed.drain.waitedMs));
+ assert.deepEqual(clone(failed.drain.blockers),[{kind:'requests',count:1}]);old.resolve();await turn;
+});
+test('3B review: closed intake with no job of this setup reports result_deferred instead of an old observation',async()=>{
+ const f=fixture();const receipt=Object.freeze({id:'e'.repeat(48),authority:clone(authority)});let reads=0;f.worker.observeResult=async()=>{reads++;return receipt;};
+ assert.equal((await f.api.status()).lastResult.id,receipt.id);
+ f.host.maintenance={...f.m,accepting:()=>false,status:()=>f.m.status()};
+ const api=Setup.create(f.host);await api.status().catch(()=>{});
+ const closed=await api.status();assert.equal(closed.lastResult,null);assert.equal(closed.lastResultError,'work_data_setup.result_deferred');assert.equal(reads,1,'closed intake does not read');
 });

@@ -68,6 +68,9 @@ const CODE_COPY = new Set([
   'desktop_lifetime.closing', 'work_data_setup.disk_full', 'work_data_setup.access_denied', 'work_data_setup.file_busy',
   'work_data_setup.file_missing', 'work_data_setup.read_only_volume', 'work_data_setup.too_many_open_files', 'work_data_setup.io_error',
   'work_data_setup.path_too_long',
+  // 151 阶段 3B：备份包被移走/删掉（150 W2）与维护准备等待超限（150 W14）。
+  'work_data_setup.package_missing', 'work_data_setup.drain_timeout', 'work_data_result.backup_missing', 'work_data_result.backup_changed',
+  'work_data_setup.result_deferred', 'work_data_result.stage_pending', 'work_data_result.record_invalid', 'work_data_result.record_changed', 'work_data_result.path_alias',
 ]);
 // 服务端 message 里带着「这一次具体为什么」的码（不是固定英文句）：文案后面附上原话。
 const WITH_DETAIL = new Set(['tool.failed', 'editor.open_failed']);

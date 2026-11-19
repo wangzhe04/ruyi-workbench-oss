@@ -806,3 +806,7 @@
 @media (max-width: 640px) { .work-data-passwords { flex-direction: column; } .work-data-passwords > .field-block { flex-basis: auto; width: 100%; } }
 /* 151 阶段 1 · U3：「需要重启如意」是这一段里唯一要用户动手的事，用警示色单列一行。 */
 .work-data-restart { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-fg); font-weight: 600; overflow-wrap: anywhere; }
+/* 151 阶段 3B · W14：启用加密前的二次确认，以及维护准备期「谁在阻塞、等了多久」。 */
+.work-data-confirm { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--panel-2); overflow-wrap: anywhere; }
+.work-data-confirm ul, .work-data-blockers { margin: 0; padding-left: var(--sp-4, 1.25rem); }
+.work-data-confirm .work-data-actions { margin-top: var(--sp-1); }

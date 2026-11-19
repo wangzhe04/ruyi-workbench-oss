@@ -335,6 +335,34 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const readAuthority=()=>operation(ctx,()=>N.readAuthority(base),{newAdmission:true});
       const resultReader=()=>bindings.resultApi.create({base,ownership,assertExclusive:value=>assertOwnership(value,base),readAuthority:()=>N.readAuthority(base)}).read();
       const readResult=()=>operation(ctx,resultReader,{newAdmission:true});
+      // Status observation (150 W2/W9). It is deliberately not an operation: no new
+      // pin and never a member of ctx.inflight, so a status poll can never hold the
+      // retirement receipt open across the handoff boundary; it is refused while a
+      // warm job exists or the source stopped accepting. It reads the record and
+      // only probes the package (01ae observe), and an expected data failure (a
+      // moved, deleted or replaced package, an unreadable record) is a typed
+      // refusal that never retains the source. Only ensure() itself — a genuine
+      // owner, keeper or helper loss — retains, exactly as before.
+      // close() deliberately does not wait for an observation: once accepting is false the observation's own
+      // result is discarded as result_deferred and it never reaches ensure(), so a keeper release cannot be
+      // misread as owner loss. Its IO is read-only (record, authority pointer, one lstat of the package).
+      const observing=()=>ctx.accepting===true&&!ctx.finished;
+      const observationFailure=code=>Object.assign(Error(code),{code,apiCode:code,statusCode:503,retry:false});
+      async function observeResult(){
+        if(!observing())throw observationFailure('work_data_setup.result_deferred');
+        // A retained or lost source is reported as itself (source_uncertain etc.) before any
+        // deferral: a warm job that retained the source stays in `jobs`, and deferring on it
+        // would let status serve a stale observation forever.
+        ensure(ctx);if(jobs.size)throw observationFailure('work_data_setup.result_deferred');let value;
+        try{value=await bindings.resultApi.create({base,ownership,assertExclusive:candidate=>observing()&&assertOwnership(candidate,base),readAuthority:()=>N.readAuthority(base)}).observe();}
+        catch(error){if(!observing())throw observationFailure('work_data_setup.result_deferred');ensure(ctx);
+          // The record owner's own typed reason (stage_pending after an interrupted cold write,
+          // record_invalid, path_alias...) stays distinguishable; anything untyped is result_unavailable.
+          let reason='';try{reason=typeof error?.code==='string'?error.code:'';}catch{reason='';}
+          throw observationFailure(/^work_data_result\.[a-z_]{1,64}$/.test(reason)?reason:'work_data_setup.result_unavailable');}
+        if(!observing())throw observationFailure('work_data_setup.result_deferred');
+        ensure(ctx);return value;
+      }
       // Package transfer is a read of the one durable result: the requested id must
       // equal it, and the exact bytes about to be sent are re-verified on one opened
       // handle (size, dev/ino, sha256, before/after stat) before any response byte
@@ -344,7 +372,10 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       // durable result read and this final handle read deliberately verify the
       // whole package twice, bounded by WorkDataRecovery.LIMITS.serialized.
       const packageFailure=code=>Object.assign(Error(code),{code,apiCode:code,
-        statusCode:code==='work_data_setup.package_not_found'?404:503,retry:false});
+        statusCode:code==='work_data_setup.package_not_found'||code==='work_data_setup.package_missing'?404:503,retry:false});
+      // 150 W2: the user moved or deleted the package after the operation. That is
+      // its own stable refusal (put it back, or export again), not "unavailable".
+      const missing={ok:false,code:'work_data_setup.package_missing'};
       const packageBudget=()=>{
         try{const limits=typeof WorkDataRecovery==='undefined'?null:WorkDataRecovery.LIMITS;
           return plain(limits)&&Number.isSafeInteger(limits.serialized)&&limits.serialized>0?limits.serialized:null;}catch{return null;}
@@ -362,7 +393,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
             ||typeof backup.sha256!=='string'||!/^[a-f0-9]{64}$/.test(backup.sha256)
             ||!Number.isSafeInteger(backup.bytes)||backup.bytes<1||maximum===null||backup.bytes>maximum
             ||typeof backup.identity.dev!=='string'||typeof backup.identity.ino!=='string')return unavailable;
-          handle=await io.open(backup.path,'r');
+          try{handle=await io.open(backup.path,'r');}catch(error){if(['ENOENT','ENOTDIR'].includes(error?.code))return missing;throw error;}
           const before=await handle.stat({bigint:true});
           if(!before.isFile()||before.nlink!==1n||String(before.dev)!==backup.identity.dev
             ||String(before.ino)!==backup.identity.ino||Number(before.size)!==backup.bytes)return unavailable;
@@ -378,7 +409,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           if(sha256!==backup.sha256)return unavailable;
           complete=true;
           return {ok:true,id:record.id,bytes:buffer,size:used,sha256};
-        }catch{return unavailable;}
+        }catch(error){return error?.code==='work_data_result.backup_missing'?missing:unavailable;}
         finally{if(!complete&&bytes)bytes.fill(0);if(handle){try{await handle.close();}catch{ /* the verified bytes are already detached */ }}}
       }
       const downloadPackage=async id=>{
@@ -386,13 +417,13 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         let bytes=null;
         try{
           const outcome=await operation(ctx,async()=>{const captured=await capturePackage(id);if(Buffer.isBuffer(captured?.bytes))bytes=captured.bytes;return captured;},{newAdmission:true});
-          if(!outcome||outcome.ok!==true||!Buffer.isBuffer(outcome.bytes))throw packageFailure(outcome?.code==='work_data_setup.package_not_found'
-            ?'work_data_setup.package_not_found':'work_data_setup.package_unavailable');
+          if(!outcome||outcome.ok!==true||!Buffer.isBuffer(outcome.bytes))throw packageFailure(['work_data_setup.package_not_found','work_data_setup.package_missing'].includes(outcome?.code)
+            ?outcome.code:'work_data_setup.package_unavailable');
           return Object.freeze({id:outcome.id,bytes:outcome.bytes,size:outcome.size,sha256:outcome.sha256});
         }catch(error){if(bytes)bytes.fill(0);throw error;}
       };
       async function close(){if(ctx.finished)return;if(unknown)throw retain(unknownCause);ctx.accepting=false;if(jobs.size)throw fail('job_active');await Promise.allSettled([...ctx.inflight]);ensure(ctx);try{await ctx.keeper.releaseChecked(assertFinishSafe);assertFinishSafe();ctx.finished=true;}catch(error){throw retain(error);}}
-      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,downloadPackage,close,
+      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,observeResult,downloadPackage,close,
         // Status is data, never a capability or substitute for a genuine keeper.
         status:()=>Object.freeze({sourceHeld:assertOwnership(ownership,base),uploadOwnerHeld:O.owns(ownership,uploadRoot),accepting:ctx.accepting&&!unknown&&!ctx.finished,workerReady:false,crashClaim:false,activation:false})});
       return ctx.api;}finally{warmOpening=false;}
@@ -866,6 +897,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       // that only assigns a downloadPackage function never gets the capability. The
       // advertised transfer is exactly what this install defined.
       const descriptors={putUpload:{value:warm.api.putUpload,writable:true,configurable:true,enumerable:true},resolveUpload:{value:warm.api.resolveUpload,writable:true,configurable:true,enumerable:true},readResult:{value:warm.api.readResult,writable:true,configurable:true,enumerable:true},
+        observeResult:{value:warm.api.observeResult,writable:true,configurable:true,enumerable:true},
         downloadPackage:{value:warm.api.downloadPackage,writable:true,configurable:true,enumerable:true},packageTransfer:{value:true,writable:false,configurable:true,enumerable:false}};
       for(const name of Object.keys(descriptors)){const old=Object.getOwnPropertyDescriptor(hooks,name);if(old&&!old.configurable||!old&&!Object.isExtensible(hooks))throw fail('worker_hooks_invalid');}
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);

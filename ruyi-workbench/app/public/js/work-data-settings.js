@@ -38,6 +38,31 @@ export function workDataJobCause(job, errorCode) {
   }
   return text;
 }
+// 151 阶段 3B · W14：维护准备期（draining）谁在阻塞、多少、等了多久；超时失败后同一份快照留在作业上。
+// 只认后台给的已知种类（13ah BLOCKER_KINDS 加 requests/writes/pendingWrites/other），形状不对就不说。
+const BLOCKER_KINDS = new Set(['turns', 'agentRuns', 'scheduler', 'steward', 'externalBots', 'consumers', 'internalMcp', 'index', 'shells', 'services',
+  'helperRequests', 'requests', 'writes', 'pendingWrites', 'other']);
+export function workDataDrainLines(job) {
+  const drain = job && job.drain && typeof job.drain === 'object' ? job.drain : null;
+  if (!drain || !Number.isSafeInteger(drain.waitedMs) || drain.waitedMs < 0 || !Number.isSafeInteger(drain.limitMs) || drain.limitMs <= 0) return null;
+  const seconds = value => Math.max(0, Math.round(value / 1000));
+  const rows = Array.isArray(drain.blockers) ? drain.blockers.filter(row => row && BLOCKER_KINDS.has(row.kind) && Number.isSafeInteger(row.count) && row.count > 0) : [];
+  return {
+    waited: t(drain.timedOut === true ? 'workData.drainTimedOut' : 'workData.drainWaited', { waited: seconds(drain.waitedMs), limit: seconds(drain.limitMs) }),
+    blockers: rows.map(row => t('workData.blocker.' + row.kind, { count: row.count })),
+    none: rows.length ? '' : t('workData.blockerNone'),
+  };
+}
+// 150 W2：备份包只在需要它的操作里校验。状态里只带一次 lstat 的观察：被移走/删掉/替换时说人话，并指向「放回原处或重新导出」。
+export function workDataBackupNoticeKey(lastResult) {
+  const state = lastResult && typeof lastResult.backupState === 'string' ? lastResult.backupState : '';
+  return state === 'missing' ? 'workData.backupMissing' : state === 'changed' ? 'workData.backupChanged' : state === 'unavailable' ? 'workData.backupUnavailable' : '';
+}
+// 只有确知包不在（missing）或已被替换（changed）才停用保存；查不清（unavailable）时照样可以点，下载那一步会在打开的句柄上再核对。
+export function workDataBackupBlocksSave(lastResult) {
+  const state = lastResult && typeof lastResult.backupState === 'string' ? lastResult.backupState : '';
+  return state === 'missing' || state === 'changed';
+}
 // 码 → 人话（仍带着码，便于对照）；没有专属文案的码沿用原来那句带码的通用话。
 function codeText(code, fallbackKey) {
   const key = apiErrorCopyKey(code);
@@ -87,8 +112,8 @@ export function mountWorkDataSettings() {
   const passwordHelp = node('p', 'passwordHelp', 'field-help');
   const plaintext = input('workDataConfirmPlaintext', 'checkbox'), plaintextRow = node('label', null, 'check'); plaintextRow.append(plaintext, node('span', 'confirmPlaintext')); plaintextRow.hidden = true;
   const unavailable = node('p', null, 'field-help work-data-unavailable'); unavailable.id = 'workDataUnavailable'; unavailable.setAttribute('role', 'status');
-  const notice = node('p', null, 'work-data-notice'); notice.id = 'workDataNotice'; notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite');
-  const progress = node('div', null, 'work-data-progress'); progress.id = 'workDataProgress'; progress.setAttribute('role', 'status'); progress.setAttribute('aria-live', 'polite');
+  const notice = node('p', null, 'work-data-notice'); notice.id = 'workDataNotice'; notice.tabIndex = -1; notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite');
+  const progress = node('div', null, 'work-data-progress'); progress.id = 'workDataProgress'; progress.tabIndex = -1; progress.setAttribute('role', 'status'); progress.setAttribute('aria-live', 'polite');
   const submit = button('operation.enable', 'workDataSubmit', event => { event.preventDefault(); void submitJob(); }); submit.type = 'submit';
   const reconnect = button('refresh', 'workDataRefresh', () => void refresh());
   const cancel = button('cancel', 'workDataCancel', () => void cancelJob());
@@ -96,11 +121,34 @@ export function mountWorkDataSettings() {
   const clear = button('clearDraft', 'workDataClearDraft', () => { if (clear.disabled) return; clearSecrets(); upload.value = ''; confirmRestore.checked = false; notice.textContent = ''; render(); });
   const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect, download, clear);
   const restartNotice = node('p', 'restartNotice', 'field-help work-data-restart-notice'); restartNotice.id = 'workDataRestartNotice'; restartNotice.hidden = true;
-  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, restartNotice, unavailable, notice, progress, actions);
+  // 151 阶段 3B · W14：启用加密前的二次确认。点「启用加密」只打开这一段；口令留在输入框里直到「确认启用」才提交并清空。
+  // 键盘：打开时焦点落在「返回修改」（按住或连按 Enter 只会退回，不会误启用），Tab 可到「确认启用」，Esc 等同返回并把焦点还给提交按钮。
+  const confirmBox = node('div', null, 'work-data-confirm'); confirmBox.id = 'workDataConfirm'; confirmBox.hidden = true;
+  confirmBox.setAttribute('role', 'alertdialog'); confirmBox.setAttribute('aria-labelledby', 'workDataConfirmTitle'); confirmBox.setAttribute('aria-describedby', 'workDataConfirmBody');
+  const confirmTitle = node('strong', 'confirmEnableTitle'); confirmTitle.id = 'workDataConfirmTitle';
+  const confirmBody = node('ul', null, 'field-help'); confirmBody.id = 'workDataConfirmBody';
+  for (const key of ['confirmEnablePause', 'confirmEnablePassword', 'confirmEnableRetained']) confirmBody.append(node('li', key));
+  // 确认后这段收起：焦点交给提示行（它马上报「正在提交」，之后报回执或错误），不掉到 body 上。
+  const confirmGo = button('confirmEnableGo', 'workDataConfirmGo', () => { if (!confirming) return; closeConfirm(false); void submitJob(true); focus(notice); });
+  const confirmBack = button('confirmEnableBack', 'workDataConfirmBack', () => closeConfirm(true));
+  const confirmActions = node('div', null, 'work-data-actions'); confirmActions.append(confirmGo, confirmBack);
+  confirmBox.append(confirmTitle, confirmBody, confirmActions);
+  // Esc 只关这一段确认，不能冒泡上去把整个设置弹窗也关掉（设置弹窗自己也听 Esc）。
+  confirmBox.addEventListener('keydown', event => {
+    if (!event || event.key !== 'Escape' || !confirming) return;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    closeConfirm(true);
+  });
+  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, restartNotice, unavailable, notice, progress, confirmBox, actions);
   host.append(heading, summary, scope, retained, form);
   let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
-  let pendingRestore = null, restoreServing = null;
+  let pendingRestore = null, restoreServing = null, confirming = false;
   const active = () => !!job && !TERMINAL.has(job.state);
+  const focus = element => { try { if (element && typeof element.focus === 'function') element.focus(); } catch { /* focus is a convenience */ } };
+  const confirmOpenForUser = () => { try { return typeof document.activeElement !== 'undefined' && !!document.activeElement && confirmBox.contains(document.activeElement); } catch { return false; } };
+  function openConfirm() { confirming = true; render(); focus(confirmBack); }
+  function closeConfirm(returnFocus) { const was = confirming; confirming = false; render(); if (was && returnFocus) focus(submit); }
   const validAuthority = value => value && Number.isSafeInteger(value.generation) && value.generation >= 0 && ['plain', 'encrypted'].includes(value.mode)
     && (value.id === null || /^[a-f0-9]{48}$/.test(value.id || '')) && (value.sha256 === null || /^[a-f0-9]{64}$/.test(value.sha256 || ''));
   const validJob = value => value && /^[a-f0-9]{48}$/.test(value.id || '') && OPERATIONS.includes(value.operation) && STATES.includes(value.state)
@@ -151,7 +199,13 @@ export function mountWorkDataSettings() {
     summary.replaceChildren(node('span', stale ? 'lastKnownMode' : 'currentMode', 'work-data-eyebrow'));
     const mode = current?.authority?.mode, label = node('strong'); label.textContent = t('workData.mode.' + (mode || 'unknown')); summary.append(label);
     const saved = node('p', null, 'field-help'); saved.textContent = t('workData.' + (mode === 'encrypted' ? 'encryptedHelp' : mode === 'plain' ? 'plainHelp' : 'unknownHelp')); summary.append(saved); summary.dataset.mode = mode || 'unknown';
-    const blocked = blockedByCapability(), disabled = !current || stale || loading || writing || picking || active() || unknownSubmission;
+    const blocked = blockedByCapability(), busy = !current || stale || writing || picking || active() || unknownSubmission;
+    // The confirmation belongs to the form exactly as it stood when it opened: any state that would refuse the submit closes it.
+    // 151 阶段 3B 复审建议 5：表单变忙而自动收起确认段时，焦点若还在段里，挪到看得见的状态区（进度区，否则提示行），不掉到 body。
+    let refocus = false;
+    if (confirming && (busy || operation.value !== 'enable')) { refocus = confirmOpenForUser(); confirming = false; }
+    confirmBox.hidden = !confirming; confirmGo.disabled = !confirming || loading; confirmBack.disabled = !confirming;
+    const disabled = busy || loading || confirming;
     for (const control of [operation, backup, pickBackup, parent, pickParent, name, password, confirmation, plaintext, confirmRestore]) control.disabled = disabled;
     // Only the ordinary disabled state disables the file picker: the selected
     // File is a user-owned draft, and capability refusals are surfaced (and
@@ -179,12 +233,22 @@ export function mountWorkDataSettings() {
     // One action for the one current result. It is offered only when the service
     // advertises the transfer and a verified result exists, and every state that
     // makes the receipt stale disables it instead of guessing.
-    const downloadable = !downloading && !!lastResult && /^[a-f0-9]{48}$/.test(lastResult.id || '') && current?.capabilities?.download === true;
+    const backupNotice = workDataBackupNoticeKey(lastResult);
+    const downloadable = !downloading && !!lastResult && /^[a-f0-9]{48}$/.test(lastResult.id || '') && current?.capabilities?.download === true && !workDataBackupBlocksSave(lastResult);
     download.hidden = !lastResult; download.disabled = disabled || !downloadable;
     progress.replaceChildren();
     if (job) {
       const line = node('strong'); line.textContent = t('workData.job.' + job.state); progress.append(line);
       const help = node('p', null, 'field-help'); help.textContent = t(workDataJobHelpKey(job)); progress.append(help);
+      const drain = (job.state === 'draining' || job.error === 'work_data_setup.drain_timeout') ? workDataDrainLines(job) : null;
+      if (drain) {
+        const waited = node('p', null, 'field-help work-data-drain'); waited.id = 'workDataDrainWaited'; waited.textContent = drain.waited; progress.append(waited);
+        if (drain.blockers.length) {
+          const list = node('ul', null, 'field-help work-data-blockers'); list.id = 'workDataDrainBlockers';
+          for (const text of drain.blockers) { const item = node('li'); item.textContent = text; list.append(item); }
+          progress.append(list);
+        } else { const none = node('p', null, 'field-help'); none.textContent = drain.none; progress.append(none); }
+      }
       if (job.error) {
         const value = typeof job.error === 'string' && /^[\w.-]{1,128}$/.test(job.error) ? job.error : 'work_data_setup.job_failed';
         const reasonKey = apiErrorCopyKey(value);
@@ -202,8 +266,17 @@ export function mountWorkDataSettings() {
       if (lastResult.operation === 'restore' && lastResult.state === 'verified' && typeof lastResult.restored?.target === 'string') {
         const result = node('p', null, 'field-help'); result.textContent = t('workData.restoreVerified', { target: lastResult.restored.target }); progress.append(result);
       }
+      if (backupNotice) { const line = node('p', backupNotice.slice('workData.'.length), 'field-help work-data-notice'); line.id = 'workDataBackupNotice'; progress.append(line); }
+    } else if (!stale && typeof current?.lastResultError === 'string' && /^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(current.lastResultError)) {
+      // 150 W2：回执读不出来不再让整面板失效；说明这一句，其余操作照常可用。
+      const line = node('p', null, 'field-help work-data-notice'); line.id = 'workDataResultNotice';
+      // 「不影响其他操作」只对单纯读不出回执（result_unavailable）成立；其他码（例如来源已不确定）按码自己的说明讲。
+      line.textContent = current.lastResultError === 'work_data_setup.result_unavailable'
+        ? t('workData.lastResultUnreadable', { code: current.lastResultError }) : codeText(current.lastResultError, 'workData.unavailable');
+      progress.append(line);
     }
     progress.hidden = progress.children.length === 0;
+    if (refocus) focus(progress.hidden ? notice : progress);
   }
   function schedule() {
     if (timer) clearTimeout(timer); timer = null;
@@ -298,8 +371,10 @@ export function mountWorkDataSettings() {
     } catch (error) { report(error); }
     finally { downloading = false; render(); }
   }
-  async function submitJob() {
+  async function submitJob(confirmed = false) {
     render(); if (submit.disabled || writing) return;
+    // 151 阶段 3B · W14：启用加密先过二次确认；确认这一下才真正提交，取消/Esc 不发任何请求、不清空口令。
+    if (operation.value === 'enable' && confirmed !== true) { openConfirm(); return; }
     const restoring = operation.value === 'restore', file = restoring ? selectedFile() : null;
     if (restoring && !file) return;
     writing = true; revision++; submittedAuthority = JSON.stringify(current.authority); trackedId = null;
@@ -349,6 +424,8 @@ export function mountWorkDataSettings() {
   operation.addEventListener('change', () => { clearSecrets(); confirmRestore.checked = false; render(); });
   const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); render(); };
   window.addEventListener('i18n:change', translate);
-  const controller = Object.freeze({ refresh, dispose() { disposed = true; if (timer) clearTimeout(timer); clearSecrets(); upload.value = ''; confirmRestore.checked = false; window.removeEventListener('i18n:change', translate); } });
+  // 设置页的后台刷新（refreshStatus → fillSettings → mountWorkDataSettings）也走这里：用户正在答（焦点在确认段里）时不打断；
+  // 焦点已不在确认段（弹窗被整体关掉后重新打开）才收起上一次没答的确认，并把焦点还给提交按钮。
+  const controller = Object.freeze({ refresh() { if (confirming && !confirmOpenForUser()) closeConfirm(true); return refresh(); }, dispose() { disposed = true; if (timer) clearTimeout(timer); clearSecrets(); upload.value = ''; confirmRestore.checked = false; window.removeEventListener('i18n:change', translate); } });
   panels.set(host, controller); void refresh(); return controller;
 }

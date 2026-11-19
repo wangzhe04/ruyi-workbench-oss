@@ -111,3 +111,32 @@ test('readAuthority callback stage creation is caught again before normal reader
  const reader=api.create({...f.host,readAuthority:async()=>{if(!injected){injected=true;await io.writeFile(stage,'KEEP CALLBACK');}return f.manifest.readActive();}});
  await assert.rejects(()=>reader.read(),{code:'work_data_result.stage_pending'});assert.equal(await io.readFile(stage,'utf8'),'KEEP CALLBACK');
 });
+
+// 151 阶段 3B · 150 W2：status 只观察回执与备份包的元数据；包被移动、改名回来、复制替换或删除都不让读回执失败。
+test('observe keeps the exact record readable while the real package is moved, renamed back, replaced by a copy or deleted',async t=>{
+ const f=await fixture(t);await f.owner.write(f.value);const fresh=api.create({base:f.base,ownership:f.ownership,assertExclusive:f.host.assertExclusive,readAuthority:f.host.readAuthority});
+ const state=async()=>{const value=await fresh.observe();assert.equal(value.id,id);assert.equal(value.proof.sha256,hash(await io.readFile(f.file)));return value.backupState;};
+ assert.equal(await state(),'present');
+ const moved=f.backup.path+'.moved';await io.rename(f.backup.path,moved);
+ assert.equal(await state(),'missing');await assert.rejects(()=>fresh.read(),{code:'work_data_result.backup_missing'});
+ await io.rename(moved,f.backup.path);assert.equal(await state(),'present');assert.equal((await fresh.read()).id,id);
+ await io.rename(f.backup.path,moved);await io.copyFile(moved,f.backup.path);
+ assert.equal(await state(),'changed','a byte-identical copy has a new native identity');await assert.rejects(()=>fresh.read(),{code:'work_data_result.backup_changed'});
+ await io.unlink(f.backup.path);await io.unlink(moved);assert.equal(await state(),'missing');
+ await io.rm(f.outside,{recursive:true,force:true});assert.equal(await state(),'missing','a removed backup directory is still only missing');
+});
+test('observe still refuses a changed record, an unknown stage and a stale authority exactly like read',async t=>{
+ const f=await fixture(t);assert.equal(await f.owner.observe(),null);await f.owner.write(f.value);
+ await io.writeFile(p.join(f.base,'.work-data',api.STAGE+'f'.repeat(48)+'.json'),'{}');
+ await assert.rejects(()=>f.owner.observe(),{code:'work_data_result.stage_pending'});
+ await io.unlink(p.join(f.base,'.work-data',api.STAGE+'f'.repeat(48)+'.json'));
+ const before=await f.manifest.readActive(),candidate=await f.manifest.prepare({expected:before,mode:'encrypted'});await f.manifest.commit({expected:before,candidate});
+ assert.equal(await f.owner.observe(),null,'a record for another authority is not the current receipt');
+ f.state.owned=false;await assert.rejects(()=>f.owner.observe(),{code:'work_data_result.ownership_required'});
+});
+test('3B review: a backup folder replaced by a junction or symlink is observed as changed, matching read()',async t=>{
+ const f=await fixture(t);await f.owner.write(f.value);const real=f.outside+'-real';
+ await io.rename(f.outside,real);await io.symlink(real,f.outside,process.platform==='win32'?'junction':'dir');
+ assert.equal((await f.owner.observe()).backupState,'changed');await assert.rejects(()=>f.owner.read(),{code:'work_data_result.path_alias'});
+ await io.unlink(f.outside);await io.rename(real,f.outside);assert.equal((await f.owner.observe()).backupState,'present');
+});

@@ -27,13 +27,14 @@ function fixture(respond,rawRespond){
   removeEventListener(key,handler){this.events.set(key,(this.events.get(key)||[]).filter(fn=>fn!==handler));}
   dispatchEvent(event){for(const handler of this.events.get(event.type)||[])handler(event);return !event.defaultPrevented;}
   click(){this.dispatchEvent({type:'click',defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}});}
+  contains(node){for(let n=node;n;n=n.parentNode)if(n===this)return true;return false;}
   remove(){if(this.parentNode){this.parentNode.children=this.parentNode.children.filter(item=>item!==this);this.parentNode=null;}}
   querySelectorAll(selector){const rows=[];const visit=e=>{for(const child of e.children){if(selector==='[data-i18n]'&&child.dataset.i18n||selector==='input'&&child.tagName==='INPUT'||selector==='form'&&child.tagName==='FORM')rows.push(child);visit(child);}};visit(this);return rows;}
  }
  const host=new Element('section');host.id='workDataSettings';
  const body=new Element('body');
  const find=id=>{const walk=e=>e.id===id?e:e.children.map(walk).find(Boolean);return walk(host);};
- const document={getElementById:find,createElement:tag=>{const element=new Element(tag);created.push(element);return element;},body};
+ const document={getElementById:find,createElement:tag=>{const element=new Element(tag);created.push(element);return element;},body,activeElement:null};
  const window={addEventListener:(name,fn)=>{if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(fn);},removeEventListener:(name,fn)=>listeners.get(name)?.delete(fn)};
  const dictionaries=Object.fromEntries(['en-US','zh-CN'].map(lang=>[lang,JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/locales',lang+'.json'),'utf8'))]));
  const t=(key,params={})=>{let value=dictionaries[locale][key]||key;for(const[k,v]of Object.entries(params))value=value.replaceAll('{{'+k+'}}',String(v));return value;};
@@ -52,7 +53,7 @@ function fixture(respond,rawRespond){
  const event=type=>({type,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}});
  const flush=async()=>{for(let i=0;i<5;i++)await new Promise(setImmediate);};
  const setFiles=(element,value)=>{element.files=value===null||value===undefined?null:Array.isArray(value)?value:[value];};
- return {panel,mount,host,find,calls,rawCalls,created,timers,flush,change(id,value,type='input'){const e=find(id);if(typeof value==='boolean')e.checked=value;else if(e&&e.type==='file')setFiles(e,value);else e.value=value;e.dispatchEvent(event(type));},selectFile(id,value){const e=find(id);setFiles(e,value);e.dispatchEvent(event('change'));},click(id){const e=find(id);if(!e.disabled)e.dispatchEvent(event('click'));},async poll(){const first=timers.entries().next().value;if(first){timers.delete(first[0]);first[1]();await flush();}},language(lang){locale=lang;for(const fn of listeners.get('i18n:change')||[])fn();}};
+ return {panel,mount,host,find,setActive(id){document.activeElement=id?find(id):null;},calls,rawCalls,created,timers,flush,change(id,value,type='input'){const e=find(id);if(typeof value==='boolean')e.checked=value;else if(e&&e.type==='file')setFiles(e,value);else e.value=value;e.dispatchEvent(event(type));},selectFile(id,value){const e=find(id);setFiles(e,value);e.dispatchEvent(event('change'));},click(id){const e=find(id);if(!e.disabled)e.dispatchEvent(event('click'));},async poll(){const first=timers.entries().next().value;if(first){timers.delete(first[0]);first[1]();await flush();}},language(lang){locale=lang;for(const fn of listeners.get('i18n:change')||[])fn();}};
 }
 const authority=(mode='plain')=>({generation:mode==='plain'?0:1,id:mode==='plain'?null:'b'.repeat(48),mode,sha256:mode==='plain'?null:'c'.repeat(64)});
 const job=(extra={})=>({id:'a'.repeat(48),operation:'enable',state:'draining',createdAt:'2026-10-24T00:00:00Z',cancellable:true,takeover:false,retry:false,error:null,operationMayHaveExecuted:false,...extra});

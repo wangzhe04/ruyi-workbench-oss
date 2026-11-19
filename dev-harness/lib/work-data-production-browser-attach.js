@@ -513,7 +513,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     // settings item starts inside the hidden gear menu).
     const selectors = new Set(['#appGearBtn', '#openSettingsBtn', '#settingsTabs [data-stab="security"]',
       '#workDataOperation', '#workDataPickBackup', '#workDataPickParent', '#workDataRestoreName',
-      '#workDataRestoreFile', '#workDataPassword', '#workDataPasswordConfirm', '#workDataConfirmRestore', '#workDataSubmit',
+      '#workDataRestoreFile', '#workDataPassword', '#workDataPasswordConfirm', '#workDataConfirmRestore', '#workDataSubmit', '#workDataConfirmGo',
       '#settingsModal [data-close-modal]', '[data-lens="classic"]', '#sessionSearch', '#railList .rail-search-snippet']);
     function uiStep(label, selector = null) {
       assert.ok(selector === null || selectors.has(selector), 'diagnostic selector must be fixed');
@@ -611,6 +611,8 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       healthy(); assert.equal(facts.uploads.length, 0); assert.equal(facts.jobs.length, 0);
       await click('#workDataSubmit');
       if (!restoring) {
+        // 151 阶段 3B · 150 W14：启用加密先过二次确认，这一下才真正提交。
+        uiStep('confirm-enable', '#workDataConfirmGo'); await click('#workDataConfirmGo');
         try { await waitUntil(() => facts.jobs[0]?.accepted?.id, 60000, 'actual enable job receipt'); }
         catch (error) { throw pendingProofFailure || error; }
         return facts.jobs[0].accepted.id;

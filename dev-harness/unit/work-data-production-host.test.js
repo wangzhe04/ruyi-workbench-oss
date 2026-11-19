@@ -314,7 +314,8 @@ function createSetup(f) {
 test('a completed result receipt read through workerHooks advertises the installed package transfer but no worker', async () => {
   const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
   const receipt = Object.freeze({ schema: 1, id: 'd'.repeat(48), operation: 'disable', state: 'published', authority: f.fullAuthority });
-  f.workerHooks.readResult = async () => receipt;
+  // 151 阶段 3B（150 W2）：status 读的是 installWarm 装上的 observeResult（只读记录、不进 operation），successor/下载仍走 readResult。
+  f.workerHooks.observeResult = f.workerHooks.readResult = async () => receipt;
   const { setup, counters } = createSetup(f);
   const status = await setup.status();
   assert.deepEqual(status.lastResult, receipt); assert.equal(status.job, null);
@@ -331,12 +332,14 @@ test('a completed result receipt read through workerHooks advertises the install
   await f.finishWarm(warm);
 });
 
-test('an unreadable worker result refuses status as 503 result_unavailable instead of a worker advertisement', async () => {
+// 151 阶段 3B（150 W2）：回执读不出来不再让 status 整体 503（修前面板因此全部禁用）；status 照常回答，lastResult 为空并带稳定码。
+test('an unreadable worker result is reported as lastResultError without refusing status or advertising a worker', async () => {
   const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
-  f.workerHooks.readResult = async () => { throw Object.assign(Error('modeled result record changed'), { code: 'work_data_result.record_changed' }); };
+  f.workerHooks.observeResult = f.workerHooks.readResult = async () => { throw Object.assign(Error('modeled result record changed'), { code: 'work_data_setup.result_unavailable' }); };
   const { setup, counters } = createSetup(f);
-  await assert.rejects(() => setup.status(), error => error.code === 'work_data_setup.result_unavailable'
-    && error.apiCode === 'work_data_setup.result_unavailable' && error.statusCode === 503);
+  const status = await setup.status();
+  assert.equal(status.ok, true); assert.equal(status.lastResult, null); assert.equal(status.lastResultError, 'work_data_setup.result_unavailable');
+  assert.equal(status.capabilities.worker, false); assert.equal(status.capabilities.download, false);
   assert.equal(f.workerHooks.start, undefined); assert.equal(counters.drains, 0); assert.equal(counters.queues, 0);
   await f.finishWarm(warm);
 });
@@ -399,7 +402,7 @@ test('the real package route serves the installed runtime bytes and advertises t
   const id = 'd'.repeat(48), file = path.join(f.paths.backup, 'ruyi-work-data-' + id + '.ruyi-backup'), bytes = Buffer.from('route-verified package bytes');
   f.memory.put(file, bytes);
   const record = { id, backup: { path: file, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), identity: { dev: '1', ino: String(f.memory.stat(file).ino) } } };
-  f.bindings.resultApi = { create() { return { async read() { return record; } }; } };
+  f.bindings.resultApi = { create() { return { async read() { return record; }, async observe() { return record; } }; } };
   const { setup, counters } = createSetup(f);
   const pathname = '/api/work-data/results/' + id + '/package';
   const request = extra => ({ method: 'GET', url: pathname, socket: { localPort: 34567, remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:34567' }, ...extra });
@@ -1432,4 +1435,107 @@ test('cold migration refuses async owner predicates before factory creation and 
   let complete;f.nativeBindings.migrationHost.create=()=>Object.fromEntries(['prepare','publish','cancel','verifyPublished'].map(name=>[name,()=>new Promise(resolve=>{complete=resolve;})]));
   const host=f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:()=>true}),pending=host.prepare({});
   await waitForModel(()=>complete);f.state.unknown=true;complete({late:true});await assert.rejects(pending,{code:'work_data_adapter.helper_uncertain'});assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+});
+
+// ── 151 阶段 3B · 150 W2 / W9：status 与备份包解耦，交接期 status 不进 operation ─────────────────
+// 结果回执与它记下的备份包放进内存盘；backup 目录在数据根之外。status 读的是 installWarm 装上的 observeResult。
+function seedObservedResult(f, bytes = Buffer.from('synthetic recovery package bytes for status observation')) {
+  const crypto = require('node:crypto'), id = 'd'.repeat(48), control = path.join(f.paths.base, '.work-data');
+  f.memory.mkdir(control);
+  const file = path.join(f.paths.backup, 'ruyi-work-data-' + id + '.ruyi-backup'); f.memory.put(file, bytes);
+  const record = { schema: 1, id, operation: 'export', state: 'verified', finishedAt: '2026-11-19T00:00:00.000Z',
+    sourceAuthority: { ...f.fullAuthority }, authority: { ...f.fullAuthority },
+    backup: { path: file, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length, identity: { dev: '1', ino: String(f.memory.stat(file).ino) } } };
+  assert.equal(f.api.result.validate(record), true);
+  f.memory.put(path.join(control, f.api.result.NAME), JSON.stringify(record));
+  return { id, file, record, bytes };
+}
+const packageRequest = id => { const pathname = '/api/work-data/results/' + id + '/package';
+  return { pathname, request: { method: 'GET', url: pathname, socket: { localPort: 34567, remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:34567' } } }; };
+
+test('W2: a moved, renamed-back, copied or deleted package never refuses status, never retains the source and is typed on download', async () => {
+  const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
+  const seeded = seedObservedResult(f), { setup } = createSetup(f), { pathname, request } = packageRequest(seeded.id);
+  let status = await setup.status();
+  assert.equal(status.lastResult.id, seeded.id); assert.equal(status.lastResult.backupState, 'present'); assert.equal(status.lastResultError, undefined);
+  assert.equal(f.state.resultReads, 0, 'status observes the record; it never runs the verified (package-hashing) read');
+  const moved = seeded.file + '.moved'; await f.memory.io.rename(seeded.file, moved);
+  status = await setup.status();
+  assert.equal(status.ok, true); assert.equal(status.lastResult.id, seeded.id); assert.equal(status.lastResult.backupState, 'missing');
+  assert.equal(status.capabilities.upload, true); assert.equal(f.factory.helperMayStillRun(), false, 'a moved package is not source uncertainty');
+  await assert.rejects(() => setup.handle(request, {}, pathname), error => error.code === 'work_data_setup.package_missing' && error.statusCode === 404);
+  assert.equal(f.factory.helperMayStillRun(), false);
+  // Renamed back: same identity, so the very same receipt is usable again (修前这里仍 503)。
+  await f.memory.io.rename(moved, seeded.file);
+  status = await setup.status(); assert.equal(status.lastResult.backupState, 'present');
+  const response = {}; assert.equal(await setup.handle(request, response, pathname), true); assert.ok(response.package.bytes.equals(seeded.bytes));
+  // A copy put back in place has a new native identity: changed, and the hash-bound download still refuses it.
+  await f.memory.io.rename(seeded.file, moved); f.memory.put(seeded.file, seeded.bytes);
+  status = await setup.status(); assert.equal(status.lastResult.backupState, 'changed');
+  await assert.rejects(() => setup.handle(request, {}, pathname), error => error.code === 'work_data_setup.package_unavailable');
+  // Deleted outright.
+  await f.memory.io.unlink(seeded.file); await f.memory.io.unlink(moved);
+  status = await setup.status(); assert.equal(status.lastResult.backupState, 'missing');
+  assert.equal(f.factory.helperMayStillRun(), false); assert.ok(f.servers.every(server => server.closeCalls === 0));
+  await f.finishWarm(warm);
+});
+
+test('W2: an unreadable record is a typed observation failure without retaining the source', async () => {
+  const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
+  f.memory.mkdir(path.join(f.paths.base, '.work-data'));
+  f.memory.put(path.join(f.paths.base, '.work-data', f.api.result.NAME), '{"not":"a result record"}');
+  // 3B 复审建议 3：记录自己的稳定原因码透传（record_invalid / stage_pending / path_alias…），不再一律 result_unavailable。
+  await assert.rejects(() => f.workerHooks.observeResult(), error => error.code === 'work_data_result.record_invalid' && error.statusCode === 503);
+  assert.equal(f.factory.helperMayStillRun(), false);
+  const { setup } = createSetup(f), status = await setup.status();
+  assert.equal(status.lastResult, null); assert.equal(status.lastResultError, 'work_data_result.record_invalid');
+  // The source is still healthy: a later valid record is observed normally.
+  const seeded = seedObservedResult(f); assert.equal((await setup.status()).lastResult.id, seeded.id);
+  await f.finishWarm(warm);
+});
+
+test('W9: a status observation is never in flight for retirement, while the verified reader still is (same-moment double read)', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  f.state.maintenance.phase = 'retired'; assert.equal(host.isRetired(), true);
+  // Hold both readers at the same IO boundary (lstat under the data root).
+  const lstat = f.memory.io.lstat, held = []; f.memory.io.lstat = (...args) => new Promise(resolve => held.push(() => resolve(lstat(...args))));
+  const observe = f.workerHooks.observeResult(); await tick();
+  assert.ok(held.length > 0, 'the observation is parked inside its own IO');
+  assert.equal(host.isRetired(), true, 'a parked status observation does not hold the retirement receipt open');
+  const verified = warm.session.readResult(); await tick();
+  assert.equal(host.isRetired(), false, 'control: the verified source-scoped read in the same instant does block retirement');
+  f.memory.io.lstat = lstat; while (held.length) { held.shift()(); await tick(); }
+  assert.equal(await observe, null); assert.equal(await verified, null);
+  assert.equal(host.isRetired(), true); assert.equal(f.factory.helperMayStillRun(), false);
+});
+
+test('W9: observation is refused without retention while a warm job exists', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  const seeded = seedObservedResult(f);
+  const { setup } = createSetup(f); assert.equal((await setup.status()).lastResult.id, seeded.id);
+  let release; const gate = new Promise(resolve => { release = resolve; });
+  const handle = { ready: Promise.resolve(), failure: new Promise(() => {}), cancel: async () => {}, commit: async () => {}, assertArmed() {}, handoff: async () => {} };
+  const started = host.withWarmSource({}, async () => { await gate; return handle; }); await tick();
+  await assert.rejects(() => f.workerHooks.observeResult(), error => error.code === 'work_data_setup.result_deferred');
+  assert.equal(f.factory.helperMayStillRun(), false, 'a refused observation never retains');
+  release(); const job = await started; await job.cancel();
+  assert.equal((await f.workerHooks.observeResult()).id, seeded.id);
+  await f.finishWarm(warm);
+});
+
+test('3B review: after a warm job retains the source, status reports source_uncertain instead of a stale cached result', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  const seeded = seedObservedResult(f), { setup } = createSetup(f), { pathname, request } = packageRequest(seeded.id);
+  const before = await setup.status(); assert.equal(before.lastResult.id, seeded.id); assert.equal(before.capabilities.download, true);
+  const handle = { ready: Promise.resolve(), failure: new Promise(() => {}), cancel: async () => { throw Object.assign(Error('modeled cancel failure'), { code: 'synthetic.cancel_failed' }); },
+    commit: async () => {}, assertArmed() {}, handoff: async () => {} };
+  const job = await host.withWarmSource({}, async () => handle);
+  await assert.rejects(() => job.cancel()); assert.equal(f.factory.helperMayStillRun(), true, 'the failed cancel genuinely retained the source');
+  await assert.rejects(() => f.workerHooks.observeResult(), error => error.code === 'work_data_host.source_uncertain');
+  const after = await setup.status();
+  assert.equal(after.lastResult, null, 'no stale observation survives a retained source');
+  assert.equal(after.lastResultError, 'work_data_host.source_uncertain'); assert.equal(after.capabilities.download, false);
+  await f.memory.io.unlink(seeded.file);
+  const deleted = await setup.status(); assert.equal(deleted.lastResult, null); assert.equal(deleted.lastResultError, 'work_data_host.source_uncertain');
+  await assert.rejects(() => setup.handle(request, {}, pathname));
 });

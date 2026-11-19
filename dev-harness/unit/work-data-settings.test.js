@@ -11,7 +11,7 @@ test('password confirmation, byte bound, selected existing backup folder and cur
  const f=fixture(respond);await f.panel.refresh();assert.equal(f.find('workDataSubmit').disabled,true);await populate(f);assert.equal(f.find('workDataSubmit').disabled,false);f.change('workDataPasswordConfirm','other');assert.equal(f.find('workDataSubmit').disabled,true);f.change('workDataPassword','密'.repeat(400));f.change('workDataPasswordConfirm','密'.repeat(400));assert.equal(f.find('workDataSubmit').disabled,true);f.change('workDataPassword','short');f.change('workDataPasswordConfirm','short');assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0);f.panel.dispose();
 });
 test('one actual POST clears both secrets immediately and handoff never reports migration success or offers cancellation',async()=>{
- const hold=deferred(),a=authority();const f=fixture(route=>route==='/api/work-data/jobs'?hold.promise:respond(route));await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataSubmit');assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataPasswordConfirm').value,'');const writes=f.calls.filter(x=>x.route==='/api/work-data/jobs');assert.equal(writes.length,1);assert.deepEqual(writes[0].body.expectedAuthority,a);assert.equal(writes[0].body.password,'a long private password');assert.deepEqual(Object.keys(writes[0].body).sort(),['backupDirectory','expectedAuthority','operation','password']);hold.resolve({ok:true,job:job({state:'handoff',takeover:true,cancellable:false})});await f.flush();assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/Handing off/);assert.doesNotMatch(f.find('workDataProgress').textContent,/successfully|completed/i);assert.equal(f.find('workDataSummary').dataset.mode,'plain');f.panel.dispose();
+ const hold=deferred(),a=authority();const f=fixture(route=>route==='/api/work-data/jobs'?hold.promise:respond(route));await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataSubmit');assert.equal(f.find('workDataConfirm').hidden,false);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0);f.click('workDataConfirmGo');f.click('workDataConfirmGo');assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataPasswordConfirm').value,'');const writes=f.calls.filter(x=>x.route==='/api/work-data/jobs');assert.equal(writes.length,1);assert.deepEqual(writes[0].body.expectedAuthority,a);assert.equal(writes[0].body.password,'a long private password');assert.deepEqual(Object.keys(writes[0].body).sort(),['backupDirectory','expectedAuthority','operation','password']);hold.resolve({ok:true,job:job({state:'handoff',takeover:true,cancellable:false})});await f.flush();assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/Handing off/);assert.doesNotMatch(f.find('workDataProgress').textContent,/successfully|completed/i);assert.equal(f.find('workDataSummary').dataset.mode,'plain');f.panel.dispose();
 });
 test('disable requires explicit plaintext confirmation and sends only the complete expected authority',async()=>{
  const a=authority('encrypted');const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:route==='/api/work-data/jobs'?{ok:true,job:job({operation:'disable'})}:status({authority:a}));await f.panel.refresh();f.change('workDataOperation','disable','change');await populate(f);assert.equal(f.find('workDataSubmit').disabled,true);f.change('workDataConfirmPlaintext',true);assert.equal(f.find('workDataSubmit').disabled,false);f.click('workDataSubmit');await f.flush();const body=f.calls.find(x=>x.route==='/api/work-data/jobs').body;assert.equal(body.confirmPlaintext,true);assert.deepEqual(body.expectedAuthority,a);assert.equal(f.find('workDataConfirmPlaintext').checked,false);f.panel.dispose();
@@ -153,7 +153,7 @@ test('a failed restore job never uploads the package a second time',async()=>{
  }
 });
 test('a disconnected write is never retried; read-only polling reconnects to the actual job',async()=>{
- let posted=false;const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs'){posted=true;throw new TypeError('Failed to fetch');}if(route.includes('/jobs/'))return{ok:true,job:job({state:'uncertain',cancellable:false,takeover:true})};return status({job:posted?job({state:'uncertain',cancellable:false,takeover:true}):null});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();assert.match(f.find('workDataNotice').textContent,/interrupted/);assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.find('workDataPassword').disabled,true);await f.poll();await f.poll();assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs'&&x.method==='POST').length,1);assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/not yet confirmed/);assert.equal(f.find('workDataSummary').dataset.mode,'plain');f.panel.dispose();
+ let posted=false;const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs'){posted=true;throw new TypeError('Failed to fetch');}if(route.includes('/jobs/'))return{ok:true,job:job({state:'uncertain',cancellable:false,takeover:true})};return status({job:posted?job({state:'uncertain',cancellable:false,takeover:true}):null});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();assert.match(f.find('workDataNotice').textContent,/interrupted/);assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.find('workDataPassword').disabled,true);await f.poll();await f.poll();assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs'&&x.method==='POST').length,1);assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/not yet confirmed/);assert.equal(f.find('workDataSummary').dataset.mode,'plain');f.panel.dispose();
 });
 test('failed status reads label cached mode as last confirmed and prohibit stale-authority writes',async()=>{
  let fail=false;const f=fixture(route=>{if(fail&&route==='/api/work-data/status')throw new TypeError('Failed to fetch');return respond(route);});await f.panel.refresh();await populate(f);fail=true;await f.panel.refresh();assert.match(f.find('workDataSummary').textContent,/Last confirmed/);assert.equal(f.find('workDataSubmit').disabled,true);f.click('workDataSubmit');assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0);f.panel.dispose();
@@ -162,21 +162,21 @@ test('cancel uses backend eligibility and a lost cancel receipt cannot cause a r
  const f=fixture(route=>{if(route.endsWith('/cancel'))throw new TypeError('Failed to fetch');if(route.includes('/jobs/'))return{ok:true,job:job()};return status({job:job()});});await f.panel.refresh();assert.equal(f.find('workDataCancel').disabled,false);f.click('workDataCancel');f.click('workDataCancel');await f.flush();assert.equal(f.find('workDataCancel').disabled,true);const cancels=f.calls.filter(x=>x.route.endsWith('/cancel'));assert.equal(cancels.length,1);assert.equal(cancels[0].noTokenReplay,true,'a cancel POST must not be replayed after a 403 token refresh');f.panel.dispose();
 });
 test('an old maintenance receipt cannot resolve an unknown new submission',async()=>{
- const receipt={id:'d'.repeat(48),phase:'complete'};const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw new TypeError('Failed to fetch');return status({lastResult:receipt});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();await f.poll();assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);assert.match(f.find('workDataNotice').textContent,/interrupted/);f.panel.dispose();
+ const receipt={id:'d'.repeat(48),phase:'complete'};const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw new TypeError('Failed to fetch');return status({lastResult:receipt});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();await f.poll();assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);assert.match(f.find('workDataNotice').textContent,/interrupted/);f.panel.dispose();
 });
 test('HTTP 5xx, malformed success and unclassified throws remain uncertain and cannot enable a replacement write',async()=>{
  for(const failure of [Object.assign(Error('server response'),{status:503,code:'work_data_setup.result_unavailable'}),new SyntaxError('truncated success JSON'),Object.assign(Error('unclassified'),{code:'work_data_setup.worker_failed'})]){
-  const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw failure;return status();});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();assert.equal(f.find('workDataPassword').disabled,true);await f.poll();assert.equal(f.find('workDataPassword').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
+  const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw failure;return status();});await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();assert.equal(f.find('workDataPassword').disabled,true);await f.poll();assert.equal(f.find('workDataPassword').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
  }
 });
 test('an explicit HTTP 4xx refusal allows correction without automatically repeating the request',async()=>{
- const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw Object.assign(Error('refused before acceptance'),{status:409,code:'work_data_setup.authority_changed'});return status();});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();assert.equal(f.find('workDataPassword').disabled,false);assert.equal(f.find('workDataPassword').value,'');assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
+ const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw Object.assign(Error('refused before acceptance'),{status:409,code:'work_data_setup.authority_changed'});return status();});await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();assert.equal(f.find('workDataPassword').disabled,false);assert.equal(f.find('workDataPassword').value,'');assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
 });
 test('a status response from before cancellation cannot reopen the cancel button or overwrite its receipt',async()=>{
  let delay=false;const held=deferred();const f=fixture(route=>{if(route.endsWith('/cancel'))return{ok:true,job:job({state:'cancel_requested',cancellable:false})};if(route.includes('/jobs/'))return delay?held.promise:{ok:true,job:job()};return status({job:job()});});await f.panel.refresh();delay=true;const read=f.panel.refresh();await f.flush();f.click('workDataCancel');await f.flush();assert.equal(f.find('workDataCancel').disabled,true);held.resolve({ok:true,job:job()});await read;assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/cancellation requested/);assert.equal(f.calls.filter(x=>x.route.endsWith('/cancel')).length,1);f.panel.dispose();
 });
 test('terminal job remains readable by its tracked id after the controller clears active status',async()=>{
- let posted=false;const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs'){posted=true;return{ok:true,job:job({state:'queued'})};}if(route.includes('/jobs/'))return{ok:true,job:job({state:'failed',error:'work_data_setup.worker_failed',cancellable:false})};return status({job:null});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();assert.equal(posted,true);await f.poll();assert.match(f.find('workDataProgress').textContent,/did not finish/);assert.match(f.find('workDataProgress').textContent,/work_data_setup.worker_failed/);assert.equal(f.find('workDataProgress').hidden,false);f.panel.dispose();
+ let posted=false;const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs'){posted=true;return{ok:true,job:job({state:'queued'})};}if(route.includes('/jobs/'))return{ok:true,job:job({state:'failed',error:'work_data_setup.worker_failed',cancellable:false})};return status({job:null});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();assert.equal(posted,true);await f.poll();assert.match(f.find('workDataProgress').textContent,/did not finish/);assert.match(f.find('workDataProgress').textContent,/work_data_setup.worker_failed/);assert.equal(f.find('workDataProgress').hidden,false);f.panel.dispose();
 });
 test('locale refresh preserves secret draft and all four flat catalogs share the added keys',async()=>{
  const f=fixture(respond);await f.panel.refresh();f.change('workDataPassword','draft only');f.language('zh-CN');assert.equal(f.find('workDataHeading').textContent,'工作数据加密与迁移');assert.equal(f.find('workDataPassword').value,'draft only');f.panel.dispose();assert.equal(f.find('workDataPassword').value,'');const root=path.resolve(__dirname,'../..'),keys=[];for(const family of ['docs/i18n/locales','ruyi-workbench/app/public/locales'])for(const locale of ['zh-CN','en-US']){const catalog=JSON.parse(fs.readFileSync(path.join(root,family,locale+'.json'),'utf8'));keys.push(Object.keys(catalog).filter(k=>k.startsWith('workData.')).sort());}for(const k of keys)assert.deepEqual(k,keys[0]);assert.ok(keys[0].length>35);
@@ -369,7 +369,7 @@ test('cold-service failed and uncertain jobs are explained separately and ask fo
 test('refusal codes are shown as plain-language reasons with the code alongside, and the restart notice precedes a submit',async()=>{
  const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs')throw{code:'work_data_setup.busy',status:409};return status();});
  await f.panel.refresh();assert.equal(f.find('workDataRestartNotice').hidden,false);assert.match(f.find('workDataRestartNotice').textContent,/switches to a new process/);
- await populate(f);f.click('workDataSubmit');await f.flush();
+ await populate(f);f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();
  const notice=f.find('workDataNotice').textContent;assert.match(notice,/work data maintenance/i);assert.match(notice,/work_data_setup\.busy/);f.panel.dispose();
  const g=fixture(()=>status({capabilities:{worker:false,upload:true,download:false}}));await g.panel.refresh();
  assert.match(g.find('workDataUnavailable').textContent,/desktop app/);assert.match(g.find('workDataUnavailable').textContent,/work_data_setup\.worker_unavailable/);g.panel.dispose();
@@ -387,4 +387,88 @@ test('a wrapper failure shows the specific cause the cold service reported, in b
   const text=await scenario({reason});assert.doesNotMatch(text,/Underlying cause/,String(reason));assert.ok(!text.includes('private'),String(reason));
  }
  const badBytes=await scenario({reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:5,availableBytes:'x'}});assert.doesNotMatch(badBytes,/Needs/);assert.match(badBytes,/Underlying cause/);
+});
+
+// ── 151 阶段 3B · 150 W14 / W2：启用加密二次确认、draining 阻塞者、备份包不在原处 ──────────────────
+test('W14: enable asks for a second confirmation first; Escape and Back send nothing and keep the draft; keyboard focus moves to the choice',async()=>{
+ const f=fixture(route=>route==='/api/work-data/jobs'?{ok:true,job:job({state:'queued'})}:respond(route));await f.panel.refresh();await populate(f);
+ const focused=[];f.find('workDataConfirmGo').focus=()=>focused.push('go');f.find('workDataSubmit').focus=()=>focused.push('submit');f.find('workDataConfirmBack').focus=()=>focused.push('back');
+ assert.equal(f.find('workDataConfirm').hidden,true);assert.equal(f.find('workDataConfirm').getAttribute('role'),'alertdialog');
+ f.click('workDataSubmit');
+ assert.equal(f.find('workDataConfirm').hidden,false);assert.deepEqual(focused,['back'],'focus lands on Back, so a held or repeated Enter backs out instead of enabling');
+ assert.match(f.find('workDataConfirm').textContent,/Turn on work data encryption\?/);assert.match(f.find('workDataConfirm').textContent,/nobody can recover/);
+ assert.equal(f.find('workDataSubmit').disabled,true,'the form is frozen while the question is open');assert.equal(f.find('workDataPassword').disabled,true);
+ assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0,'opening the confirmation sends nothing');
+ const escape={type:'keydown',key:'Escape',defaultPrevented:false,stopped:false,preventDefault(){this.defaultPrevented=true;},stopPropagation(){this.stopped=true;}};f.find('workDataConfirm').dispatchEvent(escape);
+ assert.equal(escape.stopped,true,'Escape closes only the confirmation, never the settings dialog around it');
+ assert.equal(f.find('workDataConfirm').hidden,true);assert.deepEqual(focused,['back','submit'],'Escape returns focus to the submit button');
+ assert.equal(f.find('workDataPassword').value,'a long private password','backing out keeps the draft');assert.equal(f.find('workDataSubmit').disabled,false);
+ f.click('workDataSubmit');f.click('workDataConfirmBack');assert.equal(f.find('workDataConfirm').hidden,true);
+ assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0,'Back sends nothing either');
+ f.click('workDataSubmit');f.click('workDataConfirmGo');f.click('workDataConfirmGo');await f.flush();
+ const writes=f.calls.filter(x=>x.route==='/api/work-data/jobs');assert.equal(writes.length,1,'one confirmation, one POST');assert.equal(writes[0].body.operation,'enable');
+ assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataConfirm').hidden,true);
+ f.language('zh-CN');f.panel.refresh();await f.flush();
+ f.panel.dispose();
+});
+test('W14: disable and export keep their own confirmation and never open the enable question',async()=>{
+ const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:route==='/api/work-data/jobs'?{ok:true,job:job({operation:'export',state:'queued'})}:status());
+ await f.panel.refresh();f.change('workDataOperation','export','change');await populate(f);f.click('workDataSubmit');await f.flush();
+ assert.equal(f.find('workDataConfirm').hidden,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
+ const zh=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/locales/zh-CN.json'),'utf8'));
+ for(const key of ['confirmEnableTitle','confirmEnablePause','confirmEnablePassword','confirmEnableRetained','confirmEnableGo','confirmEnableBack'])assert.ok(zh['workData.'+key]?.length>1,key);
+});
+test('W14: draining shows who is blocking, how many and for how long; a timeout keeps the snapshot and explains the next step',async()=>{
+ const drain={startedAt:'2026-11-19T00:00:00.000Z',waitedMs:12400,limitMs:120000,timedOut:false,blockers:[{kind:'turns',count:2},{kind:'requests',count:1},{kind:'bogus',count:9}]};
+ let current=job({state:'draining',drain});
+ const f=fixture(route=>route.startsWith('/api/work-data/jobs/')?{ok:true,job:current}:status({job:current}));await f.panel.refresh();
+ const text=()=>f.find('workDataProgress').textContent;
+ assert.match(text(),/Waited 12 s \(at most 120 s\)/);assert.match(text(),/Conversation turns: 2/);assert.match(text(),/Requests in progress: 1/);assert.doesNotMatch(text(),/bogus|9 /);
+ current=job({state:'failed',cancellable:false,error:'work_data_setup.drain_timeout',drain:{...drain,waitedMs:120050,timedOut:true}});await f.poll();
+ assert.match(text(),/Still not finished after 120 s \(limit 120 s\)/);assert.match(text(),/Conversation turns: 2/);
+ assert.match(text(),/accepting work again/);assert.match(text(),/work_data_setup\.drain_timeout/);
+ f.language('zh-CN');assert.match(text(),/2 个对话回合/);assert.match(text(),/等了 120 秒仍未结束/);f.panel.dispose();
+});
+test('W2: a moved package keeps the panel usable, disables only the save action and says how to recover; an unreadable receipt is explained',async()=>{
+ const saved=(extra={})=>({schema:1,id:'d'.repeat(48),operation:'export',state:'verified',backup:{bytes:10},...extra});
+ let backupState='missing';const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:status({lastResult:saved({backupState}),capabilities:{worker:true,upload:false,download:true}}));
+ await f.panel.refresh();await populate(f);
+ assert.equal(f.find('workDataDownload').hidden,false);assert.equal(f.find('workDataDownload').disabled,true,'the save action waits for the package to come back');
+ assert.match(f.find('workDataBackupNotice').textContent,/no longer where it was saved/);assert.match(f.find('workDataBackupNotice').textContent,/export a new one/);
+ assert.equal(f.find('workDataSubmit').disabled,false,'every other operation stays available');
+ backupState='present';await f.panel.refresh();assert.equal(f.find('workDataDownload').disabled,false);assert.equal(f.find('workDataBackupNotice'),undefined);
+ backupState='changed';await f.panel.refresh();assert.equal(f.find('workDataDownload').disabled,true);assert.match(f.find('workDataBackupNotice').textContent,/replaced or modified/);
+ f.panel.dispose();
+ const g=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:status({lastResultError:'work_data_setup.result_unavailable'}));await g.panel.refresh();await populate(g);
+ assert.match(g.find('workDataResultNotice').textContent,/cannot be read right now \(work_data_setup\.result_unavailable\)/);assert.equal(g.find('workDataSubmit').disabled,false);g.panel.dispose();
+});
+test('W2 review: an unconfirmable package still allows a save attempt, and only a plain unreadable receipt claims nothing else is affected',async()=>{
+ const saved={schema:1,id:'d'.repeat(48),operation:'export',state:'verified',backup:{bytes:10},backupState:'unavailable'};
+ const f=fixture(()=>status({lastResult:saved,capabilities:{worker:true,upload:false,download:true}}));await f.panel.refresh();
+ assert.equal(f.find('workDataDownload').disabled,false,'unavailable is not proof of absence: the download route re-verifies');
+ assert.match(f.find('workDataBackupNotice').textContent,/checked again when you save it/);f.panel.dispose();
+ const g=fixture(()=>status({lastResultError:'work_data_host.source_uncertain',capabilities:{worker:false,upload:true,download:false}}));await g.panel.refresh();
+ assert.doesNotMatch(g.find('workDataResultNotice').textContent,/not affected/,'a source-uncertain observation never says the other operations are fine');
+ assert.match(g.find('workDataResultNotice').textContent,/work_data_host\.source_uncertain/);g.panel.dispose();
+});
+test('W14 review: confirming moves focus to the notice line; a background refresh keeps an answered-in-progress question, a reopen puts a stale one away',async()=>{
+ const f=fixture(route=>route==='/api/work-data/jobs'?{ok:true,job:job({state:'queued'})}:respond(route));await f.panel.refresh();await populate(f);
+ const focused=[];f.find('workDataNotice').focus=()=>focused.push('notice');f.find('workDataSubmit').focus=()=>focused.push('submit');
+ f.click('workDataSubmit');assert.equal(f.find('workDataConfirm').hidden,false);
+ // A background settings refresh while the user is answering (focus inside the box) leaves the question open.
+ f.setActive('workDataConfirmGo');assert.equal(f.mount(),f.panel);await f.flush();assert.equal(f.find('workDataConfirm').hidden,false,'a background refresh never interrupts the open question');
+ // Reopened after the dialog was closed elsewhere (focus outside the box): the stale question is put away and focus returns to submit.
+ f.setActive(null);assert.equal(f.mount(),f.panel);await f.flush();assert.equal(f.find('workDataConfirm').hidden,true,'a reopened panel starts without the old question');assert.deepEqual(focused,['submit']);focused.length=0;
+ assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0);
+ f.click('workDataSubmit');f.click('workDataConfirmGo');await f.flush();assert.deepEqual(focused,['notice'],'focus moves to the notice line that reports the submission');
+ assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1);f.panel.dispose();
+});
+test('3B review: a confirmation closed because the form became busy hands focus to a visible status element',async()=>{
+ let busy=false;const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:status(busy?{job:job({state:'draining'})}:{}));
+ await f.panel.refresh();await populate(f);const focused=[];
+ for(const id of ['workDataProgress','workDataNotice'])f.find(id).focus=()=>focused.push(id);
+ f.click('workDataSubmit');assert.equal(f.find('workDataConfirm').hidden,false);f.setActive('workDataConfirmGo');
+ busy=true;await f.panel.refresh();await f.flush();
+ assert.equal(f.find('workDataConfirm').hidden,true,'a job seen by the refresh closes the question');
+ assert.deepEqual(focused,['workDataProgress'],'focus moves to the visible progress region, not to body');f.panel.dispose();
 });

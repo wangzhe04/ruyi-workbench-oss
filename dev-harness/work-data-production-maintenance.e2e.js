@@ -352,12 +352,18 @@ function createWorld({root,evidence,target}){
    fs.writeFileSync(saved.backup.path,replaced);
    assertRefusal(await packageGet(ref,saved.id),503,'work_data_setup.package_unavailable',label+': replaced bytes');
   }finally{fs.writeFileSync(saved.backup.path,original);}
-  // A missing backup is typed unavailable, and restoring the same file restores the read.
+  // A missing backup is typed package_missing (151 阶段 3B · 150 W2), status keeps answering with the
+  // receipt marked missing and the same intake, and restoring the same file restores the read.
   const moved=saved.backup.path+'.moved';
   try{
    fs.renameSync(saved.backup.path,moved);
-   assertRefusal(await packageGet(ref,saved.id),503,'work_data_setup.package_unavailable',label+': missing backup');
+   assertRefusal(await packageGet(ref,saved.id),404,'work_data_setup.package_missing',label+': missing backup');
+   const whileMissing=await statusOf(ref);
+   a.equal(whileMissing.lastResult?.id,saved.id,label+': status still names the receipt while its package is missing');
+   a.equal(whileMissing.lastResult?.backupState,'missing',label+': status reports the package as missing');
+   a.equal(whileMissing.capabilities?.worker,true,label+': a missing package never removes the maintenance worker');
   }finally{fs.renameSync(moved,saved.backup.path);}
+  a.equal((await statusOf(ref)).lastResult?.backupState,'present',label+': the package is present again');
   const restored=await packageGet(ref,saved.id);
   a.equal(restored.status,200,label+': the restored backup is readable again');
   a.equal(core.H(restored.raw),saved.backup.sha256,label+': restored bytes hash to the record');
@@ -600,8 +606,10 @@ function createWorld({root,evidence,target}){
   a.equal(payload.row.ino,saved.backup.identity.ino);
   const resultFile=core.read(p.join(f.base,'.work-data','maintenance-result-v1.json'));
   const parsed=JSON.parse(resultFile.bytes);
-  const {proof,...body}=saved;
-  a.deepEqual(body,parsed,'durable result record equals the served lastResult minus its proof');
+  // 151 阶段 3B（150 W2）：status 另带一次 lstat 的包观察 backupState，它不在落盘记录里。
+  const {proof,backupState,...body}=saved;
+  a.equal(backupState,'present','status observes the freshly written package in place');
+  a.deepEqual(body,parsed,'durable result record equals the served lastResult minus its proof and package observation');
   a.equal(proof.sha256,resultFile.row.sha256);
   a.equal(proof.identity.dev,resultFile.row.dev);
   a.equal(proof.identity.ino,resultFile.row.ino);

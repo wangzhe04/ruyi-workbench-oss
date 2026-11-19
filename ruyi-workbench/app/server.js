@@ -13277,8 +13277,25 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
     async function inspect() {await admission();if(!await directory(root,true))return {present:false};const names=await io.readdir(root);if(names.some(name=>fold(name).startsWith(STAGE)))throw fail('stage_pending');
       if(!names.some(name=>fold(name)===NAME))return {present:false};const captured=await capture(file,LIMIT,true);return {present:true,captured,value:decode(captured.bytes)};}
     async function backup(value) {
-      if(inside(base,value.path))throw fail('backup_invalid');const captured=await capture(value.path,value.bytes,false);
+      if(inside(base,value.path))throw fail('backup_invalid');let captured;
+      // 150 W2: a package the user moved or deleted is an ordinary, typed
+      // condition (backup_missing), never a raw fs error the caller cannot tell
+      // apart from source uncertainty; a replaced or appended one is backup_changed.
+      try{captured=await capture(value.path,value.bytes,false);}
+      catch(error){if(['ENOENT','ENOTDIR'].includes(error?.code))throw fail('backup_missing');if(error?.code==='work_data_result.record_changed')throw fail('backup_changed');throw error;}
       if(captured.size!==value.bytes||captured.sha256!==value.sha256||!sameIdentity(captured.identity,value.identity))throw fail('backup_changed');
+    }
+    // Metadata-only observation of the recorded package for status (150 W2/W11):
+    // one lstat, never an open, read or hash. It decides nothing; the package
+    // routes still verify the actual bytes on an opened handle before use.
+    async function probe(value) {
+      if(inside(base,value.path))return 'unavailable';let stat;
+      // Same parent-directory alias rule as capture(): a backup folder replaced by a junction
+      // or symlink is not "present", because read() and the download refuse it as path_alias.
+      try{if(!await directory(p.dirname(value.path),true))return 'missing';}catch(error){return error?.code==='work_data_result.path_alias'?'changed':'unavailable';}
+      try{stat=await io.lstat(value.path,{bigint:true});}catch(error){return ['ENOENT','ENOTDIR'].includes(error?.code)?'missing':'unavailable';}
+      if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||stat.size!==BigInt(value.bytes)||!sameIdentity(identity(stat),value.identity))return 'changed';
+      return 'present';
     }
     async function captureTransitionBackup({id,backup: value}={}) {
       // A pending transition has a hash-bound original package but may have no
@@ -13299,6 +13316,16 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
       await backup(found.value.backup);if(!sameAuthority(found.value.authority,await selected()))throw fail('record_changed');
       const final=await inspect();if(!final.present||!sameRecord(found.captured,final.captured))throw fail('record_changed');
       return freeze({...found.value,proof:{sha256:found.captured.sha256,identity:found.captured.identity}});
+    }
+    // Status read (150 W2): the same exact record and authority checks as read(),
+    // but the backup package is only probed, so a moved, deleted or replaced
+    // package leaves the record readable and reports backupState instead of failing.
+    async function observe() {
+      const found=await inspect();if(!found.present)return null;
+      if(!sameAuthority(found.value.authority,await selected()))return null;
+      const backupState=await probe(found.value.backup);if(!sameAuthority(found.value.authority,await selected()))throw fail('record_changed');
+      const final=await inspect();if(!final.present||!sameRecord(found.captured,final.captured))throw fail('record_changed');
+      return freeze({...found.value,proof:{sha256:found.captured.sha256,identity:found.captured.identity},backupState});
     }
     async function verify(receipt) {
       const known=issued.get(receipt);if(!known)throw fail('receipt_invalid');const current=await inspect();
@@ -13328,7 +13355,7 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
         await verify(receipt);return receipt;
       }finally{writing=false;}
     }
-    return Object.freeze({write,verify,read,inspect,captureTransitionBackup});
+    return Object.freeze({write,verify,read,observe,inspect,captureTransitionBackup});
   }
   return Object.freeze({NAME,STAGE,validate,decode,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -113330,6 +113357,11 @@ const WorkDataHandoffClaim = ((io, p, c) => {
 // mutation, durable results and process handoff. A warm server never flips paths.
 const WorkDataSetup = (() => {
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/, PACKAGE = /^\/api\/work-data\/results\/[a-f0-9]{48}\/package$/;
+  // 150 W14: the longest a maintenance job waits for already-admitted work before
+  // it gives up and resumes intake. The busy counters 13ag snapshots are the
+  // blocker kinds the panel can name; anything else is reported as "other".
+  const DRAIN_LIMIT_MS = 120000;
+  const BLOCKER_KINDS = Object.freeze(['turns','agentRuns','scheduler','steward','externalBots','consumers','internalMcp','index','shells','services','helperRequests']);
   const fail = (suffix, statusCode = 409) => Object.assign(Error('work_data_setup.' + suffix), { code:'work_data_setup.' + suffix, apiCode:'work_data_setup.' + suffix, statusCode, retry:false });
   const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const exact = (value, keys) => object(value) && Object.keys(value).every(key => keys.includes(key));
@@ -113351,9 +113383,39 @@ const WorkDataSetup = (() => {
   }
   function create(host) {
     if(host.infrastructure!==undefined&&(!host.infrastructure||['prepareInfrastructure','closeInfrastructure','resumeInfrastructure'].some(name=>typeof host.infrastructure[name]!=='function')))throw fail('infrastructure_unavailable',503);
-    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false,desktopClosing=false;
-    const view=job=>Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
-      takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed});
+    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false,desktopClosing=false,observedResult=null;
+    // 150 W14: draining waits for admitted work, never aborts it, but no longer
+    // without bound. The view names who is still running, how many and for how
+    // long; past the limit the job fails with drain_timeout, intake resumes and
+    // the snapshot of blockers at that moment stays on the failed job.
+    const drainLimit=Number.isSafeInteger(host.drainLimitMs)&&host.drainLimitMs>0?host.drainLimitMs:DRAIN_LIMIT_MS;
+    const timers=host.timers&&typeof host.timers.setTimeout==='function'&&typeof host.timers.clearTimeout==='function'?host.timers
+      :typeof setTimeout==='function'&&typeof clearTimeout==='function'?{setTimeout,clearTimeout}:null;
+    const clock=typeof host.clock==='function'?host.clock:()=>Date.now();
+    function blockers(){
+      let observed;try{observed=host.maintenance.status();}catch{return [];}
+      if(!object(observed))return [];
+      const rows=[],count=value=>Number.isSafeInteger(value)&&value>0?value:0;
+      if(object(observed.busy))for(const [kind,value] of Object.entries(observed.busy)){const n=count(value);if(n)rows.push({kind:BLOCKER_KINDS.includes(kind)?kind:'other',count:n});}
+      const open=Array.isArray(observed.owners?.open)?observed.owners.open:[];
+      // Only HTTP and receipt owners are requests; every other admitted kind (scheduler tick, steward intake,
+      // a turn) is already counted by its own busy counter, and is named as "other" only when nothing else is.
+      const requests=open.filter(row=>object(row)&&(row.kind==='http'||row.kind==='receipt')).length,writers=count(observed.writers);
+      const unnamed=open.filter(row=>object(row)&&!['http','receipt','writer'].includes(row.kind)).length;
+      if(requests)rows.push({kind:'requests',count:requests});if(writers)rows.push({kind:'writes',count:writers});
+      if(unnamed&&!rows.length)rows.push({kind:'other',count:unnamed});
+      if(count(observed.dirty))rows.push({kind:'pendingWrites',count:1});
+      const merged=new Map();for(const row of rows)merged.set(row.kind,(merged.get(row.kind)||0)+row.count);
+      return [...merged].map(([kind,value])=>Object.freeze({kind,count:value}));
+    }
+    const drainView=job=>{
+      if(job.drainTimedOut)return job.drainTimedOut;
+      if(job.state!=='draining'||!Number.isSafeInteger(job.drainStartedMs))return null;
+      return Object.freeze({startedAt:new Date(job.drainStartedMs).toISOString(),waitedMs:Math.max(0,Math.round(clock()-job.drainStartedMs)),limitMs:drainLimit,
+        timedOut:false,blockers:Object.freeze(blockers())});
+    };
+    const view=job=>{const drain=drainView(job);return Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
+      takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed,...(drain?{drain}:{})});};
     const ensureExpected=async expected=>{const current=await host.inspect();if(!same(expected,authority(current.authority)))throw fail('authority_changed');return current;};
     const code=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed';
     const cancelled=job=>{if(job.cancelRequested)throw fail('cancelled');};
@@ -113370,11 +113432,31 @@ const WorkDataSetup = (() => {
       job.abort.signal.addEventListener('abort',abort,{once:true});if(job.abort.signal.aborted)return abort();
       ready.then(value=>{cleanup();resolve(value);},error=>{cleanup();reject(error);});
     });
+    // Bounded drain (150 W14). A timeout takes the same path as a user cancel during
+    // drain: the lease's own abort listener resumes intake and no admitted business
+    // owner is aborted; the blocker snapshot is frozen onto the job first.
+    const drained=job=>{
+      if(!timers)return job.lease.idle();
+      return new Promise((resolve,reject)=>{
+        let settled=false,timer=null;
+        timer=timers.setTimeout(()=>{
+          if(settled)return;settled=true;
+          // The snapshot is diagnosis only: whatever it throws, the drain still ends and intake resumes.
+          let startedAt=null,waitedMs=drainLimit;const named=Object.freeze(blockers());
+          try{const waited=Math.round(clock()-job.drainStartedMs);startedAt=new Date(job.drainStartedMs).toISOString();if(Number.isSafeInteger(waited)&&waited>=0)waitedMs=waited;}catch{/* a bad clock only loses the timing */}
+          job.drainTimedOut=Object.freeze({startedAt,waitedMs,limitMs:drainLimit,timedOut:true,blockers:named});
+          try{job.abort.abort();}finally{reject(fail('drain_timeout'));}
+        },drainLimit);
+        try{if(timer&&typeof timer.unref==='function')timer.unref();}catch{/* a timer without unref still fires once */}
+        job.lease.idle().then(value=>{if(settled)return;settled=true;timers.clearTimeout(timer);resolve(value);},
+          error=>{if(settled)return;settled=true;timers.clearTimeout(timer);reject(error);});
+      });
+    };
     async function execute(job) {
       let failed;
       try {
         cancelled(job);await ensureExpected(job.args.expectedAuthority);cancelled(job);
-        job.lease=host.maintenance.begin({signal:job.abort.signal});job.state='draining';await job.lease.idle();cancelled(job);
+        job.lease=host.maintenance.begin({signal:job.abort.signal});job.state='draining';job.drainStartedMs=clock();await drained(job);cancelled(job);
         await ensureExpected(job.args.expectedAuthority);cancelled(job);job.state='preparing';
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         job.handle=await worker.start({...job.args,id:job.id,password:job.secret.toString('utf8')});job.secret.fill(0);job.secret=null;
@@ -113401,6 +113483,7 @@ const WorkDataSetup = (() => {
         // only by a successor reading the cold worker's durable receipt.
       }catch(error){failed=error;
         if(job.committed)uncertainJob(job,error);
+        else if(job.drainTimedOut&&!job.cancelRequested){job.error='work_data_setup.drain_timeout';job.state='failed';}
         else{job.error=code(error);job.state=job.cancelRequested?'cancelled':'failed';}
       }
       finally {
@@ -113469,8 +113552,29 @@ const WorkDataSetup = (() => {
       return true;
     }
     async function status() {
-      const observed=await host.inspect(),worker=host.worker();let lastResult=null;
-      if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
+      const observed=await host.inspect(),worker=host.worker();let lastResult=null,lastResultError=null;
+      // 150 W2/W9: the completion record is an observation, never a precondition of
+      // status. While a job is admitted, preparing or handing off (or intake is
+      // closed) status does not read at all and reports the last record this
+      // process observed for the same authority; otherwise a failed read becomes
+      // lastResult:null plus a stable lastResultError, never a 503 for the panel.
+      const reader=typeof worker.observeResult==='function'?worker.observeResult:typeof worker.readResult==='function'?worker.readResult:null;
+      const current=authority(observed.authority),cached=()=>observedResult&&same(observedResult.authority,current)?observedResult.value:null;
+      // The cached observation is reused only while this setup itself owns a job, an
+      // admission or the desktop close. A deferral from anywhere else (closed intake, a
+      // runtime refusal with no job here) is reported, never papered over with old data.
+      const ownTransition=()=>!!active||creating||desktopClosing;
+      if(reader){
+        if(ownTransition())lastResult=cached();
+        else if(!host.maintenance.accepting()){lastResult=null;lastResultError='work_data_setup.result_deferred';}
+        else{
+          try{lastResult=await reader();observedResult={authority:current,value:lastResult};}
+          catch(error){const failure=code(error);
+            if(failure==='work_data_setup.result_deferred'&&ownTransition())lastResult=cached();
+            else if(failure==='work_data_setup.result_deferred'){lastResult=null;lastResultError=failure;}
+            else{lastResult=null;observedResult=null;lastResultError=failure==='work_data_setup.worker_failed'?'work_data_setup.result_unavailable':failure;}}
+        }
+      }
       // The worker capability is advertised only while the process runtime reports
       // real readiness. Package transfer follows the warm install itself (the marker
       // written together with the method) and still needs a current verified result
@@ -113485,8 +113589,8 @@ const WorkDataSetup = (() => {
       const maximum=canUpload&&typeof WorkDataRecovery!=='undefined'?WorkDataRecovery.LIMITS.serialized:null;
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
         selectedBase:observed.base,uploadMaxBytes:Number.isSafeInteger(maximum)&&maximum>0?maximum:null,
-        lastResult,capabilities:{worker:started,upload:canUpload,
-          download:transfer()&&lastResult!==null},processRestartRequired:true};
+        lastResult,...(lastResultError?{lastResultError}:{}),capabilities:{worker:started,upload:canUpload,
+          download:transfer()&&lastResult!==null&&!ownTransition()&&(lastResult.backupState===undefined||lastResult.backupState==='present')},processRestartRequired:true};
     }
     // The transfer routes additionally bind the actual loopback socket, the same-port
     // Host and a same-origin browser Origin. The router's token gate runs first.
@@ -113519,7 +113623,7 @@ const WorkDataSetup = (() => {
         if(bytes)bytes.fill(0);
         const failure=String(error?.code||'');
         if(failure==='work_data.maintenance_busy'||failure==='work_data.maintenance_stale_continuation')throw fail('busy');
-        if(/^work_data_setup\.(?:package_not_found|package_unavailable|download_unavailable|busy)$/.test(failure))
+        if(/^work_data_setup\.(?:package_not_found|package_missing|package_unavailable|download_unavailable|busy)$/.test(failure))
           throw Object.assign(Error(failure),{code:failure,apiCode:failure,statusCode:error.statusCode||503,retry:false});
         throw fail('package_unavailable',503);
       }
@@ -120471,6 +120575,34 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const readAuthority=()=>operation(ctx,()=>N.readAuthority(base),{newAdmission:true});
       const resultReader=()=>bindings.resultApi.create({base,ownership,assertExclusive:value=>assertOwnership(value,base),readAuthority:()=>N.readAuthority(base)}).read();
       const readResult=()=>operation(ctx,resultReader,{newAdmission:true});
+      // Status observation (150 W2/W9). It is deliberately not an operation: no new
+      // pin and never a member of ctx.inflight, so a status poll can never hold the
+      // retirement receipt open across the handoff boundary; it is refused while a
+      // warm job exists or the source stopped accepting. It reads the record and
+      // only probes the package (01ae observe), and an expected data failure (a
+      // moved, deleted or replaced package, an unreadable record) is a typed
+      // refusal that never retains the source. Only ensure() itself — a genuine
+      // owner, keeper or helper loss — retains, exactly as before.
+      // close() deliberately does not wait for an observation: once accepting is false the observation's own
+      // result is discarded as result_deferred and it never reaches ensure(), so a keeper release cannot be
+      // misread as owner loss. Its IO is read-only (record, authority pointer, one lstat of the package).
+      const observing=()=>ctx.accepting===true&&!ctx.finished;
+      const observationFailure=code=>Object.assign(Error(code),{code,apiCode:code,statusCode:503,retry:false});
+      async function observeResult(){
+        if(!observing())throw observationFailure('work_data_setup.result_deferred');
+        // A retained or lost source is reported as itself (source_uncertain etc.) before any
+        // deferral: a warm job that retained the source stays in `jobs`, and deferring on it
+        // would let status serve a stale observation forever.
+        ensure(ctx);if(jobs.size)throw observationFailure('work_data_setup.result_deferred');let value;
+        try{value=await bindings.resultApi.create({base,ownership,assertExclusive:candidate=>observing()&&assertOwnership(candidate,base),readAuthority:()=>N.readAuthority(base)}).observe();}
+        catch(error){if(!observing())throw observationFailure('work_data_setup.result_deferred');ensure(ctx);
+          // The record owner's own typed reason (stage_pending after an interrupted cold write,
+          // record_invalid, path_alias...) stays distinguishable; anything untyped is result_unavailable.
+          let reason='';try{reason=typeof error?.code==='string'?error.code:'';}catch{reason='';}
+          throw observationFailure(/^work_data_result\.[a-z_]{1,64}$/.test(reason)?reason:'work_data_setup.result_unavailable');}
+        if(!observing())throw observationFailure('work_data_setup.result_deferred');
+        ensure(ctx);return value;
+      }
       // Package transfer is a read of the one durable result: the requested id must
       // equal it, and the exact bytes about to be sent are re-verified on one opened
       // handle (size, dev/ino, sha256, before/after stat) before any response byte
@@ -120480,7 +120612,10 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       // durable result read and this final handle read deliberately verify the
       // whole package twice, bounded by WorkDataRecovery.LIMITS.serialized.
       const packageFailure=code=>Object.assign(Error(code),{code,apiCode:code,
-        statusCode:code==='work_data_setup.package_not_found'?404:503,retry:false});
+        statusCode:code==='work_data_setup.package_not_found'||code==='work_data_setup.package_missing'?404:503,retry:false});
+      // 150 W2: the user moved or deleted the package after the operation. That is
+      // its own stable refusal (put it back, or export again), not "unavailable".
+      const missing={ok:false,code:'work_data_setup.package_missing'};
       const packageBudget=()=>{
         try{const limits=typeof WorkDataRecovery==='undefined'?null:WorkDataRecovery.LIMITS;
           return plain(limits)&&Number.isSafeInteger(limits.serialized)&&limits.serialized>0?limits.serialized:null;}catch{return null;}
@@ -120498,7 +120633,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
             ||typeof backup.sha256!=='string'||!/^[a-f0-9]{64}$/.test(backup.sha256)
             ||!Number.isSafeInteger(backup.bytes)||backup.bytes<1||maximum===null||backup.bytes>maximum
             ||typeof backup.identity.dev!=='string'||typeof backup.identity.ino!=='string')return unavailable;
-          handle=await io.open(backup.path,'r');
+          try{handle=await io.open(backup.path,'r');}catch(error){if(['ENOENT','ENOTDIR'].includes(error?.code))return missing;throw error;}
           const before=await handle.stat({bigint:true});
           if(!before.isFile()||before.nlink!==1n||String(before.dev)!==backup.identity.dev
             ||String(before.ino)!==backup.identity.ino||Number(before.size)!==backup.bytes)return unavailable;
@@ -120514,7 +120649,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           if(sha256!==backup.sha256)return unavailable;
           complete=true;
           return {ok:true,id:record.id,bytes:buffer,size:used,sha256};
-        }catch{return unavailable;}
+        }catch(error){return error?.code==='work_data_result.backup_missing'?missing:unavailable;}
         finally{if(!complete&&bytes)bytes.fill(0);if(handle){try{await handle.close();}catch{ /* the verified bytes are already detached */ }}}
       }
       const downloadPackage=async id=>{
@@ -120522,13 +120657,13 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         let bytes=null;
         try{
           const outcome=await operation(ctx,async()=>{const captured=await capturePackage(id);if(Buffer.isBuffer(captured?.bytes))bytes=captured.bytes;return captured;},{newAdmission:true});
-          if(!outcome||outcome.ok!==true||!Buffer.isBuffer(outcome.bytes))throw packageFailure(outcome?.code==='work_data_setup.package_not_found'
-            ?'work_data_setup.package_not_found':'work_data_setup.package_unavailable');
+          if(!outcome||outcome.ok!==true||!Buffer.isBuffer(outcome.bytes))throw packageFailure(['work_data_setup.package_not_found','work_data_setup.package_missing'].includes(outcome?.code)
+            ?outcome.code:'work_data_setup.package_unavailable');
           return Object.freeze({id:outcome.id,bytes:outcome.bytes,size:outcome.size,sha256:outcome.sha256});
         }catch(error){if(bytes)bytes.fill(0);throw error;}
       };
       async function close(){if(ctx.finished)return;if(unknown)throw retain(unknownCause);ctx.accepting=false;if(jobs.size)throw fail('job_active');await Promise.allSettled([...ctx.inflight]);ensure(ctx);try{await ctx.keeper.releaseChecked(assertFinishSafe);assertFinishSafe();ctx.finished=true;}catch(error){throw retain(error);}}
-      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,downloadPackage,close,
+      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,observeResult,downloadPackage,close,
         // Status is data, never a capability or substitute for a genuine keeper.
         status:()=>Object.freeze({sourceHeld:assertOwnership(ownership,base),uploadOwnerHeld:O.owns(ownership,uploadRoot),accepting:ctx.accepting&&!unknown&&!ctx.finished,workerReady:false,crashClaim:false,activation:false})});
       return ctx.api;}finally{warmOpening=false;}
@@ -121002,6 +121137,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       // that only assigns a downloadPackage function never gets the capability. The
       // advertised transfer is exactly what this install defined.
       const descriptors={putUpload:{value:warm.api.putUpload,writable:true,configurable:true,enumerable:true},resolveUpload:{value:warm.api.resolveUpload,writable:true,configurable:true,enumerable:true},readResult:{value:warm.api.readResult,writable:true,configurable:true,enumerable:true},
+        observeResult:{value:warm.api.observeResult,writable:true,configurable:true,enumerable:true},
         downloadPackage:{value:warm.api.downloadPackage,writable:true,configurable:true,enumerable:true},packageTransfer:{value:true,writable:false,configurable:true,enumerable:false}};
       for(const name of Object.keys(descriptors)){const old=Object.getOwnPropertyDescriptor(hooks,name);if(old&&!old.configurable||!old&&!Object.isExtensible(hooks))throw fail('worker_hooks_invalid');}
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);

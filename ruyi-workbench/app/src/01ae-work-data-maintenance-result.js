@@ -71,8 +71,25 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
     async function inspect() {await admission();if(!await directory(root,true))return {present:false};const names=await io.readdir(root);if(names.some(name=>fold(name).startsWith(STAGE)))throw fail('stage_pending');
       if(!names.some(name=>fold(name)===NAME))return {present:false};const captured=await capture(file,LIMIT,true);return {present:true,captured,value:decode(captured.bytes)};}
     async function backup(value) {
-      if(inside(base,value.path))throw fail('backup_invalid');const captured=await capture(value.path,value.bytes,false);
+      if(inside(base,value.path))throw fail('backup_invalid');let captured;
+      // 150 W2: a package the user moved or deleted is an ordinary, typed
+      // condition (backup_missing), never a raw fs error the caller cannot tell
+      // apart from source uncertainty; a replaced or appended one is backup_changed.
+      try{captured=await capture(value.path,value.bytes,false);}
+      catch(error){if(['ENOENT','ENOTDIR'].includes(error?.code))throw fail('backup_missing');if(error?.code==='work_data_result.record_changed')throw fail('backup_changed');throw error;}
       if(captured.size!==value.bytes||captured.sha256!==value.sha256||!sameIdentity(captured.identity,value.identity))throw fail('backup_changed');
+    }
+    // Metadata-only observation of the recorded package for status (150 W2/W11):
+    // one lstat, never an open, read or hash. It decides nothing; the package
+    // routes still verify the actual bytes on an opened handle before use.
+    async function probe(value) {
+      if(inside(base,value.path))return 'unavailable';let stat;
+      // Same parent-directory alias rule as capture(): a backup folder replaced by a junction
+      // or symlink is not "present", because read() and the download refuse it as path_alias.
+      try{if(!await directory(p.dirname(value.path),true))return 'missing';}catch(error){return error?.code==='work_data_result.path_alias'?'changed':'unavailable';}
+      try{stat=await io.lstat(value.path,{bigint:true});}catch(error){return ['ENOENT','ENOTDIR'].includes(error?.code)?'missing':'unavailable';}
+      if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||stat.size!==BigInt(value.bytes)||!sameIdentity(identity(stat),value.identity))return 'changed';
+      return 'present';
     }
     async function captureTransitionBackup({id,backup: value}={}) {
       // A pending transition has a hash-bound original package but may have no
@@ -93,6 +110,16 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
       await backup(found.value.backup);if(!sameAuthority(found.value.authority,await selected()))throw fail('record_changed');
       const final=await inspect();if(!final.present||!sameRecord(found.captured,final.captured))throw fail('record_changed');
       return freeze({...found.value,proof:{sha256:found.captured.sha256,identity:found.captured.identity}});
+    }
+    // Status read (150 W2): the same exact record and authority checks as read(),
+    // but the backup package is only probed, so a moved, deleted or replaced
+    // package leaves the record readable and reports backupState instead of failing.
+    async function observe() {
+      const found=await inspect();if(!found.present)return null;
+      if(!sameAuthority(found.value.authority,await selected()))return null;
+      const backupState=await probe(found.value.backup);if(!sameAuthority(found.value.authority,await selected()))throw fail('record_changed');
+      const final=await inspect();if(!final.present||!sameRecord(found.captured,final.captured))throw fail('record_changed');
+      return freeze({...found.value,proof:{sha256:found.captured.sha256,identity:found.captured.identity},backupState});
     }
     async function verify(receipt) {
       const known=issued.get(receipt);if(!known)throw fail('receipt_invalid');const current=await inspect();
@@ -122,7 +149,7 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
         await verify(receipt);return receipt;
       }finally{writing=false;}
     }
-    return Object.freeze({write,verify,read,inspect,captureTransitionBackup});
+    return Object.freeze({write,verify,read,observe,inspect,captureTransitionBackup});
   }
   return Object.freeze({NAME,STAGE,validate,decode,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));

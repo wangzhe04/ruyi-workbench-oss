@@ -5,7 +5,7 @@
 // 状态来源只有 /api/work-data/status（与加密面板同一个接口、同一份已校验字段）：
 //   - 加密面板每次读到状态就派 workdata:status 事件，这里直接用，不另起一路轮询；
 //   - 发消息失败且码属于维护族时主动查一次；闸门关着时每 pollMs 复查（面板刚报过就跳过），恢复 open 即放开。
-// 不在开机时查（status 会整包读取并哈希备份包，见 150 号文 W11）；不改发送按钮（维护期仍要能停止进行中的回合）。
+// 不在开机时查（151 阶段 3B 起 status 只观察回执、不再读取备份包，但开机仍不必多一次请求）；不改发送按钮（维护期仍要能停止进行中的回合）。
 const OPERATIONS = new Set(['enable', 'disable', 'export', 'restore']);
 const MAINTENANCE_CODE = /^(?:work_data\.maintenance_[a-z_]+|work_data_setup\.(?:busy|takeover_committed|job_not_found|status_unavailable)|work_data_store\.switch_unavailable)$/;
 
@@ -89,7 +89,7 @@ export function createMaintenanceGate({ api, apiErrorInfo, t, doc = globalThis.d
   }
   function schedule() {
     if (timer) clearTimeout(timer);
-    // failed / uncertain 只有重启才能解除：退避到 20 s，避免对 status（每次整包读取并哈希备份包，150 W11）持续轮询。
+    // failed / uncertain 只有重启才能解除：退避到 20 s，不必持续轮询 status。
     const delay = gate && (gate.reason === 'failed' || gate.reason === 'uncertain') ? Math.max(pollMs, 20000) : pollMs;
     timer = gate ? setTimeout(() => { timer = null; void check(true); }, delay) : null;
   }
