@@ -117,7 +117,20 @@ function seedEarlySessions(fx) {
       return { shown: Boolean(node && !node.hidden && node.getAttribute('role') === 'status'), text: node ? node.textContent : null, hidden: node ? node.hidden : null };
     })()`);
     const coverage = coverageProbe && coverageProbe.shown ? coverageProbe.text : '';
-    ok(coverage && /\d+\D+\d+/.test(coverage), `S6 左栏显示可访问的索引覆盖率(实 ${JSON.stringify(coverageProbe)})`);
+    // 151 阶段 2F:索引建得更快以后,S1 等到命中行时正文索引可能已经建完(最后一发 coverage.complete:true)而语义模型
+    // 还在加载;这时说明行按 session-search-state 的互斥规则改说语义状态(「正在加载本地语义模型…」),不再有「已索引
+    // x / y」。没建完时照旧要求覆盖率数字;建完且最后一发回包的 semantic.status 是 loading 时,要求状态行逐字是
+    // session.semanticLoading 那句(zh-CN 词条);建完且语义不可用(unavailable/timeout/overloaded、无已缓存片段)时要求逐字是
+    // session.semanticFallback 那句(与 session-search-state 的 sessionSearchNotices 同一判据);建完的其他情形仍要求数字。
+    const lastReceipt = await fx.evaluate(`(window.__searchReceipts || []).slice(-1)[0] || null`);
+    const indexComplete = !!(lastReceipt && lastReceipt.coverage && lastReceipt.coverage.complete === true);
+    const lastSemantic = indexComplete && lastReceipt.semantic ? lastReceipt.semantic : null;
+    const zhCopy = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
+    const semanticCopy = !lastSemantic ? null
+      : lastSemantic.status === 'loading' ? zhCopy['session.semanticLoading']
+      : ['unavailable', 'timeout', 'overloaded'].includes(lastSemantic.status) && !lastSemantic.cachedFragments ? zhCopy['session.semanticFallback']
+      : null;
+    ok(coverage && (semanticCopy ? coverage === semanticCopy : /\d+\D+\d+/.test(coverage)), `S6 左栏显示可访问的索引覆盖率(实 ${JSON.stringify(coverageProbe)},索引已建完 ${indexComplete},语义 ${lastReceipt && lastReceipt.semantic && lastReceipt.semantic.status})`);
     await fx.evaluate(`(() => { const s = document.getElementById('sessionSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
     ok(await fx.evaluate(`document.getElementById('sessionSearchCoverage').hidden`), 'S7 清空搜索同步隐藏旧覆盖率');
 

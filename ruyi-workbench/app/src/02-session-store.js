@@ -7094,22 +7094,37 @@ function createSessionFullTextSource() {
   const stamp=stat=>stat?[stat.dev,stat.ino,stat.size,stat.mtimeNs,stat.ctimeNs].join(':'):'missing';
   const maximum=256*1024*1024,physicalMaximum=WorkDataChunks.maxFileBytes(maximum)+64;
   const physical=value=>process.platform==='win32'?path.resolve(value).toLowerCase():path.resolve(value);
-  async function owned(file){
-    const root=await fsp.lstat(paths.sessions);if(!root.isDirectory()||root.isSymbolicLink()||physical(await fsp.realpath(paths.sessions))!==physical(paths.sessions))throw fail('owner_alias');
-    const stat=await fsp.lstat(file,{bigint:true});
-    if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||physical(await fsp.realpath(file))!==physical(file))throw fail('owner_alias');
+  // 151 阶段 2F:每次 select 原来对头、正文各核一遍数据根(lstat+realpath)再核文件(lstat+realpath),共 8 次 fs 调用。
+  // 现在每次 select 只 lstat 数据根一次(根本身是链接/junction 时照旧不穿过它就拒绝);根的 realpath 不再单独做 ——
+  // 文件级 realpath(file)===file 已经蕴含「数据根及其各级祖先都没被换成链接/junction」(它解析整条路径)。
+  // 文件不存在或 realpath 读不到时才补核整条根链,出错码与修前同序(根坏了报 owner_alias,根好才报 ENOENT)。
+  // 文件级核对(普通文件、非链接、nlink=1、realpath 一致)一项不少,每次 select 都做。
+  async function rootOwned(){const root=await fsp.lstat(paths.sessions);if(!root.isDirectory()||root.isSymbolicLink())throw fail('owner_alias');}
+  // recheck:文件级核对失败时补核根链。select 一开头已 lstat 过数据根,头这一路只补根的 realpath(rootReal);正文这一路
+  // 不补(复审建议 3):正文的结果只在头已通过 owned()(文件 realpath===自身 ⇒ 根链未被换)并读出之后才被采信,那时根链
+  // 刚被头证明过;头失败时由头这一路补核,出错码顺序不变。
+  async function rootReal(){if(physical(await fsp.realpath(paths.sessions))!==physical(paths.sessions))throw fail('owner_alias');}
+  async function owned(file,recheck){
+    let stat;try{stat=await fsp.lstat(file,{bigint:true});}catch(error){await recheck();throw error;}
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n)throw fail('owner_alias');
+    let real;try{real=await fsp.realpath(file);}catch(error){await recheck();throw error;}
+    if(physical(real)!==physical(file))throw fail('owner_alias');
     return stat;
   }
   async function select(id){
     if(safeSessionId(id)!==id)throw fail('session_invalid');
     if(sessionDeleteTombstones.has(id))throw fail('deleted');
     if(sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id))throw fail('busy');const sequence=sessionFullTextSequence(id);
-    const metadata={};let raw;try{await owned(sessionPath(id));raw=await sessionHeadStore(id,metadata).read();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+    // 2F:正文的归属核对(只 lstat/realpath,不读内容)与头的核对+读取并行;结果只在头判定需要正文后才采信,头的错误优先。
+    const metadata={};let raw,bodyCheck=null;
+    try{await rootOwned();bodyCheck=owned(sessionBodyPaths(id).messages,async()=>{}).then(stat=>({stat}),error=>({error}));await owned(sessionPath(id),rootReal);raw=await sessionHeadStore(id,metadata).read();}
+    catch(error){if(bodyCheck)await bodyCheck;if(error.code==='ENOENT')return null;throw error;}
+    const checkedBody=await bodyCheck;
     if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let head;try{head=JSON.parse(raw);}catch{throw fail('source_invalid');}
     if(!head||typeof head!=='object'||Array.isArray(head)||head.id!==id)throw fail('session_owner_required');
     const modern=head.storageVersion===SESSION_STORAGE_VERSION,count=modern?head.messageCount:head.messages?.length;
     if(!Number.isSafeInteger(count)||count<0||!modern&&!Array.isArray(head.messages))throw fail('source_invalid');
-    let body=null;if(modern){try{body=await owned(sessionBodyPaths(id).messages);}catch(error){if(error.code!=='ENOENT'||count!==0)throw error;}}
+    let body=null;if(modern){if(checkedBody.error){if(checkedBody.error.code!=='ENOENT'||count!==0)throw checkedBody.error;}else body=checkedBody.stat;}
     if(body&&(!body.isFile()||body.size>BigInt(Number.MAX_SAFE_INTEGER)))throw fail('source_invalid');
     if(sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
     return {epoch:hash(raw+'\n'+stamp(body)),raw,head,count,modern,sequence,requiresEncryption:metadata.authenticated===true,bodyStamp:stamp(body)};

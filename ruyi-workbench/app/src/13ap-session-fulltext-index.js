@@ -15,6 +15,28 @@ const SessionFullTextIndex = ((io,p,c) => {
   const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(value)&&!value.startsWith('_');
   const clone=value=>JSON.parse(JSON.stringify(value));
   const keys=value=>value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value).sort().join(','):'';
+  // 151 阶段 2F:逐会话的 I/O(扫索引、回读源头、复核 manifest)原来 4 个一批、等这批最慢的那个,负载下一次慢 I/O 让
+  // 另外三路空等。改为有界的滑动窗口:完成的结果按原顺序同步交给 onSettled(累计、截断、预览早停的账与修前逐批时同序);
+  // 「重排窗口」也有界 —— 第 at 条只有在 at-已交付 < width 且在飞数 < width 时才起,否则这一路等一个空位(不退出),
+  // 所以一条慢的排头最多让 width 条结果压在它后面,预览早停(stop() 只看已按序交付的结果)和 width 函数(预览按
+  // 「还差几条」收窄)给出的回读上界不会因为排头慢而失效(2F 复审应改 1)。交付后只留状态与失败原因,不留值,峰值
+  // 内存不随库的大小增长(复审应改 2)。某一条失败(或 onSettled 抛错)后不再起新的,已起的等完;返回原序的 settled
+  // 前缀(值已释放)与是否早停;调用方按修前的口径从中取错。
+  const POOL_WIDTH=8;
+  async function orderedPool(items,work,options={}){
+    const width=typeof options.width==='function'?options.width:()=>options.width||POOL_WIDTH,stop=options.stop||(()=>false),onSettled=options.onSettled||(()=>{});
+    const out=new Array(items.length);let next=0,committed=0,inFlight=0,failed=false,stopped=false,commitError=null,waiters=[];
+    const commit=()=>{while(!failed&&committed<next&&out[committed]){const row=out[committed];if(row.status==='rejected'){failed=true;break;}try{onSettled(row.value,committed);}catch(error){failed=true;commitError={error};break;}out[committed]={status:'fulfilled'};committed++;}};
+    const wake=()=>{const list=waiters;waiters=[];for(const resolve of list)resolve();};
+    const lane=async()=>{while(!failed&&next<items.length){if(stop()){stopped=true;break;}const limit=Math.max(1,Math.min(POOL_WIDTH,width()));
+      if(inFlight>=limit||next-committed>=limit){if(inFlight===0)break;await new Promise(resolve=>waiters.push(resolve));continue;}
+      const at=next++;inFlight++;try{out[at]={status:'fulfilled',value:await work(items[at],at)};}catch(reason){out[at]={status:'rejected',reason};failed=true;}inFlight--;commit();wake();}
+      wake();};
+    await Promise.all(Array.from({length:Math.min(POOL_WIDTH,items.length)},lane));
+    if(commitError)throw commitError.error;
+    return {settled:out.slice(0,next),stopped:stopped&&!failed&&next<items.length};
+  }
+  const poolFailure=(settled,timeout)=>{const failures=settled.filter(row=>row.status==='rejected');return failures.length?(failures.find(row=>row.reason!==timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==timeout)||failures[0]).reason:null;};
   // The payload format is independent from the encrypted Store schema/AAD.
   // Array fields retain their own original UTF-16 coordinate spaces; no JSON
   // serialization, joined preview, or fabricated message offsets become text.
@@ -174,11 +196,18 @@ const SessionFullTextIndex = ((io,p,c) => {
     // directoriesVerified:逐会话检索时第一个 shard 紧跟 manifest 读,中间只隔 manifest 的读取与解析那几次 await,目录链
     // (数据根/索引根/会话目录)刚由 manifest 那一次核过,这一个 shard 不再重核;其后的 shard 之间隔着整片的逐行处理,照旧逐个重核。
     // 每个 shard 自己的文件级核对(普通文件、非链接、nlink=1、尺寸)都做。150 S6:单 shard 会话(绝大多数)每发省 6 次 lstat/realpath。
+    // 151 阶段 2F:目录链原来逐级 lstat+realpath(数据根、索引根、会话目录,每次 6 次调用)。逐级 lstat 照旧(由浅到深,
+    // 不穿过任何没核过的链接/junction;ENOENT 视为无索引),realpath 只做最深一级:各级都是非链接目录时,最深一级
+    // realpath===自身 当且仅当每一级祖先 realpath===自身(realpath 解析整条路径),所以拒绝的情形与修前逐级核对相同,
+    // 错误码都是 owned_namespace_changed。某一级不存在时,先对已存在的最深一级做 realpath 再按「无索引」返回(修前在
+    // 那之前已逐级 realpath 过它们)。每次 4 次调用。
     async function namespace(sid,name=null,max=null,directoriesVerified=false){
       const directories=directoriesVerified?[]:[host.root(),p.join(host.root(),'_fulltext-index-v1'),...(sid?[p.dirname(pathFor(sid,'manifest.json'))]:[])];
-      for(const directory of directories){let stat;try{stat=await io.lstat(directory);}catch(error){if(error.code==='ENOENT')return;throw error;}
-        if(!stat.isDirectory()||stat.isSymbolicLink()||pathKey(await io.realpath(directory))!==pathKey(directory))throw fail('owned_namespace_changed');
+      const owned=async directory=>{if(directory&&pathKey(await io.realpath(directory))!==pathKey(directory))throw fail('owned_namespace_changed');};
+      for(let level=0;level<directories.length;level++){const directory=directories[level];let stat;try{stat=await io.lstat(directory);}catch(error){if(error.code==='ENOENT'){await owned(directories[level-1]);return;}throw error;}
+        if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('owned_namespace_changed');
       }
+      await owned(directories[directories.length-1]);
       if(name){let stat;try{stat=await io.lstat(pathFor(sid,name));}catch(error){if(error.code==='ENOENT')return;throw error;}
         if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw fail('owned_namespace_changed');
         if(max!==null&&(!Number.isSafeInteger(stat.size)||stat.size>max*2+65536))throw fail('capacity');
@@ -319,7 +348,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         else if(value.attachmentRevision&&(value.attachmentRevision!==witness.finish()||attachmentRetryDue(value)))pending++;
         else{complete++;attachmentSources+=value.attachments-(value.attachmentsIndexed||0);unverifiedMessages+=unsupported;if(value.attachments===0)rememberCoverage(sid,{generation:value.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified:unsupported});}
       }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}};
-      for(let start=0;start<catalog.length;start+=4){check();const batch=await Promise.allSettled(catalog.slice(start,start+4).map(visit)),failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;}
+      check();{const visited=await orderedPool(catalog,visit);const failure=poolFailure(visited.settled,options.timeout);if(failure)throw failure;}
       return {phase:isPaused()?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
     }
     async function coverage(context,options={}){
@@ -429,10 +458,9 @@ const SessionFullTextIndex = ((io,p,c) => {
         if(sessionResults&&!requiredIds.length){const perSource=new Map();for(const hit of candidates.sort(compare)){const key=sourceKeyOf(hit.row);if(!perSource.has(key))perSource.set(key,hit);}const bounded=[...perSource.values()].sort(compare);if(bounded.length>candidateLimit)lexicalTruncated=true;candidates.splice(0,candidates.length,...bounded.slice(0,candidateLimit));}
         return {sid,value,candidates,semanticRows,fragmentCount,entityTruncated,lexicalTruncated,totals};
       };
-      for(let start=0;start<catalog.length;start+=4){check();const batch=await Promise.allSettled(catalog.slice(start,start+4).map(scanIndex)),failures=batch.filter(row=>row.status==='rejected');
-        if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;
-        for(const row of batch){const part=row.value;if(!part)continue;manifests.set(part.sid,part.value);fragmentCount+=part.fragmentCount;entityTruncated||=part.entityTruncated;lexicalTruncated||=part.lexicalTruncated;for(const [key,count]of part.totals)semanticTotals.set(key,(semanticTotals.get(key)||0)+count);
-          semanticRows.push(...part.semanticRows.slice(0,Math.max(0,4096-semanticRows.length)));candidates.push(...part.candidates);candidates.sort(compare);if(candidates.length>candidateLimit){if(requiredIds.length)entityTruncated=true;lexicalTruncated=true;candidates.length=candidateLimit;}}}
+      check();{const scanned=await orderedPool(catalog,scanIndex,{onSettled:part=>{if(!part)return;manifests.set(part.sid,part.value);fragmentCount+=part.fragmentCount;entityTruncated||=part.entityTruncated;lexicalTruncated||=part.lexicalTruncated;for(const [key,count]of part.totals)semanticTotals.set(key,(semanticTotals.get(key)||0)+count);
+          semanticRows.push(...part.semanticRows.slice(0,Math.max(0,4096-semanticRows.length)));candidates.push(...part.candidates);candidates.sort(compare);if(candidates.length>candidateLimit){if(requiredIds.length)entityTruncated=true;lexicalTruncated=true;candidates.length=candidateLimit;}}});
+        const failure=poolFailure(scanned.settled,options.timeout);if(failure)throw failure;}
       const metadataRows=[];let metadataTruncated=options.metadataEntriesTruncated===true;
       if(semantic&&Array.isArray(options.metadataEntries)){for(const item of options.metadataEntries){check();if(!item||!valid(item.sid)||typeof item.field!=='string'||typeof item.text!=='string'||typeof item.epoch!=='string'||item.text.length>8192){metadataTruncated=true;continue;}const key=JSON.stringify([item.sid,item.field]);for(let at=0;at<item.text.length;){let end=Math.min(item.text.length,at+96);if(end<item.text.length&&item.text.charCodeAt(end)>=0xdc00&&item.text.charCodeAt(end)<=0xdfff)end--;metadataTotals.set(key,(metadataTotals.get(key)||0)+1);if(metadataRows.length<256)metadataRows.push({text:item.text.slice(at,end),identity:['metadata',item.sid,item.field,item.epoch,digest(item.text),at,end],metadata:item,metadataKey:key,hit:{row:{sessionId:item.sid},epoch:item.epoch}});else metadataTruncated=true;if(end===item.text.length)break;let next=end-16;if(item.text.charCodeAt(next)>=0xdc00&&item.text.charCodeAt(next)<=0xdfff)next--;at=next;}}}
       if(metadataRows.length){if(semanticRows.length+metadataRows.length>4096)metadataTruncated=true;semanticRows.splice(0,0,...metadataRows);if(semanticRows.length>4096)semanticRows.length=4096;}
@@ -588,12 +616,13 @@ const SessionFullTextIndex = ((io,p,c) => {
       // 其余按词法分)。会话按候选顺序回读,已核实的会话(或条目)够上限再多 4 个就停:前 cap 个与全量回读相同,只有
       // 某会话首条命中在回读里被剔掉的极端情况下名次可能略有出入。预览本来就标 partial,随后的非预览请求照旧全量回读。
       // 修前预览把每个有命中的会话(宽查询下是全库)都回读一遍。
-      let previewStopped=false;const verifySids=[...hitsBySid.keys()],enoughForPreview=()=>options.lexicalOnly===true&&(sessionResults?new Set(verifiedHits.map(row=>row.sid)).size:verifiedHits.length)>=cap+4;
-      for(let start=0;start<verifySids.length;start+=4){check();if(enoughForPreview()){previewStopped=true;break;}const batch=await Promise.allSettled(verifySids.slice(start,start+4).map(verifySource)),failures=batch.filter(row=>row.status==='rejected');
-        if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;
-        for(const row of batch){const part=row.value;if(!part)continue;const {sid,proof,sequence,unverified}=part;
+      let previewStopped=false;const verifySids=[...hitsBySid.keys()],previewVerified=()=>sessionResults?new Set(verifiedHits.map(row=>row.sid)).size:verifiedHits.length,enoughForPreview=()=>options.lexicalOnly===true&&previewVerified()>=cap+4;
+      // 2F:预览的回读并发按「还差几条」收窄(在飞数 ≤ cap+4-已核实),回读条数的上界与修前逐批时同级;非预览照常满宽度。
+      const verifyWidth=()=>options.lexicalOnly===true?cap+4-previewVerified():POOL_WIDTH;
+      check();{const verified=await orderedPool(verifySids,verifySource,{width:verifyWidth,stop:enoughForPreview,onSettled:part=>{if(!part)return;const {sid,proof,sequence,unverified}=part;
           const selectedManifest=manifests.get(sid);if(selectedManifest?.attachments===0){const reuse={generation:selectedManifest.generation,epoch:proof.epoch,revision:proof.revision,sequence,unverified};coverageReuse.set(sid,reuse);if(selectedManifest.epoch===proof.epoch&&selectedManifest.sourceRevision===proof.revision)rememberCoverage(sid,reuse);}
-          for(const {owner,...item}of part.resolved){if(!retainedSources.has(owner)){const size=Buffer.byteLength(item.sourceText);if(retainedBytes+size>256*1024*1024){lexicalTruncated=true;continue;}retainedSources.add(owner);retainedBytes+=size;}verifiedHits.push({...item,sid,proof,sequence});}}}
+          for(const {owner,...item}of part.resolved){if(!retainedSources.has(owner)){const size=Buffer.byteLength(item.sourceText);if(retainedBytes+size>256*1024*1024){lexicalTruncated=true;continue;}retainedSources.add(owner);retainedBytes+=size;}verifiedHits.push({...item,sid,proof,sequence});}}});
+        const failure=poolFailure(verified.settled,options.timeout);if(failure)throw failure;previewStopped=verified.stopped;}
       // Recompute reciprocal ranks only after source proof and admission. Apply
       // the user cap before privacy projection, including one result per session.
       const lexicalRanks=new Map(),semanticRanks=new Map();
@@ -624,11 +653,11 @@ const SessionFullTextIndex = ((io,p,c) => {
     async function revalidate(result,context,options={}){
       const proof=searchProofs.get(result);if(!proof||proof.context!==context)throw fail('disclosure_changed');
       const check=typeof options.check==='function'?options.check:()=>{},rows=[...proof.observedManifests];let changed=0;
-      for(let start=0;start<rows.length;start+=4){check();const batch=await Promise.allSettled(rows.slice(start,start+4).map(async([sid,generation])=>{
+      check();{const revalidated=await orderedPool(rows,async([sid,generation])=>{
         check();if(host.assertAuthorized(sid,context,proof.access)!==true||host.sourceSequence(sid)!==proof.coverageSequences.get(sid))throw fail('disclosure_changed');
         if(proof.selectedEpochs.has(sid)&&await host.epoch(sid)!==proof.selectedEpochs.get(sid))throw fail('source_changed');
         if(indexUnchanged(proof.mutation))return false;const current=await currentManifest(sid);check();return (current?.generation||null)!==generation;
-      }));const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==options.timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==options.timeout)||failures[0]).reason;changed+=batch.filter(row=>row.value===true).length;}
+      },{onSettled:value=>{if(value===true)changed++;}});const failure=poolFailure(revalidated.settled,options.timeout);if(failure)throw failure;}
       check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}

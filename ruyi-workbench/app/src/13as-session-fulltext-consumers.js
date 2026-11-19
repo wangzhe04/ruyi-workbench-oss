@@ -4,6 +4,13 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
   const fail=suffix=>Object.assign(Error('session_search.'+suffix),{code:'session_search.'+suffix,apiCode:'session_search.'+suffix,statusCode:409});
   const hash=value=>c.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const clone=value=>structuredClone(value);
+  // 151 阶段 2F:逐来源的权威读原来按「4 个一批、等这批最慢的那个」推进,负载下一批里一次慢 I/O 就让另外三路空等。
+  // 改为宽度固定的滑动窗口:同时在飞的仍不超过 width;任一失败就不再起新的,已起的照样等完;结果按原顺序返回,
+  // 调用方按原来的「第一个失败」口径取错。每一条来源照旧各读一遍,复核点与修前一一对应。
+  const POOL_WIDTH=8;
+  async function settledPool(items,work,width=POOL_WIDTH){const out=new Array(items.length);let next=0,failed=false;
+    const lane=async()=>{while(!failed&&next<items.length){const at=next++;try{out[at]={status:'fulfilled',value:await work(items[at])};}catch(reason){out[at]={status:'rejected',reason};failed=true;}}};
+    await Promise.all(Array.from({length:Math.min(width,items.length)},lane));return out.filter(Boolean);}
   function create(host) {
     const local=new AsyncLocalStorage(),issued=new WeakMap(),threadPreviews=new Map();
     const required=['readConfig','configGeneration','uiAuthority','modelAuthority','source','catalog','metadata','projectKey','terms','redact','bindIndex'];
@@ -50,7 +57,9 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();await cap.grant.revalidate();cap.assert();
       // 披露前的权威复核对本 scope 授权过的【每一条】来源重读 epoch:元数据(标题、相关线程、存在与否)可以不经
       // disclose 就进到输出(13k 的 relatedThreads 取自 metadata()),所以不能只复核 cap.disclosed(2C 复审阻塞 1)。
-      const sources=[...cap.sources];for(let start=0;start<sources.length;start+=4){const batch=await Promise.allSettled(sources.slice(start,start+4).map(async([sid,row])=>{if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}));const failed=batch.find(row=>row.status==='rejected');if(failed)throw failed.reason;}
+      // 2F:仍是每条来源一次完整的 source.epoch(会话头+正文的归属核对与重读),只是改成有界滑动窗口并发。
+      const sources=[...cap.sources],checked=await settledPool(sources,async([sid,row])=>{if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();});
+      const failed=checked.find(row=>row.status==='rejected');if(failed)throw failed.reason;if(checked.length!==sources.length)throw fail('source_changed');
       for(const check of cap.attachmentChecks)if(!await check(completeAttachmentCheck))throw fail('source_changed');
       cap.assert();for(const guard of cap.disclosures)guard();
     }
@@ -109,9 +118,10 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
     async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();
-      for(let start=0;start<ids.length;start+=4){check();const batch=await Promise.allSettled(ids.slice(start,start+4).map(async sid=>{check();return (cap.threadSearch&&assertAuthorized(sid,token,cap.access)||await authorize(sid,token,cap.access))?clone(cap.sources.get(sid).metadata):null;}));
-        const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==timeout)||failures[0]).reason;
-        for(const row of batch)if(row.value)out.push(row.value);}
+      // 2F:起点授权仍是每条来源一次 authorize(会话头权威读),改成有界滑动窗口;取错口径与修前逐批时相同。
+      check();const batch=await settledPool(ids,async sid=>{check();return (cap.threadSearch&&assertAuthorized(sid,token,cap.access)||await authorize(sid,token,cap.access))?clone(cap.sources.get(sid).metadata):null;});
+      {const failures=batch.filter(row=>row.status==='rejected');if(failures.length)throw (failures.find(row=>row.reason!==timeout&&row.reason?.code!=='privacy.disclosure_dirty')||failures.find(row=>row.reason!==timeout)||failures[0]).reason;
+        if(batch.length!==ids.length)throw fail('source_changed');for(const row of batch)if(row.value)out.push(row.value);}
       cap.assert();check();if(cap.threadSearch)cap.metadataView=clone(out);return out;}
     async function searchOnce(query,limit,check,deadline,timeout,preview) {
       const token=local.getStore(),cap=current(token),q=String(query||'').trim();cap.query=q;cap.relatedMetadata=null;
