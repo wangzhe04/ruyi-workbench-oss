@@ -116142,7 +116142,7 @@ const SessionFullTextIndex = ((io,p,c) => {
     const pathFor=(sid,name)=>p.join(host.root(),'_fulltext-index-v1',...(sid?[sid]:[]),name);
     const storage=(sid,name,max=SHARD_BYTES,policy=undefined)=>WorkDataStore.createText({file:()=>pathFor(sid,name),purpose:'search-index',schema:SCHEMA,scopeId:'sessions',recordId:'fulltext-index:'+(sid?sid+':':'')+name.replace(/\.json$/,''),chunked:true,maxPlaintextBytes:max,keys:host.keys,enabled:policy===undefined?host.enabled:()=>policy,writeJson:host.writeJson});
     const read=async(sid,name,max,directoriesVerified=false)=>{try{await namespace(sid,name,max,directoriesVerified);const text=await storage(sid,name,max).read();if(Buffer.byteLength(text)>max)throw fail('capacity');let value;try{value=JSON.parse(text);}catch{if(sid&&name==='manifest.json')return malformedManifest;throw fail('record_invalid');}return value;}catch(error){if(error.code==='ENOENT')return null;throw error;}};
-    const write=async(sid,name,value,max,policy=undefined,check=undefined)=>{const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);check?.();await storage(sid,name,max,policy).write(text);};
+    const write=async(sid,name,value,max,policy=undefined,check=undefined)=>{if(sid!==null||name!=='state.json')await markBuilding();const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);check?.();await storage(sid,name,max,policy).write(text);};
     function manifest(value,sid){
       if(!value)return null;
       const shape=keys(value),legacy=shape==='attachments,chunks,epoch,generation,messages,schema,sessionId,shards,sourceRevision',obsolete=shape==='attachments,chunks,epoch,format,generation,messages,schema,sessionId,shards,sourceRevision'&&[1,2].includes(value.format),currentFields='attachments,chunks,epoch,format,generation,messages,normalizer,schema,sessionId,shards,sourceRevision';
@@ -116164,7 +116164,28 @@ const SessionFullTextIndex = ((io,p,c) => {
       const current=await currentManifest(sid);if(!current||!compatible(current)||current.generation!==selected.generation)return true;
       return await host.epoch(sid)!==selected.epoch;
     };
-    const state=phase=>write(null,'state.json',{schema:SCHEMA,phase},1024);
+    // 151 阶段 3F:state.json 只记「paused / building / idle」这一个落盘标记。修前每一发 step/prepare 都无条件先写
+    // building、收尾再写 idle,冷起的运行时只做冷读与搜索也会把它重写一遍(加密档每次重封,大小不变、字节与 revision 变)。
+    // 现在:①只在内容真变时才写——persistedPhase 记本实例确知的盘上值(undefined=不知道,null=文件不存在),
+    // 不知道时先回读一次;回读失败(坏件、缺钥匙……)就当不知道,照修前直接写,错误面与修前相同。
+    // ②盘上已确知是「未暂停」(idle/building)时,building 改为惰性:一次运行开始只记 buildingPending,直到第一处真正
+    // 改动 owned 命名空间(写 shard/manifest、清会话目录)之前才落 building,所以落盘的 building 仍然先于任何改动;
+    // 整发没有改动就不落。盘上不确知(文件不存在、读不出)或是 paused 时,照修前在运行开头就写 building
+    // (写入授权失败照旧在读任何来源之前浮出)。
+    // 写失败一律退回「不知道」,下一次照旧回读或重写。本命名空间只由本进程这一个实例写(第二个 serve 在恢复前被拒)。
+    let persistedPhase,buildingPending=false;
+    const savedPhase=saved=>{if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');return saved?saved.phase:null;};
+    // 读出的载体形态(密封/明文)与当前策略不符时也当「不知道」:读取器两种都收,但修前每发都会按当前策略重写,
+    // 明文 state 在加密档下会被重封、密封 state 在关闭档下会以 downgrade_refused 拒绝 —— 这两条照修前走写入路径。
+    const stateCarrierSealed=async()=>{const handle=await io.open(pathFor(null,'state.json'),'r');try{const head=Buffer.alloc(256),{bytesRead}=await handle.read(head,0,head.length,0);return /^\{[^\n]*"workData"\s*:\s*3\b/.test(head.subarray(0,bytesRead).toString('utf8'));}finally{await handle.close();}};
+    const knownPhase=async()=>{if(persistedPhase===undefined){try{const phase=savedPhase(await read(null,'state.json',1024));persistedPhase=phase===null||await stateCarrierSealed()===(await host.enabled()===true)?phase:undefined;}catch{persistedPhase=undefined;}}return persistedPhase;};
+    const state=async phase=>{
+      if(phase!=='building')buildingPending=false;
+      if(await knownPhase()===phase)return;
+      persistedPhase=undefined;await write(null,'state.json',{schema:SCHEMA,phase},1024);persistedPhase=phase;
+    };
+    const beginBuilding=async()=>{buildingPending=false;const known=await knownPhase();if(known==='idle'||known==='building'){buildingPending=true;return;}await state('building');};
+    const markBuilding=async()=>{if(!buildingPending)return;buildingPending=false;await state('building');};
     const isPaused=()=>paused||maintenancePaused;
     const checkPaused=()=>{
       if(!isPaused())return;
@@ -116181,7 +116202,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       return names;
     }
     async function purge(sid,check=()=>{}){
-      check();const names=await ownedNames(sid,check);if(names===null)return;const directory=p.dirname(pathFor(sid,'manifest.json'));
+      check();const names=await ownedNames(sid,check);if(names===null)return;await markBuilding();check();const directory=p.dirname(pathFor(sid,'manifest.json'));
       // Retire the selected generation only after validating the entire owned
       // namespace, before any immutable shard can disappear beneath its pointer.
       const finish=beginMutation();try{if(names.includes('manifest.json'))await removeOwned(sid,['manifest.json'],check);
@@ -116288,7 +116309,7 @@ const SessionFullTextIndex = ((io,p,c) => {
     }
     const step=(limit=1,context)=>run(async()=>{
       if(isPaused())return coverage(context);building=true;
-      try{await state('building');const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');await purgeMissing(catalog);let built=0;for(const sid of catalog){checkPaused();if(await build(sid)&&++built>=Math.min(16,Math.max(1,limit)))break;}
+      try{await beginBuilding();const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');await purgeMissing(catalog);let built=0;for(const sid of catalog){checkPaused();if(await build(sid)&&++built>=Math.min(16,Math.max(1,limit)))break;}
       }catch(error){if(error.code!=='session_fulltext.paused')throw error;}
       finally{building=false;await state(paused?'paused':'idle');}
       return coverage(context);
@@ -116306,7 +116327,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       let singleSid=null,buildingSid=null;const check=()=>{checkPaused();assertAccess();const sid=singleSid||buildingSid;if(sid&&host.assertAuthorized(sid,context,access)!==true)throw fail('disclosure_changed');options.check?.();};
       check();building=true;let failed=false,failure;
       try{
-        await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
+        await beginBuilding();check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
         const authorized=async sid=>typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true||await host.authorize(sid,context,access)===true;
         if(options.incremental===true){const signature=hash(JSON.stringify(catalog)),prior=preparationProgress.get(preparationKey),progress=prior?.signature===signature?prior:{signature,next:0};preparationProgress.set(preparationKey,progress);while(preparationProgress.size>32)preparationProgress.delete(preparationProgress.keys().next().value);
           // 150 S6:线程搜索原来每发只建 16 个会话,随后对全库复核,建完 N 个会话要 N/16 发。改为按时间片:每发至少推进 16 个
@@ -116591,9 +116612,9 @@ const SessionFullTextIndex = ((io,p,c) => {
       },{onSettled:value=>{if(value===true)changed++;}});const failure=poolFailure(revalidated.settled,options.timeout);if(failure)throw failure;}
       check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
-    async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
+    async function restorePause(context){const phase=savedPhase(await read(null,'state.json',1024));persistedPhase=phase;paused=phase==='paused';return coverage(context);}
     return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();clearCanonicalCaches();return run(async()=>{semantic?.clear();clearCanonicalCaches();preparationProgress.clear();coverageProofs.delete(sid);await purge(sid);}).finally(finish);},pause:()=>{paused=true;clearCanonicalCaches();return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
-      setMaintenancePaused:value=>{const next=value===true;/* 2C 复审建议 4:工作数据维护期间迁移编解码(01x/01ad)会重写 _fulltext-index-v1 而不经 beginMutation;进出维护各推一次 mutationSerial,沿用 manifest 的捷径与 13as 的 index_changed 判据都因此失效重读。 */if(next!==maintenancePaused)mutationSerial++;maintenancePaused=next;clearCanonicalCaches();},busy:()=>building,pending:()=>maintenanceChain});
+      setMaintenancePaused:value=>{const next=value===true;/* 2C 复审建议 4:工作数据维护期间迁移编解码(01x/01ad)会重写 _fulltext-index-v1 而不经 beginMutation;进出维护各推一次 mutationSerial,沿用 manifest 的捷径与 13as 的 index_changed 判据都因此失效重读。 */if(next!==maintenancePaused){mutationSerial++;/* 3F:维护可能重写或删掉 state.json,确知的盘上 phase 一并作废,下一次写前重读。 */persistedPhase=undefined;}maintenancePaused=next;clearCanonicalCaches();},busy:()=>building,pending:()=>maintenanceChain});
   }
   return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create,canonicalCacheSize:()=>SLICE_CACHE.entries.size});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));

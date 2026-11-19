@@ -462,7 +462,7 @@
       "id": "session-fulltext-state",
       "pattern": "<data>/sessions/_fulltext-index-v1/state.json",
       "owner": "13ap-session-fulltext-index.js",
-      "anchor": "const state=phase=>write(null,'state.json'",
+      "anchor": "const state=async phase=>",
       "schema": "object / Store schema1; payload phase",
       "writePrimitive": "WorkDataStore.createText chunked atomic write; purpose search-index / sessions / fulltext-index:state",
       "corruption": "invalid namespace or authenticated carrier fails closed; no plaintext fallback",

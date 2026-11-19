@@ -784,85 +784,85 @@
     {
       "file": "13ap-session-fulltext-index.js",
       "startLine": 115851,
-      "endLine": 116746,
+      "endLine": 116767,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 116747,
-      "endLine": 116985,
+      "startLine": 116768,
+      "endLine": 117006,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 116986,
-      "endLine": 117367,
+      "startLine": 117007,
+      "endLine": 117388,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "13bb-media-derived-store.js",
-      "startLine": 117368,
-      "endLine": 117583,
+      "startLine": 117389,
+      "endLine": 117604,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13bc-media-image-processor.js",
-      "startLine": 117584,
-      "endLine": 117896,
+      "startLine": 117605,
+      "endLine": 117917,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13bd-media-image-service.js",
-      "startLine": 117897,
-      "endLine": 118201,
+      "startLine": 117918,
+      "endLine": 118222,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13be-media-image-host.js",
-      "startLine": 118202,
-      "endLine": 118766,
+      "startLine": 118223,
+      "endLine": 118787,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 118767,
-      "endLine": 119504,
+      "startLine": 118788,
+      "endLine": 119525,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 119505,
-      "endLine": 119546,
+      "startLine": 119526,
+      "endLine": 119567,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "startLine": 119547,
-      "endLine": 119824,
+      "startLine": 119568,
+      "endLine": 119845,
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted"
     },
     {
       "file": "13ax-desktop-lifetime.js",
-      "startLine": 119825,
-      "endLine": 120044,
+      "startLine": 119846,
+      "endLine": 120065,
       "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority"
     },
     {
       "file": "13ax-work-data-attachment-upload.js",
-      "startLine": 120045,
-      "endLine": 120115,
+      "startLine": 120066,
+      "endLine": 120136,
       "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 120116,
-      "endLine": 121205,
+      "startLine": 120137,
+      "endLine": 121226,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 121206,
-      "endLine": 122131,
+      "startLine": 121227,
+      "endLine": 122152,
       "note": "main()/module.exports"
     }
   ]
