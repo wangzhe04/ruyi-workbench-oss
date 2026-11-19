@@ -44448,21 +44448,43 @@ const SemanticOriginalWindows = (() => {
 // Canonical generator copied byte-for-byte from reviewed90a; provenance stays private.
 const Encoding=SemanticScoreEvidence;
 const CHARS=4096,OVERLAP=256,segmenter=new Intl.Segmenter('und',{granularity:'grapheme'}),canonicalText=text=>text.normalize('NFKC').toUpperCase().normalize('NFKC'),fail=suffix=>Object.assign(Error('semantic.window_'+suffix),{code:'semantic.window_'+suffix});
+// 150 S5 fast path and slice cache: byte-identical copies of 13ap (locked by unit/fulltext-canonical-fast-path.test.js).
+  const CANONICAL_UNITS=new Int32Array(65536);
+function canonicalUnit(code){
+    let value=CANONICAL_UNITS[code];
+    if(value===0){const output=canonicalText(String.fromCharCode(code));
+      value=output.length===1&&/^[\x09-\x0c\x20-\x7e\u2010-\u2027\u3001-\u3029\p{Script=Han}]$/u.test(output)&&!/[\p{Extended_Pictographic}\p{Grapheme_Extend}]/u.test(output)&&canonicalText(output)===output?output.charCodeAt(0)+1:-1;
+      CANONICAL_UNITS[code]=value;}
+    return value>0?value-1:-1;
+  }
 function* canonicalGroups(text){
-    let tail=null;
-    for(const part of segmenter.segment(text)){const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
+    let tail=null,run=null;
+    for(const part of segmenter.segment(text)){
+      const code=part.segment.length===1&&tail!==null&&tail.text.length===1&&canonicalUnit(tail.text.charCodeAt(0))===tail.text.charCodeAt(0)?canonicalUnit(part.segment.charCodeAt(0)):-1;
+      if(code>=0){const linear=tail.to-tail.from===1;
+        if(run&&run.linear&&linear&&run.to===tail.from&&run.text.length<CHARS){run.text+=tail.text;run.to=tail.to;}
+        else{if(run)yield run;run={text:tail.text,from:tail.from,to:tail.to,linear};}
+        tail={text:code===part.segment.charCodeAt(0)?part.segment:String.fromCharCode(code),from:part.index,to:part.index+1,linear:true};continue;}
+      if(run){yield run;run=null;}
+      const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
       for(const unit of segmenter.segment(joined)){const from=unit.index<boundary?tail.from:part.index,to=unit.index+unit.segment.length>boundary?part.index+part.segment.length:tail.to;
         for(const normalized of segmenter.segment(canonicalText(unit.segment))){if(next)yield next;next={text:normalized.segment,from,to,linear:normalized.segment.length===1&&to-from===1};}
       }
       tail=next;
     }
+    if(run)yield run;
     if(tail)yield tail;
   }
 function* canonicalPieces(text){
     let whitespace=null;
     function* asciiParts(){for(let index=0;index<text.length;index+=CHARS)yield {text:text.slice(index,index+CHARS).toUpperCase(),from:index,to:Math.min(text.length,index+CHARS),linear:true};}
-    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text);
-    for(const part of parts){const matcher=/\s+|\S+/gu;let match;
+    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text),blankUnit=/\s/u;
+    for(const part of parts){
+      if(part.text.length===1){const linear=part.linear,from=part.from,to=linear?from+1:part.to;
+        if(blankUnit.test(part.text)){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
+        if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
+        yield {text:part.text,from,to,linear};continue;}
+      const matcher=/\s+|\S+/gu;let match;
       while((match=matcher.exec(part.text))){const blank=/^\s/u.test(match[0]),linear=part.linear,from=linear?part.from+match.index:part.from,to=linear?from+match[0].length:part.to;
         if(blank){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
         if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
@@ -44472,7 +44494,41 @@ function* canonicalPieces(text){
     if(whitespace)yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};
   }
 function rangeAt(ranges,position){for(const run of ranges)if(position>=run[0]&&position<run[0]+run[1])return run.length===3?{from:run[2]+position-run[0],to:run[2]+position-run[0]+1}:{from:run[2],to:run[3]};throw fail('shard_invalid');}
-function* slices(text){
+  const SLICE_CACHE={entries:new Map(),bytes:0,minChars:1024,maxBytes:33554432,maxEntryBytes:8388608,maxEntries:128,idleMs:120000,timer:null,generation:0};
+function sliceCacheEvict(key,entry){
+    const cache=SLICE_CACHE;if(!entry.live)return;entry.live=false;if(cache.entries.get(key)===entry)cache.entries.delete(key);cache.bytes-=entry.bytes;
+  }
+function clearSliceCache(){
+    const cache=SLICE_CACHE;cache.generation++;for(const [key,entry] of cache.entries)sliceCacheEvict(key,entry);cache.entries.clear();cache.bytes=0;
+    if(cache.timer!==null){if(typeof clearTimeout==='function')clearTimeout(cache.timer);cache.timer=null;}
+  }
+function sweepSliceCache(now,keep=null){
+    const cache=SLICE_CACHE;
+    for(const [key,entry] of cache.entries){if(entry===keep||now-entry.used<=cache.idleMs&&cache.entries.size<=cache.maxEntries&&cache.bytes<=cache.maxBytes)break;sliceCacheEvict(key,entry);}
+    if(cache.timer===null&&cache.entries.size&&typeof setTimeout==='function'){const timer=setTimeout(()=>{if(cache.timer===timer){cache.timer=null;sweepSliceCache(Date.now());}},cache.idleMs>>2);cache.timer=timer;if(typeof timer?.unref==='function')timer.unref();}
+  }
+function* cachedSlices(text,generation){
+    const cache=SLICE_CACHE;if(text.length<cache.minChars||text.length*5>cache.maxEntryBytes){yield* sliceWindows(text);return;}
+    const now=Date.now(),current=generation===cache.generation;sweepSliceCache(now);
+    let entry=current?cache.entries.get(text):undefined;
+    if(entry){cache.entries.delete(text);cache.entries.set(text,entry);entry.used=now;}
+    else{entry={windows:[],source:sliceWindows(text),failure:null,done:false,live:current,bytes:2*text.length+64,used:now};if(current){cache.entries.set(text,entry);cache.bytes+=entry.bytes;sweepSliceCache(now,entry);}}
+    for(let index=0;;index++){
+      if(index===entry.windows.length){
+        if(entry.failure)throw entry.failure;if(entry.done)return;
+        let next;try{next=entry.source.next();}catch(error){entry.failure=error;entry.source=null;sliceCacheEvict(text,entry);throw error;}
+        if(next.done){entry.done=true;entry.source=null;return;}
+        const value=next.value,flat=new Int32Array(value.ranges.length*4);let at=0;for(const run of value.ranges){flat[at++]=run[0];flat[at++]=run[1];flat[at++]=run[2];flat[at++]=run.length===4?run[3]:-1;}
+        const size=2*value.text.length+flat.byteLength+(flat.byteLength>>1)+4096;entry.windows.push({canonicalStart:value.canonicalStart,start:value.start,end:value.end,text:value.text,flat});entry.bytes+=size;
+        if(entry.live){cache.bytes+=size;if(entry.bytes>cache.maxEntryBytes)sliceCacheEvict(text,entry);else sweepSliceCache(Date.now(),entry);}
+      }
+      const window=entry.windows[index],flat=window.flat,ranges=[];
+      for(let at=0;at<flat.length;at+=4)ranges.push(flat[at+3]<0?[flat[at],flat[at+1],flat[at+2]]:[flat[at],flat[at+1],flat[at+2],flat[at+3]]);
+      yield {canonicalStart:window.canonicalStart,start:window.start,end:window.end,text:window.text,ranges};
+    }
+  }
+function slices(text,generation=SLICE_CACHE.generation){return cachedSlices(text,generation);}
+function* sliceWindows(text){
     let buffer='',ranges=[],absolute=0,lastYield=0;
     const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
       if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
@@ -44487,7 +44543,7 @@ function* slices(text){
     if(buffer.length&&absolute+buffer.length>lastYield)yield window(buffer.length);
   }
 const canonicalProofs=new WeakMap(),requests=new WeakMap(),IDENTITY_KEYS=['sourceId','field','revision','epoch','sourceRevision'];
-function* canonicalSlices(text){if(typeof text!=='string')throw fail('text_invalid');for(const window of slices(text)){for(const range of window.ranges)Object.freeze(range);Object.freeze(window.ranges);Object.freeze(window);canonicalProofs.set(window,{text,canonicalStart:window.canonicalStart,start:window.start,end:window.end,textValue:window.text,ranges:window.ranges});yield window;}}
+function* canonicalSlices(text,generation=SLICE_CACHE.generation){if(typeof text!=='string')throw fail('text_invalid');for(const window of slices(text,generation)){for(const range of window.ranges)Object.freeze(range);Object.freeze(window.ranges);Object.freeze(window);canonicalProofs.set(window,{text,canonicalStart:window.canonicalStart,start:window.start,end:window.end,textValue:window.text,ranges:window.ranges});yield window;}}
 function* rawSlices(text){if(typeof text!=='string')throw fail('text_invalid');for(let start=0;start<text.length;){let end=Math.min(text.length,start+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;yield {start,end,text:text.slice(start,end)};if(end===text.length)break;start=end-16;if(text.charCodeAt(start)>=0xdc00&&text.charCodeAt(start)<=0xdfff)start--;}}
 function observationProjectedSpans(text) {return [...text.matchAll(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g)].map(match=>[match.index,match.index+match[0].length]);}
 function observationProjectedRange(text,start,end,spans=observationProjectedSpans(text)) {
@@ -44501,7 +44557,7 @@ function observationProjectedRange(text,start,end,spans=observationProjectedSpan
 function* projectedSlices(text){const spans=observationProjectedSpans(text);for(let at=0;at<text.length;){let end=Math.min(text.length,at+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;const range=observationProjectedRange(text,at,end,spans);at=range.start;end=range.end;yield {start:at,end,text:text.slice(at,end)};if(end===text.length)break;let next=end-16;const adjusted=observationProjectedRange(text,next,end,spans);next=adjusted.start;if(next<=at)next=end;at=next;if(text.charCodeAt(at)>=0xdc00&&text.charCodeAt(at)<=0xdfff)at--;}}
 function hasPosition(text,start,end){for(const row of rawSlices(text)){if(row.start===start)return row.end===end;if(row.start>start)return false;}return false;}
 function validRawPosition(f,start,end){if(f.kind==='canonical-message-v3')return false;if(!f.positions){f.positions=new Map();f.positionIterator=(f.kind==='privacy-projected-v1'?projectedSlices(f.text):rawSlices(f.text));}if(f.positions.has(start))return f.positions.get(start)===end;for(;;){const next=f.positionIterator.next();if(next.done)return false;f.positions.set(next.value.start,next.value.end);if(next.value.start>=start)return next.value.start===start&&next.value.end===end;}}
-function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='string'||!query.trim()||typeof scopeId!=='string'||!scopeId||typeof modelFingerprint!=='string'||!modelFingerprint)throw fail('context_invalid');const context=Object.freeze({}),fields=new WeakMap(),windows=new WeakMap(),rows=new WeakMap(),weakKeys=new WeakMap(),byIdentity=new Map();let used=false,fieldSerial=0,poolReference=null,poolSnapshot=null;
+function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='string'||!query.trim()||typeof scopeId!=='string'||!scopeId||typeof modelFingerprint!=='string'||!modelFingerprint)throw fail('context_invalid');const context=Object.freeze({}),sliceGeneration=SLICE_CACHE.generation,fields=new WeakMap(),windows=new WeakMap(),rows=new WeakMap(),weakKeys=new WeakMap(),byIdentity=new Map();let used=false,fieldSerial=0,poolReference=null,poolSnapshot=null;
  const field=token=>{const f=fields.get(token);if(!f)throw fail('field_invalid');return f;};
  function captureField(identity,text,kind){if(!identity||typeof text!=='string'||!['canonical-message-v3','raw-original-v1','raw-metadata-v1','privacy-projected-v1'].includes(kind)||IDENTITY_KEYS.some(k=>typeof identity[k]!=='string'))throw fail('field_invalid');const selected=Object.fromEntries(IDENTITY_KEYS.map(k=>[k,identity[k]])),key=JSON.stringify(selected),prior=byIdentity.get(key);if(prior){const old=field(prior);if(old.text!==text||old.kind!==kind)throw fail('source_changed');return prior;}const token=Object.freeze({});fields.set(token,{identity:selected,text,kind,key:'field-'+(++fieldSerial)});byIdentity.set(key,token);return token;}
  function wholeSource(token){const f=field(token);return {identity:{...f.identity,start:0,end:f.text.length},fieldText:f.text,text:f.text,fieldWitness:token};}
@@ -44513,9 +44569,9 @@ function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='stri
  function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
  function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
  const assertPool=pool=>{if(!used||pool!==poolReference||pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n]))throw fail('pool_changed');};
- const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
+ const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
   begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
-return {canonicalSlices,rawSlices,projectedSlices,createRequest,isRequest:(value,context)=>requests.get(value)===context};
+return {canonicalSlices,rawSlices,projectedSlices,createRequest,isRequest:(value,context)=>requests.get(value)===context,clearSliceCache};
 
 })();
 
@@ -115854,21 +115910,50 @@ const SessionFullTextIndex = ((io,p,c) => {
   // example Hangul compatibility jamo). Retain the final already-canonical
   // output grapheme and normalize its boundary with the next source unit before
   // emitting any stable prefix. Expanded units retain their entire raw origin.
+  // 150 S5 快速路径(06h9 SemanticOriginalWindows 有逐字节相同的副本,unit/fulltext-canonical-fast-path.test.js 钉两份一致、
+  // 并在差分语料上与修前实现逐字节比对)。修前每个原字素调 3 次 Intl.Segmenter.segment(),中文 100 KB 要秒级。
+  // canonicalUnit(code) 只对「单码元、规范化结果 d 也是单码元、d 自身再规范化不变、d 属于字素簇断点恒为 Other 的白名单
+  // (TAB/LF/VT/FF、可打印 ASCII、BMP 汉字、U+2010–2027 标点、U+3001–3029 中日标点)且不是 Extended_Pictographic / Grapheme_Extend」
+  // 的码元给出 d,其余一律 -1 走原路径。白名单里任意两码元之间按 GB4/GB5/GB999 必断(白名单不含 CR,没有 CR×LF),所以当尾巴与来者都是白名单码元时,
+  // 原路径三次切分的结果可以直接写出:先吐出尾巴(再规范化不变),来者成为新尾巴、坐标 [index,index+1)、linear。
+  // 结果按码元记在进程内 64K 表里(每个码元只算一次)。吐出的连续线性单码元组合并成一组(每组不超过 CHARS):
+  // canonicalPieces 按 \s+|\S+ 切、sliceWindows 把首尾相接的线性段并进同一 run,与逐字一组的缓冲区、ranges、切窗点完全相同。
+  const CANONICAL_UNITS=new Int32Array(65536);
+  function canonicalUnit(code){
+    let value=CANONICAL_UNITS[code];
+    if(value===0){const output=canonicalText(String.fromCharCode(code));
+      value=output.length===1&&/^[\x09-\x0c\x20-\x7e\u2010-\u2027\u3001-\u3029\p{Script=Han}]$/u.test(output)&&!/[\p{Extended_Pictographic}\p{Grapheme_Extend}]/u.test(output)&&canonicalText(output)===output?output.charCodeAt(0)+1:-1;
+      CANONICAL_UNITS[code]=value;}
+    return value>0?value-1:-1;
+  }
   function* canonicalGroups(text){
-    let tail=null;
-    for(const part of segmenter.segment(text)){const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
+    let tail=null,run=null;
+    for(const part of segmenter.segment(text)){
+      const code=part.segment.length===1&&tail!==null&&tail.text.length===1&&canonicalUnit(tail.text.charCodeAt(0))===tail.text.charCodeAt(0)?canonicalUnit(part.segment.charCodeAt(0)):-1;
+      if(code>=0){const linear=tail.to-tail.from===1;
+        if(run&&run.linear&&linear&&run.to===tail.from&&run.text.length<CHARS){run.text+=tail.text;run.to=tail.to;}
+        else{if(run)yield run;run={text:tail.text,from:tail.from,to:tail.to,linear};}
+        tail={text:code===part.segment.charCodeAt(0)?part.segment:String.fromCharCode(code),from:part.index,to:part.index+1,linear:true};continue;}
+      if(run){yield run;run=null;}
+      const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
       for(const unit of segmenter.segment(joined)){const from=unit.index<boundary?tail.from:part.index,to=unit.index+unit.segment.length>boundary?part.index+part.segment.length:tail.to;
         for(const normalized of segmenter.segment(canonicalText(unit.segment))){if(next)yield next;next={text:normalized.segment,from,to,linear:normalized.segment.length===1&&to-from===1};}
       }
       tail=next;
     }
+    if(run)yield run;
     if(tail)yield tail;
   }
   function* canonicalPieces(text){
     let whitespace=null;
     function* asciiParts(){for(let index=0;index<text.length;index+=CHARS)yield {text:text.slice(index,index+CHARS).toUpperCase(),from:index,to:Math.min(text.length,index+CHARS),linear:true};}
-    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text);
-    for(const part of parts){const matcher=/\s+|\S+/gu;let match;
+    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text),blankUnit=/\s/u;
+    for(const part of parts){
+      if(part.text.length===1){const linear=part.linear,from=part.from,to=linear?from+1:part.to;
+        if(blankUnit.test(part.text)){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
+        if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
+        yield {text:part.text,from,to,linear};continue;}
+      const matcher=/\s+|\S+/gu;let match;
       while((match=matcher.exec(part.text))){const blank=/^\s/u.test(match[0]),linear=part.linear,from=linear?part.from+match.index:part.from,to=linear?from+match[0].length:part.to;
         if(blank){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
         if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
@@ -115878,7 +115963,50 @@ const SessionFullTextIndex = ((io,p,c) => {
     if(whitespace)yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};
   }
   function rangeAt(ranges,position){for(const run of ranges)if(position>=run[0]&&position<run[0]+run[1])return run.length===3?{from:run[2]+position-run[0],to:run[2]+position-run[0]+1}:{from:run[2],to:run[3]};throw fail('shard_invalid');}
-  function* slices(text){
+  // 150 S5 切片缓存:输出只取决于正文本身(规则、CHARS/OVERLAP、unicode/icu 版本在进程内不变),所以键就是正文字符串本身
+  // (比 contentRevision 更严:不会撞、正文一变就不命中;revision 变而正文没变只是照样命中同一结果)。只在内存。
+  // 上限按真实堆估算(字符串按 2 字节/字计、键正文也计入,ranges 压成每段 4 个 Int32 的平铺数组、按 1.5 倍计,每窗另计 4 KB 对象开销;实测英文 22–44 万字真实留存(含键正文)约为估算的 0.6–0.8):
+  // 单份 ≤32 MB、单条 ≤8 MB(正文超过 maxEntryBytes/5 字不进缓存),13ap 与 06h9 两份合计 ≤64 MB;填充中途也按上限淘汰,
+  // 单条超限就当场退出缓存。闲置 120 s 过期:每次调用惰性淘汰,另有 unref 的定时清扫(只在缓存非空时挂着,加载模块不起定时器)。
+  // clearSliceCache() 供撤销、暂停、维护与策略变化时清空。1024 字以下不进缓存。按需扩展:先到的消费者提前 break 也只算到
+  // 它要的那几窗,后来者接着往下算;生成器抛错就整条丢弃并原样上抛。每次吐出的都是新对象(ranges 现造),缓存里的原件不外泄。
+  // 清空世代(generation):每次 clearSliceCache() 加一。slices(text,generation) 的世代默认取调用那一刻;搜索/请求在读正文之前
+  // 先取世代传进来。世代落后于当前的调用只给自己的消费者现算,既不读也不写缓存 —— 清空前读到的正文不会在清空后被放回去。
+  const SLICE_CACHE={entries:new Map(),bytes:0,minChars:1024,maxBytes:33554432,maxEntryBytes:8388608,maxEntries:128,idleMs:120000,timer:null,generation:0};
+  function sliceCacheEvict(key,entry){
+    const cache=SLICE_CACHE;if(!entry.live)return;entry.live=false;if(cache.entries.get(key)===entry)cache.entries.delete(key);cache.bytes-=entry.bytes;
+  }
+  function clearSliceCache(){
+    const cache=SLICE_CACHE;cache.generation++;for(const [key,entry] of cache.entries)sliceCacheEvict(key,entry);cache.entries.clear();cache.bytes=0;
+    if(cache.timer!==null){if(typeof clearTimeout==='function')clearTimeout(cache.timer);cache.timer=null;}
+  }
+  function sweepSliceCache(now,keep=null){
+    const cache=SLICE_CACHE;
+    for(const [key,entry] of cache.entries){if(entry===keep||now-entry.used<=cache.idleMs&&cache.entries.size<=cache.maxEntries&&cache.bytes<=cache.maxBytes)break;sliceCacheEvict(key,entry);}
+    if(cache.timer===null&&cache.entries.size&&typeof setTimeout==='function'){const timer=setTimeout(()=>{if(cache.timer===timer){cache.timer=null;sweepSliceCache(Date.now());}},cache.idleMs>>2);cache.timer=timer;if(typeof timer?.unref==='function')timer.unref();}
+  }
+  function slices(text,generation=SLICE_CACHE.generation){return cachedSlices(text,generation);}
+  function* cachedSlices(text,generation){
+    const cache=SLICE_CACHE;if(text.length<cache.minChars||text.length*5>cache.maxEntryBytes){yield* sliceWindows(text);return;}
+    const now=Date.now(),current=generation===cache.generation;sweepSliceCache(now);
+    let entry=current?cache.entries.get(text):undefined;
+    if(entry){cache.entries.delete(text);cache.entries.set(text,entry);entry.used=now;}
+    else{entry={windows:[],source:sliceWindows(text),failure:null,done:false,live:current,bytes:2*text.length+64,used:now};if(current){cache.entries.set(text,entry);cache.bytes+=entry.bytes;sweepSliceCache(now,entry);}}
+    for(let index=0;;index++){
+      if(index===entry.windows.length){
+        if(entry.failure)throw entry.failure;if(entry.done)return;
+        let next;try{next=entry.source.next();}catch(error){entry.failure=error;entry.source=null;sliceCacheEvict(text,entry);throw error;}
+        if(next.done){entry.done=true;entry.source=null;return;}
+        const value=next.value,flat=new Int32Array(value.ranges.length*4);let at=0;for(const run of value.ranges){flat[at++]=run[0];flat[at++]=run[1];flat[at++]=run[2];flat[at++]=run.length===4?run[3]:-1;}
+        const size=2*value.text.length+flat.byteLength+(flat.byteLength>>1)+4096;entry.windows.push({canonicalStart:value.canonicalStart,start:value.start,end:value.end,text:value.text,flat});entry.bytes+=size;
+        if(entry.live){cache.bytes+=size;if(entry.bytes>cache.maxEntryBytes)sliceCacheEvict(text,entry);else sweepSliceCache(Date.now(),entry);}
+      }
+      const window=entry.windows[index],flat=window.flat,ranges=[];
+      for(let at=0;at<flat.length;at+=4)ranges.push(flat[at+3]<0?[flat[at],flat[at+1],flat[at+2]]:[flat[at],flat[at+1],flat[at+2],flat[at+3]]);
+      yield {canonicalStart:window.canonicalStart,start:window.start,end:window.end,text:window.text,ranges};
+    }
+  }
+  function* sliceWindows(text){
     let buffer='',ranges=[],absolute=0,lastYield=0;
     const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
       if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
@@ -115919,6 +116047,10 @@ const SessionFullTextIndex = ((io,p,c) => {
     return {value,from,to};
   }
   const normalize=text=>canonicalText(text).replace(/\s+/g,' ');
+  // 150 S5(2D 复审 F3):撤销、暂停、进出维护、写入策略变化时清空两份切片缓存(本模块与 06h9),已删或已改策略的会话明文
+  // 不留在堆里;关闭索引后没人再调切片,条目由 unref 定时清扫在闲置期满后清掉。
+  const clearCanonicalCaches=()=>{clearSliceCache();if(typeof SemanticOriginalWindows!=='undefined'&&typeof SemanticOriginalWindows.clearSliceCache==='function')SemanticOriginalWindows.clearSliceCache();};
+  let canonicalCachePolicy;
   function create(host){
     if(!host||['validSessionId','root','enabled','writeJson','catalog','epoch','scan','scope','authorize','assertAuthorized','project','assertScope','sourceSequence','noise','terms'].some(name=>typeof host[name]!=='function'))throw fail('host_invalid');
     const sessionResults=host.resultUnit==='sessions';
@@ -116067,6 +116199,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       // all old bytes until a completely verified new generation is published.
       const stale=prior===malformedManifest?await ownedNames(sid,check):null;
       const identities=new Set(),previewAttachments=attachmentWitness(),previewBudget=attachmentBudget(),policy=await host.enabled();
+      if(canonicalCachePolicy!==undefined&&canonicalCachePolicy!==policy)clearCanonicalCaches();canonicalCachePolicy=policy;
       const preview=await host.scan(sid,async(row,ordinal)=>{
         check();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}
         if(!host.noise(row))previewAttachments.add(ordinal,await selectedAttachments(attachmentCandidates(row,previewBudget),policy));
@@ -116077,7 +116210,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       if(await host.epoch(sid)!==before)throw fail('source_changed');
       if(prior?.epoch===before&&compatible(prior)&&prior.attachmentRevision===attachmentRevision&&!attachmentRetryDue(prior))return false;
       const generation=c.randomBytes(16).toString('hex'),shards=[],owned=[],observedAttachments=attachmentWitness(),buildBudget=attachmentBudget();
-      let rows=[],bytes=0,messages=0,attachments=0,attachmentsIndexed=0,attachmentsDeferred=false,chunks=0,turn=0,turnBasis='legacy-inferred',committed=false;
+      let rows=[],bytes=0,messages=0,attachments=0,attachmentsIndexed=0,attachmentsDeferred=false,chunks=0,turn=0,turnBasis='legacy-inferred',committed=false,sliceYieldAt=Date.now()+16;
       const flush=async()=>{if(!rows.length)return;check();const ordinal=shards.length,name=generation+'.'+ordinal+'.json',value={schema:SCHEMA,sessionId:sid,generation,ordinal,rows},text=JSON.stringify(value);if(Buffer.byteLength(text)>SHARD_BYTES)throw fail('capacity');
         owned.push(name);await write(sid,name,value,SHARD_BYTES,policy);shards.push({ordinal,sha256:hash(text),records:rows.length});rows=[];bytes=0;};
       try{
@@ -116095,6 +116228,8 @@ const SessionFullTextIndex = ((io,p,c) => {
           for(const source of [...sources(row),...extracted]){
             const revision=source.revision?digest([contentRevision,source.revision]):contentRevision;
             for(const chunk of slices(source.text)){
+              // 150 S5:大正文按时间片让出事件循环(只改何时继续,不改切出什么);让出回来先 check(),撤权、暂停与取消照常截住。
+              if(Date.now()>=sliceYieldAt){await new Promise(resolve=>typeof setImmediate==='function'?setImmediate(resolve):resolve());sliceYieldAt=Date.now()+16;}
               check();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision:revision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
               const size=Buffer.byteLength(JSON.stringify(entry));if(bytes+size>SHARD_BYTES-4096||rows.length>=64)await flush();rows.push(entry);bytes+=size;chunks++;
             }
@@ -116198,6 +116333,8 @@ const SessionFullTextIndex = ((io,p,c) => {
     function resetPreparation(scopeId){preparationProgress.delete(scopeId);}
     function preparationComplete(scopeId){return preparationProgress.get(scopeId)?.done===true;}
     async function search(query,context,limit=20,options={}){
+      // 150 S5(2D 复审):切片缓存世代在读任何正文之前取;这一发若跨过了 invalidate/pause/维护的清空,回读切片只现算、不放回缓存。
+      const sliceGeneration=SLICE_CACHE.generation;
       const check=typeof options.check==='function'?options.check:()=>{};check();
       // 150 S15:调用方已知语义关(配置 semanticRetrievalV1:false)时零语义开销 —— 不建语义行、不算窗口摘要、不碰运行时。
       // semanticDeferred:调用方这一发还在建正文索引,语义留到下一发(状态 deferred,与纯词法预览同口径,但命中照旧全量回读)。
@@ -116307,7 +116444,7 @@ const SessionFullTextIndex = ((io,p,c) => {
               const revision=digest(row),parts=sources(row);
               if(policy!==null&&chosen.some(item=>attachmentField.test(item.entry.hit.row.source)))parts.push(...await extractedSources(row,policy,await selectedAttachments(attachments,policy)));
               const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,windows=new Map(),neededWindows=new Set(chosen.map(item=>item.entry.hit.row.source+'\0'+item.entry.hit.canonicalStart));let chunkOrdinal=0;
-              for(const part of parts){for(const window of slices(part.text)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
+              for(const part of parts){for(const window of slices(part.text,sliceGeneration)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
               for(const {entry,index}of chosen){const hit=entry.hit,source=parts.find(part=>part.field===hit.row.source);
                 if(!source||hit.end>source.text.length||hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
                 const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;
@@ -116390,7 +116527,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             parts.push(...await extractedSources(row,policy,await selectedAttachments(candidates,policy)));
           }
           const windows=new Map(),neededWindows=new Set(rowHits.map(hit=>hit.row.source+'\0'+hit.canonicalStart));let windowOrdinal=0;
-          for(const part of parts){for(const window of slices(part.text)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal:windowOrdinal});windowOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
+          for(const part of parts){for(const window of slices(part.text,sliceGeneration)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal:windowOrdinal});windowOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
           for(const hit of rowHits){
             const source=parts.find(part=>part.field===hit.row.source);if(!source||hit.end>source.text.length)continue;const sourceIds=requiredIds.length?identify(source.text):[];if(requiredIds.some(id=>!sourceIds.includes(id)))continue;
             if(hit.entity){const part=source.text.slice(hit.start,hit.end).normalize('NFKC').toLowerCase();let left=hit.start,right=hit.end;while(left>0&&hit.start-left<512&&idChar(source.text[left-1]))left--;while(right<source.text.length&&right-hit.end<512&&idChar(source.text[right]))right++;if(left>0&&idChar(source.text[left-1])||right<source.text.length&&idChar(source.text[right])||!requiredIds.includes(part)||!identify(source.text.slice(left,right)).includes(part))continue;}
@@ -116455,10 +116592,10 @@ const SessionFullTextIndex = ((io,p,c) => {
       check();if(host.assertScope(context,proof.access)!==true)throw fail('disclosure_changed');return {changed};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
-    return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();return run(async()=>{semantic?.clear();preparationProgress.clear();coverageProofs.delete(sid);await purge(sid);}).finally(finish);},pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
-      setMaintenancePaused:value=>{const next=value===true;/* 2C 复审建议 4:工作数据维护期间迁移编解码(01x/01ad)会重写 _fulltext-index-v1 而不经 beginMutation;进出维护各推一次 mutationSerial,沿用 manifest 的捷径与 13as 的 index_changed 判据都因此失效重读。 */if(next!==maintenancePaused)mutationSerial++;maintenancePaused=next;},busy:()=>building,pending:()=>maintenanceChain});
+    return Object.freeze({step,prepare,resetPreparation,preparationComplete,search,revalidate,mutationState,coverage,restorePause,usesWindowPolicy:(result,context)=>{const proof=searchProofs.get(result);return !!proof&&proof.context===context&&!!proof.gemmaDecision;},metadataAdmission:(result,sid,field,context)=>{const proof=searchProofs.get(result);if(!proof||proof.context!==context)return null;const key=JSON.stringify([sid,field]);if(proof.gemmaDecision)return proof.gemmaMetadata.get(key)??null;const value=proof.metadataEvidence.get(key),total=proof.metadataTotals.get(key)||0;return value?.accepted?true:total>0&&value?.scored===total?false:null;},invalidate:(sid,deleted=false)=>{const finish=beginMutation();clearCanonicalCaches();return run(async()=>{semantic?.clear();clearCanonicalCaches();preparationProgress.clear();coverageProofs.delete(sid);await purge(sid);}).finally(finish);},pause:()=>{paused=true;clearCanonicalCaches();return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
+      setMaintenancePaused:value=>{const next=value===true;/* 2C 复审建议 4:工作数据维护期间迁移编解码(01x/01ad)会重写 _fulltext-index-v1 而不经 beginMutation;进出维护各推一次 mutationSerial,沿用 manifest 的捷径与 13as 的 index_changed 判据都因此失效重读。 */if(next!==maintenancePaused)mutationSerial++;maintenancePaused=next;clearCanonicalCaches();},busy:()=>building,pending:()=>maintenanceChain});
   }
-  return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
+  return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create,canonicalCacheSize:()=>SLICE_CACHE.entries.size});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
 
 // Committed upload references select the original attachment face. A stored
