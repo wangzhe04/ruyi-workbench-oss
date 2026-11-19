@@ -1771,6 +1771,8 @@ function configUrlOrCleared(value) {
 function maskSecrets(config) {
   if (!config || typeof config !== 'object') return config;
   const out = { ...config };
+  delete out.privacyRulesV1;
+  delete out.credentialRefsV1;
   if (Array.isArray(config.providers)) {
     out.providers = config.providers.map(p => {
       if (!p || typeof p !== 'object') return p;

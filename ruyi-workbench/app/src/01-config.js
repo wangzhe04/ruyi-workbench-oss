@@ -1871,27 +1871,89 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
+const credentialVaultPath = () => path.join(paths.data, 'credential-vault-v1.json');
+async function credentialVaultStat() {
+  try { return await fsp.lstat(credentialVaultPath(), { bigint: true }); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+const configVault = CredentialVault.create({
+  core: credentialEnvelope, protector: LocalSecretCrypto,
+  size: async () => {
+    const stat = await credentialVaultStat();
+    if (stat && !stat.isFile()) throw new Error('credential_vault.storage_unavailable');
+    return stat ? Number(stat.size) : 0;
+  },
+  store: {
+    read: async () => {
+      try { return JSON.parse(await fsp.readFile(credentialVaultPath(), 'utf8')); }
+      catch (error) { if (error.code === 'ENOENT') return CredentialVault.empty(); throw error; }
+    },
+    write: state => atomicWriteJson(credentialVaultPath(), state, { mode: 0o600 }),
+    invalidate() {}, // No disk-state cache.
+  },
+});
+function usesCredentialVault(config) {
+  return !!config && (config.credentialEncryptionV1 === true || Object.hasOwn(config, 'credentialRefsV1'));
+}
+// Serialize desktop and CLI vault writers. Windows releases the pipe on process exit.
+async function withCredentialWriteLock(work) {
+  if (process.platform !== 'win32') return work();
+  const root = (await fsp.realpath(paths.data)).toLowerCase();
+  const name = '\\\\.\\pipe\\ruyi-credential-write-' + crypto.createHash('sha256').update(root).digest('hex');
+  const deadline = Date.now() + 20000;
+  for (;;) {
+    const lock = require('node:net').createServer(socket => socket.destroy());
+    try { await new Promise((resolve, reject) => { lock.once('error', reject); lock.listen(name, resolve); }); }
+    catch (error) {
+      if (error.code !== 'EADDRINUSE' || Date.now() >= deadline) throw error;
+      await new Promise(resolve => setTimeout(resolve, 50));
+      continue;
+    }
+    try { return await work(); } finally { await new Promise(resolve => lock.close(resolve)); }
+  }
+}
 let configWriteChain = Promise.resolve();
-async function writeConfigAtomic(data) {
+async function writeConfigAtomic(data, expectedSource, before) {
   configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
-    // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
-    // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
-    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
-    try {
-      const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
-      if (current && typeof current === 'object' && !Array.isArray(current)) {
-        await fsp.copyFile(paths.config, `${paths.config}.prev`);
-        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
-        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
-        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+    const save = async () => {
+      let currentText = null;
+      try { currentText = await fsp.readFile(paths.config, 'utf8'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (expectedSource !== undefined && currentText !== expectedSource) return false;
+      const current = safeJsonParse(currentText, null);
+      const next = JSON.parse(data);
+      const encrypted = usesCredentialVault(current) || usesCredentialVault(next);
+      if (!encrypted && !current && await credentialVaultStat()) throw new Error('credential_vault.config_missing');
+      if (encrypted) {
+        if (before && usesCredentialVault(before) && !usesCredentialVault(current)) throw new Error('credential_vault.config_changed');
+        if (current && Object.hasOwn(current, 'credentialRefsV1') && !current.credentialRefsV1) throw new Error('credential_vault.reference_invalid');
+        const live = await configVault.hydrateConfig(current);
+        if (before && usesCredentialVault(before)) {
+          // Another process may rotate a key while this settings form is being saved.
+          const diskSlots = CredentialVault.slots(normalizeConfig(live.raw).config);
+          if (JSON.stringify(diskSlots) !== JSON.stringify(CredentialVault.slots(before))) {
+            throw Object.assign(new Error('credential_vault.config_changed'), { code: 'credential_vault.config_changed', statusCode: 409 });
+          }
+        }
+        data = await configVault.protectConfig(data, { force: true });
       }
-    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        if (encrypted) {
+          const backup = await configVault.protectConfig(currentText.replace(/^\uFEFF/, ''), { force: true });
+          await atomicWriteJson(paths.config + '.prev', backup, { mode: 0o600 });
+        } else {
+          await fsp.copyFile(paths.config, `${paths.config}.prev`);
+          await fsp.chmod(paths.config + '.prev', 0o600).catch(() => {});
+        }
+      }
+      await atomicWriteJson(paths.config, data, { mode: 0o600 });
+      return true;
+    };
+    return usesCredentialVault(JSON.parse(data)) || await credentialVaultStat() ? withCredentialWriteLock(save) : save();
   });
   configWriteChain = thisWrite;
-  try { await thisWrite; }
+  try { return await thisWrite; }
   finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
 }
 async function readConfigPrev() {
@@ -1947,7 +2009,9 @@ async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
     // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+    const vault = await credentialVaultStat();
+    const vaultStamp = vault ? [vault.ino, vault.size, vault.ctimeNs, vault.mtimeNs].join(':') : 'absent';
+    return { key: `${vaultStamp}|${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {
@@ -1997,6 +2061,7 @@ async function readConfig() {
     // 两支读 .prev,空文件被当成全新安装 —— 断电后 rename 已落盘而数据没落盘就是这个样子(全仓无 fsync);用户随后存一次设置写下
     // 无服务商的新配置,再存一次 writeConfigAtomic 就把它拷进 .prev,含密钥的唯一好备份被覆盖,服务商与 key 永久丢失。
     // 空文件里没有任何东西可留底,不另存 .corrupt;没有 .prev 时行为不变(下面 rawEmpty 那一支照旧判断是不是用过的安装)。
+    if ((raw !== null && (typeof raw !== 'object' || Array.isArray(raw))) && await credentialVaultStat()) throw new Error('credential_vault.config_invalid');
     if (raw === null && !String(text).replace(/^﻿/, '').trim()) {
       const prev = await readConfigPrev();
       if (prev) { raw = prev; recoveredFrom = 'prev'; }
@@ -2007,26 +2072,48 @@ async function readConfig() {
       if (prev) {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
-        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
-        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
+        if (!usesCredentialVault(prev) && await credentialVaultStat()) throw new Error('credential_vault.config_invalid');
+        if (usesCredentialVault(prev)) {
+          await configVault.hydrateConfig(prev);
+          const copy = await configVault.protectCorrupt(text, 'config.json.corrupt');
+          await atomicWriteJson(paths.config + '.corrupt', copy, { mode: 0o600 });
+        } else {
+          await fsp.copyFile(paths.config, paths.config + '.corrupt').catch(() => {});
+          await fsp.chmod(paths.config + '.corrupt', 0o600).catch(() => {});
+        }
       }
       else return degrade('EJSON');
     }
   }
   // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
   // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
+  if ((!raw || !Object.keys(raw).length || (recoveredFrom && !usesCredentialVault(raw))) && await credentialVaultStat()) throw new Error('credential_vault.config_missing');
+  if (raw && Object.hasOwn(raw, 'credentialRefsV1') && !raw.credentialRefsV1) throw new Error('credential_vault.reference_invalid');
+  const encrypted = usesCredentialVault(raw);
+  const hydrated = encrypted ? await configVault.hydrateConfig(raw) : { raw, needsMigration: false };
+  raw = hydrated.raw;
   const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
   if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
     raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
   }
   const { config, changed, persisted } = normalizeConfig(raw);
-  configDegraded = false;
-  lastGoodConfig = config;
   if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
-  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
-  else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
+  if (changed || recoveredFrom || hydrated.needsMigration) {
+    if (encrypted) {
+      // Reject an incompatible down-level schema before it can discard a stored credential.
+      const projected = new Map(CredentialVault.slots(persisted).map(slot => [slot.pointer, slot]));
+      for (const slot of CredentialVault.slots(raw)) {
+        const other = projected.get(slot.pointer);
+        if (!other || other.serialized !== slot.serialized || JSON.stringify(other.binding) !== JSON.stringify(slot.binding))
+          throw new Error('credential_vault.incompatible_config');
+      }
+      if (!await writeConfigAtomic(JSON.stringify(persisted, null, 2), text)) return readConfig();
+    } else await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
+  } else if (!readError) configReadCacheStore(stamp, config);
+  configDegraded = false;
+  lastGoodConfig = config;
   return config;
 }
 
@@ -2065,7 +2152,7 @@ async function writeConfig(next, before = null) {
     if (!configValueEquals(configComparableValue(config, key), configComparableValue(before, key))) explicit.add(key);
   }
   finalizeConfigExplicitKeys(config, explicit);
-  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), undefined, before);
   configEmitWritten(config);
   return config;
 }

@@ -23,7 +23,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL, pathToFileURL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '3.0.2'; // 如意 Ruyi 3.0.2 修复更新（2026-11-18）
+const VERSION = '3.0.3'; // 如意 Ruyi 3.0.3 凭据兼容修复（2026-11-19）
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -2210,6 +2210,357 @@ function normalizeAgentCliType(value, fallback = AGENT_CLI_DEFAULT_TYPE) {
   return isAgentCliType(value) ? value : fallback;
 }
 
+// 81-P1: Shared bounded Windows DPAPI helper. Secrets travel only over stdin/stdout.
+const LocalSecretCrypto = (() => {
+  const childProcess = require('node:child_process'), systemPath = require('node:path');
+  const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
+  const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
+  const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
+  const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$PSModuleAutoLoadingPreference='None'
+try {
+  [void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')
+  [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
+  [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+  $op = [Console]::In.ReadLine()
+  $bytes = [Convert]::FromBase64String([Console]::In.ReadLine())
+  $entropy = [Convert]::FromBase64String([Console]::In.ReadLine())
+  if ($op -eq 'protect') {
+    $result = [Security.Cryptography.ProtectedData]::Protect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
+  } elseif ($op -eq 'unprotect') {
+    $result = [Security.Cryptography.ProtectedData]::Unprotect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
+  } else { throw 'operation' }
+  [Console]::Out.Write('{"ok":true,"value":"'+[Convert]::ToBase64String($result)+'"}')
+  [Array]::Clear($bytes,0,$bytes.Length)
+  [Array]::Clear($result,0,$result.Length)
+  exit 0
+} catch { [Console]::Out.Write('{"ok":false}'); exit 1 }`;
+  function run(op, value, entropy) {
+    if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
+    if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
+    return new Promise((resolve, reject) => {
+      let child, complete = false, outputSize = 0;
+      const output = [];
+      const finish = (suffix, result) => {
+        if (complete) return;
+        complete = true; clearTimeout(timer);
+        for (const chunk of output) chunk.fill(0);
+        output.length = 0;
+        if (suffix) reject(Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: 503 }));
+        else resolve(result);
+      };
+      const stop = suffix => { finish(suffix); if (child) { try { child.kill(); } catch { /* own PowerShell has no descendants */ } } };
+      const timer = setTimeout(() => stop('process_timeout'), LIMIT.processMs);
+      const environment = {};
+      // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
+      for (const key of ['SystemRoot', 'SystemDrive', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA']) if (typeof process.env[key] === 'string') environment[key] = process.env[key];
+      const executable = systemPath.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      // Only Windows' built-in modules are needed. Without an explicit path PowerShell discovers
+      // third-party modules installed machine-wide, even with -NoProfile and a sanitized environment.
+      environment.PSModulePath = systemPath.join(systemPath.dirname(executable), 'Modules');
+      try {
+        child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
+          { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
+        child.on('error', () => finish('process_failed'));
+        child.stdout.on('data', chunk => {
+          if (complete) { chunk.fill(0); return; }
+          outputSize += chunk.length;
+          if (outputSize > LIMIT.outputBytes) { chunk.fill(0); stop('process_capacity'); return; }
+          output.push(chunk);
+        });
+        child.stdout.on('error', () => stop('process_failed'));
+        child.stdin.on('error', () => stop('process_failed'));
+        child.on('close', code => {
+          if (complete) return;
+          let response;
+          const bytes = Buffer.concat(output);
+          try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
+          finally { bytes.fill(0); }
+          if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
+          finish(null, Buffer.from(response.value, 'base64'));
+        });
+        // Three ASCII lines need neither pipe EOF nor cmdlet/module discovery (Add-Type/JSON).
+        child.stdin.end([op, value.toString('base64'), entropy.toString('base64'), ''].join('\n'));
+      } catch { stop('process_failed'); }
+    });
+  }
+  return Object.freeze({ run, supported: () => process.platform === 'win32' });
+})();
+
+// 81-P1: Immutable encrypted credential records; config holds typed references, never vault plaintext.
+const CredentialVault = ((cryptoApi) => {
+  const MAX = Object.freeze({ bytes: 8 * 1024 * 1024, records: 1024, value: 65536, slots: 256 });
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+  const fail = suffix => { throw Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix, apiCode: 'credential_vault.' + suffix, statusCode: 503 }); };
+  const empty = () => ({ schema: 1, instanceId: '', protectedKey: '', records: [] });
+  function validate(state) {
+    if (!object(state) || Object.keys(state).sort().join(',') !== 'instanceId,protectedKey,records,schema' || state.schema !== 1 || !Array.isArray(state.records) || state.records.length > MAX.records) return false;
+    if (!state.instanceId && !state.protectedKey) return state.records.length === 0;
+    if (!id(state.instanceId) || typeof state.protectedKey !== 'string' || state.protectedKey.length > 65536 || !/^[A-Za-z0-9+/]+={0,2}$/.test(state.protectedKey)) return false;
+    const ids = new Set();
+    return state.records.every(row => {
+      if (!object(row) || Object.keys(row).sort().join(',') !== 'envelope,fingerprint,id,owner' || !id(row.id) || ids.has(row.id)
+        || !/^[a-f0-9]{64}$/.test(row.owner) || !/^[a-f0-9]{64}$/.test(row.fingerprint) || !object(row.envelope)) return false;
+      ids.add(row.id); return true;
+    });
+  }
+  const pointer = pieces => '/' + pieces.map(piece => String(piece).replace(/~/g, '~0').replace(/\//g, '~1')).join('/');
+  function at(root, p) {
+    if (typeof p !== 'string' || !p.startsWith('/') || p.length > 1024) fail('reference_invalid');
+    const parts = p.slice(1).split('/').map(part => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+    if (parts.some(part => ['__proto__', 'constructor', 'prototype'].includes(part))) fail('reference_invalid');
+    let parent = root;
+    for (const part of parts.slice(0, -1)) { if (!parent || !Object.hasOwn(parent, part)) fail('reference_invalid'); parent = parent[part]; }
+    const key = parts.at(-1); if (!parent || !Object.hasOwn(parent, key)) fail('reference_invalid');
+    return { parent, key, value: parent[key] };
+  }
+  function secretUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+      const url = new globalThis.URL(value);
+      return !!(url.username || url.password) || [...url.searchParams.keys()].some(key => /(?:key|token|secret|credential|signature|^sig$|password)/i.test(key));
+    } catch { return false; }
+  }
+  function slots(config) {
+    const out = [];
+    const add = (parts, value, binding) => {
+      if (value === '' || value === null || value === undefined) return;
+      if (object(value) && !Object.keys(value).length || Array.isArray(value) && !value.length) return;
+      const serialized = JSON.stringify(value);
+      if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > MAX.value) fail('value_limit');
+      if (out.length >= MAX.slots) fail('slots_limit');
+      out.push({ pointer: pointer(parts), serialized, binding });
+    };
+    for (const [i, provider] of (Array.isArray(config.providers) ? config.providers : []).entries()) {
+      if (!object(provider) || typeof provider.id !== 'string') continue;
+      const binding = ['provider', provider.id, provider.baseUrl || '', provider.audioBaseUrl || '', provider.extraBaseUrls || [], provider.apiStyle || 'chat'];
+      add(['providers', i, 'apiKey'], provider.apiKey, binding);
+      add(['providers', i, 'extraHeaders'], provider.extraHeaders, binding);
+      for (const name of ['baseUrl', 'audioBaseUrl']) if (secretUrl(provider[name])) add(['providers', i, name], provider[name], binding);
+      if (Array.isArray(provider.extraBaseUrls) && provider.extraBaseUrls.some(secretUrl)) add(['providers', i, 'extraBaseUrls'], provider.extraBaseUrls, binding);
+    }
+    add(['privacyRulesV1'], config.privacyRulesV1, ['privacy-rules-v1']);
+    add(['modelsApiKey'], config.modelsApiKey, ['claude', config.modelsApiBase || '']);
+    if (secretUrl(config.modelsApiBase)) add(['modelsApiBase'], config.modelsApiBase, ['claude', config.modelsApiBase]);
+    if (object(config.searchBackend)) {
+      const binding = ['search', config.searchBackend.baseUrl || '', config.searchBackend.type || ''];
+      add(['searchBackend', 'apiKey'], config.searchBackend.apiKey, binding);
+      if (secretUrl(config.searchBackend.baseUrl)) add(['searchBackend', 'baseUrl'], config.searchBackend.baseUrl, binding);
+    }
+    for (const [i, server] of (Array.isArray(config.externalMcpServers) ? config.externalMcpServers : []).entries()) {
+      if (!object(server) || typeof server.id !== 'string') continue;
+      const binding = ['mcp', server.id, server.url || '', server.command || '', server.args || [], server.cwd || ''];
+      for (const name of ['env', 'headers', 'args']) add(['externalMcpServers', i, name], server[name], binding);
+      if (secretUrl(server.url)) add(['externalMcpServers', i, 'url'], server.url, binding);
+    }
+    return out;
+  }
+  function create(host) {
+    const { store, core, protector } = host;
+    let chain = Promise.resolve(), keyCache = null;
+    const serial = work => { const next = chain.catch(() => {}).then(work); chain = next; return next; };
+    const hash = (key, value) => cryptoApi.createHmac('sha256', key).update(value).digest('hex');
+    const entropy = instanceId => Buffer.from('ruyi.credential-vault.v1:' + instanceId);
+    async function stateRead() {
+      try {
+        if (await host.size() > MAX.bytes) fail('capacity');
+        const state = await store.read(); if (!validate(state)) fail('storage_unavailable'); return state;
+      } catch { fail('storage_unavailable'); }
+    }
+    async function stateWrite(state) {
+      if (!validate(state) || Buffer.byteLength(JSON.stringify(state)) > MAX.bytes) fail('capacity');
+      try { await store.write(state); } catch { store.invalidate(); fail('storage_unavailable'); }
+    }
+    async function master(state, initialize) {
+      if (!state.instanceId) {
+        if (!initialize) fail('key_missing');
+        if (!protector.supported()) fail('unsupported');
+        const key = cryptoApi.randomBytes(32), instanceId = cryptoApi.randomBytes(16).toString('hex');
+        try {
+          const wrapped = await protector.run('protect', key, entropy(instanceId));
+          state.instanceId = instanceId; state.protectedKey = wrapped.toString('base64'); wrapped.fill(0);
+          keyCache = { binding: state.instanceId + ':' + state.protectedKey, key };
+          return key;
+        } catch { key.fill(0); fail('unlock_failed'); }
+      }
+      const binding = state.instanceId + ':' + state.protectedKey;
+      if (keyCache?.binding === binding) return keyCache.key;
+      try {
+        const key = await protector.run('unprotect', Buffer.from(state.protectedKey, 'base64'), entropy(state.instanceId));
+        if (key.length !== 32) { key.fill(0); fail('unlock_failed'); }
+        if (keyCache) keyCache.key.fill(0);
+        keyCache = { binding, key }; return key;
+      } catch { fail('unlock_failed'); }
+    }
+    const aad = (state, recordId, purpose = 'credential') => ({ instanceId: state.instanceId, recordId, purpose });
+    function hydrate(raw, state, key) {
+      const refs = raw.credentialRefsV1;
+      if (!refs) return raw;
+      if (!object(refs) || refs.version !== 1 || !Array.isArray(refs.slots) || refs.slots.length > MAX.slots || Object.keys(refs).sort().join(',') !== 'slots,version') fail('reference_invalid');
+      const seen = new Set(), used = [];
+      for (const ref of refs.slots) {
+        if (!object(ref) || Object.keys(ref).sort().join(',') !== 'id,pointer' || !id(ref.id) || seen.has(ref.pointer)) fail('reference_invalid');
+        seen.add(ref.pointer);
+        const slot = at(raw, ref.pointer); if (slot.value !== '') fail('reference_collision');
+        const record = state.records.find(row => row.id === ref.id); if (!record) fail('reference_missing');
+        try { slot.parent[slot.key] = JSON.parse(core.open(record.envelope, key, aad(state, record.id), 'master-v1')); }
+        catch { fail('decrypt_failed'); }
+        used.push({ ref, record });
+      }
+      const recognized = new Map(slots(raw).map(slot => [slot.pointer, slot]));
+      for (const { ref, record } of used) {
+        const slot = recognized.get(ref.pointer); if (!slot || hash(key, JSON.stringify([slot.pointer, slot.binding])) !== record.owner) fail('binding_mismatch');
+        if (hash(key, record.owner + ':' + slot.serialized) !== record.fingerprint) fail('integrity_failed');
+      }
+      delete raw.credentialRefsV1;
+      raw.credentialEncryptionV1 = true;
+      raw.configExplicitKeysV1 = [...new Set([...(Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : []), 'credentialEncryptionV1'])].sort();
+      return raw;
+    }
+    // 3.0.2 normalized encrypted placeholders before reading the vault. Authenticate the
+    // original record and its provider binding before accepting any conflicting edit.
+    function hydrateCompatible(raw, state, key) {
+      if (raw.version !== '3.0.2' || !Array.isArray(raw.credentialRefsV1?.slots)) return hydrate(raw, state, key);
+      const edits = [];
+      for (const ref of raw.credentialRefsV1.slots) {
+        const slot = at(raw, ref.pointer);
+        if (slot.value === '') continue;
+        const emptyMap = /^(?:\/providers\/\d+\/extraHeaders|\/externalMcpServers\/\d+\/(?:env|headers))$/.test(ref.pointer)
+          && object(slot.value) && Object.keys(slot.value).length === 0;
+        const emptyArgs = /^\/externalMcpServers\/\d+\/args$/.test(ref.pointer) && Array.isArray(slot.value) && !slot.value.length;
+        const providerKey = /^\/providers\/(\d+)\/apiKey$/.exec(ref.pointer);
+        if (providerKey && typeof slot.value === 'string' && slot.value.trim() && slot.value.length <= 2048) {
+          edits.push({ index: Number(providerKey[1]), value: slot.value });
+        } else if (!emptyMap && !emptyArgs) fail('reference_collision');
+        slot.parent[slot.key] = '';
+      }
+      hydrate(raw, state, key);
+      for (const { index, value } of edits) {
+        const provider = raw.providers[index];
+        if (provider.apiKey === value) continue;
+        if (raw.providers.length >= 20) fail('recovery_provider_limit');
+        let suffix = 1, id;
+        do { id = 'vault-recovered-' + index + '-' + suffix++; } while (raw.providers.some(p => p.id === id));
+        raw.providers.push({ ...structuredClone(provider), id, label: String(provider.label || provider.id).slice(0, 45) + '（原凭据库）' });
+        provider.apiKey = value;
+      }
+      return raw;
+    }
+    async function hydrateConfig(raw) {
+      if (!object(raw)) return { raw, needsMigration: false };
+      return serial(async () => {
+        const clone = structuredClone(raw);
+        if (clone.credentialRefsV1) {
+          const state = await stateRead(), key = await master(state, false);
+          return { raw: hydrateCompatible(clone, state, key), needsMigration: false };
+        }
+        const enabled = clone.credentialEncryptionV1 === true;
+        return { raw: clone, needsMigration: enabled && slots(clone).length > 0 };
+      });
+    }
+    async function protectUnlocked(serialized, force, allowPlaintext) {
+      if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > MAX.bytes) fail('config_invalid');
+      let raw; try { raw = JSON.parse(serialized); } catch { fail('config_invalid'); }
+      if (!object(raw)) fail('config_invalid');
+      let state, key;
+      if (raw.credentialRefsV1) { state = await stateRead(); key = await master(state, false); raw = hydrateCompatible(raw, state, key); }
+      const enabled = force || raw.credentialEncryptionV1 === true;
+      if (!enabled) {
+        if (!allowPlaintext && await host.size() > 0) fail('disable_requires_migration');
+        return JSON.stringify(raw, null, 2);
+      }
+      const selected = slots(raw); if (!selected.length) return JSON.stringify(raw, null, 2);
+      if (!state) { state = await stateRead(); key = await master(state, true); }
+      const refs = [];
+      let dirty = false;
+      for (const slot of selected) {
+        const owner = hash(key, JSON.stringify([slot.pointer, slot.binding])), fingerprint = hash(key, owner + ':' + slot.serialized);
+        let record = state.records.find(row => row.owner === owner && row.fingerprint === fingerprint);
+        if (record) {
+          try { if (core.open(record.envelope, key, aad(state, record.id), 'master-v1') !== slot.serialized) fail('integrity_failed'); }
+          catch { fail('integrity_failed'); }
+        }
+        if (!record) {
+          if (state.records.length >= MAX.records) fail('capacity');
+          const recordId = cryptoApi.randomBytes(16).toString('hex');
+          record = { id: recordId, owner, fingerprint, envelope: core.seal(slot.serialized, key, aad(state, recordId), 'master-v1') };
+          state.records.push(record); dirty = true;
+        }
+        at(raw, slot.pointer).parent[at(raw, slot.pointer).key] = '';
+        refs.push({ pointer: slot.pointer, id: record.id });
+      }
+      if (dirty) await stateWrite(state);
+      raw.credentialEncryptionV1 = true;
+      raw.configExplicitKeysV1 = [...new Set([...(Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : []), 'credentialEncryptionV1'])].sort();
+      raw.credentialRefsV1 = { version: 1, slots: refs };
+      return JSON.stringify(raw, null, 2);
+    }
+    const protectConfig = (serialized, options = {}) => serial(() => protectUnlocked(serialized, options.force === true, options.allowPlaintext === true));
+    async function protectCorrupt(serialized, name, enabled = true) {
+      if (!enabled) return serialized;
+      return serial(async () => {
+        const state = await stateRead(); const fresh = !state.instanceId; const key = await master(state, true);
+        if (fresh) await stateWrite(state);
+        const recordId = 'backup-' + cryptoApi.createHash('sha256').update(name).digest('hex');
+        return JSON.stringify({ ruyiEncryptedBackupV1: 1, name, envelope: core.seal(serialized, key, aad(state, recordId, 'config-backup'), 'master-v1') }, null, 2);
+      });
+    }
+    return Object.freeze({ hydrateConfig, protectConfig, protectCorrupt });
+  }
+  return { create, empty, validate, MAX, slots };
+})(require('node:crypto'));
+
+const credentialEnvelope = ((cryptoApi) => {
+  const LIMITS = { bytes: 1024 * 1024 };
+  const fail = suffix => { throw Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix }); };
+  function checkText(value, max = LIMITS.bytes) {
+    if (typeof value !== 'string') fail('text_required');
+    if (Buffer.byteLength(value, 'utf8') > max) fail('text_limit');
+    return value;
+  }
+  function identity(value) {
+    if (typeof value !== 'string' || !/^[a-zA-Z0-9_.:-]{1,160}$/.test(value)) fail('identity_invalid');
+    return value;
+  }
+  function checkKey(key) { if (!Buffer.isBuffer(key) || key.length !== 32) fail('key_invalid'); }
+  function aadFor(binding, keyId) {
+    if (!binding || typeof binding !== 'object') fail('binding_invalid');
+    return Buffer.from(JSON.stringify(['ruyi-privacy', 1, identity(keyId), identity(binding.instanceId), identity(binding.purpose), identity(binding.recordId)]), 'utf8');
+  }
+  function seal(plaintext, key, binding, keyId) {
+    checkKey(key); const privacyText = checkText(plaintext); const aad = aadFor(binding, keyId);
+    if (Buffer.from(privacyText, 'utf8').toString('utf8') !== privacyText) fail('unicode_invalid');
+    const nonce = cryptoApi.randomBytes(12), cipher = cryptoApi.createCipheriv('aes-256-gcm', key, nonce);
+    cipher.setAAD(aad);
+    const ciphertext = Buffer.concat([cipher.update(privacyText, 'utf8'), cipher.final()]);
+    return Object.freeze({ version: 1, algorithm: 'A256GCM', keyId, nonce: nonce.toString('base64'),
+      ciphertext: ciphertext.toString('base64'), tag: cipher.getAuthTag().toString('base64') });
+  }
+  function decode(value, size, max) {
+    if (typeof value !== 'string' || value.length > max || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) fail('envelope_invalid');
+    const bytes = Buffer.from(value, 'base64');
+    if ((size !== null && bytes.length !== size) || bytes.toString('base64') !== value) fail('envelope_invalid');
+    return bytes;
+  }
+  function open(envelope, key, binding, expectedKeyId) {
+    // Uniform errors prevent accidental disclosure of values or crypto internals through tool errors.
+    try {
+      checkKey(key);
+      if (!envelope || Object.keys(envelope).sort().join(',') !== 'algorithm,ciphertext,keyId,nonce,tag,version'
+        || envelope.version !== 1 || envelope.algorithm !== 'A256GCM' || envelope.keyId !== expectedKeyId) fail('envelope_invalid');
+      const aad = aadFor(binding, expectedKeyId), nonce = decode(envelope.nonce, 12, 16), tag = decode(envelope.tag, 16, 24);
+      const ciphertext = decode(envelope.ciphertext, null, Math.ceil(LIMITS.bytes / 3) * 4);
+      if (ciphertext.length > LIMITS.bytes) fail('envelope_invalid');
+      const decipher = cryptoApi.createDecipheriv('aes-256-gcm', key, nonce);
+      decipher.setAAD(aad); decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    } catch { fail('decrypt_failed'); }
+  }
+  return { seal, open };
+})(require('node:crypto'));
+
 // 浏览器目标的合法模式(normalizeConfig 清洗与 mcp_configure set-browser 的入口校验共用一份,别再各抄一个数组)。
 const BROWSER_AUTOMATION_MODES = ['system', 'managed', 'custom', 'cdp', 'bundled'];
 
@@ -4083,27 +4434,89 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // safeJsonParse→null → normalizeConfig 把【整份用户配置静默重置为默认】(密钥/服务商/工作区全丢)。
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
+const credentialVaultPath = () => path.join(paths.data, 'credential-vault-v1.json');
+async function credentialVaultStat() {
+  try { return await fsp.lstat(credentialVaultPath(), { bigint: true }); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+const configVault = CredentialVault.create({
+  core: credentialEnvelope, protector: LocalSecretCrypto,
+  size: async () => {
+    const stat = await credentialVaultStat();
+    if (stat && !stat.isFile()) throw new Error('credential_vault.storage_unavailable');
+    return stat ? Number(stat.size) : 0;
+  },
+  store: {
+    read: async () => {
+      try { return JSON.parse(await fsp.readFile(credentialVaultPath(), 'utf8')); }
+      catch (error) { if (error.code === 'ENOENT') return CredentialVault.empty(); throw error; }
+    },
+    write: state => atomicWriteJson(credentialVaultPath(), state, { mode: 0o600 }),
+    invalidate() {}, // No disk-state cache.
+  },
+});
+function usesCredentialVault(config) {
+  return !!config && (config.credentialEncryptionV1 === true || Object.hasOwn(config, 'credentialRefsV1'));
+}
+// Serialize desktop and CLI vault writers. Windows releases the pipe on process exit.
+async function withCredentialWriteLock(work) {
+  if (process.platform !== 'win32') return work();
+  const root = (await fsp.realpath(paths.data)).toLowerCase();
+  const name = '\\\\.\\pipe\\ruyi-credential-write-' + crypto.createHash('sha256').update(root).digest('hex');
+  const deadline = Date.now() + 20000;
+  for (;;) {
+    const lock = require('node:net').createServer(socket => socket.destroy());
+    try { await new Promise((resolve, reject) => { lock.once('error', reject); lock.listen(name, resolve); }); }
+    catch (error) {
+      if (error.code !== 'EADDRINUSE' || Date.now() >= deadline) throw error;
+      await new Promise(resolve => setTimeout(resolve, 50));
+      continue;
+    }
+    try { return await work(); } finally { await new Promise(resolve => lock.close(resolve)); }
+  }
+}
 let configWriteChain = Promise.resolve();
-async function writeConfigAtomic(data) {
+async function writeConfigAtomic(data, expectedSource, before) {
   configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
-    // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
-    // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
-    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
-    try {
-      const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
-      if (current && typeof current === 'object' && !Array.isArray(current)) {
-        await fsp.copyFile(paths.config, `${paths.config}.prev`);
-        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
-        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
-        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+    const save = async () => {
+      let currentText = null;
+      try { currentText = await fsp.readFile(paths.config, 'utf8'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (expectedSource !== undefined && currentText !== expectedSource) return false;
+      const current = safeJsonParse(currentText, null);
+      const next = JSON.parse(data);
+      const encrypted = usesCredentialVault(current) || usesCredentialVault(next);
+      if (!encrypted && !current && await credentialVaultStat()) throw new Error('credential_vault.config_missing');
+      if (encrypted) {
+        if (before && usesCredentialVault(before) && !usesCredentialVault(current)) throw new Error('credential_vault.config_changed');
+        if (current && Object.hasOwn(current, 'credentialRefsV1') && !current.credentialRefsV1) throw new Error('credential_vault.reference_invalid');
+        const live = await configVault.hydrateConfig(current);
+        if (before && usesCredentialVault(before)) {
+          // Another process may rotate a key while this settings form is being saved.
+          const diskSlots = CredentialVault.slots(normalizeConfig(live.raw).config);
+          if (JSON.stringify(diskSlots) !== JSON.stringify(CredentialVault.slots(before))) {
+            throw Object.assign(new Error('credential_vault.config_changed'), { code: 'credential_vault.config_changed', statusCode: 409 });
+          }
+        }
+        data = await configVault.protectConfig(data, { force: true });
       }
-    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        if (encrypted) {
+          const backup = await configVault.protectConfig(currentText.replace(/^\uFEFF/, ''), { force: true });
+          await atomicWriteJson(paths.config + '.prev', backup, { mode: 0o600 });
+        } else {
+          await fsp.copyFile(paths.config, `${paths.config}.prev`);
+          await fsp.chmod(paths.config + '.prev', 0o600).catch(() => {});
+        }
+      }
+      await atomicWriteJson(paths.config, data, { mode: 0o600 });
+      return true;
+    };
+    return usesCredentialVault(JSON.parse(data)) || await credentialVaultStat() ? withCredentialWriteLock(save) : save();
   });
   configWriteChain = thisWrite;
-  try { await thisWrite; }
+  try { return await thisWrite; }
   finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
 }
 async function readConfigPrev() {
@@ -4159,7 +4572,9 @@ async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
     // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+    const vault = await credentialVaultStat();
+    const vaultStamp = vault ? [vault.ino, vault.size, vault.ctimeNs, vault.mtimeNs].join(':') : 'absent';
+    return { key: `${vaultStamp}|${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {
@@ -4209,6 +4624,7 @@ async function readConfig() {
     // 两支读 .prev,空文件被当成全新安装 —— 断电后 rename 已落盘而数据没落盘就是这个样子(全仓无 fsync);用户随后存一次设置写下
     // 无服务商的新配置,再存一次 writeConfigAtomic 就把它拷进 .prev,含密钥的唯一好备份被覆盖,服务商与 key 永久丢失。
     // 空文件里没有任何东西可留底,不另存 .corrupt;没有 .prev 时行为不变(下面 rawEmpty 那一支照旧判断是不是用过的安装)。
+    if ((raw !== null && (typeof raw !== 'object' || Array.isArray(raw))) && await credentialVaultStat()) throw new Error('credential_vault.config_invalid');
     if (raw === null && !String(text).replace(/^﻿/, '').trim()) {
       const prev = await readConfigPrev();
       if (prev) { raw = prev; recoveredFrom = 'prev'; }
@@ -4219,26 +4635,48 @@ async function readConfig() {
       if (prev) {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
-        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
-        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
+        if (!usesCredentialVault(prev) && await credentialVaultStat()) throw new Error('credential_vault.config_invalid');
+        if (usesCredentialVault(prev)) {
+          await configVault.hydrateConfig(prev);
+          const copy = await configVault.protectCorrupt(text, 'config.json.corrupt');
+          await atomicWriteJson(paths.config + '.corrupt', copy, { mode: 0o600 });
+        } else {
+          await fsp.copyFile(paths.config, paths.config + '.corrupt').catch(() => {});
+          await fsp.chmod(paths.config + '.corrupt', 0o600).catch(() => {});
+        }
       }
       else return degrade('EJSON');
     }
   }
   // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
   // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
+  if ((!raw || !Object.keys(raw).length || (recoveredFrom && !usesCredentialVault(raw))) && await credentialVaultStat()) throw new Error('credential_vault.config_missing');
+  if (raw && Object.hasOwn(raw, 'credentialRefsV1') && !raw.credentialRefsV1) throw new Error('credential_vault.reference_invalid');
+  const encrypted = usesCredentialVault(raw);
+  const hydrated = encrypted ? await configVault.hydrateConfig(raw) : { raw, needsMigration: false };
+  raw = hydrated.raw;
   const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
   if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
     raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
   }
   const { config, changed, persisted } = normalizeConfig(raw);
-  configDegraded = false;
-  lastGoodConfig = config;
   if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
-  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
-  else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
+  if (changed || recoveredFrom || hydrated.needsMigration) {
+    if (encrypted) {
+      // Reject an incompatible down-level schema before it can discard a stored credential.
+      const projected = new Map(CredentialVault.slots(persisted).map(slot => [slot.pointer, slot]));
+      for (const slot of CredentialVault.slots(raw)) {
+        const other = projected.get(slot.pointer);
+        if (!other || other.serialized !== slot.serialized || JSON.stringify(other.binding) !== JSON.stringify(slot.binding))
+          throw new Error('credential_vault.incompatible_config');
+      }
+      if (!await writeConfigAtomic(JSON.stringify(persisted, null, 2), text)) return readConfig();
+    } else await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
+  } else if (!readError) configReadCacheStore(stamp, config);
+  configDegraded = false;
+  lastGoodConfig = config;
   return config;
 }
 
@@ -4277,7 +4715,7 @@ async function writeConfig(next, before = null) {
     if (!configValueEquals(configComparableValue(config, key), configComparableValue(before, key))) explicit.add(key);
   }
   finalizeConfigExplicitKeys(config, explicit);
-  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), undefined, before);
   configEmitWritten(config);
   return config;
 }
@@ -23215,6 +23653,8 @@ function configUrlOrCleared(value) {
 function maskSecrets(config) {
   if (!config || typeof config !== 'object') return config;
   const out = { ...config };
+  delete out.privacyRulesV1;
+  delete out.credentialRefsV1;
   if (Array.isArray(config.providers)) {
     out.providers = config.providers.map(p => {
       if (!p || typeof p !== 'object') return p;
@@ -37302,6 +37742,10 @@ async function applyConfigPatch(rawBody) {
   // 117n-M2:整段「读 current -> merge -> 落盘」搬进 mutateConfig 的临界区。外部契约与顺序不变
   // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
   //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
+  // These fields are owned by the credential store.
+  delete body.credentialRefsV1;
+  delete body.credentialEncryptionV1;
+  delete body.privacyRulesV1;
   const patched = await mutateConfig(async (current) => {
     const merged = { ...current, ...body };
     // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask

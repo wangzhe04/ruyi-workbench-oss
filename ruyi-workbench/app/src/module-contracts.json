@@ -333,6 +333,23 @@
       ]
     },
     {
+      "file": "01j-local-crypto.js",
+      "layer": "foundation",
+      "provides": [
+        "LocalSecretCrypto"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01k-credential-vault.js",
+      "layer": "foundation",
+      "provides": [
+        "CredentialVault",
+        "credentialEnvelope"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -413,8 +430,11 @@
         "configReadCacheLookup",
         "configReadCacheStore",
         "configValueEquals",
+        "configVault",
         "configWriteChain",
         "contentTypeFor",
+        "credentialVaultPath",
+        "credentialVaultStat",
         "decodeClaudeCliStream",
         "decodeClaudeCliText",
         "defaultConfig",
@@ -524,6 +544,8 @@
         "syncMcpServersToKimiNow",
         "tokenMatches",
         "tokenOk",
+        "usesCredentialVault",
+        "withCredentialWriteLock",
         "writeConfig",
         "writeConfigAtomic",
         "writeDesktopPythonDiskEntry",
@@ -809,6 +831,27 @@
           "symbol": "normalizeAgentCliType",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01k-credential-vault.js",
+          "symbol": "credentialEnvelope",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01k-credential-vault.js",
+          "symbol": "CredentialVault",
+          "kinds": [
+            "read"
           ]
         },
         {

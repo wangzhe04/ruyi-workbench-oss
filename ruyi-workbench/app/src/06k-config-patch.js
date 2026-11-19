@@ -41,6 +41,10 @@ async function applyConfigPatch(rawBody) {
   // 117n-M2:整段「读 current -> merge -> 落盘」搬进 mutateConfig 的临界区。外部契约与顺序不变
   // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
   //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
+  // These fields are owned by the credential store.
+  delete body.credentialRefsV1;
+  delete body.credentialEncryptionV1;
+  delete body.privacyRulesV1;
   const patched = await mutateConfig(async (current) => {
     const merged = { ...current, ...body };
     // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask

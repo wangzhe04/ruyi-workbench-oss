@@ -5,6 +5,10 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+## 3.0.3 · 2026-11-19
+
+修复已有加密凭据库在 3.0.2 升级和保存设置后密钥显示为空的问题。恢复可验证的旧凭据，新填密钥与库内原密钥都可保留。 [本版更新与下载 / Release notes](docs/release-notes/v3.0.3.md)
+
 ## 3.0.2 · 2026-11-18
 
 [本版更新与下载 / Release notes](docs/release-notes/v3.0.2.md)
