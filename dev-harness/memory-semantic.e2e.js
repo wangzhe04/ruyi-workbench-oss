@@ -35,7 +35,8 @@ const ids = entries => entries.map(entry => entry.id).sort().join(',');
       encodeCalls++; seen.push(...texts); if (onEncode) { const action = onEncode; onEncode = null; await action(); }
       return { ok: true, modelFingerprint: 'synthetic-memory-model', vectors: texts.map(text => role === 'query' || text.includes('beta') ? [1, 0] : [0, 1]), truncated: texts.map(() => false) };
     };
-    srv.__test.setRuntime({ prepare: async () => ready(), encode });
+    // 150 号文 S12:重排只在 descriptor 已 ready 时才尝试,假运行时同时给出 ready 的 descriptor(其余用例经 Object.assign 沿用)。
+    srv.__test.setRuntime({ prepare: async () => ready(), encode, descriptor: () => ready() });
     const baseline = await srv.__test.resolveMemoryPreflight(session, cwd, 'alpha', null, { ...config, semanticRetrievalV1: false });
     const result = await srv.__test.resolveMemoryPreflight(session, cwd, 'alpha', null, config);
     ok(result.status.semantic?.status === 'reranked' && result.status.semantic.automaticCandidates === false, 'real preflight reports rerank-only with no automatic candidates');

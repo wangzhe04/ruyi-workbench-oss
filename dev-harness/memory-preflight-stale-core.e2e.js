@@ -55,12 +55,13 @@ function backdate(file) {
     ok(keep.ok && doomed.ok && hit.ok, 'B0 夹具落盘(两条核心 + 一条教训)');
     let calls = 0, deletedAt = 0;
     const cfgB = { semanticRetrievalV1: false };
-    // executionOwnerRevalidate runs inside every authority step of the preflight check. The first check (phase start)
-    // passes; on the first authority step after it, the user deletes a core memory — a genuine library change.
+    // executionOwnerRevalidate runs at the opening and closing authority step of every preflight check (150 号文 S2 起每个 check
+    // 两次;修前每个 await 之后一次、每个 check 五次)。The first check (phase start) passes; on the first authority step after it
+    // (call 3; 修前是 call 6), the user deletes a core memory — a genuine library change.
     const pB = await S.resolveMemoryPreflight(session(), workB, 'vite hot reload broken again', undefined, cfgB, {
-      executionOwnerRevalidate: async () => { calls++; if (calls === 6 && !deletedAt) { fs.rmSync(doomed.memory.file); deletedAt = calls; } },
+      executionOwnerRevalidate: async () => { calls++; if (calls === 3 && !deletedAt) { fs.rmSync(doomed.memory.file); deletedAt = calls; } },
     });
-    ok(deletedAt === 6, `B1 库在预检中途被改(第 ${deletedAt} 次回验前删掉 core-doomed)`);
+    ok(deletedAt === 3, `B1 库在预检中途被改(第 ${deletedAt} 次回验前删掉 core-doomed)`);
     ok(pB.status.checked === true && pB.status.recovered === 'stale', `B2 stale 后按当前库重算,不交空结果(checked=${pB.status.checked}, recovered=${pB.status.recovered}, mode=${pB.status.mode})`);
     ok(ids(pB.coreEntries) === 'core-keep', `B3 核心保住了,且删掉的那条不披露(core=${ids(pB.coreEntries)})`);
     ok(pB.entries.some(e => e.id === 'vite-hmr'), `B4 关键词命中照常(related=${ids(pB.entries)})`);

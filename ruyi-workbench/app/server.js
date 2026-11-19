@@ -47091,7 +47091,7 @@ async function touchMemoryUsage(entries, cwd, reason = 'relevant') {
       changed = true;
     }
     if (!changed) return;
-    await memoryUsageStore.write({ schema: 1, updatedAt: now, entries: state.entries });
+    memoryUsageWriteGeneration++; try { await memoryUsageStore.write({ schema: 1, updatedAt: now, entries: state.entries }); } finally { memoryUsageWriteGeneration++; }
   }).catch(() => {});
   memoryUsageWriteChain = job;
   await job;
@@ -47100,7 +47100,7 @@ async function mutateMemoryUsageState(mutator) {
   const job = memoryUsageWriteChain.then(async () => {
     const state = await readMemoryUsageState();
     if (mutator(state.entries) === false) return;
-    await memoryUsageStore.write({ schema: 1, updatedAt: nowIso(), entries: state.entries });
+    memoryUsageWriteGeneration++; try { await memoryUsageStore.write({ schema: 1, updatedAt: nowIso(), entries: state.entries }); } finally { memoryUsageWriteGeneration++; }
   }).catch(() => {});
   memoryUsageWriteChain = job;
   await job;
@@ -47153,6 +47153,22 @@ async function writeMemoryMeta(dir, cwd) {
 // 省掉的只是「内容没变的文件重新读一遍」。结果集与未加缓存时逐字节相同。
 const MEMORY_HEAD_CACHE = new Map(); // file -> { key, entry }
 const MEMORY_HEAD_CACHE_MAX = 2000;
+// 150 号文 S3:目录读的 stat 与(未命中时的)读/解封按有界并发跑,结果仍按 readdir 原序组装,与串行逐字节相同。
+const MEMORY_DIR_IO_CONCURRENCY = 8;
+// 150 号文 S2:每个注册表条目读到时的文件身份(size:mtime:ctime:ino),预检/显式检索末尾只对即将披露的文件重新 stat 比对。
+const MEMORY_ENTRY_STAT = new WeakMap();
+// 进程内写世代:记忆库(<id>.md 的写/删/迁移、_relations.json)与用量账各一个。每次落盘之前与之后各加一(失败也加),
+// 快照令牌里带着它,所以进程内任何一次写都必然让令牌变 —— 不依赖文件系统时间戳的粒度。meta.json 不进注册表,
+// 不推世代(它的原子写照样推目录 mtime,最多让下一次回验多走一次完整重读)。
+let memoryLibraryWriteGeneration = 0;
+let memoryUsageWriteGeneration = 0;
+async function memoryMapLimit(items, limit, work) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const index = next++; out[index] = await work(items[index], index); } };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+  return out;
+}
 
 const memoryBodyIsWorkDataError = error => String(error && error.code || '').startsWith('work_data');
 function memoryBodyScope(dir) {
@@ -47181,44 +47197,79 @@ async function memoryBodyAuthority() {
   finally { await credential.release(); }
 }
 
-async function readMemoryDir(dir, scope) {
+// 150 号文 S3:加密(sealed)头也进头缓存。命中条件 = size + mtime + ctime/ino + authority(凭据实例 + 密钥摘要)
+// 全部不变 —— 密文字节不变且解封用的是同一把钥匙,解出来的就是同一份明文;换钥、换实例、任何内容写入(ctime 必推)
+// 都会让它失配而重新完整认证解封(它守的是「同一份已认证明文」,不是防篡改:能写文件并重设 ChangeTime 的人可以让它
+// 继续给出【先前已认证过】的旧头,但伪造不出新内容,正文读取照旧完整认证)。缺钥/解不开时 memoryBodyAuthority 在查缓存
+// 之前就抛,不会拿旧明文顶替。
+// stat 与未命中的读/解封按 MEMORY_DIR_IO_CONCURRENCY 有界并发;结果、缓存写入顺序与报错(按 readdir 序第一个
+// work_data 错误)与串行版相同。shared 由 loadMemoryRegistry 传入,同一次注册表读只解一次配置与 authority。
+async function readMemoryDir(dir, scope, shared = null) {
   const out = new Map();
   let files = [];
   try { files = await fsp.readdir(dir); } catch { return out; } // 目录不存在 → 空(零开销短路)
-  const enabled = (await readConfig()).workDataEncryptionV1 === true;
-  const authority = enabled ? await memoryBodyAuthority() : '';
+  if (!shared) shared = memoryRegistryShared();
+  const { authority } = await shared.resolve();
+  const candidates = [];
   for (const f of files) {
     if (!f.toLowerCase().endsWith('.md')) continue;
     const id = f.slice(0, -3);
     if (!SKILL_ID_RE.test(id)) continue;
-    const file = path.join(dir, f);
+    candidates.push({ id, file: path.join(dir, f) });
+  }
+  const loaded = await memoryMapLimit(candidates, MEMORY_DIR_IO_CONCURRENCY, async ({ id, file }) => {
     let raw = '';
     // 260KB 是与写侧一致的文件准入上限，避免“保存后从列表消失”；注册表检索本身只读前 16KB，
     // 足够覆盖工作台生成的受限 frontmatter + 首段说明，完整正文留到命中后按需读取。
     let cacheKey = '', sealed = false, statIdentity = '';
     try {
       const st = await fsp.stat(file);
-      if (!st.isFile()) continue;
+      if (!st.isFile()) return null;
       cacheKey = `${st.size}:${st.mtimeMs}`;
       statIdentity = `${st.ctimeMs}:${st.ino}`;
-      const cached = MEMORY_HEAD_CACHE.get(file);
-      if (cached && !cached.sealed && cached.key === cacheKey && cached.statIdentity === statIdentity
-        && cached.authority === authority && cached.entry.scope === scope) { out.set(id, cached.entry); continue; }
-      const fh = await fsp.open(file, 'r');
-      try {
-        const buf = Buffer.allocUnsafe(Math.min(st.size, MEMORY_METADATA_READ_CAP));
-        const read = await fh.read(buf, 0, buf.length, 0);
-        raw = buf.subarray(0, read.bytesRead).toString('utf8');
-      } finally { await fh.close().catch(() => {}); }
+      // 复核 F3:时间戳有粒度,刚写过(距今不足 MEMORY_SNAPSHOT_RACY_MS)的文件,同尺寸的二次改写可能撞出同一组
+      // size/mtime/ctime/ino。这样的文件既不进头缓存、也不给快照回验当基线,每次都按内容读。
+      const racy = memoryStatIsRacy(st);
+      const cached = racy ? null : MEMORY_HEAD_CACHE.get(file);
+      if (cached && cached.trusted !== false && cached.key === cacheKey && cached.statIdentity === statIdentity && cached.entry.scope === scope) {
+        // 复核 F1:封印文件的命中必须对上【当前钥匙】的 authority,与加密开关无关(开关关了、文件仍是封印的,
+        // 缺钥时照样抛 work_data,不拿缓存里的旧明文顶替)。明文文件沿用开关下的 authority。
+        const want = cached.sealed ? await shared.sealedAuthority() : authority;
+        if ((!cached.sealed || want) && cached.authority === want) return { hit: cached.entry, stat: cacheKey + ':' + statIdentity };
+      }
+      // 粒度窗口内的文件:整份读一次,用这同一份字节建条目并记内容摘要,快照回验对它按内容(摘要)比,不信 stat。
+      let racyHash = null;
+      if (racy) {
+        const bytes = await fsp.readFile(file);
+        racyHash = crypto.createHash('sha256').update(bytes).digest('hex');
+        raw = bytes.subarray(0, Math.min(bytes.length, MEMORY_METADATA_READ_CAP)).toString('utf8');
+      } else {
+        const fh = await fsp.open(file, 'r');
+        try {
+          const buf = Buffer.allocUnsafe(Math.min(st.size, MEMORY_METADATA_READ_CAP));
+          const read = await fh.read(buf, 0, buf.length, 0);
+          raw = buf.subarray(0, read.bytesRead).toString('utf8');
+        } finally { await fh.close().catch(() => {}); }
+      }
       // Canonical sealed files start with a JSON object. Authenticate the complete record;
       // ciphertext overhead cannot make a legal 260 KiB memory disappear from the registry.
       if (/^[\s\ufeff]*[\{\["]/.test(raw)) {
         const metadata = {}, full = await memoryBodyStore(dir, id, metadata).read();
         sealed = metadata.sealed === true;
-        if (Buffer.byteLength(full, 'utf8') > 260 * 1024) continue;
+        if (Buffer.byteLength(full, 'utf8') > 260 * 1024) return null;
         raw = Buffer.from(full, 'utf8').subarray(0, MEMORY_METADATA_READ_CAP).toString('utf8');
-      } else if (st.size > 260 * 1024) continue;
-    } catch (error) { if (memoryBodyIsWorkDataError(error)) throw error; continue; }
+        // 封印文件的解封是另一次读:前后两次字节摘要一致才算「条目就是这份字节解出来的」,否则不给基线(回验走完整重读)。
+        if (racyHash && crypto.createHash('sha256').update(await fsp.readFile(file)).digest('hex') !== racyHash) racyHash = null;
+      } else if (st.size > 260 * 1024) return null;
+      return { raw, cacheKey, statIdentity, sealed, racy, racyHash, authority: sealed ? await shared.sealedAuthority() : authority };
+    } catch (error) { return { error }; }
+  });
+  for (let index = 0; index < candidates.length; index++) {
+    const { id, file } = candidates[index], row = loaded[index];
+    if (!row) continue;
+    if (row.error) { if (memoryBodyIsWorkDataError(row.error)) throw row.error; continue; }
+    if (row.hit) { MEMORY_ENTRY_STAT.set(row.hit, row.stat); out.set(id, row.hit); continue; }
+    const { raw, cacheKey, statIdentity, sealed, racy } = row;
     const fm = parseFrontmatter(raw);
     const type = MEMORY_TYPES.has(fm.type) ? fm.type : 'reference';
     const core = fmBool(fm.core, false); // 旧记忆不静默升格；由用户/新建表单明确加入核心
@@ -47239,6 +47290,9 @@ async function readMemoryDir(dir, scope) {
     };
     out.set(id, entry);
     if (cacheKey) {
+      // 粒度窗口内读到的条目照样登记(显式检索的表头文本从这里取),但标 trusted:false:下一次读不命中、也不给快照当基线。
+      if (!racy) MEMORY_ENTRY_STAT.set(entry, cacheKey + ':' + statIdentity);
+      else if (row.racyHash) MEMORY_ENTRY_STAT.set(entry, 'racy:' + row.racyHash);
       // 简单 FIFO 上限:记忆库不会大到需要 LRU,但无界 Map 在长跑进程里迟早是个泄漏。
       if (MEMORY_HEAD_CACHE.size >= MEMORY_HEAD_CACHE_MAX) {
         const oldest = MEMORY_HEAD_CACHE.keys().next();
@@ -47248,7 +47302,7 @@ async function readMemoryDir(dir, scope) {
       // that derives a description from the first body paragraph.
       const semanticHeaderText=[id,(fm.name||id).slice(0,120),String(fm.description||'').slice(0,400),
         String(fm.coresummary||fm.description||'').slice(0,CORE_MEMORY_SUMMARY_CAP),type].filter(Boolean).join(' ');
-      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority, entry, semanticHeaderText });
+      MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority: row.authority, entry, semanticHeaderText, trusted: !racy });
     }
   }
   return out;
@@ -47256,11 +47310,38 @@ async function readMemoryDir(dir, scope) {
 
 // loadMemoryRegistry(cwd) → [{id, scope, name, description, type, file(绝对路径), createdAt, ...}]。global +
 // 当前 cwd 的 projectKey 组;按 createdAt 倒序(C4,无自动过期)。
+// 同一次注册表读只解一次配置与钥匙;且只在某个目录 readdir 成功之后才解(目录都不存在 = 空库零开销,缺钥也不抛,与修前同)。
+// sealedAuthority:封印文件(不管开关)用的是当前钥匙的 authority —— 开关开着就是同一个值,关着时第一次遇到封印文件才取。
+function memoryRegistryShared() {
+  let pending = null, sealedPending = null;
+  const shared = { value: null, sealed: null,
+    resolve: () => pending || (pending = (async () => {
+      const enabled = (await readConfig()).workDataEncryptionV1 === true;
+      shared.value = { enabled, authority: enabled ? await memoryBodyAuthority() : '' };
+      return shared.value;
+    })()),
+    sealedAuthority: () => sealedPending || (sealedPending = (async () => {
+      const value = await shared.resolve();
+      shared.sealed = value.authority || await memoryBodyAuthority();
+      return shared.sealed;
+    })()),
+  };
+  return shared;
+}
+function memoryStatIsRacy(st, nowMs = Date.now()) {
+  // 文件时间带亚毫秒,Date.now() 是整毫秒:按整毫秒比,同一毫秒内写下的不算「来自未来」。
+  return !(nowMs - Math.floor(Math.max(Number(st.mtimeMs) || 0, Number(st.ctimeMs) || 0)) >= MEMORY_SNAPSHOT_RACY_MS);
+}
 async function loadMemoryRegistry(cwd) {
   const out = [];
-  for (const [, e] of await readMemoryDir(memoryGlobalDir(), 'global')) out.push(e);
-  if (cwd) for (const [, e] of await readMemoryDir(memoryProjectDir(cwd), 'project')) out.push(e);
+  const shared = memoryRegistryShared();
+  for (const [, e] of await readMemoryDir(memoryGlobalDir(), 'global', shared)) out.push(e);
+  if (cwd) for (const [, e] of await readMemoryDir(memoryProjectDir(cwd), 'project', shared)) out.push(e);
   out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || String(a.name).localeCompare(String(b.name)));
+  // 不可枚举:不进 JSON/展开,只给快照回验比对「这次注册表是用哪把钥匙解出来的」。
+  // 一个目录都没读到(空库)时是 null:快照回验对它不走廉价放行。
+  // 开关关着但读到过封印文件时,记的是解封用的那把钥匙(快照回验据此逐次确认钥匙没换)。
+  Object.defineProperty(out, 'authority', { value: shared.value ? (shared.value.authority || shared.sealed || '') : null, enumerable: false });
   return out;
 }
 
@@ -47354,7 +47435,7 @@ async function saveMemory(mem, cwd, opts = {}) {
   // 中文正文每字落盘 3 字节,9 万字中文会"保存成功却超读上限从列表消失"。按最终落盘内容字节数复核(含 frontmatter)。
   if (Buffer.byteLength(content, 'utf8') > 260 * 1024) return { ok: false, error: '记忆正文超过 256KB 上限(按 UTF-8 字节计,中文约 8 万字)' };   // 260KB=正文上限+frontmatter 余量,与读侧一致
   // 第25波 25.1: 收编 atomicWriteJson(载荷是 markdown 字符串,直接透传;获得 rename 重试 + 失败清 tmp)。
-  await memoryBodyStore(dir, id).write(content);
+  memoryLibraryWriteGeneration++; try { await memoryBodyStore(dir, id).write(content); } finally { memoryLibraryWriteGeneration++; }
   return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt, updatedAt, core, coreSummary, importance, reviewAfter, expiresAt } };
 }
 
@@ -47367,8 +47448,10 @@ async function deleteMemory(id, scope, cwd) {
   // 修前 .catch(() => {}) 把 unlink 失败吞掉、照样回 ok:true —— Windows 上文件被占用(EBUSY)/只读(EPERM)/无权限(EACCES)时,
   // 前端提示「已删除」,列表一刷新条目又回来了,用量旁账却已被清掉。现在:只有 ENOENT(access 之后被别处删掉了,目标已达成)当成功;
   // 其余失败如实回 ok:false(不动用量状态,记忆还在),前端 deleteMemoryRow 已按 !ok / 非 2xx 弹「删除失败」。
-  try { await fsp.unlink(file); }
+  memoryLibraryWriteGeneration++;
+  try { await fsp.unlink(file); memoryLibraryWriteGeneration++; }
   catch (error) {
+    memoryLibraryWriteGeneration++;
     if (!(error && error.code === 'ENOENT')) {
       const code = (error && error.code) || 'UNKNOWN';
       return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
@@ -47721,7 +47804,7 @@ async function writeAgentInstructionEntries(src, read, displayPath) {
   const entries = [];
   for (const entry of plan) {
     const content = renderAgentInstructionMemory(entry, src, read, importedAt);
-    await memoryBodyStore(memoryGlobalDir(), entry.id).write(content);
+    memoryLibraryWriteGeneration++; try { await memoryBodyStore(memoryGlobalDir(), entry.id).write(content); } finally { memoryLibraryWriteGeneration++; }
     entries.push({ id: entry.id, hash: sha256Hex(content).slice(0, 32), core: entry.core });
   }
   return { importedAt, entries, skippedSensitive: plan.skippedSensitive || 0 };
@@ -47843,7 +47926,10 @@ async function listWorkbenchMemories(args, ctx) {
   const query = String(args && args.query || '').trim();
   const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 20(修前 0 → 20、-5 → 1)
   const limit = limitNum > 0 ? Math.min(50, limitNum) : 20;
+  // 150 号文 S16:令牌先于注册表读取,之后的库回验先比令牌(memoryToolLibraryCurrentFast),变了才完整重读。
+  const librarySnapshot = await memoryToolLibrarySnapshot(cwd);
   const all = await loadMemoryRegistry(cwd);
+  memoryToolLibraryBaseline(librarySnapshot, all);
   const edges = await readConfirmedSupersedeEdges(cwd);
   const libraryVersion = memoryToolLibraryVersion(all, edges);
   const eligible = eligibleMemoryEntries(session, all, cwd, config);
@@ -47858,17 +47944,20 @@ async function listWorkbenchMemories(args, ctx) {
     const generation=configReadGeneration,rewind=Number(session?.rewindGen)||0,anchor=session?.createdAt,owner=ctx?.executionOwner;
     const policyGuard=typeof PrivacyGateway!=='undefined'?PrivacyGateway.disclosurePolicyGuard():()=>{};
     const configRevision=value=>JSON.stringify(Object.fromEntries(Object.entries(value||{}).filter(([key])=>/memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
-    const currentConfig=await readConfig(),configVersion=configRevision(currentConfig);
+    let configBytes=await memoryConfigBytes();const currentConfig=await readConfig(),configVersion=configRevision(currentConfig);let configToken=librarySnapshot.token.config;
     const stale=()=>{throw Object.assign(Error('memory_semantic.stale'),{code:'memory_semantic.stale',memorySemanticGuardFailure:true});};
     const sync=()=>{
       if(ctx?.signal?.aborted||owner?.cancelRequested)throw Object.assign(Error('memory_semantic.aborted'),{name:'AbortError',code:'ABORT_ERR',memorySemanticGuardFailure:true});
       policyGuard();if(!context.valid()||configReadGeneration!==generation||(Number(session?.rewindGen)||0)!==rewind||session?.createdAt!==anchor||sessionObjectIsStale(session))stale();
     };
-    semanticCheck=async()=>{
+    // S16:修前每次 2 次 readConfig + 2 次 context.current()(无登记时各读一次会话)+ 全库重读与 sha256。现在配置与库先比令牌,
+    // 只有令牌变/戳不可信才按内容重比;两次 context.current() 合并成末尾一次 —— 两次比的是同一份初始基线,
+    // 本函数内部不编码也不披露,中间任何变化都由末尾这一次(外加每个 await 之后的 sync())兜住。
+    semanticCheck=async(_phase,watch)=>{
       sync();if(owner?.authority)await revalidateSessionExecutionPermission(session.id,owner);sync();
-      if(!await context.current())stale();sync();
-      if(configRevision(await readConfig())!==configVersion)stale();sync();
-      if(!await memoryToolLibraryCurrent(cwd,libraryVersion))stale();sync();
+      const token=await memorySnapshotToken(cwd,{usage:false});sync();
+      if(token.config!==configToken||!token.configTrusted){const bytes=await memoryConfigBytes();sync();if(token.config!==configToken||bytes!==configBytes||bytes.startsWith('error:')){if(configRevision(await readConfig())!==configVersion)stale();sync();configToken=token.config;configBytes=bytes;}}
+      if(!await memoryToolLibraryCurrentFast(cwd,libraryVersion,librarySnapshot,watch,token))stale();sync();
       if(!await context.current())stale();sync();
     };
     try{
@@ -47884,11 +47973,11 @@ async function listWorkbenchMemories(args, ctx) {
       await semanticCheck();
     }catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}
   } else registry = registry.slice(0, limit);
-  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion)) return { ok: false, error: 'memory context changed or unavailable' };
+  if (!await context.current() || !await memoryToolLibraryCurrentFast(cwd, libraryVersion, librarySnapshot, registry)) return { ok: false, error: 'memory context changed or unavailable' };
   if (matched && matched.length) await touchMemoryUsage(matched, cwd, 'relevant');
-  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current()
+  if (!await context.current() || !await memoryToolLibraryCurrentFast(cwd, libraryVersion, librarySnapshot, registry) || !await context.current()
     || registry.some(e => memoryIsExpired(e))) return { ok: false, error: 'memory context changed or unavailable' };
-  if(semanticCheck){try{await semanticCheck();}catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}}
+  if(semanticCheck){try{await semanticCheck('finish',registry);}catch(error){if(error?.code==='memory_semantic.stale')return {ok:false,error:'memory context changed or unavailable'};throw error;}}
   return { ok: true, query, scope, count: registry.length, core: coreState.stats,...(semantic?{semantic}:{}),
     ...(query?{matchedCount:matched?.length||0,ruleFillCount:registry.length-(matched?.length||0)}:{}),
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
@@ -47903,7 +47992,10 @@ async function readWorkbenchMemory(args, ctx) {
   const { cwd, session, config } = context;
   const id = String(args && args.id || '').trim();
   if (!SKILL_ID_RE.test(id)) return { ok: false, error: 'invalid memory id' };
-  const all = await loadMemoryRegistry(cwd), eligible = eligibleMemoryEntries(session, all, cwd, config);
+  const librarySnapshot = await memoryToolLibrarySnapshot(cwd);
+  const all = await loadMemoryRegistry(cwd);
+  memoryToolLibraryBaseline(librarySnapshot, all);
+  const eligible = eligibleMemoryEntries(session, all, cwd, config);
   const edges = await readConfirmedSupersedeEdges(cwd);
   const libraryVersion = memoryToolLibraryVersion(all, edges);
   const candidates = eligible.filter(e => e.id === id && (!['global', 'project'].includes(args?.scope) || e.scope === args.scope));
@@ -47911,14 +48003,105 @@ async function readWorkbenchMemory(args, ctx) {
   if (!candidates.length || !context.valid()) return { ok: false, error: 'memory not available in this session' };
   const selected = candidates[0], item = await readMemoryItem(id, selected.scope, cwd);
   const superseded = memoryValidSupersededBy(edges, new Map(all.map(e => [memoryRetrievalKey(e), e])));
-  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !context.valid()
+  if (!await context.current() || !await memoryToolLibraryCurrentFast(cwd, libraryVersion, librarySnapshot, [selected]) || !context.valid()
     || item.ok && (memoryIsExpired(item.memory) || item.memory.updatedAt !== selected.updatedAt)) return { ok: false, error: 'memory context changed or unavailable' };
   if (item.ok) {
     Object.assign(item.memory, memoryToolSupersededStatus(item.memory, superseded, eligible));
     await touchMemoryUsage([item.memory], cwd, 'read');
   }
-  if (!await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current() || item.ok && memoryIsExpired(item.memory)) return { ok: false, error: 'memory context changed or unavailable' };
+  if (!await memoryToolLibraryCurrentFast(cwd, libraryVersion, librarySnapshot, [selected]) || !await context.current() || item.ok && memoryIsExpired(item.memory)) return { ok: false, error: 'memory context changed or unavailable' };
   return item;
+}
+
+// 150 号文 S2/S16:记忆快照令牌 —— 预检与显式检索的回验先做廉价比对,只有令牌变了(或不可信)才退回完整重读。
+// 令牌 = 进程内写世代(库/用量)+ 两个记忆目录与两份 _relations.json 的 stat(size/mtimeNs/ctimeNs/ino,目录的
+// mtime 在增删改名时必推)+ 用量账文件 stat + configReadGeneration + 配置文件戳(含凭据库戳)。只比令牌就放行的
+// 前提与边界:
+//   · 进程内的一切写都推世代(写完再推,失败也推),所以不依赖时间戳粒度;
+//   · 进程外的增删改名推目录 mtime;同一时钟刻内两次进程外改动恰好夹住取令牌,最多藏住「非披露条目」的增删 ——
+//     即将披露的每个文件末尾都单独 stat 比对(memoryEntriesUnchanged),藏不住披露集合的撤回;
+//   · 配置文件刚改过(距今不足 MEMORY_SNAPSHOT_RACY_MS)时戳不可信,每次先比原始字节摘要,字节变了再按内容重比(readConfig);
+//   · 到期/复核时刻是时间驱动的:越过 memoryTimeBoundary 也当令牌失效。
+let MEMORY_SNAPSHOT_RACY_MS = 2500;
+async function memoryPathStamp(file) {
+  try {
+    const st = await fsp.stat(file, { bigint: true });
+    return { key: [st.size, st.mtimeNs, st.ctimeNs, st.ino].join(':'), ok: true };
+  } catch (error) { return error && error.code === 'ENOENT' ? { key: 'missing', ok: true } : { key: 'error:' + String(error && error.code || 'stat'), ok: false }; }
+}
+async function memorySnapshotToken(cwd, { usage = true } = {}) {
+  // 世代先于任何 await 取:取令牌期间落盘的写会在下一次取令牌时显形。
+  const libraryGeneration = memoryLibraryWriteGeneration, usageGeneration = memoryUsageWriteGeneration, configGeneration = configReadGeneration;
+  const capturedAt = Date.now();
+  const libraryPaths = [memoryGlobalDir(), memoryRelationsFile('global', cwd), memoryProjectDir(cwd), memoryRelationsFile('project', cwd)];
+  const [config, usageStamp, ...library] = await Promise.all([
+    configFileStamp().catch(() => null), usage ? memoryPathStamp(memoryUsageFile()) : null, ...libraryPaths.map(memoryPathStamp)]);
+  return {
+    capturedAt,
+    library: JSON.stringify([libraryGeneration, ...library.map(row => row.key)]), libraryTrusted: library.every(row => row.ok),
+    usage: usage ? JSON.stringify([usageGeneration, usageStamp.key]) : '', usageTrusted: !usage || usageStamp.ok,
+    config: JSON.stringify([configGeneration, config && config.key || 'missing']),
+    configTrusted: !!config && Number.isFinite(config.mtimeMs) && capturedAt - config.mtimeMs >= MEMORY_SNAPSHOT_RACY_MS,
+  };
+}
+// 配置文件刚改过、戳不可信时的廉价复核:比原始字节摘要(同一时钟刻内的改写也会改字节);字节变了才做 readConfig 按内容比。
+async function memoryConfigBytes() {
+  try { return crypto.createHash('sha256').update(await fsp.readFile(paths.config)).digest('hex'); }
+  catch (error) { return error && error.code === 'ENOENT' ? 'missing' : 'error:' + String(error && error.code || 'read'); }
+}
+// 注册表里最近一个「将来」的到期/复核时刻:到了它,memoryIsExpired / reviewDue 的结果可能翻转,令牌比对不再充分。
+function memoryTimeBoundary(registry, nowMs) {
+  let next = Infinity;
+  for (const entry of Array.isArray(registry) ? registry : []) {
+    for (const value of [entry && entry.expiresAt, entry && entry.reviewAfter]) {
+      const ms = Date.parse(String(value || ''));
+      if (Number.isFinite(ms) && ms > nowMs && ms < next) next = ms;
+    }
+  }
+  return next;
+}
+function memoryStatBaseline(registry) {
+  const out = new Map();
+  for (const entry of Array.isArray(registry) ? registry : []) { const stat = entry && entry.file && MEMORY_ENTRY_STAT.get(entry); if (stat) out.set(entry.file, stat); }
+  return out;
+}
+// 即将披露/编码的条目逐个重新 stat(有界并发),与注册表读到时的文件身份比对。缺基线、读不到、任何一项不同都返回 false。
+// 复核 F3:刚写过(粒度窗口内)的文件身份不可信:读时就在窗口内的按内容摘要比;读时可信、现在却落进窗口的(刚被改过)当「变了」。afterVerify:刚做完完整重读(内容已比过),
+// 只再比那些有可信基线的文件,没有基线的(粒度窗口内)以刚才的内容比对为准。
+async function memoryEntriesUnchanged(entries, baseline, { afterVerify = false } = {}) {
+  const files = [...new Set((Array.isArray(entries) ? entries : []).map(entry => entry && entry.file).filter(Boolean))];
+  const stats = await memoryMapLimit(files, 16, async file => {
+    const base = baseline.get(file);
+    try {
+      // 读的时候在粒度窗口内:基线是内容摘要,按内容比(同一时钟刻内的同尺寸改写也认得出)。
+      if (typeof base === 'string' && base.startsWith('racy:')) return 'racy:' + crypto.createHash('sha256').update(await fsp.readFile(file)).digest('hex');
+      const st = await fsp.stat(file); return memoryStatIsRacy(st) ? null : `${st.size}:${st.mtimeMs}:${st.ctimeMs}:${st.ino}`;
+    } catch { return null; }
+  });
+  return files.every((file, index) => afterVerify && !baseline.has(file) || stats[index] !== null && baseline.get(file) === stats[index]);
+}
+// 显式检索(list/read)的库身份:令牌没变、没越过时间边界、即将返回的条目文件没变、加密钥匙没换 → 与完整重读等价;
+// 否则退回完整重读 + 内容哈希(memoryToolLibraryVersion,即修前的 memoryToolLibraryCurrent),通过后把基线刷新到这次取到的令牌。
+async function memoryToolLibrarySnapshot(cwd) {
+  const token = await memorySnapshotToken(cwd, { usage: false });
+  return { token, now: token.capturedAt };
+}
+function memoryToolLibraryBaseline(snapshot, registry) {
+  snapshot.fileStats = memoryStatBaseline(registry);
+  snapshot.boundary = memoryTimeBoundary(registry, snapshot.now);
+  snapshot.authority = registry && typeof registry.authority === 'string' ? registry.authority : null;
+  return snapshot;
+}
+async function memoryToolLibraryCurrentFast(cwd, version, snapshot, watch = [], knownToken = null) {
+  const token = knownToken || await memorySnapshotToken(cwd, { usage: false });
+  let fast = !!snapshot && snapshot.authority !== null && token.libraryTrusted && token.library === snapshot.token.library
+    && Date.now() < snapshot.boundary && await memoryEntriesUnchanged(watch, snapshot.fileStats);
+  if (fast && snapshot.authority) fast = await memoryBodyAuthority() === snapshot.authority;
+  if (fast) return true;
+  const registry = await loadMemoryRegistry(cwd), edges = await readConfirmedSupersedeEdges(cwd);
+  if (memoryToolLibraryVersion(registry, edges) !== version) return false;
+  if (snapshot) { snapshot.token = token; snapshot.now = token.capturedAt; memoryToolLibraryBaseline(snapshot, registry); }
+  return true;
 }
 
 function memorySelectionSignature(session, cwd) {
@@ -47930,11 +48113,6 @@ function memoryToolLibraryVersion(registry, edges = []) {
   // mtime/size is a cache hint, not a content identity. Include the actual
   // metadata so same-sized edits with a preserved mtime cannot pass this guard.
   return crypto.createHash('sha256').update(JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e, memoryIsExpired(e)]), edges])).digest('hex');
-}
-
-async function memoryToolLibraryCurrent(cwd, version) {
-  const registry = await loadMemoryRegistry(cwd), edges = await readConfirmedSupersedeEdges(cwd);
-  return memoryToolLibraryVersion(registry, edges) === version;
 }
 
 async function resolveWorkbenchMemoryReadContext(ctx) {
@@ -48349,8 +48527,8 @@ async function migrateMemory(id, fromKey, targetCwd) {
   try { await fsp.access(dest); return { ok: false, conflict: true, error: '目标项目组已存在同名记忆(' + safe + '),请先重命名或删除' }; } catch (error) { if (error?.code !== 'ENOENT') throw error; }
   try { await fsp.mkdir(destDir, { recursive: true }); } catch { /* 已存在 */ }
   await writeMemoryMeta(destDir, targetCwd);
-  await memoryBodyStore(destDir, safe).write(content);   // authenticate source, then rebind to the destination project
-  await fsp.unlink(srcFile).catch(() => {});
+  memoryLibraryWriteGeneration++; try { await memoryBodyStore(destDir, safe).write(content); } finally { memoryLibraryWriteGeneration++; }   // authenticate source, then rebind to the destination project
+  await fsp.unlink(srcFile).catch(() => {}).finally(() => { memoryLibraryWriteGeneration++; });
   await mutateMemoryUsageState(entries => {
     const from = 'project:' + fromKey + ':' + safe, to = 'project:' + targetKey + ':' + safe;
     if (!entries[from]) return false;
@@ -49107,7 +49285,7 @@ async function writeMemoryRelations(scope, cwd, arr) {
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   try { await fsp.mkdir(dir, { recursive: true }); } catch { /* 已存在 */ }
   if (scope === 'project') await writeMemoryMeta(dir, cwd);
-  await memoryRelationsStore(scope, cwd).write(JSON.stringify(arr, null, 2));
+  memoryLibraryWriteGeneration++; try { await memoryRelationsStore(scope, cwd).write(JSON.stringify(arr, null, 2)); } finally { memoryLibraryWriteGeneration++; }
 }
 
 // listMemoryRelations(cwd, scope, opts) -> {ok, relations, pending, confirmed}。opts.includePending=false 时
@@ -49712,6 +49890,8 @@ function eligibleMemoryEntries(session, registry, cwd, config, onSourceMismatch)
 // 重复条目先把核心名额占满、又被丢弃,用户自己的核心记忆反倒被挤出去。
 async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null, options = {}) {
   let registry = [];
+  // 150 号文 S2:默认检索模式的回验基线令牌必须在读注册表【之前】取;固定选择不做语义回验,不取。
+  const snapshotBase = session && session.memoriesExplicit === true ? null : await memorySnapshotToken(cwd);
   try { registry = await loadMemoryRegistry(cwd); } catch (error) {
     if (memoryBodyIsWorkDataError(error)) throw error;
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
@@ -49779,22 +49959,70 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     const initialRevision = revision(registry), initialEligible = revision(eligible);
     let edgeVersion, configVersion;
     const configRevision = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).filter(([key]) => /memory|privacy|permission|workDataEncryption|semanticRetrieval/i.test(key))));
-    const check = async phase => {
-      try {
-      const authority = async () => { assertCurrent(); if (typeof options.executionOwnerRevalidate === 'function') await options.executionOwnerRevalidate(); assertCurrent(); };
-      await authority();
-      const currentConfig = await readConfig(); await authority();
-      if (phase === 'start') configVersion = configRevision(currentConfig);
-      else if (configVersion !== configRevision(currentConfig)) stale();
-      const current = await loadMemoryRegistry(cwd); await authority();
+    // 150 号文 S2:回验 = 廉价令牌比对 + 只在令牌变了时的权威重读。基线令牌在函数头、读注册表【之前】取(snapshotBase),
+    // 所以「首读之后的任何写」都会让令牌变。各分量分开复核,哪一块变了只重读哪一块:
+    //   配置戳变/不可信 → readConfig 按内容比(修前每次都读);库令牌变/越过到期边界/待披露文件 stat 变 → 修前那套完整重读
+    //   (注册表 + 资格 + 核心 + 取代边,verifyLibrary);只有用量账变 → 按当前用量重算核心席位比对。
+    // 每次 check 的开头与结尾各做一次完整执行权复核(authority,含 executionOwnerRevalidate);中间每个 await 之后做同步的
+    // assertCurrent(选择/排除、rewind、换主、取消、隐私披露策略、配置世代)。修前 authority 在每个 await 后都跑一遍;中间那些
+    // 次数由结尾这一次覆盖:check 内部不编码、不披露,调用方只在整个 check 返回后才前进。
+    const snapshot = { library: snapshotBase ? snapshotBase.library : null, usage: snapshotBase ? snapshotBase.usage : null, config: null,
+      fileStats: memoryStatBaseline(registry), boundary: memoryTimeBoundary(registry, snapshotBase ? snapshotBase.capturedAt : 0),
+      authority: typeof registry.authority === 'string' ? registry.authority : null };
+    const verifyLibrary = async token => {
+      const current = await loadMemoryRegistry(cwd); assertCurrent();
       const currentEligible = eligibleMemoryEntries(session, current, cwd, effectiveConfig);
       if (nativeCli) { const kept = filterMemoryForNativeCli(currentEligible, nativeCli); currentEligible.length = 0; currentEligible.push(...kept); }
       if (revision(current) !== initialRevision || revision(currentEligible) !== initialEligible) stale();
-      const currentCore = await resolveCoreMemoryState(cwd, currentEligible, effectiveConfig); await authority();
+      const currentCore = await resolveCoreMemoryState(cwd, currentEligible, effectiveConfig); assertCurrent();
       if (coreRevision(currentCore.active) !== initialCore) stale();
-      const edges = JSON.stringify(await readConfirmedSupersedeEdges(cwd)); await authority();
-      if (phase === 'start') { edgeVersion = edges; revalidateMemorySemantic = () => check('finish'); }
-      else if (edgeVersion !== edges) stale();
+      const edges = JSON.stringify(await readConfirmedSupersedeEdges(cwd)); assertCurrent();
+      if (edgeVersion !== edges) stale();
+      // 内容与首读逐项相同:基线挪到这次的令牌与文件身份上,后续 check 又回到廉价比对。
+      Object.assign(snapshot, { library: token.library, usage: token.usage, fileStats: memoryStatBaseline(current),
+        boundary: memoryTimeBoundary(current, token.capturedAt), authority: typeof current.authority === 'string' ? current.authority : null });
+    };
+    const check = async (phase, watch) => {
+      try {
+      const authority = async () => { assertCurrent(); if (typeof options.executionOwnerRevalidate === 'function') await options.executionOwnerRevalidate(); assertCurrent(); };
+      await authority();
+      const token = await memorySnapshotToken(cwd); assertCurrent();
+      if (phase === 'start') {
+        // 修前在 start 读一次配置与取代边当基线,这里照旧(两者都很小);库与核心则与首读前的令牌比。
+        snapshot.configBytes = await memoryConfigBytes(); assertCurrent();
+        configVersion = configRevision(await readConfig()); assertCurrent();
+        snapshot.config = token.config;
+        edgeVersion = JSON.stringify(await readConfirmedSupersedeEdges(cwd)); assertCurrent();
+        revalidateMemorySemantic = disclosed => check('finish', disclosed);
+      } else if (token.config !== snapshot.config || !token.configTrusted) {
+        const bytes = await memoryConfigBytes(); assertCurrent();
+        if (token.config !== snapshot.config || bytes !== snapshot.configBytes || bytes.startsWith('error:')) {
+          if (configVersion !== configRevision(await readConfig())) stale();
+          assertCurrent(); snapshot.config = token.config; snapshot.configBytes = bytes;
+        }
+      }
+      let verified = false;
+      if (snapshot.library === null || token.library !== snapshot.library || !token.libraryTrusted || Date.now() >= snapshot.boundary) {
+        await verifyLibrary(token); verified = true;
+      } else if (token.usage !== snapshot.usage || !token.usageTrusted) {
+        const currentCore = await resolveCoreMemoryState(cwd, eligible, effectiveConfig); assertCurrent();
+        if (coreRevision(currentCore.active) !== initialCore) stale();
+        snapshot.usage = token.usage;
+      }
+      // 复核 F2:加密(或读到过封印文件)时每次回验都确认钥匙没换 —— 钥匙失效在第一时间以 work_data 错误上抛,不再多编一批。
+      let keySame = true;
+      if (snapshot.authority) { keySame = await memoryBodyAuthority() === snapshot.authority; assertCurrent(); }
+      if (Array.isArray(watch) && watch.length || !keySame) {
+        // 即将编码(每批)/披露的文件逐个 stat。任何一项对不上 → 完整重读一次再比。
+        let same = keySame && snapshot.authority !== null && await memoryEntriesUnchanged(watch, snapshot.fileStats);
+        assertCurrent();
+        if (!same) {
+          if (!verified) await verifyLibrary(token);
+          if (!await memoryEntriesUnchanged(watch, snapshot.fileStats, { afterVerify: true })) stale();
+          assertCurrent();
+        }
+      }
+      await authority();
       } catch (error) {
         if (error && (typeof error === 'object' || typeof error === 'function')) {
           let marked = false;
@@ -49851,7 +50079,8 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   // 核心席位,回验看到核心集合变了 → 判 stale → 本轮连核心一起清空。usage 只喂下一轮的席位与新鲜度,
   // 本轮披露的集合以回验通过的那一份为准;别人真改了库,回验照样判 stale。
   if (revalidateMemorySemantic) {
-    try { await revalidateMemorySemantic(); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleFallback(error); }
+    // 末次回验带上本轮要披露的全部条目(相关 + 核心):逐文件 stat 比对是「披露前对来源的那一次权威复核」。
+    try { await revalidateMemorySemantic([...(entries || []), ...coreEntries]); } catch (error) { if (error?.code !== 'memory_semantic.stale') throw error; return staleFallback(error); }
   }
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
@@ -49883,6 +50112,15 @@ const MemorySemanticRecall = (() => {
     return ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status)
       ? { reason:status, method } : null;
   }
+  // 非 ready 的 descriptor 归成重排回执的状态:停用 → disabled;失败/身份未知/正在停 → unavailable;其余(cold、loading、
+  // warming、配置或模型切换后的空档)都是「还没好」→ loading。
+  function descriptorStatus(descriptor) {
+    const value = String(descriptor?.state || '');
+    if (['disabled','shutdown'].includes(value)) return 'disabled';
+    if (['failed','unknown','cleanup-failed','stopping','closing'].includes(value)) return 'unavailable';
+    if (value === 'timeout') return 'timeout';
+    return 'loading';
+  }
   // 150 号文 S1:语义层的非守卫失败(运行时起不来、编解码契约等)退回关键词基线并标 unavailable;
   // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
   // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
@@ -49911,17 +50149,45 @@ const MemorySemanticRecall = (() => {
       }
       return { fragments, end, skipped };
     }
+    // 150 号文 S16:一次显式检索不再只翻一页。带 progressKey 时在同一个调用期限(1 s,或调用方更早的 deadline)内连续翻页:
+    // 上一页完整编码并完成准入(续页偏移前进)且余量足够(见下),才进下一页;任何一页没做完/超时/忙/不可用就停在那里,
+    // 进度照旧记在 searchProgress 里,下一次同查询从断点续。check('start') 仍只在 search 入口一次;每一页各自走 beforeEncode 与 finish 回验。
     async function searchLegacy(registry, query, limit, context, lexical, result) {
+      if (!context.progressKey) return searchLegacyPage(registry, query, limit, context, lexical, result);
+      const deadline = Math.min(Date.now() + 1000, Number.isFinite(context.deadline) ? context.deadline : Infinity);
+      const paged = { ...context, deadline };
+      const offsetOf = () => searchProgress.get(context.progressKey)?.offset || 0;
+      const callStart = Date.now();
+      let began = callStart, out = await searchLegacyPage(registry, query, limit, paged, lexical, result), offset = offsetOf();
+      for (let pages = 1; pages < Math.ceil(registry.length / 64) + 1; pages++) {
+        const coverage = out.semantic.coverage, spent = Date.now() - began;
+        // 复核 F4:续页要留足余量 —— 剩余至少是上一页实际耗时的 2 倍、且不少于整个调用期限的一半;否则停在这里下次续。
+        // 冷页比热页慢得多,余量不够时硬撞共享期限会触发 06hb 的硬超时 → markFaulted → 冷却翻倍,连累自动召回。
+        if (out.semantic.status !== 'partial' || coverage.canContinue !== true || deadline - Date.now() < Math.max(100, 2 * spent, (deadline - callStart) / 2)) break;
+        began = Date.now();
+        out = await searchLegacyPage(registry, query, limit, paged, lexical, result);
+        // 进度按续页偏移量算(整页都是超长头时 examinedHeaders 不涨,但偏移照样前进)。
+        if (offsetOf() <= offset) break;
+        offset = offsetOf();
+      }
+      return out;
+    }
+    async function searchLegacyPage(registry, query, limit, context, lexical, result) {
       const key = context.progressKey, prior = key && searchProgress.get(key);
       const generation = progressGeneration;
       const offset = prior?.offset || 0;
       const {fragments, end, skipped} = legacyPage(registry, offset);
+      // 150 号文 S2/S16:本页开始编码之前与打分之后,回验带上本页要编码的全部条目(不止最后返回的那几条),宿主逐文件 stat 复核;
+      // 批与批之间的回验只比令牌(进程内写、增删改名、配置、选择/权限变化照样逐批拦住),不再每批重 stat 64 个文件。
+      const encoding = [...new Set(fragments.map(row => row.entry))];
+      // 复核 F2:每一批文档编码之前(06ha 的 resolveTexts 钩子,≤4 条)只 stat 这一批的文件;批间的 beforeEncode 只比令牌。
+      const resolveTexts = async batch => { await context.check?.('finish', [...new Set(batch.map(n => fragments[n].entry))]); return batch.map(n => fragments[n].text); };
       const scored = fragments.length ? await host.score(query, fragments.map(row=>row.text), {
         scopeId:context.scopeId, signal:context.signal, deadline:context.deadline, deadlineMs:1000,
-        maxEncodeDocuments:128, purpose:'search', beforeEncode:()=>context.check?.('finish'),
+        maxEncodeDocuments:128, purpose:'search', resolveTexts, beforeEncode:()=>context.check?.('finish'),
         identities:fragments.map(row=>[host.key(row.entry),row.entry.memoryVersion||'',row.start,row.end]),
       }) : {status:'ready', scores:[], admission:prior?.policyId ? {policyId:prior.policyId, accepted:[]} : null, coverage:{cached:0,complete:true}, modelFingerprint:prior?.modelFingerprint};
-      await context.check?.('finish');
+      await context.check?.('finish', encoding);
       if(!['ready','partial','disabled','unavailable','loading','timeout','overloaded','truncated'].includes(scored?.status)) throw Error('memory_semantic.score_failed');
       const modelFingerprint = scored.modelFingerprint || prior?.modelFingerprint;
       const sameModel = scored.status !== 'disabled' && generation === progressGeneration && (!prior || prior.modelFingerprint === modelFingerprint);
@@ -49980,6 +50246,18 @@ const MemorySemanticRecall = (() => {
       if (positions.length < 2) return state('not-needed');
       if (positions.length > 16) return state('budget');
       if (host.budgetSafe && !host.budgetSafe(baseline.entries, config)) return state('budget');
+      // 150 号文 S12:只有 descriptor 已 ready 才尝试重排。冷启动/加载中/失败冷却期不再进 score(修前每回合在
+      // prepare 里白等到 250 ms 期限、再付一次回验),当场按 loading/unavailable 交基线;同时在后台踢一下预热,
+      // 模型好了下一回合自然走重排,失败冷却过后也会照常重试(06hb 的退避不变)。
+      if (typeof host.descriptor === 'function') {
+        let descriptor = null;
+        try { descriptor = host.descriptor(); } catch { descriptor = null; }
+        // 拿不到 descriptor(宿主没装运行时端口)时不猜,照修前走 score,由 prepare 自己报状态。
+        if (descriptor && typeof descriptor === 'object' && descriptor.available !== true) {
+          try { host.warm?.(); } catch { /* 预热只是提示,失败不影响本回合 */ }
+          return state(descriptorStatus(descriptor));
+        }
+      }
       const selected = positions.map(index => baseline.entries[index]);
       // Headers only. This bounded prefix is a reranking hint, never a claim that
       // the memory body or the full metadata has been indexed or read.
@@ -49988,7 +50266,10 @@ const MemorySemanticRecall = (() => {
       try {
         result = await host.score(query, texts, {
           scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+          // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
+          // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
+          resolveTexts: async batch => { await context.check?.('finish', batch.map(n => selected[n])); return batch.map(n => texts[n]); },
         });
         if (!['ready', 'partial', 'disabled', 'unavailable', 'loading', 'timeout', 'overloaded', 'truncated'].includes(result?.status)) throw Error('memory_semantic.score_failed');
       } catch (error) {
@@ -50044,11 +50325,11 @@ const MemorySemanticRecall = (() => {
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
           const input=request.inputs();let scored;
-          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish')});}
+          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish',selected)});}
           catch(error){if(!failures.degradable(error,context.signal))throw error;await context.check?.('finish');return result(baseline,'unavailable',{coverage});}
           await context.check?.('finish');
           const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
-          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish'),verifyField:async snapshot=>{await context.check?.('finish');const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
+          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish',selected),verifyField:async snapshot=>{await context.check?.('finish',selected);const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
           const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];
           for(let n=0;n<d.semanticAccepted.length;n++){if(d.semanticAccepted[n]!==true)continue;const field=request.fieldAt(n),entry=selected.find(item=>fields.get(host.key(item))===field);if(!entry||lexicalKeys.has(host.key(entry)))continue;added.push({entry,shared:0,semanticOnly:true,semanticScore:scored.scores[n]});}
           added.sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
@@ -50069,7 +50350,9 @@ const memorySemanticRecall = MemorySemanticRecall.create({
   budgetSafe: (entries, config) => memorySemanticBudgetSafe(entries, config),
   key: entry => memoryRetrievalKey(entry), text: entry => memoryRetrievalText(entry),
   searchText: entry => memoryExplicitRetrievalText(entry),
-  descriptor:()=>SemanticRuntimeHooks.descriptor(),
+  descriptor:()=>typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null,
+  // S12:descriptor 未 ready 时的后台预热(与开机预热同一入口,不 await;06hb 自带「已在起就复用、失败冷却期内直接回」)。
+  warm:()=>{ if (typeof SemanticRuntimeHooks.prewarm !== 'function') return; const task = SemanticRuntimeHooks.prewarm(); if (task && typeof task.catch === 'function') task.catch(() => {}); },
   score: (query, texts, options) => {
     if (!memorySemanticRetrieval) {
       memorySemanticRetrieval = SemanticRetrieval.create(SemanticRuntimeHooks);

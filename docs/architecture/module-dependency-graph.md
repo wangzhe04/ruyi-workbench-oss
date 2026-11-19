@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 144 | 4356 | 4354 | 958 | 67 | 0 | 1 |
+| 144 | 4372 | 4355 | 958 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -83,7 +83,7 @@
 | 65 | `06hb-semantic-runtime.js` | unclassified | 4 | 0 | 0 |
 | 66 | `06ha-semantic-retrieval.js` | unclassified | 4 | 2 | 2 |
 | 67 | `06i-steward-core.js` | engine | 166 | 1 | 1 |
-| 68 | `06d-memory-domain.js` | engine | 182 | 46 | 12 |
+| 68 | `06d-memory-domain.js` | engine | 198 | 47 | 12 |
 | 69 | `06hc-memory-semantic.js` | unclassified | 3 | 16 | 6 |
 | 70 | `06e-mission-domain.js` | engine | 3 | 13 | 5 |
 | 71 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -365,7 +365,7 @@
 | `06c-agent-loop-hooks.js` | `00-boot.js` | backward | `makeId` |
 | `06c-agent-loop-hooks.js` | `04-permission-runtime.js` | backward | `logEvent`, `redact` |
 | `06d-memory-domain.js` | `00-boot.js` | backward | `MemoryCliHooks`, `MemorySemanticHooks`, `SKILL_ID_RE`, `WorkDataRootHooks`, `agentCliHomes`, `apiFailure`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `json`, `makeId`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `tildePath` |
-| `06d-memory-domain.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `configReadGeneration`, `readConfig`, `safeSessionId` |
+| `06d-memory-domain.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `configFileStamp`, `configReadGeneration`, `readConfig`, `safeSessionId` |
 | `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryIndexCharCap`, `memoryRelevanceMax`, `memoryVectorRecallEnabled` |
 | `06d-memory-domain.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `06d-memory-domain.js` | `02-session-store.js` | backward | `loadSession`, `sessionObjectIsStale` |

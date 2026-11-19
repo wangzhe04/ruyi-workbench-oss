@@ -5,6 +5,15 @@ const MemorySemanticRecall = (() => {
     return ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status)
       ? { reason:status, method } : null;
   }
+  // 非 ready 的 descriptor 归成重排回执的状态:停用 → disabled;失败/身份未知/正在停 → unavailable;其余(cold、loading、
+  // warming、配置或模型切换后的空档)都是「还没好」→ loading。
+  function descriptorStatus(descriptor) {
+    const value = String(descriptor?.state || '');
+    if (['disabled','shutdown'].includes(value)) return 'disabled';
+    if (['failed','unknown','cleanup-failed','stopping','closing'].includes(value)) return 'unavailable';
+    if (value === 'timeout') return 'timeout';
+    return 'loading';
+  }
   // 150 号文 S1:语义层的非守卫失败(运行时起不来、编解码契约等)退回关键词基线并标 unavailable;
   // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
   // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
@@ -33,17 +42,45 @@ const MemorySemanticRecall = (() => {
       }
       return { fragments, end, skipped };
     }
+    // 150 号文 S16:一次显式检索不再只翻一页。带 progressKey 时在同一个调用期限(1 s,或调用方更早的 deadline)内连续翻页:
+    // 上一页完整编码并完成准入(续页偏移前进)且余量足够(见下),才进下一页;任何一页没做完/超时/忙/不可用就停在那里,
+    // 进度照旧记在 searchProgress 里,下一次同查询从断点续。check('start') 仍只在 search 入口一次;每一页各自走 beforeEncode 与 finish 回验。
     async function searchLegacy(registry, query, limit, context, lexical, result) {
+      if (!context.progressKey) return searchLegacyPage(registry, query, limit, context, lexical, result);
+      const deadline = Math.min(Date.now() + 1000, Number.isFinite(context.deadline) ? context.deadline : Infinity);
+      const paged = { ...context, deadline };
+      const offsetOf = () => searchProgress.get(context.progressKey)?.offset || 0;
+      const callStart = Date.now();
+      let began = callStart, out = await searchLegacyPage(registry, query, limit, paged, lexical, result), offset = offsetOf();
+      for (let pages = 1; pages < Math.ceil(registry.length / 64) + 1; pages++) {
+        const coverage = out.semantic.coverage, spent = Date.now() - began;
+        // 复核 F4:续页要留足余量 —— 剩余至少是上一页实际耗时的 2 倍、且不少于整个调用期限的一半;否则停在这里下次续。
+        // 冷页比热页慢得多,余量不够时硬撞共享期限会触发 06hb 的硬超时 → markFaulted → 冷却翻倍,连累自动召回。
+        if (out.semantic.status !== 'partial' || coverage.canContinue !== true || deadline - Date.now() < Math.max(100, 2 * spent, (deadline - callStart) / 2)) break;
+        began = Date.now();
+        out = await searchLegacyPage(registry, query, limit, paged, lexical, result);
+        // 进度按续页偏移量算(整页都是超长头时 examinedHeaders 不涨,但偏移照样前进)。
+        if (offsetOf() <= offset) break;
+        offset = offsetOf();
+      }
+      return out;
+    }
+    async function searchLegacyPage(registry, query, limit, context, lexical, result) {
       const key = context.progressKey, prior = key && searchProgress.get(key);
       const generation = progressGeneration;
       const offset = prior?.offset || 0;
       const {fragments, end, skipped} = legacyPage(registry, offset);
+      // 150 号文 S2/S16:本页开始编码之前与打分之后,回验带上本页要编码的全部条目(不止最后返回的那几条),宿主逐文件 stat 复核;
+      // 批与批之间的回验只比令牌(进程内写、增删改名、配置、选择/权限变化照样逐批拦住),不再每批重 stat 64 个文件。
+      const encoding = [...new Set(fragments.map(row => row.entry))];
+      // 复核 F2:每一批文档编码之前(06ha 的 resolveTexts 钩子,≤4 条)只 stat 这一批的文件;批间的 beforeEncode 只比令牌。
+      const resolveTexts = async batch => { await context.check?.('finish', [...new Set(batch.map(n => fragments[n].entry))]); return batch.map(n => fragments[n].text); };
       const scored = fragments.length ? await host.score(query, fragments.map(row=>row.text), {
         scopeId:context.scopeId, signal:context.signal, deadline:context.deadline, deadlineMs:1000,
-        maxEncodeDocuments:128, purpose:'search', beforeEncode:()=>context.check?.('finish'),
+        maxEncodeDocuments:128, purpose:'search', resolveTexts, beforeEncode:()=>context.check?.('finish'),
         identities:fragments.map(row=>[host.key(row.entry),row.entry.memoryVersion||'',row.start,row.end]),
       }) : {status:'ready', scores:[], admission:prior?.policyId ? {policyId:prior.policyId, accepted:[]} : null, coverage:{cached:0,complete:true}, modelFingerprint:prior?.modelFingerprint};
-      await context.check?.('finish');
+      await context.check?.('finish', encoding);
       if(!['ready','partial','disabled','unavailable','loading','timeout','overloaded','truncated'].includes(scored?.status)) throw Error('memory_semantic.score_failed');
       const modelFingerprint = scored.modelFingerprint || prior?.modelFingerprint;
       const sameModel = scored.status !== 'disabled' && generation === progressGeneration && (!prior || prior.modelFingerprint === modelFingerprint);
@@ -102,6 +139,18 @@ const MemorySemanticRecall = (() => {
       if (positions.length < 2) return state('not-needed');
       if (positions.length > 16) return state('budget');
       if (host.budgetSafe && !host.budgetSafe(baseline.entries, config)) return state('budget');
+      // 150 号文 S12:只有 descriptor 已 ready 才尝试重排。冷启动/加载中/失败冷却期不再进 score(修前每回合在
+      // prepare 里白等到 250 ms 期限、再付一次回验),当场按 loading/unavailable 交基线;同时在后台踢一下预热,
+      // 模型好了下一回合自然走重排,失败冷却过后也会照常重试(06hb 的退避不变)。
+      if (typeof host.descriptor === 'function') {
+        let descriptor = null;
+        try { descriptor = host.descriptor(); } catch { descriptor = null; }
+        // 拿不到 descriptor(宿主没装运行时端口)时不猜,照修前走 score,由 prepare 自己报状态。
+        if (descriptor && typeof descriptor === 'object' && descriptor.available !== true) {
+          try { host.warm?.(); } catch { /* 预热只是提示,失败不影响本回合 */ }
+          return state(descriptorStatus(descriptor));
+        }
+      }
       const selected = positions.map(index => baseline.entries[index]);
       // Headers only. This bounded prefix is a reranking hint, never a claim that
       // the memory body or the full metadata has been indexed or read.
@@ -110,7 +159,10 @@ const MemorySemanticRecall = (() => {
       try {
         result = await host.score(query, texts, {
           scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+          // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
+          // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
+          resolveTexts: async batch => { await context.check?.('finish', batch.map(n => selected[n])); return batch.map(n => texts[n]); },
         });
         if (!['ready', 'partial', 'disabled', 'unavailable', 'loading', 'timeout', 'overloaded', 'truncated'].includes(result?.status)) throw Error('memory_semantic.score_failed');
       } catch (error) {
@@ -166,11 +218,11 @@ const MemorySemanticRecall = (() => {
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
           const input=request.inputs();let scored;
-          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish')});}
+          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish',selected)});}
           catch(error){if(!failures.degradable(error,context.signal))throw error;await context.check?.('finish');return result(baseline,'unavailable',{coverage});}
           await context.check?.('finish');
           const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
-          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish'),verifyField:async snapshot=>{await context.check?.('finish');const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
+          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish',selected),verifyField:async snapshot=>{await context.check?.('finish',selected);const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
           const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];
           for(let n=0;n<d.semanticAccepted.length;n++){if(d.semanticAccepted[n]!==true)continue;const field=request.fieldAt(n),entry=selected.find(item=>fields.get(host.key(item))===field);if(!entry||lexicalKeys.has(host.key(entry)))continue;added.push({entry,shared:0,semanticOnly:true,semanticScore:scored.scores[n]});}
           added.sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
@@ -191,7 +243,9 @@ const memorySemanticRecall = MemorySemanticRecall.create({
   budgetSafe: (entries, config) => memorySemanticBudgetSafe(entries, config),
   key: entry => memoryRetrievalKey(entry), text: entry => memoryRetrievalText(entry),
   searchText: entry => memoryExplicitRetrievalText(entry),
-  descriptor:()=>SemanticRuntimeHooks.descriptor(),
+  descriptor:()=>typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null,
+  // S12:descriptor 未 ready 时的后台预热(与开机预热同一入口,不 await;06hb 自带「已在起就复用、失败冷却期内直接回」)。
+  warm:()=>{ if (typeof SemanticRuntimeHooks.prewarm !== 'function') return; const task = SemanticRuntimeHooks.prewarm(); if (task && typeof task.catch === 'function') task.catch(() => {}); },
   score: (query, texts, options) => {
     if (!memorySemanticRetrieval) {
       memorySemanticRetrieval = SemanticRetrieval.create(SemanticRuntimeHooks);

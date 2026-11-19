@@ -93,7 +93,8 @@ test('explicit search resumes bounded authorized pages without skipping overload
         coverage:{complete,cached:complete?texts.length:1}};
     },
   };
-  const {search,clear}=factory.create(host), context={scopeId:'owned',progressKey:'snapshot'};
+  // 150 号文 S16 起同一调用内会连续翻页;本例钉「跨调用续页」,所以给一个已用尽的调用期限(deadline:0),每次调用只做一页。
+  const {search,clear}=factory.create(host), context={scopeId:'owned',progressKey:'snapshot',deadline:0};
   const busy=await search(entries,'query',20,{},context);
   assert.equal(busy.semantic.status,'overloaded');
   assert.equal(busy.semantic.coverage.examinedHeaders,0);
@@ -120,4 +121,58 @@ test('explicit search resumes bounded authorized pages without skipping overload
   const reset=await search(entries,'query',20,{},context);
   assert.equal(reset.semantic.coverage.examinedHeaders,64);
   assert.equal(reset.entries.some(entry=>entry.id==='m75'),false);
+});
+
+test('150 S16: one explicit search call keeps paging while the call budget lasts and stops at the first incomplete page',async()=>{
+  const entries=Array.from({length:79},(_,n)=>({id:'m'+n,memoryVersion:'v1'}));
+  const calls=[];
+  const host={enabled:()=>true,lexical:()=>[],key:entry=>entry.id,text:entry=>entry.id+' '+'x'.repeat(125),
+    async score(_query,texts,opts){calls.push({texts,opts});const scores=texts.map(text=>text.startsWith('m75 ')?.6:0);
+      return {status:'ready',modelFingerprint:'fixture',scores,admission:{policyId:'fixture',accepted:scores.map(score=>score>.34)},coverage:{complete:true,cached:texts.length}};}};
+  const {search}=factory.create(host),phases=[];
+  const result=await search(entries,'query',20,{},{scopeId:'owned',progressKey:'one-call',check:async phase=>phases.push(phase)});
+  assert.deepEqual(Array.from(result.entries,entry=>entry.id),['m75'],'the oldest page is reached within the same call');
+  assert.equal(result.semantic.status,'ready');assert.equal(result.semantic.coverage.examinedHeaders,79);assert.equal(result.semantic.coverage.complete,true);
+  assert.deepEqual(calls.map(call=>call.texts.length),[128,30]);
+  assert.ok(calls.every(call=>call.opts.deadline===calls[0].opts.deadline&&call.opts.deadline<=Date.now()+1000),'every page shares one call deadline');
+  assert.deepEqual(phases,['start','finish','finish'],'every page keeps its own post-score revalidation');
+  // An incomplete page stops the loop; progress resumes from it on the next call.
+  const stalled=[],stop={...host,async score(_query,texts){stalled.push(texts.length);return stalled.length===2?{status:'timeout',scores:texts.map(()=>null),coverage:{complete:false,cached:0}}:host.score(_query,texts,{});}};
+  const resumed=factory.create(stop).search,first=await resumed(entries,'query',20,{},{scopeId:'owned',progressKey:'stall'});
+  assert.equal(first.semantic.status,'timeout');assert.equal(first.semantic.coverage.examinedHeaders,64);assert.deepEqual(stalled,[128,30]);
+  const second=await resumed(entries,'query',20,{},{scopeId:'owned',progressKey:'stall'});
+  assert.equal(second.semantic.coverage.examinedHeaders,79);assert.deepEqual(Array.from(second.entries,entry=>entry.id),['m75']);
+});
+
+test('150 S12: reranking runs only when the descriptor is ready; otherwise no prepare/score wait, baseline kept and warm kicked',async()=>{
+  for(const [state,expected] of [['cold','loading'],['loading','loading'],['warming','loading'],['failed','unavailable'],['unknown','unavailable'],['disabled','disabled']]){
+    const entries=[{id:'a'},{id:'b'}];let scored=0,warmed=0;const phases=[];
+    const rank=factory.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,lexical:()=>entries.map(entry=>({entry,shared:1})),key:entry=>entry.id,text:entry=>entry.id,
+      descriptor:()=>({available:false,state}),warm:()=>{warmed++;},score:async()=>{scored++;return {status:'ready',scores:[0,1],modelFingerprint:'m'};}}).rank;
+    const result=await rank(entries,'query',2,{},{check:async phase=>phases.push(phase)});
+    assert.equal(result.entries,entries,state+': baseline kept');assert.equal(result.semantic.status,expected,state);
+    assert.equal(scored,0,state+': no score/prepare');assert.equal(warmed,1,state+': warm kicked');assert.deepEqual(phases,['start','finish'],state+': revalidation kept');
+  }
+  const entries=[{id:'a'},{id:'b'}],seen=[];
+  const rank=factory.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,lexical:()=>entries.map(entry=>({entry,shared:1})),key:entry=>entry.id,text:entry=>entry.id,
+    descriptor:()=>({available:true,state:'ready'}),warm:()=>{throw Error('must not warm');},
+    score:async(_q,texts,options)=>{await options.beforeEncode();assert.deepEqual(await options.resolveTexts([1]),[texts[1]]);await options.beforeEncode();return {status:'ready',scores:[0,1],modelFingerprint:'m'};}}).rank;
+  const ready=await rank(entries,'query',2,{},{check:async(phase,watch)=>seen.push([phase,watch?Array.from(watch,entry=>entry.id).join(','):''])});
+  assert.equal(ready.semantic.status,'reranked');assert.deepEqual(Array.from(ready.entries,entry=>entry.id),['b','a']);
+  assert.deepEqual(seen,[['start',''],['finish',''],['finish','b'],['finish',''],['finish','']],'each document batch is checked against exactly its own files right before it is encoded; other checks compare the token');
+  // A host without descriptor support (or a throwing one) keeps the pre-S12 path through score.
+  let fallbackScored=0;const legacy=factory.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,lexical:()=>entries.map(entry=>({entry,shared:1})),key:entry=>entry.id,text:entry=>entry.id,
+    descriptor:()=>{throw Error('no runtime');},score:async()=>{fallbackScored++;return {status:'loading',scores:[null,null]};}}).rank;
+  assert.equal((await legacy(entries,'query',2,{})).semantic.status,'loading');assert.equal(fallbackScored,1);
+});
+test('2A review F4: a continuation page starts only with ample margin (>=2x the previous page and >= half the call budget)',async()=>{
+  const entries=Array.from({length:79},(_,n)=>({id:'m'+n,memoryVersion:'v1'})),calls=[];
+  const host={enabled:()=>true,lexical:()=>[],key:entry=>entry.id,text:entry=>entry.id+' '+'x'.repeat(125),
+    async score(_query,texts,opts){calls.push({texts,opts});await new Promise(resolve=>setTimeout(resolve,calls.length===1?400:0));
+      return {status:'ready',modelFingerprint:'fixture',scores:texts.map(()=>0),admission:{policyId:'fixture',accepted:texts.map(()=>false)},coverage:{complete:true,cached:texts.length}};}};
+  const {search}=factory.create(host),result=await search(entries,'query',20,{},{scopeId:'owned',progressKey:'margin'});
+  assert.deepEqual(calls.map(call=>call.texts.length),[128],'a 400 ms first page leaves ~600 ms: less than 2x the page time, so no second page in this call');
+  assert.equal(result.semantic.status,'partial');assert.equal(result.semantic.coverage.canContinue,true);
+  const next=await search(entries,'query',20,{},{scopeId:'owned',progressKey:'margin'});
+  assert.equal(next.semantic.coverage.examinedHeaders,79,'the next call resumes from the stored offset');
 });

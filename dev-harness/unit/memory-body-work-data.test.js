@@ -12,8 +12,8 @@ function fixture() {
   const io = { ...fsp, open: async (...args) => { state.opens++; return fsp.open(...args); } };
   const store = vm.runInNewContext(constBlock(read('01p-work-data-store.js'), 'WorkDataStore') + '\nWorkDataStore;', { require, Buffer, WorkDataCrypto: fx.crypto, WorkDataChunks: fx.chunks });
   store.Hooks.keys = { snapshot: async () => { state.acquires++; if (state.missing) throw Object.assign(new Error('missing'), { code: 'work_data_key.absent' }); const key = Buffer.from(state.key); return { key, instanceId: state.instanceId, release: () => { state.releases++; key.fill(0); } }; } };
-  const functions = ['fmVal', 'memoryGlobalDir', 'projectKeyForCwd', 'memoryProjectDir', 'fmBool', 'cleanMemoryDate', 'memoryBodyScope', 'memoryBodyStore', 'memoryBodyAuthority', 'readMemoryDir', 'readMemoryItem', 'saveMemory', 'migrateMemory', 'renderAgentInstructionMemory', 'writeAgentInstructionEntries', 'inspectAgentInstructionEntries'];
-  const context = { require, Buffer, crypto, path, process, fsp: io, WorkDataStore: store, paths: { memory: dir }, SKILL_ID_RE: /^[A-Za-z0-9_-]{1,64}$/, MEMORY_TYPES: new Set(['preference','convention','lesson','reference']), MEMORY_HEAD_CACHE: new Map(), MEMORY_HEAD_CACHE_MAX: 2000, MEMORY_METADATA_READ_CAP: 16 * 1024, CORE_MEMORY_SUMMARY_CAP: 520,
+  const functions = ['memoryMapLimit', 'memoryRegistryShared', 'memoryStatIsRacy', 'fmVal', 'memoryGlobalDir', 'projectKeyForCwd', 'memoryProjectDir', 'fmBool', 'cleanMemoryDate', 'memoryBodyScope', 'memoryBodyStore', 'memoryBodyAuthority', 'readMemoryDir', 'readMemoryItem', 'saveMemory', 'migrateMemory', 'renderAgentInstructionMemory', 'writeAgentInstructionEntries', 'inspectAgentInstructionEntries'];
+  const context = { require, Buffer, crypto, path, process, fsp: io, WorkDataStore: store, paths: { memory: dir }, SKILL_ID_RE: /^[A-Za-z0-9_-]{1,64}$/, MEMORY_TYPES: new Set(['preference','convention','lesson','reference']), MEMORY_HEAD_CACHE: new Map(), MEMORY_HEAD_CACHE_MAX: 2000, MEMORY_ENTRY_STAT: new WeakMap(), MEMORY_DIR_IO_CONCURRENCY: 8, memoryLibraryWriteGeneration: 0, MEMORY_SNAPSHOT_RACY_MS: 0, MEMORY_METADATA_READ_CAP: 16 * 1024, CORE_MEMORY_SUMMARY_CAP: 520,
     memoryBodyIsWorkDataError: error => String(error?.code || '').startsWith('work_data'), readConfig: async () => ({ workDataEncryptionV1: state.enabled }), nowIso: () => '2026-10-23T00:00:00.000Z', makeId: () => 'mem_synthetic', writeMemoryMeta: async () => {}, mutateMemoryUsageState: async callback => callback({}), planAgentInstructionEntries: () => state.plan, sha256Hex: text => crypto.createHash('sha256').update(text).digest('hex'),
     atomicWriteJson: async (...args) => { state.writes++; if (state.failWrite) throw state.failWrite; return fx.atomicWriteJson(...args); },
   };
@@ -77,4 +77,55 @@ test('agent instruction imports hash decrypted content and preserve imported ide
   const f=fixture();f.state.enabled=true;f.state.plan=[{id:'agentmd-test-1',name:'imported',description:'source',core:true,coreSummary:'summary',part:'1/1',body:'IMPORTED-PRIVATE'}];
   const result=await f.writeAgentInstructionEntries({key:'test'}, {file:'synthetic.md',hash:'hash'},'synthetic.md');assert.equal((await f.inspectAgentInstructionEntries(result)).modified,0);assert.ok(!fs.readFileSync(f.file('agentmd-test-1'),'utf8').includes('IMPORTED-PRIVATE'));
   f.state.missing=true;await assert.rejects(()=>f.inspectAgentInstructionEntries(result),{code:'work_data_key.absent'});
+});
+
+test('150 S3: sealed headers hit the head cache while file identity and key authority are unchanged; writes, ctime-only rewrites and key changes re-authenticate', async () => {
+  const f=fixture();f.state.enabled=true;
+  for(const id of ['s-one','s-two','s-three'])await f.saveMemory(input(id,'SEALED-'+id),f.dir);
+  const dir=f.memoryGlobalDir(),first=await f.readMemoryDir(dir,'global');assert.deepEqual([...first.keys()],fs.readdirSync(dir).filter(name=>name.endsWith('.md')).map(name=>name.slice(0,-3)),'readdir order is kept under bounded concurrency');
+  assert.ok(!fs.readFileSync(f.file('s-one'),'utf8').includes('SEALED-s-one'),'fixture is really sealed');
+  const opens=f.state.opens,second=await f.readMemoryDir(dir,'global');
+  assert.equal(f.state.opens,opens,'unchanged sealed files are served from the head cache (no reopen/decrypt)');
+  assert.equal(second.get('s-two'),first.get('s-two'));
+  // Same bytes rewritten with the original mtime restored: size and mtime match, ctime does not -> re-authenticated.
+  // mtime is pinned to a whole second first (utimes cannot restore sub-ms precision), so only ctime differs.
+  const file=f.file('s-two'),whole=new Date(Math.floor(fs.statSync(file).mtimeMs/1000)*1000);fs.utimesSync(file,whole,whole);
+  await f.readMemoryDir(dir,'global');const pinnedOpens=f.state.opens,st=fs.statSync(file),bytes=fs.readFileSync(file);
+  fs.writeFileSync(file,bytes);fs.utimesSync(file,whole,whole);const after=fs.statSync(file);
+  assert.ok(after.size===st.size&&after.mtimeMs===st.mtimeMs,'fixture: size and mtime unchanged, only ctime moves');
+  await f.readMemoryDir(dir,'global');assert.equal(f.state.opens,pinnedOpens+1,'a ctime-only change re-reads exactly that sealed file');
+  // Tampered ciphertext of identical size is never served from the cache.
+  const tampered=Buffer.from(fs.readFileSync(file));tampered[tampered.length-3]^=1;fs.writeFileSync(file,tampered);fs.utimesSync(file,whole,whole);
+  await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError);
+  fs.writeFileSync(file,bytes);
+  // A different key instance invalidates every cached sealed header before any cached plaintext is used.
+  f.state.instanceId='rotated-instance';await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError);
+  f.state.instanceId='memory-unit';f.state.missing=true;await assert.rejects(()=>f.readMemoryDir(dir,'global'),{code:'work_data_key.absent'});
+  // A missing directory stays the zero-cost empty result: no key access, no throw, even with the key absent.
+  const acquires=f.state.acquires;assert.equal((await f.readMemoryDir(path.join(f.dir,'no-such-dir'),'global')).size,0);assert.equal(f.state.acquires,acquires);
+});
+test('2A review F1: with the encryption toggle OFF a cached sealed header still needs the current key; a missing key throws instead of serving cached plaintext', async () => {
+  const f=fixture();f.state.enabled=true;await f.saveMemory(input('sealed-off','SEALED-OFF-BODY'),f.dir);
+  assert.ok(!fs.readFileSync(f.file('sealed-off'),'utf8').includes('SEALED-OFF-BODY'),'fixture is really sealed');
+  f.state.enabled=false;const dir=f.memoryGlobalDir();
+  assert.equal((await f.readMemoryDir(dir,'global')).get('sealed-off').name,'Name','toggle off, key present: the sealed file is still readable');
+  const opens=f.state.opens;assert.equal((await f.readMemoryDir(dir,'global')).get('sealed-off').name,'Name');assert.equal(f.state.opens,opens,'toggle off, same key: served from the head cache');
+  f.state.missing=true;await assert.rejects(()=>f.readMemoryDir(dir,'global'),{code:'work_data_key.absent'},'toggle off, key gone: the cached sealed header is not served');
+  f.state.missing=false;f.state.instanceId='other-instance';await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError,'toggle off, different key: re-authenticated and refused');
+  // A plain file under the OFF toggle keeps its zero-key-access cache.
+  f.state.instanceId='memory-unit';const plain=fixture();await plain.saveMemory(input('plain-off'),plain.dir);await plain.readMemoryDir(plain.memoryGlobalDir(),'global');
+  const acquires=plain.state.acquires;await plain.readMemoryDir(plain.memoryGlobalDir(),'global');assert.equal(plain.state.acquires,acquires,'plain files under OFF never touch the key');
+});
+
+test('2A review F3: a file written within the timestamp-granularity window is neither cached nor trusted as a stat baseline', async () => {
+  const f=fixture();await f.saveMemory(input('fresh'),f.dir);const dir=f.memoryGlobalDir();
+  f.context.MEMORY_SNAPSHOT_RACY_MS=60*60*1000; // every file counts as "just written"
+  let wholeReads=0;const realReadFile=f.context.fsp.readFile;f.context.fsp.readFile=async(...args)=>{wholeReads++;return realReadFile(...args);};
+  const first=await f.readMemoryDir(dir,'global'),reads=wholeReads;await f.readMemoryDir(dir,'global');
+  assert.equal(wholeReads,reads+1,'racy file is re-read in full (content fingerprint), not served from the head cache');
+  assert.match(String(f.context.MEMORY_ENTRY_STAT.get(first.get('fresh'))),/^racy:[a-f0-9]{64}$/,'racy file gets a content-hash baseline, never a stat-identity one');
+  assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()-10,ctimeMs:Date.now()-10}),true);
+  f.context.MEMORY_SNAPSHOT_RACY_MS=0;const settled=await f.readMemoryDir(dir,'global'),settledOpens=f.state.opens;await f.readMemoryDir(dir,'global');
+  assert.equal(f.state.opens,settledOpens,'outside the window the header is cached again');assert.ok(f.context.MEMORY_ENTRY_STAT.has(settled.get('fresh')));
+  assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()-10,ctimeMs:0}),false,'window 0 trusts past stamps');assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()+5000,ctimeMs:0}),true,'a stamp in the future is never trusted');
 });
