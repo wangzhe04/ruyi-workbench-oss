@@ -1786,7 +1786,7 @@ async function saveCatalogField(field, stored) {
 }
 function refreshSettingsCatalog() {
   mountSettingsCatalog({ t, onSave: saveCatalogField });
-  fillSettingsCatalog({ t, config: state.config || {}, onSave: saveCatalogField });
+  fillSettingsCatalog({ t, config: state.config || {}, onSave: saveCatalogField, status: state.status || null });   // 150 U10：语义模型状态句读 status.semanticRuntime
 }
 let instantSettingsBound = false;
 function bindInstantSettings() {

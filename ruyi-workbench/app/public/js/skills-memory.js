@@ -18,6 +18,19 @@ export function commandInsertionText(entry, providerMode, agentCliType) {
   return expand ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
 }
 
+// 150 U7：记忆面板的搜索是【字面】匹配，范围就是卡片上看得见的字：标题、摘要（核心摘要或说明，卡片显示哪个就是哪个）、类型与范围的显示名。
+// 修前把内部 id 与类型/范围的内部代号（preference、global…）也拼进去 —— 搜「mem」「pref」会命中一批卡片上
+// 根本看不到这几个字母的记忆。语义检索只在对话召回记忆时用（它要过隐私与来源复核），面板不另开一条语义通道，
+// 改为在搜索框下如实写明范围（memory.toolbox.searchScope）。
+function memoryToolboxFold(value) { return String(value || '').normalize('NFKC').toLowerCase(); }
+// 与 buildMemoryToolboxCard 逐项同源：标题是 name（没有就是 id —— 卡片上真显示它）；摘要是「核心且有核心摘要就显示摘要，
+// 否则显示说明」二选一（被藏起来的那一段不参与匹配）；外加类型与范围的显示名。
+export function memoryToolboxSearchText(m, labels = {}) {
+  const item = m && typeof m === 'object' ? m : {};
+  const title = item.name || item.id;
+  const summary = item.core && item.coreSummary ? item.coreSummary : item.description;
+  return memoryToolboxFold([title, summary, labels.type, labels.scope].filter(Boolean).join(' '));
+}
 export function createSkillsMemoryDomain({
   apiErrText = error => String(error && error.message || error || ''),
   currentWorkspace = () => '',
@@ -799,20 +812,27 @@ function renderMemoryToolbox() {
   budget.append(budgetLine, track, el('p', '', t('memory.toolbox.lruHint', { count: stats.itemLimit || coreItemFallback })));
   overview.append(overviewTop, budget);
 
-  const query = String($('memoryToolboxSearch')?.value || '').normalize('NFKC').toLowerCase().trim();
+  const query = memoryToolboxFold($('memoryToolboxSearch')?.value).trim();
   let items = (memoryRegistry || []).filter(m => {
     if (memoryToolboxFilter === 'core' && !m.core) return false;
     if (memoryToolboxFilter === 'review' && !m.reviewDue && !m.expired) return false;
     if (!query) return true;
-    return [m.name, m.description, m.id, m.type, m.scope].filter(Boolean).join(' ').normalize('NFKC').toLowerCase().includes(query);
+    return memoryToolboxSearchText(m, { type: memoryTypeLabel(m.type), scope: m.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project') }).includes(query);
   });
+  // 150 U7：搜了词就说清楚这是怎么搜的（字面，不按意思）与找到几条 —— 修前只有一句「没有匹配的记忆」，
+  // 用户分不清是真没有，还是换个说法（语义）才找得到。
+  const scopeNote = $('memoryToolboxSearchNote');
+  if (scopeNote) {
+    scopeNote.hidden = !query;
+    scopeNote.textContent = query ? t('memory.toolbox.searchScope', { count: items.length }) : '';
+  }
   const statusOrder = { active: 0, standby: 1, expired: 2, library: 3 };
   items.sort((a, b) => (statusOrder[a.coreStatus] ?? 4) - (statusOrder[b.coreStatus] ?? 4)
     || String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
   host.innerHTML = '';
   if (!items.length) {
     const empty = el('div', 'memory-empty');
-    empty.append(el('span', 'memory-empty-mark', '◌'), el('strong', '', t('memory.toolbox.empty')), el('p', '', t('memory.toolbox.emptyHint')));
+    empty.append(el('span', 'memory-empty-mark', '◌'), el('strong', '', t('memory.toolbox.empty')), el('p', '', t(query ? 'memory.toolbox.searchEmptyHint' : 'memory.toolbox.emptyHint')));
     host.appendChild(empty); return;
   }
   for (const m of items) host.appendChild(buildMemoryToolboxCard(m));

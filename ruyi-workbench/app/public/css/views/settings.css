@@ -435,6 +435,11 @@
   cursor: pointer;
 }
 #settingsModal .setcat-hint { margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.5; color: var(--muted); }
+/* 150 U10：语义开关那一行的模型状态句（加载中／就绪／冷却中／不可用）。就绪不加色，冷却与不可用用提醒色，读得出「这会自己好」与「要你动手」。 */
+#settingsModal .setcat-status { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); line-height: 1.5; color: var(--muted); }
+#settingsModal .setcat-status:empty { display: none; }
+#settingsModal .setcat-status[data-state="cooldown"] { color: var(--gold); }
+#settingsModal .setcat-status[data-state="unavailable"] { color: var(--danger); }
 #settingsModal .setcat-control { display: flex; justify-content: flex-end; min-width: 0; }
 #settingsModal .setcat-row-wide .setcat-control { justify-content: stretch; }
 #settingsModal .setcat-row-wide .setcat-control > * { width: 100%; }

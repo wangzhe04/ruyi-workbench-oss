@@ -1105,9 +1105,12 @@ export function createChatRenderPrimitives(deps = {}) {
     const plain = ctxPlainMode();
     const paint = shownN => {
       const p = win > 0 ? shownN / win : 0;
+      // 150 U13：用量不到 1% 时四舍五入成「0%」—— 估算帧爬到 0.5% 显示「1%」，真实用量帧一到又回落「0%」，
+      // 读着像对话被清空了。有用量就至少写「<1%」，不再出现「已用 0%」。
+      const pctText = p > 0 && p < 0.005 ? '<1' : String(Math.round(p * 100));
       txt.textContent = plain
-        ? t('ctx.plain.used', { pct: Math.min(100, Math.round(p * 100)) })
-        : `${estMark ? '≈' : ''}${fmtTokens(Math.round(shownN))} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(p * 100)}%`;
+        ? t('ctx.plain.used', { pct: pctText === '<1' ? pctText : Math.min(100, Number(pctText)) })
+        : `${estMark ? '≈' : ''}${fmtTokens(Math.round(shownN))} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${pctText}%`;
     };
     if (box._ctxTween) { cancelAnimationFrame(box._ctxTween); box._ctxTween = null; }
     const targetN = Math.max(0, Math.round(n));

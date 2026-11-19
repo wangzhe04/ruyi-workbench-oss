@@ -6648,12 +6648,12 @@
         "STORAGE_STEWARD",
         "STORAGE_TREND_MAX",
         "STORAGE_TREND_MIN_GAP_MS",
-        "THREAD_BRIEF_FIRST_TURN_TRIES",
         "THREAD_BRIEF_INPUT_CHARS",
         "THREAD_BRIEF_MIN_SUBSTANCE",
         "THREAD_BRIEF_PER_MINUTE",
         "THREAD_BRIEF_REPLY_CHARS",
         "THREAD_BRIEF_RETRY_BACKOFF_MS",
+        "THREAD_BRIEF_YIELD_TURNS",
         "TOOL_ITERATION_BUDGETS",
         "TOOL_REQUIRES",
         "_capCache",
@@ -6776,6 +6776,7 @@
         "threadBriefOnce",
         "threadBriefProvider",
         "threadBriefRateLimited",
+        "threadBriefYieldToTurn",
         "toolRequirementsMet",
         "updateAutomaticThreadTitle",
         "userPlaybookStore"
@@ -7193,6 +7194,13 @@
           "symbol": "sanitizeServerId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14145,13 +14153,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "maybeWriteThreadBrief",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "settleThreadBrief",
           "kinds": [
             "call"
@@ -16190,6 +16191,10 @@
         "OPEN_PATH_TARGETS",
         "PORT_FALLBACK_SPAN",
         "PROXY_MODELS_CACHE_PATH",
+        "SEMANTIC_STATUS_ASSETS_MISMATCH",
+        "SEMANTIC_STATUS_ASSETS_MISSING",
+        "SEMANTIC_STATUS_COOLDOWN_CODES",
+        "SEMANTIC_STATUS_LOADING",
         "START_ERROR_KINDS",
         "START_NOTICE",
         "agentWorkflowLoopbackRoute",
@@ -16230,6 +16235,8 @@
         "resolveBindHost",
         "resolveNodeModel",
         "semanticRuntimeHostPorts",
+        "semanticRuntimeStatusNow",
+        "semanticRuntimeStatusView",
         "setProxyModelsCache",
         "setSessionSkillsCore",
         "singleByteRange",

@@ -336,6 +336,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .memory-filter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); }
 .memory-filter button { min-height: 28px; margin: 0 !important; padding: 3px 7px; border-color: transparent; background: transparent; color: var(--muted); font-size: var(--fs-xs); }
 .memory-filter button.active { border-color: var(--line); background: var(--panel); color: var(--accent); box-shadow: var(--elev-1); font-weight: 650; }
+/* 150 U7：搜了词才出现的那一句（字面匹配的范围 + 找到几条）。 */
+.memory-search-note { margin: 6px 2px 0; font-size: var(--fs-xs); line-height: 1.5; }
 .memory-toolbox-list { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 .memory-card { position: relative; padding: 11px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2); transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
 .memory-card:hover { transform: translateY(-1px); border-color: var(--line-2); box-shadow: var(--elev-1); }

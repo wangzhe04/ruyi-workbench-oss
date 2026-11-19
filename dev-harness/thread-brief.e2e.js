@@ -17,8 +17,10 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      sessionDisplayTitle 用生成的名字。
 //  (B) 第二回合不再调(一条线程只起一次名字)。
 //  (C) 用户改名:titleSource:'user' 落盘,显示名字换成用户起的那个,brief 本身不动。
-//  (D) 模型吐非 JSON:首回合机会性的一发 + 收工那次的三发 = 4 次之后放弃,brief 留空,
-//      **回合照常收工**(红线:摘要绝不阻塞回合)。
+//  (D) 模型吐非 JSON:150 U6 起只问一次就放弃(修前首回合机会性的一发 + 收工三发 = 4 次),brief 留空,
+//      **回合照常收工**(红线:摘要绝不阻塞回合);端点没回话(HTTP 500)才退避重试,最多 3 次。
+//  (U6) 150 U6:起名排在主回合之后 —— 首回合跑着时端点只收到主回合那一发;起名请求在主回合收工之后才到;
+//      线程上又有回合在跑时起名先让路,等它收工再发。
 //  (E) 开关关(stewardThreadBriefV1:false):零调用、零字段。
 //  (F) 管家会话不起名(它不是线程)。
 //  (G) 端点解析:配了 stewardProviderId 就用它(模型跟 stewardModel);配了却不在 providers 列表
@@ -46,7 +48,9 @@ const TITLE = 'AMD 收盘分析';
 const GIST = '拉 AMD 最新行情与新闻,给博物影业格式的结论';
 let briefHits = 0, turnHits = 0, lastBriefModel = '';
 let turnDelay = 0, briefDelay = 0;
-let briefMode = 'json';          // json | garbage | oversize
+let briefMode = 'json';          // json | garbage | oversize | http500
+// 150 U6:每一发到达/收尾的时刻(同一个 Date.now() 钟),用来判「起名排在主回合之后」。
+const hitLog = [];
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
   req.on('data', c => { raw += c; });
@@ -60,15 +64,18 @@ const providerServer = http.createServer(async (req, res) => {
   // 起名字那一发的口令来自 06-provider-engine 的 buildThreadBriefMessages 系统层。
   if (text.includes('你给一条对话线程起名字') || text.includes('You name a conversation thread')) {
     briefHits += 1;
+    hitLog.push({ kind: 'brief', at: Date.now() });
     if (briefDelay) await sleep(briefDelay);
     lastBriefModel = String((body && body.model) || '');
     let content = '```json\n' + JSON.stringify({ title: TITLE, gist: GIST }) + '\n```';
     if (briefMode === 'garbage') content = '这不是 JSON,只是一段解释性的话。';
     if (briefMode === 'oversize') content = JSON.stringify({ title: '标'.repeat(60), gist: '概'.repeat(200) });
+    if (briefMode === 'http500') { res.writeHead(500, { 'content-type': 'application/json' }); return res.end('{"error":{"message":"upstream down"}}'); }
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content } }], usage: { prompt_tokens: 120, completion_tokens: 30 } }));
   }
   turnHits += 1;
+  hitLog.push({ kind: 'turn', at: Date.now() });
   if (turnDelay) await sleep(turnDelay);
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   const frame = o => res.write('data: ' + JSON.stringify(o) + '\n\n');
@@ -77,6 +84,7 @@ const providerServer = http.createServer(async (req, res) => {
   frame({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } });
   res.write('data: [DONE]\n\n');
   res.end();
+  hitLog.push({ kind: 'turn-end', at: Date.now() });
 });
 await new Promise(r => providerServer.listen(PROVIDER_PORT, '127.0.0.1', r));
 
@@ -114,21 +122,25 @@ const usageRows = () => {
 const RAW = '帮我分析一下AMD——按美股超威半导体，今天收盘怎么样，有什么新闻';
 
 try {
-  // A long first turn must display its computed title before transcript persistence settles.
+  // 150 U6: a long first turn is named only after it settles — the naming request never races the main turn
+  // for the provider (single-slot local endpoints queue the main request behind it). Before U6 this block
+  // asserted the opposite (the generated title was visible while the first turn was still running).
   turnDelay = 2000;
   const liveId = await newSession();
   let settled = false;
+  const liveBriefBefore = briefHits, liveTurnBefore = turnHits;
   const liveTurn = srv.runSessionTurn({ sessionId: liveId, message: RAW, cwd: HOME, onEvent: () => {} }).then(() => { settled = true; });
-  await sleep(700);
+  // 等主回合那一发真到了端点(负载下可能要好几百毫秒),再看起名请求有没有抢在它前面或与它并行 —— 判据不靠固定墙钟。
+  for (let i = 0; i < 200 && !settled && turnHits - liveTurnBefore < 1; i++) await sleep(50);
+  await sleep(300);
   const liveHead = await srv.loadSession(liveId);
-  const liveMeta = (await srv.listSessions()).find(row => row.id === liveId);
-  await srv.eventStreamEmitThreadState(liveId);
-  ok(srv.eventStreamRing.findLast(frame => frame.event === 'thread.state' && frame.data.sessionId === liveId)?.data.title === TITLE, 'M1b SSE frame exposes live generated title');
-  ok(!settled && srv.sessionDisplayTitle(liveHead) === TITLE && liveMeta?.brief?.title === TITLE, 'M1 generated title visible in head/list before first turn settles');
+  ok(!settled && briefHits - liveBriefBefore === 0 && turnHits - liveTurnBefore === 1 && srv.sessionDisplayTitle(liveHead) !== TITLE,
+    `M1 U6: while the first turn runs only its main request has reached the provider (brief ${briefHits - liveBriefBefore}, turn ${turnHits - liveTurnBefore})`);
   await srv.updateSessionMeta(liveId, { title: 'Live manual name' });
   ok(srv.sessionDisplayTitle(await srv.loadSession(liveId)) === 'Live manual name', 'M2 manual rename immediately wins during streaming');
   await liveTurn; await sleep(300);
-  ok(headOf(liveId).title === 'Live manual name' && headOf(liveId).threadBrief?.title === TITLE, 'M3 final save preserves manual title and generated brief');
+  ok(headOf(liveId).title === 'Live manual name' && !headOf(liveId).threadBrief && briefHits - liveBriefBefore === 0,
+    'M3 final save preserves the manual title; a thread the user named during its first turn is not named again (zero naming calls)');
   ok((await srv.updateAutomaticThreadTitle({ sessionId: liveId, title: 'Should not win' })).updated === false, 'M4 agent cannot replace manual title');
   // A delayed first naming reply cannot overwrite an explicit newer automatic title.
   briefDelay = 900;
@@ -183,15 +195,24 @@ try {
   console.log('── (A) 首轮之后自动起名字 ──');
   const idA = await newSession();
   const briefCallsBefore = briefHits;
+  const logFromA = hitLog.length;
   await srv.runSessionTurn({ sessionId: idA, message: RAW, cwd: HOME, onEvent: () => {} });
   const brief = await waitBrief(idA);
   ok(!!brief, 'A1 首轮之后 threadBrief 落盘');
   ok(brief && brief.title === TITLE, `A2 title 是任务的名字(got ${brief && JSON.stringify(brief.title)})`);
   ok(brief && brief.gist === GIST, 'A3 gist 是一句人话概括');
-  ok(brief && brief.schema === 1 && !!brief.at && !!brief.model && brief.stage === 'first_turn',
-    `A4 五字段齐且 stage 是首回合那次(got ${brief && JSON.stringify({ schema: brief.schema, at: !!brief.at, model: brief.model, stage: brief.stage })})`);
+  ok(brief && brief.schema === 1 && !!brief.at && !!brief.model && brief.stage === 'settled',
+    `A4 五字段齐且 stage 是收工那次(150 U6 起唯一的一次;got ${brief && JSON.stringify({ schema: brief.schema, at: !!brief.at, model: brief.model, stage: brief.stage })})`);
   ok(briefHits - briefCallsBefore === 1,
-    `A5 常见路径【只调一次】模型(got ${briefHits - briefCallsBefore};修前首回合与收工两条路各调一次,因为落盘被延后到 settle 之后、收工钩子看见的还是空的)`);
+    `A5 常见路径【只调一次】模型(got ${briefHits - briefCallsBefore})`);
+  {
+    const seq = hitLog.slice(logFromA);
+    const turnEnd = seq.find(h => h.kind === 'turn-end'), firstBrief = seq.find(h => h.kind === 'brief');
+    ok(seq[0] && seq[0].kind === 'turn' && turnEnd && firstBrief && firstBrief.at >= turnEnd.at,
+      `A5b 150 U6:端点先收到主回合那一发,起名请求在主回合回完之后才到(got ${JSON.stringify(seq.map(h => h.kind))})`);
+    await srv.eventStreamEmitThreadState(idA);
+    ok(srv.eventStreamRing.findLast(frame => frame.event === 'thread.state' && frame.data.sessionId === idA)?.data.title === TITLE, 'M1b SSE frame exposes the generated title once it lands');
+  }
   ok(headOf(idA).title === RAW, 'A6 红线:session.title 仍是用户原话,brief 绝不改写它');
   const metaA = (await srv.listSessions()).find(m => m.id === idA);
   ok(metaA && metaA.brief && metaA.brief.title === TITLE && metaA.brief.gist === GIST,
@@ -231,12 +252,46 @@ try {
     const result = await srv.runSessionTurn({ sessionId: idD, message: '看看 README 里写了什么', cwd: HOME, onEvent: () => {} });
     ok(result && result.ok === true && result.result && result.result.ok === true,
       'D1 红线:摘要失败绝不阻塞回合(回合照常收工)');
-    await sleep(8000);   // 收工那次:首发 + 1s + 4s 两次退避
-    ok(briefHits - before === 4,
-      `D2 首回合机会性的一发 + 收工那次的三发 = 4 次后放弃(got ${briefHits - before})`);
+    await sleep(6500);   // 修前这里要等收工那次的 1s + 4s 两次退避;150 U6 起模型乱答不再重试,等够这段证明没有补发
+    ok(briefHits - before === 1,
+      `D2 150 U6:模型回了非 JSON 只问一次就放弃(修前首回合一发 + 收工三发 = 4 次;got ${briefHits - before})`);
     ok(!headOf(idD).threadBrief, 'D3 解析不出就留空,绝不拿整段原文当名字');
     ok(srv.sessionDisplayTitle(headOf(idD)) === headOf(idD).title, 'D4 brief 缺席时显示回落到原话');
+    // 端点没回话(HTTP 500)才退避重试:首发 + 1 s + 4 s,共 3 次,然后放弃;回合照常收工。
+    briefMode = 'http500';
+    const idD5 = await newSession();
+    const beforeD5 = briefHits;
+    const resultD5 = await srv.runSessionTurn({ sessionId: idD5, message: '端点起名接口挂了的线程', cwd: HOME, onEvent: () => {} });
+    await sleep(6500);
+    ok(resultD5 && resultD5.ok === true && briefHits - beforeD5 === 3 && !headOf(idD5).threadBrief,
+      `D5 端点没回话才退避重试,最多 3 次后放弃,回合照常收工(got ${briefHits - beforeD5})`);
     briefMode = 'json';
+  }
+
+  /* ═════════ (U6) 起名让路给正在跑的回合 ═════════ */
+  console.log('── (U6) 起名让路 ──');
+  {
+    // 先在开关关着时跑完首回合(不起名),再打开开关:让这条线程「没有名字、但已经不是首回合」,
+    // 然后在它第二回合跑着的时候直调起名 —— 起名请求必须等这一回合回完才发出。
+    writeConfig({ stewardThreadBriefV1: false });
+    const idY = await newSession();
+    await srv.runSessionTurn({ sessionId: idY, message: '先跑一回合,不起名', cwd: HOME, onEvent: () => {} });
+    writeConfig();
+    turnDelay = 1500;
+    const logFrom = hitLog.length, beforeY = briefHits;
+    const turnBeforeY = turnHits;
+    const second = srv.runSessionTurn({ sessionId: idY, message: '第二回合跑得慢', cwd: HOME, onEvent: () => {} });
+    // 等第二回合那一发到了端点(此时它一定已登记为这条线程的在跑回合),再直调起名 —— 不靠固定墙钟(负载下 300 ms 不够)。
+    for (let i = 0; i < 200 && turnHits - turnBeforeY < 1; i++) await sleep(50);
+    const naming = srv.maybeWriteThreadBrief({ sessionId: idY, message: RAW, stage: 'settled', config: BASE_CONFIG, threadProvider: BASE_CONFIG.providers[0] });
+    await sleep(600);
+    ok(briefHits - beforeY === 0, `U6a 线程上有回合在跑时起名先让路,端点没有收到起名请求(got ${briefHits - beforeY})`);
+    await second;
+    const yielded = await naming;
+    const seq = hitLog.slice(logFrom), turnEnd = seq.find(h => h.kind === 'turn-end'), firstBrief = seq.find(h => h.kind === 'brief');
+    ok(yielded && yielded.title === TITLE && turnEnd && firstBrief && firstBrief.at >= turnEnd.at,
+      `U6b 那一回合回完之后起名照常落地(got ${JSON.stringify(seq.map(h => h.kind))})`);
+    turnDelay = 0;
   }
 
   /* ═════════ (E) 开关关 ═════════ */
@@ -348,7 +403,15 @@ try {
     const stewardCaller = await srv.createSession({ title: '', cwd: HOME });
     stewardCaller.kind = 'steward';
     await srv.saveSession(stewardCaller);
-    const found = await srv.StewardHooks.threadsSearch({ q: 'AMD' }, { session: { id: stewardCaller.id, kind: 'steward' } });
+    // 150 U6 起名字在首回合收工之后才落盘(修前在回合当中就落了),搜索那一侧的会话索引按落盘事件追上;负载下给它
+    // 有界的几秒追上(判据仍是「结果带 brief」,只是不再假定它与收工同一拍可见)。
+    let found = null;
+    for (let i = 0; i < 25; i++) {
+      found = await srv.StewardHooks.threadsSearch({ q: 'AMD' }, { session: { id: stewardCaller.id, kind: 'steward' } });
+      const hit = ((found && found.results) || []).find(r => r && r.sessionId === idK);
+      if (hit && hit.brief) break;
+      await sleep(200);
+    }
     ok(found && found.ok === true, `K3b 线程搜索真的跑起来了(不是作用域拒绝;got ${JSON.stringify(found && (found.message || found.ok))})`);
     const rowK = ((found && found.results) || []).find(r => r && r.sessionId === idK);
     ok(rowK && rowK.brief && rowK.brief.title === TITLE && rowK.brief.gist === GIST,

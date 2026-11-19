@@ -1488,12 +1488,13 @@ async function providerRawCompletion(provider, history, options) {
 // 补账;不进 providerHistory(与会话上下文完全隔离,不污染下一回合);失败静默,绝不阻塞回合。
 const THREAD_BRIEF_INPUT_CHARS = 1200;    // 喂给模型的用户原话上限
 const THREAD_BRIEF_REPLY_CHARS = 400;     // settled 阶段附带的助手回复上限
-// 两次机会各自的尝试预算(实测调整,见 §11.6 116-5a 交付记录):
-//   · 首回合那次是【机会性】的 —— 端点正常时一发就中,不该为了一个名字在回合刚起跑时连打三次;
-//   · 收工那次才是真正的兜底(此刻有助手回复,概括也更准),退避重试留给它。
-// 全流程一条线程最多 4 次调用(常见路径 1 次),而不是「两次机会 × 各 3 次 = 6 次」。
-const THREAD_BRIEF_FIRST_TURN_TRIES = 1;
-const THREAD_BRIEF_RETRY_BACKOFF_MS = [1000, 4000];  // 收工那次:首发 + 两次退避重试后放弃
+// 150 U6:一条线程只在首回合【收工之后】起一次名字(10 runSessionTurn 的 finally → settleThreadBrief)。
+// 修前首回合发起时先并行打一发「机会性」的,收工时没拿到名字再打三发 —— 模型回了非 JSON 时一条消息
+// 触发 1 次主回合 + 4 次起名。现在:
+//   · 模型回了话但解析不出合法名字 → 放弃(同一提示词再问一遍多半还是那样,不再重试);
+//   · 只有端点没回话(断网、超时、HTTP 错误、空补全)才按下面的退避重试;
+// 所以常见路径 1 次、模型乱答 1 次、端点不通最多 3 次。
+const THREAD_BRIEF_RETRY_BACKOFF_MS = [1000, 4000];  // 端点没回话时:首发 + 两次退避重试后放弃
 const THREAD_BRIEF_PER_MINUTE = 20;       // 每进程每分钟上限,防批量导入会话把端点打爆
 const threadBriefCalls = [];              // 最近一分钟的调用时刻(ms),纯内存
 // 每会话在途/已成的登记表(纯内存,进程重启即清)。**没有它就会重复调模型**:首回合那次的落盘走
@@ -1583,9 +1584,9 @@ async function maybeWriteThreadBrief(input) {
   }
 }
 
-// 116-5a 收工那一刻的唯一入口:先【补写】(不调模型),不行再走收工那次兜底。
-// 为什么必须补写(116-5a 实测抓到的丢写):首回合那次是在回合刚起跑时发的,它的落盘与回合自己的
-// 收尾整份 saveSession 抢同一个文件 —— 回合手里那份内存副本【不含】 brief,谁后写谁赢,而回合
+// 116-5a 收工那一刻的唯一入口:先【补写】(不调模型),不行再起名。
+// 为什么必须补写(116-5a 实测抓到的丢写):回合期间算出来的 brief(主代理的 thread_title_update)的落盘与回合
+// 自己的收尾整份 saveSession 抢同一个文件 —— 回合手里那份内存副本【不含】 brief,谁后写谁赢,而回合
 // 几乎总是后写。updateSessionMeta 的活回合延后防护挡不住这一发(brief 的写可能恰好落在
 // turnSettlers 已清、回合收尾 save 还没落地的那个窗口里)。补写是幂等的,而且不再调模型。
 async function settleThreadBrief(o) {
@@ -1594,6 +1595,19 @@ async function settleThreadBrief(o) {
   const reasserted = await reassertThreadBrief(sid);
   if (reasserted) return reasserted;
   return maybeWriteThreadBrief({ ...(o || {}), stage: 'settled' });
+}
+
+// 150 U6:起名让路给主回合。收工那一刻用户可能已经接着发了下一句(turnSettlers 里又挂上了这条线程的回合)——
+// 这时先等那一回合收工再发起名请求,不与它抢同一个端点的并发位。有界:最多让 8 回合(连发也不会无限期挂着),
+// 等的只是回合自己的 settle promise,不轮询、不加计时器。
+const THREAD_BRIEF_YIELD_TURNS = 8;
+async function threadBriefYieldToTurn(sid) {
+  for (let i = 0; i < THREAD_BRIEF_YIELD_TURNS; i++) {
+    const live = turnSettlers.get(sid);
+    if (!live || !live.promise || typeof live.promise.then !== 'function') return i;
+    await live.promise.catch(() => null);
+  }
+  return THREAD_BRIEF_YIELD_TURNS;
 }
 
 // 把本进程算出来的 brief 再写一次(仅当盘上确实没有)。永不调模型、永不抛。
@@ -1651,10 +1665,22 @@ async function updateAutomaticThreadTitle(input) {
   return { ok: true, updated: true, title: brief.title };
 }
 
-async function threadBriefOnce(o, sid, policyBound = false) {
+async function threadBriefOnce(o, sid, policyBound = false, admitted = false) {
   try {
     const config = o.config || null;
     if (!threadBriefEnabled(config)) return null;
+    // 150 U6:先让路(见 threadBriefYieldToTurn)再绑隐私策略 —— 等回合的那段时间不占着隐私 scope;
+    // 下面的会话头、改名与 rewind 判据都在让路之后才读,所以等过之后看到的是新回合收工后的状态。
+    if (!policyBound && !admitted) await threadBriefYieldToTurn(sid);   // 自领准入之后那一层递归不再让第二次
+    // 150 U6:收工后起名是一段【脱离了原请求】的后台活 —— 回合所在那次 HTTP 请求的维护准入此刻已经释放，沿用它的
+    // 异步上下文会被 13ag 判成 work_data.maintenance_stale_continuation(修前首回合那一发在请求还活着时发出，碰不到这条)。
+    // 与 13be 的过期清理、开机预热同一做法：自己领一张新的准入(fresh)；正在维护(不收新活)就不起名，绝不绕过维护闸门。
+    // 让路放在领准入之前：等回合的那段时间不占着维护准入，维护照常能排空。不看「此刻原请求还活着没有」——收工那一拍
+    // 它往往还活着、几个 await 之后就释放了，判据得在起名自己的整段生命周期上成立，所以一律自领。
+    if (!policyBound && !admitted && typeof WorkDataMaintenanceHooks !== 'undefined' && typeof WorkDataMaintenanceHooks.fresh === 'function') {
+      if (typeof WorkDataMaintenanceHooks.accepting === 'function' && !WorkDataMaintenanceHooks.accepting()) return null;
+      return await WorkDataMaintenanceHooks.fresh('thread-brief', () => threadBriefOnce(o, sid, false, true));
+    }
     if (!policyBound && typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withPolicy(sid, () => threadBriefOnce(o, sid, true));
     const stage = o.stage === 'settled' ? 'settled' : 'first_turn';
     const message = String(o.message || '').trim();
@@ -1688,7 +1714,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
       };
     }
     const messages = buildThreadBriefMessages(message, o.replyText, config && config.locale, excerpts);
-    const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
+    const tries = THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1;
     for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));
       const sc = await providerRawCompletion(provider, messages);
@@ -1711,6 +1737,9 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         }
       } catch { /* accounting must never break the brief */ }
       const parsed = (sc && sc.ok) ? parseThreadBrief(sc.content) : null;
+      // 150 U6:模型回了话、只是解析不出合法名字 —— 不重试(修前同一提示词再问三遍,一条消息 4 次起名调用)。
+      // 取消的也不重试。只有端点没回话(sc.ok 为假)才走下面的退避。
+      if (sc && (sc.ok || sc.cancelled) && !parsed) break;
       // 150 P6:模型看到的是代号,起出来的名字也带代号。修前原样存模型输出、按 24 字硬截,侧栏出现
       // 「给[[RUYI_PVT:EMAIL:09c9f2」。现在经 threadBriefLabels(见其头注);名字护不住就放弃这一份 brief(不重试)。
       const labels = parsed ? threadBriefLabels(parsed.title, parsed.gist) : null;
@@ -1730,7 +1759,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         return brief;
       }
     }
-    // 只有收工那次(真正的兜底)失败才算「放弃」值得记一条;首回合那一发是机会性的,失败很正常。
+    // 收工那次(150 U6 起是唯一的一次)失败记一条;直调的 first_turn 阶段只在测试/工具里出现,不记。
     if (stage === 'settled') logEvent({ kind: 'thread_brief_failed', sessionId: sid, stage, provider: String(provider.id || '') });
     return null;
   } catch (error) {

@@ -54,6 +54,26 @@
   }
 }
 
+/* 150 U8 首屏定形闸。管家视角第一帧之后还有两样东西没到：左栏第一批行（决定右栏开不开、中栏多宽）与到访那一句
+   问候（头像从头部搬进这一行、头部收成紧凑式）。修前它们在开机后 0.3–0.6 s 里逐个落地，右栏那一列还带着过渡展开，
+   头部与对话流整块横移又上移（无头 Edge 实测首屏 CLS 0.47–0.55）。定形之前只藏不拆：visibility 不改布局、不卸节点；
+   输入区不藏（它在最底一行、几乎不位移，打字的人不该被挡）。js/steward-shell.js 的 armStewardBoot 在两样都到了之后
+   摘掉 data-boot；这里的 1.5 s 延时动画是兜底（脚本没摘也照样露出来，不靠计时器）。减少动效时不设闸（全局熔断会
+   把兜底动画一并去掉，宁可跳一下也不能藏着）。定形期间栅格不做过渡：右栏那一列要一步到位。 */
+.steward-shell[data-boot] #stewardHeader,
+.steward-shell[data-boot] #stewardFeed,
+.steward-shell[data-boot] > .steward-side {
+  visibility: hidden;
+  animation: steward-boot-reveal 0s linear 1.5s forwards;
+}
+@keyframes steward-boot-reveal { to { visibility: visible; } }
+:root[data-shell-mode="steward"] .app-views > .steward-shell[data-boot] { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .steward-shell[data-boot] #stewardHeader,
+  .steward-shell[data-boot] #stewardFeed,
+  .steward-shell[data-boot] > .steward-side { visibility: visible; }
+}
+
 /* 中栏：四行网格＝头部／对话／输入／状态。 */
 .steward-stage {
   position: relative;

@@ -8,6 +8,7 @@ import { api } from './net.js';
 import { $, el, fmtTokens, toast, chatProviders } from './util.js';
 import { icon } from './icons.js';
 import { privacyComposerMenuItem } from './privacy-settings.js';
+import { followSemanticRuntimeStatus, paintSemanticStatus } from './settings-catalog.js';   // 150 U10：设置页语义模型状态的按访问跟随
 import { t, tCount } from './i18n.js';
 // 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
 // 「开合」，而 3.0 不必为了它把本域的组合根（help-menu / help-viewer / onboarding-wizard）一起拉进来。
@@ -918,7 +919,12 @@ function buildSettingsJumpList(panelId) {
     chip.className = 'settings-jump-chip';
     chip.textContent = item.label;
     chip.addEventListener('click', () => {
-      document.getElementById(item.id)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      const target = document.getElementById(item.id);
+      if (!target) return;
+      // 150 U13「吸顶条遮挡」：锚点条本身吸顶，block:'start' 会把目标段的标题滚到它底下。滚之前按锚点条此刻的
+      // 实际高度（会折行，所以现量）给目标留出上边距。
+      target.style.scrollMarginTop = Math.ceil(nav.getBoundingClientRect().height + 8) + 'px';
+      target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
     });
     nav.appendChild(chip);
   }
@@ -949,6 +955,15 @@ function switchSettingsTab(name, force) {
     renderRawEventSnapshot();
   }
   if (name === 'storage') openStorageTab();   // 2026-10：占用／清理／保留策略从体检页搬到「存储与数据」
+  // 150 U10：语义开关那一行的模型状态要是此刻的。只读 GET /api/status、只更新 status.semanticRuntime 与那一行
+  // （不走整份 refreshStatus —— 它会刷模型清单、现拉远端服务商的 /models；4C 审查应改 1）；边界按这一次访问计。
+  if (name === 'advanced') followSemanticRuntimeStatus({
+    fetchStatus: () => api('/api/status'),
+    getConfig: () => state.config,
+    setRuntime: runtime => { if (state.status) state.status.semanticRuntime = runtime; else state.status = { semanticRuntime: runtime }; },
+    visible: () => state._settingsTab === 'advanced' && !$('settingsModal')?.classList.contains('hidden'),
+    paint: () => paintSemanticStatus({ t, config: state.config || {}, status: state.status }),
+  });
   // 技能与模板页的三段是 open() 首次拉到数据后才挂上的 —— 挂完再重建一次锚点条，首次进页也有段内跳转。
   if (name === 'skills') Promise.resolve(openSettingsSkills()).then(() => { if (state._settingsTab === 'skills') buildSettingsJumpList('stab-skills'); }).catch(() => {});
   if (name === 'update') refreshOverlayStatus();

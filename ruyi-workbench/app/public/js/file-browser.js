@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { $, autoGrow, bindKeyboardClick, el, fileBasename, fmtBytes, parseCsv } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
 import { t } from './i18n.js';
+import { privacyFailure } from './privacy-failure.js';
 
 const IMAGE_EXTENSION = /\.(png|jpe?g|gif|bmp|webp|svg|ico|tiff?)$/i;
 // 一层目录最多向服务端要多少项。file_list 非递归默认只回 500 项(按名字排序后截断),超过 500 项的目录里
@@ -17,6 +18,17 @@ const DIR_LIST_MAX_FILES = 5000;
 const CSV_PREVIEW_MAX_ROWS = 200;
 // 目录读不了时服务端回 {ok:true,result:{ok:false,code,error}},error 是服务端中文——不直接上屏,按 code 翻成本地化短句。
 const DIR_READ_FAILURE_KEYS = Object.freeze({ not_found: 'file.tree.notFound', 'not-allowed': 'file.tree.notAllowed' });
+
+// 150 U9：文件树读目录走的是 /api/tools/file_list —— 一条不属于任何模型回合的工具调用。隐私保护开着时网关对这种
+// 「回合外」的工具调用一律拒绝（privacy.engine_not_supported），修前文件树把那句通用文案原样印出来：
+// 「请为本线程选择原生 API 引擎」——而本线程本来就是 API 引擎，用户照做也没用。这里按码说文件树自己的理由
+// （码从 privacy-failure.js 的 privacyFailure 只读取，不改隐私模块）；其它隐私码照旧交给通用文案。
+export function fileTreeFailureText(error, apiErrText = fallbackApiErrText) {
+  const failure = privacyFailure(error);
+  if (failure && failure.code === 'privacy.engine_not_supported') return t('file.tree.privacyLocked');
+  if (failure && failure.code === 'privacy.policy_unavailable') return t('file.tree.privacyUnavailable');
+  return t('file.tree.readFailed', { reason: apiErrText(error) });
+}
 
 export function createFileBrowserDomain({
   apiErrText = fallbackApiErrText,
@@ -64,6 +76,8 @@ export function createFileBrowserDomain({
       ? left.name.localeCompare(right.name)
       : left.type === 'directory' ? -1 : 1);
     entries.truncated = result.truncated === true;   // 数组上挂一个标记:调用方在末尾补一行「只列了前 N 项」
+    // 150 U9：被藏起来的条目要说理由 —— 修前如意数据目录静默消失，用户以为文件夹里就没有它。
+    entries.hiddenDataRoot = result.files.length > entries.length;
     return entries;
   }
 
@@ -72,6 +86,7 @@ export function createFileBrowserDomain({
     if (entries && entries.truncated) {
       container.appendChild(el('div', 'ftree-empty ftree-truncated', t('file.tree.truncated', { count: DIR_LIST_MAX_FILES })));
     }
+    if (entries && entries.hiddenDataRoot) container.appendChild(el('div', 'ftree-empty ftree-hidden-note', t('file.tree.hiddenDataRoot')));
   }
 
   function fileTreeRow(entry, depth) {
@@ -108,9 +123,7 @@ export function createFileBrowserDomain({
             appendTruncatedNote(childWrap, children);
           } catch (error) {
             childWrap.textContent = '';
-            childWrap.appendChild(el('div', 'ftree-empty', t('file.tree.readFailed', {
-              reason: apiErrText(error),
-            })));
+            childWrap.appendChild(el('div', 'ftree-empty', fileTreeFailureText(error, apiErrText)));   // 150 U9：隐私拦下的说文件树自己的理由
             loaded = false;
           }
         }
@@ -166,6 +179,7 @@ export function createFileBrowserDomain({
       tree.textContent = '';
       if (!entries.length) {
         tree.appendChild(el('div', 'ftree-empty', t('file.tree.empty')));
+        appendTruncatedNote(tree, entries);   // 150 U9：只剩被藏起来的数据目录时也要说一句
         return;
       }
       for (const entry of entries) tree.appendChild(fileTreeRow(entry, 0));
@@ -173,9 +187,7 @@ export function createFileBrowserDomain({
     } catch (error) {
       if (loadSeq !== fileTreeLoadSeq) return;
       tree.textContent = '';
-      tree.appendChild(el('div', 'ftree-empty', t('file.tree.readFailed', {
-        reason: apiErrText(error),
-      })));
+      tree.appendChild(el('div', 'ftree-empty', fileTreeFailureText(error, apiErrText)));   // 150 U9：同上
     }
   }
 

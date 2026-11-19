@@ -140,6 +140,29 @@ const { ok } = t;
       ok(Boolean(await ev(`Boolean(document.querySelector('#stab-storage ${sel}'))`)), `C9 「存储与数据」页有 ${sel}`);
     }
 
+    /* ═════════ C11 语义开关一行的模型状态(150 U10;4C 审查应改 1) ═════════ */
+    // 本夹具没有装语义运行时资产,模型状态停在「冷却中/缺文件」这类会自己变的态 —— 正是修前会反复整份 refreshStatus
+    // (连带 GET /api/models 现拉服务商 /models)的那种情形。修后:打开「高级」只读 GET /api/status、每次访问最多 10 次,
+    // 不碰 /api/models;别处的 refreshStatus/fillSettings 也不会把它重新挂起。
+    {
+      await switchTab('basic');
+      await sleep(400);
+      const seen = { models: 0, status: 0 };
+      fx.cdp.on('Network.requestWillBeSent', p => {
+        const url = String((p.request && p.request.url) || '');
+        if (/\/api\/models(?:[?#]|$)/.test(url)) seen.models += 1;
+        if (/\/api\/status(?:[?#]|$)/.test(url)) seen.status += 1;
+      });
+      await fx.cdp.send('Network.enable');
+      await switchTab('advanced');
+      const line = await fx.waitForEval(`(() => { const n = document.querySelector('${id('semanticRetrievalV1')}_status'); return n && n.textContent ? { text: n.textContent, state: n.dataset.state } : null; })()`, 200);
+      ok(Boolean(line && line.text), `C11a 语义开关那一行有模型状态句(got ${JSON.stringify(line)})`);
+      await sleep(33000);   // 10 次 × 3 s 的上限之外再多等一拍
+      ok(seen.models === 0, `C11b 停在高级页签 33 s,一次都没有请求 /api/models(got ${seen.models})`);
+      ok(seen.status >= 1 && seen.status <= 10, `C11c 状态跟随只读 /api/status,每次访问至多 10 次(got ${seen.status})`);
+      await fx.cdp.send('Network.disable').catch(() => {});
+    }
+
     /* ═════════ C10 收尾 ═════════ */
     const overflow = [];
     for (const stab of ['basic', 'security', 'limits', 'steward', 'claude', 'integrations', 'advanced', 'storage']) {

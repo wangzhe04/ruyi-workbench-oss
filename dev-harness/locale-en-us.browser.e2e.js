@@ -155,6 +155,21 @@ const ALLOWED_SUBSTRINGS = [];
     ok(after.avatar === true && Boolean(after.avatarState), `U14d 运行时切语言重画首跑那一行后管家头像仍在、态照常画(实测 avatar=${after.avatar} state=${JSON.stringify(after.avatarState)})`);
     ok(!cjk(after.stopBtn), `U16 运行时切语言后「一键停机」按钮不停在旧中文（实测 ${JSON.stringify(after.stopBtn)}）`);
     ok(!cjk(after.presence), `U16 运行时切语言后管家状态点文案不停在旧中文（实测 ${JSON.stringify(after.presence)}）`);
+    // 150 号文 U13 末条「切英文后隐藏节点残留中文 aria」：管家视角下工作台那一侧的节点都藏着，读屏照样读得到。
+    // 4C 修的是 index.html 里静态写死、却没挂 data-i18n-attr 的三处（工作文件夹钮 title、上下文用量 title、Agent 团队钮）；
+    // 其余由各模块运行时用 t() 写进去、切语言后没重写的那一批（体检徽标、语音设置等）另列为余项，这里只打一行 INFO 记数。
+    const hiddenAria = await fxB.evaluate(`(() => {
+      const g = id => document.getElementById(id) || null;
+      const pick = (id, attr) => { const n = g(id); return n ? (n.getAttribute(attr) || '') : '(missing)'; };
+      const cjkRe = /[\u4e00-\u9fff]/;
+      let rest = 0;
+      for (const el of document.querySelectorAll('*')) for (const attr of ['aria-label', 'title', 'placeholder']) { const v = el.getAttribute(attr); if (v && cjkRe.test(v)) rest++; }
+      return { workspaceTitle: pick('workspacePicker', 'title'), meterTitle: pick('contextMeter', 'title'),
+        teamAria: pick('agentTeamBtn', 'aria-label'), teamTitle: pick('agentTeamBtn', 'title'), rest };
+    })()`);
+    ok(['workspaceTitle', 'meterTitle', 'teamAria', 'teamTitle'].every(k => hiddenAria[k] && hiddenAria[k] !== '(missing)' && !cjk(hiddenAria[k])),
+      `U13 运行时切到英文后隐藏的工作台节点（工作文件夹钮、上下文用量、Agent 团队钮）aria/title 不再停在中文（实测 ${JSON.stringify(hiddenAria)}）`);
+    console.log(`INFO U13 全页其余运行时写入的中文 aria/title/placeholder 残留 ${hiddenAria.rest} 处（余项，见 4C 报告）`);
 
     ok(fxB.exceptions.length === 0, `F1b 夹具 B 零未捕获异常（${JSON.stringify(fxB.exceptions)}）`);
   } catch (error) {

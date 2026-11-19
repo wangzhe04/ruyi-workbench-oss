@@ -1852,6 +1852,8 @@ export function createStewardConversation({
   // 迟绑定一个回调（组合根在两个子域都建好之后注入），避免 conversation ↔ composer 互相 import。
   let pickTarget = () => {};
   function setPickTargetHandler(handler) { if (typeof handler === 'function') pickTarget = handler; }
+  let visitSettledHandler = null;
+  function setVisitSettledHandler(handler) { visitSettledHandler = typeof handler === 'function' ? handler : null; }
   const handoffRecovery = createHandoffRecoveryStore();
   let restoreHandoffDraft = () => ({ ok: false });
   function setHandOffDraftHandler(handler) { if (typeof handler === 'function') restoreHandoffDraft = handler; }
@@ -2477,6 +2479,9 @@ export function createStewardConversation({
       return null;   // 到访失败不该让管家壳白屏：状态区已有 117a 的兜底，下次进壳再试
     } finally {
       if (generation === conversationGeneration) visitBusy = false;
+      // 150 U8（4C 审查建议 4）：一次到访不管成败都告诉壳层「对话流这一拍定形了」—— 到访失败时一行都没有，
+      // 首屏定形闸不能只等「第一行」。迟绑定（与 setPickTargetHandler 同纪律），缺席即无事。
+      try { if (visitSettledHandler) visitSettledHandler(); } catch { /* 旁路 */ }
     }
   }
 
@@ -2687,6 +2692,7 @@ export function createStewardConversation({
   return Object.freeze({
     bindStewardConversation,
     setPickTargetHandler,
+    setVisitSettledHandler,   // 150 U8：首屏定形闸（steward-shell.js armStewardBoot）
     setHandOffDraftHandler,
     prepareHandOff,
     enterVisit,

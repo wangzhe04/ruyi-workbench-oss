@@ -4339,16 +4339,13 @@ async function runSessionTurn(input) {
         });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
-    // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
-    // 位置纪律:必须在这里而不是三个引擎里各钉一遍 —— 三引擎共用本函数,引擎分叉在上面那个 runTurn
-    // 里(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
-    // 时机:brief 描述的是【任务】不是答案,用户原话此刻就在手上,不必等消息落盘;摘要 1–2 秒回来,
-    // 真回合可能要一分钟,两者并行跑。落盘走 updateSessionMeta,它会自己避开活回合的写竞态。
-    // fire-and-forget + 内部整段 try:摘要的任何环节都不得影响这一回合。
+    // 116-5a(27 号文 §11.8「线程自动摘要」)：首回合的线程要起名字。位置纪律:判据只在这里(三引擎共用本函数),
+    // 不在三个引擎里各钉一遍(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
+    // 150 U6:起名【排在主回合之后】。修前首回合发起时就并行打一发起名请求,它比主回合的请求先到端点 ——
+    // 单并发的本地端点(Ollama 默认一个槽)上主回合要排在它后面,首句出字被拖慢;而且起名的准备工作(读会话头、
+    // 拼系统提示、过隐私网关)与主回合的发送前准备挤在同一个事件循环上。现在这里只登记「收工时要起名」,
+    // 真正的那一发在 finally 的 settleThreadBrief 里、主回合收工之后才发(06 threadBriefOnce 头注)。
     const briefFirstTurn = (Number(session.turnSeq) || 0) === 0 && !session.threadBrief;
-    if (briefFirstTurn) {
-      void maybeWriteThreadBrief({ sessionId: session.id, message: String(body.message || ''), stage: 'first_turn', config, threadProvider: provider });
-    }
     briefSettleCandidate = briefFirstTurn;
     briefSettleProvider = provider;
     await runTurn(String(body.message || ''), false);
@@ -4478,10 +4475,10 @@ async function runSessionTurn(input) {
         });
     }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
-    //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
-    //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
-    //   ② 补写没东西可写(首回合那次压根没成:端点不通、模型吐了非 JSON、限流)才走【第二次机会】:
-    //      此刻有助手回复,概括更准。**只有这两次机会**,之后这条线程永远不再试。
+    //   ① **补写** —— 回合期间主代理用 thread_title_update 给过的名字可能刚被回合自己的收尾 saveSession
+    //      盖掉(它手里那份内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。
+    //   ② 补写没东西可写才起名:此刻主回合已经收工、有助手回复,概括更准(150 U6:这是唯一的一次机会,
+    //      模型回了但不是合法名字就放弃,只有端点没回话才退避重试)。
     if (briefSettleCandidate) {
       void settleThreadBrief({
         sessionId: session.id,

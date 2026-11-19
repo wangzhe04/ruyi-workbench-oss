@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4428 | 4390 | 965 | 67 | 0 | 1 |
+| 145 | 4435 | 4390 | 965 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -76,7 +76,7 @@
 | 58 | `05b-kimi-bridge.js` | engine | 130 | 82 | 13 |
 | 59 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 60 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 61 | `06-provider-engine.js` | engine | 160 | 75 | 18 |
+| 61 | `06-provider-engine.js` | engine | 161 | 76 | 18 |
 | 62 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
 | 63 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 64 | `06h-retrieval-index.js` | engine | 12 | 0 | 0 |
@@ -97,14 +97,14 @@
 | 79 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 80 | `09-workflow.js` | orchestration | 32 | 287 | 29 |
 | 81 | `09c-thread-relay.js` | orchestration | 1 | 48 | 13 |
-| 82 | `10-context-governance.js` | orchestration | 248 | 139 | 25 |
+| 82 | `10-context-governance.js` | orchestration | 248 | 138 | 25 |
 | 83 | `11-native-tools.js` | tools | 143 | 51 | 9 |
 | 84 | `11b-file-text-io.js` | tools | 1 | 0 | 0 |
 | 85 | `11c-file-visual-io.js` | tools | 1 | 1 | 1 |
 | 86 | `11d-media-inspection.js` | tools | 1 | 1 | 1 |
 | 87 | `12-tool-dispatch.js` | tools | 78 | 165 | 24 |
 | 88 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 89 | `13-http-router.js` | transport | 68 | 269 | 37 |
+| 89 | `13-http-router.js` | transport | 74 | 269 | 37 |
 | 90 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 91 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 92 | `13d-core-domain-routes.js` | transport | 43 | 137 | 15 |
@@ -355,7 +355,7 @@
 | `06-provider-engine.js` | `02-session-store.js` | backward | `SESSION_BRIEF_GIST_CHARS`, `SESSION_BRIEF_TITLE_CHARS`, `SESSION_INDEX_FILE`, `loadSession`, `readSessionHeadResilient`, `sessionTextPrefix`, `sessionTitleOverrides`, `updateSessionMeta` |
 | `06-provider-engine.js` | `03-bridge-guard.js` | backward | `_gitCliProbe`, `existsExecutableAsync`, `probeGitCliAsync` |
 | `06-provider-engine.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `06-provider-engine.js` | `04-permission-runtime.js` | backward | `activeChildren`, `auditLogError`, `collectBridgedTools`, `flushWorkbenchLogs`, `logEvent`, `mcpClientFailures`, `mcpClientPending`, `mcpClients`, `mcpStartingClients`, `readWorkbenchLogFile`, `redact`, `resolveExternalMcpServers`, `sanitizeServerId`, `workbenchAuditJournal` |
+| `06-provider-engine.js` | `04-permission-runtime.js` | backward | `activeChildren`, `auditLogError`, `collectBridgedTools`, `flushWorkbenchLogs`, `logEvent`, `mcpClientFailures`, `mcpClientPending`, `mcpClients`, `mcpStartingClients`, `readWorkbenchLogFile`, `redact`, `resolveExternalMcpServers`, `sanitizeServerId`, `turnSettlers`, `workbenchAuditJournal` |
 | `06-provider-engine.js` | `04h-provider-http.js` | backward | `providerBaseIsLocalOrLan`, `providerBaseWithV1`, `providerPostJsonOnce` |
 | `06-provider-engine.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `06-provider-engine.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter` |
@@ -513,7 +513,7 @@
 | `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerModelPostOnce` |
 | `10-context-governance.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `runClaudeTurn` |
-| `10-context-governance.js` | `06-provider-engine.js` | backward | `buildProviderSystemPrompt`, `buildStableSystemPrompt`, `maybeWriteThreadBrief`, `settleThreadBrief` |
+| `10-context-governance.js` | `06-provider-engine.js` | backward | `buildProviderSystemPrompt`, `buildStableSystemPrompt`, `settleThreadBrief` |
 | `10-context-governance.js` | `06e-mission-domain.js` | backward | `runMissionDriver` |
 | `10-context-governance.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `bindDriverRun`, `revokeGrantsForRun` |
 | `10-context-governance.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-19T15:14:31.362Z",
+  "generatedAt": "2026-11-19T20:10:06.133Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1316,6 +1316,7 @@
         "dev-harness\\unit\\fixture-home-per-test.test.js",
         "dev-harness\\unit\\net-errors.test.js",
         "dev-harness\\unit\\privacy-missing-config-vault.test.js",
+        "dev-harness\\unit\\semantic-switch-merge.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\unit\\work-data-encrypted-browser.test.js",
@@ -1548,7 +1549,9 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\openai-engine.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
-        "dev-harness\\unit\\agent-cli-registry.test.js"
+        "dev-harness\\settings-catalog.browser.e2e.js",
+        "dev-harness\\unit\\agent-cli-registry.test.js",
+        "dev-harness\\unit\\semantic-switch-merge.test.js"
       ]
     },
     {
@@ -3107,6 +3110,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\unit\\file-tree-privacy-reason.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\memory-cli-relay.test.js",
@@ -4247,6 +4251,7 @@
         "dev-harness\\file-guard.e2e.js",
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\first-chat-provider-default.browser.e2e.js",
+        "dev-harness\\first-screen-cls.browser.e2e.js",
         "dev-harness\\fixture-home.static.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
@@ -4574,6 +4579,7 @@
         "dev-harness\\file-guard.e2e.js",
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\first-chat-provider-default.browser.e2e.js",
+        "dev-harness\\first-screen-cls.browser.e2e.js",
         "dev-harness\\fixture-home.static.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
@@ -6241,6 +6247,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\first-screen-cls.browser.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-decisions.browser.e2e.js",

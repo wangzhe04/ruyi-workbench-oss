@@ -158,8 +158,10 @@ export const SETTINGS_CATALOG = Object.freeze([
       { key: 'monitorIncremental', type: 'toggle', fallback: true },
       { key: 'sessionSearchIndexV1', type: 'toggle', fallback: true },
       { key: 'sessionSearchIndexPausedV1', type: 'toggle', fallback: false, dependsOn: { key: 'sessionSearchIndexV1', equals: true } },
-      { key: 'runtimeMemoryVectorRecallV1', type: 'toggle', fallback: true },
-      { key: 'semanticRetrievalV1', type: 'toggle', fallback: true },
+      // 150 U10：「记忆语义检索」(runtimeMemoryVectorRecallV1)与「本地语义检索增强」(semanticRetrievalV1)合成这一个开关。
+      // 拨它一次两个键一起写(alsoWrites);没拨过的老配置原样生效 —— 只关过记忆那一半的人,状态行如实说「记忆仍只用关键词」
+      // (semanticSwitchStatus),不替他悄悄打开。status:'semanticRuntime' = 行内显示模型此刻的状态(/api/status 的同名字段)。
+      { key: 'semanticRetrievalV1', type: 'toggle', fallback: true, alsoWrites: ['runtimeMemoryVectorRecallV1'], status: 'semanticRuntime' },
     ],
   },
   {
@@ -276,10 +278,78 @@ export function catalogStoredValue(field, input) {
 
 // 一次写盘的补丁。嵌套键连同父对象现值一起回传（POST /api/config 是顶层浅合并，只送子键会把兄弟字段冲掉）。
 export function catalogPatch(field, stored, config) {
-  if (!field.path || field.path.length < 2) return { [field.key]: stored };
+  if (!field.path || field.path.length < 2) {
+    const patch = { [field.key]: stored };
+    for (const key of Array.isArray(field.alsoWrites) ? field.alsoWrites : []) patch[key] = stored;   // 150 U10：合并开关
+    return patch;
+  }
   const [parent, child] = field.path;
   const current = config && config[parent] && typeof config[parent] === 'object' ? config[parent] : {};
   return { [parent]: { ...current, [child]: stored } };
+}
+
+// 150 U10：语义开关那一行的状态句。runtime 是 /api/status 的 semanticRuntime（13-http-router 的 semanticRuntimeStatusView：
+// off / loading / ready / cooldown / unavailable，外加可选 reason）。返回 { key, extraKey }：key 是状态句，extraKey 是
+// 「只关过记忆那一半」的老配置的补充说明（没有就是空串）。开关关着时不看运行时（关着就是关着）。
+export const SEMANTIC_RUNTIME_STATES = Object.freeze(['off', 'loading', 'ready', 'cooldown', 'unavailable']);
+export function semanticSwitchStatus(config, runtime) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const base = 'settings.catalog.semanticRetrievalV1.status.';
+  const on = cfg.semanticRetrievalV1 !== false;
+  const extraKey = on && cfg.runtimeMemoryVectorRecallV1 === false ? base + 'memoryKeywordOnly' : '';
+  if (!on) return { state: 'off', key: base + 'off', extraKey: '' };
+  const view = runtime && typeof runtime === 'object' ? runtime : null;
+  const state = view && SEMANTIC_RUNTIME_STATES.includes(view.state) ? view.state : '';
+  if (!state) return { state: 'unknown', key: base + 'unknown', extraKey };
+  if (state === 'off') return { state, key: base + 'disabledByHost', extraKey };   // 开关开着、宿主却报关（RUYI_DISABLE_SEMANTIC）
+  if ((state === 'cooldown' || state === 'unavailable') && view.reason === 'assets_mismatch') return { state, key: base + 'assetsMismatch', extraKey };
+  if ((state === 'cooldown' || state === 'unavailable') && view.reason === 'assets_missing') return { state, key: base + 'assetsMissing', extraKey };
+  return { state, key: base + state, extraKey };
+}
+
+// 只写语义开关那一行的状态句（fillSettingsCatalog 与下面的跟随共用；不碰别的控件）。
+export function paintSemanticStatus({ doc = document, t, config, status }) {
+  const field = catalogFields().find(f => f.status === 'semanticRuntime');
+  const line = field ? doc.getElementById(catalogFieldId(field) + '_status') : null;
+  if (!line) return null;
+  const view = semanticSwitchStatus(config, status && status.semanticRuntime);
+  line.dataset.state = view.state;
+  line.textContent = t(view.key) + (view.extraKey ? ' ' + t(view.extraKey) : '');
+  return view;
+}
+
+// 150 U10：「加载中／冷却中」会自己变 —— 打开「高级」页签那一次（一次访问）有界地跟几拍：每 3 s 一次、最多 10 次，
+// 变成就绪/不可用/关闭、页签切走或设置关掉就停。【只读 GET /api/status、只改 status.semanticRuntime 与这一行】——
+// 不走整份 refreshStatus（它会刷模型清单：GET /api/models 现拉用户远端服务商的 /models、带着用户的密钥；4C 审查应改 1）。
+// 边界按访问计：只有再次打开这个页签（navigation-controls 的 switchSettingsTab('advanced')）才重新起算，
+// 其它地方的 refreshStatus/fillSettings 不会把它重新挂起。依赖全注入，Node 里可直接跑（unit/semantic-switch-merge.test.js）。
+export const SEMANTIC_STATUS_FOLLOW = Object.freeze({ intervalMs: 3000, maxFetches: 10 });
+let semanticFollowVisit = 0;
+export function followSemanticRuntimeStatus({ fetchStatus, getConfig, setRuntime, visible, paint, schedule = setTimeout,
+  intervalMs = SEMANTIC_STATUS_FOLLOW.intervalMs, maxFetches = SEMANTIC_STATUS_FOLLOW.maxFetches }) {
+  const visit = ++semanticFollowVisit;
+  let fetches = 0;
+  const live = () => visit === semanticFollowVisit && visible();
+  const step = async () => {
+    if (!live() || fetches >= maxFetches) return;
+    fetches += 1;
+    let runtime = null;
+    try { const status = await fetchStatus(); runtime = status && typeof status === 'object' ? status.semanticRuntime || null : null; }
+    catch {
+      // A single failed /api/status read must not freeze the line on "loading"/"cooldown" for the
+      // rest of the visit: try again on the next tick, still within the per-visit fetch budget.
+      if (live() && fetches < maxFetches) schedule(() => { void step(); }, intervalMs);
+      return;
+    }
+    if (!live()) return;
+    setRuntime(runtime);
+    paint();
+    const config = getConfig() || {};
+    const moving = runtime && (runtime.state === 'loading' || runtime.state === 'cooldown') && config.semanticRetrievalV1 !== false;
+    if (moving && fetches < maxFetches) schedule(() => { void step(); }, intervalMs);
+  };
+  void step();
+  return { visit, fetches: () => fetches };
 }
 
 export function catalogDependencyMet(field, config) {
@@ -365,6 +435,14 @@ function renderRow(doc, field, t) {
   label.htmlFor = catalogFieldId(field);
   text.appendChild(label);
   text.appendChild(make(doc, 'p', 'setcat-hint', t(catalogHintKey(field))));   // 每一项都有一句说明（unit/settings-catalog.test.js 钉两份语言都齐）
+  if (field.status) {
+    // 150 U10：行内状态句（文案由 fillSettingsCatalog 按 status 写；role=status 让读屏听得见「加载中 → 就绪」）。
+    const line = make(doc, 'p', 'setcat-status');
+    line.id = catalogFieldId(field) + '_status';
+    line.setAttribute('role', 'status');
+    line.setAttribute('aria-live', 'polite');
+    text.appendChild(line);
+  }
   row.appendChild(text);
   const control = renderValueControl(doc, field, t);
   if (control) {
@@ -453,13 +531,14 @@ function wireField(doc, field, onSave) {
 }
 
 // 回填：按 config 写每个控件的值与置灰态；正在打字的那一格不动。
-export function fillSettingsCatalog({ doc = document, t, config, onSave }) {
+export function fillSettingsCatalog({ doc = document, t, config, onSave, status = null }) {
   const focused = doc.activeElement;
   for (const field of catalogFields()) {
     if (field.type === 'allowRules') { renderAllowRules(doc, field, t, config, onSave); continue; }
     if (field.type === 'tierMap') { renderTierMap(doc, field, t, config, onSave); continue; }
     const node = doc.getElementById(catalogFieldId(field));
     if (!node) continue;
+    if (field.status === 'semanticRuntime') paintSemanticStatus({ doc, t, config, status });
     const met = catalogDependencyMet(field, config);
     node.disabled = !met;
     const row = node.closest ? node.closest('.setcat-row') : null;

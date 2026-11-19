@@ -927,3 +927,5 @@ M5-B1 投递管理续钉（前值 05fe9874…）：仅 steward-settings.css 追�
 M5 retention: steward-settings.css adds three scoped rules for wrapping and narrow layouts.
 In-memory HEAD substitution restores 68f1ea1b7b4188b41332f49a23a08900a4f6e50ce6f765239692bab5f8493ee6; D51/F3 in-memory corruption controls reject.
 ```
+M5 W/T: workbench.css adds only seven scoped thread-relay rules already exercised by the two fresh relay browser journeys.
+In-memory HEAD substitution restores 0aef5a1e1e0ffd850215d10d248a4730eb3067850b962d86ae0d3ecdcd70dca6; original D51/F3 assertions reject a one-rule in-memory mutation.

@@ -284,7 +284,7 @@
             </div>
             <div class="topbar-actions">
               <!-- v0.9-S3 (C3): 常驻工作文件夹选择器。显示当前会话 cwd 短名 + 完整路径 title;点击弹原生选择器。 -->
-              <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹" data-i18n-attr="aria-label:workspace.select">
+              <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹" data-i18n-attr="aria-label:workspace.select;title:tool.workspaceFolder">
                 <span class="wp-icon" aria-hidden="true" data-icon="folder" data-icon-size="15"></span>
                 <span class="wp-name">工作台</span>
               </button>
@@ -300,7 +300,7 @@
             <div id="threadChips" class="steward-chips" aria-label="线程配置"
                  data-i18n-attr="aria-label:threadHead.chips"></div>
             <div id="contextMeter" class="ctx-meter" title="上下文用量（点击查看/设置）" aria-haspopup="dialog" role="button" tabindex="0"
-                 aria-label="上下文用量" aria-describedby="contextMeterText" data-i18n-attr="aria-label:ctx.meter.aria">
+                 aria-label="上下文用量" aria-describedby="contextMeterText" data-i18n-attr="aria-label:ctx.meter.aria;title:ctx.meter.aria">
               <svg class="ctx-batt" viewBox="0 0 26 13" width="26" height="13" aria-hidden="true">
                 <rect class="batt-body" x="0.6" y="1.6" width="21.8" height="9.8" rx="2.2" fill="none" stroke-width="1"/>
                 <rect class="batt-cap" x="23" y="4.4" width="2.4" height="4.2" rx="1"/>
@@ -447,7 +447,7 @@
             <textarea id="promptInput" rows="1" placeholder="说你想做什么" data-i18n-attr="placeholder:chat.placeholder" data-testid="promptInput"></textarea>
             <div class="composer-actions">
               <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus" data-testid="composerMoreBtn"></button>
-              <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队" data-testid="agentTeamBtn"></button>
+              <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队" data-i18n-attr="aria-label:composer.agentTeam.label;title:composer.agentTeam.label" data-testid="agentTeamBtn"></button>
               <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)" aria-label="技能库" data-i18n-attr="title:skills.button.title;aria-label:skills.title"></button>
               <label class="file-label composer-file btn-ic" title="添加文件" data-i18n-attr="title:composer.attachFile" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
@@ -568,6 +568,8 @@
               <button type="button" data-memory-filter="review" role="tab" aria-selected="false" data-i18n="memory.toolbox.review">待复核</button>
             </div>
           </div>
+          <!-- 150 U7：搜了词才出现 —— 写明这是字面匹配（名称、说明、类型），以及找到几条；文案由 skills-memory.js 用 t() 写。 -->
+          <p id="memoryToolboxSearchNote" class="memory-search-note muted" role="status" aria-live="polite" hidden></p>
           <div id="memoryToolboxList" class="memory-toolbox-list"></div>
         </section>
 
@@ -646,7 +648,7 @@
          这里只剩「中栏 ＋ 右栏」两列，列宽与 .app-shell 逐字相同（切视角时栅格不动，只换栏内内容）。
          117a 的骨架四个空位（顶栏 / 对话流 / 输入区 / 状态区）仍在，avatar 七态与对话、递话、抽屉
          仍归 117b–h；此处不放任何轮询之外的数据读取（见 steward-shell.js 头注）。 -->
-    <section id="stewardShell" class="steward-shell" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
+    <section id="stewardShell" class="steward-shell" data-boot="1" tabindex="-1" aria-label="管家" data-i18n-attr="aria-label:stewardShell.label" data-testid="stewardShell">
       <!-- 117i 立的这层包裹留着，语义改了：它从「居中的玻璃舞台卡」变成管家视角的【中栏】
            （§7.1 退役场景层与钉宽；内容读宽 880px 由样式层的 .steward-stage > * 一条规则给）。
            节点、id 与先后顺序一个没动，所以 avatar／对话流／输入区／状态区的 e2e 锚点全部有效。 -->

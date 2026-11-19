@@ -2012,14 +2012,22 @@ export function createStewardBoard({
   // 不随行数据变（走查 S-03：304 分支只刷状态行，停留的时间标签与跨午夜分组永远不动）。renderRail 按件签名复用
   // （签名里已含 railAgoLabel／第二行），没变的件一个节点都不碰，成本很低；用户正开着某个行内菜单时它自己会暂缓
   // （railInteractionLive），不会把菜单连根拔掉。
+  let firstRefreshResolve = null;
+  const firstRefreshDone = new Promise(resolve => { firstRefreshResolve = resolve; });
   async function refreshBoard() {
     lastRefreshAt = Date.now();   // 117j W2-5：手动刷新也重置节拍，不让下一拍紧跟着再拉一次
-    const changed = await loadMissions();
-    await loadArbiter();
-    renderRail();
-    syncNow();
-    if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
-    return rows.length;
+    try {
+      const changed = await loadMissions();
+      await loadArbiter();
+      renderRail();
+      syncNow();
+      if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
+      return rows.length;
+    } finally {
+      // 150 U8：首屏定形闸（steward-shell.js armStewardBoot）等的就是这一拍 —— 第一批行到了、右栏已按焦点定了宽。
+      // 只报第一次；取行失败也报（闸只管「别在定形前露出来」，不替取行判对错）。
+      if (firstRefreshResolve) { firstRefreshResolve(); firstRefreshResolve = null; }
+    }
   }
 
   // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：抽屉要新鲜的那一批时走这里。只刷行，并在行真的
@@ -2315,6 +2323,7 @@ export function createStewardBoard({
     renderRail,
     refreshBoard,
     enterSteward,
+    firstRefresh: () => firstRefreshDone,   // 150 U8：首屏定形闸的一个输入（见 refreshBoard 末尾）
     closeNow,
     syncNow,
     // 2026-09-24：右栏收起／展开的唯一写口与只读判据（真夹具与组合根都不必碰 localStorage 或 DOM 属性）。

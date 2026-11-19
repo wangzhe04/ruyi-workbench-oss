@@ -276,7 +276,13 @@ ok(/\.steward-shell \{\s*display: none;/.test(css)
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'D4 管家壳 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\)/.test(css), 'D5 reduced-motion 降级分支存在');
 ok(/@media \(max-width: 390px\)/.test(css), 'D6 390px 窄屏断点存在');
-ok(!/setInterval|animation:/.test(css), 'D7 骨架层零动画、零默认轮询税');
+// 150 U8(151 阶段 4 批 4C)：唯一的例外是首屏定形闸的兜底 —— 一条 0 s 时长、1.5 s 延时、forwards 的一次性
+// steward-boot-reveal(只把 visibility 翻回 visible，不画任何动效)。它代替一个兜底计时器(本层 JS 零 setTimeout，C2e)，
+// 保证脚本没摘闸时内容照样露出来。除它之外仍然零动画。
+ok(!/setInterval/.test(css) && (css.match(/animation:/g) || []).length === 1
+  && /animation: steward-boot-reveal 0s linear 1\.5s forwards;/.test(css)
+  && /@keyframes steward-boot-reveal \{ to \{ visibility: visible; \} \}/.test(css),
+  'D7 骨架层零动画、零默认轮询税(唯一例外:首屏定形闸那条 0 s 一次性显隐兜底)');
 
 // ─── E i18n 与离线载荷 ───────────────────────────────────────────────────────────
 const zhKeys = Object.keys(zh).filter(key => key.startsWith('stewardShell.')).sort();

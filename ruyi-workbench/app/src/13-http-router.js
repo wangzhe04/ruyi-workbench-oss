@@ -19,6 +19,40 @@ return SemanticRuntimeCore.installHost({
 })();
 Object.assign(SemanticRuntimeHooks,semanticRuntimeHostPorts);
 
+// 150 U10：设置页语义开关那一行要看得见本地语义模型此刻的状态（修前只有搜索框下一句「暂不可用」）。
+// 只读 descriptor —— 不起进程、不预热、不改冷却（/api/status 是开放读口，零副作用）。归成五个稳定态给前端
+// （public/js/settings-catalog.js 的 SEMANTIC_RUNTIME_STATES 与这里同名同序），外加一个可选 reason：
+//   off         开关关着，或宿主禁用（RUYI_DISABLE_SEMANTIC=1）
+//   loading     还没起（cold）、在起、在预热、刚因配置/模型变化重起
+//   ready       模型已加载并预热过
+//   cooldown    可用性失败（缺文件、进程观测前退出、预热失败、超时、工作进程退出）—— 06hb 的冷却退避（30 s 起倍增、
+//               封顶 5 min）过了之后，【下一次用到语义检索的请求】才会再试（没有后台轮询），修好组件不必重启
+//   unavailable 契约违例等（06hb startingFailure，要重启或修复）、清理未完成
+// reason：assets_missing（组件文件缺失）/ assets_mismatch（组件与本版本记录的锁不一致，多见于升级后组件没跟上）。
+// 06hb 的 legacy 后端在 worker 回 ready ok:false 时不保留工作进程给的码（descriptor 只剩 failed），那一种只能报 cooldown。
+const SEMANTIC_STATUS_COOLDOWN_CODES = new Set(['semantic.owner_identity', 'semantic.invalid_pid', 'semantic.process_observer_unavailable',
+  'semantic.warmup_unavailable', 'semantic.assets_unavailable', 'semantic.worker_exited', 'semantic.gemma2_profile_unavailable',
+  'unavailable', 'ENOENT', 'EACCES', 'EPERM', 'EBUSY', 'ENOEXEC', 'UNKNOWN']);
+// 每个码只落一个态：与锁不一致(SEMANTIC_STATUS_ASSETS_MISMATCH)不会自己好，一律报 unavailable，不进冷却集。
+const SEMANTIC_STATUS_ASSETS_MISSING = new Set(['semantic.assets_unavailable', 'semantic.gemma2_profile_unavailable', 'ENOENT']);
+const SEMANTIC_STATUS_ASSETS_MISMATCH = new Set(['semantic.gemma2_lock_integrity', 'semantic.gemma2_profile_contract', 'semantic.provider_source_integrity']);
+const SEMANTIC_STATUS_LOADING = new Set(['cold', 'loading', 'warming', 'preparing', 'disabled', 'config-change', 'model-change', 'cancelled']);
+function semanticRuntimeStatusView(config, descriptor, env = process.env) {
+  if ((env && env.RUYI_DISABLE_SEMANTIC === '1') || !config || config.semanticRetrievalV1 === false) return { state: 'off' };
+  const d = descriptor && typeof descriptor === 'object' ? descriptor : {};
+  const code = typeof d.diagnosticCode === 'string' ? d.diagnosticCode : '';
+  const reason = SEMANTIC_STATUS_ASSETS_MISMATCH.has(code) ? 'assets_mismatch' : SEMANTIC_STATUS_ASSETS_MISSING.has(code) ? 'assets_missing' : '';
+  const withReason = state => (reason ? { state, reason } : { state });
+  if (d.available === true && d.state === 'ready') return { state: 'ready' };
+  if (SEMANTIC_STATUS_LOADING.has(d.state)) return { state: 'loading' };
+  if (d.state === 'failed' || d.state === 'timeout' || d.state === 'fault') return withReason(!code || SEMANTIC_STATUS_COOLDOWN_CODES.has(code) ? 'cooldown' : 'unavailable');
+  return withReason('unavailable');
+}
+function semanticRuntimeStatusNow(config) {
+  try { return semanticRuntimeStatusView(config, typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null); }
+  catch { return { state: 'unavailable' }; }
+}
+
 // 118a-fix: 应用内手册阅读器的服务端事实源。
 // 反模式治理:118a 的完成页只给了一行相对路径 + 「复制路径」,等于把用户推到文件管理器里自己找手册。
 // 产品口径是「每件事都能在如意里做完」,所以手册改为应用内直接读:本端点只吐 markdown 原文,
@@ -252,6 +286,7 @@ async function handleApi(req, res, pathname) {
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
       isPkg: isPkg(),
       config: maskProviders(config), // F2: never emit plaintext provider api keys in the response
+      semanticRuntime: semanticRuntimeStatusNow(config),   // 150 U10：设置页语义开关那一行的模型状态(只读视图,见 semanticRuntimeStatusView)
 
       permissionModes: PERMISSION_MODES,
       // Resolve the conversation route (including CLI/manual overrides), never the summary provider.

@@ -564,6 +564,8 @@ export function createStewardShellDomain({
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
   conversation.setHandOffDraftHandler(attempt => composer.restoreHandOffDraft(attempt));
+  // 150 U8（4C 审查建议 4）：到访失败时对话流一行都没有，首屏定形闸也要摘（否则 data-boot 一直挂着、每次切回都重放藏起）。
+  conversation.setVisitSettledHandler(() => onBootVisitSettled());
 
   // 进壳即到访(§8.9「每次打开只汇报本次」)，出壳即收摊(清倒计时与去抖，零后台活动)。触发点与
   // syncPolling 同一路信号(data-shell-mode 的属性变化)，但各自独立观察 —— 轮询门控那一条的形状
@@ -572,6 +574,43 @@ export function createStewardShellDomain({
     conversation.syncEngineGate();   // 走查 #1：没模型时输入框置灰；刚接上时把「已到访」复位，下一句 ensureVisit 重新到访
     if (isStewardMode()) conversation.ensureVisit();
     else { conversation.resetConversation(); composer.resetComposer(); }
+  }
+
+  // 150 U8：首屏定形闸（判据与样式见 css/views/steward-shell.css 的 [data-boot] 头注）。两样都到了才摘：
+  //   ① 看板第一拍 refreshBoard 收尾（第一批行已画、右栏已按焦点定宽 —— board.firstRefresh）；
+  //   ② 对话流里出现了第一行（到访的问候/首跑自我介绍/「先接模型」卡；头像随之搬进那一行，头部已是紧凑式）。
+  // 不看视角：bind 这一拍 config 还没到、视角先落在工作台，config 到了才切进管家（syncStewardShellAvailability），
+  // 所以「此刻不是管家视角」不能当成「闸没用了」。偏好工作台的人第一次切进管家时，这两样同样会到（enterSteward
+  // 的第一拍、进壳到访），闸照样在那时摘。
+  // 本文件零 setTimeout（C2e）：兜底是样式层那条 1.5 s 的延时动画，这里只用观察者与看板那一拍的 promise。
+  // 摘之前先读一次布局：让「右栏一列到位」在 transition:none 之下算定，再摘闸时栅格已无变化可过渡。
+  let bootVisitSettled = null;
+  const onBootVisitSettled = () => { if (typeof bootVisitSettled === 'function') bootVisitSettled(); };
+  function armStewardBoot() {
+    const shell = byId('stewardShell');
+    if (!shell || !shell.hasAttribute('data-boot')) return false;
+    let released = false, boardReady = false, feedReady = false, feedWatch = null;
+    bootVisitSettled = () => { if (!feedReady) { feedReady = true; check(); } };
+    const release = () => {
+      if (released) return;
+      released = true;
+      if (feedWatch) feedWatch.disconnect();
+      bootVisitSettled = null;
+      void shell.offsetWidth;
+      shell.removeAttribute('data-boot');
+    };
+    const check = () => { if (boardReady && feedReady) release(); };
+    const feed = byId('stewardFeed');
+    const feedHasRow = () => Boolean(feed && feed.firstElementChild);
+    feedReady = !feed || feedHasRow() || !globalThis.MutationObserver;
+    if (!feedReady) {
+      feedWatch = new MutationObserver(() => { if (feedHasRow()) { feedReady = true; check(); } });
+      feedWatch.observe(feed, { childList: true });
+    }
+    const boardDone = () => { boardReady = true; check(); };
+    Promise.resolve(typeof board.firstRefresh === 'function' ? board.firstRefresh() : null).then(boardDone, boardDone);
+    check();
+    return !released;
   }
 
   function bindStewardShell() {
@@ -615,6 +654,7 @@ export function createStewardShellDomain({
       new MutationObserver(syncConversation)
         .observe(globalThis.document.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }
+    armStewardBoot();                     // 150 U8：首屏定形闸（看板与对话流都在上面绑好之后再起）
     return isStewardMode() ? 'steward' : 'classic';
   }
 

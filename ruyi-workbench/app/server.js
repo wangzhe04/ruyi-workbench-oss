@@ -43129,12 +43129,13 @@ async function providerRawCompletion(provider, history, options) {
 // 补账;不进 providerHistory(与会话上下文完全隔离,不污染下一回合);失败静默,绝不阻塞回合。
 const THREAD_BRIEF_INPUT_CHARS = 1200;    // 喂给模型的用户原话上限
 const THREAD_BRIEF_REPLY_CHARS = 400;     // settled 阶段附带的助手回复上限
-// 两次机会各自的尝试预算(实测调整,见 §11.6 116-5a 交付记录):
-//   · 首回合那次是【机会性】的 —— 端点正常时一发就中,不该为了一个名字在回合刚起跑时连打三次;
-//   · 收工那次才是真正的兜底(此刻有助手回复,概括也更准),退避重试留给它。
-// 全流程一条线程最多 4 次调用(常见路径 1 次),而不是「两次机会 × 各 3 次 = 6 次」。
-const THREAD_BRIEF_FIRST_TURN_TRIES = 1;
-const THREAD_BRIEF_RETRY_BACKOFF_MS = [1000, 4000];  // 收工那次:首发 + 两次退避重试后放弃
+// 150 U6:一条线程只在首回合【收工之后】起一次名字(10 runSessionTurn 的 finally → settleThreadBrief)。
+// 修前首回合发起时先并行打一发「机会性」的,收工时没拿到名字再打三发 —— 模型回了非 JSON 时一条消息
+// 触发 1 次主回合 + 4 次起名。现在:
+//   · 模型回了话但解析不出合法名字 → 放弃(同一提示词再问一遍多半还是那样,不再重试);
+//   · 只有端点没回话(断网、超时、HTTP 错误、空补全)才按下面的退避重试;
+// 所以常见路径 1 次、模型乱答 1 次、端点不通最多 3 次。
+const THREAD_BRIEF_RETRY_BACKOFF_MS = [1000, 4000];  // 端点没回话时:首发 + 两次退避重试后放弃
 const THREAD_BRIEF_PER_MINUTE = 20;       // 每进程每分钟上限,防批量导入会话把端点打爆
 const threadBriefCalls = [];              // 最近一分钟的调用时刻(ms),纯内存
 // 每会话在途/已成的登记表(纯内存,进程重启即清)。**没有它就会重复调模型**:首回合那次的落盘走
@@ -43224,9 +43225,9 @@ async function maybeWriteThreadBrief(input) {
   }
 }
 
-// 116-5a 收工那一刻的唯一入口:先【补写】(不调模型),不行再走收工那次兜底。
-// 为什么必须补写(116-5a 实测抓到的丢写):首回合那次是在回合刚起跑时发的,它的落盘与回合自己的
-// 收尾整份 saveSession 抢同一个文件 —— 回合手里那份内存副本【不含】 brief,谁后写谁赢,而回合
+// 116-5a 收工那一刻的唯一入口:先【补写】(不调模型),不行再起名。
+// 为什么必须补写(116-5a 实测抓到的丢写):回合期间算出来的 brief(主代理的 thread_title_update)的落盘与回合
+// 自己的收尾整份 saveSession 抢同一个文件 —— 回合手里那份内存副本【不含】 brief,谁后写谁赢,而回合
 // 几乎总是后写。updateSessionMeta 的活回合延后防护挡不住这一发(brief 的写可能恰好落在
 // turnSettlers 已清、回合收尾 save 还没落地的那个窗口里)。补写是幂等的,而且不再调模型。
 async function settleThreadBrief(o) {
@@ -43235,6 +43236,19 @@ async function settleThreadBrief(o) {
   const reasserted = await reassertThreadBrief(sid);
   if (reasserted) return reasserted;
   return maybeWriteThreadBrief({ ...(o || {}), stage: 'settled' });
+}
+
+// 150 U6:起名让路给主回合。收工那一刻用户可能已经接着发了下一句(turnSettlers 里又挂上了这条线程的回合)——
+// 这时先等那一回合收工再发起名请求,不与它抢同一个端点的并发位。有界:最多让 8 回合(连发也不会无限期挂着),
+// 等的只是回合自己的 settle promise,不轮询、不加计时器。
+const THREAD_BRIEF_YIELD_TURNS = 8;
+async function threadBriefYieldToTurn(sid) {
+  for (let i = 0; i < THREAD_BRIEF_YIELD_TURNS; i++) {
+    const live = turnSettlers.get(sid);
+    if (!live || !live.promise || typeof live.promise.then !== 'function') return i;
+    await live.promise.catch(() => null);
+  }
+  return THREAD_BRIEF_YIELD_TURNS;
 }
 
 // 把本进程算出来的 brief 再写一次(仅当盘上确实没有)。永不调模型、永不抛。
@@ -43292,10 +43306,22 @@ async function updateAutomaticThreadTitle(input) {
   return { ok: true, updated: true, title: brief.title };
 }
 
-async function threadBriefOnce(o, sid, policyBound = false) {
+async function threadBriefOnce(o, sid, policyBound = false, admitted = false) {
   try {
     const config = o.config || null;
     if (!threadBriefEnabled(config)) return null;
+    // 150 U6:先让路(见 threadBriefYieldToTurn)再绑隐私策略 —— 等回合的那段时间不占着隐私 scope;
+    // 下面的会话头、改名与 rewind 判据都在让路之后才读,所以等过之后看到的是新回合收工后的状态。
+    if (!policyBound && !admitted) await threadBriefYieldToTurn(sid);   // 自领准入之后那一层递归不再让第二次
+    // 150 U6:收工后起名是一段【脱离了原请求】的后台活 —— 回合所在那次 HTTP 请求的维护准入此刻已经释放，沿用它的
+    // 异步上下文会被 13ag 判成 work_data.maintenance_stale_continuation(修前首回合那一发在请求还活着时发出，碰不到这条)。
+    // 与 13be 的过期清理、开机预热同一做法：自己领一张新的准入(fresh)；正在维护(不收新活)就不起名，绝不绕过维护闸门。
+    // 让路放在领准入之前：等回合的那段时间不占着维护准入，维护照常能排空。不看「此刻原请求还活着没有」——收工那一拍
+    // 它往往还活着、几个 await 之后就释放了，判据得在起名自己的整段生命周期上成立，所以一律自领。
+    if (!policyBound && !admitted && typeof WorkDataMaintenanceHooks !== 'undefined' && typeof WorkDataMaintenanceHooks.fresh === 'function') {
+      if (typeof WorkDataMaintenanceHooks.accepting === 'function' && !WorkDataMaintenanceHooks.accepting()) return null;
+      return await WorkDataMaintenanceHooks.fresh('thread-brief', () => threadBriefOnce(o, sid, false, true));
+    }
     if (!policyBound && typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withPolicy(sid, () => threadBriefOnce(o, sid, true));
     const stage = o.stage === 'settled' ? 'settled' : 'first_turn';
     const message = String(o.message || '').trim();
@@ -43329,7 +43355,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
       };
     }
     const messages = buildThreadBriefMessages(message, o.replyText, config && config.locale, excerpts);
-    const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
+    const tries = THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1;
     for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));
       const sc = await providerRawCompletion(provider, messages);
@@ -43352,6 +43378,9 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         }
       } catch { /* accounting must never break the brief */ }
       const parsed = (sc && sc.ok) ? parseThreadBrief(sc.content) : null;
+      // 150 U6:模型回了话、只是解析不出合法名字 —— 不重试(修前同一提示词再问三遍,一条消息 4 次起名调用)。
+      // 取消的也不重试。只有端点没回话(sc.ok 为假)才走下面的退避。
+      if (sc && (sc.ok || sc.cancelled) && !parsed) break;
       // 150 P6:模型看到的是代号,起出来的名字也带代号。修前原样存模型输出、按 24 字硬截,侧栏出现
       // 「给[[RUYI_PVT:EMAIL:09c9f2」。现在经 threadBriefLabels(见其头注);名字护不住就放弃这一份 brief(不重试)。
       const labels = parsed ? threadBriefLabels(parsed.title, parsed.gist) : null;
@@ -43371,7 +43400,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
         return brief;
       }
     }
-    // 只有收工那次(真正的兜底)失败才算「放弃」值得记一条;首回合那一发是机会性的,失败很正常。
+    // 收工那次(150 U6 起是唯一的一次)失败记一条;直调的 first_turn 阶段只在测试/工具里出现,不记。
     if (stage === 'settled') logEvent({ kind: 'thread_brief_failed', sessionId: sid, stage, provider: String(provider.id || '') });
     return null;
   } catch (error) {
@@ -68595,16 +68624,13 @@ async function runSessionTurn(input) {
         });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
-    // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
-    // 位置纪律:必须在这里而不是三个引擎里各钉一遍 —— 三引擎共用本函数,引擎分叉在上面那个 runTurn
-    // 里(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
-    // 时机:brief 描述的是【任务】不是答案,用户原话此刻就在手上,不必等消息落盘;摘要 1–2 秒回来,
-    // 真回合可能要一分钟,两者并行跑。落盘走 updateSessionMeta,它会自己避开活回合的写竞态。
-    // fire-and-forget + 内部整段 try:摘要的任何环节都不得影响这一回合。
+    // 116-5a(27 号文 §11.8「线程自动摘要」)：首回合的线程要起名字。位置纪律:判据只在这里(三引擎共用本函数),
+    // 不在三个引擎里各钉一遍(自动命名 isUntitledSessionTitle 就是在 05/05b/09 各写了一遍,那是要避开的前例)。
+    // 150 U6:起名【排在主回合之后】。修前首回合发起时就并行打一发起名请求,它比主回合的请求先到端点 ——
+    // 单并发的本地端点(Ollama 默认一个槽)上主回合要排在它后面,首句出字被拖慢;而且起名的准备工作(读会话头、
+    // 拼系统提示、过隐私网关)与主回合的发送前准备挤在同一个事件循环上。现在这里只登记「收工时要起名」,
+    // 真正的那一发在 finally 的 settleThreadBrief 里、主回合收工之后才发(06 threadBriefOnce 头注)。
     const briefFirstTurn = (Number(session.turnSeq) || 0) === 0 && !session.threadBrief;
-    if (briefFirstTurn) {
-      void maybeWriteThreadBrief({ sessionId: session.id, message: String(body.message || ''), stage: 'first_turn', config, threadProvider: provider });
-    }
     briefSettleCandidate = briefFirstTurn;
     briefSettleProvider = provider;
     await runTurn(String(body.message || ''), false);
@@ -68734,10 +68760,10 @@ async function runSessionTurn(input) {
         });
     }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
-    //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
-    //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
-    //   ② 补写没东西可写(首回合那次压根没成:端点不通、模型吐了非 JSON、限流)才走【第二次机会】:
-    //      此刻有助手回复,概括更准。**只有这两次机会**,之后这条线程永远不再试。
+    //   ① **补写** —— 回合期间主代理用 thread_title_update 给过的名字可能刚被回合自己的收尾 saveSession
+    //      盖掉(它手里那份内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。
+    //   ② 补写没东西可写才起名:此刻主回合已经收工、有助手回复,概括更准(150 U6:这是唯一的一次机会,
+    //      模型回了但不是合法名字就放弃,只有端点没回话才退避重试)。
     if (briefSettleCandidate) {
       void settleThreadBrief({
         sessionId: session.id,
@@ -81698,6 +81724,40 @@ return SemanticRuntimeCore.installHost({
 })();
 Object.assign(SemanticRuntimeHooks,semanticRuntimeHostPorts);
 
+// 150 U10：设置页语义开关那一行要看得见本地语义模型此刻的状态（修前只有搜索框下一句「暂不可用」）。
+// 只读 descriptor —— 不起进程、不预热、不改冷却（/api/status 是开放读口，零副作用）。归成五个稳定态给前端
+// （public/js/settings-catalog.js 的 SEMANTIC_RUNTIME_STATES 与这里同名同序），外加一个可选 reason：
+//   off         开关关着，或宿主禁用（RUYI_DISABLE_SEMANTIC=1）
+//   loading     还没起（cold）、在起、在预热、刚因配置/模型变化重起
+//   ready       模型已加载并预热过
+//   cooldown    可用性失败（缺文件、进程观测前退出、预热失败、超时、工作进程退出）—— 06hb 的冷却退避（30 s 起倍增、
+//               封顶 5 min）过了之后，【下一次用到语义检索的请求】才会再试（没有后台轮询），修好组件不必重启
+//   unavailable 契约违例等（06hb startingFailure，要重启或修复）、清理未完成
+// reason：assets_missing（组件文件缺失）/ assets_mismatch（组件与本版本记录的锁不一致，多见于升级后组件没跟上）。
+// 06hb 的 legacy 后端在 worker 回 ready ok:false 时不保留工作进程给的码（descriptor 只剩 failed），那一种只能报 cooldown。
+const SEMANTIC_STATUS_COOLDOWN_CODES = new Set(['semantic.owner_identity', 'semantic.invalid_pid', 'semantic.process_observer_unavailable',
+  'semantic.warmup_unavailable', 'semantic.assets_unavailable', 'semantic.worker_exited', 'semantic.gemma2_profile_unavailable',
+  'unavailable', 'ENOENT', 'EACCES', 'EPERM', 'EBUSY', 'ENOEXEC', 'UNKNOWN']);
+// 每个码只落一个态：与锁不一致(SEMANTIC_STATUS_ASSETS_MISMATCH)不会自己好，一律报 unavailable，不进冷却集。
+const SEMANTIC_STATUS_ASSETS_MISSING = new Set(['semantic.assets_unavailable', 'semantic.gemma2_profile_unavailable', 'ENOENT']);
+const SEMANTIC_STATUS_ASSETS_MISMATCH = new Set(['semantic.gemma2_lock_integrity', 'semantic.gemma2_profile_contract', 'semantic.provider_source_integrity']);
+const SEMANTIC_STATUS_LOADING = new Set(['cold', 'loading', 'warming', 'preparing', 'disabled', 'config-change', 'model-change', 'cancelled']);
+function semanticRuntimeStatusView(config, descriptor, env = process.env) {
+  if ((env && env.RUYI_DISABLE_SEMANTIC === '1') || !config || config.semanticRetrievalV1 === false) return { state: 'off' };
+  const d = descriptor && typeof descriptor === 'object' ? descriptor : {};
+  const code = typeof d.diagnosticCode === 'string' ? d.diagnosticCode : '';
+  const reason = SEMANTIC_STATUS_ASSETS_MISMATCH.has(code) ? 'assets_mismatch' : SEMANTIC_STATUS_ASSETS_MISSING.has(code) ? 'assets_missing' : '';
+  const withReason = state => (reason ? { state, reason } : { state });
+  if (d.available === true && d.state === 'ready') return { state: 'ready' };
+  if (SEMANTIC_STATUS_LOADING.has(d.state)) return { state: 'loading' };
+  if (d.state === 'failed' || d.state === 'timeout' || d.state === 'fault') return withReason(!code || SEMANTIC_STATUS_COOLDOWN_CODES.has(code) ? 'cooldown' : 'unavailable');
+  return withReason('unavailable');
+}
+function semanticRuntimeStatusNow(config) {
+  try { return semanticRuntimeStatusView(config, typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null); }
+  catch { return { state: 'unavailable' }; }
+}
+
 // 118a-fix: 应用内手册阅读器的服务端事实源。
 // 反模式治理:118a 的完成页只给了一行相对路径 + 「复制路径」,等于把用户推到文件管理器里自己找手册。
 // 产品口径是「每件事都能在如意里做完」,所以手册改为应用内直接读:本端点只吐 markdown 原文,
@@ -81931,6 +81991,7 @@ async function handleApi(req, res, pathname) {
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
       isPkg: isPkg(),
       config: maskProviders(config), // F2: never emit plaintext provider api keys in the response
+      semanticRuntime: semanticRuntimeStatusNow(config),   // 150 U10：设置页语义开关那一行的模型状态(只读视图,见 semanticRuntimeStatusView)
 
       permissionModes: PERMISSION_MODES,
       // Resolve the conversation route (including CLI/manual overrides), never the summary provider.
