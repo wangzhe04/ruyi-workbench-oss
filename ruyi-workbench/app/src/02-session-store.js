@@ -2619,6 +2619,15 @@ function lastUsedEngineRouteUsable(route, config) {
 //   ④ 全局设置 —— 老行为,同时也是 ③ 的回落去处。
 // ③ 因「不可用」回落到 ④ 时必须留痕:用户明明设了「跟上次用的」却拿到别的引擎,不记一条
 // 审计事件就无从解释。**「还没有上一次」不算回落**(那是首次使用,不记)。
+// 150 S17:newSessionEngineRoute 这一次会不会走到「上一次用的 CLI 还检不检得到」那一问(唯一读 CLI 路径的分支)。
+// 与下面的四层判定逐层同序:①显式 ②推断 有结果就不问;③只有 'last' 且上一次是 CLI 路由才问。
+function newSessionEngineRouteNeedsCliPaths(config, explicitRoute, initialMessages) {
+  if (normalizeSessionEngineRoute(explicitRoute)) return false;
+  if (inferSessionEngineRoute({ messages: initialMessages })) return false;
+  if (!config || config.newThreadEngine !== 'last') return false;
+  const last = normalizeSessionEngineRoute(config.lastUsedEngineRoute);
+  return !!last && last.engine !== 'openai';
+}
 function newSessionEngineRoute(config, explicitRoute, initialMessages, sessionId) {
   const explicit = normalizeSessionEngineRoute(explicitRoute);
   if (explicit) return explicit;
@@ -4712,11 +4721,14 @@ function sanitizeImportedSessionMessages(raw) {
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
-  const config = await readConfig();
+  let config = await readConfig();
   // 导入会话(POST /api/sessions 的 messages,来自用户选的 JSON 文件)同样不可信:修前 [null] 让建会话 500
   // (而且半截落了盘),数字/字符串元素原样进正文。只收【普通对象 + 非空字符串 role + content 缺省或为字符串/数组】
   // 的条目,其余丢掉 —— 这就是展示消息的形状(assistant 的 content 可以是 '',正文在 segments 里)。
   const initialMessages = sanitizeImportedSessionMessages(arguments[0]?.messages);
+  // 150 S17:回合入口(10 runSessionTurn)在开机首批 CLI 探测未落定时处在「CLI 路径暂按开机视图」的作用域里,上面那一读没等探测。
+  // 新线程的引擎只有在要按「上一次用的 CLI 还检不检得到」来定时(lastUsedEngineRouteUsable)才读 CLI 路径 —— 只有这时补一次等探测的读。
+  if (cliPathsProvisionalActive() && newSessionEngineRouteNeedsCliPaths(config, engineRoute, initialMessages)) config = await readConfig({ cliPaths: 'wait' });
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
   // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
   // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。

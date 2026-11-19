@@ -2068,13 +2068,37 @@ function configRecoveryCredentialChoice(raw, lastChoice, hasNonemptyVault) {
   if (typeof lastChoice === 'boolean') return lastChoice;
   return hasNonemptyVault ? true : null;
 }
-async function readConfig() {
+// 150 S17:开机首批 CLI 路径探测(本机实测 0.8–4.7 s)期间,provider 回合的发送前阶段不等它 —— provider 回合用不到 CLI 路径。
+// 做法是一个「CLI 路径暂按开机视图」的作用域(10 runSessionTurn 在探测未落定时开、判出走 CLI 引擎或 provider 回合发出第一次
+// 模型请求时关;关是改共享令牌,作用域里起跑的后台任务也一并跟着关)。作用域内的 readConfig 不等探测:claudePath / kimiPath
+// 先按开机视图(用户手填的路径原样;自动探测的那一格暂为空),其余字段与正常读逐字节相同 —— 回合入口一路上那些只看
+// workDataEncryptionV1 之类字段的读(会话写盘的加密判定、记忆库、日志……)都不必逐个改。缓存照常:读缓存键里带着探测结果,
+// 探测落定后下一次读自然换新。显式参数优先于作用域:readConfig({ cliPaths: 'wait' }) 在作用域内也照旧等(要按 CLI 路径做
+// 决定的那几处,如 02 createSession 的「上一次用的 CLI」);readConfig({ cliPaths: 'provisional' }) 在作用域外也不等。
+// 不传参数且不在作用域内(所有既有调用点)= 修前行为:开机期间等首批探测落定。
+const cliPathsProvisionalScope = new (require('node:async_hooks').AsyncLocalStorage)();
+function runWithProvisionalCliPaths(work) {
+  const token = { provisional: true };
+  return cliPathsProvisionalScope.run(token, work);
+}
+function endProvisionalCliPaths() {
+  const token = cliPathsProvisionalScope.getStore();
+  if (token) token.provisional = false;
+}
+function cliPathsScopeEntered() { return !!cliPathsProvisionalScope.getStore(); }
+function cliPathsProvisionalActive() {
+  const token = cliPathsProvisionalScope.getStore();
+  return !!(token && token.provisional);
+}
+async function readConfig(options) {
   let generation = configReadGeneration;
   const current = () => generation === configReadGeneration;
   try {
   // Boot may use provisional discovery defaults before listen; API/turn callers must
   // observe the completed first CLI checks, without blocking /health's event loop.
-  if (bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size) {
+  const cliPaths = options && options.cliPaths;
+  const skipCliWait = cliPaths === 'provisional' || (cliPaths !== 'wait' && cliPathsProvisionalActive());
+  if (bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size && !skipCliWait) {
     await waitForBootCliPathProbes();
   }
   await ensureDirsForConfigRead();
@@ -2938,6 +2962,11 @@ function beginBootCliPathProbes() {
 }
 function finishBootCliPathProbes() {
   if (bootCliPathProbes) bootCliPathProbes.beforeListen = false;
+}
+// 150 S17:开机首批 CLI 路径探测(含探测途中追加的启动器核验)是否还在飞。只在 listen 之后才有意义 ——
+// listen 之前的读本来就不等(开机视图)。readConfig({ cliPaths: 'provisional' }) 的调用方据此决定拿到的是不是开机视图。
+function bootCliPathProbesPending() {
+  return !!(bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size);
 }
 async function waitForBootCliPathProbes() {
   // Launcher verification discovered during a boot read can add another job while

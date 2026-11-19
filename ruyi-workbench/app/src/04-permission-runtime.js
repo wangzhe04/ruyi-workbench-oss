@@ -1322,7 +1322,7 @@ const ManagedMcp = (() => {
     assertIdentity(record.identity, state); return record;
   }
   function notify(client, method, params) {
-    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; return; }
+    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; invalidateBridgedTurnCatalogs(); return; }
     if (method === 'notifications/resources/list_changed') {
       for (const state of statesByClient.get(client) || []) {
         for (const [id, record] of state.handles) if (record.identity.client === client) state.handles.delete(id);
@@ -2320,6 +2320,8 @@ function resolveExternalMcpServers(config) {
       if (legacyAccMemoryMigrationComplete()) env.ACC_HIDE_MEMORY = '1';
       out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
       pythonSource });
+      // 150 S4:记下这一份,探测缓存过了记忆期时回合入口先用它(resolveExternalMcpServersForTurn)。只是一笔内存旁记。
+      if (dm.autodetect && !String(dm.command || '').trim()) lastResolvedDesktopEntry = { sig: desktopEntrySignature(config), entry: out[out.length - 1] };
     }
   }
   const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
@@ -2616,6 +2618,7 @@ function safeMcpInventory(config) {
 function invalidateMcpRuntime(id) {
   invalidateMcpDropInCache();
   bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+  invalidateBridgedTurnCatalogs();
   if (id) {
     const client = mcpClients.get(id);
     if (client) { try { client.kill(); } catch { /* ignore */ } mcpClients.delete(id); }
@@ -2906,6 +2909,26 @@ function bridgedToolFunctionName(prefix, toolName) {
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
 // never throws, never blocks the main flow.
 let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+// 150 S4:回合入口按 key 记的最近几份目录(与 bridgedCatalogCache 同时写、同时作废)。单槽缓存在两把 key 之间来回覆盖时
+// (桌面组件探测在飞时回合用的 key 不含它、能力探测那一路的 key 含它),回合入口每次都落空、每次都等一轮;这里多记几把。
+// 只按 key 精确取,key 由本回合 config 现算 —— 不会把别的配置下的目录给本回合。上限 4 把,先进先出。
+const bridgedTurnCatalogs = new Map();   // key -> { expiresAt, value }
+// 作废代数:invalidateMcpRuntime / tools/list_changed 一作废,作废之前起跑、之后才收尾的扫描不许把旧清单写回缓存,
+// 在飞表与「桌面探测在飞时的 key」一并清掉(后来的回合不再共用那次旧扫描、不再沿用旧的不带桌面的目录)。
+let bridgedCatalogGeneration = 0;
+function invalidateBridgedTurnCatalogs() {
+  bridgedCatalogGeneration += 1;
+  bridgedTurnCatalogs.clear();
+  bridgedCatalogInflights.clear();
+  bridgedDesktopPendingKeys.clear();
+}
+function rememberBridgedCatalog(key, expiresAt, value, generation = bridgedCatalogGeneration, incomplete = false) {
+  if (generation !== bridgedCatalogGeneration) return;
+  bridgedCatalogCache = { key, expiresAt, value, incomplete };
+  bridgedTurnCatalogs.delete(key);
+  bridgedTurnCatalogs.set(key, { expiresAt, value, incomplete });
+  while (bridgedTurnCatalogs.size > 4) bridgedTurnCatalogs.delete(bridgedTurnCatalogs.keys().next().value);
+}
 // 整体扫描时限:getCapabilities 冷启动(网络探测 + 全量 MCP 扫描)不能无限期阻塞 —— 本机 ~/.claude.json
 // 可能导入 10+ 个 MCP(含挂起桩 stdio-hang),串行 listTools 实测可达 18.9s,远超 /api/capabilities 的
 // HTTP 超时(e2e 8s)。到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
@@ -2917,31 +2940,160 @@ const BRIDGED_ENTRY_START_TIMEOUT_MS = Number(process.env.WCW_BRIDGED_ENTRY_STAR
 // 到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
 const BRIDGED_CATALOG_SCAN_TIMEOUT_MS = 8000;
 
-async function collectBridgedTools(config, force = false) {
+async function collectBridgedTools(config, force = false, resolvedEntries = null) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
-  const entries = resolveExternalMcpServers(config);
+  const entries = resolvedEntries || resolveExternalMcpServers(config);
   const cacheKey = JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)]));   // 过滤表 / 超时 / 头也算目录变化
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
   // 残缺目录不进长缓存(审计 A3)之后,启动期一阵并发请求(状态轮询 / 能力探测 / 首回合)会各自重扫、各自再等一轮
   // 启动竞速:同一 key 的扫描在飞时直接共用它;force 照旧另起。
-  if (!force && bridgedCatalogInflight && bridgedCatalogInflight.key === cacheKey) return bridgedCatalogInflight.promise;
-  const promise = collectBridgedToolsScan(config, entries, cacheKey);
-  if (!force) bridgedCatalogInflight = { key: cacheKey, promise };
+  const sameKeyInflight = bridgedCatalogInflights.get(cacheKey);
+  if (!force && sameKeyInflight) return sameKeyInflight.promise;
+  const scanState = { collected: new Array(entries.length).fill(undefined) };
+  const promise = collectBridgedToolsScan(config, entries, cacheKey, scanState, bridgedCatalogGeneration);
+  if (!force) bridgedCatalogInflights.set(cacheKey, { key: cacheKey, promise, entries, scanState, startedAt: Date.now() });
   try { return await promise; }
-  finally { if (bridgedCatalogInflight && bridgedCatalogInflight.promise === promise) bridgedCatalogInflight = null; }
+  finally { if (bridgedCatalogInflights.get(cacheKey)?.promise === promise) bridgedCatalogInflights.delete(cacheKey); }
 }
-let bridgedCatalogInflight = null;   // { key, promise }:同一 key 的目录扫描在飞时共用
+const bridgedCatalogInflights = new Map();   // key -> { key, promise, entries, scanState, startedAt }:同一 key 的目录扫描在飞时共用
 // 残缺目录也短暂缓存 1 s:吸收紧挨着的一串调用,又不耽误慢起来的 MCP 在下一次(>1 s 后)被补进目录。
 const BRIDGED_CATALOG_INCOMPLETE_TTL_MS = 1000;
-async function collectBridgedToolsScan(config, entries, cacheKey) {
+// 150 S4:provider 回合入口的桥接目录 —— 先用旧值、后台刷新;慢 MCP 只在回合边界补进工具表。
+//   · 同一 key(= 本回合 config 解析出的条目集合 + 各条目指纹)的目录在缓存里(新鲜、过期、或残缺的那 1 s 短缓存过了期)
+//     → 立刻用它,过期 / 残缺就顺手起一次后台重扫(collectBridgedTools 自带在飞去重),本回合不等慢的那个 MCP 握手。
+//   · 缓存里没有这个 key(开机首条、配置刚改过)→ 共用 / 起一次扫描,至多等 BRIDGED_TURN_WAIT_MS(正常起得来的 MCP —— 本机 node
+//     桩数百毫秒、ACC 一两秒 —— 这一回合就有;挂住的那个只让这一回合多等这一段,之后的回合走上一条立刻答);到点还没扫完就按
+//     「此刻已经起来的条目」拼一份(与完整目录同一个拼法),扫描在后台照常跑完、写进缓存,下一回合起来的那几个就进了工具表。
+//     回合内工具表只在回合开头定一次(09 runOpenAiTurn),不中途变。
+// 权限不放宽:key 由本回合的 config 现算 —— 删掉 / 停用 / 改了过滤表的 MCP 让 key 变掉,旧目录就不会被拿来用;
+// 回合还会再按本回合 config 过一遍 dropPolicyDisabledBridgedTools。旧目录只可能比当前「少」(慢 MCP 还没进来),
+// 不会「多」出当前配置里已经没有的条目。修前回合入口直接 await collectBridgedTools:某个 MCP 3.5 s 内没起来,
+// 每回合都要等它一轮(150 §2.1)。
+const BRIDGED_TURN_WAIT_MS = Number(process.env.WCW_BRIDGED_TURN_WAIT_MS) || 1500;   // env 仅为测试缝
+const BRIDGED_INCOMPLETE_RESCAN_WAIT_MS = 300;
+// 桌面组件(ACC)的 Python 探测缓存是冷的(开机,或距上次探测超过它自己的记忆期 —— 128f-③ desktopMcpDetectionPending 判据)时,
+// 回合入口不同步探它(同步那支是 spawnSync,冷缓存实测 ~2 s,把整个事件循环钉住),而是:
+//   · 本进程里解析出过桌面条目、且决定它形状的配置没变 → 先用上一次解析出的那一份(先用旧值;异步预热在后台刷新探测缓存);
+//   · 从没解析出过(冷启动)→ 按「桌面组件还没起来」:桌面条目不在,与它等价 / 同 id 的外部条目也一并不进(不让它们趁机冒出来
+//     顶替)。只少不多;异步预热跑完,下一回合的 key 里就有它。
+let lastResolvedDesktopEntry = null;   // { sig, entry }:resolveExternalMcpServers 最近一次解析出的桌面条目(只在本进程内存)
+function desktopEntrySignature(config) {
+  return JSON.stringify([config && config.desktopMcp || null, config && config.browserAutomation || null, legacyAccMemoryMigrationComplete()]);
+}
+function resolveExternalMcpServersForTurn(config) {
+  if (!desktopMcpDetectionPending(config)) return resolveExternalMcpServers(config);
+  const others = resolveExternalMcpServers({ ...config, desktopMcp: { ...(config.desktopMcp || {}), enabled: false } })
+    .filter(entry => entry.id !== 'ai-computer-control' && !isEquivalentDesktopAccServer(entry));
+  const memo = lastResolvedDesktopEntry;
+  if (memo && memo.sig === desktopEntrySignature(config)) return [memo.entry, ...others];
+  rememberDesktopPendingKey(bridgedCatalogKey(others));
+  return others;
+}
+// 桌面探测在飞时按「桌面组件还没起来」解析出的那几把 key(上限 8)。探测落定后 key 里多出桌面条目 —— 这不是配置变了,而是
+// 桌面组件那一格刚有答案:回合入口先接着用不带它的那份目录(条目是当前 key 的真子集,只少不多),带它的那把在后台扫,
+// 下一回合进工具表(慢 MCP 只在回合边界补进)。新配上的 MCP 不走这条:它的 key 不在这张表里,照旧给 1.5 s 起动窗口。
+const bridgedDesktopPendingKeys = new Set();
+function rememberDesktopPendingKey(key) {
+  bridgedDesktopPendingKeys.delete(key); bridgedDesktopPendingKeys.add(key);
+  while (bridgedDesktopPendingKeys.size > 8) bridgedDesktopPendingKeys.delete(bridgedDesktopPendingKeys.keys().next().value);
+}
+function bridgedCatalogKey(entries) { return JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)])); }
+function cachedBridgedCatalog(key) {
+  const hit = bridgedCatalogCache.value && bridgedCatalogCache.key === key ? bridgedCatalogCache : bridgedTurnCatalogs.get(key);
+  return hit && hit.value ? hit : null;
+}
+async function collectBridgedToolsForTurn(config) {
+  if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
+  const entries = resolveExternalMcpServersForTurn(config);
+  const cacheKey = bridgedCatalogKey(entries);
+  const cached = cachedBridgedCatalog(cacheKey);
+  if (cached && cached.incomplete && Date.now() >= cached.expiresAt) {
+    // 残缺目录过了 1 s 短缓存(审查 应改 1):缺的那个 MCP 可能已经起来了(起动竞速超时但起动还在进行)。重扫一次、至多等
+    // BRIDGED_INCOMPLETE_RESCAN_WAIT_MS —— 已经活着的客户端只是一发 tools/list,马上回来;仍在握手 / 挂住的照旧跳过。
+    // 等不到就从新扫描已落定的部分与旧的残缺目录里挑工具多的那份(都是当前 key 的条目,只少不多)。
+    const rescan = collectBridgedTools(config, false, entries);
+    const inflight = bridgedCatalogInflights.get(cacheKey) || null;
+    let timer = null;
+    const done = await Promise.race([rescan, new Promise(resolve => { timer = setTimeout(() => resolve(null), BRIDGED_INCOMPLETE_RESCAN_WAIT_MS); })]).finally(() => clearTimeout(timer));
+    if (done) return done;
+    rescan.catch(() => null);
+    const partial = inflight ? buildBridgedCatalog(inflight.entries, inflight.scanState.collected, { partial: true }) : null;
+    return partial && partial.tools.length > cached.value.tools.length ? partial : cached.value;
+  }
+  if (cached) {
+    if (Date.now() >= cached.expiresAt) void collectBridgedTools(config, false, entries).catch(() => null);
+    return cached.value;
+  }
+  if (entries.some(e => e.id === 'ai-computer-control')) {
+    const withoutDesktopKey = bridgedCatalogKey(entries.filter(e => e.id !== 'ai-computer-control' && !isEquivalentDesktopAccServer(e)));
+    const carried = bridgedDesktopPendingKeys.has(withoutDesktopKey) ? cachedBridgedCatalog(withoutDesktopKey) : null;
+    if (carried) { void collectBridgedTools(config, false, entries).catch(() => null); return carried.value; }
+    // 不带桌面条目的那次扫描还在飞(里面有握手挂住的 MCP):同样接着用它此刻已经起来的那几条。
+    const carriedInflight = bridgedDesktopPendingKeys.has(withoutDesktopKey) ? bridgedCatalogInflights.get(withoutDesktopKey) : null;
+    if (carriedInflight) { void collectBridgedTools(config, false, entries).catch(() => null); return buildBridgedCatalog(carriedInflight.entries, carriedInflight.scanState.collected, { partial: true }); }
+  }
+  const promise = collectBridgedTools(config, false, entries);
+  const inflight = bridgedCatalogInflights.get(cacheKey) || null;
+  let timer = null;
+  // 预算按【这次扫描起跑】算,不是按回合到达算:开机预热那一趟早已起跑时,回合只等它剩下的那一段(每个 MCP 合计至多这么久)。
+  const waitMs = inflight ? Math.max(0, BRIDGED_TURN_WAIT_MS - (Date.now() - inflight.startedAt)) : BRIDGED_TURN_WAIT_MS;
+  const settled = await Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve(null), waitMs); })]).finally(() => clearTimeout(timer));
+  if (settled) return settled;
+  promise.catch(() => null);
+  return inflight ? buildBridgedCatalog(inflight.entries, inflight.scanState.collected, { partial: true }) : { tools: [], route: {} };
+}
+// 把各条目收集到的工具清单按条目顺序拼成 { tools, route }。完整扫描与回合入口的「已起来的部分」用同一个拼法。
+// 前缀分配:起不来的条目(null)不占前缀(修前口径);拼「已起来的部分」时(partial),还在握手的条目(undefined)【先占住】
+// 它的前缀 —— 否则排在后面、id 归一后撞前缀的条目这一回合拿到裸前缀,下一回合原主人起来又把裸前缀拿回去,历史里的
+// `前缀__工具` 调用就会被送到另一个服务器。partial 拼法不重复记撞前缀日志(完整扫描那一次记)。
+function buildBridgedCatalog(entries, collected, { partial = false } = {}) {
   const tools = [];
   const route = {};
+  const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
+  for (let index = 0; index < collected.length; index++) {
+    const item = collected[index];
+    if (item === undefined && partial && entries[index]) {
+      const reserved = sanitizeServerId(entries[index].id);
+      if (!prefixOwner.has(reserved)) prefixOwner.set(reserved, entries[index].id);
+      continue;
+    }
+    if (!item) continue;
+    const { entry, list } = item;
+    let prefix = sanitizeServerId(entry.id);
+    if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
+      const taken = prefix;
+      prefix = `${prefix}_${mcpShortHash(entry.id)}`;
+      if (!partial) logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
+    }
+    prefixOwner.set(prefix, entry.id);
+    for (const t of list) {
+      if (!t || typeof t.name !== 'string' || !t.name) continue;
+      if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
+      const bridgedName = bridgedToolFunctionName(prefix, t.name);
+      // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
+      if (route[bridgedName]) continue;
+      route[bridgedName] = { serverId: entry.id, toolName: t.name };
+      tools.push({
+        type: 'function',
+        function: {
+          name: bridgedName,
+          description: t.description || t.name,
+          parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
+        },
+      });
+    }
+  }
+  return { tools, route };
+}
+async function collectBridgedToolsScan(config, entries, cacheKey, scanState = { collected: new Array(entries.length).fill(undefined) }, generation = bridgedCatalogGeneration) {
   let incomplete = false;   // 有 entry 没在预算内起来 / 起不来:这一次的目录是残缺的
+  const collected = scanState.collected;
   const scan = (async () => {
     // 并行收集每个 entry 的 client + tools —— N 个 MCP 同时启动,单个慢/挂不再拖慢其它(每 entry 有独立握手预算)。
-    const collected = await Promise.all(entries.map(async (entry) => {
+    // 每个条目一落定就写进 collected[i](回合入口可以先拿已经起来的那几个,见 collectBridgedToolsForTurn)。
+    await Promise.all(entries.map(async (entry, index) => {
       let client = null;
       try {
         // 每 entry 的 getMcpClient(内含 start 握手)跑在独立 race 里:挂起桩最多占自身预算,不影响并行中的其余 MCP。
@@ -2950,39 +3102,11 @@ async function collectBridgedToolsScan(config, entries, cacheKey) {
           new Promise(res => setTimeout(() => res('__timeout__'), BRIDGED_ENTRY_START_TIMEOUT_MS)),
         ]);
       } catch { client = null; }
-      if (!client || client === '__timeout__') { incomplete = true; return null; }   // 审计 A3:没扫全的目录不缓存
+      if (!client || client === '__timeout__') { incomplete = true; collected[index] = null; return; }   // 审计 A3:没扫全的目录不缓存
       let list;
       try { list = await client.listTools(); } catch { list = []; }
-      return { entry, list: Array.isArray(list) ? list : [] };
+      collected[index] = { entry, list: Array.isArray(list) ? list : [] };
     }));
-    const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
-    for (const item of collected) {
-      if (!item) continue;
-      const { entry, list } = item;
-      let prefix = sanitizeServerId(entry.id);
-      if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
-        const taken = prefix;
-        prefix = `${prefix}_${mcpShortHash(entry.id)}`;
-        logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
-      }
-      prefixOwner.set(prefix, entry.id);
-      for (const t of list) {
-        if (!t || typeof t.name !== 'string' || !t.name) continue;
-        if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
-        const bridgedName = bridgedToolFunctionName(prefix, t.name);
-        // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
-        if (route[bridgedName]) continue;
-        route[bridgedName] = { serverId: entry.id, toolName: t.name };
-        tools.push({
-          type: 'function',
-          function: {
-            name: bridgedName,
-            description: t.description || t.name,
-            parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
-          },
-        });
-      }
-    }
   })();
   // 整体时限兜底:超时后返回当前已收集的部分(可能缺慢 MCP 的工具,但探测本身不再被拖死)。
   let scanDone = false;
@@ -2990,19 +3114,15 @@ async function collectBridgedToolsScan(config, entries, cacheKey) {
     await Promise.race([scan.then(() => { scanDone = true; }), new Promise(res => setTimeout(res, BRIDGED_CATALOG_SCAN_TIMEOUT_MS))]);
   } catch { /* 并行收集失败不阻断 —— 返回已收集部分 */ }
   if (!scanDone) incomplete = true;
-  const value = { tools, route };
+  const value = buildBridgedCatalog(entries, collected);
   // 审计 A3:桌面组件(ACC)冷启动可能赶不上 3.5 s 的启动竞速。修前把「缺了它」的目录照常缓存 60 s,首几个回合模型看不到任何桌面
   // 工具、tool_search 也搜不到。现在残缺目录【不缓存】:下一次调用重新扫(慢的那个 start 仍在后台跑,getMcpClient 的
   // 待决互斥保证不会重复起进程;真起不来的有 60 s 失败冷却,重扫是廉价的 null)。
   if (incomplete) {
-    bridgedCatalogCache = { key: cacheKey, expiresAt: Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value };
+    rememberBridgedCatalog(cacheKey, Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value, generation, true);
     return value;
   }
-  bridgedCatalogCache = {
-    key: cacheKey,
-    expiresAt: Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000),
-    value,
-  };
+  rememberBridgedCatalog(cacheKey, Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000), value, generation);
   return value;
 }
 

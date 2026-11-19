@@ -6054,13 +6054,37 @@ function configRecoveryCredentialChoice(raw, lastChoice, hasNonemptyVault) {
   if (typeof lastChoice === 'boolean') return lastChoice;
   return hasNonemptyVault ? true : null;
 }
-async function readConfig() {
+// 150 S17:开机首批 CLI 路径探测(本机实测 0.8–4.7 s)期间,provider 回合的发送前阶段不等它 —— provider 回合用不到 CLI 路径。
+// 做法是一个「CLI 路径暂按开机视图」的作用域(10 runSessionTurn 在探测未落定时开、判出走 CLI 引擎或 provider 回合发出第一次
+// 模型请求时关;关是改共享令牌,作用域里起跑的后台任务也一并跟着关)。作用域内的 readConfig 不等探测:claudePath / kimiPath
+// 先按开机视图(用户手填的路径原样;自动探测的那一格暂为空),其余字段与正常读逐字节相同 —— 回合入口一路上那些只看
+// workDataEncryptionV1 之类字段的读(会话写盘的加密判定、记忆库、日志……)都不必逐个改。缓存照常:读缓存键里带着探测结果,
+// 探测落定后下一次读自然换新。显式参数优先于作用域:readConfig({ cliPaths: 'wait' }) 在作用域内也照旧等(要按 CLI 路径做
+// 决定的那几处,如 02 createSession 的「上一次用的 CLI」);readConfig({ cliPaths: 'provisional' }) 在作用域外也不等。
+// 不传参数且不在作用域内(所有既有调用点)= 修前行为:开机期间等首批探测落定。
+const cliPathsProvisionalScope = new (require('node:async_hooks').AsyncLocalStorage)();
+function runWithProvisionalCliPaths(work) {
+  const token = { provisional: true };
+  return cliPathsProvisionalScope.run(token, work);
+}
+function endProvisionalCliPaths() {
+  const token = cliPathsProvisionalScope.getStore();
+  if (token) token.provisional = false;
+}
+function cliPathsScopeEntered() { return !!cliPathsProvisionalScope.getStore(); }
+function cliPathsProvisionalActive() {
+  const token = cliPathsProvisionalScope.getStore();
+  return !!(token && token.provisional);
+}
+async function readConfig(options) {
   let generation = configReadGeneration;
   const current = () => generation === configReadGeneration;
   try {
   // Boot may use provisional discovery defaults before listen; API/turn callers must
   // observe the completed first CLI checks, without blocking /health's event loop.
-  if (bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size) {
+  const cliPaths = options && options.cliPaths;
+  const skipCliWait = cliPaths === 'provisional' || (cliPaths !== 'wait' && cliPathsProvisionalActive());
+  if (bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size && !skipCliWait) {
     await waitForBootCliPathProbes();
   }
   await ensureDirsForConfigRead();
@@ -6924,6 +6948,11 @@ function beginBootCliPathProbes() {
 }
 function finishBootCliPathProbes() {
   if (bootCliPathProbes) bootCliPathProbes.beforeListen = false;
+}
+// 150 S17:开机首批 CLI 路径探测(含探测途中追加的启动器核验)是否还在飞。只在 listen 之后才有意义 ——
+// listen 之前的读本来就不等(开机视图)。readConfig({ cliPaths: 'provisional' }) 的调用方据此决定拿到的是不是开机视图。
+function bootCliPathProbesPending() {
+  return !!(bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size);
 }
 async function waitForBootCliPathProbes() {
   // Launcher verification discovered during a boot read can add another job while
@@ -17510,6 +17539,15 @@ function lastUsedEngineRouteUsable(route, config) {
 //   ④ 全局设置 —— 老行为,同时也是 ③ 的回落去处。
 // ③ 因「不可用」回落到 ④ 时必须留痕:用户明明设了「跟上次用的」却拿到别的引擎,不记一条
 // 审计事件就无从解释。**「还没有上一次」不算回落**(那是首次使用,不记)。
+// 150 S17:newSessionEngineRoute 这一次会不会走到「上一次用的 CLI 还检不检得到」那一问(唯一读 CLI 路径的分支)。
+// 与下面的四层判定逐层同序:①显式 ②推断 有结果就不问;③只有 'last' 且上一次是 CLI 路由才问。
+function newSessionEngineRouteNeedsCliPaths(config, explicitRoute, initialMessages) {
+  if (normalizeSessionEngineRoute(explicitRoute)) return false;
+  if (inferSessionEngineRoute({ messages: initialMessages })) return false;
+  if (!config || config.newThreadEngine !== 'last') return false;
+  const last = normalizeSessionEngineRoute(config.lastUsedEngineRoute);
+  return !!last && last.engine !== 'openai';
+}
 function newSessionEngineRoute(config, explicitRoute, initialMessages, sessionId) {
   const explicit = normalizeSessionEngineRoute(explicitRoute);
   if (explicit) return explicit;
@@ -19603,11 +19641,14 @@ function sanitizeImportedSessionMessages(raw) {
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
-  const config = await readConfig();
+  let config = await readConfig();
   // 导入会话(POST /api/sessions 的 messages,来自用户选的 JSON 文件)同样不可信:修前 [null] 让建会话 500
   // (而且半截落了盘),数字/字符串元素原样进正文。只收【普通对象 + 非空字符串 role + content 缺省或为字符串/数组】
   // 的条目,其余丢掉 —— 这就是展示消息的形状(assistant 的 content 可以是 '',正文在 segments 里)。
   const initialMessages = sanitizeImportedSessionMessages(arguments[0]?.messages);
+  // 150 S17:回合入口(10 runSessionTurn)在开机首批 CLI 探测未落定时处在「CLI 路径暂按开机视图」的作用域里,上面那一读没等探测。
+  // 新线程的引擎只有在要按「上一次用的 CLI 还检不检得到」来定时(lastUsedEngineRouteUsable)才读 CLI 路径 —— 只有这时补一次等探测的读。
+  if (cliPathsProvisionalActive() && newSessionEngineRouteNeedsCliPaths(config, engineRoute, initialMessages)) config = await readConfig({ cliPaths: 'wait' });
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
   // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
   // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
@@ -27522,7 +27563,7 @@ const ManagedMcp = (() => {
     assertIdentity(record.identity, state); return record;
   }
   function notify(client, method, params) {
-    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; return; }
+    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; invalidateBridgedTurnCatalogs(); return; }
     if (method === 'notifications/resources/list_changed') {
       for (const state of statesByClient.get(client) || []) {
         for (const [id, record] of state.handles) if (record.identity.client === client) state.handles.delete(id);
@@ -28520,6 +28561,8 @@ function resolveExternalMcpServers(config) {
       if (legacyAccMemoryMigrationComplete()) env.ACC_HIDE_MEMORY = '1';
       out.push({ id: 'ai-computer-control', label: '桌面控制 (ai-computer-control)', command, args, cwd, env,
       pythonSource });
+      // 150 S4:记下这一份,探测缓存过了记忆期时回合入口先用它(resolveExternalMcpServersForTurn)。只是一笔内存旁记。
+      if (dm.autodetect && !String(dm.command || '').trim()) lastResolvedDesktopEntry = { sig: desktopEntrySignature(config), entry: out[out.length - 1] };
     }
   }
   const ext = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
@@ -28816,6 +28859,7 @@ function safeMcpInventory(config) {
 function invalidateMcpRuntime(id) {
   invalidateMcpDropInCache();
   bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+  invalidateBridgedTurnCatalogs();
   if (id) {
     const client = mcpClients.get(id);
     if (client) { try { client.kill(); } catch { /* ignore */ } mcpClients.delete(id); }
@@ -29106,6 +29150,26 @@ function bridgedToolFunctionName(prefix, toolName) {
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
 // never throws, never blocks the main flow.
 let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
+// 150 S4:回合入口按 key 记的最近几份目录(与 bridgedCatalogCache 同时写、同时作废)。单槽缓存在两把 key 之间来回覆盖时
+// (桌面组件探测在飞时回合用的 key 不含它、能力探测那一路的 key 含它),回合入口每次都落空、每次都等一轮;这里多记几把。
+// 只按 key 精确取,key 由本回合 config 现算 —— 不会把别的配置下的目录给本回合。上限 4 把,先进先出。
+const bridgedTurnCatalogs = new Map();   // key -> { expiresAt, value }
+// 作废代数:invalidateMcpRuntime / tools/list_changed 一作废,作废之前起跑、之后才收尾的扫描不许把旧清单写回缓存,
+// 在飞表与「桌面探测在飞时的 key」一并清掉(后来的回合不再共用那次旧扫描、不再沿用旧的不带桌面的目录)。
+let bridgedCatalogGeneration = 0;
+function invalidateBridgedTurnCatalogs() {
+  bridgedCatalogGeneration += 1;
+  bridgedTurnCatalogs.clear();
+  bridgedCatalogInflights.clear();
+  bridgedDesktopPendingKeys.clear();
+}
+function rememberBridgedCatalog(key, expiresAt, value, generation = bridgedCatalogGeneration, incomplete = false) {
+  if (generation !== bridgedCatalogGeneration) return;
+  bridgedCatalogCache = { key, expiresAt, value, incomplete };
+  bridgedTurnCatalogs.delete(key);
+  bridgedTurnCatalogs.set(key, { expiresAt, value, incomplete });
+  while (bridgedTurnCatalogs.size > 4) bridgedTurnCatalogs.delete(bridgedTurnCatalogs.keys().next().value);
+}
 // 整体扫描时限:getCapabilities 冷启动(网络探测 + 全量 MCP 扫描)不能无限期阻塞 —— 本机 ~/.claude.json
 // 可能导入 10+ 个 MCP(含挂起桩 stdio-hang),串行 listTools 实测可达 18.9s,远超 /api/capabilities 的
 // HTTP 超时(e2e 8s)。到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
@@ -29117,31 +29181,160 @@ const BRIDGED_ENTRY_START_TIMEOUT_MS = Number(process.env.WCW_BRIDGED_ENTRY_STAR
 // 到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
 const BRIDGED_CATALOG_SCAN_TIMEOUT_MS = 8000;
 
-async function collectBridgedTools(config, force = false) {
+async function collectBridgedTools(config, force = false, resolvedEntries = null) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
-  const entries = resolveExternalMcpServers(config);
+  const entries = resolvedEntries || resolveExternalMcpServers(config);
   const cacheKey = JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)]));   // 过滤表 / 超时 / 头也算目录变化
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
   // 残缺目录不进长缓存(审计 A3)之后,启动期一阵并发请求(状态轮询 / 能力探测 / 首回合)会各自重扫、各自再等一轮
   // 启动竞速:同一 key 的扫描在飞时直接共用它;force 照旧另起。
-  if (!force && bridgedCatalogInflight && bridgedCatalogInflight.key === cacheKey) return bridgedCatalogInflight.promise;
-  const promise = collectBridgedToolsScan(config, entries, cacheKey);
-  if (!force) bridgedCatalogInflight = { key: cacheKey, promise };
+  const sameKeyInflight = bridgedCatalogInflights.get(cacheKey);
+  if (!force && sameKeyInflight) return sameKeyInflight.promise;
+  const scanState = { collected: new Array(entries.length).fill(undefined) };
+  const promise = collectBridgedToolsScan(config, entries, cacheKey, scanState, bridgedCatalogGeneration);
+  if (!force) bridgedCatalogInflights.set(cacheKey, { key: cacheKey, promise, entries, scanState, startedAt: Date.now() });
   try { return await promise; }
-  finally { if (bridgedCatalogInflight && bridgedCatalogInflight.promise === promise) bridgedCatalogInflight = null; }
+  finally { if (bridgedCatalogInflights.get(cacheKey)?.promise === promise) bridgedCatalogInflights.delete(cacheKey); }
 }
-let bridgedCatalogInflight = null;   // { key, promise }:同一 key 的目录扫描在飞时共用
+const bridgedCatalogInflights = new Map();   // key -> { key, promise, entries, scanState, startedAt }:同一 key 的目录扫描在飞时共用
 // 残缺目录也短暂缓存 1 s:吸收紧挨着的一串调用,又不耽误慢起来的 MCP 在下一次(>1 s 后)被补进目录。
 const BRIDGED_CATALOG_INCOMPLETE_TTL_MS = 1000;
-async function collectBridgedToolsScan(config, entries, cacheKey) {
+// 150 S4:provider 回合入口的桥接目录 —— 先用旧值、后台刷新;慢 MCP 只在回合边界补进工具表。
+//   · 同一 key(= 本回合 config 解析出的条目集合 + 各条目指纹)的目录在缓存里(新鲜、过期、或残缺的那 1 s 短缓存过了期)
+//     → 立刻用它,过期 / 残缺就顺手起一次后台重扫(collectBridgedTools 自带在飞去重),本回合不等慢的那个 MCP 握手。
+//   · 缓存里没有这个 key(开机首条、配置刚改过)→ 共用 / 起一次扫描,至多等 BRIDGED_TURN_WAIT_MS(正常起得来的 MCP —— 本机 node
+//     桩数百毫秒、ACC 一两秒 —— 这一回合就有;挂住的那个只让这一回合多等这一段,之后的回合走上一条立刻答);到点还没扫完就按
+//     「此刻已经起来的条目」拼一份(与完整目录同一个拼法),扫描在后台照常跑完、写进缓存,下一回合起来的那几个就进了工具表。
+//     回合内工具表只在回合开头定一次(09 runOpenAiTurn),不中途变。
+// 权限不放宽:key 由本回合的 config 现算 —— 删掉 / 停用 / 改了过滤表的 MCP 让 key 变掉,旧目录就不会被拿来用;
+// 回合还会再按本回合 config 过一遍 dropPolicyDisabledBridgedTools。旧目录只可能比当前「少」(慢 MCP 还没进来),
+// 不会「多」出当前配置里已经没有的条目。修前回合入口直接 await collectBridgedTools:某个 MCP 3.5 s 内没起来,
+// 每回合都要等它一轮(150 §2.1)。
+const BRIDGED_TURN_WAIT_MS = Number(process.env.WCW_BRIDGED_TURN_WAIT_MS) || 1500;   // env 仅为测试缝
+const BRIDGED_INCOMPLETE_RESCAN_WAIT_MS = 300;
+// 桌面组件(ACC)的 Python 探测缓存是冷的(开机,或距上次探测超过它自己的记忆期 —— 128f-③ desktopMcpDetectionPending 判据)时,
+// 回合入口不同步探它(同步那支是 spawnSync,冷缓存实测 ~2 s,把整个事件循环钉住),而是:
+//   · 本进程里解析出过桌面条目、且决定它形状的配置没变 → 先用上一次解析出的那一份(先用旧值;异步预热在后台刷新探测缓存);
+//   · 从没解析出过(冷启动)→ 按「桌面组件还没起来」:桌面条目不在,与它等价 / 同 id 的外部条目也一并不进(不让它们趁机冒出来
+//     顶替)。只少不多;异步预热跑完,下一回合的 key 里就有它。
+let lastResolvedDesktopEntry = null;   // { sig, entry }:resolveExternalMcpServers 最近一次解析出的桌面条目(只在本进程内存)
+function desktopEntrySignature(config) {
+  return JSON.stringify([config && config.desktopMcp || null, config && config.browserAutomation || null, legacyAccMemoryMigrationComplete()]);
+}
+function resolveExternalMcpServersForTurn(config) {
+  if (!desktopMcpDetectionPending(config)) return resolveExternalMcpServers(config);
+  const others = resolveExternalMcpServers({ ...config, desktopMcp: { ...(config.desktopMcp || {}), enabled: false } })
+    .filter(entry => entry.id !== 'ai-computer-control' && !isEquivalentDesktopAccServer(entry));
+  const memo = lastResolvedDesktopEntry;
+  if (memo && memo.sig === desktopEntrySignature(config)) return [memo.entry, ...others];
+  rememberDesktopPendingKey(bridgedCatalogKey(others));
+  return others;
+}
+// 桌面探测在飞时按「桌面组件还没起来」解析出的那几把 key(上限 8)。探测落定后 key 里多出桌面条目 —— 这不是配置变了,而是
+// 桌面组件那一格刚有答案:回合入口先接着用不带它的那份目录(条目是当前 key 的真子集,只少不多),带它的那把在后台扫,
+// 下一回合进工具表(慢 MCP 只在回合边界补进)。新配上的 MCP 不走这条:它的 key 不在这张表里,照旧给 1.5 s 起动窗口。
+const bridgedDesktopPendingKeys = new Set();
+function rememberDesktopPendingKey(key) {
+  bridgedDesktopPendingKeys.delete(key); bridgedDesktopPendingKeys.add(key);
+  while (bridgedDesktopPendingKeys.size > 8) bridgedDesktopPendingKeys.delete(bridgedDesktopPendingKeys.keys().next().value);
+}
+function bridgedCatalogKey(entries) { return JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)])); }
+function cachedBridgedCatalog(key) {
+  const hit = bridgedCatalogCache.value && bridgedCatalogCache.key === key ? bridgedCatalogCache : bridgedTurnCatalogs.get(key);
+  return hit && hit.value ? hit : null;
+}
+async function collectBridgedToolsForTurn(config) {
+  if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
+  const entries = resolveExternalMcpServersForTurn(config);
+  const cacheKey = bridgedCatalogKey(entries);
+  const cached = cachedBridgedCatalog(cacheKey);
+  if (cached && cached.incomplete && Date.now() >= cached.expiresAt) {
+    // 残缺目录过了 1 s 短缓存(审查 应改 1):缺的那个 MCP 可能已经起来了(起动竞速超时但起动还在进行)。重扫一次、至多等
+    // BRIDGED_INCOMPLETE_RESCAN_WAIT_MS —— 已经活着的客户端只是一发 tools/list,马上回来;仍在握手 / 挂住的照旧跳过。
+    // 等不到就从新扫描已落定的部分与旧的残缺目录里挑工具多的那份(都是当前 key 的条目,只少不多)。
+    const rescan = collectBridgedTools(config, false, entries);
+    const inflight = bridgedCatalogInflights.get(cacheKey) || null;
+    let timer = null;
+    const done = await Promise.race([rescan, new Promise(resolve => { timer = setTimeout(() => resolve(null), BRIDGED_INCOMPLETE_RESCAN_WAIT_MS); })]).finally(() => clearTimeout(timer));
+    if (done) return done;
+    rescan.catch(() => null);
+    const partial = inflight ? buildBridgedCatalog(inflight.entries, inflight.scanState.collected, { partial: true }) : null;
+    return partial && partial.tools.length > cached.value.tools.length ? partial : cached.value;
+  }
+  if (cached) {
+    if (Date.now() >= cached.expiresAt) void collectBridgedTools(config, false, entries).catch(() => null);
+    return cached.value;
+  }
+  if (entries.some(e => e.id === 'ai-computer-control')) {
+    const withoutDesktopKey = bridgedCatalogKey(entries.filter(e => e.id !== 'ai-computer-control' && !isEquivalentDesktopAccServer(e)));
+    const carried = bridgedDesktopPendingKeys.has(withoutDesktopKey) ? cachedBridgedCatalog(withoutDesktopKey) : null;
+    if (carried) { void collectBridgedTools(config, false, entries).catch(() => null); return carried.value; }
+    // 不带桌面条目的那次扫描还在飞(里面有握手挂住的 MCP):同样接着用它此刻已经起来的那几条。
+    const carriedInflight = bridgedDesktopPendingKeys.has(withoutDesktopKey) ? bridgedCatalogInflights.get(withoutDesktopKey) : null;
+    if (carriedInflight) { void collectBridgedTools(config, false, entries).catch(() => null); return buildBridgedCatalog(carriedInflight.entries, carriedInflight.scanState.collected, { partial: true }); }
+  }
+  const promise = collectBridgedTools(config, false, entries);
+  const inflight = bridgedCatalogInflights.get(cacheKey) || null;
+  let timer = null;
+  // 预算按【这次扫描起跑】算,不是按回合到达算:开机预热那一趟早已起跑时,回合只等它剩下的那一段(每个 MCP 合计至多这么久)。
+  const waitMs = inflight ? Math.max(0, BRIDGED_TURN_WAIT_MS - (Date.now() - inflight.startedAt)) : BRIDGED_TURN_WAIT_MS;
+  const settled = await Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve(null), waitMs); })]).finally(() => clearTimeout(timer));
+  if (settled) return settled;
+  promise.catch(() => null);
+  return inflight ? buildBridgedCatalog(inflight.entries, inflight.scanState.collected, { partial: true }) : { tools: [], route: {} };
+}
+// 把各条目收集到的工具清单按条目顺序拼成 { tools, route }。完整扫描与回合入口的「已起来的部分」用同一个拼法。
+// 前缀分配:起不来的条目(null)不占前缀(修前口径);拼「已起来的部分」时(partial),还在握手的条目(undefined)【先占住】
+// 它的前缀 —— 否则排在后面、id 归一后撞前缀的条目这一回合拿到裸前缀,下一回合原主人起来又把裸前缀拿回去,历史里的
+// `前缀__工具` 调用就会被送到另一个服务器。partial 拼法不重复记撞前缀日志(完整扫描那一次记)。
+function buildBridgedCatalog(entries, collected, { partial = false } = {}) {
   const tools = [];
   const route = {};
+  const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
+  for (let index = 0; index < collected.length; index++) {
+    const item = collected[index];
+    if (item === undefined && partial && entries[index]) {
+      const reserved = sanitizeServerId(entries[index].id);
+      if (!prefixOwner.has(reserved)) prefixOwner.set(reserved, entries[index].id);
+      continue;
+    }
+    if (!item) continue;
+    const { entry, list } = item;
+    let prefix = sanitizeServerId(entry.id);
+    if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
+      const taken = prefix;
+      prefix = `${prefix}_${mcpShortHash(entry.id)}`;
+      if (!partial) logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
+    }
+    prefixOwner.set(prefix, entry.id);
+    for (const t of list) {
+      if (!t || typeof t.name !== 'string' || !t.name) continue;
+      if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
+      const bridgedName = bridgedToolFunctionName(prefix, t.name);
+      // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
+      if (route[bridgedName]) continue;
+      route[bridgedName] = { serverId: entry.id, toolName: t.name };
+      tools.push({
+        type: 'function',
+        function: {
+          name: bridgedName,
+          description: t.description || t.name,
+          parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
+        },
+      });
+    }
+  }
+  return { tools, route };
+}
+async function collectBridgedToolsScan(config, entries, cacheKey, scanState = { collected: new Array(entries.length).fill(undefined) }, generation = bridgedCatalogGeneration) {
   let incomplete = false;   // 有 entry 没在预算内起来 / 起不来:这一次的目录是残缺的
+  const collected = scanState.collected;
   const scan = (async () => {
     // 并行收集每个 entry 的 client + tools —— N 个 MCP 同时启动,单个慢/挂不再拖慢其它(每 entry 有独立握手预算)。
-    const collected = await Promise.all(entries.map(async (entry) => {
+    // 每个条目一落定就写进 collected[i](回合入口可以先拿已经起来的那几个,见 collectBridgedToolsForTurn)。
+    await Promise.all(entries.map(async (entry, index) => {
       let client = null;
       try {
         // 每 entry 的 getMcpClient(内含 start 握手)跑在独立 race 里:挂起桩最多占自身预算,不影响并行中的其余 MCP。
@@ -29150,39 +29343,11 @@ async function collectBridgedToolsScan(config, entries, cacheKey) {
           new Promise(res => setTimeout(() => res('__timeout__'), BRIDGED_ENTRY_START_TIMEOUT_MS)),
         ]);
       } catch { client = null; }
-      if (!client || client === '__timeout__') { incomplete = true; return null; }   // 审计 A3:没扫全的目录不缓存
+      if (!client || client === '__timeout__') { incomplete = true; collected[index] = null; return; }   // 审计 A3:没扫全的目录不缓存
       let list;
       try { list = await client.listTools(); } catch { list = []; }
-      return { entry, list: Array.isArray(list) ? list : [] };
+      collected[index] = { entry, list: Array.isArray(list) ? list : [] };
     }));
-    const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
-    for (const item of collected) {
-      if (!item) continue;
-      const { entry, list } = item;
-      let prefix = sanitizeServerId(entry.id);
-      if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
-        const taken = prefix;
-        prefix = `${prefix}_${mcpShortHash(entry.id)}`;
-        logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
-      }
-      prefixOwner.set(prefix, entry.id);
-      for (const t of list) {
-        if (!t || typeof t.name !== 'string' || !t.name) continue;
-        if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
-        const bridgedName = bridgedToolFunctionName(prefix, t.name);
-        // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
-        if (route[bridgedName]) continue;
-        route[bridgedName] = { serverId: entry.id, toolName: t.name };
-        tools.push({
-          type: 'function',
-          function: {
-            name: bridgedName,
-            description: t.description || t.name,
-            parameters: (t.inputSchema && typeof t.inputSchema === 'object') ? t.inputSchema : { type: 'object', properties: {} },
-          },
-        });
-      }
-    }
   })();
   // 整体时限兜底:超时后返回当前已收集的部分(可能缺慢 MCP 的工具,但探测本身不再被拖死)。
   let scanDone = false;
@@ -29190,19 +29355,15 @@ async function collectBridgedToolsScan(config, entries, cacheKey) {
     await Promise.race([scan.then(() => { scanDone = true; }), new Promise(res => setTimeout(res, BRIDGED_CATALOG_SCAN_TIMEOUT_MS))]);
   } catch { /* 并行收集失败不阻断 —— 返回已收集部分 */ }
   if (!scanDone) incomplete = true;
-  const value = { tools, route };
+  const value = buildBridgedCatalog(entries, collected);
   // 审计 A3:桌面组件(ACC)冷启动可能赶不上 3.5 s 的启动竞速。修前把「缺了它」的目录照常缓存 60 s,首几个回合模型看不到任何桌面
   // 工具、tool_search 也搜不到。现在残缺目录【不缓存】:下一次调用重新扫(慢的那个 start 仍在后台跑,getMcpClient 的
   // 待决互斥保证不会重复起进程;真起不来的有 60 s 失败冷却,重扫是廉价的 null)。
   if (incomplete) {
-    bridgedCatalogCache = { key: cacheKey, expiresAt: Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value };
+    rememberBridgedCatalog(cacheKey, Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value, generation, true);
     return value;
   }
-  bridgedCatalogCache = {
-    key: cacheKey,
-    expiresAt: Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000),
-    value,
-  };
+  rememberBridgedCatalog(cacheKey, Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000), value, generation);
   return value;
 }
 
@@ -40642,6 +40803,7 @@ const ERROR_CLASSES = {
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
 let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
+let _capInflightPartial = null; // 150 S4:在飞那一次探测已经落定的格子(capabilitiesForTurn 冷缓存时用),探测收尾时清空
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
 // 用户首启走查（2026-09-19）＋ Brief §4.2 第 6 条「启动探针偶发把机器判成离线并缓存 60 s（机制未证）」—— 机制已证：
@@ -40742,6 +40904,9 @@ function markNetworkOnline() {
 async function probeDesktopMcp(config) {
   const out = { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false } };
   try {
+    // 150 S4:桌面组件的 Python 探测冷缓存时先等异步预热(与开机那一趟共用同一个 Promise),再走下面的同步解析 ——
+    // 修前回合入口冷缓存时在这里同步 spawnSync 探 Python(~2 s,整个事件循环停住)。缓存热时零开销。
+    if (desktopMcpDetectionPending(config)) await ensureDesktopMcpWarm(config);
     const bridged = await collectBridgedTools(config);
     const accEntry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control');
     // Count only ACC. The old implementation counted every imported MCP (for example the user's
@@ -40755,6 +40920,16 @@ async function probeDesktopMcp(config) {
       return typeof name === 'string' && name.startsWith(prefixWithSep);
     }).length;
     out.present = out.toolCount > 0;
+    // 150 S4(审查 应改 1):ACC 没赶上本次扫描的起动竞速、但起动还在进行(没有失败记录、也还不是活客户端)= 「还在起」,
+    // 不是「不在」。记 pending:能力缓存只留短 TTL,会话快照把它当临时值(允许一次升级),回合按本回合目录现算桌面那一格。
+    // 真起不来(有失败记录)或根本没配,才是确定的 present:false。
+    // 只有【真有一次起动在进行】(在飞的 start 或正在握手的客户端)且桥接开着时才算 pending;没人在起它(例如
+    // bridgeExternalToolsToProvider:false,扫描压根不拉起进程)就是确定的「不在」—— 否则矩阵永远 pending、每 5 s 重探一整轮。
+    if (!out.present) {
+      const starting = mcpClientPending.has(accEntry.id) || mcpStartingClients.has(accEntry.id);
+      if (config && config.bridgeExternalToolsToProvider !== false && starting && !mcpClientFailures.has(accEntry.id)) out.pending = true;
+      return out;
+    }
     // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const diagName = `${prefix}__diagnostics`;
     if (!bridged.route[diagName]) return out; // ACC present but no diagnostics tool → leave optional false
@@ -40784,6 +40959,8 @@ async function getCapabilities(config, force) {
   // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
   // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
   if (!force && _capInflight) return _capInflight;
+  const partial = { local: null, network: undefined, desktop: undefined };
+  _capInflightPartial = partial;
   _capInflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
@@ -40791,38 +40968,148 @@ async function getCapabilities(config, force) {
   // (baidu/cn.bing). ANY one answering → online:true. A single flaky endpoint can no longer fake a global
   // 60s offline reading. null = unknown only when there is literally nothing to probe.
   const targets = networkAnchors(config);
-  const online = targets.length ? await probeAny(targets, CAP_PROBE_TIMEOUT_MS) : null;
-
-  const desktop = await probeDesktopMcp(config);
+  // 150 S4:四路探测互不依赖,修前串行 —— 锚点不应答(3 s)再叠桌面 MCP 起不来(3.5 s)就是两段之和。现在同时起跑,
+  // 冷探测的总时长是最慢那一路;各路一落定就记进 partial,回合入口(capabilitiesForTurn)冷缓存时只拿已经落定的那几格。
+  // 事件循环被同步活占住导致的「量不准」照旧由 probeNetwork 自己判成 null(未知,短 TTL),不因并行改变判据。
+  const onlineP = (targets.length ? probeAny(targets, CAP_PROBE_TIMEOUT_MS) : Promise.resolve(null)).then(v => { partial.network = v; return v; });
+  const desktopP = probeDesktopMcp(config).then(v => { partial.desktop = v; return v; });
   // 145-W3:rg 与 git 同一条纪律 —— 异步探测(进程级缓存),修前 hasRg() 冷缓存时在回合入口 spawnSync。
-  const rgInfo = await probeRgAsync().catch(() => null);
+  // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
+  partial.local = Promise.all([probeRgAsync().catch(() => null), existsExecutableAsync('git'), probeGitCliAsync()])
+    .then(([rgInfo, git, gitCli]) => ({
+      // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
+      binaries: { git, rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
+      // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
+      // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
+      gitCli,
+    }));
+  partial.local.then(v => { partial.localValue = v; }, () => {});
+  const [online, desktop, local] = await Promise.all([onlineP, desktopP, partial.local]);
 
   const value = {
     network: { online, checkedAt: nowIso() },
-    provider: provider ? { id: provider.id, apiStyle: normalizeProviderApiStyle(provider.apiStyle), vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
-    // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
-    // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
-    binaries: { git: await existsExecutableAsync('git'), rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
-    // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
-    // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
-    gitCli: await probeGitCliAsync(),
+    provider: capabilityProviderFacts(provider),
+    binaries: local.binaries,
+    gitCli: local.gitCli,
     desktopMcp: desktop,
     engine,
   };
   // 有目标可探、却量出「未知」（探测撞上了同步阻塞）⇒ 只缓存几秒，下一次调用重新探；其余照旧 60 s。
   // Start the TTL when the complete result is published; slow probes must not consume it.
-  _capCache = { at: Date.now(), value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
+  // 桌面组件「还在起」(desktop.pending)同样只缓存几秒:它起来之后下一次调用就重探到真值。
+  _capCache = { at: Date.now(), value, ttl: ((online === null && targets.length) || (desktop && desktop.pending)) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
-  })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
+  })().finally(() => { _capInflight = null; if (_capInflightPartial === partial) _capInflightPartial = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
   return _capInflight;
 }
+function capabilityProviderFacts(provider) {
+  return provider ? { id: provider.id, apiStyle: normalizeProviderApiStyle(provider.apiStyle), vision: provider.vision === true, reasoning: provider.reasoning === true } : null;
+}
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
-function invalidateCapabilityCache() { _capCache = null; }
+// 150 S4:各会话冻结的能力快照一并作废(「立刻重探」的语义对回合入口同样成立)。
+function invalidateCapabilityCache() { _capCache = null; _capSessionSnapshots.clear(); }
 // 108b-fix2 非阻塞读取:只看能力缓存,绝不触发探测。冷缓存时返回 null(能力未知),
 // 由调用方 fail-open。供对延迟敏感的热路径(如 Claude CLI 启动前的提示词装配)使用:
 // getCapabilities 冷调用会做网络锚点探测(CAP_PROBE_TIMEOUT_MS=3000)+桌面 MCP 探测,
 // 把 CLI 进程的 spawn 推后数秒,会让回合注册晚于客户端的插话请求(steering-claude A 段)。
 function peekCapabilities() { return _capCache ? _capCache.value : null; }
+// 150 S4:provider 回合入口的能力矩阵 —— 先用旧值、后台刷新(Claude 引擎的提示词装配早就是 peek 口径,见 05 108b-fix2)。
+//   · 缓存在(没过期或已过期)→ 立刻答它;过期就顺手起一次后台重探(getCapabilities 自带在飞去重),本回合不等。
+//     旧值只影响「可用性」(联网 / git / 桌面组件在不在),不碰权限:工具能不能给仍由回合当下的 config 决定
+//     (buildOpenAiTools / dropPolicyDisabledBridgedTools 读的都是本回合的 config,不是矩阵)。
+//   · 冷缓存(开机首条、或被 invalidateCapabilityCache 清掉)→ 等在飞的那次探测至多 CAP_TURN_COLD_WAIT_MS;没探完就用
+//     「已经落定的格子」拼一份临时矩阵(不进缓存):本机三项(git / rg)再多等至多 CAP_TURN_LOCAL_WAIT_MS,联网没落定记
+//     null(= 未知,TOOL_REQUIRES 只认 online===true,联网类工具这一回合【不给】—— 只会比探完少,不会多),桌面组件没落定按
+//     「不在」(本回合的桥接目录里也不会有它,两边一致)。探测在后台照常跑完、写进缓存,下一回合就是完整矩阵。
+// 修前回合入口直接 await getCapabilities:锚点不应答时首条要多等 3 s、矩阵 60 s 一过期又等一次(150 §2.1)。
+const CAP_TURN_COLD_WAIT_MS = 150;
+const CAP_TURN_LOCAL_WAIT_MS = 300;
+const CAP_TURN_TIMEOUT = Symbol('capTurnTimeout');
+function capTurnWait(promise, ms) {
+  let timer = null;
+  return Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve(CAP_TURN_TIMEOUT), ms); })])
+    .finally(() => clearTimeout(timer));
+}
+// 150 S4(主会话拍板):按会话冻结能力快照。一条会话第一次用到的那份矩阵一直用到它满 CAP_CACHE_MS(60 s,与能力缓存同一个
+// 记忆期;采用全局那份时从它自己的探测时刻起算,临时矩阵从采用时起算)才换成当时最新的那份;唯一的例外:第一份是冷启动时拼的
+// 临时矩阵时,完整矩阵一落定就在下一个回合边界升级一次,此后照常冻结 —— 能力行(提示词里的
+// 联网 / 桌面 / git / rg 那一行)与由它派生的工具可用性(TOOL_REQUIRES)出自同一份快照,两者不会不一致;一条会话的易变层
+// 也不会因为后台探测恰好在两个回合之间落定而变一次(前缀缓存从 messages[1] 断裂,memory-recall-injection P2)。
+// 权限不受影响:工具给不给仍由本回合 config 决定(buildOpenAiTools / dropPolicyDisabledBridgedTools),桥接目录按本回合 config
+// 现算 key,删掉 / 停用的 MCP 与策略变更照旧当回合生效;快照只管「可用性」那几格。provider / engine 两格按本回合 config 现算。
+// 内存表,上限 CAP_SESSION_SNAPSHOT_MAX 条,先进先出;invalidateCapabilityCache 一并清空。
+const CAP_SESSION_SNAPSHOT_MAX = 256;
+const _capSessionSnapshots = new Map();   // sessionId -> { at, value }
+async function capabilitiesForSessionTurn(sessionId, config) {
+  const key = String(sessionId || '');
+  const hit = key ? _capSessionSnapshots.get(key) : null;
+  // 主会话拍板 ①:临时矩阵(冷启动时拼的)只许升级【一次】—— 完整矩阵一落定,下一个回合边界就换上它(不等 60 s),
+  // 此后照冻结规则走。隐藏联网 / git / 桌面工具整整一分钟比一次前缀缓存断裂代价大。
+  if (hit && capabilitiesUpgradable(hit.value) && !hit.upgraded && _capCache && !capabilitiesUpgradable(_capCache.value)) {
+    const full = capabilitiesWithConfigFacts(_capCache.value, config);
+    rememberSessionCapabilities(key, { at: Math.min(Date.now(), _capCache.at), value: full, upgraded: true });
+    return full;
+  }
+  if (hit && (Date.now() - hit.at) < CAP_CACHE_MS) {
+    // 全局缓存过期了照样顺手起后台重探,这条会话满 60 s 时拿到的就是新的。
+    if (!_capCache || (Date.now() - _capCache.at) >= (_capCache.ttl || CAP_CACHE_MS)) void getCapabilities(config).catch(() => null);
+    return capabilitiesWithConfigFacts(hit.value, config);
+  }
+  const value = await capabilitiesForTurn(config);
+  if (key && value) {
+    // 主会话拍板 ②:采用全局那份时,这条会话的 60 s 从那份矩阵【自己的探测时刻】起算(陈旧度不超过约一个 TTL);
+    // 临时矩阵没有探测时刻,从采用时起算。已经升级过一次的会话,之后再采用临时矩阵也不再升级。
+    const at = capabilitiesUpgradable(value) || !_capCache ? Date.now() : Math.min(Date.now(), _capCache.at);
+    rememberSessionCapabilities(key, { at, value, upgraded: !!(hit && hit.upgraded) || !capabilitiesUpgradable(value) });
+  }
+  return value;
+}
+// 「还没定」的快照:冷启动拼的临时矩阵,或桌面组件那一格还在起(desktopMcp.pending)。这类快照允许升级一次,而且只升级到「已经定了」的那份。
+function capabilitiesUpgradable(value) {
+  return !!value && (value.provisional === true || !!(value.desktopMcp && value.desktopMcp.pending === true));
+}
+function rememberSessionCapabilities(key, record) {
+  _capSessionSnapshots.delete(key);
+  _capSessionSnapshots.set(key, record);
+  while (_capSessionSnapshots.size > CAP_SESSION_SNAPSHOT_MAX) _capSessionSnapshots.delete(_capSessionSnapshots.keys().next().value);
+}
+// 配置派生的两格(provider / engine)不是探测事实,一律按本回合的 config 现算贴上 —— 旧矩阵里那两格可能来自启动探测时的
+// 另一份配置(evalPlaybookAvailability 读 caps.provider.vision)。其余格子原样。
+function capabilitiesWithConfigFacts(value, config) {
+  if (!value) return value;
+  const provider = activeOpenAiProvider(config);
+  return { ...value, provider: capabilityProviderFacts(provider), engine: provider ? 'openai' : 'claude' };
+}
+async function capabilitiesForTurn(config) {
+  if (_capCache) {
+    if ((Date.now() - _capCache.at) >= (_capCache.ttl || CAP_CACHE_MS)) void getCapabilities(config).catch(() => null);
+    return capabilitiesWithConfigFacts(_capCache.value, config);
+  }
+  const probe = getCapabilities(config).catch(() => null);
+  const partial = _capInflightPartial;
+  // 同一次在飞的探测已经让一个回合等过、拼过临时矩阵了:后面的回合不再每回合各等一遍,直接拿已落定的格子拼。
+  const alreadyWaited = !!(partial && partial.turnWaited);
+  if (partial) partial.turnWaited = true;
+  const done = alreadyWaited ? CAP_TURN_TIMEOUT : await capTurnWait(probe, CAP_TURN_COLD_WAIT_MS);
+  if (done !== CAP_TURN_TIMEOUT) return capabilitiesWithConfigFacts(done, config);
+  let local = partial && partial.localValue;
+  if (!local && partial && partial.local && !alreadyWaited) {
+    const r = await capTurnWait(partial.local.catch(() => null), CAP_TURN_LOCAL_WAIT_MS);
+    local = r === CAP_TURN_TIMEOUT ? null : r;
+  }
+  if (_capCache) return capabilitiesWithConfigFacts(_capCache.value, config);   // 等本机三项的那会儿整份探完了:用完整的
+  const provider = activeOpenAiProvider(config);
+  return {
+    network: { online: partial && partial.network !== undefined ? partial.network : null, checkedAt: nowIso() },
+    provider: capabilityProviderFacts(provider),
+    binaries: local ? local.binaries : { git: false, rg: false, rgSource: null, rgShell: '' },
+    // gitCli 没落定:有进程级记忆(60 s)就用它,没有按「不在」—— git 工具族这一回合不给(只少不多;fail-open 只留给旧缓存缺键)。
+    gitCli: local ? local.gitCli : (_gitCliProbe ? _gitCliProbe.value : false),
+    desktopMcp: (partial && partial.desktop) || { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false }, pending: true },
+    engine: provider ? 'openai' : 'claude',
+    provisional: true,
+  };
+}
 
 // ============================================================================
 // v0.9-S8 — 审计中心 (§0.9-S8 / §4 B4). Read-only aggregation of two audit sources into ONE timeline:
@@ -54540,7 +54827,12 @@ function claudeSubAgentTurnBudget(maxIters, role) {
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder, memoryCliContext }) {
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
-  const claude = config.claudePath || detectClaudePath();
+  // 150 S17:provider 回合的配置可能是开机视图(CLI 路径探测没落定时 claudePath 自动那一格暂为空,见 01 readConfig 头注)。
+  // 起 CLI 子代理前等首批探测落定,下一行回落到 detectClaudePath() 时拿到的就是真结果;不在开机窗口里是空操作。
+  if (bootCliPathProbesPending()) await waitForBootCliPathProbes();
+  // 审查 建议 2:开机视图里手填的 npm 垫片(claude.cmd)还没换成真身 claude.exe —— 等完探测再过一遍启动器解析(走它的记忆表,
+  // 开机那一趟已核验过),否则子代理经 cmd.exe 起,8191 字符整行上限会把 --append-system-prompt / --allowed-tools 挤掉。
+  const claude = resolveClaudeLauncher(config.claudePath || detectClaudePath());
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
   if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
     // 61-C6:修前只回一句「未找到」,模型(和用户)不知道找的是哪、该怎么办 —— 真机上 claude.cmd 没装,模型只能猜。
@@ -60066,9 +60358,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 
   // The in-process file tools already checkpoint themselves. This baseline is the symmetric backstop for
   // shell commands, bridged tools, or external helpers that edit source files outside TOOL_DISPATCH.
-  if (softwareEngineeringTaskProfile(promptTaskContext).relevant) {
-    workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
-  }
+  // 发送前并行(150 §2.1):基线照旧在这里起跑(顶替旧回合之前),但不在这里等 —— 它只给本回合【工具执行之后】的对账用,
+  // 在发出第一次模型请求之前取回即可(见下面 workspaceTurnBaselinePending 的 await)。
+  const workspaceTurnBaselinePending = softwareEngineeringTaskProfile(promptTaskContext).relevant
+    ? captureWorkspaceTurnBaseline(workingDir).catch(() => null)
+    : null;
 
   assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
@@ -60113,18 +60407,40 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
+  // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
+  // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
+  const isStewardTurn = session.kind === 'steward';
+  // 发送前并行(150 §2.1,151 阶段 2):下面这几步互不依赖,修前逐个 await —— 热态 200 条记忆时基线 ≈60、桥接目录 ≈15、
+  // 记忆预检 ≈130、playbook ≈12 ms 串行相加。现在无副作用的读(能力矩阵、角色库、项目记忆、playbook 读盘;桥接目录会拉起 MCP 子进程,排在可能抛错的技能 / 角色库之后)
+  // 【同一拍起跑】,仍在原来的位置、按原来的顺序逐个取结果:哪一步先抛、抛什么(work_data / 隐私等必须上抛的错误)与
+  // 修前一致;排在前面的一步抛了,后面已起跑的那几步结果丢弃,它们的拒绝先挂上空 catch(startEarly),不会变成 unhandled
+  // rejection。有副作用的记忆预检留在原位置起跑(见下面 memoryPreflight 处),取消照旧拿本回合的 ctrl.signal 与
+  // executionOwner 回验口。有依赖的不动:技能条目要能力矩阵,工具表要技能与桥接目录,冲突图 / 取代边要预检结果,
+  // playbook 可用性要能力矩阵(只有读盘那半提前)。管家回合不起跑它用不到的那几项(同修前短路)。
+  const startEarly = promise => { promise.catch(() => {}); return promise; };
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
-  // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
-  // bridge cache used below, so this is not a duplicate spawn.
-  const caps = await getCapabilities(config).catch(() => null);
+  // it once per turn. 150 S4:先用旧值、后台刷新(capabilitiesForTurn 头注);冷缓存只等在飞的探测一小会儿;
+  // 一条会话沿用它第一次拿到的那份快照满 60 s 才换(capabilitiesForSessionTurn 头注),能力行与工具可用性同出一份。
+  const capsPending = startEarly(capabilitiesForSessionTurn(session.id, config).catch(() => null));
+  const agentRolesPending = startEarly(getAgentRoleLibrary(workingDir, config));
+  const projectMemoryPending = isStewardTurn ? null : startEarly(readProjectMemory(workingDir).catch(() => null));
+  // 记忆预检【不】提前起跑:它有副作用(记 usage、发来源变化通知、可能起语义重排),必须排在前面那几步可能抛错的步骤
+  // (技能 work_data、角色库)之后才开始 —— 修前它们一抛,预检根本没开始;提前起跑会让一个没发出去的回合也记了 usage。
+  // 它仍与上面已起跑的基线 / 项目记忆 / playbook 读盘重叠,热态下能力矩阵与桥接目录都是缓存直答,前面那几步只占零点几毫秒。
+  const playbooksPending = isStewardTurn ? null : startEarly(loadAllPlaybooks().catch(() => []));
+  let caps = await capsPending;
   // v1 技能体系: 解析本会话启用且可用的技能条目(供系统提示技能层 + 决定是否注册 skill_read 工具)。
   // P2-2: onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入 + 通知一次。
   const enabledSkillEntries = await resolveEnabledSkillEntries(session, config, workingDir, caps,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
-  // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
-  // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
-  const isStewardTurn = session.kind === 'steward';
+  // 角色库在这里先取(它可能抛错);桥接目录排在可能抛错的两步(技能 work_data、角色库)之后才起跑 —— 审查 建议 3:
+  // 一个随后就抛错、根本不会发请求的回合不该先为它拉起 MCP 子进程(共用已在飞的扫描不算)。
+  const agentRoles = await agentRolesPending;
+  // 116f: 管家不持有任何桥接工具(ACC 桌面/Office/浏览器/外部 MCP 都是「动世界」)。这里【不采集】而不是
+  // 采集后过滤:采集会为此拉起 MCP 子进程,而管家回合可能每 15 秒被收件箱唤醒一次。
+  // 150 S4:同一份目录先用旧值、后台刷新;慢 MCP 只在回合边界补进(collectBridgedToolsForTurn 头注)。
+  const bridgedPending = isStewardTurn ? null : startEarly(collectBridgedToolsForTurn(config));
   // 117z-E2 提交①(§11.21.3):会话级桌面覆盖在这里进注册层。null(绝大多数会话)= 跟随全局
   // allowDesktopTools = 修前逐字行为。管家会话自己永远走不到这条支路的「true」那一边:它的 kind
   // 是 'steward',上面那一支只给它 steward_* 工具面,桌面工具压根不在候选里。
@@ -60133,16 +60449,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };
-  // 116f: 管家不持有任何桥接工具(ACC 桌面/Office/浏览器/外部 MCP 都是「动世界」)。这里【不采集】而不是
-  // 采集后过滤:采集会为此拉起 MCP 子进程,而管家回合可能每 15 秒被收件箱唤醒一次。
-  if (!isStewardTurn) {
-    try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  if (bridgedPending) {
+    try { bridged = await bridgedPending; } catch { bridged = { tools: [], route: {} }; }
   }
   // 2026-10 能力总闸补桥接面:allowCommandTools / allowDesktopTools(+ 会话级 desktopTools)关掉的内置桌面 MCP 工具不进工具面,
   // 与上面 ownTools 对原生工具的滤法同一个会话覆盖口径。只滤 tools,route 原样留着:模型硬调被关掉的名字时分发面靠它认出来、
   // 回 tool-disabled。collectBridgedTools 的结果是带缓存的共享对象,这里换一个新对象,不就地改。
   const sessionDesktopOverride = sessionDesktopToolsOf(session);
   bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, sessionDesktopOverride), route: bridged.route };
+  // 150 S4:能力行与工具表出自同一份(按会话冻结的)快照 —— 快照说桌面组件不在(冷启动时拼的临时矩阵,或采用快照时 ACC 还没起来),
+  // 这一回合就不把桥接目录里已经起来的 ACC 工具交给模型(提示词不会一边说「桌面操控工具 0 个」一边给它桌面工具)。只少不多;
+  // 快照满 60 s 换新后自然补进。route 原样留着(与上一行同口径)。
+  // 桌面组件那一格「还在起」(desktopMcp.pending,审查 应改 1):不是确定的「不在」—— 这一回合按本回合目录里实际起来的 ACC 工具
+  // 现算桌面那一格(能力行的桌面工具数与工具表仍一致),ACC 一起来就能用,不被冻结成「不在」。
+  if (caps && caps.desktopMcp && caps.desktopMcp.pending === true) {
+    const accTools = bridged.tools.filter(t => (bridged.route[t && t.function && t.function.name] || {}).serverId === 'ai-computer-control').length;
+    caps = { ...caps, desktopMcp: { ...caps.desktopMcp, present: accTools > 0, toolCount: accTools } };
+  } else if (caps && caps.desktopMcp && caps.desktopMcp.present === false) {
+    bridged = { tools: bridged.tools.filter(t => (bridged.route[t && t.function && t.function.name] || {}).serverId !== 'ai-computer-control'), route: bridged.route };
+  }
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
@@ -60157,7 +60482,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   const initialTools = toolLoading.current();
   syncSessionToolSchemaNames();
-  const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
+  const agentRoleMap = new Map(agentRoles.map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
   // fenced as untrusted reference). provider.systemPrompt is APPENDED as the provider层 (was: it replaced the
@@ -60165,13 +60490,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 116-2b(§11.6「116f 登记」):管家回合装配短路 —— 管家的提示词整段由 StewardHooks.buildSystemPrompt
   // 换掉(见下方 turnVolatile 的分叉),项目记忆 / 工作台记忆预检 / playbook 索引这三份东西装配完
   // 【一个字都不会进管家的 prompt】,却各自要跑一遍全量磁盘扫描。按 session.kind 分叉在这里短路,
-  // 普通会话的三行调用逐字节不变(prompt-snapshot.static / session-turn-core 证明)。
-  const projectMemory = isStewardTurn ? null : await readProjectMemory(workingDir).catch(() => null);
   // v1 技能体系: 主回合传入 identityOnly=false + 已启用技能条目 → 技能层注入(能力层与操控规程层之间)。
   // 工作台记忆:每条消息用 name/description/id 做轻量元数据检索；默认扫描当前项目 + 全局并只注入 Top-3。
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
   // 短路时给出与 catch 回落【同形】的空结果:memoryPreflight.status 下游还要进 meta 事件与
   // turn_start 审计行(mode:'unavailable' 如实表示"这一回合没有跑记忆检索"),不能给 undefined。
+  // 发送前并行:预检在这里起跑(位置同修前,见上面 startEarly 处的说明),与它同时在飞的是基线 / 项目记忆 / playbook 读盘;
+  // 项目记忆的结果在预检之后取(它不抛错,取的先后不影响错误传播)。
   const memoryPreflight = isStewardTurn
     ? { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }
     : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
@@ -60179,6 +60504,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
       { signal: ctrl?.signal || executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) },
     ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+  const projectMemory = isStewardTurn ? null : await projectMemoryPending;
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -60222,7 +60548,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 108b: Playbook 精简索引只在主回合注入(子代理不与用户对话,08 走 buildProviderSystemPrompt 不传该参数)。
   // 直接调 06 的 loadAllPlaybooks(后向边)而不是再跑一次 loadSkillRegistry: 后者为了拿 pb: 条目会连技能四源
   // 和命令目录一起重扫一遍,多出一次全量磁盘扫描;可用性用本回合已探测的 caps 现算,不再触发第二次能力探测。
-  const playbookEntries = isStewardTurn ? [] : (await loadAllPlaybooks().catch(() => []))
+  const playbookEntries = isStewardTurn ? [] : (await playbooksPending)
     .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
   // 116f: 管家会话【整段】换掉普通提示词包(稳定层=06b steward.stable;易变层=记忆块+线程总览,
   // 与普通会话的 turnVolatile 同一投放位置)。经 06i 的 StewardHooks 延迟绑定拿(09 → 06i 是后向边;
@@ -60468,9 +60794,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     return b;
   };
 
+  // 工作区基线(上面与其它发送前步骤同时起跑):第一次模型请求之前取回,本回合的任何工具都还没跑。
+  if (workspaceTurnBaselinePending) workspaceTurnBaseline = await workspaceTurnBaselinePending;
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), memoryCheck: memoryPreflight.status, cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
+  // 150 S17:发送前阶段到此为止 —— 关掉「CLI 路径暂按开机视图」的作用域(10 runSessionTurn 开的),此后本回合里(工具、子代理)
+  // 再读配置都照旧等开机首批 CLI 探测落定。不在作用域内时是空操作。
+  endProvisionalCliPaths();
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.
@@ -66879,6 +67210,14 @@ function lastAssistantTextOf(session) {
 
 async function runSessionTurn(input) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('turn')) return WorkDataMaintenanceHooks.run('turn', () => runSessionTurn(...arguments));
+  // 150 S17:开机首批 CLI 路径探测还在飞时(本机实测 0.8–4.7 s),回合在「CLI 路径暂按开机视图」的作用域里起步(01 readConfig 头注):
+  // provider 回合用不到 CLI 路径,发送前那一路的配置读都不等探测。会话装载 / 新建之后一旦判出这一回合要走 CLI 引擎,就在任何
+  // 派生之前关掉作用域、按会话 id 重进一遍(重进时等探测落定),CLI 回合拿到的仍是真路径;provider 回合发出第一次模型请求时关(09)。
+  if (typeof bootCliPathProbesPending === 'function' && !cliPathsScopeEntered() && bootCliPathProbesPending()) {
+    const args = arguments;
+    // 收尾无条件关作用域:含 try 之前的 4xx 闸门抛出(找不到会话 / 忙 / 交付已变 …),不让它起跑的后台活继续跳过等待。
+    return runWithProvisionalCliPaths(async () => { try { return await runSessionTurn(...args); } finally { endProvisionalCliPaths(); } });
+  }
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
   const body = input || {};
@@ -66902,7 +67241,27 @@ async function runSessionTurn(input) {
   // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
   // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
   if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (!loadedSession && typeof cliPathsProvisionalActive === 'function' && cliPathsProvisionalActive()) {
+    // 新线程:先按 createSession 会给的路由(请求覆盖 > 「上一次用的」> 全局)预判引擎。判不出是 provider 就先关作用域重进,
+    // 让新线程在等完探测之后才落盘(同修前次序;判错只会多等,不会让 CLI 回合拿到开机视图)。
+    const override = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
+    const predicted = override || (storedConfig.newThreadEngine === 'last' && normalizeSessionEngineRoute(storedConfig.lastUsedEngineRoute)) || sessionEngineRouteFromConfig(storedConfig);
+    if (!activeOpenAiProvider(configForSessionEngineRoute(storedConfig, { engineRoute: predicted }))) {
+      endProvisionalCliPaths();
+      return runSessionTurn(body);
+    }
+  }
   const session = loadedSession || await createSession({ title: body.title, cwd: body.cwd });
+  if (typeof cliPathsProvisionalActive === 'function' && cliPathsProvisionalActive()) {
+    // 与下面真正分派引擎的判据同一个(configForSessionEngineRoute + activeOpenAiProvider,路由覆盖同口径)。
+    const route = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
+    if (!activeOpenAiProvider(configForSessionEngineRoute(storedConfig, route ? { ...session, engineRoute: route } : session))) {
+      // 走 CLI 引擎:关掉作用域,按会话 id 重进一遍 —— 重进时配置读等探测落定,会话也在那之后重新装载、各道闸门重新判,
+      // 与修前「先等探测、再装会话」同序(不拿等待之前装进来的那一份会话往下跑)。新建的会话此刻已落盘,重进按 id 装它。
+      endProvisionalCliPaths();
+      return runSessionTurn({ ...body, sessionId: session.id });
+    }
+  }
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(storedConfig) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, storedConfig, () => runSessionTurn({ ...body, sessionId: session.id }));
   // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
   // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
@@ -78285,7 +78644,8 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const selectedCli = selectedAgentCli(config);
   // 128f-⑬:修前每一次 /api/status 都同步探一遍选中的 CLI(不记忆),换线程就钉一次事件循环;见 01 agentCliLauncherOk。
   const selectedCliOk = Boolean(selectedCli.path && await agentCliLauncherOk(selectedCli.path));
-  const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || '(not found — open Settings)'}`;
+  // 150 S17(审查 建议 2):开机首批 CLI 路径探测还在飞时,配置里自动探测那一格暂为空 —— 这时报「还在检测」,不报「没找到」。
+  const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || (bootCliPathProbesPending() ? '(detecting…)' : '(not found — open Settings)')}`;
   push('agent-cli', selectedCliOk, selectedCliDetail);
   // Backward-compatible health id consumed by older overlays/diagnostics.
   push('claude-cli', selectedCliOk, selectedCliDetail);

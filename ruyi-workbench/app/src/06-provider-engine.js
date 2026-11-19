@@ -112,6 +112,7 @@ const ERROR_CLASSES = {
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
 let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
+let _capInflightPartial = null; // 150 S4:在飞那一次探测已经落定的格子(capabilitiesForTurn 冷缓存时用),探测收尾时清空
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
 // 用户首启走查（2026-09-19）＋ Brief §4.2 第 6 条「启动探针偶发把机器判成离线并缓存 60 s（机制未证）」—— 机制已证：
@@ -212,6 +213,9 @@ function markNetworkOnline() {
 async function probeDesktopMcp(config) {
   const out = { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false } };
   try {
+    // 150 S4:桌面组件的 Python 探测冷缓存时先等异步预热(与开机那一趟共用同一个 Promise),再走下面的同步解析 ——
+    // 修前回合入口冷缓存时在这里同步 spawnSync 探 Python(~2 s,整个事件循环停住)。缓存热时零开销。
+    if (desktopMcpDetectionPending(config)) await ensureDesktopMcpWarm(config);
     const bridged = await collectBridgedTools(config);
     const accEntry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control');
     // Count only ACC. The old implementation counted every imported MCP (for example the user's
@@ -225,6 +229,16 @@ async function probeDesktopMcp(config) {
       return typeof name === 'string' && name.startsWith(prefixWithSep);
     }).length;
     out.present = out.toolCount > 0;
+    // 150 S4(审查 应改 1):ACC 没赶上本次扫描的起动竞速、但起动还在进行(没有失败记录、也还不是活客户端)= 「还在起」,
+    // 不是「不在」。记 pending:能力缓存只留短 TTL,会话快照把它当临时值(允许一次升级),回合按本回合目录现算桌面那一格。
+    // 真起不来(有失败记录)或根本没配,才是确定的 present:false。
+    // 只有【真有一次起动在进行】(在飞的 start 或正在握手的客户端)且桥接开着时才算 pending;没人在起它(例如
+    // bridgeExternalToolsToProvider:false,扫描压根不拉起进程)就是确定的「不在」—— 否则矩阵永远 pending、每 5 s 重探一整轮。
+    if (!out.present) {
+      const starting = mcpClientPending.has(accEntry.id) || mcpStartingClients.has(accEntry.id);
+      if (config && config.bridgeExternalToolsToProvider !== false && starting && !mcpClientFailures.has(accEntry.id)) out.pending = true;
+      return out;
+    }
     // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const diagName = `${prefix}__diagnostics`;
     if (!bridged.route[diagName]) return out; // ACC present but no diagnostics tool → leave optional false
@@ -254,6 +268,8 @@ async function getCapabilities(config, force) {
   // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
   // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
   if (!force && _capInflight) return _capInflight;
+  const partial = { local: null, network: undefined, desktop: undefined };
+  _capInflightPartial = partial;
   _capInflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
@@ -261,38 +277,148 @@ async function getCapabilities(config, force) {
   // (baidu/cn.bing). ANY one answering → online:true. A single flaky endpoint can no longer fake a global
   // 60s offline reading. null = unknown only when there is literally nothing to probe.
   const targets = networkAnchors(config);
-  const online = targets.length ? await probeAny(targets, CAP_PROBE_TIMEOUT_MS) : null;
-
-  const desktop = await probeDesktopMcp(config);
+  // 150 S4:四路探测互不依赖,修前串行 —— 锚点不应答(3 s)再叠桌面 MCP 起不来(3.5 s)就是两段之和。现在同时起跑,
+  // 冷探测的总时长是最慢那一路;各路一落定就记进 partial,回合入口(capabilitiesForTurn)冷缓存时只拿已经落定的那几格。
+  // 事件循环被同步活占住导致的「量不准」照旧由 probeNetwork 自己判成 null(未知,短 TTL),不因并行改变判据。
+  const onlineP = (targets.length ? probeAny(targets, CAP_PROBE_TIMEOUT_MS) : Promise.resolve(null)).then(v => { partial.network = v; return v; });
+  const desktopP = probeDesktopMcp(config).then(v => { partial.desktop = v; return v; });
   // 145-W3:rg 与 git 同一条纪律 —— 异步探测(进程级缓存),修前 hasRg() 冷缓存时在回合入口 spawnSync。
-  const rgInfo = await probeRgAsync().catch(() => null);
+  // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
+  partial.local = Promise.all([probeRgAsync().catch(() => null), existsExecutableAsync('git'), probeGitCliAsync()])
+    .then(([rgInfo, git, gitCli]) => ({
+      // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
+      binaries: { git, rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
+      // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
+      // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
+      gitCli,
+    }));
+  partial.local.then(v => { partial.localValue = v; }, () => {});
+  const [online, desktop, local] = await Promise.all([onlineP, desktopP, partial.local]);
 
   const value = {
     network: { online, checkedAt: nowIso() },
-    provider: provider ? { id: provider.id, apiStyle: normalizeProviderApiStyle(provider.apiStyle), vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
-    // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
-    // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
-    binaries: { git: await existsExecutableAsync('git'), rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
-    // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
-    // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
-    gitCli: await probeGitCliAsync(),
+    provider: capabilityProviderFacts(provider),
+    binaries: local.binaries,
+    gitCli: local.gitCli,
     desktopMcp: desktop,
     engine,
   };
   // 有目标可探、却量出「未知」（探测撞上了同步阻塞）⇒ 只缓存几秒，下一次调用重新探；其余照旧 60 s。
   // Start the TTL when the complete result is published; slow probes must not consume it.
-  _capCache = { at: Date.now(), value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
+  // 桌面组件「还在起」(desktop.pending)同样只缓存几秒:它起来之后下一次调用就重探到真值。
+  _capCache = { at: Date.now(), value, ttl: ((online === null && targets.length) || (desktop && desktop.pending)) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
-  })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
+  })().finally(() => { _capInflight = null; if (_capInflightPartial === partial) _capInflightPartial = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
   return _capInflight;
 }
+function capabilityProviderFacts(provider) {
+  return provider ? { id: provider.id, apiStyle: normalizeProviderApiStyle(provider.apiStyle), vision: provider.vision === true, reasoning: provider.reasoning === true } : null;
+}
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
-function invalidateCapabilityCache() { _capCache = null; }
+// 150 S4:各会话冻结的能力快照一并作废(「立刻重探」的语义对回合入口同样成立)。
+function invalidateCapabilityCache() { _capCache = null; _capSessionSnapshots.clear(); }
 // 108b-fix2 非阻塞读取:只看能力缓存,绝不触发探测。冷缓存时返回 null(能力未知),
 // 由调用方 fail-open。供对延迟敏感的热路径(如 Claude CLI 启动前的提示词装配)使用:
 // getCapabilities 冷调用会做网络锚点探测(CAP_PROBE_TIMEOUT_MS=3000)+桌面 MCP 探测,
 // 把 CLI 进程的 spawn 推后数秒,会让回合注册晚于客户端的插话请求(steering-claude A 段)。
 function peekCapabilities() { return _capCache ? _capCache.value : null; }
+// 150 S4:provider 回合入口的能力矩阵 —— 先用旧值、后台刷新(Claude 引擎的提示词装配早就是 peek 口径,见 05 108b-fix2)。
+//   · 缓存在(没过期或已过期)→ 立刻答它;过期就顺手起一次后台重探(getCapabilities 自带在飞去重),本回合不等。
+//     旧值只影响「可用性」(联网 / git / 桌面组件在不在),不碰权限:工具能不能给仍由回合当下的 config 决定
+//     (buildOpenAiTools / dropPolicyDisabledBridgedTools 读的都是本回合的 config,不是矩阵)。
+//   · 冷缓存(开机首条、或被 invalidateCapabilityCache 清掉)→ 等在飞的那次探测至多 CAP_TURN_COLD_WAIT_MS;没探完就用
+//     「已经落定的格子」拼一份临时矩阵(不进缓存):本机三项(git / rg)再多等至多 CAP_TURN_LOCAL_WAIT_MS,联网没落定记
+//     null(= 未知,TOOL_REQUIRES 只认 online===true,联网类工具这一回合【不给】—— 只会比探完少,不会多),桌面组件没落定按
+//     「不在」(本回合的桥接目录里也不会有它,两边一致)。探测在后台照常跑完、写进缓存,下一回合就是完整矩阵。
+// 修前回合入口直接 await getCapabilities:锚点不应答时首条要多等 3 s、矩阵 60 s 一过期又等一次(150 §2.1)。
+const CAP_TURN_COLD_WAIT_MS = 150;
+const CAP_TURN_LOCAL_WAIT_MS = 300;
+const CAP_TURN_TIMEOUT = Symbol('capTurnTimeout');
+function capTurnWait(promise, ms) {
+  let timer = null;
+  return Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve(CAP_TURN_TIMEOUT), ms); })])
+    .finally(() => clearTimeout(timer));
+}
+// 150 S4(主会话拍板):按会话冻结能力快照。一条会话第一次用到的那份矩阵一直用到它满 CAP_CACHE_MS(60 s,与能力缓存同一个
+// 记忆期;采用全局那份时从它自己的探测时刻起算,临时矩阵从采用时起算)才换成当时最新的那份;唯一的例外:第一份是冷启动时拼的
+// 临时矩阵时,完整矩阵一落定就在下一个回合边界升级一次,此后照常冻结 —— 能力行(提示词里的
+// 联网 / 桌面 / git / rg 那一行)与由它派生的工具可用性(TOOL_REQUIRES)出自同一份快照,两者不会不一致;一条会话的易变层
+// 也不会因为后台探测恰好在两个回合之间落定而变一次(前缀缓存从 messages[1] 断裂,memory-recall-injection P2)。
+// 权限不受影响:工具给不给仍由本回合 config 决定(buildOpenAiTools / dropPolicyDisabledBridgedTools),桥接目录按本回合 config
+// 现算 key,删掉 / 停用的 MCP 与策略变更照旧当回合生效;快照只管「可用性」那几格。provider / engine 两格按本回合 config 现算。
+// 内存表,上限 CAP_SESSION_SNAPSHOT_MAX 条,先进先出;invalidateCapabilityCache 一并清空。
+const CAP_SESSION_SNAPSHOT_MAX = 256;
+const _capSessionSnapshots = new Map();   // sessionId -> { at, value }
+async function capabilitiesForSessionTurn(sessionId, config) {
+  const key = String(sessionId || '');
+  const hit = key ? _capSessionSnapshots.get(key) : null;
+  // 主会话拍板 ①:临时矩阵(冷启动时拼的)只许升级【一次】—— 完整矩阵一落定,下一个回合边界就换上它(不等 60 s),
+  // 此后照冻结规则走。隐藏联网 / git / 桌面工具整整一分钟比一次前缀缓存断裂代价大。
+  if (hit && capabilitiesUpgradable(hit.value) && !hit.upgraded && _capCache && !capabilitiesUpgradable(_capCache.value)) {
+    const full = capabilitiesWithConfigFacts(_capCache.value, config);
+    rememberSessionCapabilities(key, { at: Math.min(Date.now(), _capCache.at), value: full, upgraded: true });
+    return full;
+  }
+  if (hit && (Date.now() - hit.at) < CAP_CACHE_MS) {
+    // 全局缓存过期了照样顺手起后台重探,这条会话满 60 s 时拿到的就是新的。
+    if (!_capCache || (Date.now() - _capCache.at) >= (_capCache.ttl || CAP_CACHE_MS)) void getCapabilities(config).catch(() => null);
+    return capabilitiesWithConfigFacts(hit.value, config);
+  }
+  const value = await capabilitiesForTurn(config);
+  if (key && value) {
+    // 主会话拍板 ②:采用全局那份时,这条会话的 60 s 从那份矩阵【自己的探测时刻】起算(陈旧度不超过约一个 TTL);
+    // 临时矩阵没有探测时刻,从采用时起算。已经升级过一次的会话,之后再采用临时矩阵也不再升级。
+    const at = capabilitiesUpgradable(value) || !_capCache ? Date.now() : Math.min(Date.now(), _capCache.at);
+    rememberSessionCapabilities(key, { at, value, upgraded: !!(hit && hit.upgraded) || !capabilitiesUpgradable(value) });
+  }
+  return value;
+}
+// 「还没定」的快照:冷启动拼的临时矩阵,或桌面组件那一格还在起(desktopMcp.pending)。这类快照允许升级一次,而且只升级到「已经定了」的那份。
+function capabilitiesUpgradable(value) {
+  return !!value && (value.provisional === true || !!(value.desktopMcp && value.desktopMcp.pending === true));
+}
+function rememberSessionCapabilities(key, record) {
+  _capSessionSnapshots.delete(key);
+  _capSessionSnapshots.set(key, record);
+  while (_capSessionSnapshots.size > CAP_SESSION_SNAPSHOT_MAX) _capSessionSnapshots.delete(_capSessionSnapshots.keys().next().value);
+}
+// 配置派生的两格(provider / engine)不是探测事实,一律按本回合的 config 现算贴上 —— 旧矩阵里那两格可能来自启动探测时的
+// 另一份配置(evalPlaybookAvailability 读 caps.provider.vision)。其余格子原样。
+function capabilitiesWithConfigFacts(value, config) {
+  if (!value) return value;
+  const provider = activeOpenAiProvider(config);
+  return { ...value, provider: capabilityProviderFacts(provider), engine: provider ? 'openai' : 'claude' };
+}
+async function capabilitiesForTurn(config) {
+  if (_capCache) {
+    if ((Date.now() - _capCache.at) >= (_capCache.ttl || CAP_CACHE_MS)) void getCapabilities(config).catch(() => null);
+    return capabilitiesWithConfigFacts(_capCache.value, config);
+  }
+  const probe = getCapabilities(config).catch(() => null);
+  const partial = _capInflightPartial;
+  // 同一次在飞的探测已经让一个回合等过、拼过临时矩阵了:后面的回合不再每回合各等一遍,直接拿已落定的格子拼。
+  const alreadyWaited = !!(partial && partial.turnWaited);
+  if (partial) partial.turnWaited = true;
+  const done = alreadyWaited ? CAP_TURN_TIMEOUT : await capTurnWait(probe, CAP_TURN_COLD_WAIT_MS);
+  if (done !== CAP_TURN_TIMEOUT) return capabilitiesWithConfigFacts(done, config);
+  let local = partial && partial.localValue;
+  if (!local && partial && partial.local && !alreadyWaited) {
+    const r = await capTurnWait(partial.local.catch(() => null), CAP_TURN_LOCAL_WAIT_MS);
+    local = r === CAP_TURN_TIMEOUT ? null : r;
+  }
+  if (_capCache) return capabilitiesWithConfigFacts(_capCache.value, config);   // 等本机三项的那会儿整份探完了:用完整的
+  const provider = activeOpenAiProvider(config);
+  return {
+    network: { online: partial && partial.network !== undefined ? partial.network : null, checkedAt: nowIso() },
+    provider: capabilityProviderFacts(provider),
+    binaries: local ? local.binaries : { git: false, rg: false, rgSource: null, rgShell: '' },
+    // gitCli 没落定:有进程级记忆(60 s)就用它,没有按「不在」—— git 工具族这一回合不给(只少不多;fail-open 只留给旧缓存缺键)。
+    gitCli: local ? local.gitCli : (_gitCliProbe ? _gitCliProbe.value : false),
+    desktopMcp: (partial && partial.desktop) || { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false }, pending: true },
+    engine: provider ? 'openai' : 'claude',
+    provisional: true,
+  };
+}
 
 // ============================================================================
 // v0.9-S8 — 审计中心 (§0.9-S8 / §4 B4). Read-only aggregation of two audit sources into ONE timeline:

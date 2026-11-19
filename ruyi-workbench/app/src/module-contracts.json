@@ -499,6 +499,7 @@
         "autoImportClaudeCodeMcp",
         "beginBootCliPathProbes",
         "bootCliPathProbes",
+        "bootCliPathProbesPending",
         "bridgedCliServerEnv",
         "bridgedEnvKeyStripped",
         "buildClaudeCliEnv",
@@ -508,6 +509,9 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
+        "cliPathsProvisionalActive",
+        "cliPathsProvisionalScope",
+        "cliPathsScopeEntered",
         "cloneConfigSnapshot",
         "commandForSelfMcp",
         "configCanonicalJson",
@@ -563,6 +567,7 @@
         "detectDesktopMcpAsync",
         "detectKimiPath",
         "effectiveAnthropicEnv",
+        "endProvisionalCliPaths",
         "ensureDesktopMcpWarm",
         "ensureDirsForConfigRead",
         "externalServerJs",
@@ -618,6 +623,7 @@
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
+        "runWithProvisionalCliPaths",
         "safeSessionId",
         "sanitizeLastUsedEngineRoute",
         "selectedAgentCli",
@@ -2166,6 +2172,7 @@
         "missionsDir",
         "mutateSession",
         "newSessionEngineRoute",
+        "newSessionEngineRouteNeedsCliPaths",
         "normalizeMetaToolArgs",
         "normalizeMission",
         "normalizeMissionAcceptance",
@@ -2530,6 +2537,13 @@
           "kinds": [
             "call",
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "cliPathsProvisionalActive",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -3372,8 +3386,10 @@
         "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
+        "BRIDGED_INCOMPLETE_RESCAN_WAIT_MS",
         "BRIDGED_TOOL_TIMEOUTS",
         "BRIDGED_TOOL_TIMEOUT_DEFAULT_MS",
+        "BRIDGED_TURN_WAIT_MS",
         "CLAUDE_RECOVERY_HISTORY_CHARS",
         "CLAUDE_RECOVERY_MESSAGE_CHARS",
         "CLAUDE_TASK_NOTIFICATION_MAX_CHARS",
@@ -3430,14 +3446,20 @@
         "auditLogFlush",
         "auditLogSubmitted",
         "bridgedCatalogCache",
-        "bridgedCatalogInflight",
+        "bridgedCatalogGeneration",
+        "bridgedCatalogInflights",
+        "bridgedCatalogKey",
+        "bridgedDesktopPendingKeys",
         "bridgedServerSpawnEnv",
         "bridgedServerUnavailableMessage",
         "bridgedToolCallTimeoutMs",
         "bridgedToolFunctionName",
         "bridgedToolTimeoutMs",
+        "bridgedTurnCatalogs",
+        "buildBridgedCatalog",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
+        "cachedBridgedCatalog",
         "captureInterventionConsumer",
         "classifyMcpError",
         "claudeProviderTailSince",
@@ -3447,11 +3469,13 @@
         "clearPendingPlans",
         "clearPendingQuestions",
         "collectBridgedTools",
+        "collectBridgedToolsForTurn",
         "collectBridgedToolsScan",
         "configureMcpFromTool",
         "consumeInterventionHumanWitness",
         "decodeClaudeTaskXmlText",
         "deltaOf",
+        "desktopEntrySignature",
         "driverAutoSessions",
         "enabledToolboxComponents",
         "extendUserQuestion",
@@ -3464,6 +3488,7 @@
         "installActiveChildEventFanout",
         "interventionConsumerOrigins",
         "interventionHumanConsumers",
+        "invalidateBridgedTurnCatalogs",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
         "invalidateToolboxCache",
@@ -3476,6 +3501,7 @@
         "killOwnProcessTree",
         "killPosixChildTree",
         "lastAssistantEngine",
+        "lastResolvedDesktopEntry",
         "lastSuccessfulClaudeModel",
         "latestLogFile",
         "logEvent",
@@ -3531,10 +3557,13 @@
         "registerSessionExecutionChild",
         "registerUserQuestion",
         "rememberAuditLogFailure",
+        "rememberBridgedCatalog",
+        "rememberDesktopPendingKey",
         "requestSessionExecutionStop",
         "requestUserQuestion",
         "resolveBridge",
         "resolveExternalMcpServers",
+        "resolveExternalMcpServersForTurn",
         "revalidateSessionExecutionPermission",
         "runAutomaticInterventionDecision",
         "safeMcpInventory",
@@ -3794,6 +3823,13 @@
           "symbol": "configWriteChain",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "desktopMcpDetectionPending",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6563,6 +6599,10 @@
         "CAP_CACHE_MS",
         "CAP_PROBE_STALL_SLACK_MS",
         "CAP_PROBE_TIMEOUT_MS",
+        "CAP_SESSION_SNAPSHOT_MAX",
+        "CAP_TURN_COLD_WAIT_MS",
+        "CAP_TURN_LOCAL_WAIT_MS",
+        "CAP_TURN_TIMEOUT",
         "CAP_UNKNOWN_TTL_MS",
         "ENGINE_BRIEF_CLOSE",
         "ENGINE_BRIEF_OPEN",
@@ -6594,6 +6634,8 @@
         "TOOL_REQUIRES",
         "_capCache",
         "_capInflight",
+        "_capInflightPartial",
+        "_capSessionSnapshots",
         "_engineBriefMemo",
         "appendMemorySection",
         "appendResponseLanguagePolicy",
@@ -6619,6 +6661,12 @@
         "buildToolCustomizationHint",
         "buildVolatileParts",
         "builtinPlaybooksDir",
+        "capTurnWait",
+        "capabilitiesForSessionTurn",
+        "capabilitiesForTurn",
+        "capabilitiesUpgradable",
+        "capabilitiesWithConfigFacts",
+        "capabilityProviderFacts",
         "clampAppendWithSkills",
         "claudeProjectDirKey",
         "claudeProjectsRoot",
@@ -6678,6 +6726,7 @@
         "reassertThreadBrief",
         "recordEngineTranscript",
         "recordRequestMetric",
+        "rememberSessionCapabilities",
         "renderCliEnvBrief",
         "repairNodeJsonViaProvider",
         "resolveEngineEnvBrief",
@@ -6886,6 +6935,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "desktopMcpDetectionPending",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ensureDesktopMcpWarm",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -6991,6 +7054,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "_gitCliProbe",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
             "call"
@@ -7047,7 +7117,28 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "mcpClientFailures",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "mcpClientPending",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "mcpClients",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "mcpStartingClients",
           "kinds": [
             "read"
           ]
@@ -8988,6 +9079,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "bootCliPathProbesPending",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
           "kinds": [
             "call"
@@ -9030,7 +9128,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "waitForBootCliPathProbes",
           "kinds": [
             "call"
           ]
@@ -10758,6 +10870,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "endProvisionalCliPaths",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -11262,7 +11381,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "collectBridgedTools",
+          "symbol": "collectBridgedToolsForTurn",
           "kinds": [
             "call"
           ]
@@ -11507,14 +11626,14 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "evalPlaybookAvailability",
+          "symbol": "capabilitiesForSessionTurn",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "getCapabilities",
+          "symbol": "evalPlaybookAvailability",
           "kinds": [
             "call"
           ]
@@ -13398,6 +13517,29 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "bootCliPathProbesPending",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "cliPathsProvisionalActive",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "cliPathsScopeEntered",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "configReadGeneration",
           "kinds": [
             "read"
@@ -13412,6 +13554,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "endProvisionalCliPaths",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -13420,6 +13569,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "runWithProvisionalCliPaths",
           "kinds": [
             "call"
           ]
@@ -14975,6 +15131,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "bootCliPathProbesPending",
+          "kinds": [
+            "call"
           ]
         },
         {

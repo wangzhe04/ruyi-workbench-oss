@@ -15,6 +15,7 @@ const app = path.resolve(__dirname, '../../ruyi-workbench/app');
 process.env.WCW_FAKE_CLAUDE = path.resolve(app, '../tools/fake-claude.js');
 const configuration = engine => ({ configSchema: 14, permissionMode: 'default', defaultWorkspace: work,
   autoImportClaudeCodeMcp: false, enableMcpDropIn: false, includeWorkbenchMcp: false,
+  desktopMcp: { enabled: false, autodetect: false },   // 测试绝不拉起真桌面组件(检出里的 mcp/ai-computer-control)
   stewardEnabledV1: true, schedulerEnabledV1: false, activeProvider: engine === 'provider' ? 'probe' : '', engineMode: 'print',
   providers: engine === 'provider' ? [{ id: 'probe', label: 'probe', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'synthetic', model: 'synthetic' }] : [],
 });

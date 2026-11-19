@@ -3960,6 +3960,14 @@ function lastAssistantTextOf(session) {
 
 async function runSessionTurn(input) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('turn')) return WorkDataMaintenanceHooks.run('turn', () => runSessionTurn(...arguments));
+  // 150 S17:开机首批 CLI 路径探测还在飞时(本机实测 0.8–4.7 s),回合在「CLI 路径暂按开机视图」的作用域里起步(01 readConfig 头注):
+  // provider 回合用不到 CLI 路径,发送前那一路的配置读都不等探测。会话装载 / 新建之后一旦判出这一回合要走 CLI 引擎,就在任何
+  // 派生之前关掉作用域、按会话 id 重进一遍(重进时等探测落定),CLI 回合拿到的仍是真路径;provider 回合发出第一次模型请求时关(09)。
+  if (typeof bootCliPathProbesPending === 'function' && !cliPathsScopeEntered() && bootCliPathProbesPending()) {
+    const args = arguments;
+    // 收尾无条件关作用域:含 try 之前的 4xx 闸门抛出(找不到会话 / 忙 / 交付已变 …),不让它起跑的后台活继续跳过等待。
+    return runWithProvisionalCliPaths(async () => { try { return await runSessionTurn(...args); } finally { endProvisionalCliPaths(); } });
+  }
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
   const body = input || {};
@@ -3983,7 +3991,27 @@ async function runSessionTurn(input) {
   // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
   // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
   if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (!loadedSession && typeof cliPathsProvisionalActive === 'function' && cliPathsProvisionalActive()) {
+    // 新线程:先按 createSession 会给的路由(请求覆盖 > 「上一次用的」> 全局)预判引擎。判不出是 provider 就先关作用域重进,
+    // 让新线程在等完探测之后才落盘(同修前次序;判错只会多等,不会让 CLI 回合拿到开机视图)。
+    const override = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
+    const predicted = override || (storedConfig.newThreadEngine === 'last' && normalizeSessionEngineRoute(storedConfig.lastUsedEngineRoute)) || sessionEngineRouteFromConfig(storedConfig);
+    if (!activeOpenAiProvider(configForSessionEngineRoute(storedConfig, { engineRoute: predicted }))) {
+      endProvisionalCliPaths();
+      return runSessionTurn(body);
+    }
+  }
   const session = loadedSession || await createSession({ title: body.title, cwd: body.cwd });
+  if (typeof cliPathsProvisionalActive === 'function' && cliPathsProvisionalActive()) {
+    // 与下面真正分派引擎的判据同一个(configForSessionEngineRoute + activeOpenAiProvider,路由覆盖同口径)。
+    const route = body.engineRoute ? normalizeSessionEngineRoute(body.engineRoute) : null;
+    if (!activeOpenAiProvider(configForSessionEngineRoute(storedConfig, route ? { ...session, engineRoute: route } : session))) {
+      // 走 CLI 引擎:关掉作用域,按会话 id 重进一遍 —— 重进时配置读等探测落定,会话也在那之后重新装载、各道闸门重新判,
+      // 与修前「先等探测、再装会话」同序(不拿等待之前装进来的那一份会话往下跑)。新建的会话此刻已落盘,重进按 id 装它。
+      endProvisionalCliPaths();
+      return runSessionTurn({ ...body, sessionId: session.id });
+    }
+  }
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(storedConfig) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, storedConfig, () => runSessionTurn({ ...body, sessionId: session.id }));
   // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
   // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。

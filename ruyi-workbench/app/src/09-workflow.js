@@ -1750,9 +1750,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 
   // The in-process file tools already checkpoint themselves. This baseline is the symmetric backstop for
   // shell commands, bridged tools, or external helpers that edit source files outside TOOL_DISPATCH.
-  if (softwareEngineeringTaskProfile(promptTaskContext).relevant) {
-    workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
-  }
+  // 发送前并行(150 §2.1):基线照旧在这里起跑(顶替旧回合之前),但不在这里等 —— 它只给本回合【工具执行之后】的对账用,
+  // 在发出第一次模型请求之前取回即可(见下面 workspaceTurnBaselinePending 的 await)。
+  const workspaceTurnBaselinePending = softwareEngineeringTaskProfile(promptTaskContext).relevant
+    ? captureWorkspaceTurnBaseline(workingDir).catch(() => null)
+    : null;
 
   assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
@@ -1797,18 +1799,40 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
+  // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
+  // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
+  const isStewardTurn = session.kind === 'steward';
+  // 发送前并行(150 §2.1,151 阶段 2):下面这几步互不依赖,修前逐个 await —— 热态 200 条记忆时基线 ≈60、桥接目录 ≈15、
+  // 记忆预检 ≈130、playbook ≈12 ms 串行相加。现在无副作用的读(能力矩阵、角色库、项目记忆、playbook 读盘;桥接目录会拉起 MCP 子进程,排在可能抛错的技能 / 角色库之后)
+  // 【同一拍起跑】,仍在原来的位置、按原来的顺序逐个取结果:哪一步先抛、抛什么(work_data / 隐私等必须上抛的错误)与
+  // 修前一致;排在前面的一步抛了,后面已起跑的那几步结果丢弃,它们的拒绝先挂上空 catch(startEarly),不会变成 unhandled
+  // rejection。有副作用的记忆预检留在原位置起跑(见下面 memoryPreflight 处),取消照旧拿本回合的 ctrl.signal 与
+  // executionOwner 回验口。有依赖的不动:技能条目要能力矩阵,工具表要技能与桥接目录,冲突图 / 取代边要预检结果,
+  // playbook 可用性要能力矩阵(只有读盘那半提前)。管家回合不起跑它用不到的那几项(同修前短路)。
+  const startEarly = promise => { promise.catch(() => {}); return promise; };
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
-  // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
-  // bridge cache used below, so this is not a duplicate spawn.
-  const caps = await getCapabilities(config).catch(() => null);
+  // it once per turn. 150 S4:先用旧值、后台刷新(capabilitiesForTurn 头注);冷缓存只等在飞的探测一小会儿;
+  // 一条会话沿用它第一次拿到的那份快照满 60 s 才换(capabilitiesForSessionTurn 头注),能力行与工具可用性同出一份。
+  const capsPending = startEarly(capabilitiesForSessionTurn(session.id, config).catch(() => null));
+  const agentRolesPending = startEarly(getAgentRoleLibrary(workingDir, config));
+  const projectMemoryPending = isStewardTurn ? null : startEarly(readProjectMemory(workingDir).catch(() => null));
+  // 记忆预检【不】提前起跑:它有副作用(记 usage、发来源变化通知、可能起语义重排),必须排在前面那几步可能抛错的步骤
+  // (技能 work_data、角色库)之后才开始 —— 修前它们一抛,预检根本没开始;提前起跑会让一个没发出去的回合也记了 usage。
+  // 它仍与上面已起跑的基线 / 项目记忆 / playbook 读盘重叠,热态下能力矩阵与桥接目录都是缓存直答,前面那几步只占零点几毫秒。
+  const playbooksPending = isStewardTurn ? null : startEarly(loadAllPlaybooks().catch(() => []));
+  let caps = await capsPending;
   // v1 技能体系: 解析本会话启用且可用的技能条目(供系统提示技能层 + 决定是否注册 skill_read 工具)。
   // P2-2: onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入 + 通知一次。
   const enabledSkillEntries = await resolveEnabledSkillEntries(session, config, workingDir, caps,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
   ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
-  // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
-  // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
-  const isStewardTurn = session.kind === 'steward';
+  // 角色库在这里先取(它可能抛错);桥接目录排在可能抛错的两步(技能 work_data、角色库)之后才起跑 —— 审查 建议 3:
+  // 一个随后就抛错、根本不会发请求的回合不该先为它拉起 MCP 子进程(共用已在飞的扫描不算)。
+  const agentRoles = await agentRolesPending;
+  // 116f: 管家不持有任何桥接工具(ACC 桌面/Office/浏览器/外部 MCP 都是「动世界」)。这里【不采集】而不是
+  // 采集后过滤:采集会为此拉起 MCP 子进程,而管家回合可能每 15 秒被收件箱唤醒一次。
+  // 150 S4:同一份目录先用旧值、后台刷新;慢 MCP 只在回合边界补进(collectBridgedToolsForTurn 头注)。
+  const bridgedPending = isStewardTurn ? null : startEarly(collectBridgedToolsForTurn(config));
   // 117z-E2 提交①(§11.21.3):会话级桌面覆盖在这里进注册层。null(绝大多数会话)= 跟随全局
   // allowDesktopTools = 修前逐字行为。管家会话自己永远走不到这条支路的「true」那一边:它的 kind
   // 是 'steward',上面那一支只给它 steward_* 工具面,桌面工具压根不在候选里。
@@ -1817,16 +1841,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };
-  // 116f: 管家不持有任何桥接工具(ACC 桌面/Office/浏览器/外部 MCP 都是「动世界」)。这里【不采集】而不是
-  // 采集后过滤:采集会为此拉起 MCP 子进程,而管家回合可能每 15 秒被收件箱唤醒一次。
-  if (!isStewardTurn) {
-    try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  if (bridgedPending) {
+    try { bridged = await bridgedPending; } catch { bridged = { tools: [], route: {} }; }
   }
   // 2026-10 能力总闸补桥接面:allowCommandTools / allowDesktopTools(+ 会话级 desktopTools)关掉的内置桌面 MCP 工具不进工具面,
   // 与上面 ownTools 对原生工具的滤法同一个会话覆盖口径。只滤 tools,route 原样留着:模型硬调被关掉的名字时分发面靠它认出来、
   // 回 tool-disabled。collectBridgedTools 的结果是带缓存的共享对象,这里换一个新对象,不就地改。
   const sessionDesktopOverride = sessionDesktopToolsOf(session);
   bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, sessionDesktopOverride), route: bridged.route };
+  // 150 S4:能力行与工具表出自同一份(按会话冻结的)快照 —— 快照说桌面组件不在(冷启动时拼的临时矩阵,或采用快照时 ACC 还没起来),
+  // 这一回合就不把桥接目录里已经起来的 ACC 工具交给模型(提示词不会一边说「桌面操控工具 0 个」一边给它桌面工具)。只少不多;
+  // 快照满 60 s 换新后自然补进。route 原样留着(与上一行同口径)。
+  // 桌面组件那一格「还在起」(desktopMcp.pending,审查 应改 1):不是确定的「不在」—— 这一回合按本回合目录里实际起来的 ACC 工具
+  // 现算桌面那一格(能力行的桌面工具数与工具表仍一致),ACC 一起来就能用,不被冻结成「不在」。
+  if (caps && caps.desktopMcp && caps.desktopMcp.pending === true) {
+    const accTools = bridged.tools.filter(t => (bridged.route[t && t.function && t.function.name] || {}).serverId === 'ai-computer-control').length;
+    caps = { ...caps, desktopMcp: { ...caps.desktopMcp, present: accTools > 0, toolCount: accTools } };
+  } else if (caps && caps.desktopMcp && caps.desktopMcp.present === false) {
+    bridged = { tools: bridged.tools.filter(t => (bridged.route[t && t.function && t.function.name] || {}).serverId !== 'ai-computer-control'), route: bridged.route };
+  }
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
@@ -1841,7 +1874,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   const initialTools = toolLoading.current();
   syncSessionToolSchemaNames();
-  const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
+  const agentRoleMap = new Map(agentRoles.map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
   // fenced as untrusted reference). provider.systemPrompt is APPENDED as the provider层 (was: it replaced the
@@ -1849,13 +1882,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 116-2b(§11.6「116f 登记」):管家回合装配短路 —— 管家的提示词整段由 StewardHooks.buildSystemPrompt
   // 换掉(见下方 turnVolatile 的分叉),项目记忆 / 工作台记忆预检 / playbook 索引这三份东西装配完
   // 【一个字都不会进管家的 prompt】,却各自要跑一遍全量磁盘扫描。按 session.kind 分叉在这里短路,
-  // 普通会话的三行调用逐字节不变(prompt-snapshot.static / session-turn-core 证明)。
-  const projectMemory = isStewardTurn ? null : await readProjectMemory(workingDir).catch(() => null);
   // v1 技能体系: 主回合传入 identityOnly=false + 已启用技能条目 → 技能层注入(能力层与操控规程层之间)。
   // 工作台记忆:每条消息用 name/description/id 做轻量元数据检索；默认扫描当前项目 + 全局并只注入 Top-3。
   // P3-3: 传 onSourceMismatch —— project 记忆的锁定 projectKey 与当前 cwd 不符(换了项目目录)→ 跳过注入 + 通知一次。
   // 短路时给出与 catch 回落【同形】的空结果:memoryPreflight.status 下游还要进 meta 事件与
   // turn_start 审计行(mode:'unavailable' 如实表示"这一回合没有跑记忆检索"),不能给 undefined。
+  // 发送前并行:预检在这里起跑(位置同修前,见上面 startEarly 处的说明),与它同时在飞的是基线 / 项目记忆 / playbook 读盘;
+  // 项目记忆的结果在预检之后取(它不抛错,取的先后不影响错误传播)。
   const memoryPreflight = isStewardTurn
     ? { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }
     : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
@@ -1863,6 +1896,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
       { signal: ctrl?.signal || executionOwner?.signal, executionOwner, executionOwnerCurrent: () => !executionOwner || turnSettlers.get(session.id) === executionOwner, executionOwnerRevalidate: () => revalidateSessionExecutionPermission(session.id, executionOwner) },
     ).catch(error => { if (memoryPreflightMustPropagate(error)) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
+  const projectMemory = isStewardTurn ? null : await projectMemoryPending;
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -1906,7 +1940,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 108b: Playbook 精简索引只在主回合注入(子代理不与用户对话,08 走 buildProviderSystemPrompt 不传该参数)。
   // 直接调 06 的 loadAllPlaybooks(后向边)而不是再跑一次 loadSkillRegistry: 后者为了拿 pb: 条目会连技能四源
   // 和命令目录一起重扫一遍,多出一次全量磁盘扫描;可用性用本回合已探测的 caps 现算,不再触发第二次能力探测。
-  const playbookEntries = isStewardTurn ? [] : (await loadAllPlaybooks().catch(() => []))
+  const playbookEntries = isStewardTurn ? [] : (await playbooksPending)
     .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
   // 116f: 管家会话【整段】换掉普通提示词包(稳定层=06b steward.stable;易变层=记忆块+线程总览,
   // 与普通会话的 turnVolatile 同一投放位置)。经 06i 的 StewardHooks 延迟绑定拿(09 → 06i 是后向边;
@@ -2152,9 +2186,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     return b;
   };
 
+  // 工作区基线(上面与其它发送前步骤同时起跑):第一次模型请求之前取回,本回合的任何工具都还没跑。
+  if (workspaceTurnBaselinePending) workspaceTurnBaseline = await workspaceTurnBaselinePending;
   const cwdWarn = cwdWarning(workingDir); // v0.8-S0: non-blocking guardrail when cwd is a user root
   onEvent({ type: 'meta', command: `${provider.label || provider.id} · ${base}`, args: [], cwd: workingDir, model, permissionMode: config.permissionMode, engine: 'openai', providerLabel: provider.label || provider.id, tools: initialTools.length, availableTools: allTools.length, bridgedTools: bridged.tools.length, toolLoadingMode: config.toolLoadingMode, toolPacks: [...toolLoading.activePacks], toolSchemaTokens: estimateToolSchemaTokens(initialTools), memoryCheck: memoryPreflight.status, cwdWarning: cwdWarn || undefined });
   onEvent({ type: 'process', state: 'running', pid: null, interactive: false, engine: 'openai' });
+  // 150 S17:发送前阶段到此为止 —— 关掉「CLI 路径暂按开机视图」的作用域(10 runSessionTurn 开的),此后本回合里(工具、子代理)
+  // 再读配置都照旧等开机首批 CLI 探测落定。不在作用域内时是空操作。
+  endProvisionalCliPaths();
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, model, promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, tools: initialTools.length, availableTools: allTools.length, toolSchemaTokens: estimateToolSchemaTokens(initialTools) });
 
   // WCW_TURN_IDLE_MS is a test seam; normalized config remains the production source of truth.

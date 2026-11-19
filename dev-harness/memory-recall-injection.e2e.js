@@ -96,6 +96,10 @@ const userTextOf = m => (typeof m.content === 'string' ? m.content : (Array.isAr
     const Q3 = '今天天气怎么样';
     const e1 = await stream(wbP.port, { message: Q1, cwd: WORK });
     const sid = (e1.find(e => e.type === 'session') || {}).session?.id;
+    // 151 阶段 2B:冷启动的第一回合可能用的是临时能力矩阵,完整矩阵落定后的下一回合边界允许升级一次(主会话拍板)。
+    // P2 量的是稳态(第二、第三回合),所以先等完整能力矩阵落定(GET /api/capabilities 等在飞的探测收尾)再发第二回合。
+    // 「整条会话首条 user 至多变一次、只从临时变完整」由 unit/turn-start-latency.test.js [G4] 确定性地钉住。
+    await request(wbP.port, 'GET', '/api/capabilities', null, wbP.headers).catch(() => null);
     const e2 = await stream(wbP.port, { message: Q2, sessionId: sid, cwd: WORK });
     const e3 = await stream(wbP.port, { message: Q3, sessionId: sid, cwd: WORK });
     ok(!!sid && [e1, e2, e3].every(ev => (ev.find(e => e.type === 'result') || {}).ok), 'P0b 三回合都正常完成');

@@ -2563,7 +2563,12 @@ function claudeSubAgentTurnBudget(maxIters, role) {
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder, memoryCliContext }) {
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
-  const claude = config.claudePath || detectClaudePath();
+  // 150 S17:provider 回合的配置可能是开机视图(CLI 路径探测没落定时 claudePath 自动那一格暂为空,见 01 readConfig 头注)。
+  // 起 CLI 子代理前等首批探测落定,下一行回落到 detectClaudePath() 时拿到的就是真结果;不在开机窗口里是空操作。
+  if (bootCliPathProbesPending()) await waitForBootCliPathProbes();
+  // 审查 建议 2:开机视图里手填的 npm 垫片(claude.cmd)还没换成真身 claude.exe —— 等完探测再过一遍启动器解析(走它的记忆表,
+  // 开机那一趟已核验过),否则子代理经 cmd.exe 起,8191 字符整行上限会把 --append-system-prompt / --allowed-tools 挤掉。
+  const claude = resolveClaudeLauncher(config.claudePath || detectClaudePath());
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
   if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
     // 61-C6:修前只回一句「未找到」,模型(和用户)不知道找的是哪、该怎么办 —— 真机上 claude.cmd 没装,模型只能猜。

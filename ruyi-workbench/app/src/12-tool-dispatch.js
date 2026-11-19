@@ -3648,7 +3648,8 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const selectedCli = selectedAgentCli(config);
   // 128f-⑬:修前每一次 /api/status 都同步探一遍选中的 CLI(不记忆),换线程就钉一次事件循环;见 01 agentCliLauncherOk。
   const selectedCliOk = Boolean(selectedCli.path && await agentCliLauncherOk(selectedCli.path));
-  const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || '(not found — open Settings)'}`;
+  // 150 S17(审查 建议 2):开机首批 CLI 路径探测还在飞时,配置里自动探测那一格暂为空 —— 这时报「还在检测」,不报「没找到」。
+  const selectedCliDetail = `${selectedCli.label}: ${selectedCli.path || (bootCliPathProbesPending() ? '(detecting…)' : '(not found — open Settings)')}`;
   push('agent-cli', selectedCliOk, selectedCliDetail);
   // Backward-compatible health id consumed by older overlays/diagnostics.
   push('claude-cli', selectedCliOk, selectedCliDetail);

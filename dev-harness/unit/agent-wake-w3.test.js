@@ -38,6 +38,8 @@ const iso = ms => new Date(ms).toISOString();
 const clearWakeTimers = () => { for (const timer of I.agentWakeTimers.values()) clearTimeout(timer); I.agentWakeTimers.clear(); };
 const writeConfig = (extra = {}, providerExtra = {}) => fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
   configSchema: 9, permissionMode: 'bypass', defaultWorkspace: home,
+  // 测试绝不拉起真桌面组件:缺省 desktopMcp(enabled + autodetect)会在回合的能力探测里探到检出里的 mcp/ai-computer-control 并起真 Python。
+  desktopMcp: { enabled: false, autodetect: false },
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], ...providerExtra }], activeProvider: 'fake',
   ...extra,
 }));
