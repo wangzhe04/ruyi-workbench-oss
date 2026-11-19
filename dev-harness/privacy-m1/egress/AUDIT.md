@@ -20,7 +20,7 @@ node dev-harness/privacy-m1/egress/inventory.js --write
 
 ## 清点范围与计数
 
-当前快照：268 份第一方源码/声明配置，660 条**候选**。其中包含 133 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作 660 次实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
+当前快照（2026-11-19 3F 复核后，见文末同名节）：387 份第一方源码/声明配置，948 条**候选**；初版（2026-10-21）为 268 份/660 条，其中包含 133 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作同等次数的实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
 
 扫描仅遍历仓库 `ruyi-workbench/` 与 `mcp/` 的 `.js/.mjs/.cjs/.py/.ps1/.cmd/.bat/.cs/.html/.sh/.json/.toml/.yaml/.yml`。不遍历工作台运行时用户数据目录，不启动这些程序。`app/server.js` 是 `app/src` 拼接产物，排除以免双算；vendor、node_modules、tests/test、build/build_offline、dist、bin/obj、Python runtime/venv/site-packages、locales 与 package-lock 排除。新文件在允许范围内会出现；新增排除目录内部实现不会出现，修改扫描范围必须另行审阅。符号链接拒绝扫描，不跟随到仓库外。
 
@@ -161,3 +161,46 @@ quiesce、wake与普通HTTP guard新增run候选逐一核到WorkDataMaintenanceH
 ### 原生broker生命周期复核（2026-10-24）
 
 独审确认并修复旧13u辅助进程生命周期后，仅再次核对13u/13ak/13am/14四源指纹；唯一词法边界变更是migrationCapsuleBroker的stdin write，仍向固定本地PowerShell/C#辅助进程发送JSON命令，分类process不变。新增同步写失败处理、actual close、有界未知状态及持锁/交接/CLI退出约束，不新增接收方或protected声明。302源/756候选与原76错误ID集合精确相同，check仍预期exit1。此前14源、21新边界及2个callback记录保留；此处额外记录1处既有stdio边界指纹复核，不全局刷新历史未审指纹。
+
+## 2026-11-19 151 阶段 3 存量漂移复核（3F，全量刷新）
+
+**起点。** 提交版生成物停在 310 源/768 候选/102 项 reviewError，手工 manifest 停在 297 源/738 条。以基线 `04b31495` 加 3F 第一刀（只改 `13ap-session-fulltext-index.js` 的 state 写盘）为对象现算：387 源、934 候选、459 项 reviewError，即 201 项 source-unreviewed、212 项 unclassified、30 项 changed-boundary、16 项 stale-classification，另有 1 项 generated-inventory-stale。151 号文表中的 385/937/437 来自更早的一次现算，口径相同。
+
+**方法与范围。**（1）242 个新增或变更的候选逐条读调用点、所在函数和接收方，按本文件已有分组口径归类，不新增 `protected`。（2）16 条 stale 逐条核对去向。（3）111 份指纹变化的源，逐份在 git 历史里找到与 manifest 指纹逐字节相同的那一版 blob 作对照基（110 份找到；`public/js/steward-board.js` 没有匹配 blob，以 `0aa09851` 为基，新增 12 行，不含 I/O）。对全部新增行按 I/O 和传输 API 做关键字分诊，包括扫描器不枚举的 `open`/`appendFile`/`rename`/`process.env`/`CreateProcess`，命中行逐条读过。（4）90 份新源逐个按候选审阅，新 UI/后端源里的 URL 字面量全部排查过：除回环地址外只有 `ruyi.invalid` 这种 URL 解析基，没有真实远端。**限定：**变更源的新增行合计约 3 万行，其中生成物 `module-contracts.json`/`manifest.json` 约 1.76 万行，没有逐行通读，所以本次刷新所有源指纹不构成全行认证。按本文件的规则，下一次出现指纹漂移照常要人工重审。
+
+**结论（242 条）。** non-egress 88 条：本地 RegExp 26 条，AsyncLocalStorage、私有串行链、PrivacyGateway.run、维护准入、onnx `session.run`、C# `Thread.Start` 及本地语义策略 `evaluate` 等本地回调 62 条。local-only 26 条，model-only 8 条，unknown 119 条，bypassed 1 条。changed-boundary 的 30 条全部保持原组：
+- `04h providerModelPostOnce` 的 fetch 仍在 `withPolicy` 内依次 `await beforeModelRequest`、编码、`assertPolicyAvailable`、`policyGuard`、媒体与派发围栏、`assertRequest`，之后直接 fetch，中间没有 await。
+- `07 openAiStreamOnce` 新增的 400 兼容重打递归回到同一个 `doFetch`→`providerModelPostOnce`，单独登记为 `model`。
+- `net.js apiRaw` 只增加私有 `noTokenReplay` 选项。
+- `05b kimiHttp` 仍只访问固定 `127.0.0.1`。
+- `12 workbenchMemoryReadLoopback` 的目标与令牌来源都没有变。
+
+新增 8 个分类组：
+- `desktop-lifetime-ipc`（local-only，13 条）：13ax 桌面宿主命名管道，13-http-router/14-main 的 `DesktopLifetimeHooks.connect` 也在其中。
+- `memory-cli-loopback`（local-only）：13ad 记忆 CLI 中继的固定回环请求。
+- `memory-cli-output`（unknown）：同一中继的 stdout，记忆正文由此到达 CLI。宿主对 CLI 调 `PrivacyGateway.assertSupported(config,'cli')`，保护档会被拒绝；OFF 档下与 `cli` 组一样不受管。
+- `semantic-runtime-child`（unknown，7 条）：语义运行时 worker 与常驻代理的 stdin，携带查询与文档原文。worker 在 import 之前替换 fetch、http(s)、net/tls 的 connect，并设 `allowRemoteModels=false`；启动环境走白名单，并设 `HF_HUB_OFFLINE`/`TRANSFORMERS_OFFLINE`。这只是进程内的尽力隔离，不是 OS 隔离。
+- `semantic-resident-control`（local-only，6 条）：常驻代理的停止控制管道。
+- `semantic-model-download`（bypassed）：`semantic-runtime/install.cjs` 是开发与打包期的 CLI，向 huggingface.co 拉取钉住的模型文件，同时有 npm ci 子进程。请求不含用户数据，server.js 不调用它，package-offline 拒绝运行时下载。
+- `work-data-package-download`（unknown）与 `work-data-package-blob`（local-only）：设置页显式保存工作数据恢复包。
+
+`<browser-download>` 有两个误报：变量名 `download` 与能力布尔 `download:true`，均登记为 local-callback。
+
+**stale 的去向（16 条）。**
+- `02 journalRecordManyUnlocked`/`journalRollback` 的 writeFile 并入新的 `journalRollbackContents` writeFile，其余写入改走存储写器。
+- `02 saveSession copyFile#3` 移到 `ensureSessionV1Backup`。
+- `08 runSubAgentCoreBody openAiStreamOnce#2` 合并为唯一的 `callModel`。
+- `10 writeHistorySnapshot` 改经 `journalGzipStore().write`，WorkDataStore 一族未被词法枚举。
+- `13aj write` 改为 `publishIntent`。
+- `13u representationSnapshot` 删除了那一个 exec。
+- `install.py _python_ok` 改名为 `_python_probe`。
+- `RuyiDesktop.cs` 8 条：词法失步造成的错位，见下面「清点器修复」。
+
+**清点器修复（同批，只改 dev-harness 工具，不改产品代码）。**
+1. **C# 逐字字符串导致词法失步，已修。** `RuyiDesktop.cs` 第 44 行有逐字字符串 `@"\"` 与 `@"\\"`。修前 `lex()` 把反斜杠当转义，此后字符串配对错位，多段源码被吞进伪字符串 token，`OnControllerReady` 的 `NavigateToString`、`MaybeNavigate`/`OnWebMessage` 的 `webView.Navigate`、`TryLaunchSystemUri` 的 `Process.Start` 因此从清册消失。现在对 `.cs` 按 C# 规则处理 `@"…"`、`$@"…"`、`@$"…"`：没有反斜杠转义，`""` 表示引号；字符字面量沿用原有转义处理；`.cs` 中不再把 `/` 当正则起点。重扫后这些调用都作为机器候选出现并已登记：两处 `Navigate` 与 `NavigateToString` 为 unknown，`TryLaunchSystemUri#Start` 为 process，同行 launcher-command 为 dynamic，`Start#Start`（委托 DesktopLifetimeHost 起服务）为 process，第 236/237 行 COM 接口里的 `Navigate`/`NavigateToString` 方法声明登记为 local-callback。修前错位产生的 3 条 `ResolveExplicitRoot` 伪锚已删除。原来的 `Kill#Start`/`Start#Start` 启动调用在 5d6ae8b16 已迁到 `DesktopLifetimeHost.cs`。单元锁：`inventory.test.js` 的「C# verbatim strings…」用例，在修前词法器上为红。
+2. **P/Invoke 起进程，已纳入枚举。** `.cs` 中的 `CreateProcess[AsUser|WithLogon|WithToken][A|W]`，extern 声明与每次调用都登记为 process 候选，并带 uncertainty。`desktop/DesktopLifetimeHost.cs` 的声明和 `Start` 调用（node serve，继承句柄、挂起后入 Job 再恢复），以及三份 `semantic-runtime/resident-proxy-host*.cs` 的声明和 `Spawn` 调用，共 8 条，都归 process unknown。
+3. `inventory.test.js` 的「repository review retains one physical model POST…」原来要求 13-http-router 仍有 `sendMcp`/`sendMcpNotification` 两个 stdout 候选。这个进程内 server 在 3.1 已经删除，断言改为：13-http-router 没有 stdio-output 候选，13af `startRelay#write` 是唯一的独立 workbench MCP stdout 候选，并属于 `workbench-mcp-output` 组。
+
+**复核结论。** 没有发现「本应经过隐私网关却直连外发」的产品路径。直接外网发送只有开发期的 `install.cjs`（不含用户数据），以及已有的 web/bots/provider-metadata 等原分类。
+
+**结果。** 387 源、948 候选，`--check` 0 errors、退出 0；`inventory.test.js` 16/16 通过。全部 948 条的分布：unknown 513、non-egress 315、local-only 62、bypassed 35、model-only 23。这是源码清点刷新，不是运行时隐私认证、OS 隔离或全部出口已覆盖的证明。并行批次合入后，凡改到扫描范围内源码的提交，都会使本清册重新出现 source-unreviewed/changed-boundary，需要在合入后按本节方法增量复核。

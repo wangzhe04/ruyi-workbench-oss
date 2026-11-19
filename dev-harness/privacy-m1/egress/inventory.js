@@ -26,13 +26,21 @@ function sourceFiles(root) {
 
 // Small conservative lexer, not a JS/Python parser. Strings survive only in hashes; comments disappear.
 // Whole-source byte fingerprints are review reminders, never proof that unknown syntax is understood.
-function lex(source, python = false) {
+// csharp: C# verbatim strings (@"...", $@"...", @$"...") have no backslash escapes and use "" for a quote.
+// Lexing them as ordinary strings desynchronizes every later quote and hides real calls inside fake strings.
+function lex(source, python = false, csharp = false) {
   const out = []; let i = 0;
   while (i < source.length) {
     const start = i, c = source[i];
     if (/\s/.test(c)) { i++; continue; }
     if ((python && c === '#') || source.startsWith('//', i)) { while (i < source.length && source[i] !== '\n') i++; continue; }
     if (source.startsWith('/*', i)) { const end = source.indexOf('*/', i + 2); i = end < 0 ? source.length : end + 2; continue; }
+    const verbatim = csharp ? ['$@"', '@$"', '@"'].find(prefix => source.startsWith(prefix, i)) : undefined;
+    if (verbatim) {
+      i += verbatim.length;
+      while (i < source.length) { if (source[i] === '"') { if (source[i + 1] === '"') { i += 2; continue; } i++; break; } i++; }
+      out.push({ v: source.slice(start, i), kind: 'string', pos: start }); continue;
+    }
     if (c === '"' || c === "'" || c === '`') {
       const triple = python && source.startsWith(c.repeat(3), i), quote = triple ? c.repeat(3) : c;
       i += quote.length;
@@ -40,7 +48,7 @@ function lex(source, python = false) {
       out.push({ v: source.slice(start, i), kind: 'string', pos: start }); continue;
     }
     // Regex literals must not manufacture calls from a privacy rule's pattern text.
-    if (!python && c === '/' && (!out.length || ['=', '(', '[', ',', ':', 'return', '!', '&&', '||', '?', ';', '{', '=>'].includes(out.at(-1).v))) {
+    if (!python && !csharp && c === '/' && (!out.length || ['=', '(', '[', ',', ':', 'return', '!', '&&', '||', '?', ';', '{', '=>'].includes(out.at(-1).v))) {
       let j = i + 1, bracket = false;
       for (; j < source.length && source[j] !== '\n'; j++) { if (source[j] === '\\') { j++; continue; } if (source[j] === '[') bracket = true; if (source[j] === ']') bracket = false; if (source[j] === '/' && !bracket) break; }
       if (source[j] === '/') { i = j + 1; while (/[a-z]/i.test(source[i] || '') && i < source.length) i++; out.push({ v: source.slice(start, i), kind: 'regex', pos: start }); continue; }
@@ -99,7 +107,7 @@ for (const name of ['goto', 'navigate', 'Navigate', 'NavigateToString', 'launchP
 for (const name of ['providerModelPostOnce', 'providerPostJsonOnce', 'openAiStreamOnce', 'singleSummaryCall', 'httpRequest', 'openHttpRequest', 'spawnDetachedChecked', 'sendMcp', 'sendMcpNotification']) SINKS.set(name, 'wrapper');
 
 function analyze(file, source) {
-  const python = file.endsWith('.py'), tokens = lex(source, python), matched = pairs(tokens), owner = owners(tokens, matched, source, python);
+  const python = file.endsWith('.py'), csharp = file.endsWith('.cs'), tokens = lex(source, python, csharp), matched = pairs(tokens), owner = owners(tokens, matched, source, python);
   const aliases = new Map(), clipboardReceivers = new Set(['clipboard']);
   // Fixed-point simple aliases, including destructured renamed imports and aliases of aliases.
   for (let pass = 0; pass < 8; pass++) for (let i = 0; i < tokens.length; i++) {
@@ -147,6 +155,11 @@ function analyze(file, source) {
       add(i, 'delegated', '<dom-' + token.v + '>', end, 'Browser navigation/resource/markup assignment; CSP, sanitization and user activation require manual review');
     }
     if (token.v === 'setAttribute' && next === '(' && ['"src"', "'src'", '"href"', "'href'", '"srcdoc"', "'srcdoc'"].includes(tokens[i + 2]?.v)) add(i, 'delegated', '<dom-attribute>', matched.get(i + 1) + 1 || i + 2, 'Browser resource or markup attribute; final destination and CSP effects require review');
+    // Win32 process creation through P/Invoke: both the extern declaration and each call are process boundaries.
+    if (csharp && token.kind === 'word' && /^CreateProcess(?:AsUser|WithLogon|WithToken)?[AW]?$/.test(token.v) && next === '(') {
+      add(i, 'process', token.v, matched.get(i + 1) + 1 || i + 2, 'Win32 P/Invoke process creation (declaration or call); executable, command line, environment and inherited handles need manual review');
+      continue;
+    }
     const actual = aliases.get(token.v) || token.v;
     let category = SINKS.get(actual);
     if (actual === 'clipboard-write' || actual === 'write' && clipboardReceivers.has(tokens[i - 2]?.v)) category = 'delegated';

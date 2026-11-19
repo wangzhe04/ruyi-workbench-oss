@@ -147,8 +147,11 @@ test('repository review retains one physical model POST and all four business en
   const byId = new Map(manifest.entries.map(e => [e.id, e]));
   for (const f of [...modelSends, ...modelEntries]) assert.equal(manifest.groups[byId.get(f.id).group].privacyStatus, 'model-only');
   assert(!Object.values(manifest.groups).some(p => p.privacyStatus === 'protected'));
-  const ownMcp = scan.findings.filter(f => f.file.endsWith('13-http-router.js') && f.category === 'stdio-output');
-  assert.deepEqual(ownMcp.map(f => f.symbol).sort(), ['sendMcp', 'sendMcpNotification']);
+  // 3.1 removed the in-process sendMcp/sendMcpNotification server from 13-http-router; startMcp now dispatches to
+  // stdio relays. The independent workbench MCP output contract pins the 13af internal relay writer.
+  assert(!scan.findings.some(f => f.file.endsWith('13-http-router.js') && f.category === 'stdio-output'));
+  const ownMcp = scan.findings.filter(f => f.file.endsWith('13af-internal-mcp-relay.js') && f.category === 'stdio-output');
+  assert.deepEqual(ownMcp.map(f => f.symbol + '#' + f.callee), ['startRelay#write']);
   for (const f of ownMcp) assert.equal(byId.get(f.id).group, 'workbench-mcp-output');
   assert.notEqual(manifest.groups['workbench-mcp-output'], manifest.groups.mcp);
   assert.notEqual(manifest.groups['workbench-mcp-output'], manifest.groups['acc-server']);
@@ -170,4 +173,28 @@ const {write:sendItems}=navigator.clipboard; sendItems(items);`);
     assert(candidates.every(row => row.category === 'delegated' && errors.includes('unclassified:' + row.id)));
   }
   assert(after.findings.filter(row => row.callee === 'write').length >= 2);
+});
+test('C# verbatim strings and char literals keep later boundary calls visible; P/Invoke process creation is enumerated', t => {
+  const { root } = fixture(t, 'const ready = true;'); const dir = path.join(root, 'ruyi-workbench/desktop'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'Sample.cs'), [
+    'class Sample {',
+    '  static string Fix(string root) { if (root.StartsWith(@"\\") && !root.StartsWith(@"\\\\")) root = @"C:\\" + root.TrimStart(\'\\\\\'); return root; }',
+    '  static string Quote() { return @"say ""hi"" \\" + $@"{1}\\" + @$"x\\"; }',
+    '  static char Mark() { return \'"\'; }',
+    '  void TryLaunchSystemUri(string uri) { Process.Start(uri); }',
+    '  void OnControllerReady() { core.NavigateToString(html); }',
+    '  [DllImport("kernel32.dll")] static extern bool CreateProcessW(string app, string cmd);',
+    '  void Spawn() { CreateProcessW(null, line); }',
+    '}', ''].join('\r\n'));
+  const scan = inventory.scan(root), found = scan.findings.filter(f => f.file.endsWith('Sample.cs'));
+  assert(found.some(f => f.symbol === 'TryLaunchSystemUri' && f.callee === 'Start' && f.category === 'process'), JSON.stringify(found));
+  assert(found.some(f => f.symbol === 'OnControllerReady' && f.callee === 'NavigateToString' && f.category === 'delegated'));
+  const pinvoke = found.filter(f => f.callee === 'CreateProcessW');
+  assert.equal(pinvoke.length, 2, 'declaration and call are both candidates');
+  assert(pinvoke.every(f => f.category === 'process' && /P\/Invoke/.test(f.uncertainty)));
+  assert(pinvoke.some(f => f.symbol === 'Spawn'));
+  // The same bytes in a .js file keep ordinary escape rules; only .cs gets verbatim lexing.
+  const tokens = inventory.lex('a(@"\\"); b(1);', false, true);
+  assert.deepEqual(tokens.filter(x => x.kind === 'word').map(x => x.v), ['a', 'b']);
+  assert(inventory.validate(scan, { schemaVersion: 1, sources: scan.sources, groups: {}, entries: [] }).some(e => e.startsWith('unclassified:') && e.includes('CreateProcessW')));
 });
