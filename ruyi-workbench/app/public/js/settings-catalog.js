@@ -164,6 +164,15 @@ export const SETTINGS_CATALOG = Object.freeze([
       { key: 'semanticRetrievalV1', type: 'toggle', fallback: true, alsoWrites: ['runtimeMemoryVectorRecallV1'], status: 'semanticRuntime' },
     ],
   },
+  // 151 阶段 3H（150 §9.2 拍板）：3.1.0 的工作数据加密是实验性功能，「启用加密」默认不出现。这一行是唯一的打开处；
+  // 说明里写明限制（小数据根、大根很慢、约 120 MiB 上限被拒且不改数据）。已加密的数据根上，转明文、导出、恢复与它无关（仍受规模上限约束）。
+  // refreshWorkData：存完让「工作数据」面板重读一次后台状态（启用入口按后台读回的开关显示，不按这里的控件值猜）。
+  {
+    id: 'setcatExperimentalFeatures', tab: 'advanced', titleKey: 'settings.catalog.experimentalFeatures.title', hintKey: 'settings.catalog.experimentalFeatures.hint',
+    fields: [
+      { key: 'workDataEncryptionExperimentalV1', type: 'toggle', fallback: false, refreshWorkData: true },
+    ],
+  },
   {
     id: 'setcatExperiments', tab: 'advanced', titleKey: 'settings.catalog.experiments.title', hintKey: 'settings.catalog.experiments.hint', fold: true,
     fields: [

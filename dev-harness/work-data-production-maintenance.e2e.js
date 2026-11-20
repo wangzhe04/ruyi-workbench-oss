@@ -203,7 +203,8 @@ function createWorld({root,evidence,target}){
   await manager.certifyNaturalExit(handle,{code:0,signal:null,verify:()=>verify(result,pid)});
   return result;
  }
- const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
+ // 151 阶段 3H:新的「启用加密」只在实验开关打开时才被 13ah 接受,本件要真走启用,所以夹具配置里显式打开它。
+ const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,workDataEncryptionExperimentalV1:true,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
  function fixture(label){
   healthy();const base=p.join(root,label+'-data'),home=p.join(root,label+'-home'),backups=p.join(root,label+'-backups'),env=releaseEnvironment(home,base);
   fs.mkdirSync(base);fs.mkdirSync(p.join(base,'sessions'));fs.mkdirSync(backups);
@@ -1082,6 +1083,21 @@ async function checkInterruptedCapsule(w,f,{current,original,backup,marker,nativ
  }
 }
 
+// 151 阶段 3H:在已加密的后继上关掉工作数据加密的实验开关(真 POST /api/config),确认状态读回关、authority 仍是加密的那一代、
+// 新的 enable 不会以实验码或别的方式被受理(已加密根上是 mode_conflict),且没有登记作业。之后的导出/转明文轮由调用方照常跑。
+async function switchExperimentOff(ref){
+ const json=value=>Buffer.from(JSON.stringify(value));
+ const saved=await upload.makeHttp({port:ref.port,token:ref.token},'/api/config',json({workDataEncryptionExperimentalV1:false}),{method:'POST',headers:{'content-type':'application/json'},timeout:BUDGET.request});
+ a.equal(saved.status,200,'the experimental switch is turned off through the ordinary config route');
+ a.equal(saved.value?.config?.workDataEncryptionExperimentalV1,false);
+ const observed=await upload.makeHttp({port:ref.port,token:ref.token},'/api/work-data/status',undefined,{timeout:BUDGET.request});
+ a.equal(observed.status,200);a.equal(observed.value?.experimentalEncryption,false,'status reads the switch back as off');
+ a.equal(observed.value?.authority?.mode,'encrypted','the root stays encrypted');a.deepEqual(observed.value?.authority,ref.status.authority);
+ const again=await upload.makeHttp({port:ref.port,token:ref.token},'/api/work-data/jobs',json({operation:'enable',password:PASSWORD,expectedAuthority:observed.value.authority,backupDirectory:ref.status.selectedBase?p.dirname(ref.status.selectedBase):os.tmpdir()}),{method:'POST',headers:{'content-type':'application/json'},timeout:BUDGET.request});
+ a.equal(again.status,409);a.equal(again.value?.error?.code,'work_data_setup.mode_conflict','an encrypted root keeps its own mode_conflict for enable');
+ const after=await upload.makeHttp({port:ref.port,token:ref.token},'/api/work-data/status',undefined,{timeout:BUDGET.request});
+ a.equal(after.value?.job,null,'no job was registered');
+}
 async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
  const fault=argv.length===1&&['--capsule-before-publish','--capsule-after-publish'].includes(argv[0])?argv[0].slice('--capsule-'.length):null;
  const legacy=argv[0]==='--legacy-nonempty-capsule';
@@ -1160,7 +1176,14 @@ async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
    // The boot verdicts each own a separate root. Decide them before handoff so
    // a blocked handoff cannot hide them.
    await w.runBootNegatives();
-   for(const spec of [{operation:'enable'},{operation:'export'},{operation:'disable'}]){current=await w.runRound(f,current,spec,state);state.round++;}
+   for(const spec of [{operation:'enable'},{operation:'export'},{operation:'disable'}]){
+    // 3H v3:关掉开关之后的每一轮在提交前都核对后台读到的仍是关 —— 冷端若把配置回滚成开,这里会红,而不是让「开关关着也能导出/转明文」静默失效。
+    if(spec.operation!=='enable'){const before=await w.statusOf(current);a.equal(before.experimentalEncryption,false,spec.operation+' round starts with the experimental switch still off');a.equal(before.authority.mode,'encrypted',spec.operation+' round starts on the encrypted root');}
+    current=await w.runRound(f,current,spec,state);state.round++;
+    // 151 阶段 3H:实验开关只管【新启用】。启用完成后用户经普通设置路由把开关关掉,之后在已加密的根上导出与转明文
+    // 两轮必须照常走完(下面的 export/disable 轮就是断言);关着时在已加密根上再发 enable 仍按自己的 mode_conflict 拒绝。
+    if(spec.operation==='enable')await switchExperimentOff(current);
+   }
   }
   // Only the last successor is handed to the owned Job. Assigning old serve
   // instead would make the product's detached cold launch un-detachable on this

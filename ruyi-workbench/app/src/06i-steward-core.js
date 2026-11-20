@@ -1702,6 +1702,9 @@ const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
   // 127 波 2-quater B2(拍板 2「默认开,设置可关,管家自己改不了」):代批开关。**不是 confirm** —— confirm 档
   // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权。
   'stewardExemptDelegationV1',
+  // 151 阶段 3H:工作数据加密的实验开关 —— 它放出的是「整个数据根换存储格式与密钥生命周期」的入口(与 workDataEncryptionV1
+  // 同属数据根一类)。不是 confirm:管家递一枚按钮、用户随手一按,就等于管家把用户引上一条实验性的整根迁移路径。
+  'workDataEncryptionExperimentalV1',
   // 簿记与用户行为记录:能改它们 = 能伪造「用户上次选的是我」/ 把任意键去显式化。
   'configSchema', 'version', 'configExplicitKeysV1', 'onboarding', 'lastUsedEngineRoute', 'subagentBudgetMigrated', 'searchBackendMigrated',
 ]);

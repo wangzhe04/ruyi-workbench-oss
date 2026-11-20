@@ -212,7 +212,7 @@ function setupInfrastructureFixture(){
   const events=[],queue=[];let ready,closed,failClose;const readyPromise=new Promise(resolve=>{ready=resolve;}),closedPromise=new Promise((resolve,reject)=>{closed=resolve;failClose=reject;});
   const m=Maintenance.create({owns:()=>false,snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>({}),resume:()=>events.push('resume'),flush:async()=>{},yield:tick});
   const ticket={},authority={generation:0,id:null,mode:'plain',sha256:null};
-  const host={maintenance:m,inspect:async()=>({authority,base:'C:/synthetic/base',configMirror:false}),validateDirectories:async()=>{},id:()=>id,now:()=>0,defer:work=>queue.push(work),
+  const host={maintenance:m,inspect:async()=>({authority,base:'C:/synthetic/base',configMirror:false,experimentalEncryption:true}),validateDirectories:async()=>{},id:()=>id,now:()=>0,defer:work=>queue.push(work),
     worker:()=>({start:async()=>({ready:readyPromise,failure:new Promise(()=>{}),cancel:async()=>events.push('cancel-child'),commit:async()=>events.push('armed'),assertArmed:()=>events.push('assert-armed'),handoff:async()=>events.push('handoff')})}),
     infrastructure:{prepareInfrastructure:()=>{events.push('infra-pause');return ticket;},closeInfrastructure:async value=>{assert.equal(value,ticket);events.push('infra-close');await closedPromise;},resumeInfrastructure:()=>events.push('infra-resume')}};
   const api=Setup.create(host),submit=()=>api.submit({operation:'enable',password:'synthetic lifetime password',expectedAuthority:authority,backupDirectory:'C:/synthetic/backup'});
@@ -271,7 +271,7 @@ function ipcInfrastructureFixture({withholdGo=false,withholdArmed=false,withhold
     stopUncommitted:async()=>events.push('cancel-child'),exitParent:async()=>{events.push('exit-parent');parentDead=true;}});
   const maintenance=Maintenance.create({owns:()=>false,snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>({}),resume:()=>events.push('resume'),flush:async()=>{},yield:tick});
   const held=new Promise(resolve=>{releaseClose=resolve;});
-  const setup=Setup.create({maintenance,inspect:async()=>({authority,base}),validateDirectories:async()=>{},worker:()=>warm,id:()=>id,now:()=>0,defer:work=>{deferred=work;},
+  const setup=Setup.create({maintenance,inspect:async()=>({authority,base,experimentalEncryption:true}),validateDirectories:async()=>{},worker:()=>warm,id:()=>id,now:()=>0,defer:work=>{deferred=work;},
     infrastructure:{prepareInfrastructure:()=>({}),resumeInfrastructure:()=>events.push('resume-infra'),closeInfrastructure:async()=>{events.push('infra-close-start');await held;events.push('infra-close-done');}}});
   return{events,timers,setup,maintenance,releaseClose,child,coldFailure:()=>coldFailure,coldResult:()=>coldResult,
     start:async()=>{await setup.submit({operation:'enable',password:'synthetic only password',expectedAuthority:authority,backupDirectory:backup});deferred();},

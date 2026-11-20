@@ -57,6 +57,8 @@ function fixture(respond,rawRespond){
 }
 const authority=(mode='plain')=>({generation:mode==='plain'?0:1,id:mode==='plain'?null:'b'.repeat(48),mode,sha256:mode==='plain'?null:'c'.repeat(64)});
 const job=(extra={})=>({id:'a'.repeat(48),operation:'enable',state:'draining',createdAt:'2026-10-24T00:00:00Z',cancellable:true,takeover:false,retry:false,error:null,operationMayHaveExecuted:false,...extra});
-const status=(extra={})=>({ok:true,authority:authority(),configMirror:false,maintenance:{phase:'open'},job:null,lastResult:null,capabilities:{worker:true,upload:false,download:false},processRestartRequired:true,...extra});
+// 151 阶段 3H:面板上的「启用加密」只在后台状态带 experimentalEncryption:true(实验开关已开)时出现。这里的面板件大多在测启用流程本身,
+// 所以夹具状态默认带上开关;开关关着(含缺省)时的隐藏/拒绝由 unit/work-data-encryption-experimental.test.js 逐条钉。
+const status=(extra={})=>({ok:true,authority:authority(),configMirror:false,experimentalEncryption:true,maintenance:{phase:'open'},job:null,lastResult:null,capabilities:{worker:true,upload:false,download:false},processRestartRequired:true,...extra});
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};};
 module.exports={fixture,authority,job,status,deferred};

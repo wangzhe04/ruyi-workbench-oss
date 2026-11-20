@@ -110,7 +110,8 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   healthy();openOutput(label);
   return manager.start(process.execPath,[target.server,...args],{cwd:p.dirname(target.server),env,windowsHide:true,stdio:['ignore','pipe','pipe']},label);
  }
- const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
+ // 151 阶段 3H:新的「启用加密」只在实验开关打开时才被 13ah 接受,本件要真走启用,所以夹具配置里显式打开它。
+ const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,workDataEncryptionExperimentalV1:true,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
  function fixture(label){
   healthy();const base=p.join(root,label+'-data'),home=p.join(root,label+'-home'),backups=p.join(root,label+'-backups'),targets=p.join(root,label+'-targets'),env=releaseEnvironment(home,base);
   fs.mkdirSync(base);fs.mkdirSync(p.join(base,'sessions'));fs.mkdirSync(backups);fs.mkdirSync(targets);

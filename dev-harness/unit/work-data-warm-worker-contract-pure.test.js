@@ -41,7 +41,7 @@ async function pipeline({ closeHeld = false } = {}) {
   const facade = facadeHost(events); let handle, raw;
   const maintenance = Maintenance.create({ owns: () => false, snapshot: () => ({ busy: {}, pending: [], dirty: 0 }), pause: () => ({}), resume: () => events.push('resume'), flush: async () => {}, yield: tick });
   const closing = new Promise(resolve => { closeRelease = resolve; });
-  const setup = Setup.create({ maintenance, inspect: async () => ({ authority, base }), validateDirectories: async () => {},
+  const setup = Setup.create({ maintenance, inspect: async () => ({ authority, base, experimentalEncryption: true }), validateDirectories: async () => {},
     worker: () => ({ start: async request => { handle = await facade.wrap(request, async () => { raw = await worker.start(request); return raw; }); return handle; } }),
     infrastructure: { prepareInfrastructure: () => { events.push('infra-prepare'); return {}; },
       closeInfrastructure: async () => { events.push('infra-close'); if (closeHeld) await closing; }, resumeInfrastructure: () => events.push('infra-resume') },

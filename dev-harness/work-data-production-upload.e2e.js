@@ -114,7 +114,11 @@ async function runActual(argv=process.argv.slice(2)){
    ['disable-without-encryption',{operation:'disable',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory,confirmPlaintext:true},409,'work_data_setup.mode_conflict'],
    ['stale-authority',{operation:'enable',password:PASSWORD,expectedAuthority:{generation:1,id:'a'.repeat(48),mode:'plain',sha256:'b'.repeat(64)},backupDirectory},409,'work_data_setup.authority_changed'],
    ['short-password',{operation:'enable',password:'short',expectedAuthority:initial.authority,backupDirectory},400,'work_data_setup.password_invalid'],
-   ['backup-inside-base',{operation:'enable',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory:p.join(normal.base,'inside')},400,'work_data_setup.path_invalid'],
+   // 151 阶段 3H:本件的配置没有打开工作数据加密的实验开关,新的 enable 在 13ah 的实验闸处就被拒(在目录检查之前)。
+   // 目录检查这一行因此改用同样经过目录检查的 export;实验闸本身另起一行,让下面「不发布 authority、不登记作业、不写 claim/intent/备份」
+   // 的断言在真 serve 上也钉住开关关着的那条路。
+   ['backup-inside-base',{operation:'export',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory:p.join(normal.base,'inside')},400,'work_data_setup.path_invalid'],
+   ['experimental-off',{operation:'enable',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory},409,'work_data_setup.experimental_disabled'],
    ['wrong-confirmation-shape',{operation:'enable',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory,confirmPlaintext:'yes'},400,'work_data_setup.request_invalid'],
   ];
   for(const [label,body,expectedStatus,expectedCode]of jobNegatives){

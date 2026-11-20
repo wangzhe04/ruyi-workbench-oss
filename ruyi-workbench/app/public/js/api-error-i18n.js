@@ -81,6 +81,8 @@ const CODE_COPY = new Set([
   'work_data_hygiene.quarantine_alias', 'work_data_hygiene.quarantine_recovery_required', 'work_data_hygiene.inventory_truncated',
   'work_data_hygiene.base_invalid', 'work_data_hygiene.base_unavailable', 'work_data_hygiene.request_invalid', 'work_data_hygiene.quarantine_unknown',
   'work_data_hygiene.record_invalid',
+  // 151 阶段 3H（150 §9.2）：实验开关关着时，新的「启用加密」作业在 13ah 准入时被拒（什么都没改）。
+  'work_data_setup.experimental_disabled',
 ]);
 // 服务端 message 里带着「这一次具体为什么」的码（不是固定英文句）：文案后面附上原话。
 const WITH_DETAIL = new Set(['tool.failed', 'editor.open_failed']);

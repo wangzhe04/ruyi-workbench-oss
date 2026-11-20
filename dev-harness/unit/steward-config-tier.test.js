@@ -135,6 +135,9 @@ const EXPECTED = {
   importAgentInstructions: 'forbidden', migrationSeenKeys: 'forbidden',
   // Maintenance pauses index activity; the Steward must not change that internal state.
   sessionSearchIndexPausedV1: 'forbidden',
+  // 151 阶段 3H:工作数据加密的实验开关放出的是整根换存储格式的入口,与 workDataEncryptionV1 同属数据根一类;
+  // 不给 confirm —— 管家递按钮、用户随手一按就等于管家把用户引上实验性的整根迁移。
+  workDataEncryptionExperimentalV1: 'forbidden',
 };
 
 /* ═══════════ ⑤ 132b:free ∪ confirm 的每个键都有中英两句 help(模型改之前得知道它是什么) ═══════════ */
@@ -186,7 +189,7 @@ ok(defaultKeys.length >= 100, `② 默认表抽到 ${defaultKeys.length} 个键(
     'allowOutsideWorkspace', 'additionalDirectories', 'claudePath', 'extraClaudeArgs', 'appendSystemPrompt', 'agentRoleOverrides', 'residentSkills',
     'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers', 'mcpCommandMode', 'permissionBridge',
     'autonomyAutoResume', 'bridgeExternalToolsToProvider', 'toolbox', 'autoImportClaudeCodeMcp', 'capabilityProbeUrl', 'stewardExemptDelegationV1',
-    'configSchema', 'configExplicitKeysV1', 'lastUsedEngineRoute']) {
+    'configSchema', 'configExplicitKeysV1', 'lastUsedEngineRoute', 'workDataEncryptionV1', 'workDataEncryptionExperimentalV1']) {
     ok(stewardConfigTierFor(key) === 'forbidden', `② 点名 forbidden:${key}`);
   }
 }

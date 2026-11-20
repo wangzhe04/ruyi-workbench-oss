@@ -24,6 +24,12 @@ export function workDataRestartRequired(status, job) {
   if (job.state === 'uncertain' || (job.state === 'failed' && job.takeover === true)) return true;
   return status.maintenance?.phase === 'retired' && job.state !== 'handoff';
 }
+// 151 阶段 3H（150 §9.2 拍板）：3.1.0 的工作数据加密是实验性功能，「启用加密」默认不出现。只有后台状态
+// （/api/work-data/status，13ah 当场读 config.json 原文）同时说「当前是明文」且「实验开关已打开」才提供启用；状态还没读到、
+// 读不懂或开关关着一律不提供。它只管启用：转明文、导出、恢复、进行中的作业与恢复提示都不看这个开关。
+export function workDataEnableOffered(status) {
+  return !!status && status.authority?.mode === 'plain' && status.experimentalEncryption === true;
+}
 // 151 阶段 1E（150 号文 W10 子项）：外层失败码（如 preparation_failed）只说「哪一段没做完」，冷端在 job.reason 里带上
 // cause 链里更具体的那一枚码（13am failureReason），空间不足时另带需要/可用字节数。这里把它说成人话；没有专属文案的
 // 原因码照原样给出（它本身就是稳定码），形状不对就不说。
@@ -109,9 +115,10 @@ export function workDataHygieneVerdictText(verdict) {
   return paths ? text + ' ' + paths : text;
 }
 // 预计能否启用/导出/停用：只按体检时的规模与形状判断，措辞是「预计」，实际以操作时冷端的检查为准。
-export function workDataHygienePrediction(inspection, mode) {
+// 151 阶段 3H：明文数据根上没有提供「启用加密」（实验开关关着）时，预计只说导出，不再提启用（enableOffered === false）。
+export function workDataHygienePrediction(inspection, mode, enableOffered) {
   if (!inspection || typeof inspection !== 'object' || inspection.schema !== 1) return '';
-  const which = mode === 'encrypted' ? 'Encrypted' : mode === 'plain' ? 'Plain' : 'Unknown';
+  const which = mode === 'encrypted' ? 'Encrypted' : mode === 'plain' ? (enableOffered === false ? 'PlainExport' : 'Plain') : 'Unknown';
   return t((inspection.ok === true ? 'workData.hygiene.predictOk' : 'workData.hygiene.predictBlocked') + which);
 }
 const HYGIENE_UNDOABLE = new Set(['moving', 'moved', 'partial', 'partially-restored']);
@@ -154,6 +161,8 @@ export function mountWorkDataSettings() {
   const summary = node('div', null, 'work-data-summary'); summary.id = 'workDataSummary'; summary.setAttribute('role', 'status'); summary.setAttribute('aria-live', 'polite');
   const scope = node('details', null, 'work-data-scope'); scope.append(node('summary', 'scopeTitle'), node('p', 'scopeIncluded', 'field-help'), node('p', 'scopeExcluded', 'field-help'));
   const retained = node('p', 'retainedPlaintext', 'field-help work-data-retained');
+  // 151 阶段 3H：实验性说明。明文且已打开实验开关时写明限制；已加密时说明转明文、导出与恢复与实验开关无关（仍受规模上限约束）。
+  const experimental = node('p', null, 'field-help work-data-experimental'); experimental.id = 'workDataExperimental'; experimental.hidden = true;
   const form = node('form'); form.noValidate = true;
   const operation = node('select'); operation.id = 'workDataOperation';
   for (const value of OPERATIONS) { const option = node('option', 'operation.' + value); option.value = value; operation.append(option); }
@@ -251,10 +260,12 @@ export function mountWorkDataSettings() {
     closeQuarantine(true);
   });
   hygiene.append(hygieneTitle, hygieneHelp, hygieneActions, hygieneReason, hygieneResult, moveBox, hygieneNotice);
-  host.append(heading, summary, scope, retained, form, hygiene);
+  host.append(heading, summary, experimental, scope, retained, form, hygiene);
   let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
   let pendingRestore = null, restoreServing = null, confirming = false;
   let inspection = null, inspectedAuthority = '', hygieneBusy = false, movePlan = null, undoButtons = [];
+  // 151 阶段 3H：operationChosen = 用户亲手选过操作；defaultApplied = 第一次读到后台状态时已按它定过默认操作（之后不再替用户换）。
+  let operationChosen = false, defaultApplied = false, inspectedEnable = null;
   const active = () => !!job && !TERMINAL.has(job.state);
   const focus = element => { try { if (element && typeof element.focus === 'function') element.focus(); } catch { /* focus is a convenience */ } };
   const confirmOpenForUser = () => { try { return typeof document.activeElement !== 'undefined' && !!document.activeElement && confirmBox.contains(document.activeElement); } catch { return false; } };
@@ -312,7 +323,18 @@ export function mountWorkDataSettings() {
     const saved = node('p', null, 'field-help'); saved.textContent = t('workData.' + (mode === 'encrypted' ? 'encryptedHelp' : mode === 'plain' ? 'plainHelp' : 'unknownHelp')); summary.append(saved); summary.dataset.mode = mode || 'unknown';
     // 151 阶段 3G · U13：已是明文时不再提供「转为明文存储」，已加密时不再提供「启用加密」。当前选中的那项不适用了就换到「导出」
     // （不替用户选一个会改动数据的操作），并清掉为旧选项填的口令。
-    const offered = value => !(value === 'enable' && mode === 'encrypted' || value === 'disable' && mode === 'plain');
+    // 151 阶段 3H：启用另需后台确认实验开关已打开（workDataEnableOffered）；状态未知时也不提供启用。
+    const enable = workDataEnableOffered(current);
+    const offered = value => !(value === 'enable' && !enable || value === 'disable' && mode === 'plain');
+    // 后台确认是明文且没有提供启用时，这一段只是「备份与恢复」：标题换成备份与恢复，加密范围与首次启用保留明文的说明不出现。
+    // 3H v2：模式未知（状态还没读到或第一次就读失败）不按明文根处理 —— 保持原来的标题与说明，已加密的用户不会因一次读失败被改口。
+    // 一个启用作业还挂在面板上（进行中、结果待确认或刚失败）时同样按加密流程说话，哪怕开关已经被关掉。
+    const enableJob = job?.operation === 'enable';
+    const backupOnly = mode === 'plain' && !enable && !enableJob;
+    heading.dataset.i18n = 'workData.' + (backupOnly ? 'titleBackup' : 'title'); heading.textContent = t(heading.dataset.i18n);
+    scope.hidden = backupOnly; retained.hidden = backupOnly;
+    const experimentalKey = mode === 'encrypted' ? 'workData.experimentalEncrypted' : enable || enableJob ? 'workData.experimentalNotice' : '';
+    experimental.hidden = !experimentalKey; experimental.textContent = experimentalKey ? t(experimentalKey) : ''; experimental.dataset.state = experimentalKey ? (mode === 'encrypted' ? 'encrypted' : 'offered') : '';
     for (const option of operation.children) { const off = !offered(option.value); option.disabled = off; option.hidden = off; }
     if (!offered(operation.value)) { operation.value = 'export'; clearSecrets(); confirmRestore.checked = false; }
     backup.placeholder = t('workData.pathPlaceholder'); parent.placeholder = t('workData.pathPlaceholder');
@@ -320,7 +342,7 @@ export function mountWorkDataSettings() {
     // The confirmation belongs to the form exactly as it stood when it opened: any state that would refuse the submit closes it.
     // 151 阶段 3B 复审建议 5：表单变忙而自动收起确认段时，焦点若还在段里，挪到看得见的状态区（进度区，否则提示行），不掉到 body。
     let refocus = false;
-    if (confirming && (busy || operation.value !== 'enable')) { refocus = confirmOpenForUser(); confirming = false; }
+    if (confirming && (busy || operation.value !== 'enable' || !enable)) { refocus = confirmOpenForUser(); confirming = false; }
     confirmBox.hidden = !confirming; confirmGo.disabled = !confirming || loading; confirmBack.disabled = !confirming;
     const disabled = busy || loading || confirming;
     for (const control of [operation, backup, pickBackup, parent, pickParent, name, password, confirmation, plaintext, confirmRestore]) control.disabled = disabled;
@@ -344,7 +366,7 @@ export function mountWorkDataSettings() {
       || operation.value === 'restore' && !targetDirectory()
       || operation.value === 'restore' && !selectedFile()
       || operation.value === 'restore' && !confirmRestore.checked
-      || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain' || hygieneBusy;
+      || operation.value === 'enable' && (mode === 'encrypted' || !enable) || operation.value === 'disable' && mode === 'plain' || hygieneBusy;
     const reasonKey = submit.disabled ? submitReasonKey(mode, blocked) : '';
     submitReason.hidden = !reasonKey; submitReason.textContent = reasonKey ? t(reasonKey) : ''; submitReason.dataset.reason = reasonKey;
     cancel.hidden = !active(); cancel.disabled = writing || !job?.cancellable || job?.takeover === true;
@@ -431,6 +453,8 @@ export function mountWorkDataSettings() {
   function renderHygiene() {
     // 数据根换了（启用/停用/恢复之后），上一次的体检结果不再属于它。
     if (inspection && current && inspectedAuthority !== JSON.stringify(current.authority)) { inspection = null; drawInspection(); }
+    // 151 阶段 3H：实验开关变了，预计结论的措辞（提不提启用）跟着变。
+    if (inspection && inspectedEnable !== workDataEnableOffered(current)) drawInspection();
     let refocus = false;
     if (movePlan && (hygieneHeld() || movePlan.authority !== JSON.stringify(current.authority))) { refocus = moveOpenForUser(); movePlan = null; }
     const blocked = hygieneBlocked() || hygieneBusy;
@@ -455,7 +479,8 @@ export function mountWorkDataSettings() {
     hygieneResult.hidden = false;
     const line = (text, className, id) => { const element = node('p', null, className || 'field-help'); element.textContent = text; if (id) element.id = id; hygieneResult.append(element); return element; };
     const census = inspection.census, mode = current?.authority?.mode;
-    const prediction = line(workDataHygienePrediction(inspection, mode), 'work-data-hygiene-prediction', 'workDataHygienePrediction'); prediction.dataset.state = inspection.ok ? 'ok' : 'blocked';
+    inspectedEnable = workDataEnableOffered(current);
+    const prediction = line(workDataHygienePrediction(inspection, mode, inspectedEnable), 'work-data-hygiene-prediction', 'workDataHygienePrediction'); prediction.dataset.state = inspection.ok ? 'ok' : 'blocked';
     line(t('workData.hygiene.summary', { files: count(census.files), directories: count(census.directories), bytes: Number.isSafeInteger(census.bytes) ? fmtBytes(census.bytes) : '?' }), null, 'workDataHygieneSummary');
     const included = inspection.scope && inspection.scope.included;
     if (included && Number.isSafeInteger(included.files) && Number.isSafeInteger(included.bytes)) line(t('workData.hygiene.package', { files: count(included.files), bytes: fmtBytes(included.bytes) }));
@@ -602,6 +627,9 @@ export function mountWorkDataSettings() {
         if (version !== revision || disposed) return;
         if (!result?.ok || !validAuthority(result.authority) || result.job !== null && !validJob(result.job)) throw { code: 'work_data_setup.status_invalid' };
         current = result; lastResult = result.lastResult;
+        // 151 阶段 3H：第一次读到状态时定默认操作 —— 提供启用（明文且实验开关已开）就照旧默认「启用加密」，否则留在「导出」。
+        // 只做这一次，且用户亲手选过就不动：之后开关被打开或关掉，都不替用户换掉正在填的操作。
+        if (!defaultApplied) { defaultApplied = true; if (!operationChosen && workDataEnableOffered(result)) operation.value = 'enable'; }
         retireRestore(result.job);
         // The successor's selected base proves that this submitted target is
         // serving. Its lastResult can be absent or package history: neither is
@@ -726,11 +754,11 @@ export function mountWorkDataSettings() {
     finally { writing = false; render(); schedule(); }
   }
   form.addEventListener('submit', event => { event.preventDefault(); void submitJob(); });
-  for (const control of [operation, password, confirmation, plaintext, name, confirmRestore]) control.addEventListener('input', () => { if (control === name) confirmRestore.checked = false; notice.textContent = ''; render(); });
+  for (const control of [operation, password, confirmation, plaintext, name, confirmRestore]) control.addEventListener('input', () => { if (control === name) confirmRestore.checked = false; if (control === operation) operationChosen = true; notice.textContent = ''; render(); });
   // File pickers fire change, not input: without this the submit gate would keep
   // the state it rendered before the package was chosen.
   upload.addEventListener('change', () => { confirmRestore.checked = false; notice.textContent = ''; render(); });
-  operation.addEventListener('change', () => { clearSecrets(); confirmRestore.checked = false; render(); });
+  operation.addEventListener('change', () => { operationChosen = true; clearSecrets(); confirmRestore.checked = false; render(); });
   const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); drawInspection(); if (movePlan) drawPlan(movePlan.plan); render(); };
   window.addEventListener('i18n:change', translate);
   // 设置页的后台刷新（refreshStatus → fillSettings → mountWorkDataSettings）也走这里：用户正在答（焦点在确认段里）时不打断；

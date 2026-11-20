@@ -17,7 +17,7 @@ function fixture(options={}){let counter=0,response;const owners=new Set(),event
  const m=Maintenance.create({owns:owner=>owners.has(owner),snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>{events.push('pause');return{};},resume:()=>{state.resume++;events.push('resume');},progress:async()=>{},flush:async()=>{state.flush++;},yield:tick});
  const handle={ready:ready.promise,cancel:async()=>{events.push('cancel-child');},handoff:async()=>{events.push('handoff');}};
  const worker={start:async input=>{state.workerInput=input;events.push('start');return handle;}};
- const host={maintenance:m,inspect:async()=>({authority:clone(state.authority),base:'C:/synthetic/base',configMirror:false}),validateDirectories:async()=>{events.push('validate-paths');},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},
+ const host={maintenance:m,inspect:async()=>({authority:clone(state.authority),base:'C:/synthetic/base',configMirror:false,experimentalEncryption:options.experimentalEncryption!==false}),validateDirectories:async()=>{events.push('validate-paths');},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},
   respondPackage:(_res,pkg)=>{response={package:pkg};},
   receiptPath:p=>p==='/api/permission/decision',receiptOwner:(_p,body)=>body.requestId==='old'?state.owner:null,...options};
  const api=Setup.create(host),body=(patch={})=>({operation:'enable',password:secret,expectedAuthority:clone(state.authority),backupDirectory:'C:/synthetic/backups',...patch});

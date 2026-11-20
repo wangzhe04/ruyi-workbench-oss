@@ -4469,6 +4469,10 @@ function defaultConfig() {
     // 落盘字节与既有实现完全一致。该开关目前只从配置文件读——启用/迁移 UI、首次迁移与恢复属于
     // M3-3，M3-2 不提供任何界面入口。
     workDataEncryptionV1: false,
+    // 151 阶段 3H(150 §9.2 拍板):3.1.0 的工作数据加密是实验性功能,「启用加密」入口默认隐藏。只有用户在
+    // 设置 → 高级 → 实验性功能里打开这个开关,面板才提供启用,13ah 才接受新的启用作业。它只管【新启用】:
+    // 已加密的数据根、未完成的作业,以及转明文/导出/恢复/口令相关的路径都与它无关。管家不能改它(06i forbidden)。
+    workDataEncryptionExperimentalV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
@@ -5251,6 +5255,11 @@ function normalizeConfig(raw, opts = {}) {
   for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  // 151 阶段 3H:实验开关只认 JSON 布尔 true;手改成 "true" 之类的串一律按关处理(与 13ah 读原始 config 的判据一致)。
+  if (typeof config.workDataEncryptionExperimentalV1 !== 'boolean') {
+    config.workDataEncryptionExperimentalV1 = false;
+    changed = true;
   }
   if (typeof config.sessionSearchIndexPausedV1 !== 'boolean') {
     config.sessionSearchIndexPausedV1 = false;
@@ -48476,6 +48485,9 @@ const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
   // 127 波 2-quater B2(拍板 2「默认开,设置可关,管家自己改不了」):代批开关。**不是 confirm** —— confirm 档
   // 管家提一枚按钮、用户随手一按就翻了,等于管家能劝用户替它扩权。
   'stewardExemptDelegationV1',
+  // 151 阶段 3H:工作数据加密的实验开关 —— 它放出的是「整个数据根换存储格式与密钥生命周期」的入口(与 workDataEncryptionV1
+  // 同属数据根一类)。不是 confirm:管家递一枚按钮、用户随手一按,就等于管家把用户引上一条实验性的整根迁移路径。
+  'workDataEncryptionExperimentalV1',
   // 簿记与用户行为记录:能改它们 = 能伪造「用户上次选的是我」/ 把任意键去显式化。
   'configSchema', 'version', 'configExplicitKeysV1', 'onboarding', 'lastUsedEngineRoute', 'subagentBudgetMigrated', 'searchBackendMigrated',
 ]);
@@ -115580,6 +115592,11 @@ const WorkDataSetup = (() => {
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
+        // 151 阶段 3H(150 §9.2):3.1.0 的工作数据加密是实验性功能。新的启用作业只在用户打开了实验开关时才收,
+        // 判据是 inspect 当场从 config.json 原文读出的 experimentalEncryption(严格 true),不信浏览器自报。到这里为止
+        // 只做过只读检查(请求形状、口令形状、authority 复核、worker 能力),目录探测与作业都还没开始,所以拒绝时什么都没改。
+        // 只拦 enable:转明文(disable)、导出与恢复与开关无关 —— 已加密的用户任何时候都能把数据导出或转回明文。
+        if(body.operation==='enable'&&observed.experimentalEncryption!==true)throw fail('experimental_disabled');
         // A restore needs the broker-backed upload pair before any grant can exist.
         if(body.operation==='restore'&&(typeof worker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined'
           ||typeof WorkDataRestoreUploads.ownsGrant!=='function'))throw fail('upload_unavailable',501);
@@ -115652,7 +115669,7 @@ const WorkDataSetup = (() => {
       // budget. A restored plain root may have the same generation-zero authority
       // as its source, so authority alone cannot tell the browser which base serves.
       const maximum=canUpload&&typeof WorkDataRecovery!=='undefined'?WorkDataRecovery.LIMITS.serialized:null;
-      return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
+      return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,experimentalEncryption:observed.experimentalEncryption===true,maintenance:host.maintenance.status(),job:active?view(active):null,
         selectedBase:observed.base,uploadMaxBytes:Number.isSafeInteger(maximum)&&maximum>0?maximum:null,
         lastResult,...(lastResultError?{lastResultError}:{}),capabilities:{worker:started,upload:canUpload,
           download:transfer()&&lastResult!==null&&!ownTransition()&&(lastResult.backupState===undefined||lastResult.backupState==='present')},processRestartRequired:true};
@@ -115853,8 +115870,10 @@ async function workDataSetupInspect() {
   catch {throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});}finally{await file.close();}
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.workDataEncryptionV1!==undefined&&typeof raw.workDataEncryptionV1!=='boolean')throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});
   const configMirror=raw.workDataEncryptionV1===true,mode=WorkDataRootAuthority.mode(configMirror)?'encrypted':'plain';
+  // 151 阶段 3H:实验开关与 authority 出自同一次原文读;只认 JSON 布尔 true,缺省、非布尔都按关(拿不准就不提供启用)。
+  const experimentalEncryption=raw.workDataEncryptionExperimentalV1===true;
   if(current.generation&&current.mode!==mode)throw Object.assign(Error('work_data_setup.authority_changed'),{code:'work_data_setup.authority_changed',statusCode:409});
-  return {base:selected.canonicalBase,authority:{generation:current.generation,id:current.id,mode,sha256:current.proof.sha256},configMirror};
+  return {base:selected.canonicalBase,authority:{generation:current.generation,id:current.id,mode,sha256:current.proof.sha256},configMirror,experimentalEncryption};
   }catch(error){const code=/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.status_unavailable';throw Object.assign(Error(code),{code,apiCode:code,statusCode:Number.isInteger(error?.statusCode)?error.statusCode:503,retry:false});}
 }
 async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) {

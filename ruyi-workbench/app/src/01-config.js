@@ -292,6 +292,10 @@ function defaultConfig() {
     // 落盘字节与既有实现完全一致。该开关目前只从配置文件读——启用/迁移 UI、首次迁移与恢复属于
     // M3-3，M3-2 不提供任何界面入口。
     workDataEncryptionV1: false,
+    // 151 阶段 3H(150 §9.2 拍板):3.1.0 的工作数据加密是实验性功能,「启用加密」入口默认隐藏。只有用户在
+    // 设置 → 高级 → 实验性功能里打开这个开关,面板才提供启用,13ah 才接受新的启用作业。它只管【新启用】:
+    // 已加密的数据根、未完成的作业,以及转明文/导出/恢复/口令相关的路径都与它无关。管家不能改它(06i forbidden)。
+    workDataEncryptionExperimentalV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
@@ -1074,6 +1078,11 @@ function normalizeConfig(raw, opts = {}) {
   for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'semanticRetrievalV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  // 151 阶段 3H:实验开关只认 JSON 布尔 true;手改成 "true" 之类的串一律按关处理(与 13ah 读原始 config 的判据一致)。
+  if (typeof config.workDataEncryptionExperimentalV1 !== 'boolean') {
+    config.workDataEncryptionExperimentalV1 = false;
+    changed = true;
   }
   if (typeof config.sessionSearchIndexPausedV1 !== 'boolean') {
     config.sessionSearchIndexPausedV1 = false;

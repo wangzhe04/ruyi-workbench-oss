@@ -161,6 +161,11 @@ const WorkDataSetup = (() => {
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
+        // 151 阶段 3H(150 §9.2):3.1.0 的工作数据加密是实验性功能。新的启用作业只在用户打开了实验开关时才收,
+        // 判据是 inspect 当场从 config.json 原文读出的 experimentalEncryption(严格 true),不信浏览器自报。到这里为止
+        // 只做过只读检查(请求形状、口令形状、authority 复核、worker 能力),目录探测与作业都还没开始,所以拒绝时什么都没改。
+        // 只拦 enable:转明文(disable)、导出与恢复与开关无关 —— 已加密的用户任何时候都能把数据导出或转回明文。
+        if(body.operation==='enable'&&observed.experimentalEncryption!==true)throw fail('experimental_disabled');
         // A restore needs the broker-backed upload pair before any grant can exist.
         if(body.operation==='restore'&&(typeof worker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined'
           ||typeof WorkDataRestoreUploads.ownsGrant!=='function'))throw fail('upload_unavailable',501);
@@ -233,7 +238,7 @@ const WorkDataSetup = (() => {
       // budget. A restored plain root may have the same generation-zero authority
       // as its source, so authority alone cannot tell the browser which base serves.
       const maximum=canUpload&&typeof WorkDataRecovery!=='undefined'?WorkDataRecovery.LIMITS.serialized:null;
-      return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
+      return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,experimentalEncryption:observed.experimentalEncryption===true,maintenance:host.maintenance.status(),job:active?view(active):null,
         selectedBase:observed.base,uploadMaxBytes:Number.isSafeInteger(maximum)&&maximum>0?maximum:null,
         lastResult,...(lastResultError?{lastResultError}:{}),capabilities:{worker:started,upload:canUpload,
           download:transfer()&&lastResult!==null&&!ownTransition()&&(lastResult.backupState===undefined||lastResult.backupState==='present')},processRestartRequired:true};
@@ -434,8 +439,10 @@ async function workDataSetupInspect() {
   catch {throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});}finally{await file.close();}
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.workDataEncryptionV1!==undefined&&typeof raw.workDataEncryptionV1!=='boolean')throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});
   const configMirror=raw.workDataEncryptionV1===true,mode=WorkDataRootAuthority.mode(configMirror)?'encrypted':'plain';
+  // 151 阶段 3H:实验开关与 authority 出自同一次原文读;只认 JSON 布尔 true,缺省、非布尔都按关(拿不准就不提供启用)。
+  const experimentalEncryption=raw.workDataEncryptionExperimentalV1===true;
   if(current.generation&&current.mode!==mode)throw Object.assign(Error('work_data_setup.authority_changed'),{code:'work_data_setup.authority_changed',statusCode:409});
-  return {base:selected.canonicalBase,authority:{generation:current.generation,id:current.id,mode,sha256:current.proof.sha256},configMirror};
+  return {base:selected.canonicalBase,authority:{generation:current.generation,id:current.id,mode,sha256:current.proof.sha256},configMirror,experimentalEncryption};
   }catch(error){const code=/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.status_unavailable';throw Object.assign(Error(code),{code,apiCode:code,statusCode:Number.isInteger(error?.statusCode)?error.statusCode:503,retry:false});}
 }
 async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) {

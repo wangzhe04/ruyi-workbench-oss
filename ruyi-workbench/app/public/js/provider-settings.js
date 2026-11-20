@@ -1781,6 +1781,8 @@ async function saveCatalogField(field, stored) {
   if (stored === undefined) { refreshSettingsCatalog(); return false; }
   const saved = await saveConfigPartial(catalogPatch(field, stored, state.config));
   if (saved && field.key === 'theme') applyTheme(stored);
+  // 151 阶段 3H：实验开关存完，工作数据面板重读后台状态（启用入口只按 /api/work-data/status 读回的开关显示）。
+  if (saved && field.refreshWorkData === true) mountWorkDataSettings();
   refreshSettingsCatalog();
   return saved;
 }

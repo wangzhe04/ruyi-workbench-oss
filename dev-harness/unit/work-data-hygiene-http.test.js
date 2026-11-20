@@ -34,7 +34,7 @@ function fixture({base,engine,chain=true,hygieneBase,authority=plainAuthority}={
  const m=Maintenance.create({owns:()=>false,snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>({}),resume:()=>{},progress:async()=>{},flush:async()=>{},yield:tick});
  const handle={ready:new Promise(()=>{}),cancel:async()=>{events.push('cancel-child');},handoff:async()=>{}};
  const worker={start:async()=>{events.push('start');return handle;}};
- const host={maintenance:m,inspect:async()=>({authority:{...authority},base,configMirror:false}),validateDirectories:async()=>{},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',
+ const host={maintenance:m,inspect:async()=>({authority:{...authority},base,configMirror:false,experimentalEncryption:true}),validateDirectories:async()=>{},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',
   defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},receiptPath:()=>false,receiptOwner:()=>null,
   ...(engine===null?{}:{hygiene:engine||loadHygiene()}),...(hygieneBase?{hygieneBase}:{hygieneBase:async()=>base})};
  const api=Setup.create(host);
