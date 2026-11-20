@@ -8,6 +8,204 @@ after(()=>{for(const f of fixtures)f.close();assert.equal(path.dirname(root),pat
 const identities=root=>{const out=[];const visit=relative=>{const file=path.join(root,relative),s=fs.statSync(file,{bigint:true});out.push([relative,s.ino.toString(),s.isDirectory()?null:fs.readFileSync(file).toString('base64')]);if(s.isDirectory())for(const name of fs.readdirSync(file).sort())visit(path.join(relative,name));};visit('');return out;};
 async function encrypted(f,p){const token=await f.owner.prepare({expected:f.selected,candidate:f.candidate});await f.owner.prepareRepresentation(token,{mode:'encrypted'});await f.shadow(p.live,f.candidate,p.skillId);assert.equal((await f.owner.prepareBindings(token)).ready,true);f.select(f.candidate);f.state.enabled=true;await f.owner.activate();return token;}
 async function plaintext(f,p){const next={...f.newCandidate(),mode:'plain'},live=path.join(f.selected.root,'skills',p.skillId);await f.shadow(live,next,p.skillId,false);const token=await f.owner.prepare({expected:f.selected,candidate:next});await f.owner.prepareRepresentation(token,{mode:'plain'});assert.equal((await f.owner.prepareBindings(token)).ready,true);f.select(next,2,'plain');f.state.enabled=false;await f.owner.activate();return token;}
+
+async function archiveOnlyFixture(f, skillIds) {
+ const first = await f.owner.prepare({ expected: f.selected, candidate: f.candidate });
+ assert.equal((await f.owner.prepareBindings(first)).ready, true);
+ f.select(f.candidate);
+ f.state.enabled = true;
+ await f.owner.activate();
+ const revision = '5'.repeat(64), files = [];
+ for (const id of skillIds) {
+  const original = await fsp.mkdtemp(path.join(root, 'p1-original-'));
+  const live = path.join(f.selected.root, 'skills', id);
+  const backup = path.join(first.root, f.stamp, id);
+  const provenance = { schema: 1, source: 'codex', sourcePath: 'synthetic original', plugin: '', importedAt: 'then', sourceTreeHash: 'before', copyTreeHash: 'before' };
+  await fsp.mkdir(path.join(original, 'empty'));
+  await fsp.writeFile(path.join(original, 'SKILL.md'), 'ARCHIVED ' + id);
+  await fsp.writeFile(path.join(original, 'binary.dat'), Buffer.from([0, 255, 128, 10, 13]));
+  await f.api.writeSkillImportRecord(original, provenance, id);
+  await fsp.mkdir(live, { recursive: true });
+  await fsp.writeFile(path.join(live, 'SKILL.md'), 'REPLACEMENT ' + id);
+  await f.api.writeSkillImportRecord(live, provenance, id);
+  const newTree = f.api.migrationCapsuleFingerprint(await f.native.capture(live, revision));
+  const snapshot = await f.native.capture(original, revision);
+  const copyTreeHash = await f.api.migrationTreeHash(await f.api.migrationSkillTree(live));
+  await fsp.mkdir(backup, { recursive: true });
+  await fsp.writeFile(path.join(backup, '.ruyi-capsule-v1'), '{"version":1}');
+  const descriptor = f.api.migrationCapsuleDescriptor(backup);
+  await f.api.migrationCapsuleArchive(descriptor).write(require('node:zlib').gzipSync(JSON.stringify(snapshot)));
+  await f.api.migrationCapsuleWriteIntent(descriptor, {
+   schema: 1, id, stamp: f.stamp, revision, phase: 'published', archiveOnly: true,
+   oldRoot: snapshot.entries[0].id, newTree, sourceStage: '.ruyi-copy-' + id + '-' + f.stamp,
+  });
+  files.push({ file: live, kind: 'skill-copy', backup, backupRef: f.owner.ref(f.stamp, id, first.storeId), items: [{ id, action: 'updated', copyTreeHash }] });
+ }
+ await require('node:vm').runInNewContext('writeMigrationLog', f.context)({ schema: 1, id: f.stamp, type: 'skill-copy', files });
+ return files;
+}
+
+async function archiveTransition(f, mode, files) {
+ const source = f.selected;
+ const next = { ...f.newCandidate(), mode };
+ const generation = source.generation + 1;
+ const raw = JSON.stringify({ schema: 1, id: next.id, generation, mode, activeRoot: 'generations/' + next.id });
+ next.pointerProof = { raw, sha256: hash(raw) };
+ for (const { items: [{ id }] } of files) {
+  const live = path.join(source.root, 'skills', id);
+  if (fs.existsSync(live)) await f.shadow(live, next, id, mode === 'encrypted');
+ }
+ const token = await f.owner.prepare({ expected: source, candidate: next });
+ const state = { expectedAuthority: { id: source.id, sha256: source.proof.sha256 }, candidate: { id: next.id, mode, pointerSha256: next.pointerProof.sha256 } };
+ const prepare = () => f.owner.prepareRepresentation(token, { mode, assertPrepared: async () => true, onPrepared: async proof => {
+  state.transition = proof;
+  return true;
+ } });
+ const recover = (disposition, verifyOnly = false) => {
+  const cold = f.api.hooks.createBackupOwner({ base: f.dir, readActive: async () => f.selected, sourceKeys: f.fx.store.Hooks.keys, native: f.native });
+  return cold.recoverPreparedTransition({ state, disposition, verifyOnly, assertUnchanged: async () => true });
+ };
+ async function publish() {
+  assert.equal((await f.owner.prepareBindings(token)).ready, true);
+  f.select(next, generation, mode);
+  f.state.enabled = mode === 'encrypted';
+  await recover('forward');
+  await f.owner.activate();
+ }
+ return { prepare, recover, publish };
+}
+
+test('archive-only encryption round trip preserves skill bytes and keeps source edits out of Undo', async () => {
+ const f = fixture(), files = await archiveOnlyFixture(f, ['Archive_One', 'Archive_Edited']);
+ const [eligible, edited] = files;
+ await fsp.writeFile(path.join(edited.file, 'SKILL.md'), 'USER EDIT');
+ const off = await archiveTransition(f, 'plain', files);
+ assert.equal((await off.prepare()).entries, 2);
+ assert.deepEqual(await fsp.readFile(path.join(eligible.backup, 'binary.dat')), Buffer.from([0, 255, 128, 10, 13]));
+ assert.deepEqual(await fsp.readdir(path.join(eligible.backup, 'empty')), []);
+ assert.equal(JSON.parse(await fsp.readFile(path.join(eligible.backup, '.ruyi-import.json'), 'utf8')).sourcePath, 'synthetic original');
+ await off.publish();
+ assert.equal((await f.api.migrationUndoSkillCopy(edited)).reason, 'edited');
+ const on = await archiveTransition(f, 'encrypted', files);
+ assert.equal((await on.prepare()).entries, 2);
+ await on.publish();
+ assert.deepEqual((await fsp.readdir(eligible.backup)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+ const controls = path.join(f.dir, '.work-data', 'skill-backups');
+ assert.equal((await fsp.readdir(controls, { recursive: true })).some(name => ['SKILL.md', 'binary.dat'].includes(path.basename(name))), false,
+  'the encrypted skill backup store contains no retired plaintext skill payload');
+ const descriptor = f.api.migrationCapsuleDescriptor(eligible.backup);
+ const record = await f.api.migrationCapsuleRead(descriptor);
+ assert.equal(record.intent.archiveOnly, true);
+ assert.equal((await f.api.migrationUndoSkillCopy(edited)).reason, 'edited');
+ assert.equal((await f.api.migrationUndoSkillCopy(eligible)).outcome, 'restored-previous');
+ const current = path.join(f.selected.root, 'skills', 'Archive_One');
+ assert.equal(await fsp.readFile(path.join(current, 'SKILL.md'), 'utf8'), 'ARCHIVED Archive_One');
+ assert.deepEqual(await fsp.readFile(path.join(current, 'binary.dat')), Buffer.from([0, 255, 128, 10, 13]));
+ assert.equal((await f.api.readSkillImportRecord(current)).sourcePath, 'synthetic original');
+ assert.equal(await fsp.readFile(path.join(f.selected.root, 'skills', 'Archive_Edited', 'SKILL.md'), 'utf8'), 'USER EDIT');
+});
+
+test('archive-only encryption transitions recover the same authority after interrupted publication in both directions', async () => {
+ const f = fixture(), files = await archiveOnlyFixture(f, ['Archive_One']);
+ const [entry] = files;
+ for (const mode of ['plain', 'encrypted']) {
+  for (const cut of [1, 2]) {
+   const source = f.selected, before = identities(entry.backup);
+   const failed = await archiveTransition(f, mode, files);
+   const move = f.native.move;
+   let count = 0;
+   f.native.move = async request => {
+    const result = await move(request);
+    if (++count === cut) throw Object.assign(new Error('interrupted after rename'), { code: 'simulated.move-after' });
+    return result;
+   };
+   try { await assert.rejects(() => failed.prepare(), { code: 'simulated.move-after', operationMayHaveExecuted: true, retry: false }); }
+   finally { f.native.move = move; }
+   const inverse = await failed.recover('inverse');
+   assert.equal(inverse.disposition, 'inverse');
+   assert.deepEqual(identities(entry.backup), before, `${mode} move ${cut}`);
+   assert.equal(f.selected.id, source.id);
+   await failed.recover('inverse', true);
+   await f.owner.activate();
+  }
+  const retry = await archiveTransition(f, mode, files);
+  await retry.prepare();
+  await retry.publish();
+ }
+ assert.deepEqual((await fsp.readdir(entry.backup)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+});
+
+test('archive-only encryption transition keeps completed Undo terminal across both modes', async () => {
+ const f = fixture(), files = await archiveOnlyFixture(f, ['Archive_One']);
+ const [entry] = files;
+ assert.equal((await f.api.migrationUndoSkillCopy(entry)).outcome, 'restored-previous');
+ const beforeCancel = identities(entry.backup);
+ const canceled = await archiveTransition(f, 'plain', files);
+ await canceled.prepare();
+ assert.equal(JSON.parse((await fsp.readFile(path.join(entry.backup, 'history'), 'utf8')).split('\n', 1)[0]).workData, 3);
+ await canceled.recover('inverse');
+ await f.owner.activate();
+ assert.deepEqual(identities(entry.backup), beforeCancel);
+ for (const mode of ['plain', 'encrypted']) {
+  const change = await archiveTransition(f, mode, files);
+  assert.equal((await change.prepare()).entries, 1);
+  await change.publish();
+  const history = await f.readHistory(entry.backup);
+  assert.equal(history.mode, 'encrypted');
+  assert.equal(history.phase, 'complete');
+  const live = path.join(f.selected.root, 'skills', 'Archive_One'), before = identities(live);
+  assert.equal((await f.api.migrationUndoSkillCopy(entry)).outcome, 'restored-previous');
+  assert.deepEqual(identities(live), before);
+ }
+});
+
+test('archive-only encryption transition resumes plaintext retirement after the new pointer is published', async () => {
+ const f = fixture(), files = await archiveOnlyFixture(f, ['Archive_One']);
+ const off = await archiveTransition(f, 'plain', files);
+ await off.prepare();
+ await off.publish();
+ const on = await archiveTransition(f, 'encrypted', files);
+ await on.prepare();
+ const io = f.context.fsp;
+ f.context.fsp = { ...io, async rm(target, options) {
+  if (path.basename(target) === 'plain-tree') {
+   await io.unlink(path.join(target, 'binary.dat'));
+   throw Object.assign(new Error('interrupted retirement'), { code: 'simulated.retirement' });
+  }
+  return io.rm(target, options);
+ } };
+ try { await assert.rejects(on.publish, { code: 'simulated.retirement', operationMayHaveExecuted: true }); }
+ finally { f.context.fsp = io; }
+ const committed = f.selected.id;
+ assert.equal(f.selected.mode, 'encrypted');
+ assert.equal((await on.recover('forward')).disposition, 'forward');
+ await on.recover('forward', true);
+ await f.owner.activate();
+ assert.equal(f.selected.id, committed);
+ const controls = path.join(f.dir, '.work-data', 'skill-backups');
+ assert.equal((await fsp.readdir(controls, { recursive: true })).some(name => path.basename(name) === 'plain-tree'), false);
+ assert.equal((await f.api.migrationUndoSkillCopy(files[0])).outcome, 'restored-previous');
+});
+
+test('undoing an archive-derived plain backup leaves sealed history that can be re-enabled', async () => {
+ const f = fixture(), files = await archiveOnlyFixture(f, ['Archive_One']);
+ const [entry] = files;
+ const off = await archiveTransition(f, 'plain', files);
+ await off.prepare();
+ await off.publish();
+ assert.equal((await f.api.migrationUndoSkillCopy(entry)).outcome, 'restored-previous');
+ assert.equal((await f.readHistory(entry.backup)).mode, 'encrypted');
+ const on = await archiveTransition(f, 'encrypted', files);
+ await on.prepare();
+ await on.publish();
+ const history = await f.readHistory(entry.backup);
+ assert.equal(history.phase, 'complete');
+ assert.equal(history.mode, 'encrypted');
+ const live = path.join(f.selected.root, 'skills', 'Archive_One'), before = identities(live);
+ assert.equal((await f.api.migrationUndoSkillCopy(entry)).outcome, 'restored-previous');
+ assert.deepEqual(identities(live), before);
+});
+
 test('real codecs bind encrypted -> plain business undo to original IDs and publish typed terminal history without replay',async()=>{
  const f=fixture(),p=await f.plain();await encrypted(f,p);const token=await plaintext(f,p),live=path.join(f.selected.root,'skills',p.skillId),oldBaseLive=identities(p.live);
  const ref=await f.owner.ref(f.stamp,p.skillId,token.storeId),receipt={file:p.live,kind:'skill-copy',backup:p.backup,backupRef:ref,items:[{id:p.skillId,copyTreeHash:p.record.copyTreeHash}]};

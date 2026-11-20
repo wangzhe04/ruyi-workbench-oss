@@ -71,7 +71,9 @@ async function createOwnedPortable(f, { root, snapshot, revision }) {
 test('actual empty V3 store exports authenticated exact closed portable records without source changes',async t=>{
  const f=await portableFixture(t),{captured,request}=await f.capture();try{const before=await f.tree.verify(captured),portable=await f.owner.capturePortable(request);assert.equal(portable.type,'skill-backup-portable');assert.equal(portable.sourceSha256,request.source.sourceSha256);const value=await f.owner.validatePortable({...request,data:portable.data});assert.equal(value.records.length,3);assert.equal(value.profile.originalObjects,'refused');assert.equal(value.authority.id,f.selected.id);assert.equal((await f.tree.verify(captured)).sha256,before.sha256);portable.release();assert.equal(portable.data.every(n=>n===0),true);}finally{captured.release();}
 });
-test('catalogued nonempty capsule migrates through durable prepared and ready host callbacks',async t=>{
+for (const archiveOnly of [false, true]) test(archiveOnly
+ ? 'archive-only slot survives enabling and disabling through the migration host and portable backup'
+ : 'catalogued nonempty capsule migrates through durable prepared and ready host callbacks',async t=>{
  const f=await portableFixture(t),plain=await f.special.plain(),base=f.base,selected=f.selected;
  f.special.context.WorkDataTree=f.api.WorkDataTree;
  f.special.fx.store.Hooks.capturedFiles=f.fx.store.Hooks.capturedFiles;
@@ -86,15 +88,15 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
  await fsp.unlink(path.join(base,'migrations',f.special.stamp+'.json'));
  const backup=path.join(base,'.work-data','skill-backups','objects-v1',f.special.stamp,plain.skillId);
  const objects=path.join(backup,'objects'),revision='1'.repeat(64);
- await fsp.mkdir(objects,{recursive:true});
+ await fsp.mkdir(archiveOnly?backup:objects,{recursive:true});
  const snapshot=await f.special.native.capture(plain.backup,revision);
  const descriptor={backup,stamp:f.special.stamp,id:plain.skillId,scopeId:'skill-backups:'+f.special.stamp,
   recordId:'skill-backup:'+(process.platform==='win32'?plain.skillId.toLowerCase():plain.skillId),archiveKeys:f.keys,intentKeys:f.keys};
- const intent={schema:1,id:descriptor.id,stamp:descriptor.stamp,revision,phase:'published',oldRoot:snapshot.entries[0].id,
+ const intent={schema:1,id:descriptor.id,stamp:descriptor.stamp,revision,phase:'published',...(archiveOnly?{archiveOnly:true}:{}),oldRoot:snapshot.entries[0].id,
   newTree:f.special.api.migrationCapsuleFingerprint(await f.special.native.capture(live,revision)),sourceStage:'.ruyi-copy-'+descriptor.id+'-'+descriptor.stamp};
  await f.special.api.migrationCapsuleArchive(descriptor).write(require('node:zlib').gzipSync(Buffer.from(JSON.stringify(snapshot))));
  await f.special.api.migrationCapsuleWriteIntent(descriptor,intent);
- await f.special.native.seal({root:plain.backup,container:objects,snapshot});
+ if(!archiveOnly)await f.special.native.seal({root:plain.backup,container:objects,snapshot});
  await fsp.writeFile(path.join(backup,'.ruyi-capsule-v1'),'{"version":1}');
  const nativeCapture=f.special.native.capture;
  f.special.native.capture=async(...args)=>{
@@ -104,7 +106,7 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
  };
  const intentFile=path.join(base,'.work-data','maintenance-v1.json');
  await fsp.unlink(intentFile);
- const sourceProof=await fullPortableOwner(f).seal({password:'synthetic nonempty migration password',appVersion:'3.0.1',generation:selected.generation});
+ let sourceProof=await fullPortableOwner(f).seal({password:'synthetic nonempty migration password',appVersion:'3.0.1',generation:selected.generation});
  assert.equal(sourceProof.specialCoverage.originalObjects,'new-owned-portable');
  withPortableDurability(f);
  f.special.native.createOwnedPortable=request=>createOwnedPortable(f,request);
@@ -114,7 +116,8 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
  assert.equal((await fsp.readdir(f.root)).some(name=>name.startsWith('.ruyi-skill-portable-')),false);
  const resealed=await fullPortableOwner({...f,base:restoredRoot}).seal({password:'synthetic nonempty migration password',appVersion:'3.0.1',generation:selected.generation});
  assert.equal(resealed.specialCoverage.originalObjects,'new-owned-portable');
- const backupReceipt={sha256:hash(sourceProof.serialized)},ownership={roots:[base]},callbacks=[];
+ let backupReceipt={sha256:hash(sourceProof.serialized)};
+ const ownership={roots:[base]},callbacks=[];
  const writeIntent=async info=>{
   const data=Buffer.from(JSON.stringify(info||{}));await fsp.writeFile(intentFile,data);
   const stat=await fsp.lstat(intentFile,{bigint:true});
@@ -133,14 +136,32 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
   preservedRead:{profile:'bounded-native-v1',capturePreserved},
   assertDurableBackup:request=>request.backupReceipt===backupReceipt&&request.sourceProof===sourceProof,assertIntent:writeIntent,
   onCandidate:writeIntent,onKeyReady:writeIntent,assertSpecialCoverage:()=>true,
-  async onSpecialPrepared(info){assert.equal(fs.existsSync(path.join(backup,'.ruyi-capsule-v1')),true);callbacks.push(info.transition);return writeIntent(info);},
-  async onSpecialReady(info){assert.equal(f.special.nativeId(backup),snapshot.entries[0].id);callbacks.push(info.transitionReady);return writeIntent(info);},
+  async onSpecialPrepared(info){assert.equal(fs.existsSync(path.join(backup,info.candidate.mode==='plain'?'.ruyi-capsule-v1':'SKILL.md')),true);callbacks.push(info.transition);return writeIntent(info);},
+  async onSpecialReady(info){if(!archiveOnly)assert.equal(f.special.nativeId(backup),snapshot.entries[0].id);callbacks.push(info.transitionReady);return writeIntent(info);},
   specialOwnerFactory:options=>f.special.api.hooks.createBackupOwner({...options,native:f.special.native}),writeJson:f.fx.atomicWriteJson});
  const prepared=await host.prepare({expected:selected,targetMode:'plain',sourceProof,backupReceipt});
  assert.equal(callbacks.length,2);assert.match(callbacks[0].preparedSha256,/^[a-f0-9]{64}$/);assert.match(callbacks[1].targetNativeSha256,/^[a-f0-9]{64}$/);
  const published=await host.publish(prepared),verified=await host.verifyPublished(prepared);
  assert.equal(published.active.mode,'plain');assert.equal(verified.targetSha256,callbacks[1].targetSha256);
- assert.equal(f.special.nativeId(backup),snapshot.entries[0].id);assert.equal(await fsp.readFile(path.join(backup,'SKILL.md'),'utf8'),'ORIGINAL');
+ if(!archiveOnly)assert.equal(f.special.nativeId(backup),snapshot.entries[0].id);
+ assert.equal(await fsp.readFile(path.join(backup,'SKILL.md'),'utf8'),'ORIGINAL');
+ if(archiveOnly){
+  await fsp.unlink(intentFile);
+  const password='synthetic archive transition roundtrip';
+  sourceProof=await fullPortableOwner(f).seal({password,appVersion:'3.0.1',generation:published.active.generation});
+  const plainTarget=path.join(f.root,'archive-plain-portable-target');
+  await fullPortableOwner(f).restore({serialized:sourceProof.serialized,password,target:plainTarget,targetOwnership:{roots:[plainTarget]}});
+  assert.equal(await fsp.readFile(path.join(plainTarget,path.relative(base,backup),'SKILL.md'),'utf8'),'ORIGINAL');
+  backupReceipt={sha256:hash(sourceProof.serialized)};
+  await writeIntent();
+  const enabled=await host.prepare({expected:published.active,targetMode:'encrypted',sourceProof,backupReceipt});
+  const result=await host.publish(enabled);
+  await host.verifyPublished(enabled);
+  assert.equal(result.active.mode,'encrypted');
+  assert.deepEqual((await fsp.readdir(backup)).sort(),['.ruyi-capsule-v1','archive','intent']);
+  await fsp.unlink(intentFile);
+  await fullPortableOwner(f).seal({password,appVersion:'3.0.1',generation:result.active.generation});
+ }
 });
 for(const changedStream of [false,true])test(changedStream
  ?'legacy admission rejects an ADS added after portable verification and before the move'
