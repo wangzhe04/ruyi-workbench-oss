@@ -185,6 +185,47 @@ async function backupOf(api, result) {
   assert.deepEqual(ids(interrupted), originalIds);
   assert.equal(fs.readFileSync(interrupted + ':directory-private-ads', 'utf8'), 'PRIVATE DIRECTORY STREAM');
   t.ok(true, 'cold DPAPI recovery repairs a durable preparing capsule after native clear without redoing the user copy');
+
+  // Install a stable backup owner over a separate disposable data root. Keep
+  // the native NTFS broker and CurrentUser DPAPI on the normal production path.
+  const writerBase = path.join(root, 'archive-only-data');
+  Object.assign(process.env, releaseEnvironment(home, writerBase));
+  const writer = load();
+  await toggle(writer, true);
+  (await writer.workDataKeys.ensure()).fill(0);
+  let selected = { id: null, root: writerBase, generation: 0, proof: { raw: null, sha256: null } };
+  const id = require('node:crypto').randomBytes(24).toString('hex');
+  const candidate = { id, root: path.join(writerBase, '.work-data', 'generations', id), mode: 'encrypted' };
+  await fsp.mkdir(candidate.root, { recursive: true });
+  const owner = writer.MigrationHooks.createBackupOwner({ base: writerBase, readActive: async () => selected, sourceKeys: writer.workDataKeys });
+  const token = await owner.prepare({ expected: selected, candidate });
+  assert.equal((await owner.prepareBindings(token)).ready, true);
+  const raw = JSON.stringify({ schema: 1, id, generation: 1, mode: 'encrypted', activeRoot: 'generations/' + id });
+  selected = { ...candidate, generation: 1, proof: { raw, sha256: require('node:crypto').createHash('sha256').update(raw).digest('hex') } };
+  await owner.activate();
+  const skillId = 'archive-only-native', actual = path.join(candidate.root, 'skills', skillId);
+  const payload = Buffer.from([0, 255, 13, 10, 128]);
+  externalSkill(skillId, 1);
+  assert.equal((await writer.migrationCopySkills({ keys: ['codex:' + skillId] })).copied, 1);
+  write(path.join(actual, 'payload.bin'), payload);
+  fs.writeFileSync(path.join(actual, 'payload.bin:private-ads'), 'ARCHIVE ONLY FILE STREAM');
+  fs.writeFileSync(actual + ':private-ads', 'ARCHIVE ONLY DIRECTORY STREAM');
+  externalSkill(skillId, 2);
+  const readonlySource = path.join(home, '.codex', 'skills', skillId, 'readonly.bin');
+  write(readonlySource, payload);
+  fs.chmodSync(readonlySource, 0o444);
+  const replaced = await writer.migrationCopySkills({ keys: ['codex:' + skillId], overwrite: true });
+  assert.equal(replaced.copied, 1, JSON.stringify(replaced));
+  assert.deepEqual(fs.readFileSync(path.join(actual, 'readonly.bin')), payload);
+  fs.chmodSync(readonlySource, 0o666);
+  const archiveOnly = await backupOf(writer, replaced);
+  assert.deepEqual(fs.readdirSync(archiveOnly).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+  assert.equal((await writer.migrationCapsuleRead(writer.migrationCapsuleDescriptor(archiveOnly))).intent.archiveOnly, true);
+  assert.equal((await writer.migrationUndo({ id: replaced.id })).restored, 1);
+  assert.deepEqual(fs.readFileSync(path.join(actual, 'payload.bin')), payload);
+  assert.equal(fs.readFileSync(path.join(actual, 'payload.bin:private-ads'), 'utf8'), 'ARCHIVE ONLY FILE STREAM');
+  assert.equal(fs.readFileSync(actual + ':private-ads', 'utf8'), 'ARCHIVE ONLY DIRECTORY STREAM');
+  t.ok(true, 'stable encrypted owner writes archive-only backups through the production entry point and restores NTFS streams with real DPAPI');
 })().catch(error => t.fail(error.stack || String(error))).finally(async () => {
   await Promise.all(runtimes.map(api => api.flushWorkbenchLogs({ allowFailure: true })));
   clearKeys(); assert.equal(path.dirname(root), base); fs.rmSync(root, { recursive: true, force: true }); t.done();

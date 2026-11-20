@@ -2149,6 +2149,15 @@ function migrationCapsuleDecode(bytes) {
     migrationCapsuleFail('shape');
   } finally { decoded.fill(0); }
 }
+function migrationCapsuleEncode(snapshot) {
+  const raw = Buffer.from(JSON.stringify(snapshot), 'utf8');
+  try {
+    if (raw.length > MIGRATION_CAPSULE_ARCHIVE_LIMIT) migrationCapsuleFail('capacity');
+    const bytes = require('node:zlib').gzipSync(raw);
+    if (bytes.length > MIGRATION_CAPSULE_BINARY_LIMIT) { bytes.fill(0); migrationCapsuleFail('capacity'); }
+    return bytes;
+  } finally { raw.fill(0); }
+}
 function migrationCapsuleArchive(descriptor, keys = descriptor.archiveKeys) {
   const file = path.join(descriptor.backup, 'archive');
   return WorkDataStore.createBinary({ file: () => file,
@@ -2175,8 +2184,9 @@ function migrationCapsuleIntentShape(value, descriptor) {
   const restore = value?.archiveRestore;
   if (value?.archiveOnly !== undefined) {
     if (value.archiveOnly !== true || descriptor.plainRoot || descriptor.generationLocal
-      || !['published', 'restoring', 'complete'].includes(value.phase)) return false;
-    if (value.phase === 'published') { if (restore !== undefined) return false; }
+      || !['preparing', 'published', 'restoring', 'complete', 'aborted'].includes(value.phase)
+      || value.phase==='preparing'&&(converted||value.generationId!==undefined)) return false;
+    if (['preparing','published','aborted'].includes(value.phase)) { if (restore !== undefined) return false; }
     else if (value.phase === 'restoring' || restore !== undefined) {
       if (!restore || !/^[a-f0-9]{48}$/.test(restore.token || '')) return false;
       if (restore.ownerIdentity !== undefined && !/^\d+:\d+$/.test(restore.ownerIdentity)) return false;
@@ -3254,18 +3264,21 @@ function migrationArchiveRestorePaths(dest, intent) {
   const owner = base + '-stage';
   return { owner, stage: path.join(owner, 'tree'), retired: base + '-retired' };
 }
+async function migrationRetireSkillTree(root, fingerprint, revision, identity) {
+  // A previous pass may have removed only part of the tree. Every remaining
+  // object must still belong to the authenticated tree being retired.
+  const original = new Map(fingerprint.map(entry => [entry.rel, JSON.stringify(entry)]));
+  const remaining = migrationCapsuleFingerprint(await migrationCapsuleCapture(root, revision));
+  if (remaining.some(entry => original.get(entry.rel) !== JSON.stringify(entry))) migrationCapsuleFail('live_changed', true);
+  if (await migrationArchiveRestoreIdentity(root) !== identity) migrationCapsuleFail('archive_restore_layout', true);
+  await fsp.rm(root, { recursive: true });
+}
 async function migrationArchiveRestoreRetire(dest, intent) {
   const { owner, retired } = migrationArchiveRestorePaths(dest, intent);
   const identity = await migrationArchiveRestoreIdentity(retired);
   if (identity) {
     if (identity !== intent.archiveRestore.replacedIdentity) migrationCapsuleFail('archive_restore_layout', true);
-    // Cleanup can have removed only part of its own tree before interruption.
-    // Each remaining object must still be from the replacement we retired.
-    const original = new Map(intent.newTree.map(entry => [entry.rel, JSON.stringify(entry)]));
-    const remaining = migrationCapsuleFingerprint(await migrationCapsuleCapture(retired, intent.revision));
-    if (remaining.some(entry => original.get(entry.rel) !== JSON.stringify(entry))) migrationCapsuleFail('live_changed', true);
-    if (await migrationArchiveRestoreIdentity(retired) !== identity) migrationCapsuleFail('archive_restore_layout', true);
-    await fsp.rm(retired, { recursive: true });
+    await migrationRetireSkillTree(retired, intent.newTree, intent.revision, identity);
   }
   const ownerIdentity = await migrationArchiveRestoreIdentity(owner);
   if (ownerIdentity) {
@@ -3350,6 +3363,102 @@ async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
   }
   await migrationFinishPlainHistory(descriptor, snapshot, intent);
 }
+function migrationArchivePublishRetired(dest, intent) {
+  return path.join(path.dirname(dest), intent.sourceStage + '.original');
+}
+async function migrationArchiveSyncFiles(files) {
+  for (const file of files) {
+    const handle = await fsp.open(path.toNamespacedPath(file), 'r+');
+    try { await handle.sync(); } finally { await handle.close(); }
+  }
+}
+async function migrationArchiveFlush(files, directories) {
+  await migrationArchiveSyncFiles(files);
+  const broker = await migrationCapsuleBroker();
+  try { for (const root of directories) await broker.command({ cmd: 'store-flush', root }); }
+  finally { await broker.close(); }
+}
+async function migrationRecoverArchivePublication(descriptor, snapshot, intent, dest) {
+  const root = path.dirname(dest), stage = path.join(root, intent.sourceStage);
+  const retired = migrationArchivePublishRetired(dest, intent);
+  const retiredIdentity = await migrationArchiveRestoreIdentity(retired);
+  if (intent.phase === 'preparing') {
+    const live = await migrationArchiveRestoreIdentity(dest);
+    const inode = live && (await fsp.lstat(dest, { bigint: true })).ino.toString(16).padStart(16, '0');
+    if (inode === intent.newTree.find(entry => entry.rel === '').id.slice(8)) intent.phase = 'published';
+    else {
+      const original = migrationCapsuleFingerprint(snapshot);
+      if (live) {
+        if (retiredIdentity) migrationCapsuleFail('live_changed', true);
+        await migrationCapsuleAssertTree(dest, original, intent.revision);
+      } else {
+        if (!retiredIdentity) migrationCapsuleFail('archive_restore_layout', true);
+        await migrationCapsuleAssertTree(retired, original, intent.revision);
+        await fsp.rename(retired, dest);
+      }
+      intent.phase = 'aborted';
+    }
+    await migrationArchiveFlush([], [root]);
+    await migrationCapsuleWriteIntent(descriptor, intent);
+    await migrationArchiveFlush([path.join(descriptor.backup, 'intent')], [descriptor.backup]);
+  }
+  if (intent.phase === 'published' && retiredIdentity) {
+    // Flush the visible receipt again if it survived a failed flush in this process.
+    await migrationArchiveFlush([path.join(descriptor.backup, 'intent')], [root, descriptor.backup]);
+    await migrationRetireSkillTree(retired, migrationCapsuleFingerprint(snapshot), intent.revision, retiredIdentity);
+    await migrationArchiveFlush([], [root]);
+  }
+  if (intent.phase === 'aborted') {
+    const stageIdentity = await migrationArchiveRestoreIdentity(stage);
+    if (stageIdentity) {
+      await migrationRetireSkillTree(stage, intent.newTree, intent.revision, stageIdentity);
+      await migrationArchiveFlush([], [root]);
+    }
+  }
+}
+async function migrationCapsulePrepareArchive(dest, stage, backup) {
+  const descriptor = migrationCapsuleDescriptor(backup), revision = crypto.randomBytes(32).toString('hex');
+  const snapshot = await migrationCapsuleCapture(dest, revision);
+  const staged = await migrationCapsuleCapture(stage, revision);
+  const intent = { schema: 1, id: descriptor.id, stamp: descriptor.stamp, revision, phase: 'preparing', archiveOnly: true,
+    oldRoot: snapshot.entries.find(entry => entry.rel === '').id, newTree: migrationCapsuleFingerprint(staged), sourceStage: path.basename(stage) };
+  const retired = migrationArchivePublishRetired(dest, intent);
+  if (await migrationArchiveRestoreIdentity(retired)) migrationCapsuleFail('retired_exists');
+  const bytes = migrationCapsuleEncode(snapshot);
+  const draft = { ...descriptor, backup: backup + '.pending' };
+  const parent = path.dirname(backup);
+  migrationRecoveryNeeded = true;
+  try {
+    await fsp.mkdir(draft.backup);
+    await atomicWriteJson(path.join(draft.backup, MIGRATION_CAPSULE_MARKER), { version: 1 });
+    await migrationCapsuleArchive(draft).write(bytes);
+    await migrationCapsuleWriteIntent(draft, intent);
+    await migrationCapsuleRead(draft);
+    await migrationArchiveFlush([MIGRATION_CAPSULE_MARKER, 'archive', 'intent'].map(name => path.join(draft.backup, name)),
+      [draft.backup, parent, path.dirname(parent)]);
+    await fsp.rename(draft.backup, backup);
+    await migrationArchiveFlush([], [parent]);
+    for (const entry of staged.entries) {
+      if (!entry.streams.length) continue;
+      const target = path.toNamespacedPath(path.join(stage, entry.rel));
+      const readOnly = process.platform === 'win32' && !entry.dir && (entry.attrs & 1);
+      if (readOnly) await fsp.chmod(target, 0o666);
+      try { await migrationArchiveSyncFiles(entry.streams.map(stream => target + stream.name)); }
+      finally { if (readOnly) await fsp.chmod(target, 0o444); }
+    }
+    await migrationArchiveFlush([], staged.entries.filter(entry => entry.dir).map(entry => path.join(stage, entry.rel)).reverse());
+    await migrationCapsuleAssertTree(stage, intent.newTree, revision);
+    await migrationCapsuleAssertTree(dest, migrationCapsuleFingerprint(snapshot), revision);
+    await fsp.rename(dest, retired);
+    await migrationArchiveFlush([], [path.dirname(dest)]);
+    await fsp.rename(stage, dest);
+    await migrationRecoverArchivePublication(descriptor, snapshot, intent, dest);
+    migrationRecoveryNeeded = false;
+  } catch (error) {
+    error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false;
+    throw error;
+  } finally { bytes.fill(0); }
+}
 async function migrationCapsulePrepare(dest, stage, backup) {
   const descriptor = migrationCapsuleDescriptor(backup), revision = crypto.randomBytes(32).toString('hex');
   const broker = await migrationCapsuleBroker();
@@ -3359,12 +3468,8 @@ async function migrationCapsulePrepare(dest, stage, backup) {
     const snapshot = await broker.command({ cmd: 'capture', root: dest, revision });
     if (!migrationCapsuleShape(snapshot)) migrationCapsuleFail('shape');
     const staged = await migrationCapsuleCapture(stage, revision);
-    const raw = Buffer.from(JSON.stringify(snapshot), 'utf8');
-    if (raw.length > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { raw.fill(0); migrationCapsuleFail('capacity'); }
-    let bytes;
-    try { bytes = require('node:zlib').gzipSync(raw); } finally { raw.fill(0); }
+    const bytes = migrationCapsuleEncode(snapshot);
     try {
-      if (bytes.length > MIGRATION_CAPSULE_BINARY_LIMIT) migrationCapsuleFail('capacity');
       if (await migrationLstat(backup)) migrationCapsuleFail('target_exists');
       await fsp.mkdir(path.dirname(backup), { recursive: true });
       await fsp.mkdir(backup);
@@ -3414,6 +3519,38 @@ async function migrationRecoverSkillBackups() {
     if (!batch.isDirectory() || batch.isSymbolicLink()) migrationCapsuleFail('backup_root');
     for (const entry of await fsp.readdir(path.join(root, batch.name), { withFileTypes: true })) {
       const backup = path.join(root, batch.name, entry.name);
+      const pending = /^([A-Za-z0-9_-]{1,64})\.pending$/.exec(entry.name);
+      if (migrationBackupAuthority && pending && entry.isDirectory() && !entry.isSymbolicLink()) {
+        const dest = migrationSkillTarget(pending[1]), skills = path.dirname(dest);
+        const stage = path.join(skills, MIGRATION_SKILL_STAGE_PREFIX + pending[1] + '-' + batch.name);
+        const final = path.join(path.dirname(backup), pending[1]);
+        const children = await fsp.readdir(backup, { withFileTypes: true });
+        if (await migrationLstat(final) || await migrationArchiveRestoreIdentity(stage + '.original')
+          || children.some(child => !child.isFile() || !/^(?:\.ruyi-capsule-v1|archive|intent)(?:\.\d+\.[0-9a-f]{8}\.tmp)?$/.test(child.name)))
+          migrationCapsuleFail('archive_restore_layout', true);
+        const stageIdentity = await migrationArchiveRestoreIdentity(stage);
+        if (stageIdentity) {
+          if (children.some(child => child.name === 'intent')) {
+            const { intent } = await migrationCapsuleRead({ ...migrationCapsuleDescriptor(final), backup });
+            if (!intent.archiveOnly || intent.phase !== 'preparing') migrationCapsuleFail('archive_restore_layout', true);
+            await migrationRetireSkillTree(stage, intent.newTree, intent.revision, stageIdentity);
+          } else {
+            const remaining = await fsp.readdir(stage);
+            if (remaining.length) {
+              const provenance = path.join(stage, SKILL_IMPORT_RECORD);
+              if (!(await migrationLstat(provenance))?.isFile() || !await WorkDataStore.hasContainerMarker(provenance)
+                || !await skillImportRecordStore(stage, pending[1], true).read()) migrationCapsuleFail('archive_restore_layout', true);
+              for (const name of remaining) if (name !== SKILL_IMPORT_RECORD) await fsp.rm(path.join(stage, name), { recursive: true });
+              await fsp.unlink(path.join(stage, SKILL_IMPORT_RECORD));
+            }
+            await fsp.rmdir(stage);
+          }
+        }
+        await migrationArchiveFlush([], [skills]);
+        await fsp.rm(backup, { recursive: true });
+        await migrationArchiveFlush([], [path.dirname(backup)]);
+        continue;
+      }
       work.push({ backup, entry });
     }
   }
@@ -3438,6 +3575,7 @@ async function migrationRecoverSkillBackup(descriptor, snapshot, intent) {
   if (intent.archiveOnly) {
     if (intent.phase === 'restoring') return migrationCapsuleRestoreArchive(descriptor, snapshot, intent, dest);
     if (intent.phase === 'complete' && intent.archiveRestore) await migrationArchiveRestoreRetire(dest, intent);
+    if (['preparing','published','aborted'].includes(intent.phase)) await migrationRecoverArchivePublication(descriptor, snapshot, intent, dest);
     return;
   }
   const stat = await migrationLstat(dest);
@@ -3550,7 +3688,8 @@ async function migrationCopyOneSkill(row, ts) {
       await fsp.mkdir(bdir, { recursive: true });
       backup = path.join(bdir, row.id);
       if (sealBackup) {
-        await migrationCapsulePrepare(dest, stage, backup);
+        if (migrationBackupAuthority) await migrationCapsulePrepareArchive(dest, stage, backup);
+        else await migrationCapsulePrepare(dest, stage, backup);
       } else {
         await fsp.rename(dest, backup);
       }
@@ -3560,7 +3699,7 @@ async function migrationCopyOneSkill(row, ts) {
       ...(backup && migrationBackupAuthority ? { backupRef: migrationBackupAuthority.makeRef(ts, row.id) } : {}), skippedLinks: tree.links };
   } catch (e) {
     await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
-    if (backup && !await migrationCapsulePresent(backup) && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
+    if (backup && !sealBackup && !await migrationCapsulePresent(backup) && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
     if (String(e?.code || '').startsWith('work_data') || e.operationMayHaveExecuted) throw e;
     return { ok: false, reason: 'copy-failed', detail: String((e && e.message) || e).slice(0, 200) };
   }
@@ -3577,8 +3716,9 @@ async function migrationCopySkills(body) {
     await migrationStoragePreflight();
     // 上一次崩在半路留下的暂存目录先清掉(它们不是技能:名字过不了 SKILL_ID_RE,注册表本来就不读)。
     try {
-      for (const d of await fsp.readdir(paths.skills, { withFileTypes: true })) {
-        if (d.name.startsWith(MIGRATION_SKILL_STAGE_PREFIX)) await fsp.rm(path.join(paths.skills, d.name), { recursive: true, force: true }).catch(() => {});
+      const skills = migrationBackupAuthority?.skillsRoot || paths.skills;
+      for (const d of await fsp.readdir(skills, { withFileTypes: true })) {
+        if (d.name.startsWith(MIGRATION_SKILL_STAGE_PREFIX) && !d.name.endsWith('.original')) await fsp.rm(path.join(skills, d.name), { recursive: true, force: true }).catch(() => {});
       }
     } catch { /* 还没有 skills 目录 */ }
     const config = await readConfig();

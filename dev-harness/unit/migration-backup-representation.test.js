@@ -9,12 +9,17 @@ const identities=root=>{const out=[];const visit=relative=>{const file=path.join
 async function encrypted(f,p){const token=await f.owner.prepare({expected:f.selected,candidate:f.candidate});await f.owner.prepareRepresentation(token,{mode:'encrypted'});await f.shadow(p.live,f.candidate,p.skillId);assert.equal((await f.owner.prepareBindings(token)).ready,true);f.select(f.candidate);f.state.enabled=true;await f.owner.activate();return token;}
 async function plaintext(f,p){const next={...f.newCandidate(),mode:'plain'},live=path.join(f.selected.root,'skills',p.skillId);await f.shadow(live,next,p.skillId,false);const token=await f.owner.prepare({expected:f.selected,candidate:next});await f.owner.prepareRepresentation(token,{mode:'plain'});assert.equal((await f.owner.prepareBindings(token)).ready,true);f.select(next,2,'plain');f.state.enabled=false;await f.owner.activate();return token;}
 
-async function archiveOnlyFixture(f, skillIds) {
+async function activateEmptyOwner(f) {
  const first = await f.owner.prepare({ expected: f.selected, candidate: f.candidate });
  assert.equal((await f.owner.prepareBindings(first)).ready, true);
  f.select(f.candidate);
  f.state.enabled = true;
  await f.owner.activate();
+ return first;
+}
+
+async function archiveOnlyFixture(f, skillIds) {
+ const first = await activateEmptyOwner(f);
  const revision = '5'.repeat(64), files = [];
  for (const id of skillIds) {
   const original = await fsp.mkdtemp(path.join(root, 'p1-original-'));
@@ -205,6 +210,93 @@ test('undoing an archive-derived plain backup leaves sealed history that can be 
  assert.equal((await f.api.migrationUndoSkillCopy(entry)).outcome, 'restored-previous');
  assert.deepEqual(identities(live), before);
 });
+
+async function preparedArchiveOverwrite(f) {
+ const authority = await activateEmptyOwner(f), id = 'Archive_One';
+ f.replace('migrationCapsuleBroker', async () => ({ async command(args) {
+  assert.equal(args.cmd, 'store-flush');
+  assert.equal((await fsp.lstat(args.root)).isDirectory(), true);
+ }, async close() {} }));
+ const live = path.join(f.selected.root, 'skills', id);
+ const row = f.row(id), original = Buffer.from([0, 255, 128, 10, 13]);
+ await fsp.mkdir(path.join(live, 'empty'), { recursive: true });
+ await fsp.writeFile(path.join(live, 'SKILL.md'), 'ORIGINAL SKILL');
+ await fsp.writeFile(path.join(live, 'payload.bin'), original);
+ require('node:vm').runInNewContext('__state', f.context).rows = [row];
+ const copy = () => f.api.hooks.copySkills({ keys: [row.key], overwrite: true });
+ return { authority, id, live, original, copy };
+}
+
+test('production copy writes an archive-only backup and normal Undo restores the archived bytes', async () => {
+ const f = fixture(), { id, live, original, copy } = await preparedArchiveOverwrite(f);
+ const receipt = await copy();
+ assert.equal(receipt.copied, 1, JSON.stringify(receipt));
+ assert.equal(await fsp.readFile(path.join(live, 'SKILL.md'), 'utf8'), '# REPLACEMENT\n');
+ const [log] = await require('node:vm').runInNewContext('migrationLogs()', f.context);
+ const [file] = log.files;
+ assert.deepEqual((await fsp.readdir(file.backup)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+ assert.equal((await f.api.migrationCapsuleRead(f.api.migrationCapsuleDescriptor(file.backup))).intent.archiveOnly, true);
+ assert.deepEqual(await fsp.readdir(path.dirname(live)), [id]);
+ assert.equal((await f.api.hooks.undo({ id: log.id })).restored, 1);
+ assert.equal(await fsp.readFile(path.join(live, 'SKILL.md'), 'utf8'), 'ORIGINAL SKILL');
+ assert.deepEqual(await fsp.readFile(path.join(live, 'payload.bin')), original);
+ assert.deepEqual(await fsp.readdir(path.join(live, 'empty')), []);
+ assert.equal((await f.api.hooks.undo({ id: log.id })).error, 'already-undone');
+});
+
+for (const cut of ['before draft intent', 'before archive publication', 'before retirement', 'after retirement', 'after replacement', 'during cleanup']) {
+ test(`production archive-only copy recovers ${cut}`, async () => {
+  const f = fixture(), { authority, id, live, copy } = await preparedArchiveOverwrite(f);
+  const io = f.context.fsp;
+  const interrupted = () => Object.assign(new Error('simulated archive publication interruption'), { code: 'EIO' });
+  const writeIntent = f.api.migrationCapsuleWriteIntent;
+  if (cut === 'before draft intent') f.replace('migrationCapsuleWriteIntent', async (descriptor, intent) => {
+   if (descriptor.backup.endsWith('.pending')) throw interrupted();
+   return writeIntent(descriptor, intent);
+  });
+  f.context.fsp = { ...io, async rename(source, target) {
+   if (cut === 'before archive publication' && source.endsWith('.pending')) throw interrupted();
+   if (cut === 'before retirement' && source === live) throw interrupted();
+   await io.rename(source, target);
+   if (cut === 'after retirement' && source === live || cut === 'after replacement' && target === live) throw interrupted();
+  }, async rm(target, options) {
+   if (['before draft intent', 'before archive publication', 'before retirement'].includes(cut)
+     && path.basename(target).startsWith('.ruyi-copy-') && !target.endsWith('.original')) throw interrupted();
+   if (cut === 'during cleanup' && target.endsWith('.original')) {
+    await io.unlink(path.join(target, 'payload.bin'));
+    throw interrupted();
+   }
+   return io.rm(target, options);
+  } };
+  try {
+   const result = await copy();
+   assert.equal(result.resultUnavailable, true, JSON.stringify(result));
+  } finally { f.context.fsp = io; f.replace('migrationCapsuleWriteIntent', writeIntent); }
+  if (cut === 'before draft intent') {
+   const root = path.dirname(live), stage = (await fsp.readdir(root)).find(name => name.startsWith('.ruyi-copy-'));
+   const provenance = path.join(root, stage, '.ruyi-import.json'), sealed = await fsp.readFile(provenance);
+   await fsp.writeFile(provenance, 'foreign plaintext');
+   await assert.rejects(() => f.api.hooks.recover(), { code: 'work_data_backup.archive_restore_layout' });
+   assert.equal(await fsp.readFile(provenance, 'utf8'), 'foreign plaintext');
+   await fsp.writeFile(provenance, sealed);
+  }
+  if (cut === 'after replacement') await fsp.appendFile(path.join(live, 'SKILL.md'), 'USER EDIT');
+  await f.api.hooks.recover();
+  await f.api.hooks.recover();
+  const published = cut === 'after replacement' || cut === 'during cleanup';
+  assert.equal(await fsp.readFile(path.join(live, 'SKILL.md'), 'utf8'), !published ? 'ORIGINAL SKILL' : cut === 'after replacement' ? '# REPLACEMENT\nUSER EDIT' : '# REPLACEMENT\n');
+  assert.deepEqual(await fsp.readdir(path.dirname(live)), [id]);
+  const [stamp] = await fsp.readdir(authority.root);
+  if (cut === 'before draft intent' || cut === 'before archive publication') {
+   assert.deepEqual(await fsp.readdir(path.join(authority.root, stamp)), []);
+   return;
+  }
+  const backup = path.join(authority.root, stamp, id);
+  const record = await f.api.migrationCapsuleRead(f.api.migrationCapsuleDescriptor(backup));
+  assert.equal(record.intent.phase, published ? 'published' : 'aborted');
+  assert.equal(record.intent.archiveOnly, true);
+ });
+}
 
 test('real codecs bind encrypted -> plain business undo to original IDs and publish typed terminal history without replay',async()=>{
  const f=fixture(),p=await f.plain();await encrypted(f,p);const token=await plaintext(f,p),live=path.join(f.selected.root,'skills',p.skillId),oldBaseLive=identities(p.live);
