@@ -260,7 +260,7 @@ test('restore file bounds come from the server and target changes require a fres
  const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:restoreStatus({uploadMaxBytes:10}));
  await f.panel.refresh();await restoreForm(f);
  f.selectFile('workDataRestoreFile',backupFile('12345678901'));f.change('workDataConfirmRestore',true);
- assert.equal(f.find('workDataSubmit').disabled,true);assert.match(f.find('workDataRestoreFileHelp').textContent,/10 bytes/);
+ assert.equal(f.find('workDataSubmit').disabled,true);assert.match(f.find('workDataRestoreFileHelp').textContent,/at most 10 B\. No upload/);
  f.selectFile('workDataRestoreFile',backupFile('1234567890'));
  assert.equal(f.find('workDataSubmit').disabled,true,'a changed package requires confirmation again');
  f.change('workDataConfirmRestore',true);assert.equal(f.find('workDataSubmit').disabled,false,'the exact advertised limit is admitted');

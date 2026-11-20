@@ -76,6 +76,11 @@ const CODE_COPY = new Set([
   'work_data_setup.backup_filesystem_unsupported', 'work_data_setup.backup_durability_unavailable',
   // 151 阶段 3A（review 应改 1）：数据根父目录（演练所在）的刷盘预检（13ah / 13ak）。
   'work_data_setup.rehearsal_location_unsupported', 'work_data_setup.rehearsal_location_unavailable',
+  // 151 阶段 3G（150 W3/W4）：数据根体检与残留隔离接到 HTTP 后会到达面板的码（13ah / 01ac）。
+  'work_data_hygiene.unavailable', 'work_data_hygiene.operation_failed', 'work_data_hygiene.plan_changed', 'work_data_hygiene.quarantine_conflict',
+  'work_data_hygiene.quarantine_alias', 'work_data_hygiene.quarantine_recovery_required', 'work_data_hygiene.inventory_truncated',
+  'work_data_hygiene.base_invalid', 'work_data_hygiene.base_unavailable', 'work_data_hygiene.request_invalid', 'work_data_hygiene.quarantine_unknown',
+  'work_data_hygiene.record_invalid',
 ]);
 // 服务端 message 里带着「这一次具体为什么」的码（不是固定英文句）：文案后面附上原话。
 const WITH_DETAIL = new Set(['tool.failed', 'editor.open_failed']);

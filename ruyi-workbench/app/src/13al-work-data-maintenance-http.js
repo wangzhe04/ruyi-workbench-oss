@@ -136,6 +136,8 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         const candidate = req.headers['x-wcw-token'];
         const bytes = typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate) ? Buffer.from(candidate,'hex') : Buffer.alloc(0);
         if (bytes.length !== token.length || !cryptoApi.timingSafeEqual(bytes,token)) return denied(res,403,'auth.token_invalid');
+        // 151 阶段 3G:冷端拥有数据根期间不做体检/隔离/撤销(那些只在热端 13ah 持闸后做),给「维护中」而不是「找不到作业」。
+        if (req.url === '/api/work-data/hygiene' || String(req.url).startsWith('/api/work-data/hygiene/')) return denied(res,409,'work_data_setup.busy');
         if (req.method !== 'GET') return denied(res,409,'work_data_setup.takeover_committed');
         if (req.url !== '/api/work-data/status' && req.url !== '/api/work-data/jobs/' + id) return denied(res,404,'work_data_setup.job_not_found');
         const result = snapshot();assertOwner();

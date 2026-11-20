@@ -1732,6 +1732,11 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/work-data/results/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
+  // 151 阶段 3G:数据根体检(只读)、残留移入隔离区的计划/执行与撤销(13ah)。
+  { m: 'GET', p: '/api/work-data/hygiene', auth: 'token' },
+  { m: 'GET', p: '/api/work-data/hygiene/plan', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/hygiene/quarantine', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/hygiene/undo', auth: 'token' },
   { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },
   { m: 'POST', p: '/api/memory-cli', auth: 'memory-cli' },
   { m: 'POST', p: '/api/mcp/consumer', auth: 'mcp-consumer' },
@@ -15212,7 +15217,9 @@ const WorkDataMigrationHost = ((io,p,c) => {
 // quarantine-v1 area) with a manifest, and undo renames them back. Never enters
 // native skill-backup scopes, never reads keys or decrypts, never touches
 // worktrees, logs or caches. Callers own the maintenance gate (no concurrent
-// cold operation) and the UI confirmation. Not wired to HTTP yet (a later batch).
+// cold operation) and the UI confirmation. HTTP (151 phase 3G): 13ah
+// /api/work-data/hygiene[/plan|/quarantine|/undo] holds the gate, serializes per
+// canonical base (runKeyedChain) and passes the authority's canonicalBase.
 //
 // inspect({ base, maxEntries? }) -> frozen, stable schema 1 (later batches may
 // only add fields):
@@ -115250,7 +115257,8 @@ const WorkDataSetup = (() => {
     }
     async function submit(body) {
       if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.admissionOpen&&DesktopLifetimeHooks.admissionOpen()!==true)throw fail('busy');
-      if(desktopClosing||creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
+      // 151 阶段 3G:数据根残留的移入/撤销正在改名文件时不接新的维护作业(反过来那条在 hygiene() 里)。
+      if(desktopClosing||creating||active||hygieneWriting>0||!host.maintenance.accepting())throw fail('busy');creating=true;
       let secret;
       try {
         if(!exact(body,['operation','password','expectedAuthority','backupDirectory','targetDirectory','uploadId','confirmPlaintext']) || !['enable','disable','export','restore'].includes(body.operation))throw fail('request_invalid',400);
@@ -115414,9 +115422,75 @@ const WorkDataSetup = (() => {
         }finally{bytes.fill(0);}
       });}finally{receiving=false;}
     }
+    // 151 阶段 3G(150 W3/W4):数据根体检(01ac inspect,只读)、残留移入隔离区(plan → 用户确认 → quarantine)与撤销的
+    // HTTP 入口。01ac 自己不持闸,这里替它持:
+    //   · 与维护作业互斥 —— 有作业在准备/交接、正在接收上传、桌面正在关闭或维护已不收活时一律 busy;移入/撤销进行中
+    //     submit 也回 busy(见上)。整段跑在 maintenance.run('http') 里,所以之后开始的作业会在 drain 里等它做完。
+    //   · 同一数据根上的体检/计划/移入/撤销按 runKeyedChain 串行(读也排队:别让体检读到改名到一半的状态)。
+    //   · 数据根取 authority 绑定时的 canonicalBase(ServerOwnership.canonicalRoot 的结果,01ac realBase 只认规范路径),
+    //     再与 canonicalRoot(dataRoot()) 当场对一次;对不上就拒绝,不猜。写操作还要带 expectedAuthority,面板过期就拒。
+    // 01ac 之外的意外错误(例如改名时 EPERM)一律换成稳定码 work_data_hygiene.operation_failed:原始 message 里有路径。
+    const hygieneChains=new Map();let hygieneWriting=0;
+    const HYGIENE_CODE=/^work_data_hygiene\.[a-z_]{1,64}$/;
+    const hygieneUnavailable=()=>Object.assign(Error('work_data_hygiene.unavailable'),{code:'work_data_hygiene.unavailable',apiCode:'work_data_hygiene.unavailable',statusCode:501,retry:false});
+    const hygieneEngine=()=>{const engine=host.hygiene;
+      if(!engine||['inspect','planQuarantine','quarantine','undoQuarantine'].some(name=>typeof engine[name]!=='function')||typeof runKeyedChain!=='function')throw hygieneUnavailable();
+      return engine;};
+    const rootKey=value=>typeof process!=='undefined'&&process.platform==='win32'?String(value).toLowerCase():String(value);
+    const hygieneAdmit=()=>{
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.admissionOpen&&DesktopLifetimeHooks.admissionOpen()!==true)throw fail('busy');
+      if(desktopClosing||creating||active||receiving||!host.maintenance.accepting())throw fail('busy');
+    };
+    const hygieneFailure=error=>{
+      const value=String(error?.code||'');
+      if(value==='work_data.maintenance_busy'||value==='work_data.maintenance_stale_continuation')return fail('busy');
+      if(/^work_data_setup\.[a-z_]{1,64}$/.test(value)&&error.apiCode===value)return error;
+      // 01ac 把所有拒绝都标成 409;请求本身不对(request_invalid)是 400,打不开数据根(base_unavailable)是 503。
+      if(HYGIENE_CODE.test(value))return Object.assign(Error(value),{code:value,apiCode:value,
+        statusCode:value==='work_data_hygiene.request_invalid'?400:value==='work_data_hygiene.base_unavailable'?503:Number.isInteger(error.statusCode)?error.statusCode:409,retry:false});
+      return Object.assign(Error('work_data_hygiene.operation_failed'),{code:'work_data_hygiene.operation_failed',apiCode:'work_data_hygiene.operation_failed',statusCode:500,retry:false});
+    };
+    const LIST=200,slice=(rows,max)=>Array.isArray(rows)?rows.slice(0,max):[];
+    async function hygiene(kind,body){
+      const engine=hygieneEngine(),write=kind==='quarantine'||kind==='undo';
+      let expected=null;
+      const shaped=keys=>exact(body,keys)&&Object.keys(body).length===keys.length;
+      if(kind==='quarantine'&&(!shaped(['token','expectedAuthority'])||typeof body.token!=='string'||!SHA.test(body.token)))throw fail('request_invalid',400);
+      if(kind==='undo'&&(!shaped(['stamp','root','expectedAuthority'])||typeof body.stamp!=='string'||body.stamp.length>64||typeof body.root!=='string'||body.root.length>96))throw fail('request_invalid',400);
+      if(write)expected=authority(body.expectedAuthority);
+      hygieneAdmit();
+      if(write)hygieneWriting++;
+      try{
+        return await host.maintenance.run('http',async()=>{
+          const observed=await host.inspect(),current=authority(observed.authority);
+          if(expected&&!same(expected,current))throw fail('authority_changed');
+          const base=observed.base;
+          if(typeof base!=='string'||!base)throw fail('root_unavailable',503);
+          if(typeof host.hygieneBase==='function'&&rootKey(await host.hygieneBase())!==rootKey(base))throw fail('root_unavailable',503);
+          return runKeyedChain(hygieneChains,rootKey(base),async()=>{
+            // A job admitted while this request waited in the chain owns the root from here on.
+            if(active||creating||desktopClosing)throw fail('busy');
+            if(kind==='inspect')return {ok:true,inspection:await engine.inspect({base})};
+            if(kind==='plan'){
+              const plan=await engine.planQuarantine({base});
+              return {ok:true,plan:{schema:plan.schema,token:plan.token,files:plan.files,bytes:plan.bytes,roots:plan.roots,items:slice(plan.items,LIST),
+                itemsTruncated:plan.items.length>LIST,skipped:slice(plan.skipped,LIST),skippedCount:plan.skipped.length}};
+            }
+            if(kind==='quarantine')return {ok:true,result:await engine.quarantine({base,token:body.token})};
+            const undone=await engine.undoQuarantine({base,stamp:body.stamp,root:body.root});
+            return {ok:true,result:{schema:undone.schema,restored:undone.restored,kept:slice(undone.kept,LIST),keptCount:undone.kept.length}};
+          });
+        });
+      }catch(error){throw hygieneFailure(error);}
+      finally{if(write)hygieneWriting--;}
+    }
     async function handle(req,res,pathname) {
       let response,statusCode=200;
-      if(req.method==='GET'&&pathname==='/api/work-data/status')response=await status();
+      if(req.method==='GET'&&pathname==='/api/work-data/hygiene')response=await hygiene('inspect');
+      else if(req.method==='GET'&&pathname==='/api/work-data/hygiene/plan')response=await hygiene('plan');
+      else if(req.method==='POST'&&pathname==='/api/work-data/hygiene/quarantine')response=await hygiene('quarantine',await readJson(req,1024));
+      else if(req.method==='POST'&&pathname==='/api/work-data/hygiene/undo')response=await hygiene('undo',await readJson(req,1024));
+      else if(req.method==='GET'&&pathname==='/api/work-data/status')response=await status();
       else if(req.method==='GET'&&pathname.startsWith('/api/work-data/results/')&&PACKAGE.test(pathname))return downloadPackage(req,res,pathname);
       else if(req.method==='POST'&&pathname==='/api/work-data/jobs'){response={ok:true,job:await submit(await readJson(req))};statusCode=202;}
       else if(req.method==='POST'&&pathname==='/api/work-data/uploads'){response=await receiveUpload(req);statusCode=201;}
@@ -115554,7 +115628,9 @@ const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks
       'cache-control':'no-store','x-content-type-options':'nosniff','connection':'close'});
     res.end(bytes,()=>{try{bytes.fill(0);}catch{ /* the socket owns the flushed copy */ }});
   },
-  receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
+  receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner,
+  // 151 阶段 3G:数据根体检与残留隔离(01ac)。hygieneBase 是当场重算的规范数据根,与 authority 绑定时的 canonicalBase 对表。
+  hygiene:WorkDataRootHygiene,hygieneBase:()=>ServerOwnership.canonicalRoot(dataRoot())});
 Object.assign(WorkDataSetupHooks,workDataSetup);
 
 // Cold-process handoff. No config/store read, ownership release or warm root switch
@@ -116598,6 +116674,8 @@ const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
         const candidate = req.headers['x-wcw-token'];
         const bytes = typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate) ? Buffer.from(candidate,'hex') : Buffer.alloc(0);
         if (bytes.length !== token.length || !cryptoApi.timingSafeEqual(bytes,token)) return denied(res,403,'auth.token_invalid');
+        // 151 阶段 3G:冷端拥有数据根期间不做体检/隔离/撤销(那些只在热端 13ah 持闸后做),给「维护中」而不是「找不到作业」。
+        if (req.url === '/api/work-data/hygiene' || String(req.url).startsWith('/api/work-data/hygiene/')) return denied(res,409,'work_data_setup.busy');
         if (req.method !== 'GET') return denied(res,409,'work_data_setup.takeover_committed');
         if (req.url !== '/api/work-data/status' && req.url !== '/api/work-data/jobs/' + id) return denied(res,404,'work_data_setup.job_not_found');
         const result = snapshot();assertOwner();

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4452 | 4396 | 969 | 67 | 0 | 1 |
+| 145 | 4452 | 4400 | 971 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -139,7 +139,7 @@
 | 121 | `13ag-work-data-maintenance.js` | unclassified | 19 | 90 | 26 |
 | 122 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 1 | 1 |
 | 123 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 0 | 0 |
-| 124 | `13ah-work-data-setup.js` | unclassified | 6 | 28 | 11 |
+| 124 | `13ah-work-data-setup.js` | unclassified | 6 | 32 | 13 |
 | 125 | `13ai-work-data-worker.js` | unclassified | 1 | 2 | 2 |
 | 126 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
 | 127 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 3 | 1 |
@@ -694,8 +694,10 @@
 | `13ag-work-data-maintenance.js` | `13s-scheduler.js` | backward | `schedulerEnsureTimer`, `schedulerFiresChain`, `schedulerRuntime`, `schedulerTasksChain`, `schedulerTick` |
 | `13ag-work-data-maintenance.js` | `13u-migration-center.js` | backward | `migrationChain` |
 | `13ag-work-data-maintenance.js` | `13w-external-bots.js` | backward | `externalBotActiveActors`, `externalBotChains`, `externalBotDeliveries`, `externalBotDiscoveryBusy`, `externalBotInflight`, `externalBotUnsettled`, `externalBotWakeWorker`, `externalBotWorkerAgain`, `externalBotWorkerBusy` |
-| `13ah-work-data-setup.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `URL`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths` |
+| `13ah-work-data-setup.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `URL`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `crypto`, `dataRoot`, `fsp`, `json`, `nowIso`, `path`, `paths`, `runKeyedChain` |
 | `13ah-work-data-setup.js` | `01-config.js` | backward | `safeSessionId`, `send` |
+| `13ah-work-data-setup.js` | `01ac-work-data-root-hygiene.js` | backward | `WorkDataRootHygiene` |
+| `13ah-work-data-setup.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13ah-work-data-setup.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ah-work-data-setup.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
 | `13ah-work-data-setup.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |

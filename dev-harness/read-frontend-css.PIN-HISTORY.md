@@ -938,3 +938,6 @@ settings.css 追加「需要重启如意」一条规则(U3)、tool-pane.css 的 
 151 阶段 1 批 1E 续钉(前值 716d1eee…):仅 steward-conversation.css 追加一条规则 `.steward-composer > .maintenance-composer-notice`
 (管家胶囊里的维护期说明条整行独占、圆角收进胶囊;复审建议 4),其余各层逐字未动。算法自证:只把 steward-conversation.css 的内存读取
 替回 HEAD 字节时精确复现 716d1eeeab9d05cf3382b100cabe1a8ac192510baf403f822a67a8eba280bf3f;反向检查:内存里把该规则 flex 改成 1 1 99% 得到不同摘要。
+151 阶段 3B 续钉(前值 683c4dc9…):仅 settings.css 追加三条规则(.work-data-confirm 启用加密二次确认、其 ul 与 .work-data-blockers 列表缩进、确认段内按钮行间距;150 W14)。
+算法自证:只把 settings.css 的内存读取替回 HEAD 字节时精确复现 683c4dc9bed7f2b60ccc9f63a0e231e7cd0c0c68e62210c778f7bb3c56a30e88;反向检查:内存里把 .work-data-confirm 的 display:grid 改成 flex 得到不同摘要。
+若同阶段其他批也改 CSS,由主会话合并后统一重钉。

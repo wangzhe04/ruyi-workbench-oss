@@ -4,7 +4,9 @@
 // quarantine-v1 area) with a manifest, and undo renames them back. Never enters
 // native skill-backup scopes, never reads keys or decrypts, never touches
 // worktrees, logs or caches. Callers own the maintenance gate (no concurrent
-// cold operation) and the UI confirmation. Not wired to HTTP yet (a later batch).
+// cold operation) and the UI confirmation. HTTP (151 phase 3G): 13ah
+// /api/work-data/hygiene[/plan|/quarantine|/undo] holds the gate, serializes per
+// canonical base (runKeyedChain) and passes the authority's canonicalBase.
 //
 // inspect({ base, maxEntries? }) -> frozen, stable schema 1 (later batches may
 // only add fields):

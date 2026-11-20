@@ -76,8 +76,59 @@ export function workDataJobLimit(job) {
     && decimal(row.entries) && decimal(row.bytes)).slice(0, 5) : [];
   if (areas.length) lines.push(t('workData.limitAreas', { areas: areas.map(row => t('workData.limitArea', {
     area: row.area === 'other' ? t('workData.limitAreaOther') : row.area, entries: Number(row.entries).toLocaleString(getLocale()), bytes: fmtBytes(Number(row.bytes)) })).join(t('workData.limitAreaSeparator')) }));
-  lines.push(t('workData.limitAdvice'));
+  // 3C 审查 S6：「原数据根没有被改动」只在冷端判定为 failed（它只在确认操作没有执行时才报 failed，否则报 uncertain）时说；
+  // 结果未确认时不替它下结论，只说怎么办。
+  lines.push(t(job.state === 'failed' ? 'workData.limitAdvice' : 'workData.limitAdviceUnconfirmed'));
   return lines;
+}
+// 151 阶段 3G（150 W3/W4）：数据根体检（01ac inspect）的人话。每条判定按码取文案（workData.hygiene.<驼峰>），
+// 数字按语言分位、字节走 fmtBytes，路径只取前 5 条（服务端最多给 20 条），认不得的码不说。
+const HYGIENE_BYTES = new Set(['census_bytes_exceeded', 'census_file_bytes_exceeded', 'package_bytes_exceeded', 'package_serialized_exceeded']);
+const HYGIENE_CODES = new Set(['inventory_truncated', 'census_entries_exceeded', 'census_files_exceeded', 'census_directories_exceeded', 'census_bytes_exceeded',
+  'census_file_bytes_exceeded', 'census_depth_exceeded', 'package_files_exceeded', 'package_bytes_exceeded', 'package_serialized_exceeded', 'aliases_present',
+  'hardlinks_present', 'unreadable_entries', 'active_pointer_invalid', 'leftovers_present', 'superseded_leftovers_present', 'quarantine_incomplete',
+  'quarantine_record_invalid', 'quarantined_plaintext_present']);
+const hygieneCamel = name => name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+const hygieneCount = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString(getLocale()) : '?';
+function hygienePaths(rows, total) {
+  const list = Array.isArray(rows) ? rows.filter(value => typeof value === 'string' && value.length > 0 && value.length <= 1024).slice(0, 5) : [];
+  if (!list.length) return '';
+  const more = Number.isSafeInteger(total) && total > list.length ? total - list.length : 0;
+  return t('workData.hygiene.paths', { paths: list.join(t('workData.limitAreaSeparator')) }) + (more ? t('workData.hygiene.pathsMore', { count: more.toLocaleString(getLocale()) }) : '');
+}
+export function workDataHygieneVerdictText(verdict) {
+  const code = verdict && typeof verdict.code === 'string' ? verdict.code : '';
+  const name = code.startsWith('work_data_hygiene.') ? code.slice('work_data_hygiene.'.length) : '';
+  if (!HYGIENE_CODES.has(name)) return '';
+  const params = verdict.params && typeof verdict.params === 'object' ? verdict.params : {};
+  const amount = value => HYGIENE_BYTES.has(name) ? (Number.isSafeInteger(value) && value >= 0 ? fmtBytes(value) : '?') : hygieneCount(value);
+  let text = t('workData.hygiene.' + hygieneCamel(name), { actual: amount(params.actual), limit: amount(params.limit), count: hygieneCount(params.count) });
+  if (Number.isSafeInteger(params.bytes) && params.bytes >= 0 && ['leftovers_present', 'superseded_leftovers_present'].includes(name)) text += ' ' + t('workData.hygiene.leftoverSize', { count: hygieneCount(params.count), bytes: fmtBytes(params.bytes) });
+  const areaPaths = Array.isArray(params.areas) ? params.areas.map(row => row && typeof row.path === 'string' ? row.path : row && typeof row.stamp === 'string' ? (row.root ? row.root + '/' : '') + 'quarantine-v1/' + row.stamp : '') : null;
+  const paths = hygienePaths(Array.isArray(params.paths) ? params.paths : areaPaths, Number.isSafeInteger(params.count) ? params.count : undefined);
+  return paths ? text + ' ' + paths : text;
+}
+// 预计能否启用/导出/停用：只按体检时的规模与形状判断，措辞是「预计」，实际以操作时冷端的检查为准。
+export function workDataHygienePrediction(inspection, mode) {
+  if (!inspection || typeof inspection !== 'object' || inspection.schema !== 1) return '';
+  const which = mode === 'encrypted' ? 'Encrypted' : mode === 'plain' ? 'Plain' : 'Unknown';
+  return t((inspection.ok === true ? 'workData.hygiene.predictOk' : 'workData.hygiene.predictBlocked') + which);
+}
+const HYGIENE_UNDOABLE = new Set(['moving', 'moved', 'partial', 'partially-restored']);
+const HYGIENE_STATES = new Set(['moving', 'moved', 'rolled-back', 'partial', 'restored', 'partially-restored', 'incomplete', 'invalid', 'unknown', 'alias']);
+const HYGIENE_SKIPS = new Set(['directory', 'hardlink', 'writer-alive', 'too-recent', 'name']);
+const HYGIENE_REASONS = new Set(['quarantined-corrupt', 'crash-stage', 'archive-stage']);
+// 操作失败后「文件现在在哪」：移入失败时只有 quarantine_recovery_required 与意外错误可能留下已移动的文件，其余拒绝都在移动前
+// 或已全部移回；撤销只有在开始移回之前的拒绝才能断言「没有移动任何文件」。
+const NOTHING_MOVED = { quarantine: new Set(['work_data_hygiene.plan_changed', 'work_data_hygiene.quarantine_conflict', 'work_data_hygiene.quarantine_alias',
+  'work_data_hygiene.inventory_truncated', 'work_data_hygiene.base_invalid', 'work_data_hygiene.base_unavailable']),
+  undo: new Set(['work_data_hygiene.request_invalid', 'work_data_hygiene.quarantine_unknown', 'work_data_hygiene.record_invalid', 'work_data_hygiene.base_invalid', 'work_data_hygiene.base_unavailable']) };
+export function workDataHygieneOutcomeKey(kind, code, status) {
+  const value = typeof code === 'string' ? code : '';
+  // 请求在进入引擎之前就被拒（4xx 的工作数据维护码、鉴权、维护中）：什么都没动。
+  if (/^work_data_setup\./.test(value) && value !== 'work_data_setup.status_invalid' || /^auth\./.test(value) || value === 'desktop_lifetime.closing' || NOTHING_MOVED[kind]?.has(value)) return 'workData.hygiene.outcomeNothingMoved';
+  if (kind === 'quarantine' && value === 'work_data_hygiene.quarantine_recovery_required') return 'workData.hygiene.outcomeStuck';
+  return Number.isInteger(status) && status >= 400 && status < 500 && !value.startsWith('work_data_hygiene.') ? 'workData.hygiene.outcomeNothingMoved' : 'workData.hygiene.outcomeUnknown';
 }
 // 码 → 人话（仍带着码，便于对照）；没有专属文案的码沿用原来那句带码的通用话。
 function codeText(code, fallbackKey) {
@@ -106,10 +157,21 @@ export function mountWorkDataSettings() {
   const form = node('form'); form.noValidate = true;
   const operation = node('select'); operation.id = 'workDataOperation';
   for (const value of OPERATIONS) { const option = node('option', 'operation.' + value); option.value = value; operation.append(option); }
-  const backup = input('workDataBackupDirectory'); backup.readOnly = true;
+  // 151 阶段 3G · U13：这两栏只能由「选择文件夹…」填写。修前它们长得和可输入的框一样、点进去却打不了字；现在画成只读样式、
+  // 空着时写明「请点选择文件夹」，点它（或在它上面按 Enter/空格）就打开同一个选择器。
+  const pathField = (id, help) => {
+    const element = input(id); element.readOnly = true; element.classList.add('work-data-path');
+    if (help) element.setAttribute('aria-describedby', help);
+    const open = () => { if (!element.disabled) void pickDirectory(element); };
+    element.addEventListener('click', open);
+    element.addEventListener('keydown', event => { if (event && (event.key === 'Enter' || event.key === ' ')) { if (typeof event.preventDefault === 'function') event.preventDefault(); open(); } });
+    return element;
+  };
+  const backupHelp = node('p', 'backupDirectoryHelp', 'field-help'); backupHelp.id = 'workDataBackupDirectoryHelp';
+  const backup = pathField('workDataBackupDirectory', backupHelp.id);
   const pickBackup = button('chooseFolder', 'workDataPickBackup', () => void pickDirectory(backup));
-  const backupRow = field('backupDirectory', backup); backupRow.append(pickBackup, node('p', 'backupDirectoryHelp', 'field-help'));
-  const parent = input('workDataRestoreParent'); parent.readOnly = true;
+  const backupRow = field('backupDirectory', backup); backupRow.append(pickBackup, backupHelp);
+  const parent = pathField('workDataRestoreParent', '');
   const pickParent = button('chooseFolder', 'workDataPickParent', () => void pickDirectory(parent));
   const parentRow = field('restoreParent', parent); parentRow.append(pickParent);
   const name = input('workDataRestoreName'); name.maxLength = 128;
@@ -156,10 +218,43 @@ export function mountWorkDataSettings() {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
     closeConfirm(true);
   });
-  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, restartNotice, unavailable, notice, progress, confirmBox, actions);
-  host.append(heading, summary, scope, retained, form);
+  // 151 阶段 3G · U13：提交按钮灰着时，在按钮上方说清楚还差什么（只说第一条）。
+  const submitReason = node('p', null, 'field-help work-data-submit-reason'); submitReason.id = 'workDataSubmitReason'; submitReason.hidden = true;
+  submit.setAttribute('aria-describedby', submitReason.id);
+  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, restartNotice, unavailable, notice, progress, confirmBox, submitReason, actions);
+  // ── 151 阶段 3G（150 W3/W4）：数据根体检与残留文件 ─────────────────────────────────────────────
+  // 「检查数据根」只读（13ah → 01ac inspect）；「移入隔离区…」先取计划、列出将移动的文件，用户在确认段里再确认一次才执行；
+  // 每个隔离区有「撤销」。确认段的键盘行为与启用加密的确认一致：打开时焦点在「返回」，Esc 只关这一段并把焦点还给触发按钮。
+  const hygiene = node('section', null, 'work-data-hygiene'); hygiene.id = 'workDataHygiene'; hygiene.setAttribute('aria-labelledby', 'workDataHygieneTitle');
+  const hygieneTitle = node('h5', 'hygiene.title', 'settings-subhead'); hygieneTitle.id = 'workDataHygieneTitle';
+  const hygieneHelp = node('p', 'hygiene.help', 'field-help');
+  const inspectButton = button('hygiene.inspect', 'workDataHygieneInspect', () => void runInspect());
+  const quarantineButton = button('hygiene.quarantine', 'workDataHygieneQuarantine', () => void openQuarantine()); quarantineButton.hidden = true;
+  const hygieneActions = node('div', null, 'work-data-actions'); hygieneActions.append(inspectButton, quarantineButton);
+  const hygieneReason = node('p', null, 'field-help'); hygieneReason.id = 'workDataHygieneReason'; hygieneReason.hidden = true;
+  const hygieneResult = node('div', null, 'work-data-hygiene-result'); hygieneResult.id = 'workDataHygieneResult'; hygieneResult.setAttribute('role', 'status'); hygieneResult.setAttribute('aria-live', 'polite');
+  const hygieneNotice = node('p', null, 'work-data-notice'); hygieneNotice.id = 'workDataHygieneNotice'; hygieneNotice.tabIndex = -1; hygieneNotice.setAttribute('role', 'status'); hygieneNotice.setAttribute('aria-live', 'polite');
+  const moveBox = node('div', null, 'work-data-confirm'); moveBox.id = 'workDataHygieneConfirm'; moveBox.hidden = true;
+  moveBox.setAttribute('role', 'alertdialog'); moveBox.setAttribute('aria-labelledby', 'workDataHygieneConfirmTitle'); moveBox.setAttribute('aria-describedby', 'workDataHygieneConfirmBody');
+  const moveTitle = node('strong'); moveTitle.id = 'workDataHygieneConfirmTitle';
+  const moveBody = node('p', 'hygiene.confirmBody', 'field-help'); moveBody.id = 'workDataHygieneConfirmBody';
+  const moveList = node('ul', null, 'field-help work-data-hygiene-files'); moveList.id = 'workDataHygieneFiles';
+  const moveMore = node('p', null, 'field-help'); moveMore.id = 'workDataHygieneMore';
+  const moveGo = button('hygiene.confirmGo', 'workDataHygieneGo', () => void confirmQuarantine());
+  const moveBack = button('hygiene.confirmBack', 'workDataHygieneBack', () => closeQuarantine(true));
+  const moveActions = node('div', null, 'work-data-actions'); moveActions.append(moveGo, moveBack);
+  moveBox.append(moveTitle, moveBody, moveList, moveMore, moveActions);
+  moveBox.addEventListener('keydown', event => {
+    if (!event || event.key !== 'Escape' || !movePlan) return;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    closeQuarantine(true);
+  });
+  hygiene.append(hygieneTitle, hygieneHelp, hygieneActions, hygieneReason, hygieneResult, moveBox, hygieneNotice);
+  host.append(heading, summary, scope, retained, form, hygiene);
   let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
   let pendingRestore = null, restoreServing = null, confirming = false;
+  let inspection = null, inspectedAuthority = '', hygieneBusy = false, movePlan = null, undoButtons = [];
   const active = () => !!job && !TERMINAL.has(job.state);
   const focus = element => { try { if (element && typeof element.focus === 'function') element.focus(); } catch { /* focus is a convenience */ } };
   const confirmOpenForUser = () => { try { return typeof document.activeElement !== 'undefined' && !!document.activeElement && confirmBox.contains(document.activeElement); } catch { return false; } };
@@ -215,6 +310,12 @@ export function mountWorkDataSettings() {
     summary.replaceChildren(node('span', stale ? 'lastKnownMode' : 'currentMode', 'work-data-eyebrow'));
     const mode = current?.authority?.mode, label = node('strong'); label.textContent = t('workData.mode.' + (mode || 'unknown')); summary.append(label);
     const saved = node('p', null, 'field-help'); saved.textContent = t('workData.' + (mode === 'encrypted' ? 'encryptedHelp' : mode === 'plain' ? 'plainHelp' : 'unknownHelp')); summary.append(saved); summary.dataset.mode = mode || 'unknown';
+    // 151 阶段 3G · U13：已是明文时不再提供「转为明文存储」，已加密时不再提供「启用加密」。当前选中的那项不适用了就换到「导出」
+    // （不替用户选一个会改动数据的操作），并清掉为旧选项填的口令。
+    const offered = value => !(value === 'enable' && mode === 'encrypted' || value === 'disable' && mode === 'plain');
+    for (const option of operation.children) { const off = !offered(option.value); option.disabled = off; option.hidden = off; }
+    if (!offered(operation.value)) { operation.value = 'export'; clearSecrets(); confirmRestore.checked = false; }
+    backup.placeholder = t('workData.pathPlaceholder'); parent.placeholder = t('workData.pathPlaceholder');
     const blocked = blockedByCapability(), busy = !current || stale || writing || picking || active() || unknownSubmission;
     // The confirmation belongs to the form exactly as it stood when it opened: any state that would refuse the submit closes it.
     // 151 阶段 3B 复审建议 5：表单变忙而自动收起确认段时，焦点若还在段里，挪到看得见的状态区（进度区，否则提示行），不掉到 body。
@@ -231,8 +332,9 @@ export function mountWorkDataSettings() {
     passwordHelp.dataset.i18n = operation.value === 'restore' ? 'workData.restorePasswordHelp' : 'workData.passwordHelp';
     passwordHelp.textContent = t(passwordHelp.dataset.i18n);
     const maximum = uploadMaximum();
-    uploadHelp.textContent = t('workData.restoreFileHelp', { bytes: maximum });
-    if (upload.files?.length && !selectedFile()) uploadHelp.textContent = t('workData.restoreFileInvalid', { bytes: maximum });
+    // U13：上限按字节数写人话（修前是「536870888字节」这样的裸数字）。
+    uploadHelp.textContent = t('workData.restoreFileHelp', { size: fmtBytes(maximum) });
+    if (upload.files?.length && !selectedFile()) uploadHelp.textContent = t('workData.restoreFileInvalid', { size: fmtBytes(maximum) });
     targetPreview.textContent = t('workData.restoreTarget', { target: targetDirectory() || t('workData.restoreTargetMissing') });
     unavailable.hidden = !blocked; unavailable.textContent = blocked ? codeText(blocked, 'workData.unavailable') : '';
     restartNotice.hidden = current?.processRestartRequired !== true || stale || active();
@@ -242,7 +344,9 @@ export function mountWorkDataSettings() {
       || operation.value === 'restore' && !targetDirectory()
       || operation.value === 'restore' && !selectedFile()
       || operation.value === 'restore' && !confirmRestore.checked
-      || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain';
+      || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain' || hygieneBusy;
+    const reasonKey = submit.disabled ? submitReasonKey(mode, blocked) : '';
+    submitReason.hidden = !reasonKey; submitReason.textContent = reasonKey ? t(reasonKey) : ''; submitReason.dataset.reason = reasonKey;
     cancel.hidden = !active(); cancel.disabled = writing || !job?.cancellable || job?.takeover === true;
     reconnect.disabled = loading || writing;
     clear.disabled = disabled;
@@ -294,6 +398,194 @@ export function mountWorkDataSettings() {
     }
     progress.hidden = progress.children.length === 0;
     if (refocus) focus(progress.hidden ? notice : progress);
+    renderHygiene();
+  }
+  // U13：灰着的提交按钮说第一条还差什么。连接读取中、能力不可用（另有一行说明）、选择器或确认段打开时不说。
+  function submitReasonKey(mode, blocked) {
+    if (!current || loading || blocked) return '';
+    if (stale) return 'workData.reason.stale';
+    if (writing || active() || unknownSubmission || hygieneBusy) return 'workData.reason.busy';
+    if (picking || confirming) return '';
+    const value = operation.value;
+    if (value === 'enable' && mode === 'encrypted') return 'workData.reason.alreadyEncrypted';
+    if (value === 'disable' && mode === 'plain') return 'workData.reason.alreadyPlain';
+    if (!backup.value) return 'workData.reason.backup';
+    if (value === 'restore' && !selectedFile()) return 'workData.reason.restoreFile';
+    if (value === 'restore' && !targetDirectory()) return 'workData.reason.restoreTarget';
+    if (password.value.length < 12) return 'workData.reason.passwordShort';
+    if (new TextEncoder().encode(password.value).length > 1024 || password.value.includes('\0')) return 'workData.reason.passwordLong';
+    if (password.value !== confirmation.value) return 'workData.reason.passwordMismatch';
+    if (value === 'disable' && !plaintext.checked) return 'workData.reason.confirmPlaintext';
+    if (value === 'restore' && !confirmRestore.checked) return 'workData.reason.confirmRestore';
+    return '';
+  }
+  // ── 数据根体检：状态与绘制 ──
+  // 体检只在面板空闲时可用；维护作业在准备/交接、提交结果待确认、连接待恢复或答话的是冷端维护进程时一律不可用（后台也会拒）。
+  // hygieneHeld：真正不该再动数据根的状态（打开着的确认段会因此收起）；hygieneBlocked 另加「正在读状态」—— 一次后台刷新只让按钮
+  // 暂时变灰，不该把用户正在看的确认段收掉（3G v2：修前设置页的后台 refresh 会关掉确认段）。
+  const hygieneHeld = () => !current || stale || writing || picking || downloading || active() || unknownSubmission || confirming
+    || current?.maintenance?.phase === 'retired';
+  const hygieneBlocked = () => hygieneHeld() || loading;
+  const moveOpenForUser = () => { try { return !!document.activeElement && moveBox.contains(document.activeElement); } catch { return false; } };
+  const count = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString(getLocale()) : '?';
+  function renderHygiene() {
+    // 数据根换了（启用/停用/恢复之后），上一次的体检结果不再属于它。
+    if (inspection && current && inspectedAuthority !== JSON.stringify(current.authority)) { inspection = null; drawInspection(); }
+    let refocus = false;
+    if (movePlan && (hygieneHeld() || movePlan.authority !== JSON.stringify(current.authority))) { refocus = moveOpenForUser(); movePlan = null; }
+    const blocked = hygieneBlocked() || hygieneBusy;
+    moveBox.hidden = !movePlan; moveGo.disabled = !movePlan || blocked; moveBack.disabled = !movePlan;
+    inspectButton.disabled = blocked || !!movePlan;
+    const movable = !!inspection && inspection.verdicts.some(row => row && row.action === 'quarantine');
+    quarantineButton.hidden = !movable; quarantineButton.disabled = blocked || !!movePlan;
+    for (const undo of undoButtons) undo.disabled = blocked || !!movePlan;
+    const reason = !current || loading ? '' : stale ? 'workData.hygiene.blockedStale'
+      : active() || unknownSubmission || writing || current?.maintenance?.phase === 'retired' ? 'workData.hygiene.blockedMaintenance' : '';
+    hygieneReason.hidden = !reason; hygieneReason.textContent = reason ? t(reason) : ''; hygieneReason.dataset.reason = reason;
+    if (refocus) focus(hygieneNotice);
+  }
+  const validInspection = value => !!value && typeof value === 'object' && value.schema === 1 && typeof value.ok === 'boolean' && Array.isArray(value.verdicts)
+    && !!value.census && typeof value.census === 'object' && Array.isArray(value.quarantine);
+  const validPlan = value => !!value && typeof value === 'object' && /^[a-f0-9]{64}$/.test(value.token || '') && Number.isSafeInteger(value.files) && value.files >= 0
+    && Number.isSafeInteger(value.bytes) && Array.isArray(value.items) && Array.isArray(value.skipped);
+  // 只在拿到新的体检结果时重画（render 只改按钮的可用状态），免得后台刷新把焦点从「撤销」按钮上冲掉。
+  function drawInspection() {
+    hygieneResult.replaceChildren(); undoButtons = [];
+    if (!inspection) { hygieneResult.hidden = true; return; }
+    hygieneResult.hidden = false;
+    const line = (text, className, id) => { const element = node('p', null, className || 'field-help'); element.textContent = text; if (id) element.id = id; hygieneResult.append(element); return element; };
+    const census = inspection.census, mode = current?.authority?.mode;
+    const prediction = line(workDataHygienePrediction(inspection, mode), 'work-data-hygiene-prediction', 'workDataHygienePrediction'); prediction.dataset.state = inspection.ok ? 'ok' : 'blocked';
+    line(t('workData.hygiene.summary', { files: count(census.files), directories: count(census.directories), bytes: Number.isSafeInteger(census.bytes) ? fmtBytes(census.bytes) : '?' }), null, 'workDataHygieneSummary');
+    const included = inspection.scope && inspection.scope.included;
+    if (included && Number.isSafeInteger(included.files) && Number.isSafeInteger(included.bytes)) line(t('workData.hygiene.package', { files: count(included.files), bytes: fmtBytes(included.bytes) }));
+    if (Array.isArray(census.nativeOwnerRoots) && census.nativeOwnerRoots.length) line(t('workData.hygiene.nativeRoots', { count: count(census.nativeOwnerRoots.length) }));
+    const areas = Array.isArray(census.largest) ? census.largest.filter(row => row && typeof row.path === 'string' && Number.isSafeInteger(row.bytes) && Number.isSafeInteger(row.files)).slice(0, 5) : [];
+    if (areas.length) {
+      line(t('workData.hygiene.largest'));
+      const list = node('ul', null, 'field-help work-data-hygiene-areas'); list.id = 'workDataHygieneAreas';
+      for (const row of areas) { const item = node('li'); item.textContent = t('workData.hygiene.area', { path: row.path, files: count(row.files), bytes: fmtBytes(row.bytes) }); list.append(item); }
+      hygieneResult.append(list);
+    }
+    const verdicts = inspection.verdicts.map(row => ({ row, text: workDataHygieneVerdictText(row) })).filter(entry => entry.text);
+    if (verdicts.length) {
+      line(t('workData.hygiene.findings'));
+      const list = node('ul', null, 'work-data-hygiene-verdicts'); list.id = 'workDataHygieneVerdicts';
+      for (const { row, text } of verdicts) {
+        const item = node('li', null, 'field-help'); item.textContent = text; item.dataset.code = row.code; item.dataset.severity = row.severity === 'blocking' ? 'blocking' : 'advice'; list.append(item);
+      }
+      hygieneResult.append(list);
+    } else line(t('workData.hygiene.clean'), null, 'workDataHygieneClean');
+    const rows = inspection.quarantine.filter(row => row && typeof row.stamp === 'string' && /^[\w.-]{1,64}$/.test(row.stamp) && typeof row.root === 'string' && HYGIENE_STATES.has(row.state));
+    if (rows.length) {
+      line(t('workData.hygiene.areasTitle'));
+      const list = node('ul', null, 'work-data-hygiene-quarantine'); list.id = 'workDataHygieneAreasQuarantine';
+      rows.forEach((row, index) => {
+        const item = node('li', null, 'field-help'), label = node('span');
+        label.textContent = t('workData.hygiene.areaRow', { path: (row.root ? row.root + '/' : '') + 'quarantine-v1/' + row.stamp, state: t('workData.hygiene.state.' + hygieneCamel(row.state.replace(/-/g, '_'))) })
+          + (Number.isSafeInteger(row.plaintext) && row.plaintext > 0 ? ' ' + t('workData.hygiene.areaPlaintext', { count: count(row.plaintext) }) : '');
+        item.append(label);
+        if (HYGIENE_UNDOABLE.has(row.state)) {
+          const undo = button('hygiene.undo', 'workDataHygieneUndo' + index, () => void undoArea(row)); undo.dataset.stamp = row.stamp; undoButtons.push(undo); item.append(undo);
+        }
+        list.append(item);
+      });
+      hygieneResult.append(list);
+    }
+    line(t('workData.hygiene.readOnlyDone'), 'field-help work-data-hygiene-readonly', 'workDataHygieneReadOnly');
+  }
+  function hygieneReport(error, kind) {
+    const code = errorCode(error);
+    let text = code === 'net.disconnected' ? t('workData.disconnected', { code }) : codeText(code, 'workData.hygiene.failed');
+    // 3C 审查 S6：每条失败都说清楚文件动没动 —— 体检与列清单是只读的；移入/撤销按码判断（见 workDataHygieneOutcomeKey）。
+    text += ' ' + t(kind ? workDataHygieneOutcomeKey(kind, code, Number.isInteger(error?.status) ? error.status : undefined) : 'workData.hygiene.outcomeReadOnly');
+    hygieneNotice.textContent = text; hygieneNotice.dataset.state = 'error';
+  }
+  async function runInspect({ quiet = false } = {}) {
+    if (hygieneBlocked() || hygieneBusy) return;
+    hygieneBusy = true; if (!quiet) { hygieneNotice.textContent = t('workData.hygiene.inspecting'); hygieneNotice.dataset.state = ''; } render();
+    const authorityAt = JSON.stringify(current.authority);
+    try {
+      const result = await api('/api/work-data/hygiene');
+      if (!result?.ok || !validInspection(result.inspection)) throw { code: 'work_data_setup.status_invalid' };
+      inspection = result.inspection; inspectedAuthority = authorityAt; if (!quiet) hygieneNotice.textContent = '';
+      drawInspection();
+    } catch (error) { hygieneReport(error, ''); }
+    finally { hygieneBusy = false; render(); }
+  }
+  function skippedText(plan) {
+    const rows = plan.skipped.filter(row => row && HYGIENE_SKIPS.has(row.reason));
+    if (!rows.length) return '';
+    const kinds = [...new Set(rows.map(row => row.reason))].map(reason => t('workData.hygiene.skip.' + hygieneCamel(reason.replace(/-/g, '_'))));
+    return ' ' + t('workData.hygiene.skipped', { count: count(Number.isSafeInteger(plan.skippedCount) ? plan.skippedCount : rows.length), reasons: kinds.join(t('workData.limitAreaSeparator')) });
+  }
+  async function openQuarantine() {
+    if (hygieneBlocked() || hygieneBusy || movePlan) return;
+    hygieneBusy = true; hygieneNotice.textContent = t('workData.hygiene.planning'); hygieneNotice.dataset.state = ''; render();
+    // 3G v2：清单属于发出请求那一刻的数据根。记下当时的 authority；回包到达前它变了就不打开确认段，确认时也只发这一份。
+    let plan = null; const authorityAt = JSON.stringify(current.authority);
+    try {
+      const result = await api('/api/work-data/hygiene/plan');
+      if (!result?.ok || !validPlan(result.plan)) throw { code: 'work_data_setup.status_invalid' };
+      if (!current || JSON.stringify(current.authority) !== authorityAt) throw { code: 'work_data_setup.authority_changed' };
+      plan = result.plan; hygieneNotice.textContent = '';
+    } catch (error) { hygieneReport(error, ''); }
+    finally { hygieneBusy = false; }
+    if (plan && plan.files === 0) { hygieneNotice.textContent = t('workData.hygiene.nothingToMove') + skippedText(plan); render(); focus(hygieneNotice); return; }
+    // 3G v3：清单回来时恰好有一次后台读状态（loading）也照常打开确认段 ——「确认移入」按 hygieneBlocked 灰到读完，
+    // 读回来的 authority 若变了，renderHygiene 会自行收起。只有真正不该动数据根的状态（hygieneHeld）才不打开。
+    if (plan && !hygieneHeld()) {
+      movePlan = { plan, authority: authorityAt };
+      drawPlan(plan); render(); focus(moveBack); return;
+    }
+    render();
+  }
+  // 确认段列出将移动的每个文件（服务端最多给 200 条，其余报个数）与被跳过的原因。
+  function drawPlan(plan) {
+    moveTitle.textContent = t('workData.hygiene.confirmTitle', { count: count(plan.files), bytes: fmtBytes(plan.bytes) });
+    moveList.replaceChildren();
+    for (const row of plan.items) {
+      if (!row || typeof row.path !== 'string') continue;
+      const item = node('li');
+      item.textContent = t('workData.hygiene.fileRow', { path: row.path, bytes: Number.isSafeInteger(row.bytes) ? fmtBytes(row.bytes) : '?',
+        reason: t(HYGIENE_REASONS.has(row.reason) ? 'workData.hygiene.reason.' + hygieneCamel(row.reason.replace(/-/g, '_')) : 'workData.hygiene.reason.other') });
+      moveList.append(item);
+    }
+    const shown = moveList.children.length;
+    moveMore.textContent = (plan.files > shown ? t('workData.hygiene.confirmMore', { count: count(plan.files - shown) }) : '') + skippedText(plan);
+    moveMore.hidden = !moveMore.textContent.trim();
+  }
+  function closeQuarantine(returnFocus) { const was = !!movePlan; movePlan = null; render(); if (was && returnFocus) focus(quarantineButton); }
+  async function confirmQuarantine() {
+    if (!movePlan || hygieneBusy || hygieneBlocked()) return;
+    const { plan, authority } = movePlan; movePlan = null;
+    hygieneBusy = true; hygieneNotice.textContent = t('workData.hygiene.moving'); hygieneNotice.dataset.state = ''; render(); focus(hygieneNotice);
+    try {
+      // 移入是一次性回执：403 换令牌后不自动重放（重放也只会因计划已变而被拒，但不该发第二次）。
+      const result = await api('/api/work-data/hygiene/quarantine', { method: 'POST', body: JSON.stringify({ token: plan.token, expectedAuthority: JSON.parse(authority) }), noTokenReplay: true });
+      const value = result?.result;
+      if (!result?.ok || !value || !Number.isSafeInteger(value.moved) || !Array.isArray(value.areas)) throw { code: 'work_data_setup.status_invalid' };
+      const where = value.areas.map(row => row && typeof row.area === 'string' ? row.area : '').filter(Boolean).join(t('workData.limitAreaSeparator'));
+      hygieneNotice.textContent = value.moved > 0 ? t('workData.hygiene.moved', { count: count(value.moved), area: where }) : t('workData.hygiene.movedNone');
+      hygieneNotice.dataset.state = 'ok';
+    } catch (error) { hygieneReport(error, 'quarantine'); }
+    finally { hygieneBusy = false; render(); }
+    await runInspect({ quiet: true });
+  }
+  async function undoArea(row) {
+    if (hygieneBlocked() || hygieneBusy || movePlan) return;
+    hygieneBusy = true; hygieneNotice.textContent = t('workData.hygiene.undoing'); hygieneNotice.dataset.state = ''; render(); focus(hygieneNotice);
+    try {
+      const result = await api('/api/work-data/hygiene/undo', { method: 'POST', body: JSON.stringify({ stamp: row.stamp, root: row.root, expectedAuthority: { ...current.authority } }), noTokenReplay: true });
+      const value = result?.result;
+      if (!result?.ok || !value || !Number.isSafeInteger(value.restored) || !Array.isArray(value.kept)) throw { code: 'work_data_setup.status_invalid' };
+      const kept = Number.isSafeInteger(value.keptCount) ? value.keptCount : value.kept.length;
+      hygieneNotice.textContent = t('workData.hygiene.restored', { count: count(value.restored) })
+        + (kept ? ' ' + t('workData.hygiene.kept', { count: count(kept) }) + ' ' + hygienePaths(value.kept, kept) : '');
+      hygieneNotice.dataset.state = kept ? 'error' : 'ok';
+    } catch (error) { hygieneReport(error, 'undo'); }
+    finally { hygieneBusy = false; render(); }
+    await runInspect({ quiet: true });
   }
   function schedule() {
     if (timer) clearTimeout(timer); timer = null;
@@ -439,7 +731,7 @@ export function mountWorkDataSettings() {
   // the state it rendered before the package was chosen.
   upload.addEventListener('change', () => { confirmRestore.checked = false; notice.textContent = ''; render(); });
   operation.addEventListener('change', () => { clearSecrets(); confirmRestore.checked = false; render(); });
-  const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); render(); };
+  const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); drawInspection(); if (movePlan) drawPlan(movePlan.plan); render(); };
   window.addEventListener('i18n:change', translate);
   // 设置页的后台刷新（refreshStatus → fillSettings → mountWorkDataSettings）也走这里：用户正在答（焦点在确认段里）时不打断；
   // 焦点已不在确认段（弹窗被整体关掉后重新打开）才收起上一次没答的确认，并把焦点还给提交按钮。

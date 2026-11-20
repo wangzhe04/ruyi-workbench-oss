@@ -6,6 +6,11 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/work-data/results/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
+  // 151 阶段 3G:数据根体检(只读)、残留移入隔离区的计划/执行与撤销(13ah)。
+  { m: 'GET', p: '/api/work-data/hygiene', auth: 'token' },
+  { m: 'GET', p: '/api/work-data/hygiene/plan', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/hygiene/quarantine', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/hygiene/undo', auth: 'token' },
   { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },
   { m: 'POST', p: '/api/memory-cli', auth: 'memory-cli' },
   { m: 'POST', p: '/api/mcp/consumer', auth: 'mcp-consumer' },

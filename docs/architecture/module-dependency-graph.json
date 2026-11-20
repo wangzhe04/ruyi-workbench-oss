@@ -5,8 +5,8 @@
   "summary": {
     "modules": 145,
     "providedSymbols": 4452,
-    "requiredSymbols": 4396,
-    "edges": 969,
+    "requiredSymbols": 4400,
+    "edges": 971,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -30617,6 +30617,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DesktopLifetimeHooks",
           "kinds": [
             "read"
@@ -30654,6 +30661,14 @@
           "provider": "00-boot.js",
           "symbol": "paths",
           "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call",
             "read"
           ]
         },
@@ -30711,6 +30726,20 @@
           "symbol": "send",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01ac-work-data-root-hygiene.js",
+          "symbol": "WorkDataRootHygiene",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -42765,11 +42794,13 @@
         "WorkDataRootHooks",
         "WorkDataSetupHooks",
         "crypto",
+        "dataRoot",
         "fsp",
         "json",
         "nowIso",
         "path",
-        "paths"
+        "paths",
+        "runKeyedChain"
       ],
       "direction": "backward"
     },
@@ -42779,6 +42810,22 @@
       "symbols": [
         "safeSessionId",
         "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ah-work-data-setup.js",
+      "to": "01ac-work-data-root-hygiene.js",
+      "symbols": [
+        "WorkDataRootHygiene"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ah-work-data-setup.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
       ],
       "direction": "backward"
     },

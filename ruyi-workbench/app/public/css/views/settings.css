@@ -815,3 +815,22 @@
 .work-data-confirm { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--panel-2); overflow-wrap: anywhere; }
 .work-data-confirm ul, .work-data-blockers { margin: 0; padding-left: var(--sp-4, 1.25rem); }
 .work-data-confirm .work-data-actions { margin-top: var(--sp-1); }
+/* 151 阶段 3G · U13：只能用「选择文件夹…」填写的路径栏画成只读样式（虚线、底色、手形），不再像可以打字的输入框；
+   灰着的提交按钮上方说还差什么。 */
+.work-data-panel input.work-data-path { background: var(--panel-2); border-style: dashed; color: var(--ink); cursor: pointer; caret-color: transparent; }
+.work-data-panel input.work-data-path:disabled { cursor: not-allowed; }
+.work-data-panel input.work-data-path::placeholder { color: var(--muted); font-style: italic; }
+.work-data-submit-reason { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+/* 151 阶段 3G（150 W3/W4）：数据根体检与残留文件。 */
+.work-data-hygiene { display: grid; gap: var(--sp-2); min-width: 0; border-top: 1px solid var(--line-2); padding-top: var(--sp-3); }
+.work-data-hygiene-result { display: grid; gap: var(--sp-2); min-width: 0; overflow-wrap: anywhere; }
+.work-data-hygiene-result p { margin: 0; }
+.work-data-hygiene-prediction { margin: 0; padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--accent); background: var(--panel-2); font-weight: 600; }
+.work-data-hygiene-prediction[data-state="blocked"] { border-left-color: var(--warn-fg); background: var(--warn-bg); color: var(--warn-fg); }
+.work-data-hygiene-areas, .work-data-hygiene-verdicts, .work-data-hygiene-quarantine, .work-data-hygiene-files { margin: 0; padding-left: var(--sp-4, 1.25rem); display: grid; gap: var(--sp-1); }
+.work-data-hygiene-verdicts { list-style: none; padding-left: 0; }
+.work-data-hygiene-verdicts li { padding: var(--sp-1) var(--sp-3); border-left: 3px solid var(--line-2); }
+.work-data-hygiene-verdicts li[data-severity="blocking"] { color: var(--danger, var(--ink)); border-left-color: var(--danger, var(--line-2)); }
+.work-data-hygiene-quarantine li { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.work-data-hygiene-files { max-height: 16rem; overflow: auto; }
+.work-data-hygiene-readonly { color: var(--muted); font-size: var(--fs-sm); }
