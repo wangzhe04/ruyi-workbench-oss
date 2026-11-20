@@ -77,6 +77,8 @@ const PARALLEL_EXCLUSIVE = new Set([
   'work-data-production-enable.browser.e2e.js',
   'work-data-owned-source-recovery.e2e.js',
   'work-data-completed-intent-recovery.e2e.js',
+  // 151 阶段 3A: real serve -> cold -> recovered successor rounds (two injected faults + one verified export).
+  'work-data-cold-failure-recovery.e2e.js',
   // The hand-off undo button has a real 10-second expiry. CDP inspection and the
   // subsequent click share that window; competing browser fixtures can exhaust it.
   // Keep all existing rewind/identity/grouping assertions, run this clock-bound UI alone.
@@ -296,6 +298,9 @@ const TIMEOUT_OVERRIDES = {
   // New C11 acceptance constructs two native complete-intent windows around
   // real enable/disable results; phase bounds remain those of the shared world.
   'work-data-completed-intent-recovery.e2e.js': 1200000,
+  // 151 阶段 3A cold failure recovery: three full maintenance handoffs (~5 min idle); inner phase deadlines are
+  // those of the shared restore world and are not widened.
+  'work-data-cold-failure-recovery.e2e.js': 900000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

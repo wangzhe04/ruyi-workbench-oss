@@ -1022,3 +1022,104 @@ test("the store's own codec is the only preference judge",async t=>{
  assert.equal(secondSent.length,1);
  assert.equal(second.calls.remove.length,1);
 });
+
+// ---------------------------------------------------------------------------
+// 151 阶段 3A(150 号文 W1/W8):操作体证明失败无残留时,冷端不再 hold(),把原根交还给恢复型后继。
+// ---------------------------------------------------------------------------
+const recoveredFailure=()=>Object.assign(Error('work_data_setup.preparation_failed'),{code:'work_data_setup.preparation_failed',operationMayHaveExecuted:false,
+ cause:Object.assign(Error('work_data_setup.backup_filesystem_unsupported'),{code:'work_data_setup.backup_filesystem_unsupported',cause:Object.assign(Error('C:\\Users\\someone\\secret'),{code:'work_data_manifest.flush_filesystem_unsupported'})})});
+const coldFailure=async(f,{error,proven=true,authority}={})=>{
+ const state={closes:0,listens:0};let reads=0;
+ // The entry check sees the expected authority; only later reads may observe a change.
+ f.host.readAuthority=async()=>reads++>0&&authority||({generation:0,id:null,mode:'plain',proof:{sha256:null}});
+ f.host.httpApi={create:options=>{state.status=options.readStatus;return{listen:async()=>{state.listens++;},close:async()=>{state.closes++;}};}};
+ f.host.operations=()=>({execute:async()=>{throw error;},selfRecovered:value=>proven&&value===error});
+ const runtime=Runtime.create(f.host);
+ await runtime.runCold({parentConnected:()=>true,parentPid:()=>88,readInput:async()=>Buffer.alloc(0)});
+ return {execute:f.state.creates.at(-1).execute,state};
+};
+test('3A: a proven self-recovered cold failure closes the cold listener and returns a source envelope instead of holding',async t=>{
+ const f=await fixture(t),error=recoveredFailure(),{execute,state}=await coldFailure(f,{error});
+ const outcome=await settle(execute(coldContext(f,'a'.repeat(48),'export')));
+ assert.equal(outcome.pending,undefined,'no hold');assert.ok(outcome.value,'an envelope is returned');
+ const value=plain(outcome.value);
+ assert.deepEqual(Object.keys(value).sort(),['backupPath','base','expectedAuthority','id','listener','operation','recovered']);
+ assert.equal(value.base,f.base);assert.equal(value.backupPath,null);assert.deepEqual(value.expectedAuthority,{generation:0,id:null,mode:'plain',sha256:null});
+ assert.deepEqual(value.recovered,{operation:'export',error:'work_data_setup.preparation_failed',reason:'work_data_setup.backup_filesystem_unsupported'});
+ assert.ok(!JSON.stringify(value).includes('someone'),'no path or message leaks into the successor input');
+ assert.equal(state.closes,1,'the cold progress listener is released for the successor');
+ assert.equal(state.status().job.state,'failed');
+});
+for(const [name,make] of [
+ ['not proven by the operation body',()=>({error:recoveredFailure(),proven:false})],
+ ['the source authority changed',()=>({error:recoveredFailure(),authority:{generation:1,id:'c'.repeat(48),mode:'encrypted',proof:{sha256:'d'.repeat(64)}}})],
+ ['a native helper may still run',()=>({error:Object.assign(recoveredFailure(),{helperMayStillRun:true})})],
+])test('3A: a cold failure still holds when '+name,async t=>{
+ const f=await fixture(t),{execute,state}=await coldFailure(f,make());
+ const outcome=await settle(execute(coldContext(f,'a'.repeat(48),'enable')));
+ assert.equal(outcome.pending,true,name+' must keep the hold');
+ const status=await waitStatus(state);assert.ok(status);assert.equal(status.job.error,'work_data_setup.preparation_failed');
+ assert.equal(state.closes,0);
+});
+test('3A: the recovered envelope launches a source successor that carries only the typed failure',async t=>{
+ const f=await fixture(t),store=activationStore();
+ const envelope={id:'a'.repeat(48),operation:'restore',base:f.base,listener:{...f.context.listener},expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupPath:null,
+  recovered:{operation:'restore',error:'work_data_setup.preparation_failed',reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:'10',availableBytes:'1'}}};
+ const state=await successorRun(f,{result:envelope,activation:store});assert.equal((await settle(state.pending)).pending,undefined,'the recovered handoff completes');
+ assert.equal(state.spawns,1);assert.equal(state.envs.at(-1),f.base,'a recovered restore serves the source root, never a target');
+ assert.equal(store.calls.write.length,0,'no activation receipt for a recovered handoff');
+ const input=state.inputs[0];
+ assert.deepEqual(Object.keys(input).sort(),['base','expectedAuthority','id','nonce','parentPid','recovered','schema','serve']);
+ assert.deepEqual(plain(input.recovered),envelope.recovered);assert.deepEqual(f.state.exits,[0]);
+ // A malformed recovered segment refuses instead of spawning.
+ const g=await fixture(t),bad=await successorRun(g,{result:{...envelope,base:g.base,listener:{...g.context.listener},recovered:{operation:'enable',error:'work_data_setup.preparation_failed'}}});
+ assert.equal((await settle(bad.pending)).pending,true);assert.equal(bad.spawns,0);
+});
+test('3A: successor preparation admits only an exact recovered segment',async t=>{
+ const ok=await fixture(t);
+ await ok.runtime.prepareSuccessor(successorChannel(ok,successorInput(ok,{recovered:{operation:'export',error:'work_data_setup.preparation_failed'}})),{base:ok.base});
+ for(const recovered of [
+  {operation:'export',error:'work_data_setup.preparation_failed',message:'C:\\secret'},
+  {operation:'export',error:'not a code'},
+  {operation:'export',error:'work_data_setup.preparation_failed',reason:'work_data_setup.preparation_failed'},
+  {operation:'delete',error:'work_data_setup.preparation_failed'},
+  {operation:'export',error:'work_data_setup.preparation_failed',reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:10,availableBytes:'1'}},
+ ]){
+  const f=await fixture(t);
+  await assert.rejects(()=>f.runtime.prepareSuccessor(successorChannel(f,successorInput(f,{recovered})),{base:f.base}),{code:'work_data_setup.successor_input_invalid'},JSON.stringify(recovered));
+ }
+});
+test('3A: a recovered successor boots without a result, refuses a live claim and a result for its own job',async t=>{
+ const f=await fixture(t),result=countingResult(),claim=seenClaim();f.host.resultApi=result.api;f.host.claim=claim.api;
+ const runtime=Runtime.create(f.host);
+ await runtime.prepareSuccessor(successorChannel(f,successorInput(f,{recovered:{operation:'enable',error:'work_data_setup.preparation_failed'}})),{base:f.base});
+ assert.equal(await runtime.inspectBoot({base:f.base,ownership:f.ownership}),true);
+ assert.deepEqual(result.calls,{create:1,inspect:1,read:0},'no result read is required or performed');
+ const pending=await fixture(t),receipt={base:pending.base,name:'claim-v1.json',sha256:'a'.repeat(64),dev:'1',ino:'2'};
+ pending.host.claim={classify:async()=>'pending',inspect:async()=>({present:true,receipt}),write:async()=>receipt,remove:async()=>assert.fail('never removed')};
+ const second=Runtime.create(pending.host);
+ await second.prepareSuccessor(successorChannel(pending,successorInput(pending,{recovered:{operation:'enable',error:'work_data_setup.preparation_failed'}})),{base:pending.base});
+ await assert.rejects(()=>second.inspectBoot({base:pending.base,ownership:pending.ownership}),{code:'work_data_setup.handoff_pending'});
+ const own=await fixture(t),handed=await recordHandoff(own,{operation:'export'});own.host.claim=seenClaim().api;
+ const third=Runtime.create(own.host);
+ await third.prepareSuccessor(successorChannel(own,successorInput(own,{id:handed.id,recovered:{operation:'export',error:'work_data_setup.preparation_failed'}})),{base:own.base});
+ await assert.rejects(()=>third.inspectBoot({base:own.base,ownership:own.ownership}),{code:'work_data_setup.successor_result_changed'});
+});
+test('3A: recovered completion proves the unchanged source authority, publishes the failed job and then serve-ready',async t=>{
+ const f=await fixture(t),sent=[];f.host.readAuthority=async()=>({generation:0,id:null,mode:'plain',proof:{sha256:null}});
+ const runtime=Runtime.create(f.host);
+ await runtime.prepareSuccessor(successorChannel(f,successorInput(f,{recovered:{operation:'disable',error:'work_data_setup.preparation_failed',reason:'work_data_setup.backup_filesystem_unsupported'}}),
+  {send:async message=>{assert.ok(f.workerHooks.recoveredJob,'the failed job is readable before serve-ready');sent.push(message);}}),{base:f.base});
+ await runtime.captureServe(f.context);
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(sent.length,1);assert.equal(sent[0].kind,'serve-ready');assert.deepEqual(plain(sent[0].authority),{generation:0,id:null,mode:'plain',sha256:null});
+ const job=plain(f.workerHooks.recoveredJob);
+ assert.deepEqual({...job,createdAt:undefined},{id:'a'.repeat(48),operation:'disable',state:'failed',createdAt:undefined,cancellable:false,takeover:false,retry:false,
+  error:'work_data_setup.preparation_failed',operationMayHaveExecuted:false,reason:'work_data_setup.backup_filesystem_unsupported',recovered:true});
+ const g=await fixture(t),gSent=[];g.host.readAuthority=async()=>({generation:1,id:'c'.repeat(48),mode:'encrypted',proof:{sha256:'d'.repeat(64)}});
+ const changed=Runtime.create(g.host);
+ await changed.prepareSuccessor(successorChannel(g,successorInput(g,{recovered:{operation:'enable',error:'work_data_setup.preparation_failed'}}),{send:async message=>gSent.push(message)}),{base:g.base});
+ await changed.captureServe(g.context);
+ await assert.rejects(()=>changed.completeSuccessor(),{code:'work_data_setup.successor_authority_changed'});
+ assert.equal(gSent.length,0);assert.equal(g.workerHooks.recoveredJob,undefined);
+});

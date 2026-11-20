@@ -168,6 +168,27 @@ test('the final intent fence reuses decoded proof only with freshly verified tar
  await fsp.rename(file,file+'.old');await fsp.writeFile(file,bytes);await fsp.unlink(file+'.old');
  await assert.rejects(f.host.verifyPublished(token,{recheck:true}),{code:'work_data_migration_host.published_target_changed'});
 });
+// 151 阶段 3A(150 号文 W5、149 号文 r48):收尾复核里只有原生元数据(NTFS 四项时间)漂移、字节与身份不变时,
+// 不再判「发布被改」,而是回落到完整的重新资格审查;通过即可收尾,内容一变仍拒绝。
+test('3A W5: metadata-only drift at the final fence falls back to a full requalification instead of refusing completion',async t=>{
+ const f=await fixture(t,{preserved:true});await f.write('sessions/one.json','{"id":"one"}');
+ const expected=await f.manifest.readActive(),backup=await f.backupFirst();
+ const token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
+ await f.host.publish(token);
+ const first=await f.host.verifyPublished(token),special=path.join(f.base,'.work-data','skill-backups');
+ // A later LastAccess on one published file: same names, identities and bytes.
+ f.state.nativeTimes=(root,rel)=>root===token.candidate.root&&rel==='sessions/one.json'?['1','999','3','4']:null;
+ const count=f.state.nativeCaptures.length,second=await f.host.verifyPublished(token,{recheck:true});
+ assert.notEqual(second,first,'a full requalification issued a fresh proof');
+ assert.deepEqual({...second,active:undefined},{...first,active:undefined});
+ assert.ok(f.state.nativeCaptures.slice(count).filter(root=>root===token.candidate.root).length>=3,'the drift was followed by a full target census');
+ assert.ok(f.state.nativeCaptures.slice(count).includes(special));
+ // The fresh qualification becomes the new fence: an unchanged recheck reuses it.
+ assert.equal(await f.host.verifyPublished(token,{recheck:true}),second);
+ // Content still wins over metadata: a byte change is refused exactly as before.
+ await fsp.writeFile(path.join(token.candidate.root,'sessions','one.json'),'{"id":"tampered"}');
+ await assert.rejects(f.host.verifyPublished(token,{recheck:true}),{code:'work_data_migration_host.published_target_changed'});
+});
 test('published verification refuses changed target bytes or a new empty target directory',async t=>{
  for(const damage of[async token=>fsp.writeFile(path.join(token.candidate.root,'uploads/raw'),'CHANGE'),async token=>fsp.mkdir(path.join(token.candidate.root,'unexplained'))]){const f=await fixture(t);await f.write('uploads/raw','RAW');const expected=await f.manifest.readActive(),backup=await f.backupFirst(),token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});await f.host.publish(token);await damage(token);await assert.rejects(()=>f.host.verifyPublished(token),{code:'work_data_migration_host.published_target_changed'});assert.equal((await f.manifest.readActive()).generation,1);}
 });

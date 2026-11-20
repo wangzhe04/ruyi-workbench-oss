@@ -90,6 +90,162 @@ async function startWorkbenchServe(argv) {
   if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.serving)await DesktopLifetimeHooks.serving();
   return served;
 }
+// 151 阶段 3A(150 号文 W5、149 号文 r48):普通 serve 在只读启动闸门处被「维护没收尾」拒绝时,先按现成的、
+// 已审查过的恢复主人自动收尾一次,再重新走完整启动;不再只有隐藏命令能解。
+//   - intent_pending:只有「intent 已是 complete、发布与结果都已落盘、交接记录 owned、两个进程都已退出」时
+//     recoverCompletedIntent 才会通过(它自己逐项复核并在其余情形类型化拒绝,不重放迁移、不修候选)。
+//   - handoff_pending:owned 而无 intent、无本作业结果时,recoverSource 证明源可读、写诊断、撤交接记录,不改源。
+// 闸门拒绝发生在 WorkDataRootHooks.bind 之前、所有权已释放,所以这里不会与任何已开始的启动写入竞争。
+// 两个恢复主人的契约是「一个新起的、只做这一件事的 doctor 进程拥有整个操作」,所以这里起的正是同一条
+// doctor 命令的子进程(同一可执行文件与脚本身份、同一环境),等它自然退出:退出码 0 才算收尾,其余一律不算。
+// 自动收尾失败就原样抛出原来的拒绝码(数据根不写 last-start-error:有未收尾 intent 时源必须保持原样)。
+const WORK_DATA_BOOT_RECOVERY = Object.freeze({
+  'work_data_setup.intent_pending': '--recover-work-data-intent',
+  'work_data_setup.handoff_pending': '--recover-work-data-source',
+});
+// 151 阶段 3A(review 应改 2):机读的「开始自动收尾」标记。桌面壳(RuyiDesktop.cs ServerHost)在 stderr 里认到这串
+// 固定字样就把启动等待窗口延长到它自己的上限,并在标题栏显示「正在自动收尾」—— 否则 30 秒到点关窗,KILL_ON_JOB_CLOSE
+// 会把正在收尾的 doctor 一起杀掉。标记行只带固定字样与稳定拒绝码,不带路径或自由文本。
+const WORK_DATA_BOOT_HEALING_MARKER = 'RUYI-BOOT-HEALING v1';
+// 整次自动收尾(所有 doctor 运行与间隔)的总上限;单次 doctor 运行在剩余预算处被停下。桌面壳延长后的窗口
+// (RuyiDesktop.cs HealingBootWindowMs = 360 s)大于这个上限加一次普通启动,所以重试永远不会撑爆窗口。
+const WORK_DATA_BOOT_HEAL_BUDGET_MS = 300000;
+const WORK_DATA_BOOT_RECOVERY_PAUSES_MS = Object.freeze([0, 1000, 3000, 6000]);
+// The doctor child reports its failure's cause chain on one tagged stderr line (codes only,
+// see workDataRecoveryCauseCodes). Boot retries only when that chain names a cause that
+// settles by itself; a definite failure (a broken key, a mismatched result, a missing
+// backup) wrapped in the same outer source_recovery_unverified/recovery_unverified code is
+// never retried, so an unrecoverable state does not delay boot.
+const WORK_DATA_RECOVERY_CAUSES_TAG = 'RUYI-RECOVERY-CAUSES ';
+const WORK_DATA_BOOT_TRANSIENT_CAUSES = Object.freeze(new Set([
+  // The crashed parent/child PIDs must be proven dead; reaping takes a moment.
+  'work_data_claim.recovery_process_pending', 'work_data_host.complete_recovery_process_pending',
+  // The two-profile proof observed concurrent metadata noise (antivirus, indexer, a reader
+  // holding a file open: Win32 32/33 sharing/lock violation), not a content change.
+  'work_data_host.complete_recovery_evidence_changed', 'work_data_host.complete_recovery_source_changed',
+  'work_data_backup.metadata_changed', 'work_data_tree.source_changed', 'work_data_backup.idle_win32_32', 'work_data_backup.idle_win32_33',
+  // An orphan rehearsal still owned by a dying verifier process.
+  'work_data_setup.rehearsal_retained',
+]));
+// Codes only, from data descriptors of the bounded cause/errors graph (no message, path
+// or getter is ever read), outermost first.
+function workDataRecoveryCauseCodes(error) {
+  const codes = [], seen = new Set(), queue = [error];
+  while (queue.length && seen.size < 32) {
+    const value = queue.shift();
+    if (value === null || typeof value !== 'object' && typeof value !== 'function' || seen.has(value)) continue;
+    seen.add(value);
+    try {
+      const code = Object.getOwnPropertyDescriptor(value, 'code');
+      if (code && Object.hasOwn(code, 'value') && typeof code.value === 'string' && /^work_data[a-z0-9_]*\.[a-z0-9_.-]{1,96}$/.test(code.value) && !codes.includes(code.value)) codes.push(code.value);
+      const cause = Object.getOwnPropertyDescriptor(value, 'cause');
+      if (cause && Object.hasOwn(cause, 'value')) queue.push(cause.value);
+      const errors = Object.getOwnPropertyDescriptor(value, 'errors');
+      if (errors && Object.hasOwn(errors, 'value') && Array.isArray(errors.value)) for (const item of errors.value.slice(0, 16)) queue.push(item);
+    } catch { /* an opaque node only ends this walk */ }
+  }
+  return codes.slice(0, 16);
+}
+function workDataRecoveryCausesFrom(stderr) {
+  const line = String(stderr || '').split(/\r?\n/).find(row => row.startsWith(WORK_DATA_RECOVERY_CAUSES_TAG));
+  if (!line) return null;
+  try {
+    const value = JSON.parse(line.slice(WORK_DATA_RECOVERY_CAUSES_TAG.length));
+    return Array.isArray(value) && value.length <= 16 && value.every(code => typeof code === 'string' && /^work_data[a-z0-9_]*\.[a-z0-9_.-]{1,96}$/.test(code)) ? value : null;
+  } catch { return null; }
+}
+// One doctor child with the ordinary CLI identity, bounded by `timeoutMs`. At the bound the
+// child is terminated: the two recovery owners are crash-recovery owners whose every step is
+// re-verifiable (a terminated doctor is exactly the crash they classify on the next start), and
+// the following ordinary start gates again, so a stopped run can only end in the original refusal.
+function runWorkDataRecoveryDoctor(flag, timeoutMs) {
+  return new Promise(resolve => {
+    let entry, child, timer = null, settled = false;
+    const finish = value => { if (settled) return; settled = true; if (timer !== null) clearTimeout(timer); resolve(value); };
+    try { entry = WorkDataVerifierEntry.command({ proc: process }); }
+    catch { finish({ code: -1, stderr: '' }); return; }
+    const args = [...entry.args.slice(0, -1), 'doctor', flag];
+    try { child = require('node:child_process').spawn(entry.command, args, { env: process.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); }
+    catch { finish({ code: -1, stderr: '' }); return; }
+    let stderr = '';
+    child.stdout.on('data', () => {});
+    child.stderr.on('data', chunk => { if (stderr.length < 65536) stderr += chunk; });
+    child.on('error', () => finish({ code: -1, stderr }));
+    child.on('close', code => finish({ code, stderr }));
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) timer = setTimeout(() => {
+      try { child.kill(); } catch { /* already gone */ }
+      finish({ code: -2, stderr, timedOut: true });
+    }, timeoutMs);
+  });
+}
+const WORK_DATA_BOOT_GUIDANCE = Object.freeze({
+  'work_data_setup.intent_pending': '上一次工作数据加密/停用没有收尾，自动收尾也没能确认结果，如意没有改动任何数据。请先完全退出如意再启动一次；仍然如此时，在「帮助 → 查看日志」里把最后几行发给支持人员。 / The last work data encryption change did not finish and could not be completed automatically; nothing was changed. Quit Ruyi completely and start it again; if this keeps happening, send the last lines of Help > View logs to support.',
+  'work_data_setup.handoff_pending': '上一次工作数据维护进程没有正常交接，自动核对没能完成，如意没有改动任何数据。请先完全退出如意（包括后台的维护进程）再启动一次。 / The last work data maintenance process did not hand off cleanly and the automatic check could not finish; nothing was changed. Quit Ruyi completely (including any background maintenance process) and start it again.',
+});
+async function recoverWorkDataBoot(error) {
+  let code = '';
+  try { code = String(error?.code || ''); } catch { code = ''; }
+  const flag = Object.hasOwn(WORK_DATA_BOOT_RECOVERY, code) ? WORK_DATA_BOOT_RECOVERY[code] : null;
+  if (!flag) return false;
+  // Only the readonly pre-bind gate qualifies: a bound root means boot work has begun.
+  try { if (WorkDataRootHooks.ready()) return false; } catch { return false; }
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.helperMayStillRun === 'function' && WorkDataMaintenanceRuntimeHooks.helperMayStillRun() !== false) return false;
+  } catch { return false; }
+  // Announced on stderr first, with the machine-readable marker the desktop shell uses to
+  // extend its boot window; the stderr tail it shows also explains the longer start.
+  console.error(`[start] ${WORK_DATA_BOOT_HEALING_MARKER} ${code}: 正在自动收尾上一次没有完成的工作数据维护… / completing the unfinished work data maintenance automatically…`);
+  const started = Date.now();
+  let outcome = null, detail = '';
+  for (const pause of WORK_DATA_BOOT_RECOVERY_PAUSES_MS) {
+    if (pause > 0) {
+      if (Date.now() - started + pause >= WORK_DATA_BOOT_HEAL_BUDGET_MS) break;
+      await new Promise(resolve => setTimeout(resolve, pause));
+    }
+    const remaining = WORK_DATA_BOOT_HEAL_BUDGET_MS - (Date.now() - started);
+    if (remaining <= 0) break;
+    outcome = await runWorkDataRecoveryDoctor(flag, remaining);
+    if (outcome.code === 0) break;
+    if (outcome.timedOut) { detail = 'work_data_setup.boot_recovery_timeout'; break; }
+    // Only stable codes are kept: never the doctor's message, path or stack text.
+    const causes = workDataRecoveryCausesFrom(outcome.stderr);
+    detail = causes && causes.length ? causes[0] : (/work_data(?:_[a-z0-9]+)*\.[a-z0-9_]{1,96}/.exec(String(outcome?.stderr || '')) || [''])[0];
+    const transient = causes ? causes.some(cause => WORK_DATA_BOOT_TRANSIENT_CAUSES.has(cause)) : WORK_DATA_BOOT_TRANSIENT_CAUSES.has(detail);
+    if (!transient) break;
+  }
+  if (!outcome || outcome.code !== 0) {
+    console.error(`[start] ${code}${detail ? ' (' + detail + ')' : ''}: ${WORK_DATA_BOOT_GUIDANCE[code]}`);
+    return false;
+  }
+  console.log(`[start] ${code}: recovered automatically (doctor ${flag}); starting normally`);
+  return true;
+}
+// The serve composition is single-shot per process (13au acquireServe), so the gate is
+// asked once more *before* it: the same readonly inspectBoot ordinary CLI commands run
+// under a plain ServerOwnership lease. Only its two maintenance refusals lead to the
+// doctor child; the real startServer then gates again exactly as before, so a failed or
+// skipped recovery still ends in the original refusal. A busy root (another owner) or a
+// missing gate simply skips this step. A refusal that may still have a native helper
+// running keeps the lease (main() then holds, exactly like withSelectedWorkDataRoot).
+async function preflightWorkDataBoot() {
+  if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot !== 'function') return false;
+  let ownership, refusal = null;
+  try { ownership = await ServerOwnership.acquire([dataRoot()]); } catch { return false; }
+  try { await WorkDataMaintenanceRuntimeHooks.inspectBoot({ base: await ServerOwnership.canonicalRoot(dataRoot()), ownership }); }
+  catch (error) { refusal = error; }
+  if (refusal && workDataCliHelperUnknown(refusal)) { holdWorkDataCliOwner(); throw refusal; }
+  await ownership.release();
+  return refusal ? recoverWorkDataBoot(refusal) : false;
+}
+async function serveWithWorkDataBootRecovery(argv) {
+  await preflightWorkDataBoot();
+  return startWorkbenchServe(argv);
+}
+// The two hidden recovery doctor commands report their failure's cause codes on one tagged
+// stderr line for the boot auto-heal above (codes only; the human output is unchanged).
+function reportWorkDataRecoveryCauses(error) {
+  try { const codes = workDataRecoveryCauseCodes(error); if (codes.length) console.error(WORK_DATA_RECOVERY_CAUSES_TAG + JSON.stringify(codes)); } catch { /* reporting never masks the failure */ }
+}
 // P2-4: the explicit operational exit for the boot-root preference. It never acquires
 // the data root, starts a serve, runs a migration or the ordinary doctor: it asks the
 // single preference owner for its record and removes exactly that record through the
@@ -391,7 +547,9 @@ async function main() {
     if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-intent'
       || argv['recover-work-data-intent'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
-    const result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()});
+    let result;
+    try { result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()}); }
+    catch (error) { try { reportWorkDataRecoveryCauses(error); } catch { /* reporting never masks the failure */ } throw error; }
     console.log(JSON.stringify(result));return result;
   }
   if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
@@ -399,7 +557,9 @@ async function main() {
       || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
     const factory = WorkDataRuntimeHost.create();
-    const result = await factory.recoverSource({base:dataRoot()});
+    let result;
+    try { result = await factory.recoverSource({base:dataRoot()}); }
+    catch (error) { try { reportWorkDataRecoveryCauses(error); } catch { /* reporting never masks the failure */ } throw error; }
     console.log(JSON.stringify(result));
     return result;
   }
@@ -423,7 +583,7 @@ async function main() {
     if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
     return run();
   }
-  if (command === 'serve') return startWorkbenchServe(argv);
+  if (command === 'serve') return serveWithWorkDataBootRecovery(argv);
   if (typeof WorkDataKeyRewrap !== 'undefined' && command === WorkDataKeyRewrap.COMMAND) return runWorkDataKeyRewrap();
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());

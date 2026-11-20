@@ -30465,6 +30465,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01z-work-data-root-authority.js",
           "symbol": "WorkDataRootAuthority",
           "kinds": [
@@ -30677,6 +30684,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13aj-work-data-control.js",
           "symbol": "WorkDataMaintenanceControl",
           "kinds": [
@@ -30751,6 +30765,13 @@
         {
           "provider": "13aj-work-data-control.js",
           "symbol": "WorkDataMaintenanceControl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ak-work-data-cold-operations.js",
+          "symbol": "WorkDataColdOperations",
           "kinds": [
             "read"
           ]
@@ -32007,18 +32028,32 @@
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
+        "WORK_DATA_BOOT_GUIDANCE",
+        "WORK_DATA_BOOT_HEALING_MARKER",
+        "WORK_DATA_BOOT_HEAL_BUDGET_MS",
+        "WORK_DATA_BOOT_RECOVERY",
+        "WORK_DATA_BOOT_RECOVERY_PAUSES_MS",
+        "WORK_DATA_BOOT_TRANSIENT_CAUSES",
+        "WORK_DATA_RECOVERY_CAUSES_TAG",
         "WORK_DATA_REWRAP_TEMP",
         "clearBootRootPreference",
         "holdWorkDataCliOwner",
         "main",
+        "preflightWorkDataBoot",
         "readWorkDataRewrapPassword",
+        "recoverWorkDataBoot",
+        "reportWorkDataRecoveryCauses",
         "runWorkDataKeyRewrap",
+        "runWorkDataRecoveryDoctor",
+        "serveWithWorkDataBootRecovery",
         "startWorkbenchServe",
         "withSelectedWorkDataRoot",
         "workDataCliHelperHeld",
         "workDataCliHelperHoldTimer",
         "workDataCliHelperUnknown",
         "workDataKeyRewrapHost",
+        "workDataRecoveryCauseCodes",
+        "workDataRecoveryCausesFrom",
         "workDataRewrapHiddenPrompt",
         "workDataRewrapPasswordFromBytes",
         "workDataRewrapRefusal"

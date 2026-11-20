@@ -365,6 +365,12 @@ namespace RuyiDesktop
         public event Action<string> UrlReady;
         public event Action<int> Exited;
         public event Action<string> Observed;
+        // 151 阶段 3A：服务在启动闸门处自动收尾上一次没完成的工作数据维护时，在 stderr 打一行固定标记
+        // （14-main WORK_DATA_BOOT_HEALING_MARKER）。认到就通知窗口延长启动等待窗口（有自己的上限），
+        // 免得 30 秒到点关窗、KILL_ON_JOB_CLOSE 把正在收尾的 doctor 一起杀掉。只触发一次。
+        public const string BootHealingMarker = "RUYI-BOOT-HEALING v1";
+        public event Action Healing;
+        private int healingSeen;
         public bool Running { get { return lifetime.Running; } }
         public string StderrTail { get { lock(stderrTail) { return stderrTail.ToString(); } } }
         public ServerHost()
@@ -372,7 +378,15 @@ namespace RuyiDesktop
             lifetime.UrlReady += delegate(string url) { var handler=UrlReady; if(handler!=null)handler(url); };
             lifetime.Exited += delegate(int code) { var handler=Exited; if(handler!=null)handler(code); };
             lifetime.Observed += delegate(string value) { var handler=Observed; if(handler!=null)handler(value); };
-            lifetime.ErrorLine += delegate(string line) { lock(stderrTail) { stderrTail.AppendLine(line); if(stderrTail.Length>8000)stderrTail.Remove(0,stderrTail.Length-8000); } };
+            lifetime.ErrorLine += delegate(string line)
+            {
+                lock(stderrTail) { stderrTail.AppendLine(line); if(stderrTail.Length>8000)stderrTail.Remove(0,stderrTail.Length-8000); }
+                if (line != null && line.IndexOf(BootHealingMarker, StringComparison.Ordinal) >= 0
+                    && System.Threading.Interlocked.Exchange(ref healingSeen, 1) == 0)
+                {
+                    var handler=Healing; if(handler!=null)handler();
+                }
+            };
         }
         public bool Start(string baseDir) { return lifetime.Start(baseDir, DesktopIsolation.ExplicitDataRoot()); }
         public System.Threading.Tasks.Task<bool> StopAsync() { return lifetime.StopAsync(); }
@@ -919,6 +933,19 @@ namespace RuyiDesktop
             webView.Navigate(serverUrl);
         }
 
+        // 151 阶段 3A：服务自动收尾时的启动等待上限（从认到标记那一刻起算）。服务那边整次自动收尾自带 300 秒上限
+        // （14-main WORK_DATA_BOOT_HEAL_BUDGET_MS），这里多留一分钟给收尾之后的普通启动。
+        internal const int HealingBootWindowMs = 360000;
+        private bool bootHealing;   // 只在 UI 线程读写
+
+        public void OnServerHealing()
+        {
+            if (IsDisposed || bootHealing || bootFailureShown || !string.IsNullOrEmpty(serverUrl)) return;
+            bootHealing = true;
+            titlePanel.SetStatus("正在自动收尾上一次的工作数据维护，请稍候（最长约 6 分钟）…", false);
+            try { bootTimer.Change(HealingBootWindowMs, System.Threading.Timeout.Infinite); } catch (ObjectDisposedException) { /* 已就绪 */ }
+        }
+
         private void OnBootTimeout(object state)
         {
             if (IsDisposed) return;
@@ -929,7 +956,8 @@ namespace RuyiDesktop
                 bootFailureShown = true;
                 string tail = server.StderrTail.Trim();
                 string detail = tail.Length > 0 ? "\n\n服务输出：\n" + tail : "";
-                MessageBox.Show(this, "后台服务 30 秒内未就绪。" + detail, "如意工作台",
+                string what = bootHealing ? "后台服务自动收尾后仍未就绪（已等待约 6 分钟）。" : "后台服务 30 秒内未就绪。";
+                MessageBox.Show(this, what + detail, "如意工作台",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             });
@@ -1651,6 +1679,10 @@ namespace RuyiDesktop
                     server.Exited += delegate(int code)
                     {
                         try { form.BeginInvoke((Action)delegate { form.OnServerExited(code); }); } catch { /* ignore */ }
+                    };
+                    server.Healing += delegate
+                    {
+                        try { form.BeginInvoke((Action)delegate { form.OnServerHealing(); }); } catch { /* 窗口已关 */ }
                     };
                     try
                     {

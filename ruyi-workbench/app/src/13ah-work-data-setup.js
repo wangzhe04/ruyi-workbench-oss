@@ -316,11 +316,25 @@ const WorkDataSetup = (() => {
       else if(req.method==='POST'&&pathname==='/api/work-data/uploads'){response=await receiveUpload(req);statusCode=201;}
       else if((req.method==='GET'||req.method==='POST')&&pathname.startsWith('/api/work-data/jobs/')) {
         const match=/^\/api\/work-data\/jobs\/([a-f0-9]{48})(\/cancel)?$/.exec(pathname);if(!match)throw fail('job_not_found',404);
-        if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(!job)throw fail('job_not_found',404);response={ok:true,job:view(job)};}
+        if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(job)response={ok:true,job:view(job)};else{const recovered=recoveredJob(match[1]);if(!recovered)throw fail('job_not_found',404);response={ok:true,job:recovered};}}
         else if(req.method==='POST'&&match[2]){const body=await readJson(req,256);if(Object.keys(body).length)throw fail('request_invalid',400);response={ok:true,job:await cancel(match[1])};}
         else throw fail('method_not_allowed',405);
       }else return false;
       host.respond(res,response,statusCode);return true;
+    }
+    // 151 阶段 3A(150 号文 W1):冷端证明失败无残留后由恢复型后继接回原根,那次没做成的作业只作为
+    // 终态读数留在本进程(13am completeSuccessor 写进 worker hooks),浏览器按原作业号还能读到「失败 + 原因」,
+    // 而不是 job_not_found。只认同号、同形状的终态失败;它不是活动作业,不占用提交、不可取消。
+    function recoveredJob(id) {
+      let value;try{value=host.worker()?.recoveredJob;}catch{return null;}
+      if(!object(value)||value.id!==id||!ID.test(id)||!['enable','disable','export','restore'].includes(value.operation)||value.state!=='failed'
+        ||value.recovered!==true||value.cancellable!==false||value.takeover!==false||value.retry!==false||value.operationMayHaveExecuted!==false
+        ||!/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(value.error||'')))return null;
+      const reason=typeof value.reason==='string'&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(value.reason)?value.reason:null;
+      const detail=object(value.reasonDetail)&&/^\d{1,20}$/.test(String(value.reasonDetail.requiredBytes))&&/^\d{1,20}$/.test(String(value.reasonDetail.availableBytes))
+        ?{requiredBytes:String(value.reasonDetail.requiredBytes),availableBytes:String(value.reasonDetail.availableBytes)}:null;
+      return Object.freeze({id:value.id,operation:value.operation,state:'failed',createdAt:typeof value.createdAt==='string'?value.createdAt:null,cancellable:false,
+        takeover:false,retry:false,error:value.error,operationMayHaveExecuted:false,recovered:true,...(reason?{reason}:{}),...(reason&&detail?{reasonDetail:detail}:{})});
     }
     const bypasses=(req,pathname)=>pathname==='/api/mcp/internal/request'||req.method==='POST'&&pathname==='/api/memory-cli'
       ||req.method==='GET'&&pathname==='/api/events/stream'||req.method==='POST'&&pathname==='/api/bootstrap';
@@ -363,8 +377,29 @@ async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) 
   const fail=()=>{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',statusCode:400});};
   async function real(directory){if(!path.isAbsolute(directory))fail();const absolute=path.resolve(directory),parsed=path.parse(absolute);let cursor=parsed.root;for(const part of ['',...absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)]){if(part)cursor=path.join(cursor,part);const stat=await fsp.lstat(cursor);if(!stat.isDirectory()||stat.isSymbolicLink()||key(await fsp.realpath(cursor))!==key(cursor))fail();}}
   await real(backupDirectory);if(inside(base,backupDirectory)||inside(backupDirectory,base))fail();
-  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory)||inside(backupDirectory,targetDirectory))fail();await real(path.dirname(targetDirectory));try{await fsp.lstat(targetDirectory);}catch(error){if(error.code==='ENOENT')return;throw error;}fail();}
+  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory)||inside(backupDirectory,targetDirectory))fail();await real(path.dirname(targetDirectory));let exists=true;try{await fsp.lstat(targetDirectory);}catch(error){if(error.code!=='ENOENT')throw error;exists=false;}if(exists)fail();}
   }catch{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',apiCode:'work_data_setup.path_invalid',statusCode:400,retry:false});}
+  // 151 阶段 3A(150 号文 W8):备份文件夹的卷要在【写出任何字节之前】证明支持冷端要用的目录刷盘语义。
+  // 冷端写完备份包后用的就是这同一个原生 flush;exFAT/FAT32/ReFS/网络位置在这里直接拒绝并给人话指引,
+  // 而不是先交接、写出备份包再失败。探测只对已校验过的现成目录调用 FlushFileBuffers,不创建、不改名任何东西。
+  // 没有原生发布模块(非 Windows、单测的 vm 夹具)时跳过:冷端在写包之前还会再探一次。
+  if(process.platform!=='win32'||typeof WorkDataNativePublish==='undefined'||typeof WorkDataNativePublish.createFlush!=='function')return;
+  try{await WorkDataNativePublish.createFlush()([path.resolve(backupDirectory)]);}
+  catch(error){
+    let kind='uncertain';try{kind=WorkDataNativePublish.classifyFlushFailure(error);}catch{kind='uncertain';}
+    const code=kind==='volume_unsupported'?'work_data_setup.backup_filesystem_unsupported':'work_data_setup.backup_durability_unavailable';
+    throw Object.assign(Error(code),{code,apiCode:code,statusCode:kind==='uncertain'?503:400,retry:false});
+  }
+  // 151 阶段 3A(review 应改 1):启用/停用/导出的演练放在数据根的【父目录】里(W7,同卷且不在备份文件夹),删除后
+  // 要对父目录刷盘。数据根直接在盘符根下(C:\X)时非提权进程刷不了 C:\ —— 在交接之前就拒绝,给人话:把数据文件夹
+  // 移进一个子文件夹,或换个数据位置。恢复(restore)不在数据根旁边演练,不探。冷端快照前还会再探一次。
+  if(targetDirectory!==undefined)return;
+  try{await WorkDataNativePublish.createFlush()([path.dirname(path.resolve(base))]);}
+  catch(error){
+    let kind='uncertain';try{kind=WorkDataNativePublish.classifyFlushFailure(error);}catch{kind='uncertain';}
+    const code=kind==='uncertain'?'work_data_setup.rehearsal_location_unavailable':'work_data_setup.rehearsal_location_unsupported';
+    throw Object.assign(Error(code),{code,apiCode:code,statusCode:kind==='uncertain'?503:400,retry:false});
+  }
 }
 function workDataSetupReceiptPath(pathname) {
   return ['/api/stop','/api/chat/answer','/api/question/heartbeat','/api/permission/decision','/api/plan/decision'].includes(pathname)

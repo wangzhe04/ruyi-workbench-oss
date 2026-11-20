@@ -264,6 +264,19 @@ describe('S7 · 敏感名单两份一致(03 isSensitiveDataPath 与 11 sensitive
     assert.deepEqual(miss, [], '两份名单不一致或漏名字');
     assert.equal(J.isSensitiveDataPath(path.join(dataRootDir, 'checkpoints', 's1', '1-1.txt')), false, 'checkpoints 有意不进名单');
   });
+  // 151 阶段 3A(150 号文 W7,review 应改 3):冷端演练是数据根【同级】的 .ruyi-work-data-rehearsal-<id>(明文模式下是整根
+  // 明文副本,含凭据库与 config.json)。崩溃残留时它在数据根之外,两份名单都得按这个前缀拦住;旁边的普通目录不受影响。
+  it('数据根同级的演练目录:文件工具判敏感,rg 的排除 glob 也有它;别的同级目录照常可读', () => {
+    let J;
+    try { J = loadServerInternals(['isSensitiveDataPath', 'sensitiveGlobsForRg']); } catch (e) { if (e instanceof ReferenceError) return; throw e; }
+    const rehearsal = path.join(path.dirname(dataRootDir), '.ruyi-work-data-rehearsal-' + 'a'.repeat(48));
+    for (const p of [rehearsal, path.join(rehearsal, 'config.json'), path.join(rehearsal, 'credential-vault-v1.json'), path.join(rehearsal, 'sessions', 's1.json')])
+      assert.equal(J.isSensitiveDataPath(p), true, p);
+    assert.equal(J.isSensitiveDataPath(path.join(path.dirname(dataRootDir), 'notes', '.ruyi-work-data-rehearsal-x', 'a.txt')), false, '只认数据根同级这一层');
+    assert.equal(J.isSensitiveDataPath(path.join(path.dirname(dataRootDir), 'ordinary-sibling', 'a.txt')), false);
+    assert.ok(J.sensitiveGlobsForRg(home).includes('!/.ruyi-work-data-rehearsal-*'), 'rg 从数据根父目录搜也排除演练目录');
+    assert.ok(J.sensitiveGlobsForRg(path.dirname(home)).includes('!/' + path.basename(home) + '/.ruyi-work-data-rehearsal-*'), 'rg 从更上层搜同样排除');
+  });
 });
 
 describe('S7 · config.json / runtime.json 的硬链接别名(dev+ino 比对)', () => {

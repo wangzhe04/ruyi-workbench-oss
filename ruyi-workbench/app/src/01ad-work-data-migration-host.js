@@ -470,16 +470,20 @@ const WorkDataMigrationHost = ((io,p,c) => {
         // The cold qualification already decoded every record and proved
         // the selected key and special owner. The final intent fence binds
         // those results to two fresh preserved censuses and the same pointer.
-        return usingSource(await sourceTree.capture(selected.root),async active=>{
+        // 151 阶段 3A(150 号文 W5 / 149 号文 r48):字节、名字、身份都没变、只有原生元数据(NTFS 四项时间、属性)
+        // 漂移时,不再当作「发布被改」拒收尾 —— 那是杀毒、索引、预读之类的观测副作用。这种情形回落到下面的
+        // 完整重新资格审查:逐条重新解码、重验密钥头与特殊所有者,通过后才放行收尾;内容一变照旧拒绝。
+        const drift=await usingSource(await sourceTree.capture(selected.root),async active=>{
           const target=sourceTree.fingerprint(active);
-          if(target.sha256!==proof.targetSha||target.nativeSha256!==prior.targetNativeSha256)fail('published_target_changed');
+          if(target.sha256!==proof.targetSha)fail('published_target_changed');
           return usingSource(await sourceTree.capture(specialRoot),async special=>{
             const actual=sourceTree.fingerprint(special);
-            if(actual.sha256!==proof.specialSha||actual.nativeSha256!==prior.specialNativeSha256)fail('published_special_changed');
+            if(actual.sha256!==proof.specialSha)fail('published_special_changed');
             await current(proof.expected);
-            return prior.result;
+            return target.nativeSha256!==prior.targetNativeSha256||actual.nativeSha256!==prior.specialNativeSha256;
           });
         });
+        if(!drift)return prior.result;
       }
       qualifiedPublication.delete(prepared);
       const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,qualification,failed=false;

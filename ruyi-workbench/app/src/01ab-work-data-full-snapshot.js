@@ -414,9 +414,13 @@ return Object.freeze({isUnknown,flags});
         const namespace=Object.freeze({directories,files});
         const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
-        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false;
+        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false,createdIdentity=null;
         try{
-          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
+          await io.mkdir(target,{mode:0o700});created=true;
+          // 151 阶段 3A(150 号文 W7):记下这一次 mkdir 造出的目录身份。失败时随 restore_failed 一起交回,
+          // 调用方(冷端演练)凭这份身份而不是凭目录名证明「这是本次自己造的」,才可以把半成品整棵清掉。
+          {const stat=await io.lstat(target,{bigint:true});if(stat.isDirectory()&&!stat.isSymbolicLink())createdIdentity=Object.freeze({dev:String(stat.dev),ino:String(stat.ino)});}
+          await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
           for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
           for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
@@ -437,7 +441,7 @@ return Object.freeze({isUnknown,flags});
             await targetAdmission();
           }
           return result;
-        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
+        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(created&&createdIdentity?{targetPath:target,targetIdentity:createdIdentity}:{}),...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
       });
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});

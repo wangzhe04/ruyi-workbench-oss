@@ -80,6 +80,17 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     }
     return {...(found||{}),...(limited?{limitDetail:limited}:{})};
   };
+  // 151 阶段 3A:恢复型后继的诊断段。只有操作、外层稳定码、可选的更具体原因码与两枚十进制字节数,
+  // 不带 message、路径或任何自由文本;形状不对就整段不认(后继随之拒绝启动)。
+  const CODE=/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/;
+  const recoveredValue=(value,operation)=>{try{
+    if(!['error,operation','error,operation,reason','error,operation,reasonDetail','error,operation,reason,reasonDetail'].includes(keys(value)))return null;
+    if(!['enable','disable','export','restore'].includes(value.operation)||operation!==undefined&&value.operation!==operation||!CODE.test(value.error||''))return null;
+    if(value.reason!==undefined&&(typeof value.reason!=='string'||!CODE.test(value.reason)||value.reason===value.error))return null;
+    if(value.reasonDetail!==undefined&&(keys(value.reasonDetail)!=='availableBytes,requiredBytes'||!bytes(value.reasonDetail.requiredBytes)||!bytes(value.reasonDetail.availableBytes)))return null;
+    return Object.freeze({operation:value.operation,error:value.error,...(value.reason!==undefined?{reason:value.reason}:{}),
+      ...(value.reasonDetail!==undefined?{reasonDetail:Object.freeze({requiredBytes:value.reasonDetail.requiredBytes,availableBytes:value.reasonDetail.availableBytes})}:{})});
+  }catch{return null;}};
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
   // A retirement receipt is data, never a boolean promotion: it must carry the
@@ -222,8 +233,12 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         await verifyActivation(activationBoot,base,null);
       }else{
         resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
-        observedResult=await resultReader.inspect();const result=expected?await resultReader.read():null;
-        if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+        // A recovered successor (151 阶段 3A) has no result to verify by construction: its
+        // proof is the retired claim (classified below) and the unchanged source authority.
+        const verifiesResult=expected&&!expected.recovered;
+        observedResult=await resultReader.inspect();const result=verifiesResult?await resultReader.read():null;
+        if(verifiesResult&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+        if(expected&&expected.recovered&&observedResult?.present&&observedResult.value?.id===expected.id)throw fail('successor_result_changed');
         // No intent: only the TEMP handoff record may be classified and, when inert or
         // complete, cleaned. Base files are never repaired here.
         // The claim owner compares this digest with its own id/operation, so a stale
@@ -241,6 +256,9 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
         if(outcome==='pending')throw fail('handoff_pending');
         if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
+        // A recovered handoff retired its own record before the cold parent spawned this
+        // process; a completed record is not something it can have produced.
+        if(expected&&expected.recovered&&outcome==='complete')throw fail('handoff_completion_unverified');
         if(outcome!=='absent'){
           if(!selectedClaim?.present)throw fail('boot_control_pending');
           if(outcome==='complete'){
@@ -280,7 +298,13 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
               await claims.remove(selectedClaim.receipt);
             }else{
               if(typeof claims.recoverCompleted!=='function')throw fail('handoff_completion_unverified');
-              await claims.recoverCompleted(selectedClaim.receipt,verifyCompleted);
+              // 151 阶段 3A(review 应改 3):claim 主人已证明两个原进程都死了才进这个回调;先清掉这次被杀的冷端可能留下的
+              // 演练目录(数据根同级、按 claim id 定位、按身份与独占所有权删除),删不掉就整体拒绝、保留交接记录。
+              await claims.recoverCompleted(selectedClaim.receipt,async claim=>{
+                if(typeof WorkDataColdOperations!=='undefined'&&typeof WorkDataColdOperations.removeOrphanRehearsal==='function')
+                  await WorkDataColdOperations.removeOrphanRehearsal({base,id:claim?.id,acquire:roots=>ServerOwnership.acquire(roots)});
+                return verifyCompleted(claim);
+              });
             }
           }else await claims.remove(selectedClaim.receipt);
         }
@@ -362,9 +386,26 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         // and read-only listener alive until an explicit future recovery owner acts.
         await new Promise(()=>{});
       };
+      // 151 阶段 3A(150 号文 W1/W8):操作体证明了「没写 intent、没写结果、没造目标、本次的备份包与演练都已按身份
+      // 清掉、交接记录已撤、源权威未变」时,不再 hold():关掉只读进度监听,把原根交还给一个恢复型后继 ——
+      // 13ai 的 finally 照常释放源所有权,runCold 照常起后继,服务自动回到可用,不需要任何 CLI。
+      // 证明只认操作体自己私有登记的失败对象;这里再独立复核原生助手与源权威,任何一项不成立都退回 hold。
+      let ops=null;
+      const returnToSource=async error=>{
+        try{
+          latch(error);if(helperUncertain||helpers())return null;
+          const actual=full(await host.readAuthority(base));if(!authority(actual)||!same(actual,context.expectedAuthority))return null;
+          const reason=failureReason(error);
+          context.password=null;current=actual;job.state='failed';job.error=safeCode(error);Object.assign(job,reason);job.phase='restart';
+          await http.close();
+          return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:actual,backupPath:null,
+            recovered:Object.freeze({operation:context.operation,error:safeCode(error),...(reason.reason?{reason:reason.reason}:{}),
+              ...(reason.reasonDetail?{reasonDetail:Object.freeze({...reason.reasonDetail})}:{})})});
+        }catch{return null;}
+      };
       try {
         await http.listen();
-        const ops=host.operations({guardNative,helperMayStillRun:helpers,progress:async update=>{
+        ops=host.operations({guardNative,helperMayStillRun:helpers,progress:async update=>{
           if(update?.id!==context.id||update.operation!==context.operation||typeof update.phase!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(update.phase))throw fail('progress_invalid');job.phase=update.phase;
         }});
         if(!ops||typeof ops.execute!=='function')throw fail('operations_unavailable');
@@ -395,16 +436,24 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         job.phase='restart';if(result.backup?.path)job.backupPath=result.backup.path;
         await http.close();return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:current,backupPath:record.backup.path,
           ...(activationTarget?{activationTarget}:{})});
-      }catch(error){return hold(error);}
+      }catch(error){
+        let proven=false;try{proven=!!ops&&typeof ops.selfRecovered==='function'&&ops.selfRecovered(error)===true;}catch{proven=false;}
+        if(proven){const envelope=await returnToSource(error);if(envelope)return envelope;}
+        return hold(error);
+      }
     }
     async function launchSuccessor(result) {
       // A restore successor serves the committed fresh root only. The receipt is
       // written first and stays behind as diagnosis on every failure; there is no
       // retry and no fallback to the source root.
       const target=result.activationTarget||null;
+      // 151 阶段 3A:恢复型后继只服务原根,它的 recovered 段只是给后继复述「哪一次、因为什么没做成」的诊断,
+      // 不授予任何权限;后继自己再从磁盘证明交接记录已撤、源权威未变。
+      const recovered=result.recovered===undefined?null:recoveredValue(result.recovered,result.operation);
+      if(result.recovered!==undefined&&(!recovered||target))throw fail('recovered_envelope_invalid');
       // A restore envelope that lost its target is unrepresentable, not a source
       // handoff: refuse it loudly instead of spawning a successor on the source base.
-      if(result.operation==='restore'&&!target)throw fail('activation_target_missing');
+      if(result.operation==='restore'&&!target&&!recovered)throw fail('activation_target_missing');
       if(target&&(typeof target.target!=='string'||!p.isAbsolute(target.target)||!identity(target.identity)||!authority(target.authority)||!NONCE.test(target.resultSha256||'')))throw fail('activation_invalid');
       const spec=command('work-data-successor'),nonce=c.randomBytes(32).toString('hex');
       const home=target?await host.canonical(target.target):result.base;
@@ -423,7 +472,8 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('successor',result.id,nonce):null;
       const child=host.workerApi.spawnCold(spec,desktop?DesktopLifetimeHooks.environment(common.environment(home),desktop):common.environment(home));
       const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:home,serve:result.listener,
-        expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{})};
+        expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{}),
+        ...(recovered?{recovered}:{})};
       const readyMessage=new Promise((resolve,reject)=>{
         const cleanup=()=>{child.removeListener('message',message);child.removeListener('error',failed);child.removeListener('exit',exited);};
         const failed=()=>{cleanup();reject(fail('successor_launch_failed'));},exited=()=>{cleanup();reject(fail('successor_exited'));};
@@ -486,9 +536,10 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const bytes=await channel.readInput(16384);let input;
       try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
       const shape=keys(input),activation=shape==='activation,base,expectedAuthority,id,nonce,parentPid,schema,serve';
-      if(!(shape==='base,expectedAuthority,id,nonce,parentPid,schema,serve'||activation)||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
+      const recovered=shape==='base,expectedAuthority,id,nonce,parentPid,recovered,schema,serve';
+      if(!(shape==='base,expectedAuthority,id,nonce,parentPid,schema,serve'||activation||recovered)||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
         ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
-        ||activation&&!activationInput(input.activation)
+        ||activation&&!activationInput(input.activation)||recovered&&!recoveredValue(input.recovered)
         ||fold(await host.canonical(input.base))!==fold(await host.canonical(base)))throw fail('successor_input_invalid');
       let receipt=null;
       if(activation){
@@ -522,6 +573,14 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
           // receipt and the live target authority. No result file is read on target.
           bound=await verifyActivation(input,await host.canonical(input.base),pending.receipt);
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        }else if(input.recovered){
+          // 151 阶段 3A:恢复型后继只证明源权威与冷端交接前完全相同,然后把那次没做成的作业作为终态
+          // 交给本进程的状态接口(不再进入 operation,也不授予重试或任何权限)。
+          actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+          const value=recoveredValue(input.recovered);if(!value)return stop(fail('successor_input_invalid'));
+          if(host.workerHooks&&typeof host.workerHooks==='object')host.workerHooks.recoveredJob=Object.freeze({id:input.id,operation:value.operation,state:'failed',
+            createdAt:new Date().toISOString(),cancellable:false,takeover:false,retry:false,error:value.error,operationMayHaveExecuted:false,
+            ...(value.reason?{reason:value.reason}:{}),...(value.reasonDetail?{reasonDetail:value.reasonDetail}:{}),recovered:true});
         }else{
           const read=host.workerHooks?.readResult;
           const record=typeof read==='function'?await read():await readWarmResult(captured);

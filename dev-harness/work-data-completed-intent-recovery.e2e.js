@@ -56,6 +56,65 @@ async function runActual(argv=process.argv.slice(2)){
   w.checkpoint(label+'-proof',{dto,before,after,originalClaim:produced.claimRaw.row,constructedCrashWindow:true,maintenanceReplayed:false});
   w.checked(label+': real doctor retires only exact complete intent and owned claim after full source/result verification');
  }
+ // 151 阶段 3A(150 号文 W5、149 号文 r48):同一个构造出的「已发布、结果已落盘、只差收尾」现场,不跑隐藏 doctor,
+ // 直接重启普通 serve —— 启动闸门拒绝后自动交给同一个 recoverCompletedIntent 收尾,再完整启动,服务可用。
+ async function selfHealServe(f,label,{saved,produced}){
+  w.ctx.phase=label;const before=snapshot(f),intentFile=path.join(f.base,'.work-data','maintenance-v1.json');
+  assert.equal(fs.existsSync(intentFile),true,label+': the complete intent is present before restart');
+  // A restart happens after the crashed maintenance processes are gone (the reviewed
+  // owner rightly refuses while either recorded PID is alive). Observe that precondition
+  // from the real claim and the process table; never kill anything here.
+  const recorded=(await w.claimApi(f.temp).inspect({base:produced.canonical})).value;
+  for(const deadline=Date.now()+600000;;){
+   const table=snapshotProcessTable();if(table&&![recorded.parentPid,recorded.childPid].some(pid=>table.some(row=>row.pid===pid)))break;
+   if(Date.now()>=deadline)throw Error(label+': recorded maintenance processes never exited');await new Promise(resolve=>setTimeout(resolve,500));
+  }
+  // review 应改 3:a cold killed mid-rehearsal leaves this job's plaintext rehearsal beside the data root; the
+  // reviewed completion owner removes it after the PID-dead proof.
+  const rehearsal=path.join(path.dirname(produced.canonical),'.ruyi-work-data-rehearsal-'+recorded.id);
+  fs.mkdirSync(path.join(rehearsal,'sessions'),{recursive:true});fs.writeFileSync(path.join(rehearsal,'config.json'),'SYNTHETIC rehearsal plaintext',{flag:'wx'});
+  const handle=w.spawnServe(f,label,await getFreePort('127.0.0.1'));await handle.spawned;
+  // Observe the automatic completion from the serve's own output first, exactly like the desktop shell (which never
+  // opens files in the data root). Polling runtime.json here while the recovery owner takes its exclusive native
+  // census would be this test's own sharing violation (work_data_backup.idle_win32_32), not product behaviour.
+  for(const deadline=Date.now()+600000;;){
+   let seen;try{seen=output(label);}catch(error){if(error.code!=='ENOENT')throw error;seen={stdout:'',stderr:''};}
+   if(/recovered automatically/.test(seen.stdout))break;
+   if(w.manager.inspect(handle).closeSeen||/没有改动任何数据/.test(seen.stderr))throw Error(label+': the automatic completion was refused');
+   if(Date.now()>=deadline)throw Error(label+': the automatic completion never finished');await new Promise(resolve=>setTimeout(resolve,500));
+  }
+  const ref=await w.readyWarm(handle,f);await w.manager.captureNativeBirths(handle);const status=await w.waitWorkerReady(ref);
+  assert.deepEqual(status.authority,saved.authority);assert.equal(status.job,null);assert.equal(status.lastResult.id,saved.id);
+  assert.equal(fs.existsSync(intentFile),false,label+': the complete intent was retired by the reviewed owner');
+  assert.equal((await w.claimApi(f.temp).inspect({base:produced.canonical})).present,false,label+': the owned claim was retired');
+  assert.equal(fs.existsSync(rehearsal),false,label+': the leftover rehearsal of the killed cold is removed');
+  const after=snapshot(f).side,known=new Set(before.side.temp.map(row=>row.name));
+  assert.deepEqual({...after,temp:undefined},{...before.side,temp:undefined},label+': backups, targets and the boot preference are unchanged');
+  // The healed serve is running, so its own custody root holds exactly the broker owner marker (as in
+  // work-data-production-maintenance) and no admitted upload.
+  for(const row of after.temp)if(!known.has(row.name)){assert.match(row.name,/^ruyi-work-data-upload-/,label+': only the serve\'s own upload custody root is new in TEMP');
+   assert.deepEqual(fs.readdirSync(path.join(f.temp,row.name)),['restore-upload-owner.json'],label+': the custody root holds only its owner marker');}
+  assert.match(output(label).stdout,/work_data_setup\.intent_pending: recovered automatically \(doctor --recover-work-data-intent\)/);
+  w.checked(label+': ordinary serve completes a published-but-unfinished maintenance by itself and starts normally');
+  return {handle,ref,status};
+ }
+ // An ineligible state (C10: no durable result) still refuses at boot with the original
+ // code and human guidance, and changes nothing.
+ async function serveRefusal(f,label){
+  w.ctx.phase=label;const before=snapshot(f),handle=w.spawnServe(f,label,await getFreePort('127.0.0.1'));
+  await handle.spawned;const ended=await w.manager.waitClose(handle,240000),observed=output(label);
+  assert.deepEqual(ended,{code:1,signal:null});assert.match(observed.stderr,/work_data_setup\.intent_pending/);assert.match(observed.stderr,/没有改动任何数据/);
+  // A serve start allocates its own empty upload custody root in TEMP before the boot
+  // gate (pre-existing acquireServe behaviour); everything that belongs to the data
+  // root, the claim, the backups/targets and the boot preference stays exactly as it was.
+  await w.manager.certifyExpectedRefusal(handle,async()=>{
+   const after=snapshot(f);assert.deepEqual(after.source,before.source);assert.deepEqual(after.claim,before.claim);
+   assert.deepEqual({...after.side,temp:undefined},{...before.side,temp:undefined});
+   const known=new Set(before.side.temp.map(row=>row.name));
+   for(const row of after.side.temp)if(!known.has(row.name)){assert.match(row.name,/^ruyi-work-data-upload-/);assert.deepEqual(row.tree.files,[]);}
+  });
+  w.checked(label+': ordinary serve refuses an ineligible unfinished maintenance with guidance and without changing anything');
+ }
  try{
   w.record({kind:'fixture-owner',root,constructedCrashWindow:true,inputFiles:target.boundFiles,executionInputSha256:target.executionInputSha256});
   for(const operation of ['enable','disable']){
@@ -90,7 +149,7 @@ async function runActual(argv=process.argv.slice(2)){
     // is done by the fixture, retaining original identities where available.
     const heldResult=path.join(root,'c10-original-result.held');fs.renameSync(resultFile,heldResult);const heldPin=core.read(heldResult);
     assert.equal(heldPin.row.dev,result.row.dev);assert.equal(heldPin.row.ino,result.row.ino);assert.deepEqual(heldPin.bytes,result.bytes);
-    try{await doctor(f,'c10-no-result');core.samePinned(core.read(heldResult).row,heldPin.row);}finally{fs.renameSync(heldResult,resultFile);}
+    try{await doctor(f,'c10-no-result');await serveRefusal(f,'c10-no-result-serve');core.samePinned(core.read(heldResult).row,heldPin.row);}finally{fs.renameSync(heldResult,resultFile);}
     const mismatch={...JSON.parse(result.bytes),operation:'export',state:'verified',sourceAuthority:saved.authority};
     fs.writeFileSync(resultFile,JSON.stringify(mismatch));try{await doctor(f,'c11-operation-mismatch');}finally{fs.writeFileSync(resultFile,result.bytes);}
     fs.writeFileSync(saved.backup.path,Buffer.alloc(backup.bytes.length,0x58));try{await doctor(f,'c11-bad-backup');}finally{fs.writeFileSync(saved.backup.path,backup.bytes);}
@@ -102,9 +161,19 @@ async function runActual(argv=process.argv.slice(2)){
     try{await doctor(f,'c11-pointer-proof-mismatch',{expectedError:/work_data_host\.complete_recovery_authority_mismatch/});}
     finally{fs.writeFileSync(intentFile,intent.bytes);}
    }
-   await doctor(f,operation+'-doctor',{success:true,saved,produced});
-   const business=[resultFile,saved.backup.path,path.join(f.base,'.work-data','active-v1.json'),headerFile,path.join(f.base,'.work-data','generations',saved.authority.id,'sessions',SESSION+'.json')].map(file=>core.read(file).row);
-   const handle=w.spawnServe(f,operation+'-after-doctor',await getFreePort('127.0.0.1'));await handle.spawned;const ref=await w.readyWarm(handle,f);await w.manager.captureNativeBirths(handle);const status=await w.waitWorkerReady(ref);
+   // enable keeps the explicit doctor path; disable (the r48 shape) heals through an ordinary restart.
+   let handle,ref,status,business;
+   const businessFiles=()=>[resultFile,saved.backup.path,path.join(f.base,'.work-data','active-v1.json'),headerFile,path.join(f.base,'.work-data','generations',saved.authority.id,'sessions',SESSION+'.json')];
+   if(operation==='enable'){
+    await doctor(f,operation+'-doctor',{success:true,saved,produced});
+    business=businessFiles().map(file=>core.read(file).row);
+    handle=w.spawnServe(f,operation+'-after-doctor',await getFreePort('127.0.0.1'));await handle.spawned;ref=await w.readyWarm(handle,f);await w.manager.captureNativeBirths(handle);status=await w.waitWorkerReady(ref);
+   }else{
+    // Pin after the heal, exactly like the doctor branch: ordinary reads of these files
+    // just before the owner's two preserved censuses would only add access-time noise.
+    ({handle,ref,status}=await selfHealServe(f,operation+'-self-heal',{saved,produced}));
+    business=businessFiles().map(file=>core.read(file).row);
+   }
    assert.deepEqual(status.authority,saved.authority);assert.equal(status.job,null);assert.equal(status.lastResult.id,saved.id);assert.ok((await w.sessionIds(ref)).includes(SESSION));
    const read=await upload.makeHttp(ref,'/api/sessions/'+SESSION,undefined,{guard:w.healthy});assert.equal(read.status,200);assert.equal(read.value?.session?.id,SESSION);assert.equal(read.value?.session?.title,'Synthetic restore session');
    for(const row of business)core.samePinned(core.read(row.file).row,row);await w.manager.cleanupKnown(handle,async()=>w.healthy());

@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4435,
-    "requiredSymbols": 4390,
-    "edges": 965,
+    "providedSymbols": 4449,
+    "requiredSymbols": 4393,
+    "edges": 968,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -30725,6 +30725,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01z-work-data-root-authority.js",
           "symbol": "WorkDataRootAuthority",
           "kinds": [
@@ -30947,6 +30954,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13aj-work-data-control.js",
           "symbol": "WorkDataMaintenanceControl",
           "kinds": [
@@ -31023,6 +31037,13 @@
         {
           "provider": "13aj-work-data-control.js",
           "symbol": "WorkDataMaintenanceControl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ak-work-data-cold-operations.js",
+          "symbol": "WorkDataColdOperations",
           "kinds": [
             "read"
           ]
@@ -32307,18 +32328,32 @@
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
+        "WORK_DATA_BOOT_GUIDANCE",
+        "WORK_DATA_BOOT_HEALING_MARKER",
+        "WORK_DATA_BOOT_HEAL_BUDGET_MS",
+        "WORK_DATA_BOOT_RECOVERY",
+        "WORK_DATA_BOOT_RECOVERY_PAUSES_MS",
+        "WORK_DATA_BOOT_TRANSIENT_CAUSES",
+        "WORK_DATA_RECOVERY_CAUSES_TAG",
         "WORK_DATA_REWRAP_TEMP",
         "clearBootRootPreference",
         "holdWorkDataCliOwner",
         "main",
+        "preflightWorkDataBoot",
         "readWorkDataRewrapPassword",
+        "recoverWorkDataBoot",
+        "reportWorkDataRecoveryCauses",
         "runWorkDataKeyRewrap",
+        "runWorkDataRecoveryDoctor",
+        "serveWithWorkDataBootRecovery",
         "startWorkbenchServe",
         "withSelectedWorkDataRoot",
         "workDataCliHelperHeld",
         "workDataCliHelperHoldTimer",
         "workDataCliHelperUnknown",
         "workDataKeyRewrapHost",
+        "workDataRecoveryCauseCodes",
+        "workDataRecoveryCausesFrom",
         "workDataRewrapHiddenPrompt",
         "workDataRewrapPasswordFromBytes",
         "workDataRewrapRefusal"
@@ -42741,6 +42776,14 @@
     },
     {
       "from": "13ah-work-data-setup.js",
+      "to": "01w-work-data-native-publish.js",
+      "symbols": [
+        "WorkDataNativePublish"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ah-work-data-setup.js",
       "to": "01z-work-data-root-authority.js",
       "symbols": [
         "WorkDataRootAuthority"
@@ -42874,6 +42917,14 @@
     },
     {
       "from": "13ak-work-data-cold-operations.js",
+      "to": "01w-work-data-native-publish.js",
+      "symbols": [
+        "WorkDataNativePublish"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ak-work-data-cold-operations.js",
       "to": "13aj-work-data-control.js",
       "symbols": [
         "WorkDataMaintenanceControl"
@@ -42945,6 +42996,14 @@
       "to": "13aj-work-data-control.js",
       "symbols": [
         "WorkDataMaintenanceControl"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13am-work-data-maintenance-runtime.js",
+      "to": "13ak-work-data-cold-operations.js",
+      "symbols": [
+        "WorkDataColdOperations"
       ],
       "direction": "backward"
     },

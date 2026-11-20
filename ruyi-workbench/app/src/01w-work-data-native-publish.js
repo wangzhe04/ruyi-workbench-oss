@@ -317,7 +317,11 @@ function invokeFlush(directories) {
       if (!response.ok) {
         if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
           || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return finish(flushFailure('unverifiable',true));
-        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;return finish(error);
+        // 151 阶段 3A(150 号文 W1/W8):助手已经正常收尾并回了一份带类型的拒绝。flush 命令只开句柄、调
+        // FlushFileBuffers,从不改名字空间,所以这类拒绝是「确定没做成」而不是「可能做了一半」:
+        // nativeSettled 只说助手进程已结束,flushRefusal 只是原生码的复述,二者都不授予任何权限。
+        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;
+        error.nativeSettled = true;error.flushRefusal = response.code;return finish(error);
       }
       if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
         || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
@@ -329,7 +333,21 @@ function invokeFlush(directories) {
   });
 }
 
-  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush });
+// 151 阶段 3A(W8):把一次 flush 失败归成「卷不支持」「刷盘被拒」或「不确定」。只认本模块自己发出的、
+// 助手已正常结束的那一种形状;超时、管道错误、输出不可验证、助手可能仍在跑的,一律 uncertain。
+// 返回值只用于挑选给人看的稳定码,不改变任何调用方的失败语义。
+const UNSUPPORTED_VOLUME = new Set(['filesystem_unsupported', 'volume_unsupported']);
+function classifyFlushFailure(error) {
+  try {
+    if (!error || typeof error !== 'object') return 'uncertain';
+    const code = Object.getOwnPropertyDescriptor(error, 'code')?.value, settled = Object.getOwnPropertyDescriptor(error, 'nativeSettled')?.value;
+    const refusal = Object.getOwnPropertyDescriptor(error, 'flushRefusal')?.value, helper = Object.getOwnPropertyDescriptor(error, 'helperMayStillRun')?.value;
+    if (settled !== true || helper === true || typeof refusal !== 'string' || code !== 'work_data_manifest.flush_' + refusal) return 'uncertain';
+    return UNSUPPORTED_VOLUME.has(refusal) ? 'volume_unsupported' : 'refused';
+  } catch { return 'uncertain'; }
+}
+
+  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush, classifyFlushFailure });
 })(require('node:child_process'), require('node:path'));
 
 if (process.platform === 'win32') WorkDataManifest.Hooks.publish = WorkDataNativePublish.create();

@@ -1880,6 +1880,9 @@ function sensitiveGlobsForRg(base) {
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
       // 151 phase 3E: the rewrap CLI's own header temp files (DPAPI-wrapped key material) stay out of model file tools.
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/.work-data-key-rewrap-*.tmp');
+      // 151 阶段 3A(W7):数据根同级的演练目录(崩溃残留时是明文副本),与 03 isSensitiveDataPath 的同名判据一致。
+      const parentRel = path.relative(base, path.dirname(path.resolve(r)));
+      if (!parentRel.startsWith('..') && !path.isAbsolute(parentRel)) globs.push('!/' + (parentRel ? parentRel.split(path.sep).join('/') + '/' : '') + '.ruyi-work-data-rehearsal-*');
       const controlRel = path.relative(base, path.join(r, '.work-data'));
       if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
         const prefix = '!/' + controlRel.split(path.sep).join('/');

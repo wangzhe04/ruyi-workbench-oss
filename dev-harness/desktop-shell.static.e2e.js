@@ -128,6 +128,26 @@ ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbe
     '#24 服务在地址就绪前就退了:提示关掉后收窗(与启动超时同一出口;没有页面可显示)');
 }
 
+// 151 阶段 3A(review 应改 2):服务在启动闸门处自动收尾时打一行固定标记;桌面壳认到它就把 30 秒启动窗口延长到
+// 自己的上限并显示「正在自动收尾」,否则到点关窗会经 KILL_ON_JOB_CLOSE 把收尾中的 doctor 杀掉。两边的字样与上限
+// 钉在一起:标记逐字相同,延长后的窗口大于服务端整次收尾的上限再加 30 秒普通启动。
+{
+  const { constBlock } = require('./lib/source-slice.js');
+  const vm = require('vm');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'src', '14-main.js'), 'utf8');
+  const node = vm.runInNewContext(constBlock(main, 'WORK_DATA_BOOT_HEALING_MARKER') + '\n' + constBlock(main, 'WORK_DATA_BOOT_HEAL_BUDGET_MS')
+    + '\n({ marker: WORK_DATA_BOOT_HEALING_MARKER, budget: WORK_DATA_BOOT_HEAL_BUDGET_MS })', {});
+  const marker = /public const string BootHealingMarker = "([^"]+)";/.exec(source), windowMs = /internal const int HealingBootWindowMs = (\d+);/.exec(source);
+  ok(marker && marker[1] === node.marker, '3A 桌面壳与服务端的自动收尾标记逐字相同(' + node.marker + ')');
+  ok(windowMs && Number(windowMs[1]) >= node.budget + 30000, '3A 延长后的启动窗口(' + (windowMs && windowMs[1]) + ' ms)大于服务端收尾上限 + 30 s');
+  const healing = bracedBlock(source, 'public void OnServerHealing()');
+  ok(/bootTimer\.Change\(HealingBootWindowMs, System\.Threading\.Timeout\.Infinite\)/.test(healing) && /if \(IsDisposed \|\| bootHealing \|\| bootFailureShown/.test(healing)
+    && !/MessageBox\.Show/.test(healing), '3A OnServerHealing:只延长一次、已弹过失败或已就绪就不动、不弹窗');
+  ok(/IndexOf\(BootHealingMarker, StringComparison\.Ordinal\) >= 0[\s\S]{0,160}Interlocked\.Exchange\(ref healingSeen, 1\) == 0/.test(source)
+    && /server\.Healing \+= delegate[\s\S]{0,160}form\.BeginInvoke\(\(Action\)delegate \{ form\.OnServerHealing\(\); \}\)/.test(source),
+    '3A stderr 行里认到标记只通知一次,经 BeginInvoke 回到 UI 线程');
+}
+
 // 本机没有 C# 编译器,编译只在 release-dryrun(Windows,系统 csc.exe = C# 5)里发生 —— 这里钉住 C# 6+ 语法没有混进来。
 ok(!/\?\.[A-Za-z_]/.test(source.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '').replace(/"(?:[^"\\\n]|\\.)*"/g, '""'))
   && !/\$"/.test(source) && !/\bnameof\(/.test(source),

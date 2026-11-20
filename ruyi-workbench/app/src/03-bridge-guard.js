@@ -519,6 +519,15 @@ function isSensitiveDataPath(p) {
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
     ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
+  // 151 阶段 3A(150 号文 W7):冷端演练是每个数据根(及其别名)【同级】的 .ruyi-work-data-rehearsal-<id> —— 明文模式下
+  // 是整根明文副本(凭据库、config.json 都在里面)。它不在数据根内,上面的名单管不到;崩溃留下时也绝不让文件工具读到。
+  try {
+    for (const b of bases) {
+      const rel = path.relative(path.dirname(path.resolve(b)), path.resolve(p));
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (/^\.ruyi-work-data-rehearsal-/i.test(rel.split(/[\\/]/)[0])) return true;
+    }
+  } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。

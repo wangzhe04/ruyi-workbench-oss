@@ -817,15 +817,34 @@ function createWorld({root,evidence,target}){
   }
   {
    const f=fixture('claim-owned');
-   const before=await writeClaim(f,{id:'3'.repeat(48),parentPid:deadPid(),childPid:deadPid(),phases:['armed','committed','owned']});
-   const rootBefore=core.inventory(f.base,{directoryMetadata:true});
-   await bootScenario(f,'claim-owned',{refuse:true,expectedCode:'work_data_setup.handoff_pending',verify:async()=>{
-    const after=await claimApi(f.temp).inspect({base:await canonicalBase(f)});
-    a.equal(after.present,true);a.equal(after.value.phase,'owned');
-    a.deepEqual(after.receipt,before.receipt,'owned claim stays pending even with a dead child and is never rewritten');
-    a.deepEqual(core.inventory(f.base,{directoryMetadata:true}),rootBefore,'an owned claim with a dead child is never auto-repaired');
-   }});
-   checked('owned claim with a dead child stays pending for a recovery owner');
+   await writeClaim(f,{id:'3'.repeat(48),parentPid:deadPid(),childPid:deadPid(),phases:['armed','committed','owned']});
+   const before=core.inventory(f.base),sessionBefore=core.read(p.join(f.base,'sessions',SESSION_ID+'.json')).row;
+   // 151 阶段 3A(150 号文 W5):owned、两个进程都已死、没有 intent 也没有本作业结果 —— 普通 serve 在启动闸门
+   // 拒绝之后自动交给已审查的 recoverSource(同一条 doctor --recover-work-data-source 子进程):证明源可读、
+   // 写诊断、撤交接记录、不改源,再正常启动。修前这里断言「永远停在 pending、只有隐藏命令能解」。
+   ctx.phase='boot-claim-owned';
+   const handle=spawnServe(f,'claim-owned-server',await getFreePort('127.0.0.1'));await handle.spawned;healthy();
+   // Observe the completion from the serve's own output before polling runtime.json, as the desktop shell does.
+   for(const deadline=Date.now()+BUDGET.handoff;;){
+    let out='';try{out=fs.readFileSync(p.join(evidence,'claim-owned-server-stdout.log'),'utf8');}catch(error){if(error.code!=='ENOENT')throw error;}
+    if(/work_data_setup\.handoff_pending: recovered automatically \(doctor --recover-work-data-source\)/.test(out))break;
+    a.equal(manager.inspect(handle).closeSeen,false,'claim-owned: the serve never exits instead of recovering');
+    a.ok(Date.now()<deadline,'claim-owned: the automatic source recovery finishes within the handoff budget');await sleep(250);
+   }
+   await readyWarm(handle,f);await manager.captureNativeBirths(handle);
+   const after=await claimApi(f.temp).inspect({base:await canonicalBase(f)});
+   a.equal(after.present,false,'the owned record with two dead processes is retired by the reviewed source recovery');
+   const now=core.inventory(f.base);
+   for(const row of before.files){
+    const found=now.files.find(entry=>core.norm(entry.file)===core.norm(row.file));
+    a.ok(found,'automatic source recovery and the following boot never remove a pre-existing file '+row.file);
+    if(core.norm(row.file)===core.norm(p.join(f.base,'config.json')))continue; // ordinary boot rewrite, as for the armed claim
+    core.samePinned(found,row);
+   }
+   sessionIntact(f,sessionBefore);
+   a.equal(fs.existsSync(p.join(f.base,'last-start-error.json')),false,'a healed boot writes no startup error');
+   await manager.cleanupKnown(handle,async()=>{healthy();});
+   checked('owned claim with two dead processes is source-recovered automatically by an ordinary boot (no hidden command)');
   }
   {
    const f=fixture('intent-complete'),intentId='4'.repeat(48);

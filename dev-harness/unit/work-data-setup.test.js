@@ -416,3 +416,61 @@ test('3B review: closed intake with no job of this setup reports result_deferred
  const api=Setup.create(f.host);await api.status().catch(()=>{});
  const closed=await api.status();assert.equal(closed.lastResult,null);assert.equal(closed.lastResultError,'work_data_setup.result_deferred');assert.equal(reads,1,'closed intake does not read');
 });
+// 151 阶段 3A(150 号文 W8):提交时先用冷端将要用的同一个原生 flush 探测备份文件夹所在的卷,
+// exFAT/FAT32/ReFS/网络位置在写出任何字节之前就以稳定码拒绝。真 01w 的分类器在独立 realm 里加载。
+const SetupNativePublish=(()=>{const ctx={require,Buffer,process:{platform:'linux',env:{}},setTimeout,clearTimeout};
+ vm.runInNewContext(fs.readFileSync(sourceFile('01w-work-data-native-publish.js'),'utf8')+'\nthis.WorkDataNativePublish=WorkDataNativePublish;',ctx);return ctx.WorkDataNativePublish;})();
+const settledFlush=(code,attempted=false)=>Object.assign(Error('work_data_manifest.flush_'+code),{code:'work_data_manifest.flush_'+code,operationMayHaveExecuted:attempted,nativeSettled:true,flushRefusal:code,nativeCode:0});
+test('3A W8: setup refuses an unsupported backup volume with a stable code before any write, after path admission',async t=>{
+ const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-setup-volume-')),base=path.join(root,'base'),backup=path.join(root,'backup');
+ t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));await fsp.rm(root,{recursive:true,force:true});});await fsp.mkdir(base);await fsp.mkdir(backup);
+ const calls=[];let failure=null;
+ const native={createFlush:()=>async directories=>{calls.push(directories);if(failure)throw failure;return {ok:true};},classifyFlushFailure:SetupNativePublish.classifyFlushFailure};
+ const run=vm.runInNewContext(functionBlock(setupSource,'workDataSetupDirectories')+'\nworkDataSetupDirectories',{fsp,path,process:{platform:'win32'},WorkDataNativePublish:native});
+ await run({base,backupDirectory:backup});assert.deepEqual(JSON.parse(JSON.stringify(calls)),[[path.resolve(backup)],[path.dirname(path.resolve(base))]],'the probes see exactly the admitted backup directory, then the rehearsal parent (review 应改 1)');
+ for(const [error,code,status] of [[settledFlush('filesystem_unsupported'),'work_data_setup.backup_filesystem_unsupported',400],[settledFlush('volume_unsupported'),'work_data_setup.backup_filesystem_unsupported',400],
+  [settledFlush('durability_unsupported',true),'work_data_setup.backup_durability_unavailable',400],[Object.assign(Error('timeout'),{code:'work_data_manifest.flush_timeout',helperMayStillRun:true}),'work_data_setup.backup_durability_unavailable',503]]){
+  failure=error;await assert.rejects(run({base,backupDirectory:backup}),e=>e.code===code&&e.apiCode===code&&e.statusCode===status&&e.retry===false,code);
+ }
+ assert.deepEqual(await fsp.readdir(backup),[],'the probe writes nothing');
+ calls.length=0;await assert.rejects(run({base,backupDirectory:path.join(root,'missing')}),e=>e.code==='work_data_setup.path_invalid');assert.equal(calls.length,0,'path admission precedes the probe');
+ // Without the native module (non-Windows, vm fixtures) the probe is skipped, as before.
+ const skipped=vm.runInNewContext(functionBlock(setupSource,'workDataSetupDirectories')+'\nworkDataSetupDirectories',{fsp,path,process:{platform:'win32'}});
+ await skipped({base,backupDirectory:backup});
+});
+// 151 阶段 3A(review 应改 1):演练在数据根的父目录里。父目录刷不了(数据根直接在盘符根下,非提权进程刷不了 C:\)
+// 时在交接之前就拒绝,给稳定码;恢复(restore)不在那里演练,不探;探测先于任何写入,也不退回备份文件夹。
+test('3A W7: setup refuses a data root whose parent cannot be flushed before any handoff, and never probes it for restore',async t=>{
+ const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-setup-parent-')),base=path.join(root,'base'),backup=path.join(root,'backup');
+ t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));await fsp.rm(root,{recursive:true,force:true});});await fsp.mkdir(base);await fsp.mkdir(backup);
+ const calls=[],parent=path.dirname(path.resolve(base));let failure=null;
+ const native={createFlush:()=>async directories=>{calls.push(directories[0]);if(failure&&directories[0]===parent)throw failure;return {ok:true};},classifyFlushFailure:SetupNativePublish.classifyFlushFailure};
+ const run=vm.runInNewContext(functionBlock(setupSource,'workDataSetupDirectories')+'\nworkDataSetupDirectories',{fsp,path,process:{platform:'win32'},WorkDataNativePublish:native});
+ for(const [error,code,status] of [[settledFlush('access_denied'),'work_data_setup.rehearsal_location_unsupported',400],[settledFlush('volume_unsupported'),'work_data_setup.rehearsal_location_unsupported',400],
+  [Object.assign(Error('timeout'),{code:'work_data_manifest.flush_timeout',helperMayStillRun:true}),'work_data_setup.rehearsal_location_unavailable',503]]){
+  failure=error;calls.length=0;
+  await assert.rejects(run({base,backupDirectory:backup}),e=>e.code===code&&e.apiCode===code&&e.statusCode===status&&e.retry===false,code);
+  assert.deepEqual(calls,[path.resolve(backup),parent],code+': backup probe first, then the rehearsal parent');
+ }
+ calls.length=0;const target=path.join(root,'restored');await run({base,backupDirectory:backup,targetDirectory:target});
+ assert.deepEqual(calls,[path.resolve(backup)],'restore never probes the data root parent');
+ assert.deepEqual(await fsp.readdir(backup),[]);assert.deepEqual((await fsp.readdir(root)).sort(),['backup','base']);
+});
+// 151 阶段 3A(150 号文 W1):恢复型后继把那次没做成的作业作为终态读数交给 GET /api/work-data/jobs/<id>。
+test('3A W1: a recovered failed job is readable by its id, never active and never cancellable',async()=>{
+ const f=fixture(),id='c'.repeat(48);
+ f.worker.recoveredJob={id,operation:'enable',state:'failed',createdAt:'2026-11-19T00:00:00.000Z',cancellable:false,takeover:false,retry:false,
+  error:'work_data_setup.preparation_failed',operationMayHaveExecuted:false,reason:'work_data_setup.backup_filesystem_unsupported',recovered:true};
+ const job=await f.get(id);
+ assert.deepEqual(clone(job),{id,operation:'enable',state:'failed',createdAt:'2026-11-19T00:00:00.000Z',cancellable:false,takeover:false,retry:false,
+  error:'work_data_setup.preparation_failed',operationMayHaveExecuted:false,recovered:true,reason:'work_data_setup.backup_filesystem_unsupported'});
+ const status=await f.api.status();assert.equal(status.job,null,'a recovered record is not an active job');
+ await assert.rejects(f.api.cancel(id),{code:'work_data_setup.job_not_found'});
+ await assert.rejects(f.get('d'.repeat(48)),{code:'work_data_setup.job_not_found'});
+ for(const patch of [{state:'handoff'},{recovered:false},{takeover:true},{error:'raw text'},{operationMayHaveExecuted:true}]){
+  f.worker.recoveredJob={...f.worker.recoveredJob,...patch};await assert.rejects(f.get(id),{code:'work_data_setup.job_not_found'},JSON.stringify(patch));
+  f.worker.recoveredJob={id,operation:'enable',state:'failed',createdAt:'',cancellable:false,takeover:false,retry:false,error:'work_data_setup.preparation_failed',operationMayHaveExecuted:false,recovered:true};
+ }
+ // Submission is not blocked by a recovered record.
+ const submitted=await f.api.submit(f.body());assert.equal(submitted.state,'queued');
+});

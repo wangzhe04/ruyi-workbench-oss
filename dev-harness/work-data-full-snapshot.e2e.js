@@ -267,7 +267,9 @@ async function capsuleExport(t, {base, owner, native, receipt, wrapper, original
   const backupDirectory = path.join(root, 'exports');
   await fsp.mkdir(backupDirectory);
   const id = crypto.randomBytes(24).toString('hex');
-  const rehearsal = path.join(backupDirectory, '.ruyi-work-data-verify-' + id);
+  // 151 阶段 3A(150 号文 W7):演练在数据根同卷、数据根旁边的产品私有目录,不在备份文件夹里。位置取产品自己的运行时值。
+  const rehearsal = api.WorkDataColdOperations.rehearsalPathFor(base, id);
+  assert.equal(path.dirname(rehearsal), path.dirname(base));
   const revision = digest('source capsule export');
   const captureSource = async () => capsuleSourceWitness(await api.migrationCapsuleCapturePreserved(receipt.backup, revision));
   const before = await captureSource();
@@ -304,6 +306,7 @@ async function capsuleExport(t, {base, owner, native, receipt, wrapper, original
     assert.deepEqual(phases, ['snapshot','verify-backup']);
     assert.deepEqual(events, ['fresh','exact mapped census']);
     await assert.rejects(fsp.lstat(rehearsal), {code:'ENOENT'});
+    assert.deepEqual((await fsp.readdir(backupDirectory)).filter(name => name !== path.basename(result.backup.path)), [], 'the backup directory holds only the package');
     t.ok(true, 'production cold export restores a new native capsule, passes the independent verifier and removes only its verified rehearsal');
     const bytes = await fsp.readFile(result.backup.path);
     assert.equal(digest(bytes), result.backup.sha256);

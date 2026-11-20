@@ -55,7 +55,10 @@ async function run(){
     assert.notEqual(proofCalls[0].owner,proofCalls[1].owner);assert.equal(proofCalls[1].owner,proofCalls[2].owner);
     assert.equal(api.ServerOwnership.owns(proofCalls[0].owner),false);assert.equal(api.ServerOwnership.owns(proofCalls[1].owner),false);
     assert.equal(result.profile.ordinaryFiles,'default-stream-bytes');assert.equal(result.profile.nativeMetadata,'not-captured');
-    assert.equal(await fsp.stat(path.join(backupDirectory,'.ruyi-work-data-verify-'+id)).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}),false);
+    // 151 阶段 3A(W7):演练在数据根旁边、不在备份文件夹里;成功后两处都不留演练目录。
+    // (只用 stat:unit/work-data-production-host.test.js 以内存模型跑这个入口本身。)
+    for(const rehearsal of [path.join(path.dirname(base),'.ruyi-work-data-rehearsal-'+id),path.join(backupDirectory,'.ruyi-work-data-verify-'+id)])
+     assert.equal(await fsp.stat(rehearsal).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}),false);
     ok(true,'production cold export completes real restore rehearsal and fresh-process verification');
     const bytes=await fsp.readFile(result.backup.path);assert.equal(hash(bytes),result.backup.sha256);
     const opened=await api.WorkDataRecovery.open(bytes.toString('utf8'),password);

@@ -87,9 +87,9 @@ async function runActual(argv = process.argv.slice(2)) {
     } else for (const pin of pins) core.samePinned(core.read(pin.file).row, pin);
     world.assertNoIntent(f, label); return ref;
   }
-  async function refuseBoot(f, produced, label) {
+  async function refuseBoot(f, produced, label, budget = 60000) {
     world.ctx.phase = label; const before = state(f), handle = world.spawnServe(f, label, await getFreePort('127.0.0.1'));
-    await handle.spawned; assert.deepEqual(await world.manager.waitClose(handle, 60000), { code: 1, signal: null });
+    await handle.spawned; assert.deepEqual(await world.manager.waitClose(handle, budget), { code: 1, signal: null });
     await world.manager.certifyExpectedRefusal(handle, async () => {
       const after = state(f), previous = new Set(before.side.otherTemp.map(row => row.name));
       assert.deepEqual(after.source, before.source); assert.deepEqual(after.claim, before.claim);
@@ -118,6 +118,47 @@ async function runActual(argv = process.argv.slice(2)) {
     assert.ok(fs.readFileSync(path.join(evidence, label + '-stderr.log'), 'utf8').includes('work_data_setup.handoff_pending'));
     assert.deepEqual((await world.claimApi(f.temp).inspect({ base: produced.canonical })).receipt, produced.claimBefore.receipt);
     world.checked(label + ': ordinary serve refuses the unknown owned job before touching the source');
+  }
+  // 151 阶段 3A(150 号文 W5):owned、两个原进程都已死、没有 intent 也没有本作业结果时,普通 serve 不再停在
+  // handoff_pending —— 它在启动闸门拒绝后起同一条 doctor --recover-work-data-source 子进程,由同一个已审查的
+  // recoverSource 证明源可读、写下同形状的 unknown 诊断、只撤掉 pending 名字,然后完整启动。这里核的是同一组
+  // 诊断字段与源/备份/目标/TEMP 不变,外加「不需要任何隐藏命令」。
+  async function healBoot(f, produced, label) {
+    world.ctx.phase = label; const before = state(f), claimRoot = path.dirname(world.claimFile(f));
+    const pins = [path.join(f.base, 'sessions', SESSION + '.json')].map(file => core.read(file).row);
+    // review 应改 3:a cold killed mid-rehearsal leaves this job's plaintext rehearsal beside the data root. Model it
+    // with a synthetic copy at the exact product location; the reviewed owner must remove it after the PID-dead proof.
+    const rehearsal = path.join(path.dirname(produced.canonical), '.ruyi-work-data-rehearsal-' + produced.claimBefore.value.id);
+    fs.mkdirSync(path.join(rehearsal, 'sessions'), { recursive: true }); fs.writeFileSync(path.join(rehearsal, 'config.json'), 'SYNTHETIC rehearsal plaintext', { flag: 'wx' });
+    const handle = world.spawnServe(f, label, await getFreePort('127.0.0.1')); await handle.spawned;
+    // Observe the completion from the serve's own output before polling runtime.json, as the desktop shell does.
+    for (const deadline = Date.now() + 300000; ;) {
+      let out = ''; try { out = fs.readFileSync(path.join(evidence, label + '-stdout.log'), 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (/work_data_setup\.handoff_pending: recovered automatically \(doctor --recover-work-data-source\)/.test(out)) break;
+      assert.equal(world.manager.inspect(handle).closeSeen, false, label + ': the serve never exits instead of recovering');
+      assert.ok(Date.now() < deadline, label + ': the automatic source recovery finishes'); await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    const ref = await world.readyWarm(handle, f); await world.manager.captureNativeBirths(handle); const status = await world.waitWorkerReady(ref);
+    assert.deepEqual(status.authority, AUTHORITY0); assert.equal(status.job, null);
+    assert.equal((await world.claimApi(f.temp).inspect({ base: produced.canonical })).present, false, label + ': the pending owned name is retired');
+    const after = state(f), previous = new Set(before.side.otherTemp.map(row => row.name));
+    assert.deepEqual({ ...after.side, otherTemp: after.side.otherTemp.filter(row => previous.has(row.name)) }, before.side, label + ': backups, targets, preference and existing TEMP controls are unchanged');
+    for (const added of after.side.otherTemp.filter(row => !previous.has(row.name))) {
+      assert.match(added.name, /^ruyi-work-data-upload-[A-Za-z0-9]{6}$/);
+      assert.deepEqual(fs.readdirSync(path.join(f.temp, added.name)), ['restore-upload-owner.json'], label + ': only the running serve\'s own custody marker is new');
+    }
+    const added = after.claim.files.filter(row => !before.claim.files.some(old => old.file.toLowerCase() === row.file.toLowerCase()));
+    assert.equal(added.length, 1); assert.match(path.basename(added[0].file), /^unknown-source-v1-[a-f0-9]{48}\.json$/);
+    assert.equal(after.claim.files.some(row => row.file.toLowerCase() === world.claimFile(f).toLowerCase()), false);
+    const value = JSON.parse(core.read(added[0].file).bytes);
+    assert.equal(value.kind, 'owned-source-recovery-observation'); assert.equal(value.maintenanceOutcome, 'unknown'); assert.equal(value.sourceReadable, true);
+    assert.deepEqual(Buffer.from(value.claimBytes, 'base64'), produced.claimRaw.bytes, label + ': the diagnostic preserves the exact original claim bytes');
+    assert.deepEqual(value.authority, AUTHORITY0);
+    for (const pin of pins) core.samePinned(core.read(pin.file).row, pin);
+    world.assertNoIntent(f, label);
+    assert.equal(fs.existsSync(rehearsal), false, label + ': the leftover rehearsal of the killed cold is removed by the recovery owner');
+    await world.manager.cleanupKnown(handle, async () => world.healthy());
+    world.checked(label + ': ordinary serve recovers the unknown owned job by itself (no hidden command), keeps the source and records the same diagnostic');
   }
   async function doctor(f, produced, label, expectedAuthority, { refuse = false } = {}) {
     world.ctx.phase = label;
@@ -171,8 +212,8 @@ async function runActual(argv = process.argv.slice(2)) {
     await world.manager.cleanupKnown(initial.handle, async () => world.healthy());
     const plainOwned = await owned(plain, initial, 'plain-producer');
     assert.equal(fs.existsSync(path.join(plain.base, '.work-data', 'maintenance-result-v1.json')), false);
-    await refuseBoot(plain, plainOwned, 'plain-before-doctor');
-    await doctor(plain, plainOwned, 'plain-doctor', AUTHORITY0);
+    // 151 阶段 3A:plain 走普通 serve 的自动 source recovery;encrypted 仍走显式 doctor(两条路共用同一个恢复主人)。
+    await healBoot(plain, plainOwned, 'plain-self-heal');
     const plainAfter = await startSource(plain, 'plain-after-doctor', AUTHORITY0, null);
     await world.manager.cleanupKnown(plainAfter.handle, async () => world.healthy());
     world.checked('plain: ordinary serve reacquires the released source and reads the original session after unknown recovery');
@@ -207,13 +248,16 @@ async function runActual(argv = process.argv.slice(2)) {
     assert.equal(typeof keyState.protectedKey, 'string'); assert.ok(keyState.protectedKey.length > 16);
     const at = originalKey.bytes.indexOf(Buffer.from(keyState.protectedKey)); assert.ok(at >= 0);
     const brokenKey = Buffer.from(originalKey.bytes), byte = at + Math.floor(keyState.protectedKey.length / 2); brokenKey[byte] = brokenKey[byte] === 65 ? 66 : 65;
-    try { fs.writeFileSync(keyFile, brokenKey); await doctor(encrypted, unknown, 'encrypted-invalid-key', authority, { refuse: true }); }
+    // 151 阶段 3A: with the same broken key an ordinary serve's automatic source recovery is refused by the same owner
+    // (bounded retries included), and the refused boot changes nothing - exactly like the explicit doctor before it.
+    try { fs.writeFileSync(keyFile, brokenKey); await doctor(encrypted, unknown, 'encrypted-invalid-key', authority, { refuse: true });
+      await refuseBoot(encrypted, unknown, 'encrypted-invalid-key-serve', 300000); }
     finally { fs.writeFileSync(keyFile, originalKey.bytes); brokenKey.fill(0); }
     const hiddenKey = path.join(root, 'synthetic-held-source-key.json');
     try { fs.renameSync(keyFile, hiddenKey); await doctor(encrypted, unknown, 'encrypted-missing-key', authority, { refuse: true }); }
     finally { if (fs.existsSync(hiddenKey)) fs.renameSync(hiddenKey, keyFile); }
     sameBytesAndIdentity(keyFile, originalKey.row); sameBytesAndIdentity(saved.backup.path, originalBackup.row);
-    await refuseBoot(encrypted, unknown, 'encrypted-before-doctor');
+    // An ordinary boot here would now heal the job by itself (see plain-self-heal); the explicit doctor stays covered.
     await doctor(encrypted, unknown, 'encrypted-doctor', authority);
     const encryptedAfter = await startSource(encrypted, 'encrypted-after-doctor', authority, saved);
     assert.notEqual(encryptedAfter.pid, completedServe.pid); assert.notEqual(saved.id, unknown.claimBefore.value.id);

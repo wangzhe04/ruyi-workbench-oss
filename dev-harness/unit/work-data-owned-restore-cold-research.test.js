@@ -5,6 +5,11 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const repo=path.resolve(__dirname,'../..'),draft=path.join(repo,'output/semantic-gemma-q4-backup-diagnostic-v1/source-input/src');
 const {fixture}=require(path.join(repo,'dev-harness/lib/work-data-full-snapshot-fixture'));
+// The cold operation under test is the retained research copy unless overridden. Its rehearsal
+// location is a property of THAT source: 151 阶段 3A moved it beside the data root (W7).
+const coldSource=process.env.RUYI_COLD_OPERATIONS_SOURCE||path.join(draft,'13ak-work-data-cold-operations.js');
+const rehearsalFor=(f,backupDirectory,id)=>{let text='';try{text=fs.readFileSync(coldSource,'utf8');}catch{}
+ return text.includes('REHEARSAL_PREFIX')?path.join(path.dirname(f.base),'.ruyi-work-data-rehearsal-'+id):path.join(backupDirectory,'.ruyi-work-data-verify-'+id);};
 const password='synthetic operation password only',hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 async function setup(t,options={}){
  const f=await fixture(t,{source:name=>{const file=path.join(repo,'output/semantic-gemma-q4-backup-diagnostic-v1/source-input/src',name),text=fs.readFileSync(file,'utf8');return name==='01ab-work-data-full-snapshot.js'?require('../semantic/work-data-owned-restore-integration-research.cjs').transform(text).source:text;}});f.context.ResearchRestoreUnknown=require('../semantic/work-data-owned-restore-unknown.cjs');await f.write('config.json','{ "workDataEncryptionV1": false, "label":"SYNTHETIC_PRIVATE" }');
@@ -24,7 +29,7 @@ async function setup(t,options={}){
   }};
  };
  f.context.VERSION='3.0.1';f.context.ExternalBotCredentials=f.api.ExternalBotCredentials;
- vm.runInContext(fs.readFileSync(path.join(draft,'13aj-work-data-control.js'),'utf8')+'\n'+fs.readFileSync(path.join(draft,'01ae-work-data-maintenance-result.js'),'utf8')+'\n'+fs.readFileSync(process.env.RUYI_COLD_OPERATIONS_SOURCE||path.join(draft,'13ak-work-data-cold-operations.js'),'utf8'),f.context);
+ vm.runInContext(fs.readFileSync(path.join(draft,'13aj-work-data-control.js'),'utf8')+'\n'+fs.readFileSync(path.join(draft,'01ae-work-data-maintenance-result.js'),'utf8')+'\n'+fs.readFileSync(coldSource,'utf8'),f.context);
  const api=vm.runInContext('({WorkDataColdOperations,WorkDataTree,WorkDataRecovery,WorkDataManifest})',f.context);
  const events=[],owners=[],sourceOwner={roots:[f.base]},backupDirectory=path.join(f.root,'backups');await fsp.mkdir(backupDirectory);
  let backupFlushes=0;
@@ -48,7 +53,7 @@ async function setup(t,options={}){
   progress(value){events.push(value.phase);},helperMayStillRun:()=>options.helperMayStillRun===true,
  };
  const operation=api.WorkDataColdOperations.create(host);
- x={f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(backupDirectory,'.ruyi-work-data-verify-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
+ x={f,api,host,context,operation,events,owners,backupDirectory,rehearsal:rehearsalFor(f,backupDirectory,context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
  return x;
 }
 // Bounded handoff capability as 13ai issues it. `finish` observes the real files at

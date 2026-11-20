@@ -490,6 +490,11 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
     };
     // A fresh, explicitly invoked doctor process owns this whole operation. Never
     // release the source to a second verifier process and reacquire it afterward.
+    // 151 阶段 3A(review 应改 3):只在恢复主人的回调里调用(claim 主人已证明 parentPid/childPid 都已死)。
+    const removeAttemptRehearsal=async(base,claim)=>{
+      if(typeof WorkDataColdOperations==='undefined'||typeof WorkDataColdOperations.removeOrphanRehearsal!=='function')return 'unavailable';
+      return WorkDataColdOperations.removeOrphanRehearsal({base,id:claim?.id,acquire:roots=>O.acquire(roots)});
+    };
     async function recoverSource({base}={}) {
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('source_recovery_requires_cold_process');
       if(!methods(bindings.claim,['inspect','recoverSource'])||typeof N.fullSnapshot!=='function')throw fail('source_recovery_unavailable');
@@ -530,6 +535,9 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           ensure(ctx);return current;
         };
         result=await bindings.claim.recoverSource(first.receipt,async claim=>{
+          // 151 阶段 3A(review 应改 3):claim 主人已证明两个原进程都已死,才调到这里。被杀的冷端可能留下本作业的
+          // 演练目录(明文模式下是整根明文副本):按 claim id 定位、按身份与独占所有权删除;删不掉就整体失败、保留交接记录。
+          await removeAttemptRehearsal(base,claim);
           const before=await inspect(claim);
           let password=c.randomBytes(32).toString('base64'),sealed;
           try{sealed=await N.fullSnapshot(base,owner,candidate=>candidate===owner&&assertOwnership(owner,base)).seal({password,appVersion:VERSION,generation:before.generation});}
@@ -626,6 +634,8 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         let profiles=0;
         await bindings.claim.recoverCompleted(claim.receipt,async original=>{
           if(!same(original,claim.value)||profiles>=2)throw fail('complete_recovery_claim_changed');
+          // 151 阶段 3A(review 应改 3):同上,原进程已证明死亡后先清掉本作业遗留的演练目录。
+          if(profiles===0)await removeAttemptRehearsal(base,original);
           const before=await evidence(true);let password=c.randomBytes(32).toString('base64'),sealed;
           try{sealed=await N.fullSnapshot(base,owner,exclusive,{controlRecoveryProof:selected}).seal({password,appVersion:VERSION,generation:before.authority.generation});}
           finally{password=null;}

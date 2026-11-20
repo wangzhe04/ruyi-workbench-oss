@@ -32,7 +32,8 @@ function fixture(mode = 'no-close', text = source) {
     },
   };
   const api = vm.runInNewContext(text + '\nWorkDataNativePublish;', context);
-  assert.deepEqual(Object.keys(api), ['create', 'createFlush']);
+  // 151 阶段 3A(W8):第三个导出是 flush 失败分类器(纯函数,不起进程、不授予任何权限)。
+  assert.deepEqual(Object.keys(api), ['create', 'createFlush', 'classifyFlushFailure']);
   const publish = api.create(); assert.equal(hooks.publish, publish, 'Windows registration uses the same factory publisher');
   const promise = publish(args); let settled = false;
   promise.then(() => { settled = true; }, () => { settled = true; });

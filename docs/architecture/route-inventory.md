@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-11-19T20:10:06.133Z。
+> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-11-20T00:01:15.143Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -289,9 +289,9 @@
 |---|---|---|---|---|---|
 | GET | `/api/work-data/status` | exact | token | 13ah-work-data-setup.js · `handle` | surface-hardening-w2.e2e.js, work-data-handoff-status-race.test.js, work-data-maintenance-gate.test.js 等 10 件 |
 | GET | `/api/work-data/results/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-production-host.test.js, work-data-settings.test.js, work-data-setup.test.js 等 6 件 |
-| POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | surface-hardening-w2.e2e.js, net-errors.test.js, work-data-handoff-status-race.test.js 等 13 件 |
+| POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | surface-hardening-w2.e2e.js, net-errors.test.js, work-data-handoff-status-race.test.js 等 14 件 |
 | POST | `/api/work-data/uploads` | exact | token | 13ah-work-data-setup.js · `handle` | external-bots-retry-api.test.js, net-errors.test.js, work-data-production-browser.test.js 等 7 件 |
-| GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-handoff-status-race.test.js, work-data-maintenance-http.test.js, work-data-settings.test.js 等 9 件 |
+| GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-handoff-status-race.test.js, work-data-maintenance-http.test.js, work-data-settings.test.js 等 10 件 |
 
 ## 域路由委派(handleApi → 域 handler)
 

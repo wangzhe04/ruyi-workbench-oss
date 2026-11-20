@@ -11534,7 +11534,11 @@ function invokeFlush(directories) {
       if (!response.ok) {
         if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
           || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return finish(flushFailure('unverifiable',true));
-        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;return finish(error);
+        // 151 阶段 3A(150 号文 W1/W8):助手已经正常收尾并回了一份带类型的拒绝。flush 命令只开句柄、调
+        // FlushFileBuffers,从不改名字空间,所以这类拒绝是「确定没做成」而不是「可能做了一半」:
+        // nativeSettled 只说助手进程已结束,flushRefusal 只是原生码的复述,二者都不授予任何权限。
+        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;
+        error.nativeSettled = true;error.flushRefusal = response.code;return finish(error);
       }
       if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
         || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
@@ -11546,7 +11550,21 @@ function invokeFlush(directories) {
   });
 }
 
-  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush });
+// 151 阶段 3A(W8):把一次 flush 失败归成「卷不支持」「刷盘被拒」或「不确定」。只认本模块自己发出的、
+// 助手已正常结束的那一种形状;超时、管道错误、输出不可验证、助手可能仍在跑的,一律 uncertain。
+// 返回值只用于挑选给人看的稳定码,不改变任何调用方的失败语义。
+const UNSUPPORTED_VOLUME = new Set(['filesystem_unsupported', 'volume_unsupported']);
+function classifyFlushFailure(error) {
+  try {
+    if (!error || typeof error !== 'object') return 'uncertain';
+    const code = Object.getOwnPropertyDescriptor(error, 'code')?.value, settled = Object.getOwnPropertyDescriptor(error, 'nativeSettled')?.value;
+    const refusal = Object.getOwnPropertyDescriptor(error, 'flushRefusal')?.value, helper = Object.getOwnPropertyDescriptor(error, 'helperMayStillRun')?.value;
+    if (settled !== true || helper === true || typeof refusal !== 'string' || code !== 'work_data_manifest.flush_' + refusal) return 'uncertain';
+    return UNSUPPORTED_VOLUME.has(refusal) ? 'volume_unsupported' : 'refused';
+  } catch { return 'uncertain'; }
+}
+
+  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush, classifyFlushFailure });
 })(require('node:child_process'), require('node:path'));
 
 if (process.platform === 'win32') WorkDataManifest.Hooks.publish = WorkDataNativePublish.create();
@@ -14239,9 +14257,13 @@ return Object.freeze({isUnknown,flags});
         const namespace=Object.freeze({directories,files});
         const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
-        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false;
+        await targetAdmission();await absent();let created=false,restoreBarrierUncertain=false,createdIdentity=null;
         try{
-          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
+          await io.mkdir(target,{mode:0o700});created=true;
+          // 151 阶段 3A(150 号文 W7):记下这一次 mkdir 造出的目录身份。失败时随 restore_failed 一起交回,
+          // 调用方(冷端演练)凭这份身份而不是凭目录名证明「这是本次自己造的」,才可以把半成品整棵清掉。
+          {const stat=await io.lstat(target,{bigint:true});if(stat.isDirectory()&&!stat.isSymbolicLink())createdIdentity=Object.freeze({dev:String(stat.dev),ino:String(stat.ino)});}
+          await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
           for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
           for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
@@ -14262,7 +14284,7 @@ return Object.freeze({isUnknown,flags});
             await targetAdmission();
           }
           return result;
-        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
+        }catch(cause){fail('restore_failed',{cause,targetRetained:created,...(created&&createdIdentity?{targetPath:target,targetIdentity:createdIdentity}:{}),...(restoreBarrierUncertain?WorkDataOwnedRestoreUnknown.flags(cause):{})});}
       });
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});
@@ -14742,16 +14764,20 @@ const WorkDataMigrationHost = ((io,p,c) => {
         // The cold qualification already decoded every record and proved
         // the selected key and special owner. The final intent fence binds
         // those results to two fresh preserved censuses and the same pointer.
-        return usingSource(await sourceTree.capture(selected.root),async active=>{
+        // 151 阶段 3A(150 号文 W5 / 149 号文 r48):字节、名字、身份都没变、只有原生元数据(NTFS 四项时间、属性)
+        // 漂移时,不再当作「发布被改」拒收尾 —— 那是杀毒、索引、预读之类的观测副作用。这种情形回落到下面的
+        // 完整重新资格审查:逐条重新解码、重验密钥头与特殊所有者,通过后才放行收尾;内容一变照旧拒绝。
+        const drift=await usingSource(await sourceTree.capture(selected.root),async active=>{
           const target=sourceTree.fingerprint(active);
-          if(target.sha256!==proof.targetSha||target.nativeSha256!==prior.targetNativeSha256)fail('published_target_changed');
+          if(target.sha256!==proof.targetSha)fail('published_target_changed');
           return usingSource(await sourceTree.capture(specialRoot),async special=>{
             const actual=sourceTree.fingerprint(special);
-            if(actual.sha256!==proof.specialSha||actual.nativeSha256!==prior.specialNativeSha256)fail('published_special_changed');
+            if(actual.sha256!==proof.specialSha)fail('published_special_changed');
             await current(proof.expected);
-            return prior.result;
+            return target.nativeSha256!==prior.targetNativeSha256||actual.nativeSha256!==prior.specialNativeSha256;
           });
         });
+        if(!drift)return prior.result;
       }
       qualifiedPublication.delete(prepared);
       const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,qualification,failed=false;
@@ -23560,6 +23586,15 @@ function isSensitiveDataPath(p) {
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
     ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
+  // 151 阶段 3A(150 号文 W7):冷端演练是每个数据根(及其别名)【同级】的 .ruyi-work-data-rehearsal-<id> —— 明文模式下
+  // 是整根明文副本(凭据库、config.json 都在里面)。它不在数据根内,上面的名单管不到;崩溃留下时也绝不让文件工具读到。
+  try {
+    for (const b of bases) {
+      const rel = path.relative(path.dirname(path.resolve(b)), path.resolve(p));
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (/^\.ruyi-work-data-rehearsal-/i.test(rel.split(/[\\/]/)[0])) return true;
+    }
+  } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
@@ -70925,6 +70960,9 @@ function sensitiveGlobsForRg(base) {
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
       // 151 phase 3E: the rewrap CLI's own header temp files (DPAPI-wrapped key material) stay out of model file tools.
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/.work-data-key-rewrap-*.tmp');
+      // 151 阶段 3A(W7):数据根同级的演练目录(崩溃残留时是明文副本),与 03 isSensitiveDataPath 的同名判据一致。
+      const parentRel = path.relative(base, path.dirname(path.resolve(r)));
+      if (!parentRel.startsWith('..') && !path.isAbsolute(parentRel)) globs.push('!/' + (parentRel ? parentRel.split(path.sep).join('/') + '/' : '') + '.ruyi-work-data-rehearsal-*');
       const controlRel = path.relative(base, path.join(r, '.work-data'));
       if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
         const prefix = '!/' + controlRel.split(path.sep).join('/');
@@ -114816,11 +114854,25 @@ const WorkDataSetup = (() => {
       else if(req.method==='POST'&&pathname==='/api/work-data/uploads'){response=await receiveUpload(req);statusCode=201;}
       else if((req.method==='GET'||req.method==='POST')&&pathname.startsWith('/api/work-data/jobs/')) {
         const match=/^\/api\/work-data\/jobs\/([a-f0-9]{48})(\/cancel)?$/.exec(pathname);if(!match)throw fail('job_not_found',404);
-        if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(!job)throw fail('job_not_found',404);response={ok:true,job:view(job)};}
+        if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(job)response={ok:true,job:view(job)};else{const recovered=recoveredJob(match[1]);if(!recovered)throw fail('job_not_found',404);response={ok:true,job:recovered};}}
         else if(req.method==='POST'&&match[2]){const body=await readJson(req,256);if(Object.keys(body).length)throw fail('request_invalid',400);response={ok:true,job:await cancel(match[1])};}
         else throw fail('method_not_allowed',405);
       }else return false;
       host.respond(res,response,statusCode);return true;
+    }
+    // 151 阶段 3A(150 号文 W1):冷端证明失败无残留后由恢复型后继接回原根,那次没做成的作业只作为
+    // 终态读数留在本进程(13am completeSuccessor 写进 worker hooks),浏览器按原作业号还能读到「失败 + 原因」,
+    // 而不是 job_not_found。只认同号、同形状的终态失败;它不是活动作业,不占用提交、不可取消。
+    function recoveredJob(id) {
+      let value;try{value=host.worker()?.recoveredJob;}catch{return null;}
+      if(!object(value)||value.id!==id||!ID.test(id)||!['enable','disable','export','restore'].includes(value.operation)||value.state!=='failed'
+        ||value.recovered!==true||value.cancellable!==false||value.takeover!==false||value.retry!==false||value.operationMayHaveExecuted!==false
+        ||!/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(value.error||'')))return null;
+      const reason=typeof value.reason==='string'&&/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(value.reason)?value.reason:null;
+      const detail=object(value.reasonDetail)&&/^\d{1,20}$/.test(String(value.reasonDetail.requiredBytes))&&/^\d{1,20}$/.test(String(value.reasonDetail.availableBytes))
+        ?{requiredBytes:String(value.reasonDetail.requiredBytes),availableBytes:String(value.reasonDetail.availableBytes)}:null;
+      return Object.freeze({id:value.id,operation:value.operation,state:'failed',createdAt:typeof value.createdAt==='string'?value.createdAt:null,cancellable:false,
+        takeover:false,retry:false,error:value.error,operationMayHaveExecuted:false,recovered:true,...(reason?{reason}:{}),...(reason&&detail?{reasonDetail:detail}:{})});
     }
     const bypasses=(req,pathname)=>pathname==='/api/mcp/internal/request'||req.method==='POST'&&pathname==='/api/memory-cli'
       ||req.method==='GET'&&pathname==='/api/events/stream'||req.method==='POST'&&pathname==='/api/bootstrap';
@@ -114863,8 +114915,29 @@ async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) 
   const fail=()=>{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',statusCode:400});};
   async function real(directory){if(!path.isAbsolute(directory))fail();const absolute=path.resolve(directory),parsed=path.parse(absolute);let cursor=parsed.root;for(const part of ['',...absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)]){if(part)cursor=path.join(cursor,part);const stat=await fsp.lstat(cursor);if(!stat.isDirectory()||stat.isSymbolicLink()||key(await fsp.realpath(cursor))!==key(cursor))fail();}}
   await real(backupDirectory);if(inside(base,backupDirectory)||inside(backupDirectory,base))fail();
-  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory)||inside(backupDirectory,targetDirectory))fail();await real(path.dirname(targetDirectory));try{await fsp.lstat(targetDirectory);}catch(error){if(error.code==='ENOENT')return;throw error;}fail();}
+  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory)||inside(backupDirectory,targetDirectory))fail();await real(path.dirname(targetDirectory));let exists=true;try{await fsp.lstat(targetDirectory);}catch(error){if(error.code!=='ENOENT')throw error;exists=false;}if(exists)fail();}
   }catch{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',apiCode:'work_data_setup.path_invalid',statusCode:400,retry:false});}
+  // 151 阶段 3A(150 号文 W8):备份文件夹的卷要在【写出任何字节之前】证明支持冷端要用的目录刷盘语义。
+  // 冷端写完备份包后用的就是这同一个原生 flush;exFAT/FAT32/ReFS/网络位置在这里直接拒绝并给人话指引,
+  // 而不是先交接、写出备份包再失败。探测只对已校验过的现成目录调用 FlushFileBuffers,不创建、不改名任何东西。
+  // 没有原生发布模块(非 Windows、单测的 vm 夹具)时跳过:冷端在写包之前还会再探一次。
+  if(process.platform!=='win32'||typeof WorkDataNativePublish==='undefined'||typeof WorkDataNativePublish.createFlush!=='function')return;
+  try{await WorkDataNativePublish.createFlush()([path.resolve(backupDirectory)]);}
+  catch(error){
+    let kind='uncertain';try{kind=WorkDataNativePublish.classifyFlushFailure(error);}catch{kind='uncertain';}
+    const code=kind==='volume_unsupported'?'work_data_setup.backup_filesystem_unsupported':'work_data_setup.backup_durability_unavailable';
+    throw Object.assign(Error(code),{code,apiCode:code,statusCode:kind==='uncertain'?503:400,retry:false});
+  }
+  // 151 阶段 3A(review 应改 1):启用/停用/导出的演练放在数据根的【父目录】里(W7,同卷且不在备份文件夹),删除后
+  // 要对父目录刷盘。数据根直接在盘符根下(C:\X)时非提权进程刷不了 C:\ —— 在交接之前就拒绝,给人话:把数据文件夹
+  // 移进一个子文件夹,或换个数据位置。恢复(restore)不在数据根旁边演练,不探。冷端快照前还会再探一次。
+  if(targetDirectory!==undefined)return;
+  try{await WorkDataNativePublish.createFlush()([path.dirname(path.resolve(base))]);}
+  catch(error){
+    let kind='uncertain';try{kind=WorkDataNativePublish.classifyFlushFailure(error);}catch{kind='uncertain';}
+    const code=kind==='uncertain'?'work_data_setup.rehearsal_location_unavailable':'work_data_setup.rehearsal_location_unsupported';
+    throw Object.assign(Error(code),{code,apiCode:code,statusCode:kind==='uncertain'?503:400,retry:false});
+  }
 }
 function workDataSetupReceiptPath(pathname) {
   return ['/api/stop','/api/chat/answer','/api/question/heartbeat','/api/permission/decision','/api/plan/decision'].includes(pathname)
@@ -116106,6 +116179,53 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
     for(const value of volumes.values())if(value.required>value.available)throw fail('space_insufficient',{requiredBytes:String(value.required),availableBytes:String(value.available)});
   }
   const treeBudget = (bytes,files,directories) => 16n*1024n*1024n+2n*BigInt(bytes)+65536n*BigInt(files)+8192n*BigInt(directories+1);
+  // 151 阶段 3A(150 号文 W7):演练(把备份包真正恢复一遍)放在数据根【同卷】、数据根旁边、以产品私有前缀命名的临时目录,
+  // 不再放进用户选的备份文件夹 —— 备份文件夹可能是 U 盘或云同步目录,任何时候都只能出现密文备份包。
+  // 数据根本身就在这一卷、这一位置,所以演练期间的明文不会比数据根自己走得更远。注意:Windows 上 mkdir 的 mode(0o700)
+  // 被忽略,目录的 ACL 继承自父目录(默认数据根 ~/.ruyi 的父目录是用户目录,即用户自己的 ACL);模型文件工具的读取由
+  // 03 isSensitiveDataPath / 11 sensitiveGlobsForRg 按这个前缀(每个数据根及其别名的同级)拦住。
+  // 父目录必须能被原生 flush 刷盘(数据根直接放在盘符根下时,非提权进程刷不了 C:\):13ah 提交前与冷端快照前各探一次。
+  const REHEARSAL_PREFIX = '.ruyi-work-data-rehearsal-';
+  const rehearsalPathFor = (base, id) => p.join(p.dirname(base), REHEARSAL_PREFIX + id);
+  // 151 阶段 3A(W7 残留):冷端被杀或崩溃时演练目录会留下。恢复主人(13au recoverSource / recoverCompletedIntent、
+  // 13am 启动收尾)在【已证明两个原进程都已死】之后调用这里,只删本 claim id 对应的那个路径;不是普通目录、是联接/符号链接、
+  // realpath 不等于词法路径(祖先有别名)、拿不到独占所有权(比如验证进程还活着)或删不干净,一律类型化拒绝(rehearsal_retained),
+  // 让恢复整体失败、交接记录保留 —— 明文副本不会被悄悄遗忘。fs.rm 不跟随目录内的联接(rev3A probe-rm-junction 实测)。
+  async function removeOrphanRehearsal({ base, id, acquire }) {
+    if (typeof base !== 'string' || !p.isAbsolute(base) || !/^[a-f0-9]{48}$/.test(String(id || '')) || typeof acquire !== 'function') throw fail('rehearsal_retained');
+    const target = rehearsalPathFor(p.resolve(base), id);
+    let stat;
+    try { stat = await io.lstat(target, { bigint: true }); }
+    catch (error) { if (error.code === 'ENOENT') return 'absent'; throw fail('rehearsal_retained', { cause: error }); }
+    try {
+      if (!stat.isDirectory() || stat.isSymbolicLink() || fold(await io.realpath(target)) !== fold(target)) throw fail('rehearsal_retained');
+      const owner = await acquire([target]);
+      try {
+        const again = await io.lstat(target, { bigint: true });
+        if (!again.isDirectory() || again.isSymbolicLink() || again.dev !== stat.dev || again.ino !== stat.ino) throw fail('rehearsal_retained');
+        await io.rm(target, { recursive: true, force: false });
+        try { await io.lstat(target); } catch (error) { if (error.code === 'ENOENT') return 'removed'; throw error; }
+        throw fail('rehearsal_retained');
+      } finally { if (owner && typeof owner.release === 'function') await owner.release(); }
+    } catch (error) {
+      if (String(error?.code || '') === 'work_data_setup.rehearsal_retained') throw error;
+      throw fail('rehearsal_retained', { cause: error });
+    }
+  }
+  const decimalIdentity = value => !!value && typeof value === 'object' && typeof value.dev === 'string' && typeof value.ino === 'string'
+    && /^\d{1,40}$/.test(value.dev) && /^\d{1,40}$/.test(value.ino);
+  // 151 阶段 3A:离线 e2e 的故障注入点。生产默认关闭:与仓库其余测试钩子同一道双闸 —— 只有 RUYI_TEST_HOOKS=1
+  // 并且 RUYI_TEST_WORK_DATA_COLD_FAULT 为下列名字之一时,才在该点抛出一个本模块的类型化失败
+  // (它只会让操作失败,从不让任何检查通过)。
+  const TEST_FAULTS = Object.freeze(['verify-backup', 'backup-flush']);
+  const testFault = point => {
+    if (process.env.RUYI_TEST_HOOKS !== '1') return;
+    const selected = process.env.RUYI_TEST_WORK_DATA_COLD_FAULT;
+    if (typeof selected === 'string' && TEST_FAULTS.includes(selected) && selected === point) throw fail('test_fault_' + point.replace('-', '_'));
+  };
+  // Only this module's own cold failures are ever proven self-recovered. The set is
+  // private: a property on an arbitrary thrown value can never claim recovery.
+  const recoveredFailures = new WeakSet();
   function create(host) {
     if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'fullSnapshot', 'captureRehearsal', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
     async function execute(context) {
@@ -116117,10 +116237,16 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       if (claim !== null && (!claim || typeof claim !== 'object'
         || typeof claim.finish !== 'function' || typeof claim.abandon !== 'function')) throw fail('claim_capability_invalid');
       const clearClaim = async () => { if (claim) try { await claim.finish(); } catch { /* retained: result without intent is classifiable */ } };
-      const abandonClaim = async () => { if (claim) try { await claim.abandon(); } catch { /* retained: classification decides */ } };
+      // Returns whether the record is actually gone. A refused abandon keeps it for
+      // classification and keeps the process from claiming self-recovery.
+      const releaseClaim = async () => { if (!claim) return true; try { await claim.abandon(); return true; } catch { return false; } };
       const owned = new Set(), issuedBackups = new Map();
       let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
       let backupStarted = false, rehearsalStarted = false;
+      // 151 阶段 3A(W1/W8/W7):本次尝试自己造出的东西的身份证明。只有身份对得上的才允许在失败时清理;
+      // 名字只用来定位,不授予任何权限。
+      let createdBackup = null, backupRemoved = false, rehearsalHandedToRestore = false, createdRehearsal = null, rehearsalLease = null;
+      const rehearsal = rehearsalPathFor(base, id), rehearsalParent = p.dirname(rehearsal);
       // The exact path this attempt may create. It is inspection evidence only: it
       // never authorizes a recovery, a retry or a success claim.
       let backupAttemptPath = null;
@@ -116185,7 +116311,17 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       };
       // Every refusal below happens before a byte is written, so the handoff record
       // may be dropped instead of pinning the next boot to a pending `owned` claim.
-      const preflight = async work => { try { return await work(); } catch (cause) { await abandonClaim(); throw cause; } };
+      // 151 阶段 3A(W1):这些拒绝发生在写出任何字节之前,源也没被碰过 —— 交接记录撤掉之后,进程可以
+      // 把服务交还给原根。还没收尾的 intent/stage 不算:那是上一次留下的现场,后继启动会照常拒绝。
+      const preflight = async work => {
+        try { return await work(); } catch (cause) {
+          const released = await releaseClaim();
+          let code = ''; try { code = String(cause?.code || ''); } catch { code = ''; }
+          if (released && !retainHelper(cause) && cause && (typeof cause === 'object' || typeof cause === 'function')
+            && !['work_data_setup.intent_pending', 'work_data_setup.intent_stage_pending'].includes(code)) recoveredFailures.add(cause);
+          throw cause;
+        }
+      };
       const selected = await preflight(async () => {
         const current = await WorkDataManifest.create({ base }).readActive();
         if (current.generation !== context.expectedAuthority.generation || current.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
@@ -116243,12 +116379,103 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       };
       const completed = async result => {await persistResult(result);return Object.freeze(result);};
       const progress = phase => host.progress(Object.freeze({ id, operation: context.operation, phase }));
+      // --- 151 阶段 3A: failure self-clean (W1/W7/W8) -----------------------------
+      const own = (value, name) => { try { const d = Object.getOwnPropertyDescriptor(value, name); return d && Object.hasOwn(d, 'value') ? d.value : undefined; } catch { return undefined; } };
+      // The restore owner reports the identity of the directory its own mkdir created
+      // (01ab restore_failed). It is accepted only for this exact rehearsal path.
+      const restoredIdentity = cause => {
+        const seen = new Set(); let value = cause;
+        for (let depth = 0; depth < 12 && value && typeof value === 'object' && !seen.has(value); depth++) {
+          seen.add(value);
+          const identity = own(value, 'targetIdentity'), target = own(value, 'targetPath');
+          if (own(value, 'targetRetained') === true && decimalIdentity(identity) && typeof target === 'string' && fold(p.resolve(target)) === fold(rehearsal))
+            return Object.freeze({ dev: identity.dev, ino: identity.ino });
+          value = own(value, 'cause');
+        }
+        return null;
+      };
+      const sameIdentity = (stat, identity) => String(stat.dev) === identity.dev && String(stat.ino) === identity.ino;
+      const gone = async file => { try { await io.lstat(file); return false; } catch (error) { if (error.code === 'ENOENT') return true; throw error; } };
+      const removeRehearsal = async cause => {
+        // Never handed to restore: whatever sits at that path (if anything) is not ours.
+        if (!rehearsalHandedToRestore) return true;
+        const identity = createdRehearsal || restoredIdentity(cause);
+        let stat;
+        try { stat = await io.lstat(rehearsal, { bigint: true }); } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+        if (!identity || !stat.isDirectory() || stat.isSymbolicLink() || !sameIdentity(stat, identity)) return false;
+        // Delete only under an exclusive owner of that tree: the one still held, or a
+        // fresh one (refused while, for example, a verifier process still owns it).
+        let lease = rehearsalLease && owned.has(rehearsalLease) ? rehearsalLease : null;
+        if (!lease) { lease = await acquire(rehearsal); rehearsalLease = lease; }
+        try {
+          if (assertExclusive(lease) !== true || retainHelper(null)) return false;
+          const again = await io.lstat(rehearsal, { bigint: true });
+          if (!again.isDirectory() || again.isSymbolicLink() || !sameIdentity(again, identity)) return false;
+          await io.rm(rehearsal, { recursive: true, force: false });
+          return await gone(rehearsal);
+        } finally { await release(lease); rehearsalLease = null; }
+      };
+      const removeBackup = async () => {
+        if (!createdBackup) return false;
+        let stat;
+        try { stat = await io.lstat(createdBackup.path, { bigint: true }); } catch (error) { if (error.code === 'ENOENT') { backupRemoved = true; return true; } throw error; }
+        if (!stat.isFile() || stat.isSymbolicLink() || !sameIdentity(stat, createdBackup)) return false;
+        // A package that was fully issued must also still hold exactly the issued bytes:
+        // a substituted body is evidence and stays where it is.
+        const receipt = issuedBackups.get(createdBackup.path);
+        if (receipt) {
+          const current = await readBounded(createdBackup.path, maxPackage);
+          if (!sameIdentity(current.identity, createdBackup) || hash(current.bytes) !== receipt.sha256) return false;
+        }
+        await io.unlink(createdBackup.path);
+        if (!await gone(createdBackup.path)) return false;
+        issuedBackups.delete(createdBackup.path); backupRemoved = true; return true;
+      };
+      // Deletion durability is deliberately not flushed here: the volume flush may be
+      // the very thing that failed, and a resurrected entry is still only this
+      // attempt's own ciphertext package or private rehearsal.
+      const selfClean = async cause => {
+        try {
+          if (rehearsalStarted && !await removeRehearsal(cause)) return false;
+          if (backupStarted && !await removeBackup()) return false;
+          if (retainHelper(null)) return false;
+          // Nothing above writes the source, so the authority must be unchanged. It is proven
+          // BEFORE the handoff record is retired: a changed source keeps the record for the
+          // next boot instead of being forgotten (review 3A 建议 4).
+          const now = await readResultAuthority();
+          if (now.generation !== expected.generation || now.id !== expected.id || now.mode !== expected.mode || now.sha256 !== expected.sha256) return false;
+          if (!await releaseClaim()) return false;
+          return !retainHelper(null);
+        } catch (failure) { retainHelper(failure); return false; }
+      };
       try {
         const backupDirectory = context.paths.backupDirectory;
         if (!p.isAbsolute(backupDirectory) || inside(base, backupDirectory) || inside(backupDirectory, base)) throw fail('backup_directory_invalid');
         await realDirectory(backupDirectory);
         if (!['enable', 'disable', 'export', 'restore'].includes(context.operation)) throw fail('operation_invalid');
         if (context.operation === 'enable' && expected.mode === 'encrypted' || context.operation === 'disable' && expected.mode === 'plain') throw fail('mode_unchanged');
+        // 151 阶段 3A(W8):写出备份包之前先证明备份文件夹所在的卷支持之后要用的同一个目录刷盘。
+        // exFAT/FAT32/ReFS/网络位置在这里就被拒,什么也没写;warm 端提交时已探过一次,这里是冷端自己的复核。
+        // Restore authenticates its upload first, so a wrong password still touches nothing.
+        const probeBackupVolume = async () => {
+          try { await host.flush([backupDirectory]); }
+          catch (cause) {
+            let kind = 'uncertain';
+            try { if (typeof WorkDataNativePublish !== 'undefined' && typeof WorkDataNativePublish.classifyFlushFailure === 'function') kind = WorkDataNativePublish.classifyFlushFailure(cause); } catch { kind = 'uncertain'; }
+            throw fail(kind === 'volume_unsupported' ? 'backup_filesystem_unsupported' : 'backup_durability_unavailable', { cause });
+          }
+        };
+        // 151 阶段 3A(review 应改 1):演练放在数据根的父目录里,删除后要对那个父目录刷盘。数据根直接放在盘符根下
+        // (C:\X)时非提权进程刷不了 C:\,整轮快照与演练做完才会失败 —— 所以在任何快照之前先探一次,刷不了就带
+        // 稳定码与人话提前拒绝(把数据文件夹移进一个子文件夹,或换个数据位置);绝不退回备份文件夹(W7)。
+        const probeRehearsalParent = async () => {
+          try { await host.flush([rehearsalParent]); }
+          catch (cause) {
+            let kind = 'uncertain';
+            try { if (typeof WorkDataNativePublish !== 'undefined' && typeof WorkDataNativePublish.classifyFlushFailure === 'function') kind = WorkDataNativePublish.classifyFlushFailure(cause); } catch { kind = 'uncertain'; }
+            throw fail(kind === 'uncertain' ? 'rehearsal_location_unavailable' : 'rehearsal_location_unsupported', { cause });
+          }
+        };
         const saveBackup = async bytes => {
           const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup');
           // Bind the path before touching the disk so a later failure can name it,
@@ -116259,9 +116486,16 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           // `wx` is the first byte-level effect. Everything before it (a pre-existing
           // path, a refused open) provably created nothing, so those refusals may
           // still abandon the handoff record; everything after it may leave bytes a
-          // later boot must inspect, so the record is retained.
+          // later boot must inspect, so the record is retained unless this attempt
+          // proves the exact file it created is gone again (selfClean below).
           backupStarted = true;
-          try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+          try {
+            // The identity of the object `wx` just created is the only removal authority.
+            const made = await handle.stat({ bigint: true });
+            if (made.isFile() && made.nlink === 1n) createdBackup = Object.freeze({ path: backupFile, dev: String(made.dev), ino: String(made.ino) });
+            await handle.writeFile(bytes); await handle.sync();
+          } finally { await handle.close(); }
+          testFault('backup-flush');
           await host.flush([backupDirectory]);
           const saved = await readBounded(backupFile, maxPackage);
           if (!saved.bytes.equals(bytes)) throw fail('backup_verification_failed');
@@ -116287,6 +116521,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             await realDirectory(p.dirname(target)); await absent(target);
             const snapshot=authenticated.snapshot,decodedBytes=snapshot.files.reduce((sum,row)=>sum+row.data.length,0)+snapshot.auxiliaries.reduce((sum,row)=>sum+row.data.length,0);
             await requireSpace([[backupDirectory,BigInt(uploaded.bytes.length)+1048576n],[p.dirname(target),treeBudget(decodedBytes,snapshot.files.length,snapshot.directories.length)],[base,1048576n]]);
+            await probeBackupVolume();
             const backup = await saveBackup(uploaded.bytes);
             if (!await verifyBackup(backup)) throw fail('backup_changed');
             const targetIdentity = async () => {
@@ -116331,22 +116566,37 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             return verified;
           } finally { authenticated.release(); }
         }
+        // The rehearsal is disjoint from both the source and the backup directory by
+        // construction (a backup directory may contain neither the base nor its parent).
+        if (inside(base, rehearsal) || inside(rehearsal, base) || inside(backupDirectory, rehearsal) || inside(rehearsal, backupDirectory)) throw fail('rehearsal_location_invalid');
+        await realDirectory(rehearsalParent);
+        await probeRehearsalParent();
+        await probeBackupVolume();
         await progress('snapshot');
         const captured = await full().seal({ password: context.password, appVersion: VERSION, generation: expected.generation });
-        const allocation=treeBudget(captured.sourceProof.bytes,captured.files,captured.directories);
-        await requireSpace([[backupDirectory,BigInt(Buffer.byteLength(captured.serialized,'utf8'))+1048576n+allocation],[base,context.operation==='export'?1048576n:allocation+1048576n]]);
+        const allocation=treeBudget(captured.sourceProof.bytes,captured.files,captured.directories),packageBytes=BigInt(Buffer.byteLength(captured.serialized,'utf8'))+1048576n;
+        // The package coexists first with the rehearsal (removed before any generation
+        // work) and then with the new generation; each pair is checked on its own.
+        await requireSpace([[backupDirectory,packageBytes],[rehearsalParent,allocation+1048576n]]);
+        await requireSpace([[backupDirectory,packageBytes],[base,context.operation==='export'?1048576n:allocation+1048576n]]);
         const backup = await saveBackup(Buffer.from(captured.serialized,'utf8'));
         await progress('verify-backup');
         // An authenticated package is exercised through the real restore owner,
         // then checked by a separate cold Node process before any source intent.
-        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id);
         // From here a disposable tree may exist on disk: it is an effect too.
         rehearsalStarted = true;
+        await realDirectory(rehearsalParent);
         await absent(rehearsal);
-        const rehearsalOwner = await acquire(rehearsal);
+        const rehearsalOwner = await acquire(rehearsal);rehearsalLease = rehearsalOwner;
         const rehearsalReceipt = captured.specialCoverage?.originalObjects === 'new-owned-portable';
         const rehearsalSnapshot = full(rehearsalReceipt);
+        // Only from this call on can a directory of this attempt exist at that path.
+        rehearsalHandedToRestore = true;
         const rehearsed = await rehearsalSnapshot.restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
+        {
+          const made = await io.lstat(rehearsal, { bigint: true });
+          if (made.isDirectory() && !made.isSymbolicLink()) createdRehearsal = Object.freeze({ dev: String(made.dev), ino: String(made.ino) });
+        }
         const cleanupProof = rehearsalReceipt
           ? await rehearsalSnapshot.captureRestored(rehearsed,{target:rehearsal,ownership:rehearsalOwner})
           : await host.captureRehearsal({target:rehearsal,ownership:rehearsalOwner,assertExclusive});
@@ -116374,15 +116624,16 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
                 || cleanupProof.files.length !== expectedFiles.size || cleanupProof.files.some(row => row.sha256 !== expectedFiles.get(row.path))) throw fail('rehearsal_changed');
             } finally { original.release(); }
           }
-          await release(rehearsalOwner);
+          await release(rehearsalOwner);rehearsalLease = null;
+          testFault('verify-backup');
           if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
-          const cleanupOwner = await acquire(rehearsal);
+          const cleanupOwner = await acquire(rehearsal);rehearsalLease = cleanupOwner;
           // The portable native census below already compares the exact
           // restored receipt. Its final byte and identity readback still
           // follows that census, immediately before disposal.
           if(!rehearsalReceipt&&await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
-          if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== backupDirectory || p.basename(rehearsal) !== '.ruyi-work-data-verify-' + id
-            || inside(base, rehearsal) || inside(rehearsal, base)) throw fail('rehearsal_cleanup_invalid');
+          if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== rehearsalParent || p.basename(rehearsal) !== REHEARSAL_PREFIX + id
+            || inside(base, rehearsal) || inside(rehearsal, base) || inside(backupDirectory, rehearsal) || inside(rehearsal, backupDirectory)) throw fail('rehearsal_cleanup_invalid');
           // Default-stream verification cannot detect a newly added ADS. The
           // native namespace owner must prove the exact newly-created objects
           // have no extra streams/children before this disposable tree is removed.
@@ -116392,8 +116643,8 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           // A failed release is attempted once and keeps the claim/owners held.
           releaseCleanupProof();
           if(retainHelper(null)||assertExclusive(cleanupOwner)!==true)throw fail('rehearsal_cleanup_uncertain',{helperMayStillRun:true});
-          await io.rm(rehearsal, { recursive: true, force: false }); await host.flush([backupDirectory]);
-          await release(cleanupOwner);
+          await io.rm(rehearsal, { recursive: true, force: false }); await host.flush([rehearsalParent]);
+          await release(cleanupOwner);rehearsalLease = null;
         } catch(cause){cleanupFailed=true;cleanupPrimary=cause;throw cause;}
         finally {
           try{releaseCleanupProof();}catch(cause){
@@ -116482,23 +116733,32 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         return Object.freeze(result);
       } catch (cause) {
         retainHelper(cause);
-        // A claim may be dropped only when this attempt provably wrote nothing. Any
-        // backup file created, started rehearsal, source mutation, restore/result
-        // start or unknown native helper keeps the record for a later boot.
-        if (!backupStarted && !rehearsalStarted && !mutation && !restoreStarted && !resultStarted && !helperUncertain) await abandonClaim();
+        // A claim may be dropped only when this attempt provably left nothing behind.
+        // Before any source intent, restore target or result, the only effects are the
+        // backup package and the rehearsal tree; both are removed here when, and only
+        // when, the object at that path is still the exact one this attempt created
+        // (151 阶段 3A, 150 号文 W1/W7/W8). Any source mutation, restore/result start,
+        // unproven identity, failed removal or unknown native helper keeps the record
+        // for a later boot, exactly as before.
+        let recovered = false;
+        if (!mutation && !restoreStarted && !resultStarted && !helperUncertain) recovered = await selfClean(cause);
         // An issued backup is the strongest receipt. Before one exists, the exact
         // path this attempt tried to create is still worth naming for inspection -
-        // it is not a receipt and authorizes nothing.
+        // it is not a receipt and authorizes nothing. A package this attempt removed
+        // again is no longer named.
         const boundBackup = backupAttemptPath !== null && p.isAbsolute(backupAttemptPath)
           && backupAttemptPath.length <= 4096 && p.resolve(backupAttemptPath) === backupAttemptPath ? backupAttemptPath : null;
-        const backupPath = issuedBackups.size === 1 ? issuedBackups.keys().next().value : boundBackup;
-        throw fail(mutation ? 'transition_requires_recovery' : restoreStarted ? 'restore_requires_inspection' : resultStarted ? 'result_requires_recovery' : 'preparation_failed', { cause,
+        const backupPath = backupRemoved ? null : issuedBackups.size === 1 ? issuedBackups.keys().next().value : boundBackup;
+        const error = fail(mutation ? 'transition_requires_recovery' : restoreStarted ? 'restore_requires_inspection' : resultStarted ? 'result_requires_recovery' : 'preparation_failed', { cause,
           operationMayHaveExecuted: mutation || restoreStarted || resultStarted,
           sourceIntentRetained: intent !== null,
           resultMayHaveBeenWritten: resultStarted,
           ...(helperUncertain ? {helperMayStillRun:true} : {}),
           ...(restoreStarted ? {targetMayHaveBeenCreated:true,targetPath:context.paths.targetDirectory} : {}),
-          ...(backupPath ? { backupPath } : {}) });
+          ...(backupPath ? { backupPath } : {}),
+          ...(recovered ? { selfRecovered: true } : {}) });
+        if (recovered) recoveredFailures.add(error);
+        throw error;
       } finally {
         alive = false;
         // Native flush/capsule adapters settle their actual helper before returning.
@@ -116506,9 +116766,14 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         if (!retainHelper(null)) for (const owner of [...owned]) await release(owner);
       }
     }
-    return Object.freeze({ execute });
+    // True only for a failure this module threw after proving that nothing of the
+    // attempt remains (no intent, no result, no target, no package, no rehearsal),
+    // that the handoff record is retired and that the source authority is unchanged.
+    // The caller may then hand the service back to the original root.
+    const selfRecovered = error => { try { return (typeof error === 'object' || typeof error === 'function') && error !== null && recoveredFailures.has(error); } catch { return false; } };
+    return Object.freeze({ execute, selfRecovered });
   }
-  return Object.freeze({ create });
+  return Object.freeze({ create, REHEARSAL_PREFIX, rehearsalPathFor, removeOrphanRehearsal });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
 // Process composition only. Native operations/result writers have their own
@@ -116593,6 +116858,17 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     }
     return {...(found||{}),...(limited?{limitDetail:limited}:{})};
   };
+  // 151 阶段 3A:恢复型后继的诊断段。只有操作、外层稳定码、可选的更具体原因码与两枚十进制字节数,
+  // 不带 message、路径或任何自由文本;形状不对就整段不认(后继随之拒绝启动)。
+  const CODE=/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/;
+  const recoveredValue=(value,operation)=>{try{
+    if(!['error,operation','error,operation,reason','error,operation,reasonDetail','error,operation,reason,reasonDetail'].includes(keys(value)))return null;
+    if(!['enable','disable','export','restore'].includes(value.operation)||operation!==undefined&&value.operation!==operation||!CODE.test(value.error||''))return null;
+    if(value.reason!==undefined&&(typeof value.reason!=='string'||!CODE.test(value.reason)||value.reason===value.error))return null;
+    if(value.reasonDetail!==undefined&&(keys(value.reasonDetail)!=='availableBytes,requiredBytes'||!bytes(value.reasonDetail.requiredBytes)||!bytes(value.reasonDetail.availableBytes)))return null;
+    return Object.freeze({operation:value.operation,error:value.error,...(value.reason!==undefined?{reason:value.reason}:{}),
+      ...(value.reasonDetail!==undefined?{reasonDetail:Object.freeze({requiredBytes:value.reasonDetail.requiredBytes,availableBytes:value.reasonDetail.availableBytes})}:{})});
+  }catch{return null;}};
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
   // A retirement receipt is data, never a boolean promotion: it must carry the
@@ -116735,8 +117011,12 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         await verifyActivation(activationBoot,base,null);
       }else{
         resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
-        observedResult=await resultReader.inspect();const result=expected?await resultReader.read():null;
-        if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+        // A recovered successor (151 阶段 3A) has no result to verify by construction: its
+        // proof is the retired claim (classified below) and the unchanged source authority.
+        const verifiesResult=expected&&!expected.recovered;
+        observedResult=await resultReader.inspect();const result=verifiesResult?await resultReader.read():null;
+        if(verifiesResult&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+        if(expected&&expected.recovered&&observedResult?.present&&observedResult.value?.id===expected.id)throw fail('successor_result_changed');
         // No intent: only the TEMP handoff record may be classified and, when inert or
         // complete, cleaned. Base files are never repaired here.
         // The claim owner compares this digest with its own id/operation, so a stale
@@ -116754,6 +117034,9 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
         if(outcome==='pending')throw fail('handoff_pending');
         if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
+        // A recovered handoff retired its own record before the cold parent spawned this
+        // process; a completed record is not something it can have produced.
+        if(expected&&expected.recovered&&outcome==='complete')throw fail('handoff_completion_unverified');
         if(outcome!=='absent'){
           if(!selectedClaim?.present)throw fail('boot_control_pending');
           if(outcome==='complete'){
@@ -116793,7 +117076,13 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
               await claims.remove(selectedClaim.receipt);
             }else{
               if(typeof claims.recoverCompleted!=='function')throw fail('handoff_completion_unverified');
-              await claims.recoverCompleted(selectedClaim.receipt,verifyCompleted);
+              // 151 阶段 3A(review 应改 3):claim 主人已证明两个原进程都死了才进这个回调;先清掉这次被杀的冷端可能留下的
+              // 演练目录(数据根同级、按 claim id 定位、按身份与独占所有权删除),删不掉就整体拒绝、保留交接记录。
+              await claims.recoverCompleted(selectedClaim.receipt,async claim=>{
+                if(typeof WorkDataColdOperations!=='undefined'&&typeof WorkDataColdOperations.removeOrphanRehearsal==='function')
+                  await WorkDataColdOperations.removeOrphanRehearsal({base,id:claim?.id,acquire:roots=>ServerOwnership.acquire(roots)});
+                return verifyCompleted(claim);
+              });
             }
           }else await claims.remove(selectedClaim.receipt);
         }
@@ -116875,9 +117164,26 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         // and read-only listener alive until an explicit future recovery owner acts.
         await new Promise(()=>{});
       };
+      // 151 阶段 3A(150 号文 W1/W8):操作体证明了「没写 intent、没写结果、没造目标、本次的备份包与演练都已按身份
+      // 清掉、交接记录已撤、源权威未变」时,不再 hold():关掉只读进度监听,把原根交还给一个恢复型后继 ——
+      // 13ai 的 finally 照常释放源所有权,runCold 照常起后继,服务自动回到可用,不需要任何 CLI。
+      // 证明只认操作体自己私有登记的失败对象;这里再独立复核原生助手与源权威,任何一项不成立都退回 hold。
+      let ops=null;
+      const returnToSource=async error=>{
+        try{
+          latch(error);if(helperUncertain||helpers())return null;
+          const actual=full(await host.readAuthority(base));if(!authority(actual)||!same(actual,context.expectedAuthority))return null;
+          const reason=failureReason(error);
+          context.password=null;current=actual;job.state='failed';job.error=safeCode(error);Object.assign(job,reason);job.phase='restart';
+          await http.close();
+          return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:actual,backupPath:null,
+            recovered:Object.freeze({operation:context.operation,error:safeCode(error),...(reason.reason?{reason:reason.reason}:{}),
+              ...(reason.reasonDetail?{reasonDetail:Object.freeze({...reason.reasonDetail})}:{})})});
+        }catch{return null;}
+      };
       try {
         await http.listen();
-        const ops=host.operations({guardNative,helperMayStillRun:helpers,progress:async update=>{
+        ops=host.operations({guardNative,helperMayStillRun:helpers,progress:async update=>{
           if(update?.id!==context.id||update.operation!==context.operation||typeof update.phase!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(update.phase))throw fail('progress_invalid');job.phase=update.phase;
         }});
         if(!ops||typeof ops.execute!=='function')throw fail('operations_unavailable');
@@ -116908,16 +117214,24 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         job.phase='restart';if(result.backup?.path)job.backupPath=result.backup.path;
         await http.close();return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:current,backupPath:record.backup.path,
           ...(activationTarget?{activationTarget}:{})});
-      }catch(error){return hold(error);}
+      }catch(error){
+        let proven=false;try{proven=!!ops&&typeof ops.selfRecovered==='function'&&ops.selfRecovered(error)===true;}catch{proven=false;}
+        if(proven){const envelope=await returnToSource(error);if(envelope)return envelope;}
+        return hold(error);
+      }
     }
     async function launchSuccessor(result) {
       // A restore successor serves the committed fresh root only. The receipt is
       // written first and stays behind as diagnosis on every failure; there is no
       // retry and no fallback to the source root.
       const target=result.activationTarget||null;
+      // 151 阶段 3A:恢复型后继只服务原根,它的 recovered 段只是给后继复述「哪一次、因为什么没做成」的诊断,
+      // 不授予任何权限;后继自己再从磁盘证明交接记录已撤、源权威未变。
+      const recovered=result.recovered===undefined?null:recoveredValue(result.recovered,result.operation);
+      if(result.recovered!==undefined&&(!recovered||target))throw fail('recovered_envelope_invalid');
       // A restore envelope that lost its target is unrepresentable, not a source
       // handoff: refuse it loudly instead of spawning a successor on the source base.
-      if(result.operation==='restore'&&!target)throw fail('activation_target_missing');
+      if(result.operation==='restore'&&!target&&!recovered)throw fail('activation_target_missing');
       if(target&&(typeof target.target!=='string'||!p.isAbsolute(target.target)||!identity(target.identity)||!authority(target.authority)||!NONCE.test(target.resultSha256||'')))throw fail('activation_invalid');
       const spec=command('work-data-successor'),nonce=c.randomBytes(32).toString('hex');
       const home=target?await host.canonical(target.target):result.base;
@@ -116936,7 +117250,8 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('successor',result.id,nonce):null;
       const child=host.workerApi.spawnCold(spec,desktop?DesktopLifetimeHooks.environment(common.environment(home),desktop):common.environment(home));
       const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:home,serve:result.listener,
-        expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{})};
+        expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{}),
+        ...(recovered?{recovered}:{})};
       const readyMessage=new Promise((resolve,reject)=>{
         const cleanup=()=>{child.removeListener('message',message);child.removeListener('error',failed);child.removeListener('exit',exited);};
         const failed=()=>{cleanup();reject(fail('successor_launch_failed'));},exited=()=>{cleanup();reject(fail('successor_exited'));};
@@ -116999,9 +117314,10 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const bytes=await channel.readInput(16384);let input;
       try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
       const shape=keys(input),activation=shape==='activation,base,expectedAuthority,id,nonce,parentPid,schema,serve';
-      if(!(shape==='base,expectedAuthority,id,nonce,parentPid,schema,serve'||activation)||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
+      const recovered=shape==='base,expectedAuthority,id,nonce,parentPid,recovered,schema,serve';
+      if(!(shape==='base,expectedAuthority,id,nonce,parentPid,schema,serve'||activation||recovered)||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
         ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
-        ||activation&&!activationInput(input.activation)
+        ||activation&&!activationInput(input.activation)||recovered&&!recoveredValue(input.recovered)
         ||fold(await host.canonical(input.base))!==fold(await host.canonical(base)))throw fail('successor_input_invalid');
       let receipt=null;
       if(activation){
@@ -117035,6 +117351,14 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
           // receipt and the live target authority. No result file is read on target.
           bound=await verifyActivation(input,await host.canonical(input.base),pending.receipt);
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        }else if(input.recovered){
+          // 151 阶段 3A:恢复型后继只证明源权威与冷端交接前完全相同,然后把那次没做成的作业作为终态
+          // 交给本进程的状态接口(不再进入 operation,也不授予重试或任何权限)。
+          actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+          const value=recoveredValue(input.recovered);if(!value)return stop(fail('successor_input_invalid'));
+          if(host.workerHooks&&typeof host.workerHooks==='object')host.workerHooks.recoveredJob=Object.freeze({id:input.id,operation:value.operation,state:'failed',
+            createdAt:new Date().toISOString(),cancellable:false,takeover:false,retry:false,error:value.error,operationMayHaveExecuted:false,
+            ...(value.reason?{reason:value.reason}:{}),...(value.reasonDetail?{reasonDetail:value.reasonDetail}:{}),recovered:true});
         }else{
           const read=host.workerHooks?.readResult;
           const record=typeof read==='function'?await read():await readWarmResult(captured);
@@ -121894,6 +122218,11 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
     };
     // A fresh, explicitly invoked doctor process owns this whole operation. Never
     // release the source to a second verifier process and reacquire it afterward.
+    // 151 阶段 3A(review 应改 3):只在恢复主人的回调里调用(claim 主人已证明 parentPid/childPid 都已死)。
+    const removeAttemptRehearsal=async(base,claim)=>{
+      if(typeof WorkDataColdOperations==='undefined'||typeof WorkDataColdOperations.removeOrphanRehearsal!=='function')return 'unavailable';
+      return WorkDataColdOperations.removeOrphanRehearsal({base,id:claim?.id,acquire:roots=>O.acquire(roots)});
+    };
     async function recoverSource({base}={}) {
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('source_recovery_requires_cold_process');
       if(!methods(bindings.claim,['inspect','recoverSource'])||typeof N.fullSnapshot!=='function')throw fail('source_recovery_unavailable');
@@ -121934,6 +122263,9 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           ensure(ctx);return current;
         };
         result=await bindings.claim.recoverSource(first.receipt,async claim=>{
+          // 151 阶段 3A(review 应改 3):claim 主人已证明两个原进程都已死,才调到这里。被杀的冷端可能留下本作业的
+          // 演练目录(明文模式下是整根明文副本):按 claim id 定位、按身份与独占所有权删除;删不掉就整体失败、保留交接记录。
+          await removeAttemptRehearsal(base,claim);
           const before=await inspect(claim);
           let password=c.randomBytes(32).toString('base64'),sealed;
           try{sealed=await N.fullSnapshot(base,owner,candidate=>candidate===owner&&assertOwnership(owner,base)).seal({password,appVersion:VERSION,generation:before.generation});}
@@ -122030,6 +122362,8 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         let profiles=0;
         await bindings.claim.recoverCompleted(claim.receipt,async original=>{
           if(!same(original,claim.value)||profiles>=2)throw fail('complete_recovery_claim_changed');
+          // 151 阶段 3A(review 应改 3):同上,原进程已证明死亡后先清掉本作业遗留的演练目录。
+          if(profiles===0)await removeAttemptRehearsal(base,original);
           const before=await evidence(true);let password=c.randomBytes(32).toString('base64'),sealed;
           try{sealed=await N.fullSnapshot(base,owner,exclusive,{controlRecoveryProof:selected}).seal({password,appVersion:VERSION,generation:before.authority.generation});}
           finally{password=null;}
@@ -122616,6 +122950,162 @@ async function startWorkbenchServe(argv) {
   if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.serving)await DesktopLifetimeHooks.serving();
   return served;
 }
+// 151 阶段 3A(150 号文 W5、149 号文 r48):普通 serve 在只读启动闸门处被「维护没收尾」拒绝时,先按现成的、
+// 已审查过的恢复主人自动收尾一次,再重新走完整启动;不再只有隐藏命令能解。
+//   - intent_pending:只有「intent 已是 complete、发布与结果都已落盘、交接记录 owned、两个进程都已退出」时
+//     recoverCompletedIntent 才会通过(它自己逐项复核并在其余情形类型化拒绝,不重放迁移、不修候选)。
+//   - handoff_pending:owned 而无 intent、无本作业结果时,recoverSource 证明源可读、写诊断、撤交接记录,不改源。
+// 闸门拒绝发生在 WorkDataRootHooks.bind 之前、所有权已释放,所以这里不会与任何已开始的启动写入竞争。
+// 两个恢复主人的契约是「一个新起的、只做这一件事的 doctor 进程拥有整个操作」,所以这里起的正是同一条
+// doctor 命令的子进程(同一可执行文件与脚本身份、同一环境),等它自然退出:退出码 0 才算收尾,其余一律不算。
+// 自动收尾失败就原样抛出原来的拒绝码(数据根不写 last-start-error:有未收尾 intent 时源必须保持原样)。
+const WORK_DATA_BOOT_RECOVERY = Object.freeze({
+  'work_data_setup.intent_pending': '--recover-work-data-intent',
+  'work_data_setup.handoff_pending': '--recover-work-data-source',
+});
+// 151 阶段 3A(review 应改 2):机读的「开始自动收尾」标记。桌面壳(RuyiDesktop.cs ServerHost)在 stderr 里认到这串
+// 固定字样就把启动等待窗口延长到它自己的上限,并在标题栏显示「正在自动收尾」—— 否则 30 秒到点关窗,KILL_ON_JOB_CLOSE
+// 会把正在收尾的 doctor 一起杀掉。标记行只带固定字样与稳定拒绝码,不带路径或自由文本。
+const WORK_DATA_BOOT_HEALING_MARKER = 'RUYI-BOOT-HEALING v1';
+// 整次自动收尾(所有 doctor 运行与间隔)的总上限;单次 doctor 运行在剩余预算处被停下。桌面壳延长后的窗口
+// (RuyiDesktop.cs HealingBootWindowMs = 360 s)大于这个上限加一次普通启动,所以重试永远不会撑爆窗口。
+const WORK_DATA_BOOT_HEAL_BUDGET_MS = 300000;
+const WORK_DATA_BOOT_RECOVERY_PAUSES_MS = Object.freeze([0, 1000, 3000, 6000]);
+// The doctor child reports its failure's cause chain on one tagged stderr line (codes only,
+// see workDataRecoveryCauseCodes). Boot retries only when that chain names a cause that
+// settles by itself; a definite failure (a broken key, a mismatched result, a missing
+// backup) wrapped in the same outer source_recovery_unverified/recovery_unverified code is
+// never retried, so an unrecoverable state does not delay boot.
+const WORK_DATA_RECOVERY_CAUSES_TAG = 'RUYI-RECOVERY-CAUSES ';
+const WORK_DATA_BOOT_TRANSIENT_CAUSES = Object.freeze(new Set([
+  // The crashed parent/child PIDs must be proven dead; reaping takes a moment.
+  'work_data_claim.recovery_process_pending', 'work_data_host.complete_recovery_process_pending',
+  // The two-profile proof observed concurrent metadata noise (antivirus, indexer, a reader
+  // holding a file open: Win32 32/33 sharing/lock violation), not a content change.
+  'work_data_host.complete_recovery_evidence_changed', 'work_data_host.complete_recovery_source_changed',
+  'work_data_backup.metadata_changed', 'work_data_tree.source_changed', 'work_data_backup.idle_win32_32', 'work_data_backup.idle_win32_33',
+  // An orphan rehearsal still owned by a dying verifier process.
+  'work_data_setup.rehearsal_retained',
+]));
+// Codes only, from data descriptors of the bounded cause/errors graph (no message, path
+// or getter is ever read), outermost first.
+function workDataRecoveryCauseCodes(error) {
+  const codes = [], seen = new Set(), queue = [error];
+  while (queue.length && seen.size < 32) {
+    const value = queue.shift();
+    if (value === null || typeof value !== 'object' && typeof value !== 'function' || seen.has(value)) continue;
+    seen.add(value);
+    try {
+      const code = Object.getOwnPropertyDescriptor(value, 'code');
+      if (code && Object.hasOwn(code, 'value') && typeof code.value === 'string' && /^work_data[a-z0-9_]*\.[a-z0-9_.-]{1,96}$/.test(code.value) && !codes.includes(code.value)) codes.push(code.value);
+      const cause = Object.getOwnPropertyDescriptor(value, 'cause');
+      if (cause && Object.hasOwn(cause, 'value')) queue.push(cause.value);
+      const errors = Object.getOwnPropertyDescriptor(value, 'errors');
+      if (errors && Object.hasOwn(errors, 'value') && Array.isArray(errors.value)) for (const item of errors.value.slice(0, 16)) queue.push(item);
+    } catch { /* an opaque node only ends this walk */ }
+  }
+  return codes.slice(0, 16);
+}
+function workDataRecoveryCausesFrom(stderr) {
+  const line = String(stderr || '').split(/\r?\n/).find(row => row.startsWith(WORK_DATA_RECOVERY_CAUSES_TAG));
+  if (!line) return null;
+  try {
+    const value = JSON.parse(line.slice(WORK_DATA_RECOVERY_CAUSES_TAG.length));
+    return Array.isArray(value) && value.length <= 16 && value.every(code => typeof code === 'string' && /^work_data[a-z0-9_]*\.[a-z0-9_.-]{1,96}$/.test(code)) ? value : null;
+  } catch { return null; }
+}
+// One doctor child with the ordinary CLI identity, bounded by `timeoutMs`. At the bound the
+// child is terminated: the two recovery owners are crash-recovery owners whose every step is
+// re-verifiable (a terminated doctor is exactly the crash they classify on the next start), and
+// the following ordinary start gates again, so a stopped run can only end in the original refusal.
+function runWorkDataRecoveryDoctor(flag, timeoutMs) {
+  return new Promise(resolve => {
+    let entry, child, timer = null, settled = false;
+    const finish = value => { if (settled) return; settled = true; if (timer !== null) clearTimeout(timer); resolve(value); };
+    try { entry = WorkDataVerifierEntry.command({ proc: process }); }
+    catch { finish({ code: -1, stderr: '' }); return; }
+    const args = [...entry.args.slice(0, -1), 'doctor', flag];
+    try { child = require('node:child_process').spawn(entry.command, args, { env: process.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); }
+    catch { finish({ code: -1, stderr: '' }); return; }
+    let stderr = '';
+    child.stdout.on('data', () => {});
+    child.stderr.on('data', chunk => { if (stderr.length < 65536) stderr += chunk; });
+    child.on('error', () => finish({ code: -1, stderr }));
+    child.on('close', code => finish({ code, stderr }));
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) timer = setTimeout(() => {
+      try { child.kill(); } catch { /* already gone */ }
+      finish({ code: -2, stderr, timedOut: true });
+    }, timeoutMs);
+  });
+}
+const WORK_DATA_BOOT_GUIDANCE = Object.freeze({
+  'work_data_setup.intent_pending': '上一次工作数据加密/停用没有收尾，自动收尾也没能确认结果，如意没有改动任何数据。请先完全退出如意再启动一次；仍然如此时，在「帮助 → 查看日志」里把最后几行发给支持人员。 / The last work data encryption change did not finish and could not be completed automatically; nothing was changed. Quit Ruyi completely and start it again; if this keeps happening, send the last lines of Help > View logs to support.',
+  'work_data_setup.handoff_pending': '上一次工作数据维护进程没有正常交接，自动核对没能完成，如意没有改动任何数据。请先完全退出如意（包括后台的维护进程）再启动一次。 / The last work data maintenance process did not hand off cleanly and the automatic check could not finish; nothing was changed. Quit Ruyi completely (including any background maintenance process) and start it again.',
+});
+async function recoverWorkDataBoot(error) {
+  let code = '';
+  try { code = String(error?.code || ''); } catch { code = ''; }
+  const flag = Object.hasOwn(WORK_DATA_BOOT_RECOVERY, code) ? WORK_DATA_BOOT_RECOVERY[code] : null;
+  if (!flag) return false;
+  // Only the readonly pre-bind gate qualifies: a bound root means boot work has begun.
+  try { if (WorkDataRootHooks.ready()) return false; } catch { return false; }
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.helperMayStillRun === 'function' && WorkDataMaintenanceRuntimeHooks.helperMayStillRun() !== false) return false;
+  } catch { return false; }
+  // Announced on stderr first, with the machine-readable marker the desktop shell uses to
+  // extend its boot window; the stderr tail it shows also explains the longer start.
+  console.error(`[start] ${WORK_DATA_BOOT_HEALING_MARKER} ${code}: 正在自动收尾上一次没有完成的工作数据维护… / completing the unfinished work data maintenance automatically…`);
+  const started = Date.now();
+  let outcome = null, detail = '';
+  for (const pause of WORK_DATA_BOOT_RECOVERY_PAUSES_MS) {
+    if (pause > 0) {
+      if (Date.now() - started + pause >= WORK_DATA_BOOT_HEAL_BUDGET_MS) break;
+      await new Promise(resolve => setTimeout(resolve, pause));
+    }
+    const remaining = WORK_DATA_BOOT_HEAL_BUDGET_MS - (Date.now() - started);
+    if (remaining <= 0) break;
+    outcome = await runWorkDataRecoveryDoctor(flag, remaining);
+    if (outcome.code === 0) break;
+    if (outcome.timedOut) { detail = 'work_data_setup.boot_recovery_timeout'; break; }
+    // Only stable codes are kept: never the doctor's message, path or stack text.
+    const causes = workDataRecoveryCausesFrom(outcome.stderr);
+    detail = causes && causes.length ? causes[0] : (/work_data(?:_[a-z0-9]+)*\.[a-z0-9_]{1,96}/.exec(String(outcome?.stderr || '')) || [''])[0];
+    const transient = causes ? causes.some(cause => WORK_DATA_BOOT_TRANSIENT_CAUSES.has(cause)) : WORK_DATA_BOOT_TRANSIENT_CAUSES.has(detail);
+    if (!transient) break;
+  }
+  if (!outcome || outcome.code !== 0) {
+    console.error(`[start] ${code}${detail ? ' (' + detail + ')' : ''}: ${WORK_DATA_BOOT_GUIDANCE[code]}`);
+    return false;
+  }
+  console.log(`[start] ${code}: recovered automatically (doctor ${flag}); starting normally`);
+  return true;
+}
+// The serve composition is single-shot per process (13au acquireServe), so the gate is
+// asked once more *before* it: the same readonly inspectBoot ordinary CLI commands run
+// under a plain ServerOwnership lease. Only its two maintenance refusals lead to the
+// doctor child; the real startServer then gates again exactly as before, so a failed or
+// skipped recovery still ends in the original refusal. A busy root (another owner) or a
+// missing gate simply skips this step. A refusal that may still have a native helper
+// running keeps the lease (main() then holds, exactly like withSelectedWorkDataRoot).
+async function preflightWorkDataBoot() {
+  if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot !== 'function') return false;
+  let ownership, refusal = null;
+  try { ownership = await ServerOwnership.acquire([dataRoot()]); } catch { return false; }
+  try { await WorkDataMaintenanceRuntimeHooks.inspectBoot({ base: await ServerOwnership.canonicalRoot(dataRoot()), ownership }); }
+  catch (error) { refusal = error; }
+  if (refusal && workDataCliHelperUnknown(refusal)) { holdWorkDataCliOwner(); throw refusal; }
+  await ownership.release();
+  return refusal ? recoverWorkDataBoot(refusal) : false;
+}
+async function serveWithWorkDataBootRecovery(argv) {
+  await preflightWorkDataBoot();
+  return startWorkbenchServe(argv);
+}
+// The two hidden recovery doctor commands report their failure's cause codes on one tagged
+// stderr line for the boot auto-heal above (codes only; the human output is unchanged).
+function reportWorkDataRecoveryCauses(error) {
+  try { const codes = workDataRecoveryCauseCodes(error); if (codes.length) console.error(WORK_DATA_RECOVERY_CAUSES_TAG + JSON.stringify(codes)); } catch { /* reporting never masks the failure */ }
+}
 // P2-4: the explicit operational exit for the boot-root preference. It never acquires
 // the data root, starts a serve, runs a migration or the ordinary doctor: it asks the
 // single preference owner for its record and removes exactly that record through the
@@ -122917,7 +123407,9 @@ async function main() {
     if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-intent'
       || argv['recover-work-data-intent'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
-    const result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()});
+    let result;
+    try { result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()}); }
+    catch (error) { try { reportWorkDataRecoveryCauses(error); } catch { /* reporting never masks the failure */ } throw error; }
     console.log(JSON.stringify(result));return result;
   }
   if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
@@ -122925,7 +123417,9 @@ async function main() {
       || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
     const factory = WorkDataRuntimeHost.create();
-    const result = await factory.recoverSource({base:dataRoot()});
+    let result;
+    try { result = await factory.recoverSource({base:dataRoot()}); }
+    catch (error) { try { reportWorkDataRecoveryCauses(error); } catch { /* reporting never masks the failure */ } throw error; }
     console.log(JSON.stringify(result));
     return result;
   }
@@ -122949,7 +123443,7 @@ async function main() {
     if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
     return run();
   }
-  if (command === 'serve') return startWorkbenchServe(argv);
+  if (command === 'serve') return serveWithWorkDataBootRecovery(argv);
   if (typeof WorkDataKeyRewrap !== 'undefined' && command === WorkDataKeyRewrap.COMMAND) return runWorkDataKeyRewrap();
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());

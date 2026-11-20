@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4435 | 4390 | 965 | 67 | 0 | 1 |
+| 145 | 4449 | 4393 | 968 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -139,13 +139,13 @@
 | 121 | `13ag-work-data-maintenance.js` | unclassified | 19 | 90 | 26 |
 | 122 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 1 | 1 |
 | 123 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 0 | 0 |
-| 124 | `13ah-work-data-setup.js` | unclassified | 6 | 27 | 10 |
+| 124 | `13ah-work-data-setup.js` | unclassified | 6 | 28 | 11 |
 | 125 | `13ai-work-data-worker.js` | unclassified | 1 | 2 | 2 |
 | 126 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
 | 127 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 3 | 1 |
 | 128 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
-| 129 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 9 | 8 |
-| 130 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
+| 129 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 9 |
+| 130 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 9 |
 | 131 | `13ap-session-fulltext-index.js` | unclassified | 1 | 28 | 12 |
 | 132 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 28 | 13 |
 | 133 | `13ba-media-image-contract.js` | unclassified | 1 | 1 | 1 |
@@ -159,7 +159,7 @@
 | 141 | `13ax-desktop-lifetime.js` | unclassified | 12 | 16 | 8 |
 | 142 | `13ax-work-data-attachment-upload.js` | unclassified | 3 | 9 | 5 |
 | 143 | `13au-work-data-runtime-host.js` | unclassified | 2 | 18 | 14 |
-| 144 | `14-main.js` | entrypoint | 15 | 617 | 57 |
+| 144 | `14-main.js` | entrypoint | 29 | 617 | 57 |
 
 ## 模块边
 
@@ -698,6 +698,7 @@
 | `13ah-work-data-setup.js` | `01-config.js` | backward | `safeSessionId`, `send` |
 | `13ah-work-data-setup.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ah-work-data-setup.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
+| `13ah-work-data-setup.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |
 | `13ah-work-data-setup.js` | `01z-work-data-root-authority.js` | backward | `WorkDataRootAuthority` |
 | `13ah-work-data-setup.js` | `04-permission-runtime.js` | backward | `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `sessionExecutionCheck`, `turnSettlers` |
 | `13ah-work-data-setup.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
@@ -714,6 +715,7 @@
 | `13ak-work-data-cold-operations.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13ak-work-data-cold-operations.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ak-work-data-cold-operations.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
+| `13ak-work-data-cold-operations.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |
 | `13ak-work-data-cold-operations.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
 | `13al-work-data-maintenance-http.js` | `00-boot.js` | backward | `URL`, `crypto`, `http` |
 | `13am-work-data-maintenance-runtime.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `MigrationHooks`, `WorkDataMaintenanceRuntimeHooks` |
@@ -723,6 +725,7 @@
 | `13am-work-data-maintenance-runtime.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
 | `13am-work-data-maintenance-runtime.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13am-work-data-maintenance-runtime.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
+| `13am-work-data-maintenance-runtime.js` | `13ak-work-data-cold-operations.js` | backward | `WorkDataColdOperations` |
 | `13am-work-data-maintenance-runtime.js` | `13al-work-data-maintenance-http.js` | backward | `WorkDataMaintenanceHttp` |
 | `13ap-session-fulltext-index.js` | `00-boot.js` | backward | `MediaImageHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `decodeTextFileBytes`, `fsp`, `path`, `paths`, `text` |
 | `13ap-session-fulltext-index.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |

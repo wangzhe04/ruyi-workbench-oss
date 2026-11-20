@@ -19,7 +19,7 @@ async function setup(t,options={}){
    const target=String(file),isPackage=flags==='wx'&&target.endsWith('.ruyi-backup');
    if(isPackage&&options.backupOpenFails)throw Object.assign(Error('simulated backup open refusal'),{code:'EACCES'});
    const handle=await api.open(file,flags,mode);
-   if(isPackage&&options.backupWriteFails)return {writeFile:async()=>{throw Object.assign(Error('simulated backup write refusal'),{code:'EIO'});},sync:()=>handle.sync(),close:()=>handle.close()};
+   if(isPackage&&options.backupWriteFails)return {stat:opts=>handle.stat(opts),writeFile:async()=>{throw Object.assign(Error('simulated backup write refusal'),{code:'EIO'});},sync:()=>handle.sync(),close:()=>handle.close()};
    return handle;
   }};
  };
@@ -33,10 +33,11 @@ async function setup(t,options={}){
  const host={
   async acquire(roots){const owner={roots,released:false,async release(){assert.equal(owner.released,false);owner.released=true;events.push('release:'+path.basename(roots[0]));}};owners.push(owner);events.push('acquire:'+path.basename(roots[0]));return owner;},
   async flush(roots){events.push('flush:'+path.basename(roots[0]));
+   if(options.flush)await options.flush({roots,x,f});
    if(options.failResultFlush&&path.basename(roots[0])==='.work-data'&&(await fsp.readdir(roots[0])).some(name=>name.startsWith('.maintenance-result-v1.stage-')))throw Error('simulated result flush refusal');
    // Opt-in: refuse the first durability flush of the backup directory only, after
-   // the package bytes are already on disk.
-   if(options.failBackupFlush&&path.basename(roots[0])==='backups'&&++backupFlushes===1)throw Error('simulated backup flush refusal');},
+   // the package bytes are already on disk (the earlier volume probe is not it).
+   if(options.failBackupFlush&&path.basename(roots[0])==='backups'&&fs.existsSync(path.join(roots[0],'ruyi-work-data-'+'a'.repeat(48)+'.ruyi-backup'))&&++backupFlushes===1)throw options.failBackupFlush===true?Error('simulated backup flush refusal'):options.failBackupFlush();},
   async verifyFresh(value){events.push('fresh');assert.ok(owners.every(owner=>owner.released));const own={roots:[value.target]};
    const full=f.api.WorkDataFullSnapshot.create({base:value.target,ownership:own,assertExclusive:owner=>owner===own,protector:f.a,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});
    const sealed=await full.seal({password:value.password,appVersion:'3.0.1',generation:value.generation??0});assert.ok(sealed.files>=2);
@@ -48,7 +49,8 @@ async function setup(t,options={}){
   progress(value){events.push(value.phase);},helperMayStillRun:()=>options.helperMayStillRun===true,
  };
  const operation=api.WorkDataColdOperations.create(host);
- x={f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(backupDirectory,'.ruyi-work-data-verify-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
+ // 151 阶段 3A(W7):演练在数据根旁边(同卷)的产品私有目录里,不在备份文件夹里。
+ x={f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(path.dirname(f.base),'.ruyi-work-data-rehearsal-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
  return x;
 }
 // Bounded handoff capability as 13ai issues it. `finish` observes the real files at
@@ -86,10 +88,14 @@ test('export saves authenticated actual full package, restores and verifies it b
  for(const row of before.files)assert.deepEqual(await fsp.readFile(path.join(x.f.base,...row.path.split('/'))),row.data);
  assert.ok(x.events.indexOf('snapshot')<x.events.indexOf('verify-backup'));assert.ok(x.events.indexOf('fresh')<x.events.indexOf('native-tree'));assert.equal(x.events.includes('migration'),false);
 });
-test('fresh-verifier failure retains verified backup and rehearsal and writes no source intent',async t=>{
+// 151 阶段 3A(W1/W7):改前断言「备份包与演练目录都留在原地」;现在没写 intent、源未改时,本次造出的两样东西按身份清掉,
+// 失败被证明为自恢复(冷端可把服务交还原根)。源仍然不写 intent。
+test('fresh-verifier failure removes this attempt\'s backup and rehearsal, writes no source intent and is self-recovered',async t=>{
  const x=await setup(t,{verifyFresh:async()=>{throw Error('cold validation refusal');}});
- await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'&&error.operationMayHaveExecuted===false);
- assert.ok(fs.existsSync(x.backupFile));assert.ok(fs.existsSync(x.rehearsal));assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'&&e.operationMayHaveExecuted===false;});
+ assert.equal(fs.existsSync(x.backupFile),false);assert.equal(fs.existsSync(x.rehearsal),false);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+ assert.equal(x.operation.selfRecovered(error),true);assert.equal(error.selfRecovered,true);assert.equal(error.backupPath,undefined,'a removed package is no longer named');
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
 });
 test('rehearsal capability is required with no ordinary reader fallback',async t=>{
  const x=await setup(t),host={...x.host};delete host.captureRehearsal;
@@ -103,10 +109,12 @@ test('rehearsal buffer release failure blocks removal and target close, and is a
  assert.equal(x.events.includes('migration'),false);
 });
 
-test('non-true preserved rehearsal verification cannot authorize native census or removal',async t=>{
+// 151 阶段 3A(W7):改前断言失败后演练目录仍在;现在成功路径的「放行删除」仍不被授权(不进原生普查),
+// 但失败路径按 mkdir 身份把本次的明文演练整棵清掉。
+test('non-true preserved rehearsal verification cannot authorize native census; the failure path still removes the rehearsal by identity',async t=>{
  const x=await setup(t,{rehearsalVerify:()=>({ok:true})});
- await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.rehearsal_changed');
- assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);
+ await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.rehearsal_changed'&&x.operation.selfRecovered(error));
+ assert.equal(fs.existsSync(x.rehearsal),false);assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);
 });
 
 test('rehearsal cleanup retains the original verifier failure when its buffer release also fails',async t=>{
@@ -126,15 +134,17 @@ for(const kind of ['rejected','pending','getter'])test('nonvoid rehearsal releas
  assert.equal(traps,0);assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.owners.at(-1).released,false);assert.deepEqual(x.claim.events,[]);
 });
 
-test('new verifier-created object refuses cleanup and preserves all rehearsal files',async t=>{
+// 151 阶段 3A(W7):以下三件改前断言「失败后演练原样保留」。成功路径的放行判据不变(native-tree 何时调用、
+// 是否进 migration 都照旧钉住);失败后演练目录本身是本次 mkdir 造的(身份对得上),整棵清掉,不再把明文留在盘上。
+test('new verifier-created object refuses the success-path disposal; the failure path removes the whole owned rehearsal',async t=>{
  const x=await setup(t,{verifyFresh:async({value})=>fsp.writeFile(path.join(value.target,'foreign.bin'),'FOREIGN')});
- await assert.rejects(x.operation.execute(x.context),/preparation_failed/);assert.equal(await fsp.readFile(path.join(x.rehearsal,'foreign.bin'),'utf8'),'FOREIGN');assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);
+ await assert.rejects(x.operation.execute(x.context),/preparation_failed/);assert.equal(fs.existsSync(x.rehearsal),false);assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);
 });
-test('native namespace refusal retains rehearsal even when default stream proof passes',async t=>{
- const x=await setup(t,{nativeResult:false});await assert.rejects(x.operation.execute(x.context),/preparation_failed/);assert.ok(fs.existsSync(x.rehearsal));assert.ok(x.events.includes('native-tree'));assert.equal(x.events.includes('migration'),false);
+test('native namespace refusal blocks the success-path disposal; the failure path removes the owned rehearsal',async t=>{
+ const x=await setup(t,{nativeResult:false});await assert.rejects(x.operation.execute(x.context),/preparation_failed/);assert.equal(fs.existsSync(x.rehearsal),false);assert.ok(x.events.includes('native-tree'));assert.equal(x.events.includes('migration'),false);
 });
 test('fresh verifier must return exact true; truthy receipt and undefined cannot authorize cleanup',async t=>{
- const x=await setup(t,{freshResult:{ok:true}});await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.fresh_verification_failed');assert.ok(fs.existsSync(x.rehearsal));assert.equal(x.events.includes('native-tree'),false);
+ const x=await setup(t,{freshResult:{ok:true}});await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.fresh_verification_failed');assert.equal(fs.existsSync(x.rehearsal),false);assert.equal(x.events.includes('native-tree'),false);
 });
 test('backup directory cannot contain the source tree',async t=>{
  const x=await setup(t);x.context.paths.backupDirectory=x.f.root;await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.backup_directory_invalid');assert.deepEqual(x.events,[]);
@@ -312,24 +322,29 @@ test('a refused abandon keeps the claim and never replaces the original typed fa
  assert.deepEqual(x.claim.events,['abandon']);
 });
 
-test('a started backup keeps the claim even though the source was never mutated',async t=>{
+// 151 阶段 3A(W1):以下三件改前断言「备份包/演练一旦开始就保留交接记录」(下次启动 handoff_pending)。
+// 现在:先按身份删掉本次造出的备份包与演练,确认都不在了才撤交接记录(abandon 时备份文件夹已空);
+// 名字被别人占着的演练路径(从没交给 restore)原样不动。
+test('a started backup is removed by identity before the claim is abandoned when the source was never mutated',async t=>{
  const x=withClaim(await setup(t,{verifyFresh:async()=>{throw Error('cold validation refusal');}}));
- await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'&&error.operationMayHaveExecuted===false);
- assert.ok(fs.existsSync(x.backupFile),'a real backup exists, so the claim must survive');
- assert.deepEqual(x.claim.events,[]);
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'&&e.operationMayHaveExecuted===false;});
+ assert.equal(fs.existsSync(x.backupFile),false);assert.equal(fs.existsSync(x.rehearsal),false);
+ assert.deepEqual(x.claim.events,['abandon']);assert.deepEqual(x.claim.observed.abandon,{backups:0},'the package is gone before the record is retired');
+ assert.equal(x.operation.selfRecovered(error),true);
 });
 
-test('a started rehearsal keeps the claim even when no source intent was written',async t=>{
+test('a started rehearsal is removed and the claim abandoned when no source intent was written',async t=>{
  const x=withClaim(await setup(t,{nativeResult:false}));
  await assert.rejects(x.operation.execute(x.context),/preparation_failed/);
- assert.ok(fs.existsSync(x.rehearsal));assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-v1.json')),false);
- assert.deepEqual(x.claim.events,[]);
+ assert.equal(fs.existsSync(x.rehearsal),false);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-v1.json')),false);
+ assert.deepEqual(x.claim.events,['abandon']);
 });
 
-test('an existing rehearsal path keeps the claim once its creation is attempted',async t=>{
- const x=withClaim(await setup(t));await fsp.mkdir(x.rehearsal);
- await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.target_exists');
- assert.deepEqual(x.claim.events,[]);
+test('a foreign object already at the rehearsal path is never touched; only this attempt\'s package is removed',async t=>{
+ const x=withClaim(await setup(t));await fsp.mkdir(x.rehearsal);await fsp.writeFile(path.join(x.rehearsal,'foreign.txt'),'FOREIGN');
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.cause?.code==='work_data_setup.target_exists';});
+ assert.equal(await fsp.readFile(path.join(x.rehearsal,'foreign.txt'),'utf8'),'FOREIGN');assert.equal(fs.existsSync(x.backupFile),false);
+ assert.deepEqual(x.claim.events,['abandon']);assert.equal(x.operation.selfRecovered(error),true);
 });
 
 test('a written result keeps the claim because publication is already an effect',async t=>{
@@ -403,21 +418,21 @@ test('a refused backup open abandons the claim and still names the exact attempt
  assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
 });
 
-test('a write refusal after the backup file was created keeps the claim and names that path',async t=>{
+// 151 阶段 3A(W1/W8):以下两件改前断言「包文件已经造出来,交接记录保留、包留在原地」。现在本次 `wx` 造出的那个
+// 对象(按 dev/ino)被删掉后才撤记录;错误不再点名已删掉的路径。
+test('a write refusal after the backup file was created removes that exact file and then abandons the claim',async t=>{
  const x=withClaim(await setup(t,{backupWriteFails:true}));
- await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
-  &&error.cause?.code==='EIO'&&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
- assert.deepEqual(x.claim.events,[],'a created package file is an effect the next boot must inspect');
- assert.equal(fs.existsSync(x.backupFile),true);
- assert.equal((await fsp.stat(x.backupFile)).size,0);
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'
+  &&e.cause?.code==='EIO'&&e.operationMayHaveExecuted===false&&e.backupPath===undefined;});
+ assert.deepEqual(x.claim.events,['abandon']);assert.deepEqual(x.claim.observed.abandon,{backups:0});
+ assert.equal(fs.existsSync(x.backupFile),false);assert.equal(x.operation.selfRecovered(error),true);
 });
 
-test('a refused backup durability flush keeps the claim because the bytes are already on disk',async t=>{
+test('a refused backup durability flush after the bytes landed removes the package and abandons the claim',async t=>{
  const x=withClaim(await setup(t,{failBackupFlush:true}));
- await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
-  &&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
- assert.deepEqual(x.claim.events,[]);
- assert.ok((await fsp.stat(x.backupFile)).size>0);
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'
+  &&e.operationMayHaveExecuted===false&&e.backupPath===undefined;});
+ assert.deepEqual(x.claim.events,['abandon']);assert.equal(fs.existsSync(x.backupFile),false);assert.equal(x.operation.selfRecovered(error),true);
 });
 
 // --- Restore claim lifecycle: verified result without source intent, target is an effect ---
@@ -532,4 +547,177 @@ test('malformed snapshot owners fail without backup writes; pending or opaque ow
   assert.deepEqual(x.claim.events,kind==='missing'?['abandon']:[]);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')),false);
   await new Promise(resolve=>setImmediate(resolve));
  }
+});
+
+// ---------------------------------------------------------------------------
+// 151 阶段 3A(150 号文 W1/W7/W8):失败可恢复、演练不进备份文件夹、写包前预检卷。
+// ---------------------------------------------------------------------------
+// The real 01w classifier, loaded in its own realm without its publish side effect.
+const flushClassifier=(()=>{const ctx={require,Buffer,process:{platform:'linux',env:{}},setTimeout,clearTimeout};
+ vm.runInNewContext(fs.readFileSync(path.join(draft,'01w-work-data-native-publish.js'),'utf8')+'\nthis.WorkDataNativePublish=WorkDataNativePublish;',ctx);
+ return ctx.WorkDataNativePublish;})();
+// The same typed shape 01w's invokeFlush produces for a settled native refusal.
+const settledFlushRefusal=(code,attempted=false)=>Object.assign(Error('work_data_manifest.flush_'+code),{code:'work_data_manifest.flush_'+code,apiCode:'work_data_manifest.flush_'+code,
+ statusCode:409,commitUncertain:attempted,retry:false,operationMayHaveExecuted:attempted,resultUnavailable:attempted,nativeCode:0,nativeSettled:true,flushRefusal:code});
+const PLAINTEXT_MARKERS=[Buffer.from('SYNTHETIC_PRIVATE'),Buffer.from('workDataEncryptionV1')];
+// Every entry of the backup directory, recursively; only the one package name may exist
+// and its bytes must not contain any plaintext marker of the source.
+async function scanBackupDirectory(x,where){
+ const seen=[];
+ async function walk(dir,rel){for(const entry of await fsp.readdir(dir,{withFileTypes:true})){const name=rel?rel+'/'+entry.name:entry.name;seen.push(name);if(entry.isDirectory())await walk(path.join(dir,entry.name),name);}}
+ await walk(x.backupDirectory,'');
+ assert.ok(seen.every(name=>name==='ruyi-work-data-'+x.context.id+'.ruyi-backup'),where+': only the sealed package may appear in the backup directory, saw '+JSON.stringify(seen));
+ for(const name of seen){const bytes=await fsp.readFile(path.join(x.backupDirectory,name));for(const marker of PLAINTEXT_MARKERS)assert.equal(bytes.includes(marker),false,where+': plaintext marker in '+name);}
+ return seen;
+}
+function instrumentScans(x,scans){
+ const wrap=name=>{const original=x.host[name];x.host[name]=async(...args)=>{await scanBackupDirectory(x,name+':before');scans.push(name);const value=await original(...args);await scanBackupDirectory(x,name+':after');return value;};};
+ const progress=x.host.progress;x.host.progress=value=>{const out=progress(value);scans.push('progress:'+value.phase);return scanBackupDirectory(x,'progress:'+value.phase).then(()=>out);};
+ for(const name of ['captureRehearsal','verifyFresh','verifyDisposableNativeTree','flush'])wrap(name);
+}
+
+test('W8: an unsupported backup volume is refused by the probe before any snapshot or package write and the service may return',async t=>{
+ const x=withClaim(await setup(t,{flush:async({roots})=>{if(path.basename(roots[0])==='backups')throw settledFlushRefusal('filesystem_unsupported');}}));
+ x.f.context.WorkDataNativePublish=flushClassifier;
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'&&e.cause?.code==='work_data_setup.backup_filesystem_unsupported'
+  &&e.cause.cause?.code==='work_data_manifest.flush_filesystem_unsupported'&&e.operationMayHaveExecuted===false;});
+ assert.equal(x.events.includes('snapshot'),false,'no snapshot is taken for a refused volume');assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+ assert.equal(fs.existsSync(x.rehearsal),false);assert.deepEqual(x.claim.events,['abandon']);assert.equal(x.operation.selfRecovered(error),true);
+});
+test('W8: a refused or uncertain probe names durability, not the volume type, and an uncertain helper is never self-recovered',async t=>{
+ const refused=withClaim(await setup(t,{flush:async({roots})=>{if(path.basename(roots[0])==='backups')throw settledFlushRefusal('durability_unsupported',true);}}));
+ refused.f.context.WorkDataNativePublish=flushClassifier;
+ let error;await assert.rejects(refused.operation.execute(refused.context),e=>{error=e;return e.cause?.code==='work_data_setup.backup_durability_unavailable';});
+ assert.equal(refused.operation.selfRecovered(error),true);assert.deepEqual(refused.claim.events,['abandon']);
+ const uncertain=withClaim(await setup(t,{flush:async({roots})=>{if(path.basename(roots[0])==='backups')throw Object.assign(Error('work_data_manifest.flush_timeout'),{code:'work_data_manifest.flush_timeout',helperMayStillRun:true});}}));
+ uncertain.f.context.WorkDataNativePublish=flushClassifier;
+ await assert.rejects(uncertain.operation.execute(uncertain.context),e=>{error=e;return e.cause?.code==='work_data_setup.backup_durability_unavailable'&&e.helperMayStillRun===true;});
+ assert.equal(uncertain.operation.selfRecovered(error),false);assert.deepEqual(uncertain.claim.events,[],'a possibly live helper keeps the record');
+});
+test('W1: a verify-backup failure leaves no package, no rehearsal, no intent and an unchanged source; the claim is retired last',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async()=>{throw Object.assign(Error('verifier timeout'),{code:'work_data_adapter.verifier_timeout'});}}));
+ const tree=x.api.WorkDataTree.create(),before=await tree.capture(x.f.base);t.after(()=>before.release());
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed';});
+ assert.equal(x.operation.selfRecovered(error),true);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.equal(fs.existsSync(x.rehearsal),false);
+ assert.deepEqual(x.claim.events,['abandon']);assert.deepEqual(x.claim.observed.abandon,{backups:0});
+ await tree.verify(before);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);assert.ok(x.owners.every(owner=>owner.released));
+});
+test('W1: a flush failure after the package bytes landed (non-NTFS slipping past the probe) is self-recovered',async t=>{
+ const x=withClaim(await setup(t,{failBackupFlush:()=>settledFlushRefusal('filesystem_unsupported')}));
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.cause?.code==='work_data_manifest.flush_filesystem_unsupported';});
+ assert.equal(x.operation.selfRecovered(error),true);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.deepEqual(x.claim.events,['abandon']);
+});
+test('W1: a substituted package body is evidence: it stays, the claim stays and the failure is not self-recovered',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async({context})=>fsp.writeFile(path.join(context.paths.backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup'),'substituted')}));
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.cause?.code==='work_data_setup.backup_changed';});
+ assert.equal(x.operation.selfRecovered(error),false);assert.equal(await fsp.readFile(x.backupFile,'utf8'),'substituted');assert.deepEqual(x.claim.events,[]);
+ assert.equal(error.backupPath,x.backupFile);
+});
+test('W1: helper uncertainty during rehearsal release is never self-recovered and keeps the rehearsal, owner and claim',async t=>{
+ const x=withClaim(await setup(t,{rehearsalRelease(){throw Error('synthetic cleanup failure');}}));
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.helperMayStillRun===true;});
+ assert.equal(x.operation.selfRecovered(error),false);assert.equal(fs.existsSync(x.rehearsal),true);assert.deepEqual(x.claim.events,[]);
+});
+test('W1: a refused abandon keeps the failure unrecovered even after the package and rehearsal are gone',async t=>{
+ const x=withClaim(await setup(t,{nativeResult:false}),{failAbandon:true});
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return true;});
+ assert.equal(x.operation.selfRecovered(error),false);assert.deepEqual(x.claim.events,['abandon']);
+});
+test('W1: preflight refusals are self-recovered once the record is retired, never an unfinished intent stage',async t=>{
+ const space=withClaim(await setup(t,{statfs:async()=>{throw Error('simulated filesystem query refusal');}}));
+ let error;await assert.rejects(space.operation.execute(space.context),e=>{error=e;return true;});assert.equal(space.operation.selfRecovered(error),true);
+ const authority=withClaim(await setup(t));authority.context.expectedAuthority.mode='encrypted';
+ await assert.rejects(authority.operation.execute(authority.context),e=>{error=e;return /authority_changed/.test(e.message);});assert.equal(authority.operation.selfRecovered(error),true);
+ const stage=withClaim(await setup(t));await stage.f.write('.work-data/.maintenance-v1.stage-'+'b'.repeat(48),'UNKNOWN');
+ await assert.rejects(stage.operation.execute(stage.context),e=>{error=e;return /intent_stage_pending/.test(e.message);});assert.equal(stage.operation.selfRecovered(error),false);
+ // A foreign thrown value carrying a recovery-looking property can never claim recovery.
+ assert.equal(stage.operation.selfRecovered(Object.assign(Error('forged'),{selfRecovered:true})),false);
+});
+test('W7: the rehearsal lives beside the data root on its volume, never in the backup directory, and is gone after success',async t=>{
+ const scans=[];let x;x=withClaim(await setup(t,{verifyFresh:async({value})=>{assert.equal(value.target,x.rehearsal);assert.equal(fs.existsSync(x.rehearsal),true);}}));instrumentScans(x,scans);
+ const result=await x.operation.execute(x.context);assert.equal(result.state,'verified');
+ assert.equal(path.dirname(x.rehearsal),path.dirname(x.f.base));assert.equal(fs.existsSync(x.rehearsal),false);
+ for(const name of ['captureRehearsal','verifyFresh','verifyDisposableNativeTree','progress:snapshot','progress:verify-backup'])assert.ok(scans.includes(name),name+' was scanned');
+ assert.ok(x.events.includes('flush:'+path.basename(path.dirname(x.f.base))),'the rehearsal removal is flushed on its own volume');
+ assert.deepEqual(await scanBackupDirectory(x,'after success'),['ruyi-work-data-'+x.context.id+'.ruyi-backup']);
+});
+for(const [name,options] of [
+ ['verifier failure',{verifyFresh:async()=>{throw Error('cold validation refusal');}}],
+ ['native census refusal',{nativeResult:false}],
+ ['rehearsal fingerprint refusal',{rehearsalVerify:()=>false}],
+ ['package flush refusal',{failBackupFlush:true}],
+ ['rehearsal release uncertainty',{rehearsalRelease(){throw Error('synthetic cleanup failure');}}],
+])test('W7: no plaintext ever appears in the backup directory at any stage or after a '+name,async t=>{
+ const scans=[],x=withClaim(await setup(t,options));instrumentScans(x,scans);
+ await assert.rejects(x.operation.execute(x.context));
+ await scanBackupDirectory(x,'after '+name);assert.ok(scans.length>0);
+});
+test('W7: a rehearsal restore that fails midway is removed by the identity its own mkdir reported',async t=>{
+ const x=withClaim(await setup(t,{snapshotFactory:({base,ownership,assertExclusive,f})=>f.api.WorkDataFullSnapshot.create({base,ownership,assertExclusive,protector:f.a,
+  externalOwner:opts=>f.api.ExternalBotCredentials.create(opts),ownedRestoreFlush:async({target})=>{assert.ok(fs.existsSync(path.join(target,'config.json')),'plaintext was written before the refusal');throw Object.assign(Error('synthetic restore flush refusal'),{code:'EIO'});}})}));
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return e.cause?.code==='work_data_full.restore_failed'&&e.cause.targetRetained===true&&e.cause.targetIdentity?.ino!==undefined;});
+ assert.equal(fs.existsSync(x.rehearsal),false);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.deepEqual(x.claim.events,['abandon']);assert.equal(x.operation.selfRecovered(error),true);
+});
+test('W7: a rehearsal directory whose identity no longer matches is never deleted and keeps the claim',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async({value})=>{await fsp.rename(value.target,value.target+'.moved');await fsp.mkdir(value.target);await fsp.writeFile(path.join(value.target,'other.txt'),'OTHER');throw Error('cold validation refusal');}}));
+ let error;await assert.rejects(x.operation.execute(x.context),e=>{error=e;return true;});
+ assert.equal(x.operation.selfRecovered(error),false);assert.equal(await fsp.readFile(path.join(x.rehearsal,'other.txt'),'utf8'),'OTHER');assert.deepEqual(x.claim.events,[]);
+});
+// 151 阶段 3A:故障注入点与仓库其余测试钩子同一道双闸。只设故障名不生效(生产默认),两个都设才在该点失败,
+// 而且注入的失败走的正是真实失败的同一条自清理路径。
+test('3A: the cold fault hook needs RUYI_TEST_HOOKS=1 as well as the fault name, and only ever fails the operation',async t=>{
+ const saved={hooks:process.env.RUYI_TEST_HOOKS,fault:process.env.RUYI_TEST_WORK_DATA_COLD_FAULT};
+ t.after(()=>{for(const [name,value] of [['RUYI_TEST_HOOKS',saved.hooks],['RUYI_TEST_WORK_DATA_COLD_FAULT',saved.fault]])if(value===undefined)delete process.env[name];else process.env[name]=value;});
+ delete process.env.RUYI_TEST_HOOKS;process.env.RUYI_TEST_WORK_DATA_COLD_FAULT='verify-backup';
+ const off=withClaim(await setup(t));assert.equal((await off.operation.execute(off.context)).state,'verified','the fault name alone is inert');
+ process.env.RUYI_TEST_HOOKS='1';process.env.RUYI_TEST_WORK_DATA_COLD_FAULT='not-a-fault-point';
+ const unknown=withClaim(await setup(t));assert.equal((await unknown.operation.execute(unknown.context)).state,'verified','an unknown fault name is inert');
+ process.env.RUYI_TEST_WORK_DATA_COLD_FAULT='verify-backup';
+ const on=withClaim(await setup(t));let error;
+ await assert.rejects(on.operation.execute(on.context),e=>{error=e;return e.code==='work_data_setup.preparation_failed'&&e.cause?.code==='work_data_setup.test_fault_verify_backup';});
+ assert.equal(on.operation.selfRecovered(error),true);assert.deepEqual(await fsp.readdir(on.backupDirectory),[]);assert.equal(fs.existsSync(on.rehearsal),false);
+});
+// 151 阶段 3A review 应改 1:数据根直接在盘符根下(C:\X)时,非提权进程刷不了演练所在的父目录(C:\)。修前整轮快照与
+// 演练做完才在删除演练后的那次 flush 失败;现在在任何快照之前先探一次父目录,刷不了就带稳定码提前拒绝,不退回备份文件夹。
+const settledRefusal=code=>Object.assign(Error('work_data_manifest.flush_'+code),{code:'work_data_manifest.flush_'+code,operationMayHaveExecuted:false,nativeSettled:true,flushRefusal:code,nativeCode:5});
+for(const [name,error,expected] of [
+ ['a settled refusal (ACCESS_DENIED on a drive root)',()=>settledRefusal('access_denied'),'work_data_setup.rehearsal_location_unsupported'],
+ ['an uncertain helper outcome',()=>Object.assign(Error('timeout'),{code:'work_data_manifest.flush_timeout'}),'work_data_setup.rehearsal_location_unavailable'],
+])test('3A W7: a rehearsal parent that cannot be flushed is refused before any snapshot or package: '+name,async t=>{
+ let x0;x0=await setup(t,{flush:async({roots,x})=>{if(x&&roots[0]===path.dirname(x.rehearsal))throw error();}});const x=withClaim(x0);
+ x.f.context.WorkDataNativePublish=flushClassifier;
+ let failure;await assert.rejects(x.operation.execute(x.context),e=>{failure=e;return e.code==='work_data_setup.preparation_failed'&&e.cause?.code===expected;});
+ assert.equal(x.events.includes('snapshot'),false,'no snapshot ran');assert.equal(x.events.some(e=>e==='flush:backups'),false,'the backup directory was not even probed');
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.equal(fs.existsSync(x.rehearsal),false);
+ assert.equal(x.operation.selfRecovered(failure),true,'nothing was written, so the service returns to the source');assert.deepEqual(x.claim.events,['abandon']);
+});
+// review 建议 4:源权威在这次尝试中变了 —— 交接记录不再先撤后查,而是保留给下一次启动。
+test('3A W1: a source authority change during the attempt keeps the handoff record and is never self-recovered',async t=>{
+ let xr;const x=withClaim(await setup(t,{verifyFresh:async()=>{fs.writeFileSync(path.join(xr.f.base,'config.json'),'{ "workDataEncryptionV1": true }');throw Object.assign(Error('inject'),{code:'probe.inject'});}}));xr=x;
+ let failure;await assert.rejects(x.operation.execute(x.context),e=>{failure=e;return true;});
+ assert.equal(x.operation.selfRecovered(failure),false);assert.deepEqual(x.claim.events,[],'the record is kept for the next boot');
+});
+// review 应改 3:恢复主人在证明原进程已死后按 claim id 清理被杀冷端留下的演练目录。只认本作业那一个路径;联接、
+// 符号链接、别名或拿不到独占所有权时类型化拒绝并原样保留。
+test('3A W7: removeOrphanRehearsal removes only the exact owned rehearsal directory and refuses aliases or a busy owner',async t=>{
+ const x=await setup(t),api=x.api.WorkDataColdOperations,id='e'.repeat(48),target=api.rehearsalPathFor(x.f.base,id);
+ assert.equal(path.dirname(target),path.dirname(x.f.base));
+ const leases=[];const acquire=async roots=>{const lease={roots,released:false,async release(){lease.released=true;}};leases.push(lease);return lease;};
+ assert.equal(await api.removeOrphanRehearsal({base:x.f.base,id,acquire}),'absent');
+ await fsp.mkdir(path.join(target,'sessions'),{recursive:true});await fsp.writeFile(path.join(target,'config.json'),'SYNTHETIC_PLAINTEXT');
+ assert.equal(await api.removeOrphanRehearsal({base:x.f.base,id,acquire}),'removed');assert.equal(fs.existsSync(target),false);
+ assert.deepEqual(leases.map(lease=>[lease.roots[0],lease.released]),[[target,true]],'removed under its own exclusive owner, which is released');
+ // A busy owner (for example a verifier process still running) keeps the tree.
+ await fsp.mkdir(target);await fsp.writeFile(path.join(target,'config.json'),'KEEP');
+ await assert.rejects(api.removeOrphanRehearsal({base:x.f.base,id,acquire:async()=>{throw Object.assign(Error('busy'),{code:'DATA_ROOT_IN_USE'});}}),{code:'work_data_setup.rehearsal_retained'});
+ assert.equal(await fsp.readFile(path.join(target,'config.json'),'utf8'),'KEEP');await fsp.rm(target,{recursive:true});
+ // A junction planted at the path is never followed or removed; its target is untouched.
+ const victim=path.join(x.f.root,'victim');await fsp.mkdir(victim);await fsp.writeFile(path.join(victim,'user.txt'),'USER');
+ fs.symlinkSync(victim,target,'junction');
+ await assert.rejects(api.removeOrphanRehearsal({base:x.f.base,id,acquire}),{code:'work_data_setup.rehearsal_retained'});
+ assert.equal(await fsp.readFile(path.join(victim,'user.txt'),'utf8'),'USER');assert.equal(fs.lstatSync(target).isSymbolicLink(),true);fs.unlinkSync(target);
+ // A non-directory at the path and a malformed id are refused.
+ await fsp.writeFile(target,'FILE');await assert.rejects(api.removeOrphanRehearsal({base:x.f.base,id,acquire}),{code:'work_data_setup.rehearsal_retained'});
+ assert.equal(await fsp.readFile(target,'utf8'),'FILE');await fsp.unlink(target);
+ await assert.rejects(api.removeOrphanRehearsal({base:x.f.base,id:'../x',acquire}),{code:'work_data_setup.rehearsal_retained'});
 });

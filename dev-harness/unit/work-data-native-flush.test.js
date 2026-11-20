@@ -99,3 +99,22 @@ test('negative control without flush stream error listeners surfaces the pipe fa
  const broken=source.replace(flushStdoutPipe,'').replace(flushStderrPipe,'');assert.notEqual(broken,source);
  for(const stream of ['stdout','stderr']){const f=fixture({text:broken});f.spawn();const fault=Error('foreign '+stream);assert.throws(()=>f.child[stream].emit('error',fault),error=>error===fault);assert.equal(f.settled(),false);}
 });
+
+// 151 阶段 3A(150 号文 W8):助手正常结束并回了带类型拒绝的 flush 失败带 nativeSettled/flushRefusal,
+// 分类器只据此区分「卷不支持」「刷盘被拒」,超时/管道/不可验证一律 uncertain。
+test('3A W8: a settled typed flush refusal is classified by volume or durability; every unsettled failure stays uncertain',async()=>{
+ const refusal=(code,attempted)=>({ok:false,code,native:attempted?1:0,moved:false,attempted});
+ for(const [code,attempted,kind] of [['filesystem_unsupported',false,'volume_unsupported'],['volume_unsupported',false,'volume_unsupported'],['durability_unsupported',true,'refused'],['directory_unavailable',false,'refused']]){
+  const f=fixture(),promise=f.flush(dirs);f.spawn();f.complete(refusal(code,attempted));
+  const error=await promise.then(()=>null,value=>value);
+  assert.equal(error.code,'work_data_manifest.flush_'+code);assert.equal(error.nativeSettled,true);assert.equal(error.flushRefusal,code);
+  assert.equal(f.api.classifyFlushFailure(error),kind,code);
+ }
+ const timeout=fixture(),pending=timeout.flush(dirs);timeout.spawn();timeout.fire(20000);timeout.fire(2000);
+ const late=await pending.then(()=>null,value=>value);assert.equal(late.helperMayStillRun,true);assert.equal(timeout.api.classifyFlushFailure(late),'uncertain');
+ const garbage=fixture(),bad=garbage.flush(dirs);garbage.spawn();garbage.complete(Buffer.from('not json'));
+ assert.equal(garbage.api.classifyFlushFailure(await bad.then(()=>null,value=>value)),'uncertain');
+ for(const forged of [null,'x',{code:'work_data_manifest.flush_filesystem_unsupported',flushRefusal:'filesystem_unsupported'},
+  {code:'work_data_manifest.flush_filesystem_unsupported',flushRefusal:'filesystem_unsupported',nativeSettled:true,helperMayStillRun:true},
+  {code:'work_data_manifest.flush_other',flushRefusal:'filesystem_unsupported',nativeSettled:true}])assert.equal(fixture().api.classifyFlushFailure(forged),'uncertain');
+});

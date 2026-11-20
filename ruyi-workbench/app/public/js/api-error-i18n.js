@@ -72,6 +72,10 @@ const CODE_COPY = new Set([
   // 151 阶段 3B：备份包被移走/删掉（150 W2）与维护准备等待超限（150 W14）。
   'work_data_setup.package_missing', 'work_data_setup.drain_timeout', 'work_data_result.backup_missing', 'work_data_result.backup_changed',
   'work_data_setup.result_deferred', 'work_data_result.stage_pending', 'work_data_result.record_invalid', 'work_data_result.record_changed', 'work_data_result.path_alias',
+  // 151 阶段 3A（150 号文 W8）：提交前与冷端写包前的备份卷探测（13ah / 13ak）。
+  'work_data_setup.backup_filesystem_unsupported', 'work_data_setup.backup_durability_unavailable',
+  // 151 阶段 3A（review 应改 1）：数据根父目录（演练所在）的刷盘预检（13ah / 13ak）。
+  'work_data_setup.rehearsal_location_unsupported', 'work_data_setup.rehearsal_location_unavailable',
 ]);
 // 服务端 message 里带着「这一次具体为什么」的码（不是固定英文句）：文案后面附上原话。
 const WITH_DETAIL = new Set(['tool.failed', 'editor.open_failed']);
