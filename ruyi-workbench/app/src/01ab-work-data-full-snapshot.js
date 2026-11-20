@@ -2,6 +2,8 @@
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+  // 151 阶段 3D v3(审查 R2-1):逐项循环推进 01aa 的进程内进展计数,独立校验子进程据此证明「还在推进」。
+  const noteProgress = () => { try { if (typeof WorkDataTree === 'object' && WorkDataTree && typeof WorkDataTree.noteProgress === 'function') WorkDataTree.noteProgress(); } catch { /* progress is an optional observer */ } };
 const WorkDataOwnedRestoreUnknown=(()=>{
 'use strict';
 // Research helper: only inspect data descriptors; proxies/getters/cycles are
@@ -162,7 +164,7 @@ return Object.freeze({isUnknown,flags});
         return id;
       };
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
-      for (const file of files) {
+      for (const file of files) { noteProgress();
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
         // The exception is root-only, seal-only and byte/identity bound by the
         // real control owner's opaque token. All other control paths still enter
@@ -245,7 +247,7 @@ return Object.freeze({isUnknown,flags});
         else{portable=await owner.capturePortable(request);nativeProfile=portable.profile;disposable.push(portable);}
         aux.push({type:'skill-backup-portable',schema:1,sourcePath:native.sourcePath,sourceSha256:native.sourceSha256,data:portable.data});nativePlan={owner,request,portable,profile:nativeProfile};
       }
-      for (const file of files) {
+      for (const file of files) { noteProgress();
         if (headers.has(file.path)||nativeFiles.has(file.path)||resultFiles.has(file.path)) continue;
         const { prefix, logical } = namespace(file.path);
         if (/^external-bot-credentials\.json(?:$|[.-])/.test(ownerPath(logical))) {
@@ -342,12 +344,15 @@ return Object.freeze({isUnknown,flags});
         // crash leftovers and superseded roots; they remain untouched in place.
         const scoped=WorkDataTree.rootScope.partition(captured.files,captured.directories);
         const native=nativeSource(scoped.files,scoped.directories);checkAuthority(scoped.files,scoped.directories,generation,native);
-        const analyzed=await analyze(scoped.files,[],null,scoped.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
+        const analyzed=await analyze(scoped.files,[],null,scoped.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...scoped.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
-        await admission();const proof=await tree.verify(captured);
-        const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
+        await admission();
+        const sourceIdentity=async relative=>{noteProgress();const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
-        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);await tree.verify(captured);
+        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);
+        // 151 阶段 3D(150 号文 W11):整根复核只做这一次。analyze 与 recovery.seal 只读内存里的捕获、不碰源根,
+        // 原来在它们之后各做的一次整根复核被这一次覆盖(同一份捕获、同一把尺子;任何一步之后源根变了这里都拒)。
+        const proof=await tree.verify(captured);
         // The last physical census proves the selected authority files still
         // have the captured identities and bytes. Reparse that verified view
         // without a separate ordinary handle that could advance Access time.
@@ -422,8 +427,27 @@ return Object.freeze({isUnknown,flags});
           {const stat=await io.lstat(target,{bigint:true});if(stat.isDirectory()&&!stat.isSymbolicLink())createdIdentity=Object.freeze({dev:String(stat.dev),ino:String(stat.ino)});}
           await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
           for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
-          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
-            const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
+          // 151 阶段 3D(150 号文 W11):同一次恢复里一个父目录只证明一次是真目录(目标是本次新建、独占的私有树;
+          // 最后的整树捕获仍逐项核对别名);先把全部文件写完关闭,再按批(每批 16 个)逐文件 FlushFileBuffers ——
+          // 每个文件照旧刷盘,只是不再写一个刷一个。重开时核对文件身份,刷的一定是刚写的那个对象。
+          // v2(审查 L4):整链证明每个父目录只做一次,但每个文件写入前仍对它的直接父目录 lstat 一次并核对身份
+          // (不是目录、是重解析点或身份变了都按别名拒),把「证明之后被换成 junction」的窗口缩回到这一次 lstat。
+          // 每批刷盘用 allSettled:任何一个失败都要等同批其余句柄全部关闭后才抛出第一个错误。
+          const provenDirectories=new Map(),written=[];
+          const realParent=async directory=>{
+            const folded=keyOfPath(directory);let proven=provenDirectories.get(folded);
+            if(!proven){await realDirectory(directory);const stat=await io.lstat(directory,{bigint:true});proven={dev:stat.dev,ino:stat.ino};provenDirectories.set(folded,proven);}
+            const current=await io.lstat(directory,{bigint:true});
+            if(!current.isDirectory()||current.isSymbolicLink()||current.dev!==proven.dev||current.ino!==proven.ino)fail('target_alias');
+          };
+          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realParent(p.dirname(destination));
+            noteProgress();const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);const stat=await handle.stat({bigint:true});written.push({destination,dev:stat.dev,ino:stat.ino});}finally{await handle.close();}
+          }
+          for(let index=0;index<written.length;index+=16){
+            const settled=await Promise.allSettled(written.slice(index,index+16).map(async row=>{
+              noteProgress();const handle=await io.open(row.destination,'r+');try{const stat=await handle.stat({bigint:true});if(stat.dev!==row.dev||stat.ino!==row.ino)fail('target_alias');await handle.sync();}finally{await handle.close();}
+            }));
+            const rejected=settled.find(result=>result.status==='rejected');if(rejected)throw rejected.reason;
           }
           if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
           if(needsRestoreFlush){await targetAdmission();try{await ownedRestoreFlush({target,source:base,ownership:targetOwnership,records:createdDirectories});}catch(cause){restoreBarrierUncertain=WorkDataOwnedRestoreUnknown.isUnknown(cause);throw cause;}await targetAdmission();}

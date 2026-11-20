@@ -686,13 +686,19 @@ public static class RuyiSkillCapsule {
   }
   static string Hash(byte[] bytes) { using (SHA256 hash = SHA256.Create()) return BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant(); }
   static void Rewind(SafeFileHandle handle) { long position; Check(SetFilePointerEx(handle, 0, out position, 0)); }
+  // 151 阶段 3D(150 号文 W12):长命令心跳。距上一行超过 1 s 才写一行 {"progress":n};Node 端只用它给「这条命令
+  // 还在推进」续期,不改变任何回复的形状或判定。n 是本进程里推进点的累计数(单调递增)。
+  static readonly System.Diagnostics.Stopwatch BeatClock = System.Diagnostics.Stopwatch.StartNew();
+  static long BeatCount = 0;
+  static bool BeatEnabled = false;
+  static void Beat() { BeatCount++; if (!BeatEnabled || BeatClock.ElapsedMilliseconds < 1000) return; BeatClock.Restart(); Console.Out.WriteLine("{\"progress\":" + BeatCount + "}"); Console.Out.Flush(); }
   static byte[] Read(SafeFileHandle handle) {
     long size; Check(GetFileSizeEx(handle, out size));
     if (size < 0 || size > MaxBytes) Reject("archive_limit");
     byte[] result = new byte[(int)size]; Rewind(handle);
     int used = 0;
     while (used < result.Length) {
-      byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;
+      Beat(); byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;
       Check(ReadFile(handle, buffer, (uint)buffer.Length, out got, IntPtr.Zero));
       if (got == 0) Reject("source_changed");
       Buffer.BlockCopy(buffer, 0, result, used, (int)got); used += (int)got;
@@ -704,7 +710,7 @@ public static class RuyiSkillCapsule {
   static void Write(SafeFileHandle handle, byte[] bytes) {
     Rewind(handle); int offset = 0;
     while (offset < bytes.Length) {
-      byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];
+      Beat(); byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];
       Buffer.BlockCopy(bytes, offset, buffer, 0, buffer.Length); uint wrote;
       Check(WriteFile(handle, buffer, (uint)buffer.Length, out wrote, IntPtr.Zero));
       if (wrote == 0) Reject("write_failed"); offset += (int)wrote;
@@ -909,7 +915,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void Walk(string path, string rel, List<object> entries, bool capture, bool preserved = false, SafeFileHandle parent = null, string name = null) {
-    path=NativePath(path);
+    path=NativePath(path); Beat();
     if (entries.Count >= MaxEntries) { if (DataRootBudget) { AreaAdd(rel, 1, 0); BudgetReject("census_entries_limit"); } Reject("archive_limit"); }
     if (rel.Split('/').Length > 256) { if (DataRootBudget) BudgetReject("census_depth_limit"); Reject("archive_limit"); }
     Node node = new Node();
@@ -942,8 +948,9 @@ public static class RuyiSkillCapsule {
           }
           byte[] bytes = Read(handle); TotalBytes += bytes.Length; AreaAdd(rel, 0, bytes.Length);
           if (TotalBytes > MaxTotal) { if (DataRootBudget) BudgetReject("census_bytes_limit"); Reject("archive_limit"); }
-          AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));
-          streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });
+          if (HashOnly) { AddTransport(192 + JsonBytes(streamName)); streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) } }); }
+          else { AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));
+          streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } }); }
           Array.Clear(bytes, 0, bytes.Length);
         }
       }
@@ -1080,7 +1087,7 @@ public static class RuyiSkillCapsule {
   static void Verify(bool cleared, bool exact) {
     List<Node> expected = Expected(); if (exact && expected.Count != Nodes.Count) Reject("entry_set_changed");
     VerifyEntries(expected);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       if (Id(node.Handle) != Str(node.Entry["id"])) Reject("identity_changed");
       List<string> current = StreamNames(node), names = new List<string>();
       foreach (object raw in (IEnumerable)node.Entry["streams"]) names.Add(Str(Dict(raw)["name"]));
@@ -1109,7 +1116,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyOriginalLayout() {
     if (!String.Equals(PathOf(RootNode().Handle), OriginalRoot, StringComparison.OrdinalIgnoreCase)) Reject("root_changed");
-    foreach (Node node in Expected()) {
+    foreach (Node node in Expected()) { Beat();
       string rel = Str(node.Entry["rel"]);
       string expected = rel == "" ? OriginalRoot : System.IO.Path.Combine(OriginalRoot, rel.Replace('/', '\\'));
       if (!String.Equals(PathOf(node.Handle), expected, StringComparison.OrdinalIgnoreCase)) Reject("entry_set_changed");
@@ -1123,7 +1130,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyRestorable(Dictionary<string,object> alternate = null) {
     List<Node> expected = Expected(); VerifyEntries(expected);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       Dictionary<string,object> streams = new Dictionary<string,object>();
       foreach (object raw in (IEnumerable)node.Entry["streams"]) streams.Add(Str(Dict(raw)["name"]), raw);
       foreach (string name in StreamNames(node)) {
@@ -1148,7 +1155,7 @@ public static class RuyiSkillCapsule {
     List<Node> expected = Expected(); if (expected.Count != Nodes.Count) Reject("entry_set_changed");
     VerifyOriginalLayout();
     Verify(false, true);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       List<string> allowed = new List<string>(); foreach (object raw in (IEnumerable)node.Entry["streams"]) allowed.Add(Str(Dict(raw)["name"]));
       foreach (string name in StreamNames(node)) if (!allowed.Contains(name)) Reject("stream_set_changed");
     }
@@ -1161,7 +1168,7 @@ public static class RuyiSkillCapsule {
     catch { RestoreBasic(expected); throw; }
     VerifyOriginalLayout(); Verify(false,true);
     expected.Sort(delegate(Node a, Node b) { return Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length); });
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       if (!String.Equals(PathOf(RootNode().Handle), OriginalRoot, StringComparison.OrdinalIgnoreCase)) Reject("root_changed");
       string rel = Str(node.Entry["rel"]);
       string expectedPath = rel == "" ? OriginalRoot : System.IO.Path.Combine(OriginalRoot, rel.Replace('/', '\\'));
@@ -1196,7 +1203,7 @@ public static class RuyiSkillCapsule {
   }
   static void Flatten(List<Node> expected,bool root) {
     expected.Sort(delegate(Node a,Node b){return PathOf(b.Handle).Length.CompareTo(PathOf(a.Handle).Length);});
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       if(!root && Str(node.Entry["rel"])=="") continue;
       VerifyEntries(expected);
       Step="flatten-node"; Rename(node,Str(node.Entry["opaque"]),Capsule); SetAlias(node,"");
@@ -1206,7 +1213,7 @@ public static class RuyiSkillCapsule {
     expected.Sort(delegate(Node a,Node b){return Str(a.Entry["rel"]).Length.CompareTo(Str(b.Entry["rel"]).Length);});
     Dictionary<string,Node> parents=new Dictionary<string,Node>();
     foreach(Node node in expected) parents.Add(Str(node.Entry["rel"]),node);
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       string rel=Str(node.Entry["rel"]); if(rel=="") continue;
       VerifyEntries(expected);
       int slash=rel.LastIndexOf('/');string parentRel=slash<0?"":rel.Substring(0,slash);
@@ -1218,7 +1225,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyNames(string root,bool rootAlias) {
     root=NativePath(root);
-    foreach(Node node in Expected()) {
+    foreach(Node node in Expected()) { Beat();
       string rel=Str(node.Entry["rel"]),target=rel==""?root:System.IO.Path.Combine(root,rel.Replace('/','\\'));
       if(!String.Equals(PathOf(node.Handle),target,StringComparison.OrdinalIgnoreCase)) Reject("entry_set_changed");
       if((rootAlias || rel!="") && !String.Equals(ShortName(node.Handle),Str(node.Entry["shortName"]),StringComparison.OrdinalIgnoreCase)) Reject("short_name_changed");
@@ -1233,7 +1240,7 @@ public static class RuyiSkillCapsule {
     Step="restore-root";
     using(SafeFileHandle parent=Open(System.IO.Path.GetDirectoryName(Str(args["target"])))) Rename(RootNode(),System.IO.Path.GetFileName(Str(args["target"])),parent);
     SetAlias(RootNode(),""); Assemble(expected);
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       foreach(object raw in (IEnumerable)node.Entry["streams"]) {
         Dictionary<string,object> stream=Dict(raw);string name=Str(stream["name"]);
         byte[] bytes=Convert.FromBase64String(Str(stream["data"]));
@@ -1289,7 +1296,7 @@ public static class RuyiSkillCapsule {
     bool publishExactBasic=exactOption is bool&&(bool)exactOption;
     Verify(false,true); CheckPublication(args);
     Node root=RootNode();
-    foreach(Node node in Nodes.Values) {
+    foreach(Node node in Nodes.Values) { Beat();
       foreach(SafeFileHandle stream in node.Streams.Values) stream.Dispose();node.Streams.Clear();
       if(node!=root) node.Handle.Dispose();
     }
@@ -1327,7 +1334,7 @@ public static class RuyiSkillCapsule {
     Close(true);
   }
   static void Close(bool certify = false) {
-    foreach (Node node in Nodes.Values) {
+    foreach (Node node in Nodes.Values) { Beat();
       foreach (SafeFileHandle stream in node.Streams.Values) {
         if(certify)ClosePreservedTemporary(stream);else stream.Dispose();
       }
@@ -1672,7 +1679,7 @@ public static class RuyiSkillCapsule {
   // and can also mask a concurrent writer. Keep every captured field in the
   // proof and reject a difference on the already held handles.
   static void VerifyCapturedBasicUnchanged(List<Node> nodes) {
-    foreach(Node node in nodes) {
+    foreach(Node node in nodes) { Beat();
       List<string> times = new List<string>(); foreach(object raw in (IEnumerable)node.Entry["times"]) times.Add(Str(raw));
       Basic actual=BasicOf(node.Handle);
       if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1]
@@ -1680,9 +1687,14 @@ public static class RuyiSkillCapsule {
         || actual.Attr!=Convert.ToUInt32(node.Entry["attrs"])) Reject("metadata_changed");
     }
   }
+  // 151 阶段 3D(150 号文 W11):只为复核的普查(content="hash")不回传内容,只回每个流的大小与 SHA-256;
+  // 句柄、元数据、整树复读与哈希核对与带内容的普查完全相同。只由 Node 端只读复核路径请求。
+  static bool HashOnly=false;
   static object CapturePreserved(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     Exception primary=null;
+    object content=null;HashOnly=args.TryGetValue("content",out content)&&content is string&&(string)content=="hash";
+    if(content!=null&&!HashOnly)Reject("census_content");
     try {BoundaryInit(args);return Capture(args,true);}
     catch(Exception error) {primary=error;throw;}
     finally {
@@ -1693,7 +1705,7 @@ public static class RuyiSkillCapsule {
         if(primary==null)throw;
         primary.Data["preservedMetadataVerificationFailed"]=verificationError.GetType().Name;
       }
-      finally {try {BoundaryClose(primary==null);} catch(Exception closeError) {if(BoundaryHandle!=null || closeError.Message=="census_first_close_unverified")throw new InvalidOperationException("census_first_close_unverified",primary??closeError);throw;} finally {PreserveTimeHandles=previous;}}
+      finally {try {BoundaryClose(primary==null);} catch(Exception closeError) {if(BoundaryHandle!=null || closeError.Message=="census_first_close_unverified")throw new InvalidOperationException("census_first_close_unverified",primary??closeError);throw;} finally {PreserveTimeHandles=previous;HashOnly=false;}}
     }
   }
   static object ReadPreservedControl(Dictionary<string,object> args) {
@@ -1836,7 +1848,7 @@ public static class RuyiSkillCapsule {
     var guards=new Dictionary<string,SafeFileHandle>(StringComparer.Ordinal);
     string rootPath=NativePath(root),parentPath=System.IO.Path.GetDirectoryName(rootPath);
     try {
-      foreach(Node node in nodes) {
+      foreach(Node node in nodes) { Beat();
         string path=PathOf(node.Handle);
         var witness=OpenPreservedHandle(null,null,path,0x00100180u,7);
         witnesses.Add(witness);
@@ -1852,7 +1864,7 @@ public static class RuyiSkillCapsule {
       // DATA handles require delete sharing during creation. Now lock the
       // verified parent and the whole target tree against rename before writes.
       using(var parent=OpenPortableBasicGuard(null,null,parentPath,parentId)) {
-        foreach(Node node in nodes) {
+        foreach(Node node in nodes) { Beat();
           string rel=Str(node.Entry["rel"]),path=rel==""?rootPath:System.IO.Path.Combine(rootPath,rel.Replace('/','\\'));
           int slash=rel.LastIndexOf('/');
           SafeFileHandle containing=rel==""?parent:guards[slash<0?"":rel.Substring(0,slash)];
@@ -1958,7 +1970,7 @@ public static class RuyiSkillCapsule {
   }
 
   public static void Run() {
-    Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
+    Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false); BeatEnabled = true;
     int censusPhase=0,commands=0;string censusRoot=null,censusRevision=null;
     try {
       string line;
@@ -2059,7 +2071,7 @@ function migrationCapsuleDescriptor(backup) {
     scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]),
     ...(migrationBackupAuthority?.variants.get(rel[0] + '/' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1])) || {}) };
 }
-function migrationCapsuleShape(snapshot) {
+function migrationCapsuleShape(snapshot, hashOnly = false) {
   // Literal bounds (= MIGRATION_CENSUS_BUDGET entries/bytes): fixtures slice this function alone.
   const maxEntries = 200001, maxBytes = 120 * 1024 * 1024;
   if (!snapshot || snapshot.schema !== 1 || snapshot.platform !== 'ntfs-objects-v1'
@@ -2088,11 +2100,13 @@ function migrationCapsuleShape(snapshot) {
       if (!stream || typeof stream.name !== 'string' || stream.name.length > 1024
           || stream.name !== '' && !/^:[^:\\/*?"<>|\x00-\x1f]+:\$DATA$/.test(stream.name)
           || entry.dir && stream.name === '' || !Number.isSafeInteger(stream.size) || stream.size < 0
-          || !/^[a-f0-9]{64}$/.test(stream.hash || '') || typeof stream.data !== 'string'
-          || stream.data.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(stream.data)) return false;
+          || !/^[a-f0-9]{64}$/.test(stream.hash || '') || (hashOnly ? Object.keys(stream).sort().join(',') !== 'hash,name,size' : typeof stream.data !== 'string'
+          || stream.data.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(stream.data))) return false;
       const streamKey = stream.name.toLowerCase();
       if (streams.has(streamKey)) return false;
       streams.add(streamKey);
+      // 3D:只为复核的普查没有内容可解码,大小与哈希由助手在同一次整树复读里核对过。
+      if (hashOnly) { total += stream.size; if (total > maxBytes) return false; continue; }
       const bytes = Buffer.from(stream.data, 'base64');
       const valid = bytes.length === stream.size && bytes.toString('base64') === stream.data
         && crypto.createHash('sha256').update(bytes).digest('hex') === stream.hash;
@@ -2688,6 +2702,15 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
 const migrationCapsuleIssuedChildren = new Set();
 const migrationCapsuleBrokerChildren = new WeakMap();
 async function migrationCapsuleBroker() {
+  // 151 阶段 3D(W12):原生命令的停滞上限(两次进展之间的最长间隔),以及类型化超时详情。放在函数体内:
+  // 夹具会单独切出本函数运行。
+  // v2(审查 L2):心跳续期之外,每条命令另有一个兜底总上限,按普查预算推算:10 分钟 + 每个预算条目 50 ms
+  // (200,001 条目约 2.9 h)。到点按同一个类型化 native_timeout 报,timeout.kind 为新增值 'ceiling'。
+  const MIGRATION_NATIVE_STALL_MS = 120000, MIGRATION_NATIVE_CEILING_MS = 600000 + 200001 * 50;
+  const migrationNativeTimeoutDetails = (command, issuedAt, heartbeats, ceiling = false) => ({ retry: false, timeout: Object.freeze({ kind: ceiling ? 'ceiling' : heartbeats > 0 ? 'stalled' : 'no-progress', command,
+    stallSeconds: MIGRATION_NATIVE_STALL_MS / 1000, elapsedSeconds: Math.max(0, Math.round((Date.now() - issuedAt) / 1000)), heartbeats }) });
+  // v2(审查 L1):助手的心跳行与命令回复都是真实进展,推进 01aa 的进程内进展计数(独立校验子进程据此发心跳)。
+  const noteProgress = () => { try { if (typeof WorkDataTree === 'object' && WorkDataTree && typeof WorkDataTree.noteProgress === 'function') WorkDataTree.noteProgress(); } catch { /* optional observer */ } };
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
     return Object.assign(new Error(code), { code, apiCode: code, statusCode: 503,
@@ -2704,6 +2727,8 @@ async function migrationCapsuleBroker() {
     child = require('node:child_process').spawn(code?.executable || 'powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code?.bootstrap || bootstrap, 'utf16le').toString('base64')], {
       env: code?.env || { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      // v2(审查 L3):助手不继承宿主的当前目录,否则它活着时宿主 cwd 所在目录无法改名/删除。
+      cwd: require('node:path').win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
   migrationCapsuleIssuedChildren.add(child);const candidateChildObservation={child,closeObserved:false,closeCode:null,closeSignal:null};child.once('close',(code,signal)=>{candidateChildObservation.closeObserved=true;candidateChildObservation.closeCode=code;candidateChildObservation.closeSignal=signal;});
@@ -2719,7 +2744,7 @@ async function migrationCapsuleBroker() {
     if (settled) return;
     settled = true; timers.clearTimeout(settleTimer); output = []; outputBytes = 0;
     if (pending) {
-      const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+      const entry = pending; pending = null; timers.clearTimeout(entry.timer); timers.clearTimeout(entry.ceiling);
       entry.reject(error || failure('native_exit'));
     }
     resolveClosed(error);
@@ -2734,10 +2759,17 @@ async function migrationCapsuleBroker() {
       finish(failure('native_helper_uncertain', firstError, true));
     }, 2000);
   };
-  const stop = (suffix, cause) => {
+  // 151 阶段 3D(W12):正常关闭时助手要逐个释放全部句柄(1 万个对象在负载下要好几秒)。关闭期间助手的心跳行
+  // (只认递增的 {"progress":n})给这 2 s 的关闭窗口续期;2 s 内没有任何心跳才判关不掉、助手不确定。
+  let closeProgress = 0;
+  const renewClose = progress => {
+    if (settled || stopping || settleTimer === null || !Number.isSafeInteger(progress) || progress <= closeProgress) return;
+    closeProgress = progress; const expired = settleTimer; settleTimer = null; timers.clearTimeout(expired); boundClose();
+  };
+  const stop = (suffix, cause, details) => {
     if (settled || stopping) return;
-    stopping = true; firstError ||= failure(suffix, cause);
-    if (pending) timers.clearTimeout(pending.timer);
+    stopping = true; firstError ||= details ? Object.assign(failure(suffix, cause), details) : failure(suffix, cause);
+    if (pending) { timers.clearTimeout(pending.timer); timers.clearTimeout(pending.ceiling); }
     output = []; outputBytes = 0; boundClose(); kill();
   };
   child.on('spawn', () => { spawned = true; });
@@ -2773,10 +2805,22 @@ async function migrationCapsuleBroker() {
         if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { stop('native_limit'); return; }
         if (index === parts.length - 1) break;
         const line = output.join(''); output = []; outputBytes = 0;
-        if (!pending) continue;
+        if (!pending) {
+          if (closing && line.length <= 64) {
+            let beat = null; try { beat = JSON.parse(line); } catch { /* not a heartbeat */ }
+            if (beat && typeof beat === 'object' && !Array.isArray(beat) && Object.keys(beat).length === 1) { noteProgress(); renewClose(beat.progress); }
+          }
+          continue;
+        }
         let response;
         try { response = JSON.parse(line); } catch { stop('native_unavailable'); return; }
-        const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+        // 151 阶段 3D(W12):心跳行只给当前命令续期,从不结算它;计数必须单调递增。
+        if (response && typeof response === 'object' && !Array.isArray(response) && Object.keys(response).length === 1
+          && Number.isSafeInteger(response.progress) && response.progress > pending.progress) {
+          pending.progress = response.progress; pending.heartbeats++; noteProgress(); timers.clearTimeout(pending.timer);
+          pending.timer = timers.setTimeout(pending.expire, MIGRATION_NATIVE_STALL_MS); continue;
+        }
+        const entry = pending; pending = null; timers.clearTimeout(entry.timer); timers.clearTimeout(entry.ceiling); noteProgress();
         if (response?.ok === true) entry.resolve(response.value);
         else {
           const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
@@ -2797,11 +2841,18 @@ async function migrationCapsuleBroker() {
     if (pending || closing || stopping || settled || migrationCapsuleBroker.helperMayStillRun === true) {
       reject(migrationCapsuleBroker.helperMayStillRun === true ? failure('native_helper_uncertain', firstError, true) : failure('native_exit')); return;
     }
+    // 151 阶段 3D(150 号文 W12):不再是「一条命令最多 120 s」,而是「120 s 内没有任何进展」。助手在长命令里每
+    // 1 s 回一行心跳(见 C# Beat),每一行都给这条命令续期;真的卡住才超时。超时码带类型化的 timeout 详情
+    // (种类、命令名、停滞秒数、已用秒数、收到的心跳数),只含固定枚举与十进制数,不含路径或自由文本。
+    // 首个窗口与之后每次续期都是 120 s(= MIGRATION_NATIVE_STALL_MS);首个窗口含代码准备耗时。
     const remaining = firstCommand ? Math.ceil(120000 - Number(process.hrtime.bigint() - startedAt) / 1e6) : 120000;
     firstCommand = false;
-    if (remaining <= 0) { stop('native_timeout'); reject(firstError); return; }
-    const timer = timers.setTimeout(() => stop('native_timeout'), remaining);
-    pending = { resolve, reject, timer };
+    const name = typeof args?.cmd === 'string' && /^[a-z-]{1,48}$/.test(args.cmd) ? args.cmd : 'unknown', issuedAt = Date.now();
+    const expire = () => stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, pending?.heartbeats || 0));
+    if (remaining <= 0) { stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, 0)); reject(firstError); return; }
+    const timer = timers.setTimeout(expire, remaining);
+    const ceiling = timers.setTimeout(() => stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, pending?.heartbeats || 0, true)), MIGRATION_NATIVE_CEILING_MS);
+    pending = { resolve, reject, timer, ceiling, expire, progress: 0, heartbeats: 0 };
     try {
       child.stdin.write(JSON.stringify(args) + '\n', cause => { if (cause) stop('native_pipe', cause); });
     } catch (cause) { stop('native_pipe', cause); }
@@ -3056,7 +3107,7 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
   const paired=readback!==undefined,budget=migrationCensusBudget(root);
   const readbackContext=paired?(typeof WorkDataTree.claimPreservedReadbackContext==='function'?WorkDataTree.claimPreservedReadbackContext(readback,root,revision):(WorkDataTree.claimPreservedReadback(readback,root,revision)?{candidateBoundary:null}:null)):null;
   if(paired&&!readbackContext)migrationCapsuleFail('census_scope');
-  const candidateBoundary=readbackContext?.candidateBoundary||null;
+  const candidateBoundary=readbackContext?.candidateBoundary||null,hashOnly=readbackContext?.hashOnly===true,content=hashOnly?{content:'hash'}:{};
   const {revision:finalRevision,bind}=readback||{};
   if(paired&&(!readback||!Object.isFrozen(readback)||Object.keys(readback).sort().join(',')!=='bind,revision'||typeof bind!=='function'
     ||!/^[a-f0-9]{64}$/.test(revision)||!/^[a-f0-9]{64}$/.test(finalRevision)||finalRevision===revision))migrationCapsuleFail('census_scope');
@@ -3075,11 +3126,11 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       return Object.assign(new Error(code,{cause}),{code,apiCode:code,statusCode:503,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
     };
     let first;
-    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,budget,...(candidateBoundary?{candidateBoundary}:{})});}
+    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,budget,...content,...(candidateBoundary?{candidateBoundary}:{})});}
     catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     migrationCensusBudgetCheck(first?.snapshot,budget);
     if(!first||Object.keys(first).sort().join(',')!=='closedHandles,revision,snapshot'||first.revision!==revision
-      ||!migrationCapsuleShape(first.snapshot)||first.snapshot.revision!==revision
+      ||!migrationCapsuleShape(first.snapshot,hashOnly)||first.snapshot.revision!==revision
       ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0)+(candidateBoundary?1:0))throw unverified();
     // The first handles are closed. Bound the now-idle helper even if Node's
     // identity checks are delayed, and still wait for the checks to settle.
@@ -3088,14 +3139,14 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       const code='work_data_backup.census_idle_timeout';
       idleError=Object.assign(new Error(code),{code,apiCode:code,statusCode:503,retry:false});
       idleClose=Promise.resolve().then(()=>broker.close());idleClose.catch(()=>{});
-    },120000);
+    },Math.max(120000,50*first.snapshot.entries.length)); // 3D(W12):Node 端逐项核对(lstat/realpath,新建文件首次打开会被实时防护扫描)随规模变长:每项 50 ms,不少于 120 s;助手此时已证明不持有任何句柄。
     try{await bind(first.snapshot);}
     catch(cause){if(idleError)throw Object.assign(new AggregateError([cause,idleError],idleError.code,{cause}),{code:idleError.code,retry:false});throw cause;}
     finally{timers.clearTimeout(timer);}
     if(idleError)throw idleError;
-    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,budget,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,budget,...content,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     migrationCensusBudgetCheck(final,budget);
-    if(!migrationCapsuleShape(final)||final.revision!==finalRevision)migrationCapsuleFail('shape');
+    if(!migrationCapsuleShape(final,hashOnly)||final.revision!==finalRevision)migrationCapsuleFail('shape');
   }catch(cause){failed=true;primary=cause;}
   try{await (idleClose||broker.close());}catch(cause){
     if(!failed)throw cause;

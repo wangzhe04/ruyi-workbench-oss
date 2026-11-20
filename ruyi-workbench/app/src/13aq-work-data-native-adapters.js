@@ -76,7 +76,14 @@ return Object.freeze({create});
 })();
 const WorkDataOwnedRestoreRetainedOwners = new Set();
 
-  const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
+  // 151 阶段 3D(150 号文 W12):VERIFY_MS 是「多久没有心跳」(停滞),不是校验的总时长;校验子进程每 HEARTBEAT_MS
+  // 发一条 verify-progress。总时长另有 VERIFY_MAX_MS 兜底,防止活着但永远不结束的子进程无限占住所有权。
+  const INPUT_LIMIT = 32768, VERIFY_MS = 120000, VERIFY_MAX_MS = 4 * 3600 * 1000, HEARTBEAT_MS = 5000, CLOSE_MS = 2000;
+  // v2(审查 L1):心跳带子进程的真实进展计数(01aa 的进程内计数:普查逐项、Node 端逐行核对、原生心跳与回复),
+  // 子进程只在计数前进时才发;父进程只认严格递增的计数续期。卡在永不完成的等待上的子进程不再续期,120 s 后超时;
+  // 4 h 总上限仍兜底「一直有进展却不结束」。
+  const progressMessage = (value, request, pid) => keys(value) === 'id,kind,nonce,pid,progress,schema' && value.schema === 1 && value.kind === 'verify-progress'
+    && value.id === request.id && value.nonce === request.nonce && value.pid === pid && Number.isSafeInteger(value.progress) && value.progress >= 0;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
   // Same-path comparison follows the platform's path identity: Windows paths are
@@ -117,7 +124,7 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
       helperMayStillRun:() => LocalSecretCrypto.helperMayStillRun() || MigrationHooks.helperMayStillRun()};
   }
   function create({bindings = productionBindings(), proc = process, verifierCommand = null,
-    clock = {setTimeout,clearTimeout,setInterval}} = {}) {
+    clock = {setTimeout,clearTimeout,setInterval,clearInterval:require('node:timers').clearInterval}} = {}) {
     for (const [name, methods] of Object.entries({ownership:['acquire','canonicalRoot','isLease','owns','createSourceKeeper','isSourceKeeper'],manifest:['create'],fullSnapshot:['create'],
       nativePublish:['createFlush'],disposableTree:['create'],tree:['createPreserved'],migrationHost:['create'],worker:['create','spawnCold','processChannel']})) {
       if (!bindings[name] || methods.some(method => typeof bindings[name][method] !== 'function')) throw fail('bindings_invalid');
@@ -404,7 +411,7 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
     }); }
     async function runVerifier(channel = bindings.worker.processChannel(proc)) {
       check(); if (!channel.parentConnected()) throw fail('ipc_required');
-      let bytes, request, owner, keeper, finalKeeper, ownerReleased = false, primary, failed = false;
+      let bytes, request, owner, keeper, finalKeeper, ownerReleased = false, primary, failed = false, heartbeat = null;
       try {
         bytes = await guarded(() => channel.readInput(INPUT_LIMIT));
         if (!Buffer.isBuffer(bytes) || bytes.length > INPUT_LIMIT) throw fail('input_invalid');
@@ -427,7 +434,13 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
           return Object.freeze({...value,mode:legacyConfigMode(config?.data)});
         };
         const snapshot=createSnapshot(request.target,owner,exclusive,{readCapturedAuthority});
-        const captured=await guarded(()=>snapshot.seal({password:request.password,appVersion:bindings.appVersion,generation:request.generation}));
+        // 3D(W12):校验进行中每 HEARTBEAT_MS 给父进程一条心跳;结果发出前停掉,所以结果之后不会再有心跳。
+        const progressCount=typeof bindings.tree?.progressCount==='function'?()=>bindings.tree.progressCount():null;let reported=progressCount?progressCount():0;
+        if(progressCount){heartbeat=clock.setInterval(()=>{const now=progressCount();if(!Number.isSafeInteger(now)||now<=reported)return;reported=now;
+          const beat={schema:1,kind:'verify-progress',id:request.id,nonce:request.nonce,pid:proc.pid,progress:now};Promise.resolve().then(()=>channel.send(beat)).catch(()=>{});},HEARTBEAT_MS);heartbeat.unref?.();}
+        let captured;
+        try{captured=await guarded(()=>snapshot.seal({password:request.password,appVersion:bindings.appVersion,generation:request.generation}));}
+        finally{(typeof clock.clearInterval==='function'?clock.clearInterval:require('node:timers').clearInterval)(heartbeat);heartbeat=null;}
         const reply = result({schema:1,kind:'verified-full',id:request.id,nonce:request.nonce,pid:proc.pid,target:request.target,
           generation:captured.verifiedGeneration,sourceSha256:captured.sourceProof.sha256,files:captured.files,directories:captured.directories},request,proc.pid);
         // A result is not permission to release an uncertain helper/owner.
@@ -473,14 +486,18 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
         const env = bindings.worker.create({env:proc.env}).environment(target);
         const child = bindings.worker.spawnCold(command,env);
         return await new Promise((resolve,reject) => {
-          let settled = false, spawned = false, exited = false, exitCode = null, exitSignal = null, response = null, error = null, closeTimer = null;
-          const finish = (cause, receipt) => { if (settled) return; settled = true; clock.clearTimeout(timer); if (closeTimer) clock.clearTimeout(closeTimer); serialized.fill(0); if (cause) {latch(cause);reject(cause);} else {receipts.add(receipt);resolve(receipt);} };
+          let settled = false, spawned = false, exited = false, exitCode = null, exitSignal = null, response = null, error = null, closeTimer = null, lastProgress = -1;
+          const finish = (cause, receipt) => { if (settled) return; settled = true; clock.clearTimeout(timer); clock.clearTimeout(ceiling); if (closeTimer) clock.clearTimeout(closeTimer); serialized.fill(0); if (cause) {latch(cause);reject(cause);} else {receipts.add(receipt);resolve(receipt);} };
           const stop = cause => { if (settled || error) return; error = cause; closeTimer = clock.setTimeout(() => { unknown = true; finish(fail('verifier_close_unverified',true)); },CLOSE_MS); try {child.kill();} catch {} };
-          const timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS);
+          let timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS);
+          const ceiling = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MAX_MS);
           child.once('spawn',() => {spawned = true;});
           child.once('exit',(code,signal) => {exited = true;exitCode = code;exitSignal = signal;});
           child.on('error',() => { if (!spawned && !child.pid) finish(fail('verifier_unavailable')); else stop(fail('verifier_process')); });
-          child.on('message',value => {try {if (response) throw fail('result_duplicate');response = result(value,request,child.pid);} catch(cause) {stop(cause);} });
+          child.on('message',value => {
+            // A heartbeat only renews the stall deadline; it never settles or replaces the result.
+            if (progressMessage(value,request,child.pid)) { if (!response && !error && !settled && value.progress > lastProgress) { lastProgress = value.progress; clock.clearTimeout(timer); timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS); } return; }
+            try {if (response) throw fail('result_duplicate');response = result(value,request,child.pid);} catch(cause) {stop(cause);} });
           child.once('close',(code,signal) => {if (settled) return; if (error) return finish(error); if (!spawned || !exited || exitCode !== 0 || exitSignal || code !== 0 || signal || !response || !Number.isSafeInteger(child.pid) || child.pid < 1) return finish(fail('verifier_failed')); try {check();finish(null,response);} catch(cause) {finish(cause);} });
           child.stdin.once('error',() => stop(fail('verifier_input')));
           try {child.stdin.end(serialized,() => serialized.fill(0));} catch {stop(fail('verifier_input'));}

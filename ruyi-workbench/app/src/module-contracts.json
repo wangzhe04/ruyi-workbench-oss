@@ -30590,6 +30590,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13at-work-data-restore-uploads.js",
           "symbol": "WorkDataRestoreUploads",
           "kinds": [

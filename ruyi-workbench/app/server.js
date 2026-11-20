@@ -11715,7 +11715,7 @@ public static class RuyiManifestPublisher {
     string[] dirs=new string[raw.Length]; var unique=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
     for(int i=0;i<raw.Length;i++) { dirs[i]=Full(raw[i]); if(unique.ContainsKey(dirs[i])) Reject("directory_duplicate"); unique.Add(dirs[i],true); }
     // Establish every real ancestor and NTFS capability before the first flush.
-    foreach(string directory in dirs) Ancestors(directory);
+    foreach(string directory in dirs) { Ancestors(directory); Progress(); }
     var volumes=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
     foreach(var directory in Directories.Values) {
       string volume=Volume(directory); if(volumes.ContainsKey(volume)) continue; volumes.Add(volume,true);
@@ -11725,8 +11725,37 @@ public static class RuyiManifestPublisher {
     }
     var codes=new List<int>();
     Attempted=true;
-    foreach(string directory in dirs) { int code=FlushDirectory(directory); if(code!=0) Reject("durability_unsupported",code); codes.Add(code); }
+    foreach(string directory in dirs) { int code=FlushDirectory(directory); if(code!=0) Reject("durability_unsupported",code); codes.Add(code); Progress(); }
     return new Dictionary<string,object> { {"ok",true},{"flushDirectories",dirs},{"directoryFlush",codes} };
+  }
+  // 151 阶段 3D(W11/W12):常驻刷盘循环。只在 RunFlushLoop 里回进度行;一次性的 RunFlush/Run 协议不变。
+  static bool LoopMode=false;
+  static int ProgressCount=0;
+  static void Progress() { if(!LoopMode) return; ProgressCount++; Console.Out.WriteLine("{\"progress\":"+ProgressCount+"}"); Console.Out.Flush(); }
+  public static void RunFlushLoop() {
+    var flushJson=new JavaScriptSerializer { MaxJsonLength=262144, RecursionLimit=16 };
+    LoopMode=true; Console.Out.WriteLine("{\"ready\":true}"); Console.Out.Flush();
+    for(;;) {
+      StringBuilder input=new StringBuilder(); int value; bool over=false;
+      while((value=Console.In.Read())!=-1&&value!='\n') { if(input.Length>=65536) over=true; else input.Append((char)value); }
+      if(value==-1&&input.Length==0) return;
+      string reply;
+      try {
+        if(over) Reject("input_limit");
+        var response=FlushDirectories(Object(flushJson.DeserializeObject(input.ToString()))); reply=flushJson.Serialize(response);
+      } catch(Exception error) {
+        string code=error is InvalidOperationException ? error.Message : "native_failed";
+        if(!System.Text.RegularExpressions.Regex.IsMatch(code,"^[a-z_]{1,48}$")) code="native_failed";
+        reply=flushJson.Serialize(new Dictionary<string,object> { {"ok",false},{"code",code},{"native",NativeCode},{"moved",false},{"attempted",Attempted} });
+      } finally {
+        // Every handle of this command is closed before its reply line: an idle helper holds nothing.
+        for(int i=Held.Count-1;i>=0;i--) Held[i].Dispose();
+        Held.Clear(); Directories.Clear();
+      }
+      Attempted=false; NativeCode=0; Moved=false; ProgressCount=0;
+      Console.Out.WriteLine(reply); Console.Out.Flush();
+      if(value==-1) return;
+    }
   }
   public static void RunFlush() {
     var flushJson=new JavaScriptSerializer { MaxJsonLength=262144, RecursionLimit=16 };
@@ -11809,7 +11838,7 @@ function invoke(args) {
     const windows = process.env.SystemRoot || 'C:\\Windows';
     const executable = path.join(windows, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
     const child = cp.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(BOOTSTRAP, 'utf16le').toString('base64')], {
-      env: { ...process.env, RUYI_MANIFEST_PUBLISHER_SOURCE: Buffer.from(NATIVE).toString('base64') }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      env: { ...process.env, RUYI_MANIFEST_PUBLISHER_SOURCE: Buffer.from(NATIVE).toString('base64') }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], cwd: path.join(windows, 'System32') });
     const output = [];
     let bytes = 0, stderrBytes = 0, settled = false, spawned = false, forcedError = null, terminateTimer;
     const finish = (error, value) => { if (settled) return; settled = true; clearTimeout(timer); clearTimeout(terminateTimer); error ? reject(error) : resolve(value); };
@@ -11861,79 +11890,228 @@ function invoke(args) {
   });
 }
 
-const FLUSH_BOOTSTRAP = BOOTSTRAP.replace('[RuyiManifestPublisher]::Run()', '[RuyiManifestPublisher]::RunFlush()');
+// 151 阶段 3D(150 号文 W11/W12):刷盘助手常驻。原来每次 flush 都新起一个 PowerShell 并用 Add-Type 现场编译
+// 本模块的 C#(约 0.7–1 s),一次启用要刷十几到几十次。现在一个进程里只编译一次,之后按行收命令;
+// 每条命令在 C# 里先释放本命令持有的全部句柄,再回结果行(RunFlushLoop),所以两条命令之间助手不持有任何句柄。
+// 空闲 FLUSH_IDLE_MS 后关 stdin 让它自行退出;空闲期间子进程与管道都 unref,不拖住宿主退出(宿主退出即 EOF)。
+// 失败语义不变:超时/管道/输出不可验证 → 杀掉并等关闭,关不掉就 helperMayStillRun;带类型的拒绝 → 先让助手
+// 正常退出(等到 close)再报 nativeSettled,与原来「助手进程已结束」的含义一致。
+// 超时与进度解耦(W12):助手每完成一个目录的祖先守卫或刷盘就回一行 {"progress":n};FLUSH_STALL_MS 是
+// 「多久没有任何进展」而不是一条命令的总时长。编译(第一次就绪)单独给 FLUSH_START_MS。
+const FLUSH_LOOP_BOOTSTRAP = BOOTSTRAP.replace('[RuyiManifestPublisher]::Run()', '[RuyiManifestPublisher]::RunFlushLoop()');
+const FLUSH_START_MS = 60000, FLUSH_STALL_MS = 20000, FLUSH_IDLE_MS = 15000, FLUSH_CLOSE_MS = 2000, FLUSH_LINE_LIMIT = 262144;
 const flushFailure = (suffix, uncertain = false) => Object.assign(failure('flush_' + suffix, uncertain), {
   retry:false, operationMayHaveExecuted:uncertain, resultUnavailable:uncertain,
 });
-function invokeFlush(directories) {
-  return new Promise((resolve, reject) => {
-    if (process.platform !== 'win32') return reject(flushFailure('unsupported'));
-    if (!Array.isArray(directories) || directories.length < 1 || directories.length > 256) return reject(flushFailure('input_invalid'));
-    const selected = [], unique = new Set();
-    for (const directory of directories) {
-      if (typeof directory !== 'string' || directory.length < 3 || directory.length > 8192 || !/^[A-Za-z]:\\/.test(directory)
-        || /[\x00-\x1f<>"|?*\/]/.test(directory) || directory.slice(2).includes(':') || Buffer.from(directory).toString('utf8') !== directory
-        || path.win32.resolve(directory) !== directory || directory.slice(3).split('\\').some(piece => piece === '.' || piece === '..' || /[. ]$/.test(piece))
-        || directory.length > 3 && directory.endsWith('\\') || unique.has(directory.toLowerCase())) return reject(flushFailure('input_invalid'));
-      unique.add(directory.toLowerCase()); selected.push(directory);
+const flushStats = { spawned:0, commands:0 };
+let flushHelper = null, flushQueue = Promise.resolve();
+function flushSelect(directories) {
+  if (!Array.isArray(directories) || directories.length < 1 || directories.length > 256) throw flushFailure('input_invalid');
+  const selected = [], unique = new Set();
+  for (const directory of directories) {
+    if (typeof directory !== 'string' || directory.length < 3 || directory.length > 8192 || !/^[A-Za-z]:\\/.test(directory)
+      || /[\x00-\x1f<>"|?*\/]/.test(directory) || directory.slice(2).includes(':') || Buffer.from(directory).toString('utf8') !== directory
+      || path.win32.resolve(directory) !== directory || directory.slice(3).split('\\').some(piece => piece === '.' || piece === '..' || /[. ]$/.test(piece))
+      || directory.length > 3 && directory.endsWith('\\') || unique.has(directory.toLowerCase())) throw flushFailure('input_invalid');
+    unique.add(directory.toLowerCase()); selected.push(directory);
+  }
+  const serialized = JSON.stringify({flushDirectories:selected});
+  if (Buffer.byteLength(serialized,'utf8') > 65536) throw flushFailure('input_limit');
+  return { selected, serialized };
+}
+// One helper process. All events of the child are bound once; the current command (if any) receives them.
+function flushSpawn() {
+  const executable = path.join(process.env.SystemRoot || 'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  const child = cp.spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(FLUSH_LOOP_BOOTSTRAP,'utf16le').toString('base64')], {
+    env:{...process.env,RUYI_MANIFEST_PUBLISHER_SOURCE:Buffer.from(NATIVE).toString('base64')},windowsHide:true,stdio:['pipe','pipe','pipe'],
+    // v2(审查 L3):常驻助手空闲时也活着,不能占住宿主的当前目录(否则那个目录改名会 EBUSY)。
+    cwd:path.join(process.env.SystemRoot || 'C:\\Windows','System32'),
+  });
+  flushStats.spawned++;
+  const helper = { child, spawned:false, ready:false, dead:false, closed:false, closeCode:null, command:null, idleTimer:null, lineParts:[], lineBytes:0,
+    stderrBytes:0, closeWaiters:[], waitingReady:[] };
+  const setRef = on => { for (const target of [child, child.stdin, child.stdout, child.stderr]) { try { on ? target?.ref?.() : target?.unref?.(); } catch { /* optional */ } } };
+  helper.setRef = setRef;
+  const current = () => helper.command;
+  child.once('spawn',() => { helper.spawned = true; });
+  child.on('error',() => {
+    // ChildProcess also emits error when kill fails. Only a failed spawn with no process
+    // identity can prove that no native helper ever existed.
+    if (!helper.spawned && !child.pid) { helper.dead = true; helper.closed = true; for (const waiter of helper.waitingReady.splice(0)) waiter.fail(flushFailure('unavailable')); current()?.unavailable(); return; }
+    flushRetire(helper); current()?.stop(flushFailure('process',true));
+    for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('process',true));
+  });
+  child.stdout.on('data',chunk => {
+    let start = 0;
+    for (let at = chunk.indexOf(10); at !== -1; at = chunk.indexOf(10, start)) {
+      flushLinePart(helper, chunk.subarray(start, at)); if (helper.lineBytes > FLUSH_LINE_LIMIT) return flushOverflow(helper);
+      const raw = Buffer.concat(helper.lineParts, helper.lineBytes); for (const part of helper.lineParts) part.fill(0); helper.lineParts = []; helper.lineBytes = 0;
+      flushLine(helper, raw); raw.fill(0); start = at + 1;
     }
-    const serialized = JSON.stringify({flushDirectories:selected});
-    if (Buffer.byteLength(serialized,'utf8') > 65536) return reject(flushFailure('input_limit'));
-    const executable = path.join(process.env.SystemRoot || 'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
-    let child;
-    try { child = cp.spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(FLUSH_BOOTSTRAP,'utf16le').toString('base64')], {
-      env:{...process.env,RUYI_MANIFEST_PUBLISHER_SOURCE:Buffer.from(NATIVE).toString('base64')},windowsHide:true,stdio:['pipe','pipe','pipe'],
-    }); } catch { return reject(flushFailure('unavailable')); }
-    const output = [];
-    let bytes = 0, stderrBytes = 0, settled = false, spawned = false, forcedError = null, terminateTimer;
-    const finish = (error,value) => {
+    if (start < chunk.length) { flushLinePart(helper, chunk.subarray(start)); if (helper.lineBytes > FLUSH_LINE_LIMIT) flushOverflow(helper); }
+  });
+  child.stderr.on('data',chunk => { helper.stderrBytes += chunk.length; if (helper.stderrBytes > 8192) { flushRetire(helper); current()?.stop(flushFailure('output_limit',true)); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('output_limit',true)); } });
+  // Pipe faults are transport failures, not proof that the native helper stopped.
+  child.stdout.on('error',() => { flushRetire(helper); current()?.stop(flushFailure('pipe',true)); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('pipe',true)); });
+  child.stderr.on('error',() => { flushRetire(helper); current()?.stop(flushFailure('pipe',true)); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('pipe',true)); });
+  child.stdin.on('error',() => { flushRetire(helper); current()?.stop(flushFailure('pipe',true)); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('pipe',true)); });
+  child.on('close',code => {
+    helper.closed = true; helper.closeCode = code; flushRetire(helper);
+    for (const waiter of helper.closeWaiters.splice(0)) waiter(code);
+    for (const waiter of helper.waitingReady.splice(0)) waiter.closed();
+    current()?.closed(code);
+  });
+  return helper;
+}
+function flushLinePart(helper, part) { helper.lineBytes += part.length; if (helper.lineBytes <= FLUSH_LINE_LIMIT) helper.lineParts.push(Buffer.from(part)); }
+function flushOverflow(helper) {
+  for (const part of helper.lineParts) part.fill(0); helper.lineParts = []; helper.lineBytes = FLUSH_LINE_LIMIT + 1;
+  flushRetire(helper); helper.command?.stop(flushFailure('output_limit',true));
+  for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('output_limit',true));
+}
+// A retired helper never receives another command; a new one is spawned for the next flush.
+function flushRetire(helper) { helper.dead = true; if (flushHelper === helper) flushHelper = null; if (helper.idleTimer) { clearTimeout(helper.idleTimer); helper.idleTimer = null; } }
+function flushLine(helper, raw) {
+  let response;
+  try {
+    const bytes = raw.length && raw[raw.length - 1] === 13 ? raw.subarray(0, raw.length - 1) : raw, text = bytes.toString('utf8');
+    if (!Buffer.from(text).equals(bytes)) throw Error('utf8');
+    response = JSON.parse(text);
+  }
+  catch { flushRetire(helper); helper.command?.stop(flushFailure('unverifiable',true)); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('unverifiable',true)); return; }
+  if (!helper.ready) {
+    if (Object.keys(response || {}).sort().join(',') !== 'ready' || response.ready !== true) { flushRetire(helper); for (const waiter of helper.waitingReady.splice(0)) waiter.stop(flushFailure('unverifiable',true)); return; }
+    helper.ready = true; for (const waiter of helper.waitingReady.splice(0)) waiter.ready(); return;
+  }
+  const command = helper.command;
+  if (!command) { flushRetire(helper); return; } // Unsolicited output: never trust this helper again.
+  if (response && Object.keys(response).sort().join(',') === 'progress' && Number.isSafeInteger(response.progress) && response.progress > command.progress && response.progress <= 2 * command.selected.length) {
+    command.progress = response.progress; command.renew(); return;
+  }
+  command.reply(response);
+}
+function flushReady(helper) {
+  return new Promise((resolve, reject) => {
+    if (helper.ready) return resolve();
+    let settled = false, killTimer = null;
+    const done = (error) => { if (settled) return; settled = true; clearTimeout(timer); clearTimeout(killTimer); error ? reject(error) : resolve(); };
+    const waiter = {
+      ready:() => done(),
+      fail:error => done(error),
+      // The helper has not received any path yet: a confirmed close proves nothing ran.
+      closed:() => done(flushFailure('unavailable')),
+      stop:error => { if (settled) return; flushRetire(helper); killTimer = setTimeout(() => { error.helperMayStillRun = true; done(error); }, FLUSH_CLOSE_MS);
+        helper.closeWaiters.push(() => done(flushFailure('unavailable'))); try { helper.child.kill(); } catch { /* wait for close or the deadline */ } },
+    };
+    helper.waitingReady.push(waiter);
+    const timer = setTimeout(() => waiter.stop(flushFailure('timeout',true)), FLUSH_START_MS);
+    if (helper.closed) waiter.closed();
+  });
+}
+function flushCommand(helper, selected, serialized) {
+  return new Promise((resolve, reject) => {
+    let settled = false, forcedError = null, terminateTimer = null, timer = null, attemptedClose = false;
+    const finish = (error, value) => {
       if (settled) return; settled = true; clearTimeout(timer); clearTimeout(terminateTimer);
-      for (const part of output) part.fill(0); output.length = 0;
+      if (helper.command === command) helper.command = null;
       error ? reject(error) : resolve(value);
     };
     const stop = error => {
-      if (settled || forcedError) return; forcedError = error;
+      if (settled || forcedError) return; forcedError = error; flushRetire(helper); clearTimeout(timer);
       // Same ownership rule as publication: kill failure cannot release the host gate.
-      terminateTimer = setTimeout(() => {error.helperMayStillRun = true;finish(error);},2000);
-      try {child.kill();} catch { /* Wait for close or report a possibly live helper. */ }
+      terminateTimer = setTimeout(() => { error.helperMayStillRun = true; finish(error); }, FLUSH_CLOSE_MS);
+      if (helper.closed) return finish(error);
+      try { helper.child.kill(); } catch { /* Wait for close or report a possibly live helper. */ }
     };
-    const timer = setTimeout(() => stop(flushFailure('timeout',true)),20000);
-    child.once('spawn',() => {spawned = true;});
-    child.on('error',() => {
-      if (!spawned && !child.pid && !forcedError) finish(flushFailure('unavailable'));
-      else stop(flushFailure('process',true));
-    });
-    child.stdout.on('data',chunk => {
-      if (settled || forcedError) return; bytes += chunk.length;
-      if (bytes > 262144) return stop(flushFailure('output_limit',true));
-      output.push(Buffer.from(chunk));
-    });
-    child.stderr.on('data',chunk => {if (!settled && !forcedError) {stderrBytes += chunk.length;if (stderrBytes > 8192) stop(flushFailure('output_limit',true));}});
-    child.stdout.on('error',() => stop(flushFailure('pipe',true)));
-    child.stderr.on('error',() => stop(flushFailure('pipe',true)));
-    child.on('close',code => {
-      if (settled) return; if (forcedError) return finish(forcedError);
-      let response, raw;
-      try {raw = Buffer.concat(output,bytes);const text = raw.toString('utf8');if (!Buffer.from(text).equals(raw)) throw Error('utf8');response = JSON.parse(text);}
-      catch {return finish(flushFailure('unverifiable',true));} finally {raw?.fill(0);}
-      if (code !== 0 || !response || typeof response.ok !== 'boolean') return finish(flushFailure('unverifiable',true));
-      if (!response.ok) {
-        if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
-          || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return finish(flushFailure('unverifiable',true));
-        // 151 阶段 3A(150 号文 W1/W8):助手已经正常收尾并回了一份带类型的拒绝。flush 命令只开句柄、调
-        // FlushFileBuffers,从不改名字空间,所以这类拒绝是「确定没做成」而不是「可能做了一半」:
-        // nativeSettled 只说助手进程已结束,flushRefusal 只是原生码的复述,二者都不授予任何权限。
-        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;
-        error.nativeSettled = true;error.flushRefusal = response.code;return finish(error);
-      }
-      if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
-        || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
-        || !Array.isArray(response.directoryFlush) || response.directoryFlush.length !== selected.length || response.directoryFlush.some(code => code !== 0)) return finish(flushFailure('unverifiable',true));
-      finish(null,Object.freeze({ok:true,flushDirectories:Object.freeze(response.flushDirectories),directoryFlush:Object.freeze(response.directoryFlush)}));
-    });
-    child.stdin.on('error',() => stop(flushFailure('pipe',true)));
-    try {child.stdin.end(serialized + '\n');} catch {stop(flushFailure('pipe',true));}
+    const command = {
+      selected, progress:0,
+      renew() { if (settled || forcedError) return; clearTimeout(timer); timer = setTimeout(() => stop(flushFailure('timeout',true)), FLUSH_STALL_MS); },
+      stop, unavailable:() => finish(flushFailure('unavailable')),
+      closed(code) {
+        if (settled) return; if (forcedError) return finish(forcedError);
+        if (attemptedClose) return; // reply() owns a refusal's close.
+        finish(flushFailure('unverifiable',true));
+      },
+      reply(response) {
+        if (settled || forcedError) return;
+        if (!response || typeof response.ok !== 'boolean') return stop(flushFailure('unverifiable',true));
+        if (!response.ok) {
+          if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
+            || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return stop(flushFailure('unverifiable',true));
+          // 151 阶段 3A(150 号文 W8):助手已经正常收尾并回了一份带类型的拒绝。flush 命令只开句柄、调
+          // FlushFileBuffers,从不改名字空间,所以这类拒绝是「确定没做成」而不是「可能做了一半」:
+          // nativeSettled 只说助手进程已结束,flushRefusal 只是原生码的复述,二者都不授予任何权限。
+          // 常驻助手(3D):先让它正常退出并等到 close,nativeSettled 的含义保持不变。
+          const error = flushFailure(response.code,response.attempted); error.nativeCode = response.native;
+          attemptedClose = true; flushRetire(helper); clearTimeout(timer);
+          terminateTimer = setTimeout(() => { error.helperMayStillRun = true; finish(error); }, FLUSH_CLOSE_MS);
+          const settle = code => { if (code === 0) { error.nativeSettled = true; error.flushRefusal = response.code; finish(error); } else { stop(flushFailure('unverifiable',true)); } };
+          if (helper.closed) return settle(helper.closeCode);
+          helper.closeWaiters.push(settle);
+          try { helper.child.stdin.end(); } catch { stop(flushFailure('pipe',true)); }
+          return;
+        }
+        if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
+          || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
+          || !Array.isArray(response.directoryFlush) || response.directoryFlush.length !== selected.length || response.directoryFlush.some(code => code !== 0)) return stop(flushFailure('unverifiable',true));
+        finish(null,Object.freeze({ok:true,flushDirectories:Object.freeze(response.flushDirectories),directoryFlush:Object.freeze(response.directoryFlush)}));
+      },
+    };
+    helper.command = command; flushStats.commands++;
+    command.renew();
+    try { helper.child.stdin.write(serialized + '\n', error => { if (error) stop(flushFailure('pipe',true)); }); } catch { stop(flushFailure('pipe',true)); }
   });
+}
+async function flushRun(selected, serialized) {
+  let helper = flushHelper && !flushHelper.dead && !flushHelper.closed ? flushHelper : null;
+  if (helper && helper.idleTimer) { clearTimeout(helper.idleTimer); helper.idleTimer = null; }
+  if (!helper) {
+    try { helper = flushSpawn(); } catch { throw flushFailure('unavailable'); }
+    flushHelper = helper;
+  }
+  // v3(审查 R2-2):从选中/新起助手到这条命令结束,助手都标为占用;驻留期在此期间结束时,释放方跳过被占用的
+  // 助手,由这里的 finally 在命令结束后按当时的驻留状态收尾。
+  helper.reserved = (helper.reserved || 0) + 1;
+  try {
+    helper.setRef(true);
+    await flushReady(helper);
+    if (helper.dead || helper.closed) throw flushFailure('unavailable');
+    return await flushCommand(helper, selected, serialized);
+  } finally {
+    helper.reserved--;
+    if (flushHelper === helper && !helper.dead && !helper.closed && !helper.command && helper.reserved < 1) flushIdle(helper);
+  }
+}
+// v2:常驻只在显式的驻留期内(冷端维护操作用 holdResident() 包住整次操作)。驻留期外每条命令做完就让助手正常
+// 退出,与原来「一次一进程」的进程形状一致:普通 serve 不会多出一个空闲 15 s 的子进程(进程审计、进程谱系夹具
+// 都看得到它)。驻留期结束时空闲的助手立即退出。
+let residentHolds = 0;
+function flushIdle(helper) {
+  if (residentHolds < 1) { flushRetire(helper); try { helper.child.stdin.end(); } catch { /* exiting */ } return; }
+  helper.setRef(false);
+  helper.idleTimer = setTimeout(() => { helper.idleTimer = null; flushRetire(helper); try { helper.child.stdin.end(); } catch { /* exiting */ } }, FLUSH_IDLE_MS);
+  helper.idleTimer.unref?.();
+}
+function holdResident() {
+  residentHolds++; let released = false;
+  return () => {
+    if (released) return; released = true; residentHolds = Math.max(0, residentHolds - 1);
+    const helper = flushHelper;
+    if (residentHolds < 1 && helper && !helper.dead && !helper.closed && !helper.command && !(helper.reserved > 0)) {
+      if (helper.idleTimer) { clearTimeout(helper.idleTimer); helper.idleTimer = null; }
+      flushIdle(helper);
+    }
+  };
+}
+function invokeFlush(directories) {
+  if (process.platform !== 'win32') return Promise.reject(flushFailure('unsupported'));
+  let request;
+  try { request = flushSelect(directories); } catch (error) { return Promise.reject(error); }
+  // Commands are serialized: one helper runs one command at a time; a failure retires it.
+  const run = () => flushRun(request.selected, request.serialized);
+  const result = flushQueue.then(run, run);
+  flushQueue = result.catch(() => {});
+  return result;
 }
 
 // 151 阶段 3A(W8):把一次 flush 失败归成「卷不支持」「刷盘被拒」或「不确定」。只认本模块自己发出的、
@@ -11950,7 +12128,9 @@ function classifyFlushFailure(error) {
   } catch { return 'uncertain'; }
 }
 
-  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush, classifyFlushFailure });
+  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush, classifyFlushFailure, flushStats: () => Object.freeze({ ...flushStats }), holdResident,
+    // 一次刷盘的合法时长上界(起助手 + 停滞 + 关闭),13ai 的 arm 上限由它推出。
+    FLUSH_BOUND_MS: FLUSH_START_MS + FLUSH_STALL_MS + FLUSH_CLOSE_MS });
 })(require('node:child_process'), require('node:path'));
 
 if (process.platform === 'win32') WorkDataManifest.Hooks.publish = WorkDataNativePublish.create();
@@ -13488,6 +13668,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     return Object.assign(new Error(code, cause === undefined ? undefined : { cause }), { code, apiCode: code, statusCode: 409,
       ...limitDetails(kind, configured, areas) });
   }
+  // 151 阶段 3D v2(审查 L1):进程内「真实进展」计数。普查逐项、Node 端逐行核对、原生助手的心跳行与命令回复都会
+  // 推进它;独立校验子进程只在它前进时才给父进程发心跳,活着但卡在永不完成的等待上的子进程因此不会无限续期。
+  // 只是一个单调计数,不携带路径、内容或任何权限。
+  let progressCounter = 0;
+  const noteProgress = () => { progressCounter++; };
+  const progressCount = () => progressCounter;
   const digest = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
   const identity = stat => String(stat.dev) + ':' + String(stat.ino);
   const pathKey = name => process.platform === 'win32' ? name.toUpperCase() : name;
@@ -13505,13 +13691,13 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   }
   // Only an actual preserved owner may lend its already captured file bytes.
   // Tokens have no serializable authority; ordinary captures never enter here.
-  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap();
+  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap(), capturedFileIndex = new WeakMap();
   const capturedReadScope = new (require('node:async_hooks').AsyncLocalStorage)();
   function claimPreservedReadback(token, root, revision) {
     const known = preservedReadbacks.get(token);
     return !!known && known.root === root && known.revision === revision && preservedReadbacks.delete(token);
   }
-  function claimPreservedReadbackContext(token, root, revision) { const known=preservedReadbacks.get(token); if(!known || known.root!==root || known.revision!==revision) return null; preservedReadbacks.delete(token); return Object.freeze({candidateBoundary:known.candidateBoundary||null}); }
+  function claimPreservedReadbackContext(token, root, revision) { const known=preservedReadbacks.get(token); if(!known || known.root!==root || known.revision!==revision) return null; preservedReadbacks.delete(token); return Object.freeze({candidateBoundary:known.candidateBoundary||null,hashOnly:known.hashOnly===true}); }
   const fileKey = file => typeof file === 'string' && pathApi.isAbsolute(file) ? pathKey(pathApi.resolve(file)) : null;
   function currentCapturedFile(token, file) {
     const known = capturedFileLeases.get(token);
@@ -13551,7 +13737,15 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     const capture = preservedCaptures.get(captured), selected = fileKey(file);
     if (!capture || capture.ownership !== ownership || !selected) fail('captured_file_invalid');
     capture.admitSync(); await capture.admit(); capture.admitSync(); capture.check();
-    const row = captured.files.find(value => fileKey(pathApi.join(captured.root, ...value.path.split('/'))) === selected);
+    // 151 阶段 3D:同一份冻结的捕获按文件键索引一次(原来每次借出都对全部文件做路径拼接+线性查找,
+    // 10 万文件的编解码循环是平方级)。captured.files 是冻结数组,索引与它同生命周期(WeakMap)。
+    let byKey = capturedFileIndex.get(captured);
+    if (!byKey) {
+      byKey = new Map();
+      for (const value of captured.files) { const name = fileKey(pathApi.join(captured.root, ...value.path.split('/'))); if (!byKey.has(name)) byKey.set(name, value); }
+      capturedFileIndex.set(captured, byKey);
+    }
+    const row = byKey.get(selected);
     if (!row || !Buffer.isBuffer(row.data) || row.data.length > maxBytes) fail('captured_file_invalid');
     const bytes = Buffer.from(row.data);
     if (digest(bytes) !== row.sha256) { bytes.fill(0); fail('snapshot_changed'); }
@@ -13680,11 +13874,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     async function verify(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       const actual = await census(captured.root, false);
       if (JSON.stringify(proof(actual)) !== JSON.stringify(owned.proof)) fail('source_changed');
       if (owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       return Object.freeze({ bytes: actual.bytes, files: actual.files.length, directories: actual.directories.length,
         sha256: digest(JSON.stringify(owned.proof)), domainValidation: 'host-owner-required', nativeMetadata: 'host-owner-required' });
     }
@@ -13737,7 +13931,10 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       }
       if (current !== true) fail('preserved_owner_required');
     }
-    function parse(snapshot) {
+    // hashOnly(151 阶段 3D,W11):只为复核的普查,助手不回传内容,每个流只有 name/size/hash。只在本 reader
+    // 自己请求了(census 的 retain=false)时才接受这种形状;带内容的回复照旧逐字节解码并核对哈希。
+    const defaultSize = row => row.streams.find(stream => stream.name === '').size;
+    function parse(snapshot, hashOnly = false) {
       const data = [], rows = [], paths = new Set(), ids = new Set(); let used = 0, nativeBytes = 0, dirCount = 0, fileCount = 0, complete = false, failed=false, primary;
       try {
         if (!exactKeys(snapshot, 'entries,platform,revision,schema') || snapshot.schema !== 1
@@ -13746,6 +13943,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         if (snapshot.entries.length > files + directories + 1)
           throw engineeringLimit('entries', undefined, files + directories + 1);
         for (const entry of snapshot.entries) {
+          noteProgress();
           if (!exactKeys(entry, 'attrs,dir,id,opaque,rel,shortName,streams,times')
             || typeof entry.rel !== 'string' || entry.rel.length > pathLength
             || entry.rel && entry.rel.split('/').some(part => { validName(part); return false; })
@@ -13768,14 +13966,20 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           else if (++fileCount > files) throw engineeringLimit('files', undefined, files);
           const streams = new Set();
           for (const stream of entry.streams) {
-            if (!exactKeys(stream, 'data,hash,name,size') || typeof stream.name !== 'string' || stream.name.length > 1024
+            const contentless = hashOnly && exactKeys(stream, 'hash,name,size');
+            if (!contentless && !exactKeys(stream, 'data,hash,name,size') || typeof stream.name !== 'string' || stream.name.length > 1024
               || stream.name !== '' && !/^:[^:\\/*?"<>|\x00-\x1f]+:\$DATA$/.test(stream.name)
               || streams.has(stream.name.toUpperCase()) || entry.dir && stream.name === '' || !Number.isSafeInteger(stream.size)
               || stream.size < 0 || !/^[a-f0-9]{64}$/.test(stream.hash || '')
-              || typeof stream.data !== 'string' || stream.data.length !== 4 * Math.ceil(stream.size / 3)) fail('preserved_native_invalid');
+              || !contentless && (typeof stream.data !== 'string' || stream.data.length !== 4 * Math.ceil(stream.size / 3))) fail('preserved_native_invalid');
             streams.add(stream.name.toUpperCase()); nativeBytes += stream.size;
             if (stream.size > NATIVE_BUDGET.fileBytes) throw engineeringLimit('file-bytes');
             if (nativeBytes > nativeByteLimit) throw engineeringLimit('bytes', undefined, nativeByteLimit);
+            if (contentless) {
+              if (stream.name === '') { row.data = null; used += stream.size; if (used > bytes) fail('engineering_limit', limitDetails('bytes', bytes)); }
+              row.streams.push({ name: stream.name, size: stream.size, hash: stream.hash });
+              continue;
+            }
             const content = Buffer.from(stream.data, 'base64'); data.push(content);
             if (content.length !== stream.size || content.toString('base64') !== stream.data || hash(content) !== stream.hash) fail('preserved_native_invalid');
             if (stream.name === '') { row.data = content; used += content.length; if (used > bytes) fail('engineering_limit', limitDetails('bytes', bytes)); }
@@ -13803,19 +14007,20 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       let first, second, result, binding, bindingCompleted = false, accepting = true, success = false, failed = false, primary;
       async function bindFirst(snapshot) {
         if(snapshot?.revision!==firstRevision)fail('preserved_native_invalid');
-        first = parse(snapshot);
+        first = parse(snapshot, !retain);
         await admitted(root);
         result = { root, directories: [], files: [], bytes: first.used }; const bound = new Map(), verified = new Set();
         // All Node metadata/namespace checks precede the final, closed native
         // readback. No Node open/read/readdir occurs in this owner at all.
         for (const row of first.rows) {
+          noteProgress();
           const file = row.rel ? pathApi.join(root, ...row.rel.split('/')) : root;
           await realDirectory(row.dir ? file : pathApi.dirname(file), verified);
           const stat = await fsApi.lstat(file, { bigint: true });
           if (stat.isSymbolicLink() || row.dir !== stat.isDirectory() || !row.dir && (!stat.isFile() || stat.nlink !== 1n)
             || !samePath(await fsApi.realpath(file), file)) fail('path_alias');
           const nativeId = BigInt(stat.dev).toString(16).padStart(8, '0') + BigInt(stat.ino).toString(16).padStart(16, '0');
-          if (nativeId !== row.id || !row.dir && stat.size !== BigInt(row.data.length)) fail('source_changed');
+          if (nativeId !== row.id || !row.dir && stat.size !== BigInt(defaultSize(row))) fail('source_changed');
           bound.set(row.rel, identity(stat));
         }
         const children = new Map();
@@ -13829,7 +14034,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
             return aName < bName ? -1 : aName > bName ? 1 : 0;
           })) {
             if (row.dir) { result.directories.push({ path: row.rel, identity: bound.get(row.rel) }); walk(row.rel); }
-            else result.files.push({ path: row.rel, identity: bound.get(row.rel), size: row.data.length,
+            else result.files.push({ path: row.rel, identity: bound.get(row.rel), size: defaultSize(row),
               sha256: row.streams.find(stream => stream.name === '').hash, ...(retain ? { data: Buffer.from(row.data) } : {}) });
           }
         };
@@ -13843,7 +14048,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         return binding;
       };
       const readback = Object.freeze({ revision, bind });
-      preservedReadbacks.set(readback,{root,revision:firstRevision,candidateBoundary});
+      preservedReadbacks.set(readback,{root,revision:firstRevision,candidateBoundary,hashOnly:!retain});
       try {
         // The native producer may use one broker for both readings. Its first
         // response proves all captured handles closed before these Node checks,
@@ -13861,7 +14066,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           fail('preserved_native_invalid');
         }
         if(snapshot?.revision!==revision)fail('preserved_native_invalid');
-        second = parse(snapshot);
+        second = parse(snapshot, !retain && !!binding);
         if (second.nativeSha256 !== first.nativeSha256) fail('source_changed');
         // Only the actual owner assertion runs after final native close. It must
         // inspect its held lease, not reopen target data/namespace.
@@ -13898,11 +14103,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     async function verify(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       const actual = await census(captured.root, false, owned.boundary);
       if (JSON.stringify(proofOf(actual.result)) !== JSON.stringify(owned.proof)) fail('source_changed');
       if (owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       // Byte/identity verification keeps the original contract. A checkpoint
       // owner explicitly compares this actual metadata fingerprint with its
       // durable record; legitimate earlier preparation reads are not frozen.
@@ -13912,7 +14117,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     function fingerprint(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       return Object.freeze({ bytes: owned.proof.bytes, files: owned.proof.files.length, directories: owned.proof.directories.length,
         sha256: digest(JSON.stringify(owned.proof)), nativeSha256: owned.nativeSha256,
         domainValidation: 'host-owner-required', nativeMetadata: 'preserved-reader-closed' });
@@ -14071,7 +14276,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
     }),
   });
-  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope, rootScope, NATIVE_BUDGET, AREA_NAMES, engineeringLimit, limitAreas });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope, rootScope, NATIVE_BUDGET, AREA_NAMES, engineeringLimit, limitAreas, noteProgress, progressCount });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
 // A bounded completion record is metadata, never manifest authority. Snapshot
@@ -14234,6 +14439,8 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+  // 151 阶段 3D v3(审查 R2-1):逐项循环推进 01aa 的进程内进展计数,独立校验子进程据此证明「还在推进」。
+  const noteProgress = () => { try { if (typeof WorkDataTree === 'object' && WorkDataTree && typeof WorkDataTree.noteProgress === 'function') WorkDataTree.noteProgress(); } catch { /* progress is an optional observer */ } };
 const WorkDataOwnedRestoreUnknown=(()=>{
 'use strict';
 // Research helper: only inspect data descriptors; proxies/getters/cycles are
@@ -14394,7 +14601,7 @@ return Object.freeze({isUnknown,flags});
         return id;
       };
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
-      for (const file of files) {
+      for (const file of files) { noteProgress();
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
         // The exception is root-only, seal-only and byte/identity bound by the
         // real control owner's opaque token. All other control paths still enter
@@ -14477,7 +14684,7 @@ return Object.freeze({isUnknown,flags});
         else{portable=await owner.capturePortable(request);nativeProfile=portable.profile;disposable.push(portable);}
         aux.push({type:'skill-backup-portable',schema:1,sourcePath:native.sourcePath,sourceSha256:native.sourceSha256,data:portable.data});nativePlan={owner,request,portable,profile:nativeProfile};
       }
-      for (const file of files) {
+      for (const file of files) { noteProgress();
         if (headers.has(file.path)||nativeFiles.has(file.path)||resultFiles.has(file.path)) continue;
         const { prefix, logical } = namespace(file.path);
         if (/^external-bot-credentials\.json(?:$|[.-])/.test(ownerPath(logical))) {
@@ -14574,12 +14781,15 @@ return Object.freeze({isUnknown,flags});
         // crash leftovers and superseded roots; they remain untouched in place.
         const scoped=WorkDataTree.rootScope.partition(captured.files,captured.directories);
         const native=nativeSource(scoped.files,scoped.directories);checkAuthority(scoped.files,scoped.directories,generation,native);
-        const analyzed=await analyze(scoped.files,[],null,scoped.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
+        const analyzed=await analyze(scoped.files,[],null,scoped.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...scoped.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
-        await admission();const proof=await tree.verify(captured);
-        const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
+        await admission();
+        const sourceIdentity=async relative=>{noteProgress();const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
-        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);await tree.verify(captured);
+        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);
+        // 151 阶段 3D(150 号文 W11):整根复核只做这一次。analyze 与 recovery.seal 只读内存里的捕获、不碰源根,
+        // 原来在它们之后各做的一次整根复核被这一次覆盖(同一份捕获、同一把尺子;任何一步之后源根变了这里都拒)。
+        const proof=await tree.verify(captured);
         // The last physical census proves the selected authority files still
         // have the captured identities and bytes. Reparse that verified view
         // without a separate ordinary handle that could advance Access time.
@@ -14654,8 +14864,27 @@ return Object.freeze({isUnknown,flags});
           {const stat=await io.lstat(target,{bigint:true});if(stat.isDirectory()&&!stat.isSymbolicLink())createdIdentity=Object.freeze({dev:String(stat.dev),ino:String(stat.ino)});}
           await realDirectory(target);const needsRestoreFlush=nativeStage===null&&ownedRestoreFlush!==undefined,createdDirectories=[];const recordDirectory=async relative=>{const file=relative?p.join(target,...relative.split('/')):target,stat=await io.lstat(file,{bigint:true});if(!stat.isDirectory()||stat.isSymbolicLink())fail('target_alias');createdDirectories.push(Object.freeze({relative,identity:String(stat.dev)+':'+String(stat.ino)}));};if(needsRestoreFlush)await recordDirectory('');
           for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});if(needsRestoreFlush)await recordDirectory(relative);}
-          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
-            const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
+          // 151 阶段 3D(150 号文 W11):同一次恢复里一个父目录只证明一次是真目录(目标是本次新建、独占的私有树;
+          // 最后的整树捕获仍逐项核对别名);先把全部文件写完关闭,再按批(每批 16 个)逐文件 FlushFileBuffers ——
+          // 每个文件照旧刷盘,只是不再写一个刷一个。重开时核对文件身份,刷的一定是刚写的那个对象。
+          // v2(审查 L4):整链证明每个父目录只做一次,但每个文件写入前仍对它的直接父目录 lstat 一次并核对身份
+          // (不是目录、是重解析点或身份变了都按别名拒),把「证明之后被换成 junction」的窗口缩回到这一次 lstat。
+          // 每批刷盘用 allSettled:任何一个失败都要等同批其余句柄全部关闭后才抛出第一个错误。
+          const provenDirectories=new Map(),written=[];
+          const realParent=async directory=>{
+            const folded=keyOfPath(directory);let proven=provenDirectories.get(folded);
+            if(!proven){await realDirectory(directory);const stat=await io.lstat(directory,{bigint:true});proven={dev:stat.dev,ino:stat.ino};provenDirectories.set(folded,proven);}
+            const current=await io.lstat(directory,{bigint:true});
+            if(!current.isDirectory()||current.isSymbolicLink()||current.dev!==proven.dev||current.ino!==proven.ino)fail('target_alias');
+          };
+          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realParent(p.dirname(destination));
+            noteProgress();const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);const stat=await handle.stat({bigint:true});written.push({destination,dev:stat.dev,ino:stat.ino});}finally{await handle.close();}
+          }
+          for(let index=0;index<written.length;index+=16){
+            const settled=await Promise.allSettled(written.slice(index,index+16).map(async row=>{
+              noteProgress();const handle=await io.open(row.destination,'r+');try{const stat=await handle.stat({bigint:true});if(stat.dev!==row.dev||stat.ino!==row.ino)fail('target_alias');await handle.sync();}finally{await handle.close();}
+            }));
+            const rejected=settled.find(result=>result.status==='rejected');if(rejected)throw rejected.reason;
           }
           if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
           if(needsRestoreFlush){await targetAdmission();try{await ownedRestoreFlush({target,source:base,ownership:targetOwnership,records:createdDirectories});}catch(cause){restoreBarrierUncertain=WorkDataOwnedRestoreUnknown.isUnknown(cause);throw cause;}await targetAdmission();}
@@ -14940,11 +15169,15 @@ const WorkDataMigrationHost = ((io,p,c) => {
       });
     }
     function codecGrant(plan,captured) {
+      // 151 阶段 3D:按折叠后的路径建一次索引(原来每次授予都线性扫两份清单,10 万文件是平方级)。
+      // 同名折叠冲突在普查里已被拒(namespace_conflict),所以「第一个命中」与原来的 find 语义一致。
+      const index=rows=>{const map=new Map();for(const row of rows){const folded=key(row.path);if(!map.has(folded))map.set(folded,row);}return map;};
+      const priors=index(plan.sourceProof.sourceFiles),capturedRows=index(captured.files);
       return async file=>{
         if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
         const name=p.relative(base,file).split(p.sep).join('/'),relative=p.relative(captured.root,file).split(p.sep).join('/');
-        const prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name));
-        const row=captured.files.find(row=>key(row.path)===key(relative));
+        const prior=priors.get(key(name));
+        const row=capturedRows.get(key(relative));
         if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
         const stat=await io.lstat(file,{bigint:true});
         if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))
@@ -14965,7 +15198,29 @@ const WorkDataMigrationHost = ((io,p,c) => {
         });
       }};
     }
+    // 151 阶段 3D(150 号文 W11):旧的明文根(第 0 代)以前对每一个编解码行各做一遍整根捕获+整根复核
+    // (每行两次整根原生普查,1 万个会话就是 2 万次整根普查)。这里改成整轮只捕获一次:候选代已经分配,
+    // 捕获带着候选边界(候选子树只作为一个不透明的边界对象出现,循环里写进候选的东西不改变这份证明);
+    // 循环前做一次 validateSource,全部读取在同一个 readCapturedScope 里,作用域结束时整根复核一次,
+    // 复核不过就抛错 —— 与已发布代的分支(下面)同一种「一次捕获、离开前闭合整份物理证明」的形状。
+    // 循环里只有候选子树被写入;源根其余部分(含意向文件)在循环中不变,变了就在最后的复核里被拒。
+    function legacyTransformSourceScope(plan,work){
+      return (async()=>{
+        await current(plan.expected);await assertPlanIntent(plan);
+        return usingSource(await capturePlanBase(plan),async captured=>{
+          await validateSource(plan,captured);
+          const grant=codecGrant(plan,captured);
+          const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work({
+            withSourceReadScope:async read=>{await current(plan.expected);await assertPlanIntent(plan);return read(grant);},
+          }));
+          // v2(审查):不再在这里第二次 validateSource —— 它核对的仍是同一份内存捕获。离开 readCapturedScope 时
+          // 已对源根做了整根复核(与捕获逐项比对身份、大小、哈希,并比对原生指纹),源根的任何变化都在那里被拒。
+          return result;
+        });
+      })();
+    }
     function transformSourceScope(plan,work){
+      if(preservedRead!==undefined&&plan.expected.id===null&&plan.candidate&&typeof manifest.candidateBoundary==='function')return legacyTransformSourceScope(plan,work);
       if(preservedRead===undefined||plan.expected.id===null)return work(codecSourceScope(plan));
       // A published generation is disjoint from all writes in this loop. Use
       // its existing capture and close the full physical proof before advancing.
@@ -103430,13 +103685,19 @@ public static class RuyiSkillCapsule {
   }
   static string Hash(byte[] bytes) { using (SHA256 hash = SHA256.Create()) return BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant(); }
   static void Rewind(SafeFileHandle handle) { long position; Check(SetFilePointerEx(handle, 0, out position, 0)); }
+  // 151 阶段 3D(150 号文 W12):长命令心跳。距上一行超过 1 s 才写一行 {"progress":n};Node 端只用它给「这条命令
+  // 还在推进」续期,不改变任何回复的形状或判定。n 是本进程里推进点的累计数(单调递增)。
+  static readonly System.Diagnostics.Stopwatch BeatClock = System.Diagnostics.Stopwatch.StartNew();
+  static long BeatCount = 0;
+  static bool BeatEnabled = false;
+  static void Beat() { BeatCount++; if (!BeatEnabled || BeatClock.ElapsedMilliseconds < 1000) return; BeatClock.Restart(); Console.Out.WriteLine("{\"progress\":" + BeatCount + "}"); Console.Out.Flush(); }
   static byte[] Read(SafeFileHandle handle) {
     long size; Check(GetFileSizeEx(handle, out size));
     if (size < 0 || size > MaxBytes) Reject("archive_limit");
     byte[] result = new byte[(int)size]; Rewind(handle);
     int used = 0;
     while (used < result.Length) {
-      byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;
+      Beat(); byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;
       Check(ReadFile(handle, buffer, (uint)buffer.Length, out got, IntPtr.Zero));
       if (got == 0) Reject("source_changed");
       Buffer.BlockCopy(buffer, 0, result, used, (int)got); used += (int)got;
@@ -103448,7 +103709,7 @@ public static class RuyiSkillCapsule {
   static void Write(SafeFileHandle handle, byte[] bytes) {
     Rewind(handle); int offset = 0;
     while (offset < bytes.Length) {
-      byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];
+      Beat(); byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];
       Buffer.BlockCopy(bytes, offset, buffer, 0, buffer.Length); uint wrote;
       Check(WriteFile(handle, buffer, (uint)buffer.Length, out wrote, IntPtr.Zero));
       if (wrote == 0) Reject("write_failed"); offset += (int)wrote;
@@ -103653,7 +103914,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void Walk(string path, string rel, List<object> entries, bool capture, bool preserved = false, SafeFileHandle parent = null, string name = null) {
-    path=NativePath(path);
+    path=NativePath(path); Beat();
     if (entries.Count >= MaxEntries) { if (DataRootBudget) { AreaAdd(rel, 1, 0); BudgetReject("census_entries_limit"); } Reject("archive_limit"); }
     if (rel.Split('/').Length > 256) { if (DataRootBudget) BudgetReject("census_depth_limit"); Reject("archive_limit"); }
     Node node = new Node();
@@ -103686,8 +103947,9 @@ public static class RuyiSkillCapsule {
           }
           byte[] bytes = Read(handle); TotalBytes += bytes.Length; AreaAdd(rel, 0, bytes.Length);
           if (TotalBytes > MaxTotal) { if (DataRootBudget) BudgetReject("census_bytes_limit"); Reject("archive_limit"); }
-          AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));
-          streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });
+          if (HashOnly) { AddTransport(192 + JsonBytes(streamName)); streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) } }); }
+          else { AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));
+          streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } }); }
           Array.Clear(bytes, 0, bytes.Length);
         }
       }
@@ -103824,7 +104086,7 @@ public static class RuyiSkillCapsule {
   static void Verify(bool cleared, bool exact) {
     List<Node> expected = Expected(); if (exact && expected.Count != Nodes.Count) Reject("entry_set_changed");
     VerifyEntries(expected);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       if (Id(node.Handle) != Str(node.Entry["id"])) Reject("identity_changed");
       List<string> current = StreamNames(node), names = new List<string>();
       foreach (object raw in (IEnumerable)node.Entry["streams"]) names.Add(Str(Dict(raw)["name"]));
@@ -103853,7 +104115,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyOriginalLayout() {
     if (!String.Equals(PathOf(RootNode().Handle), OriginalRoot, StringComparison.OrdinalIgnoreCase)) Reject("root_changed");
-    foreach (Node node in Expected()) {
+    foreach (Node node in Expected()) { Beat();
       string rel = Str(node.Entry["rel"]);
       string expected = rel == "" ? OriginalRoot : System.IO.Path.Combine(OriginalRoot, rel.Replace('/', '\\'));
       if (!String.Equals(PathOf(node.Handle), expected, StringComparison.OrdinalIgnoreCase)) Reject("entry_set_changed");
@@ -103867,7 +104129,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyRestorable(Dictionary<string,object> alternate = null) {
     List<Node> expected = Expected(); VerifyEntries(expected);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       Dictionary<string,object> streams = new Dictionary<string,object>();
       foreach (object raw in (IEnumerable)node.Entry["streams"]) streams.Add(Str(Dict(raw)["name"]), raw);
       foreach (string name in StreamNames(node)) {
@@ -103892,7 +104154,7 @@ public static class RuyiSkillCapsule {
     List<Node> expected = Expected(); if (expected.Count != Nodes.Count) Reject("entry_set_changed");
     VerifyOriginalLayout();
     Verify(false, true);
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       List<string> allowed = new List<string>(); foreach (object raw in (IEnumerable)node.Entry["streams"]) allowed.Add(Str(Dict(raw)["name"]));
       foreach (string name in StreamNames(node)) if (!allowed.Contains(name)) Reject("stream_set_changed");
     }
@@ -103905,7 +104167,7 @@ public static class RuyiSkillCapsule {
     catch { RestoreBasic(expected); throw; }
     VerifyOriginalLayout(); Verify(false,true);
     expected.Sort(delegate(Node a, Node b) { return Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length); });
-    foreach (Node node in expected) {
+    foreach (Node node in expected) { Beat();
       if (!String.Equals(PathOf(RootNode().Handle), OriginalRoot, StringComparison.OrdinalIgnoreCase)) Reject("root_changed");
       string rel = Str(node.Entry["rel"]);
       string expectedPath = rel == "" ? OriginalRoot : System.IO.Path.Combine(OriginalRoot, rel.Replace('/', '\\'));
@@ -103940,7 +104202,7 @@ public static class RuyiSkillCapsule {
   }
   static void Flatten(List<Node> expected,bool root) {
     expected.Sort(delegate(Node a,Node b){return PathOf(b.Handle).Length.CompareTo(PathOf(a.Handle).Length);});
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       if(!root && Str(node.Entry["rel"])=="") continue;
       VerifyEntries(expected);
       Step="flatten-node"; Rename(node,Str(node.Entry["opaque"]),Capsule); SetAlias(node,"");
@@ -103950,7 +104212,7 @@ public static class RuyiSkillCapsule {
     expected.Sort(delegate(Node a,Node b){return Str(a.Entry["rel"]).Length.CompareTo(Str(b.Entry["rel"]).Length);});
     Dictionary<string,Node> parents=new Dictionary<string,Node>();
     foreach(Node node in expected) parents.Add(Str(node.Entry["rel"]),node);
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       string rel=Str(node.Entry["rel"]); if(rel=="") continue;
       VerifyEntries(expected);
       int slash=rel.LastIndexOf('/');string parentRel=slash<0?"":rel.Substring(0,slash);
@@ -103962,7 +104224,7 @@ public static class RuyiSkillCapsule {
   }
   static void VerifyNames(string root,bool rootAlias) {
     root=NativePath(root);
-    foreach(Node node in Expected()) {
+    foreach(Node node in Expected()) { Beat();
       string rel=Str(node.Entry["rel"]),target=rel==""?root:System.IO.Path.Combine(root,rel.Replace('/','\\'));
       if(!String.Equals(PathOf(node.Handle),target,StringComparison.OrdinalIgnoreCase)) Reject("entry_set_changed");
       if((rootAlias || rel!="") && !String.Equals(ShortName(node.Handle),Str(node.Entry["shortName"]),StringComparison.OrdinalIgnoreCase)) Reject("short_name_changed");
@@ -103977,7 +104239,7 @@ public static class RuyiSkillCapsule {
     Step="restore-root";
     using(SafeFileHandle parent=Open(System.IO.Path.GetDirectoryName(Str(args["target"])))) Rename(RootNode(),System.IO.Path.GetFileName(Str(args["target"])),parent);
     SetAlias(RootNode(),""); Assemble(expected);
-    foreach(Node node in expected) {
+    foreach(Node node in expected) { Beat();
       foreach(object raw in (IEnumerable)node.Entry["streams"]) {
         Dictionary<string,object> stream=Dict(raw);string name=Str(stream["name"]);
         byte[] bytes=Convert.FromBase64String(Str(stream["data"]));
@@ -104033,7 +104295,7 @@ public static class RuyiSkillCapsule {
     bool publishExactBasic=exactOption is bool&&(bool)exactOption;
     Verify(false,true); CheckPublication(args);
     Node root=RootNode();
-    foreach(Node node in Nodes.Values) {
+    foreach(Node node in Nodes.Values) { Beat();
       foreach(SafeFileHandle stream in node.Streams.Values) stream.Dispose();node.Streams.Clear();
       if(node!=root) node.Handle.Dispose();
     }
@@ -104071,7 +104333,7 @@ public static class RuyiSkillCapsule {
     Close(true);
   }
   static void Close(bool certify = false) {
-    foreach (Node node in Nodes.Values) {
+    foreach (Node node in Nodes.Values) { Beat();
       foreach (SafeFileHandle stream in node.Streams.Values) {
         if(certify)ClosePreservedTemporary(stream);else stream.Dispose();
       }
@@ -104416,7 +104678,7 @@ public static class RuyiSkillCapsule {
   // and can also mask a concurrent writer. Keep every captured field in the
   // proof and reject a difference on the already held handles.
   static void VerifyCapturedBasicUnchanged(List<Node> nodes) {
-    foreach(Node node in nodes) {
+    foreach(Node node in nodes) { Beat();
       List<string> times = new List<string>(); foreach(object raw in (IEnumerable)node.Entry["times"]) times.Add(Str(raw));
       Basic actual=BasicOf(node.Handle);
       if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1]
@@ -104424,9 +104686,14 @@ public static class RuyiSkillCapsule {
         || actual.Attr!=Convert.ToUInt32(node.Entry["attrs"])) Reject("metadata_changed");
     }
   }
+  // 151 阶段 3D(150 号文 W11):只为复核的普查(content="hash")不回传内容,只回每个流的大小与 SHA-256;
+  // 句柄、元数据、整树复读与哈希核对与带内容的普查完全相同。只由 Node 端只读复核路径请求。
+  static bool HashOnly=false;
   static object CapturePreserved(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     Exception primary=null;
+    object content=null;HashOnly=args.TryGetValue("content",out content)&&content is string&&(string)content=="hash";
+    if(content!=null&&!HashOnly)Reject("census_content");
     try {BoundaryInit(args);return Capture(args,true);}
     catch(Exception error) {primary=error;throw;}
     finally {
@@ -104437,7 +104704,7 @@ public static class RuyiSkillCapsule {
         if(primary==null)throw;
         primary.Data["preservedMetadataVerificationFailed"]=verificationError.GetType().Name;
       }
-      finally {try {BoundaryClose(primary==null);} catch(Exception closeError) {if(BoundaryHandle!=null || closeError.Message=="census_first_close_unverified")throw new InvalidOperationException("census_first_close_unverified",primary??closeError);throw;} finally {PreserveTimeHandles=previous;}}
+      finally {try {BoundaryClose(primary==null);} catch(Exception closeError) {if(BoundaryHandle!=null || closeError.Message=="census_first_close_unverified")throw new InvalidOperationException("census_first_close_unverified",primary??closeError);throw;} finally {PreserveTimeHandles=previous;HashOnly=false;}}
     }
   }
   static object ReadPreservedControl(Dictionary<string,object> args) {
@@ -104580,7 +104847,7 @@ public static class RuyiSkillCapsule {
     var guards=new Dictionary<string,SafeFileHandle>(StringComparer.Ordinal);
     string rootPath=NativePath(root),parentPath=System.IO.Path.GetDirectoryName(rootPath);
     try {
-      foreach(Node node in nodes) {
+      foreach(Node node in nodes) { Beat();
         string path=PathOf(node.Handle);
         var witness=OpenPreservedHandle(null,null,path,0x00100180u,7);
         witnesses.Add(witness);
@@ -104596,7 +104863,7 @@ public static class RuyiSkillCapsule {
       // DATA handles require delete sharing during creation. Now lock the
       // verified parent and the whole target tree against rename before writes.
       using(var parent=OpenPortableBasicGuard(null,null,parentPath,parentId)) {
-        foreach(Node node in nodes) {
+        foreach(Node node in nodes) { Beat();
           string rel=Str(node.Entry["rel"]),path=rel==""?rootPath:System.IO.Path.Combine(rootPath,rel.Replace('/','\\'));
           int slash=rel.LastIndexOf('/');
           SafeFileHandle containing=rel==""?parent:guards[slash<0?"":rel.Substring(0,slash)];
@@ -104702,7 +104969,7 @@ public static class RuyiSkillCapsule {
   }
 
   public static void Run() {
-    Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
+    Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false); BeatEnabled = true;
     int censusPhase=0,commands=0;string censusRoot=null,censusRevision=null;
     try {
       string line;
@@ -104803,7 +105070,7 @@ function migrationCapsuleDescriptor(backup) {
     scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]),
     ...(migrationBackupAuthority?.variants.get(rel[0] + '/' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1])) || {}) };
 }
-function migrationCapsuleShape(snapshot) {
+function migrationCapsuleShape(snapshot, hashOnly = false) {
   // Literal bounds (= MIGRATION_CENSUS_BUDGET entries/bytes): fixtures slice this function alone.
   const maxEntries = 200001, maxBytes = 120 * 1024 * 1024;
   if (!snapshot || snapshot.schema !== 1 || snapshot.platform !== 'ntfs-objects-v1'
@@ -104832,11 +105099,13 @@ function migrationCapsuleShape(snapshot) {
       if (!stream || typeof stream.name !== 'string' || stream.name.length > 1024
           || stream.name !== '' && !/^:[^:\\/*?"<>|\x00-\x1f]+:\$DATA$/.test(stream.name)
           || entry.dir && stream.name === '' || !Number.isSafeInteger(stream.size) || stream.size < 0
-          || !/^[a-f0-9]{64}$/.test(stream.hash || '') || typeof stream.data !== 'string'
-          || stream.data.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(stream.data)) return false;
+          || !/^[a-f0-9]{64}$/.test(stream.hash || '') || (hashOnly ? Object.keys(stream).sort().join(',') !== 'hash,name,size' : typeof stream.data !== 'string'
+          || stream.data.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(stream.data))) return false;
       const streamKey = stream.name.toLowerCase();
       if (streams.has(streamKey)) return false;
       streams.add(streamKey);
+      // 3D:只为复核的普查没有内容可解码,大小与哈希由助手在同一次整树复读里核对过。
+      if (hashOnly) { total += stream.size; if (total > maxBytes) return false; continue; }
       const bytes = Buffer.from(stream.data, 'base64');
       const valid = bytes.length === stream.size && bytes.toString('base64') === stream.data
         && crypto.createHash('sha256').update(bytes).digest('hex') === stream.hash;
@@ -105432,6 +105701,15 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
 const migrationCapsuleIssuedChildren = new Set();
 const migrationCapsuleBrokerChildren = new WeakMap();
 async function migrationCapsuleBroker() {
+  // 151 阶段 3D(W12):原生命令的停滞上限(两次进展之间的最长间隔),以及类型化超时详情。放在函数体内:
+  // 夹具会单独切出本函数运行。
+  // v2(审查 L2):心跳续期之外,每条命令另有一个兜底总上限,按普查预算推算:10 分钟 + 每个预算条目 50 ms
+  // (200,001 条目约 2.9 h)。到点按同一个类型化 native_timeout 报,timeout.kind 为新增值 'ceiling'。
+  const MIGRATION_NATIVE_STALL_MS = 120000, MIGRATION_NATIVE_CEILING_MS = 600000 + 200001 * 50;
+  const migrationNativeTimeoutDetails = (command, issuedAt, heartbeats, ceiling = false) => ({ retry: false, timeout: Object.freeze({ kind: ceiling ? 'ceiling' : heartbeats > 0 ? 'stalled' : 'no-progress', command,
+    stallSeconds: MIGRATION_NATIVE_STALL_MS / 1000, elapsedSeconds: Math.max(0, Math.round((Date.now() - issuedAt) / 1000)), heartbeats }) });
+  // v2(审查 L1):助手的心跳行与命令回复都是真实进展,推进 01aa 的进程内进展计数(独立校验子进程据此发心跳)。
+  const noteProgress = () => { try { if (typeof WorkDataTree === 'object' && WorkDataTree && typeof WorkDataTree.noteProgress === 'function') WorkDataTree.noteProgress(); } catch { /* optional observer */ } };
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
     return Object.assign(new Error(code), { code, apiCode: code, statusCode: 503,
@@ -105448,6 +105726,8 @@ async function migrationCapsuleBroker() {
     child = require('node:child_process').spawn(code?.executable || 'powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code?.bootstrap || bootstrap, 'utf16le').toString('base64')], {
       env: code?.env || { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      // v2(审查 L3):助手不继承宿主的当前目录,否则它活着时宿主 cwd 所在目录无法改名/删除。
+      cwd: require('node:path').win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
   migrationCapsuleIssuedChildren.add(child);const candidateChildObservation={child,closeObserved:false,closeCode:null,closeSignal:null};child.once('close',(code,signal)=>{candidateChildObservation.closeObserved=true;candidateChildObservation.closeCode=code;candidateChildObservation.closeSignal=signal;});
@@ -105463,7 +105743,7 @@ async function migrationCapsuleBroker() {
     if (settled) return;
     settled = true; timers.clearTimeout(settleTimer); output = []; outputBytes = 0;
     if (pending) {
-      const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+      const entry = pending; pending = null; timers.clearTimeout(entry.timer); timers.clearTimeout(entry.ceiling);
       entry.reject(error || failure('native_exit'));
     }
     resolveClosed(error);
@@ -105478,10 +105758,17 @@ async function migrationCapsuleBroker() {
       finish(failure('native_helper_uncertain', firstError, true));
     }, 2000);
   };
-  const stop = (suffix, cause) => {
+  // 151 阶段 3D(W12):正常关闭时助手要逐个释放全部句柄(1 万个对象在负载下要好几秒)。关闭期间助手的心跳行
+  // (只认递增的 {"progress":n})给这 2 s 的关闭窗口续期;2 s 内没有任何心跳才判关不掉、助手不确定。
+  let closeProgress = 0;
+  const renewClose = progress => {
+    if (settled || stopping || settleTimer === null || !Number.isSafeInteger(progress) || progress <= closeProgress) return;
+    closeProgress = progress; const expired = settleTimer; settleTimer = null; timers.clearTimeout(expired); boundClose();
+  };
+  const stop = (suffix, cause, details) => {
     if (settled || stopping) return;
-    stopping = true; firstError ||= failure(suffix, cause);
-    if (pending) timers.clearTimeout(pending.timer);
+    stopping = true; firstError ||= details ? Object.assign(failure(suffix, cause), details) : failure(suffix, cause);
+    if (pending) { timers.clearTimeout(pending.timer); timers.clearTimeout(pending.ceiling); }
     output = []; outputBytes = 0; boundClose(); kill();
   };
   child.on('spawn', () => { spawned = true; });
@@ -105517,10 +105804,22 @@ async function migrationCapsuleBroker() {
         if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { stop('native_limit'); return; }
         if (index === parts.length - 1) break;
         const line = output.join(''); output = []; outputBytes = 0;
-        if (!pending) continue;
+        if (!pending) {
+          if (closing && line.length <= 64) {
+            let beat = null; try { beat = JSON.parse(line); } catch { /* not a heartbeat */ }
+            if (beat && typeof beat === 'object' && !Array.isArray(beat) && Object.keys(beat).length === 1) { noteProgress(); renewClose(beat.progress); }
+          }
+          continue;
+        }
         let response;
         try { response = JSON.parse(line); } catch { stop('native_unavailable'); return; }
-        const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+        // 151 阶段 3D(W12):心跳行只给当前命令续期,从不结算它;计数必须单调递增。
+        if (response && typeof response === 'object' && !Array.isArray(response) && Object.keys(response).length === 1
+          && Number.isSafeInteger(response.progress) && response.progress > pending.progress) {
+          pending.progress = response.progress; pending.heartbeats++; noteProgress(); timers.clearTimeout(pending.timer);
+          pending.timer = timers.setTimeout(pending.expire, MIGRATION_NATIVE_STALL_MS); continue;
+        }
+        const entry = pending; pending = null; timers.clearTimeout(entry.timer); timers.clearTimeout(entry.ceiling); noteProgress();
         if (response?.ok === true) entry.resolve(response.value);
         else {
           const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
@@ -105541,11 +105840,18 @@ async function migrationCapsuleBroker() {
     if (pending || closing || stopping || settled || migrationCapsuleBroker.helperMayStillRun === true) {
       reject(migrationCapsuleBroker.helperMayStillRun === true ? failure('native_helper_uncertain', firstError, true) : failure('native_exit')); return;
     }
+    // 151 阶段 3D(150 号文 W12):不再是「一条命令最多 120 s」,而是「120 s 内没有任何进展」。助手在长命令里每
+    // 1 s 回一行心跳(见 C# Beat),每一行都给这条命令续期;真的卡住才超时。超时码带类型化的 timeout 详情
+    // (种类、命令名、停滞秒数、已用秒数、收到的心跳数),只含固定枚举与十进制数,不含路径或自由文本。
+    // 首个窗口与之后每次续期都是 120 s(= MIGRATION_NATIVE_STALL_MS);首个窗口含代码准备耗时。
     const remaining = firstCommand ? Math.ceil(120000 - Number(process.hrtime.bigint() - startedAt) / 1e6) : 120000;
     firstCommand = false;
-    if (remaining <= 0) { stop('native_timeout'); reject(firstError); return; }
-    const timer = timers.setTimeout(() => stop('native_timeout'), remaining);
-    pending = { resolve, reject, timer };
+    const name = typeof args?.cmd === 'string' && /^[a-z-]{1,48}$/.test(args.cmd) ? args.cmd : 'unknown', issuedAt = Date.now();
+    const expire = () => stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, pending?.heartbeats || 0));
+    if (remaining <= 0) { stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, 0)); reject(firstError); return; }
+    const timer = timers.setTimeout(expire, remaining);
+    const ceiling = timers.setTimeout(() => stop('native_timeout', undefined, migrationNativeTimeoutDetails(name, issuedAt, pending?.heartbeats || 0, true)), MIGRATION_NATIVE_CEILING_MS);
+    pending = { resolve, reject, timer, ceiling, expire, progress: 0, heartbeats: 0 };
     try {
       child.stdin.write(JSON.stringify(args) + '\n', cause => { if (cause) stop('native_pipe', cause); });
     } catch (cause) { stop('native_pipe', cause); }
@@ -105800,7 +106106,7 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
   const paired=readback!==undefined,budget=migrationCensusBudget(root);
   const readbackContext=paired?(typeof WorkDataTree.claimPreservedReadbackContext==='function'?WorkDataTree.claimPreservedReadbackContext(readback,root,revision):(WorkDataTree.claimPreservedReadback(readback,root,revision)?{candidateBoundary:null}:null)):null;
   if(paired&&!readbackContext)migrationCapsuleFail('census_scope');
-  const candidateBoundary=readbackContext?.candidateBoundary||null;
+  const candidateBoundary=readbackContext?.candidateBoundary||null,hashOnly=readbackContext?.hashOnly===true,content=hashOnly?{content:'hash'}:{};
   const {revision:finalRevision,bind}=readback||{};
   if(paired&&(!readback||!Object.isFrozen(readback)||Object.keys(readback).sort().join(',')!=='bind,revision'||typeof bind!=='function'
     ||!/^[a-f0-9]{64}$/.test(revision)||!/^[a-f0-9]{64}$/.test(finalRevision)||finalRevision===revision))migrationCapsuleFail('census_scope');
@@ -105819,11 +106125,11 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       return Object.assign(new Error(code,{cause}),{code,apiCode:code,statusCode:503,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
     };
     let first;
-    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,budget,...(candidateBoundary?{candidateBoundary}:{})});}
+    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision,budget,...content,...(candidateBoundary?{candidateBoundary}:{})});}
     catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     migrationCensusBudgetCheck(first?.snapshot,budget);
     if(!first||Object.keys(first).sort().join(',')!=='closedHandles,revision,snapshot'||first.revision!==revision
-      ||!migrationCapsuleShape(first.snapshot)||first.snapshot.revision!==revision
+      ||!migrationCapsuleShape(first.snapshot,hashOnly)||first.snapshot.revision!==revision
       ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0)+(candidateBoundary?1:0))throw unverified();
     // The first handles are closed. Bound the now-idle helper even if Node's
     // identity checks are delayed, and still wait for the checks to settle.
@@ -105832,14 +106138,14 @@ async function migrationCapsuleCapturePreserved(root, revision, readback) {
       const code='work_data_backup.census_idle_timeout';
       idleError=Object.assign(new Error(code),{code,apiCode:code,statusCode:503,retry:false});
       idleClose=Promise.resolve().then(()=>broker.close());idleClose.catch(()=>{});
-    },120000);
+    },Math.max(120000,50*first.snapshot.entries.length)); // 3D(W12):Node 端逐项核对(lstat/realpath,新建文件首次打开会被实时防护扫描)随规模变长:每项 50 ms,不少于 120 s;助手此时已证明不持有任何句柄。
     try{await bind(first.snapshot);}
     catch(cause){if(idleError)throw Object.assign(new AggregateError([cause,idleError],idleError.code,{cause}),{code:idleError.code,retry:false});throw cause;}
     finally{timers.clearTimeout(timer);}
     if(idleError)throw idleError;
-    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,budget,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    try{final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision,budget,...content,...(candidateBoundary?{candidateBoundary}:{})});}catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
     migrationCensusBudgetCheck(final,budget);
-    if(!migrationCapsuleShape(final)||final.revision!==finalRevision)migrationCapsuleFail('shape');
+    if(!migrationCapsuleShape(final,hashOnly)||final.revision!==finalRevision)migrationCapsuleFail('shape');
   }catch(cause){failed=true;primary=cause;}
   try{await (idleClose||broker.close());}catch(cause){
     if(!failed)throw cause;
@@ -115639,6 +115945,18 @@ Object.assign(WorkDataSetupHooks,workDataSetup);
 // execute(); the TEMP handoff claim is metadata only and widens no authority.
 const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
+  // 151 阶段 3D(150 号文 W12):握手的固定超时改成「多久没有心跳」。父进程在 ready 之后、go 之前每 BEAT_MS
+  // 发 hold,子进程等 go 的计时随之续期(总等待另有 HOLD_MAX_MS 上限);子进程收到 go 之后、回 armed 之前每
+  // BEAT_MS 发 arming,父进程的 arm 计时随之续期。只有真的没有心跳才超时;arm 阶段的超时仍按「已承诺」报不确定。
+  // arm 阶段只有一条承诺记录的写入与刷盘,工作量与数据根规模无关:心跳只证明子进程事件循环还活着,所以另设与规模
+  // 无关的总上限 ARM_MAX_MS(v2,审查 L1),到点即按已承诺报不确定,活着却永不结束的子进程不能无限续期。
+  // v3(审查 R2-3):arm 在驻留期外,子进程只写 committed 一条记录(owned 在 armed 之后才写),按一次 claim 写入
+  // 最多刷两次盘计(审查第三轮更正了此前「committed 与 owned 两条记录」的说法),每次刷盘的合法上界是 01w 的
+  // 起助手+停滞+关闭(FLUSH_BOUND_MS,01w 导出;单独加载本模块时用同值的回退,单测核对二者一致),
+  // 上限取两次刷盘上界之和再留 76 s 余量(= 240 s)。
+  const FLUSH_BOUND_MS = typeof WorkDataNativePublish !== 'undefined' && Number.isSafeInteger(WorkDataNativePublish?.FLUSH_BOUND_MS) ? WorkDataNativePublish.FLUSH_BOUND_MS : 82_000;
+  const ARM_MARGIN_MS = 76_000;
+  const BEAT_MS = 2000, HOLD_MAX_MS = 600_000, ARM_MAX_MS = 2 * FLUSH_BOUND_MS + ARM_MARGIN_MS;
   const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_|DESKTOP_CONTROL_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
     code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
@@ -115752,9 +116070,11 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       const failure = new Promise(resolve => { failureResolve = resolve; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
       void armed.catch(() => {}); void ready.catch(() => {});
-      let timer;
+      let timer, holdTimer = null, armCeiling = null;
       const release = () => {
         if (timer) { host.clearTimeout(timer); timer = null; }
+        if (holdTimer) { host.clearTimeout(holdTimer); holdTimer = null; }
+        if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; }
         if (pending.get(input.id) === child) pending.delete(input.id);
       };
       const uncertain = () => state === 'committing' || state === 'armed';
@@ -115788,6 +116108,8 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       const rejected = suffix => {
         if (closed) return;
         closed = true;
+        // v3:不确定的失败不会走 release(),这里先清掉 arm 上限计时器,免得它在已结算的失败之后再触发。
+        if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; }
         const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);failureResolve(error);
         // A commitment uncertainty never reopens parent admission. No kill/retry is
         // attempted: the child may already be obtaining the actual base owner.
@@ -115829,11 +116151,19 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
             state = 'ready'; readyResolve();
           })();
         } else if (message.kind === 'armed' && state === 'committing') {
-          state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } armedResolve();
+          state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; } armedResolve();
+        } else if (message.kind === 'arming' && state === 'committing' && timer) {
+          host.clearTimeout(timer); timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
         }
       });
       pending.set(input.id, child);
       timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_ready_timeout'));
+      // 3D(W12):子进程报 ready(开始等 go)之后,父进程这边先登记 claim(写+刷盘,冷启动的刷盘助手编译可达数十秒)
+      // 再等调用方 commit;这两段都可能比子进程等 go 的计时长,所以 registering 与 ready 期间都按心跳告诉子进程「还在」。
+      const hold = () => { holdTimer = wait(BEAT_MS, () => { holdTimer = null; if (closed || !['waiting','registering','ready'].includes(state)) return;
+        if (state === 'registering' || state === 'ready') try { child.send({ schema: VERSION, kind: 'hold', id: input.id, nonce: input.nonce }, () => {}); } catch { /* the child's own deadline still bounds it */ }
+        hold(); }); };
+      hold();
       if (bytes.length > MAX_INPUT) { bytes.fill(0); rejected('input_invalid'); }
       else {
         child.stdin.on('error', () => rejected('worker_input_failed'));
@@ -115875,6 +116205,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
           state = 'committing';
           timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
+          armCeiling = wait(ARM_MAX_MS, () => { armCeiling = null; rejected('worker_arm_timeout'); });
           try { await send('go'); await armed; }
           catch { rejected('handoff_uncertain');throw fail('handoff_uncertain', true); }
           assertArmed();
@@ -115934,6 +116265,11 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           schema: VERSION, timeoutMs: host.handshakeTimeoutMs || 15_000,
           onListening: () => channel.send({ schema: VERSION, kind: 'ready', id: input.id, nonce: input.nonce }) });
         if (command !== 'go') return Object.freeze({ phase: 'cancelled' });
+        // 3D(W12):承诺记录落盘(含刷盘)期间每 BEAT_MS 告诉父进程「还在推进」,armed 发出前停掉。
+        const beatTimers = require('node:timers');
+        let arming = beatTimers.setInterval(() => { Promise.resolve().then(() => channel.send({ schema: VERSION, kind: 'arming', id: input.id, nonce: input.nonce })).catch(() => {}); }, BEAT_MS);
+        arming.unref?.();
+        try {
         if (claimed) {
           // The parent persists `armed` before it may send go, so a missing,
           // foreign or already-advanced record refuses before anything is adopted.
@@ -115943,6 +116279,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           await advance('committed');
         }
         committed = true;
+        } finally { beatTimers.clearInterval(arming); arming = null; }
         await channel.send({ schema: VERSION, kind: 'armed', id: input.id, nonce: input.nonce });
         // IPC disconnect alone is insufficient: a still-live/EPERM PID prevents
         // takeover. Parent death is necessary even if someone releases its IPC lock.
@@ -116027,9 +116364,12 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           proc.removeListener('message', message); proc.removeListener('disconnect', disconnected);
           if (error) reject(error); else resolve(kind);
         };
+        const started = Date.now();
         const message = value => {
-          if (keys(value) === 'id,kind,nonce,schema' && value.id === id && value.nonce === nonce
-            && value.schema === schema && ['go', 'cancel'].includes(value.kind)) finish(null, value.kind);
+          if (keys(value) !== 'id,kind,nonce,schema' || value.id !== id || value.nonce !== nonce || value.schema !== schema) return;
+          if (['go', 'cancel'].includes(value.kind)) finish(null, value.kind);
+          // 3D(W12):父进程的 hold 心跳给等 go 的计时续期,但总等待不超过 HOLD_MAX_MS。
+          else if (value.kind === 'hold' && !settled && Date.now() - started < HOLD_MAX_MS) { clearTimeout(timer); timer = setTimeout(() => finish(fail('commit_timeout')), timeoutMs); }
         };
         const disconnected = () => finish(fail('parent_disconnected'));
         proc.on('message', message); proc.once('disconnect', disconnected);
@@ -116064,7 +116404,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
     });
   }
-  return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT });
+  return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT, ARM_MAX_MS, FLUSH_BOUND_MS });
 })(require('node:crypto'), require('node:path'), require('node:fs/promises'));
 
 // The cold lifecycle's one pending intent. A private issued receipt is required
@@ -116874,7 +117214,13 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
   const recoveredFailures = new WeakSet();
   function create(host) {
     if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'fullSnapshot', 'captureRehearsal', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
+    // 151 阶段 3D v2:整次冷操作期间让刷盘助手常驻(一次编译、多次刷盘);操作结束(成功或失败)立即解除驻留,
+    // 空闲的助手随即退出。驻留只影响进程复用,不改变任何一次刷盘的失败语义。
     async function execute(context) {
+      const releaseResident = typeof WorkDataNativePublish !== 'undefined' && typeof WorkDataNativePublish?.holdResident === 'function' ? WorkDataNativePublish.holdResident() : null;
+      try { return await executeOperation(context); } finally { if (releaseResident) releaseResident(); }
+    }
+    async function executeOperation(context) {
       const base = p.resolve(context.base), id = context.id;
       if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
       // The handoff claim is a bounded capability: finish/abandon only. This body
@@ -121440,7 +121786,14 @@ return Object.freeze({create});
 })();
 const WorkDataOwnedRestoreRetainedOwners = new Set();
 
-  const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
+  // 151 阶段 3D(150 号文 W12):VERIFY_MS 是「多久没有心跳」(停滞),不是校验的总时长;校验子进程每 HEARTBEAT_MS
+  // 发一条 verify-progress。总时长另有 VERIFY_MAX_MS 兜底,防止活着但永远不结束的子进程无限占住所有权。
+  const INPUT_LIMIT = 32768, VERIFY_MS = 120000, VERIFY_MAX_MS = 4 * 3600 * 1000, HEARTBEAT_MS = 5000, CLOSE_MS = 2000;
+  // v2(审查 L1):心跳带子进程的真实进展计数(01aa 的进程内计数:普查逐项、Node 端逐行核对、原生心跳与回复),
+  // 子进程只在计数前进时才发;父进程只认严格递增的计数续期。卡在永不完成的等待上的子进程不再续期,120 s 后超时;
+  // 4 h 总上限仍兜底「一直有进展却不结束」。
+  const progressMessage = (value, request, pid) => keys(value) === 'id,kind,nonce,pid,progress,schema' && value.schema === 1 && value.kind === 'verify-progress'
+    && value.id === request.id && value.nonce === request.nonce && value.pid === pid && Number.isSafeInteger(value.progress) && value.progress >= 0;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
   // Same-path comparison follows the platform's path identity: Windows paths are
@@ -121481,7 +121834,7 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
       helperMayStillRun:() => LocalSecretCrypto.helperMayStillRun() || MigrationHooks.helperMayStillRun()};
   }
   function create({bindings = productionBindings(), proc = process, verifierCommand = null,
-    clock = {setTimeout,clearTimeout,setInterval}} = {}) {
+    clock = {setTimeout,clearTimeout,setInterval,clearInterval:require('node:timers').clearInterval}} = {}) {
     for (const [name, methods] of Object.entries({ownership:['acquire','canonicalRoot','isLease','owns','createSourceKeeper','isSourceKeeper'],manifest:['create'],fullSnapshot:['create'],
       nativePublish:['createFlush'],disposableTree:['create'],tree:['createPreserved'],migrationHost:['create'],worker:['create','spawnCold','processChannel']})) {
       if (!bindings[name] || methods.some(method => typeof bindings[name][method] !== 'function')) throw fail('bindings_invalid');
@@ -121768,7 +122121,7 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
     }); }
     async function runVerifier(channel = bindings.worker.processChannel(proc)) {
       check(); if (!channel.parentConnected()) throw fail('ipc_required');
-      let bytes, request, owner, keeper, finalKeeper, ownerReleased = false, primary, failed = false;
+      let bytes, request, owner, keeper, finalKeeper, ownerReleased = false, primary, failed = false, heartbeat = null;
       try {
         bytes = await guarded(() => channel.readInput(INPUT_LIMIT));
         if (!Buffer.isBuffer(bytes) || bytes.length > INPUT_LIMIT) throw fail('input_invalid');
@@ -121791,7 +122144,13 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
           return Object.freeze({...value,mode:legacyConfigMode(config?.data)});
         };
         const snapshot=createSnapshot(request.target,owner,exclusive,{readCapturedAuthority});
-        const captured=await guarded(()=>snapshot.seal({password:request.password,appVersion:bindings.appVersion,generation:request.generation}));
+        // 3D(W12):校验进行中每 HEARTBEAT_MS 给父进程一条心跳;结果发出前停掉,所以结果之后不会再有心跳。
+        const progressCount=typeof bindings.tree?.progressCount==='function'?()=>bindings.tree.progressCount():null;let reported=progressCount?progressCount():0;
+        if(progressCount){heartbeat=clock.setInterval(()=>{const now=progressCount();if(!Number.isSafeInteger(now)||now<=reported)return;reported=now;
+          const beat={schema:1,kind:'verify-progress',id:request.id,nonce:request.nonce,pid:proc.pid,progress:now};Promise.resolve().then(()=>channel.send(beat)).catch(()=>{});},HEARTBEAT_MS);heartbeat.unref?.();}
+        let captured;
+        try{captured=await guarded(()=>snapshot.seal({password:request.password,appVersion:bindings.appVersion,generation:request.generation}));}
+        finally{(typeof clock.clearInterval==='function'?clock.clearInterval:require('node:timers').clearInterval)(heartbeat);heartbeat=null;}
         const reply = result({schema:1,kind:'verified-full',id:request.id,nonce:request.nonce,pid:proc.pid,target:request.target,
           generation:captured.verifiedGeneration,sourceSha256:captured.sourceProof.sha256,files:captured.files,directories:captured.directories},request,proc.pid);
         // A result is not permission to release an uncertain helper/owner.
@@ -121837,14 +122196,18 @@ const WorkDataOwnedRestoreRetainedOwners = new Set();
         const env = bindings.worker.create({env:proc.env}).environment(target);
         const child = bindings.worker.spawnCold(command,env);
         return await new Promise((resolve,reject) => {
-          let settled = false, spawned = false, exited = false, exitCode = null, exitSignal = null, response = null, error = null, closeTimer = null;
-          const finish = (cause, receipt) => { if (settled) return; settled = true; clock.clearTimeout(timer); if (closeTimer) clock.clearTimeout(closeTimer); serialized.fill(0); if (cause) {latch(cause);reject(cause);} else {receipts.add(receipt);resolve(receipt);} };
+          let settled = false, spawned = false, exited = false, exitCode = null, exitSignal = null, response = null, error = null, closeTimer = null, lastProgress = -1;
+          const finish = (cause, receipt) => { if (settled) return; settled = true; clock.clearTimeout(timer); clock.clearTimeout(ceiling); if (closeTimer) clock.clearTimeout(closeTimer); serialized.fill(0); if (cause) {latch(cause);reject(cause);} else {receipts.add(receipt);resolve(receipt);} };
           const stop = cause => { if (settled || error) return; error = cause; closeTimer = clock.setTimeout(() => { unknown = true; finish(fail('verifier_close_unverified',true)); },CLOSE_MS); try {child.kill();} catch {} };
-          const timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS);
+          let timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS);
+          const ceiling = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MAX_MS);
           child.once('spawn',() => {spawned = true;});
           child.once('exit',(code,signal) => {exited = true;exitCode = code;exitSignal = signal;});
           child.on('error',() => { if (!spawned && !child.pid) finish(fail('verifier_unavailable')); else stop(fail('verifier_process')); });
-          child.on('message',value => {try {if (response) throw fail('result_duplicate');response = result(value,request,child.pid);} catch(cause) {stop(cause);} });
+          child.on('message',value => {
+            // A heartbeat only renews the stall deadline; it never settles or replaces the result.
+            if (progressMessage(value,request,child.pid)) { if (!response && !error && !settled && value.progress > lastProgress) { lastProgress = value.progress; clock.clearTimeout(timer); timer = clock.setTimeout(() => stop(fail('verifier_timeout')),VERIFY_MS); } return; }
+            try {if (response) throw fail('result_duplicate');response = result(value,request,child.pid);} catch(cause) {stop(cause);} });
           child.once('close',(code,signal) => {if (settled) return; if (error) return finish(error); if (!spawned || !exited || exitCode !== 0 || exitSignal || code !== 0 || signal || !response || !Number.isSafeInteger(child.pid) || child.pid < 1) return finish(fail('verifier_failed')); try {check();finish(null,response);} catch(cause) {finish(cause);} });
           child.stdin.once('error',() => stop(fail('verifier_input')));
           try {child.stdin.end(serialized,() => serialized.fill(0));} catch {stop(fail('verifier_input'));}

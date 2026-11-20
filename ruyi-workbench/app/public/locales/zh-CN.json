@@ -4836,6 +4836,7 @@
   ,"error.code.voiceObserveBadRequest": "语音学习请求格式不对，没有记录。不影响本次识别结果。"
   ,"error.code.voiceObserveTooLarge": "要学习的文字太长，没有记录。不影响本次识别结果。"
   ,"error.code.workDataBackupNativeHelperUncertain": "备份辅助进程可能仍在运行，为避免冲突，没有开始新的备份操作。请等待一会儿或重启如意后再试。"
+  ,"error.code.workDataBackupNativeTimeout": "原生辅助进程在一段时间内没有任何进展，操作已停止，没有完成。原数据根里的文件保持原样；请确认磁盘与安全软件没有卡住，再重试。"
   ,"error.code.workDataBackupPortableCreateUncertain": "创建可携带备份的过程中断了，备份可能只写出了一部分。请重新读取状态核对，不要重复提交；需要时重启如意后再导出。"
   ,"error.code.workDataBackupPortableInstallUncertain": "安装备份的过程中断了，结果尚未确认。请重新读取状态核对，不要重复提交；需要时重启如意后再试。"
   ,"error.code.workDataBackupPortableStageFailed": "备份暂存步骤失败，部分文件可能已改动。请重新读取状态核对当前数据，不要重复提交。"

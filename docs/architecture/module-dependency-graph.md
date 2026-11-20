@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4452 | 4400 | 971 | 67 | 0 | 1 |
+| 145 | 4452 | 4401 | 972 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -140,7 +140,7 @@
 | 122 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 1 | 1 |
 | 123 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 0 | 0 |
 | 124 | `13ah-work-data-setup.js` | unclassified | 6 | 32 | 13 |
-| 125 | `13ai-work-data-worker.js` | unclassified | 1 | 2 | 2 |
+| 125 | `13ai-work-data-worker.js` | unclassified | 1 | 3 | 3 |
 | 126 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
 | 127 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 3 | 1 |
 | 128 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
@@ -708,6 +708,7 @@
 | `13ah-work-data-setup.js` | `11-native-tools.js` | backward | `shellSessions` |
 | `13ah-work-data-setup.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
 | `13ai-work-data-worker.js` | `00-boot.js` | backward | `DesktopLifetimeHooks` |
+| `13ai-work-data-worker.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |
 | `13ai-work-data-worker.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
 | `13aj-work-data-control.js` | `01ab-work-data-full-snapshot.js` | backward | `WorkDataFullSnapshot` |
 | `13ak-work-data-cold-operations.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION` |

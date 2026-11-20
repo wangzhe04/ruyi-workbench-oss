@@ -4,6 +4,18 @@
 // execute(); the TEMP handoff claim is metadata only and widens no authority.
 const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
+  // 151 阶段 3D(150 号文 W12):握手的固定超时改成「多久没有心跳」。父进程在 ready 之后、go 之前每 BEAT_MS
+  // 发 hold,子进程等 go 的计时随之续期(总等待另有 HOLD_MAX_MS 上限);子进程收到 go 之后、回 armed 之前每
+  // BEAT_MS 发 arming,父进程的 arm 计时随之续期。只有真的没有心跳才超时;arm 阶段的超时仍按「已承诺」报不确定。
+  // arm 阶段只有一条承诺记录的写入与刷盘,工作量与数据根规模无关:心跳只证明子进程事件循环还活着,所以另设与规模
+  // 无关的总上限 ARM_MAX_MS(v2,审查 L1),到点即按已承诺报不确定,活着却永不结束的子进程不能无限续期。
+  // v3(审查 R2-3):arm 在驻留期外,子进程只写 committed 一条记录(owned 在 armed 之后才写),按一次 claim 写入
+  // 最多刷两次盘计(审查第三轮更正了此前「committed 与 owned 两条记录」的说法),每次刷盘的合法上界是 01w 的
+  // 起助手+停滞+关闭(FLUSH_BOUND_MS,01w 导出;单独加载本模块时用同值的回退,单测核对二者一致),
+  // 上限取两次刷盘上界之和再留 76 s 余量(= 240 s)。
+  const FLUSH_BOUND_MS = typeof WorkDataNativePublish !== 'undefined' && Number.isSafeInteger(WorkDataNativePublish?.FLUSH_BOUND_MS) ? WorkDataNativePublish.FLUSH_BOUND_MS : 82_000;
+  const ARM_MARGIN_MS = 76_000;
+  const BEAT_MS = 2000, HOLD_MAX_MS = 600_000, ARM_MAX_MS = 2 * FLUSH_BOUND_MS + ARM_MARGIN_MS;
   const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_|DESKTOP_CONTROL_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
     code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
@@ -117,9 +129,11 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       const failure = new Promise(resolve => { failureResolve = resolve; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
       void armed.catch(() => {}); void ready.catch(() => {});
-      let timer;
+      let timer, holdTimer = null, armCeiling = null;
       const release = () => {
         if (timer) { host.clearTimeout(timer); timer = null; }
+        if (holdTimer) { host.clearTimeout(holdTimer); holdTimer = null; }
+        if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; }
         if (pending.get(input.id) === child) pending.delete(input.id);
       };
       const uncertain = () => state === 'committing' || state === 'armed';
@@ -153,6 +167,8 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       const rejected = suffix => {
         if (closed) return;
         closed = true;
+        // v3:不确定的失败不会走 release(),这里先清掉 arm 上限计时器,免得它在已结算的失败之后再触发。
+        if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; }
         const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);failureResolve(error);
         // A commitment uncertainty never reopens parent admission. No kill/retry is
         // attempted: the child may already be obtaining the actual base owner.
@@ -194,11 +210,19 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
             state = 'ready'; readyResolve();
           })();
         } else if (message.kind === 'armed' && state === 'committing') {
-          state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } armedResolve();
+          state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } if (armCeiling) { host.clearTimeout(armCeiling); armCeiling = null; } armedResolve();
+        } else if (message.kind === 'arming' && state === 'committing' && timer) {
+          host.clearTimeout(timer); timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
         }
       });
       pending.set(input.id, child);
       timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_ready_timeout'));
+      // 3D(W12):子进程报 ready(开始等 go)之后,父进程这边先登记 claim(写+刷盘,冷启动的刷盘助手编译可达数十秒)
+      // 再等调用方 commit;这两段都可能比子进程等 go 的计时长,所以 registering 与 ready 期间都按心跳告诉子进程「还在」。
+      const hold = () => { holdTimer = wait(BEAT_MS, () => { holdTimer = null; if (closed || !['waiting','registering','ready'].includes(state)) return;
+        if (state === 'registering' || state === 'ready') try { child.send({ schema: VERSION, kind: 'hold', id: input.id, nonce: input.nonce }, () => {}); } catch { /* the child's own deadline still bounds it */ }
+        hold(); }); };
+      hold();
       if (bytes.length > MAX_INPUT) { bytes.fill(0); rejected('input_invalid'); }
       else {
         child.stdin.on('error', () => rejected('worker_input_failed'));
@@ -240,6 +264,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
           state = 'committing';
           timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
+          armCeiling = wait(ARM_MAX_MS, () => { armCeiling = null; rejected('worker_arm_timeout'); });
           try { await send('go'); await armed; }
           catch { rejected('handoff_uncertain');throw fail('handoff_uncertain', true); }
           assertArmed();
@@ -299,6 +324,11 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           schema: VERSION, timeoutMs: host.handshakeTimeoutMs || 15_000,
           onListening: () => channel.send({ schema: VERSION, kind: 'ready', id: input.id, nonce: input.nonce }) });
         if (command !== 'go') return Object.freeze({ phase: 'cancelled' });
+        // 3D(W12):承诺记录落盘(含刷盘)期间每 BEAT_MS 告诉父进程「还在推进」,armed 发出前停掉。
+        const beatTimers = require('node:timers');
+        let arming = beatTimers.setInterval(() => { Promise.resolve().then(() => channel.send({ schema: VERSION, kind: 'arming', id: input.id, nonce: input.nonce })).catch(() => {}); }, BEAT_MS);
+        arming.unref?.();
+        try {
         if (claimed) {
           // The parent persists `armed` before it may send go, so a missing,
           // foreign or already-advanced record refuses before anything is adopted.
@@ -308,6 +338,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           await advance('committed');
         }
         committed = true;
+        } finally { beatTimers.clearInterval(arming); arming = null; }
         await channel.send({ schema: VERSION, kind: 'armed', id: input.id, nonce: input.nonce });
         // IPC disconnect alone is insufficient: a still-live/EPERM PID prevents
         // takeover. Parent death is necessary even if someone releases its IPC lock.
@@ -392,9 +423,12 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           proc.removeListener('message', message); proc.removeListener('disconnect', disconnected);
           if (error) reject(error); else resolve(kind);
         };
+        const started = Date.now();
         const message = value => {
-          if (keys(value) === 'id,kind,nonce,schema' && value.id === id && value.nonce === nonce
-            && value.schema === schema && ['go', 'cancel'].includes(value.kind)) finish(null, value.kind);
+          if (keys(value) !== 'id,kind,nonce,schema' || value.id !== id || value.nonce !== nonce || value.schema !== schema) return;
+          if (['go', 'cancel'].includes(value.kind)) finish(null, value.kind);
+          // 3D(W12):父进程的 hold 心跳给等 go 的计时续期,但总等待不超过 HOLD_MAX_MS。
+          else if (value.kind === 'hold' && !settled && Date.now() - started < HOLD_MAX_MS) { clearTimeout(timer); timer = setTimeout(() => finish(fail('commit_timeout')), timeoutMs); }
         };
         const disconnected = () => finish(fail('parent_disconnected'));
         proc.on('message', message); proc.once('disconnect', disconnected);
@@ -429,5 +463,5 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
       stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
     });
   }
-  return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT });
+  return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT, ARM_MAX_MS, FLUSH_BOUND_MS });
 })(require('node:crypto'), require('node:path'), require('node:fs/promises'));

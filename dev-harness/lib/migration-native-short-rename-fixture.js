@@ -9,7 +9,12 @@ const HISTORICAL_FACTORY_SHA='d32f7de37b6f8c16df0eb7a773303051003a90a1e9b64453bd
 // 150 W3 (3C): the reviewed factory additionally carries a census_*_limit refusal's areas
 // (sanitised by WorkDataTree.limitAreas) on the rejected error; command/close lifecycle unchanged.
 // Previous reviewed factory: fb42b03828475b2e0c93b763a93e1684d92a776a5c50baf6de029134bdb8a89c.
-const FACTORY_SHA='00d8964ffffe4f7ba8259ba694047af83e23f64235a7e2f3933434b069ca8c5d';
+// 151 阶段 3D (W12): the reviewed factory renews a pending command's 120 s stall deadline on each strictly increasing
+// {progress:n} line and types native_timeout with timeout{kind,command,stallSeconds,elapsedSeconds,heartbeats};
+// close-time heartbeats renew the bounded 2 s close window; command/close lifecycle and uncertainty rules otherwise unchanged.
+// Previous reviewed factory: 907f4ade7ebb4d017a2019092f61937003838175d3d069fea0789349148f2aad (3D v1; before it 00d8964ffffe4f7ba8259ba694047af83e23f64235a7e2f3933434b069ca8c5d).
+// 3D v2: a budget-derived per-command ceiling (typed timeout kind 'ceiling'), progress notes to WorkDataTree and a System32 cwd.
+const FACTORY_SHA='aa035be51395ea6cb46e8cdd7214471018d8f37c4c835174b01aa4510a97e382';
 function error(code,cause){return Object.assign(Error(code),{code,...(cause===undefined?{}:{cause})});}
 class State{
  constructor(now,started=now(),retain=()=>{}){a.equal(typeof now,'function');a(Number.isSafeInteger(started)&&started>=0&&started<=now());this.now=now;this.started=started;this.deadline=started+LIMITS.outerMs;this.first=null;this.unknown=false;this.native=0;this.metadata=0;this.retainOwner=retain;}

@@ -73,6 +73,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     return Object.assign(new Error(code, cause === undefined ? undefined : { cause }), { code, apiCode: code, statusCode: 409,
       ...limitDetails(kind, configured, areas) });
   }
+  // 151 阶段 3D v2(审查 L1):进程内「真实进展」计数。普查逐项、Node 端逐行核对、原生助手的心跳行与命令回复都会
+  // 推进它;独立校验子进程只在它前进时才给父进程发心跳,活着但卡在永不完成的等待上的子进程因此不会无限续期。
+  // 只是一个单调计数,不携带路径、内容或任何权限。
+  let progressCounter = 0;
+  const noteProgress = () => { progressCounter++; };
+  const progressCount = () => progressCounter;
   const digest = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
   const identity = stat => String(stat.dev) + ':' + String(stat.ino);
   const pathKey = name => process.platform === 'win32' ? name.toUpperCase() : name;
@@ -90,13 +96,13 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   }
   // Only an actual preserved owner may lend its already captured file bytes.
   // Tokens have no serializable authority; ordinary captures never enter here.
-  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap();
+  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap(), capturedFileIndex = new WeakMap();
   const capturedReadScope = new (require('node:async_hooks').AsyncLocalStorage)();
   function claimPreservedReadback(token, root, revision) {
     const known = preservedReadbacks.get(token);
     return !!known && known.root === root && known.revision === revision && preservedReadbacks.delete(token);
   }
-  function claimPreservedReadbackContext(token, root, revision) { const known=preservedReadbacks.get(token); if(!known || known.root!==root || known.revision!==revision) return null; preservedReadbacks.delete(token); return Object.freeze({candidateBoundary:known.candidateBoundary||null}); }
+  function claimPreservedReadbackContext(token, root, revision) { const known=preservedReadbacks.get(token); if(!known || known.root!==root || known.revision!==revision) return null; preservedReadbacks.delete(token); return Object.freeze({candidateBoundary:known.candidateBoundary||null,hashOnly:known.hashOnly===true}); }
   const fileKey = file => typeof file === 'string' && pathApi.isAbsolute(file) ? pathKey(pathApi.resolve(file)) : null;
   function currentCapturedFile(token, file) {
     const known = capturedFileLeases.get(token);
@@ -136,7 +142,15 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     const capture = preservedCaptures.get(captured), selected = fileKey(file);
     if (!capture || capture.ownership !== ownership || !selected) fail('captured_file_invalid');
     capture.admitSync(); await capture.admit(); capture.admitSync(); capture.check();
-    const row = captured.files.find(value => fileKey(pathApi.join(captured.root, ...value.path.split('/'))) === selected);
+    // 151 阶段 3D:同一份冻结的捕获按文件键索引一次(原来每次借出都对全部文件做路径拼接+线性查找,
+    // 10 万文件的编解码循环是平方级)。captured.files 是冻结数组,索引与它同生命周期(WeakMap)。
+    let byKey = capturedFileIndex.get(captured);
+    if (!byKey) {
+      byKey = new Map();
+      for (const value of captured.files) { const name = fileKey(pathApi.join(captured.root, ...value.path.split('/'))); if (!byKey.has(name)) byKey.set(name, value); }
+      capturedFileIndex.set(captured, byKey);
+    }
+    const row = byKey.get(selected);
     if (!row || !Buffer.isBuffer(row.data) || row.data.length > maxBytes) fail('captured_file_invalid');
     const bytes = Buffer.from(row.data);
     if (digest(bytes) !== row.sha256) { bytes.fill(0); fail('snapshot_changed'); }
@@ -265,11 +279,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     async function verify(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       const actual = await census(captured.root, false);
       if (JSON.stringify(proof(actual)) !== JSON.stringify(owned.proof)) fail('source_changed');
       if (owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       return Object.freeze({ bytes: actual.bytes, files: actual.files.length, directories: actual.directories.length,
         sha256: digest(JSON.stringify(owned.proof)), domainValidation: 'host-owner-required', nativeMetadata: 'host-owner-required' });
     }
@@ -322,7 +336,10 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       }
       if (current !== true) fail('preserved_owner_required');
     }
-    function parse(snapshot) {
+    // hashOnly(151 阶段 3D,W11):只为复核的普查,助手不回传内容,每个流只有 name/size/hash。只在本 reader
+    // 自己请求了(census 的 retain=false)时才接受这种形状;带内容的回复照旧逐字节解码并核对哈希。
+    const defaultSize = row => row.streams.find(stream => stream.name === '').size;
+    function parse(snapshot, hashOnly = false) {
       const data = [], rows = [], paths = new Set(), ids = new Set(); let used = 0, nativeBytes = 0, dirCount = 0, fileCount = 0, complete = false, failed=false, primary;
       try {
         if (!exactKeys(snapshot, 'entries,platform,revision,schema') || snapshot.schema !== 1
@@ -331,6 +348,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         if (snapshot.entries.length > files + directories + 1)
           throw engineeringLimit('entries', undefined, files + directories + 1);
         for (const entry of snapshot.entries) {
+          noteProgress();
           if (!exactKeys(entry, 'attrs,dir,id,opaque,rel,shortName,streams,times')
             || typeof entry.rel !== 'string' || entry.rel.length > pathLength
             || entry.rel && entry.rel.split('/').some(part => { validName(part); return false; })
@@ -353,14 +371,20 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           else if (++fileCount > files) throw engineeringLimit('files', undefined, files);
           const streams = new Set();
           for (const stream of entry.streams) {
-            if (!exactKeys(stream, 'data,hash,name,size') || typeof stream.name !== 'string' || stream.name.length > 1024
+            const contentless = hashOnly && exactKeys(stream, 'hash,name,size');
+            if (!contentless && !exactKeys(stream, 'data,hash,name,size') || typeof stream.name !== 'string' || stream.name.length > 1024
               || stream.name !== '' && !/^:[^:\\/*?"<>|\x00-\x1f]+:\$DATA$/.test(stream.name)
               || streams.has(stream.name.toUpperCase()) || entry.dir && stream.name === '' || !Number.isSafeInteger(stream.size)
               || stream.size < 0 || !/^[a-f0-9]{64}$/.test(stream.hash || '')
-              || typeof stream.data !== 'string' || stream.data.length !== 4 * Math.ceil(stream.size / 3)) fail('preserved_native_invalid');
+              || !contentless && (typeof stream.data !== 'string' || stream.data.length !== 4 * Math.ceil(stream.size / 3))) fail('preserved_native_invalid');
             streams.add(stream.name.toUpperCase()); nativeBytes += stream.size;
             if (stream.size > NATIVE_BUDGET.fileBytes) throw engineeringLimit('file-bytes');
             if (nativeBytes > nativeByteLimit) throw engineeringLimit('bytes', undefined, nativeByteLimit);
+            if (contentless) {
+              if (stream.name === '') { row.data = null; used += stream.size; if (used > bytes) fail('engineering_limit', limitDetails('bytes', bytes)); }
+              row.streams.push({ name: stream.name, size: stream.size, hash: stream.hash });
+              continue;
+            }
             const content = Buffer.from(stream.data, 'base64'); data.push(content);
             if (content.length !== stream.size || content.toString('base64') !== stream.data || hash(content) !== stream.hash) fail('preserved_native_invalid');
             if (stream.name === '') { row.data = content; used += content.length; if (used > bytes) fail('engineering_limit', limitDetails('bytes', bytes)); }
@@ -388,19 +412,20 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       let first, second, result, binding, bindingCompleted = false, accepting = true, success = false, failed = false, primary;
       async function bindFirst(snapshot) {
         if(snapshot?.revision!==firstRevision)fail('preserved_native_invalid');
-        first = parse(snapshot);
+        first = parse(snapshot, !retain);
         await admitted(root);
         result = { root, directories: [], files: [], bytes: first.used }; const bound = new Map(), verified = new Set();
         // All Node metadata/namespace checks precede the final, closed native
         // readback. No Node open/read/readdir occurs in this owner at all.
         for (const row of first.rows) {
+          noteProgress();
           const file = row.rel ? pathApi.join(root, ...row.rel.split('/')) : root;
           await realDirectory(row.dir ? file : pathApi.dirname(file), verified);
           const stat = await fsApi.lstat(file, { bigint: true });
           if (stat.isSymbolicLink() || row.dir !== stat.isDirectory() || !row.dir && (!stat.isFile() || stat.nlink !== 1n)
             || !samePath(await fsApi.realpath(file), file)) fail('path_alias');
           const nativeId = BigInt(stat.dev).toString(16).padStart(8, '0') + BigInt(stat.ino).toString(16).padStart(16, '0');
-          if (nativeId !== row.id || !row.dir && stat.size !== BigInt(row.data.length)) fail('source_changed');
+          if (nativeId !== row.id || !row.dir && stat.size !== BigInt(defaultSize(row))) fail('source_changed');
           bound.set(row.rel, identity(stat));
         }
         const children = new Map();
@@ -414,7 +439,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
             return aName < bName ? -1 : aName > bName ? 1 : 0;
           })) {
             if (row.dir) { result.directories.push({ path: row.rel, identity: bound.get(row.rel) }); walk(row.rel); }
-            else result.files.push({ path: row.rel, identity: bound.get(row.rel), size: row.data.length,
+            else result.files.push({ path: row.rel, identity: bound.get(row.rel), size: defaultSize(row),
               sha256: row.streams.find(stream => stream.name === '').hash, ...(retain ? { data: Buffer.from(row.data) } : {}) });
           }
         };
@@ -428,7 +453,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         return binding;
       };
       const readback = Object.freeze({ revision, bind });
-      preservedReadbacks.set(readback,{root,revision:firstRevision,candidateBoundary});
+      preservedReadbacks.set(readback,{root,revision:firstRevision,candidateBoundary,hashOnly:!retain});
       try {
         // The native producer may use one broker for both readings. Its first
         // response proves all captured handles closed before these Node checks,
@@ -446,7 +471,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
           fail('preserved_native_invalid');
         }
         if(snapshot?.revision!==revision)fail('preserved_native_invalid');
-        second = parse(snapshot);
+        second = parse(snapshot, !retain && !!binding);
         if (second.nativeSha256 !== first.nativeSha256) fail('source_changed');
         // Only the actual owner assertion runs after final native close. It must
         // inspect its held lease, not reopen target data/namespace.
@@ -483,11 +508,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     async function verify(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       const actual = await census(captured.root, false, owned.boundary);
       if (JSON.stringify(proofOf(actual.result)) !== JSON.stringify(owned.proof)) fail('source_changed');
       if (owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       // Byte/identity verification keeps the original contract. A checkpoint
       // owner explicitly compares this actual metadata fingerprint with its
       // durable record; legitimate earlier preparation reads are not frozen.
@@ -497,7 +522,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     function fingerprint(captured) {
       const owned = issued.get(captured);
       if (!owned || owned.released()) fail('snapshot_unavailable');
-      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      for (const row of captured.files) { noteProgress(); if (digest(row.data) !== row.sha256) fail('snapshot_changed'); }
       return Object.freeze({ bytes: owned.proof.bytes, files: owned.proof.files.length, directories: owned.proof.directories.length,
         sha256: digest(JSON.stringify(owned.proof)), nativeSha256: owned.nativeSha256,
         domainValidation: 'host-owner-required', nativeMetadata: 'preserved-reader-closed' });
@@ -656,5 +681,5 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
     }),
   });
-  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope, rootScope, NATIVE_BUDGET, AREA_NAMES, engineeringLimit, limitAreas });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, claimPreservedReadbackContext, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope, rootScope, NATIVE_BUDGET, AREA_NAMES, engineeringLimit, limitAreas, noteProgress, progressCount });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

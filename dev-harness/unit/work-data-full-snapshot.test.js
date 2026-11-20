@@ -107,14 +107,15 @@ test('verifier seal derives both authority checks from the preserved view and re
  let captures=0,tamper=false;
  const capturePreserved=createPreservedReaderModel(async()=>{
   captures++;
-  if(tamper&&captures===7)await f.write('config.json',config('tamper'));
+  // 151 阶段 3D(W11):seal 只剩 1 次捕获 + 1 次收尾复核(各是成对的两次读取);篡改落在收尾复核的第一次读取上。
+  if(tamper&&captures===3)await f.write('config.json',config('tamper'));
  });
  const owner=f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:exclusive,assertExclusiveSync:exclusive,
   protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,preservedRead:{profile:'bounded-native-v1',capturePreserved},
   readCapturedAuthority:capture=>{seen.push(captures);return manifest.readCaptured(capture);}});
  const seal=()=>owner.seal({password,appVersion:'3.0.1',generation:null});
  assert.equal((await seal()).verifiedGeneration,0);
- assert.deepEqual(seen,[2,8]);
+ assert.deepEqual(seen,[2,4]);
  seen.length=0;captures=0;tamper=true;
  await assert.rejects(seal(),{code:'work_data_tree.source_changed'});
  assert.deepEqual(seen,[2]);

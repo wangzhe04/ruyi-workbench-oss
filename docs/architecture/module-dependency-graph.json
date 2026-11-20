@@ -5,8 +5,8 @@
   "summary": {
     "modules": 145,
     "providedSymbols": 4452,
-    "requiredSymbols": 4400,
-    "edges": 971,
+    "requiredSymbols": 4401,
+    "edges": 972,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -30852,6 +30852,13 @@
           ]
         },
         {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13at-work-data-restore-uploads.js",
           "symbol": "WorkDataRestoreUploads",
           "kinds": [
@@ -42910,6 +42917,14 @@
       "to": "00-boot.js",
       "symbols": [
         "DesktopLifetimeHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ai-work-data-worker.js",
+      "to": "01w-work-data-native-publish.js",
+      "symbols": [
+        "WorkDataNativePublish"
       ],
       "direction": "backward"
     },

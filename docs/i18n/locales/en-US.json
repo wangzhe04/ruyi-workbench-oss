@@ -4836,6 +4836,7 @@
   ,"error.code.voiceObserveBadRequest": "The voice learning request was malformed and nothing was recorded. This does not affect the current transcription."
   ,"error.code.voiceObserveTooLarge": "The text to learn from was too long and was not recorded. This does not affect the current transcription."
   ,"error.code.workDataBackupNativeHelperUncertain": "A backup helper process may still be running, so no new backup operation was started to avoid conflicts. Wait a moment or restart Ruyi, then try again."
+  ,"error.code.workDataBackupNativeTimeout": "A native helper made no progress for a while, so the operation was stopped and did not complete. Files in the original data root are unchanged. Check that the disk and security software are not stalled, then try again."
   ,"error.code.workDataBackupPortableCreateUncertain": "Creating the portable backup was interrupted and it may be only partly written. Refresh the status to check and do not resubmit; restart Ruyi before exporting again if needed."
   ,"error.code.workDataBackupPortableInstallUncertain": "Installing the backup was interrupted and the result is not confirmed. Refresh the status to check and do not resubmit; restart Ruyi before retrying if needed."
   ,"error.code.workDataBackupPortableStageFailed": "The backup staging step failed and some files may have changed. Refresh the status to check your data and do not resubmit."

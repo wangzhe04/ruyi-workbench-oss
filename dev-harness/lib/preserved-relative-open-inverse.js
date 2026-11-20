@@ -302,6 +302,49 @@ function removePreservedRelativeOpen(native) {
   return prior;
 }
 
+// 151 阶段 3D(150 号文 W11/W12): native heartbeat lines ({"progress":n} at most once per second inside the
+// command loop) and the hash-only verification census (content="hash"). Exact reviewed inverse.
+function removeNativeHeartbeatAndHashOnly(native) {
+  const loopBeat = ' { Beat();';
+  assert.equal(native.split(loopBeat).length - 1, 14, 'native heartbeat loop points');
+  native = native.split(loopBeat).join(' {');
+  const beatBlock = [
+    '  // 151 阶段 3D(150 号文 W12):长命令心跳。距上一行超过 1 s 才写一行 {"progress":n};Node 端只用它给「这条命令',
+    '  // 还在推进」续期,不改变任何回复的形状或判定。n 是本进程里推进点的累计数(单调递增)。',
+    '  static readonly System.Diagnostics.Stopwatch BeatClock = System.Diagnostics.Stopwatch.StartNew();',
+    '  static long BeatCount = 0;',
+    '  static bool BeatEnabled = false;',
+    '  static void Beat() { BeatCount++; if (!BeatEnabled || BeatClock.ElapsedMilliseconds < 1000) return; BeatClock.Restart(); Console.Out.WriteLine("{\\"progress\\":" + BeatCount + "}"); Console.Out.Flush(); }',
+    ''].join('\n');
+  const hashOnlyBlock = [
+    '  // 151 阶段 3D(150 号文 W11):只为复核的普查(content="hash")不回传内容,只回每个流的大小与 SHA-256;',
+    '  // 句柄、元数据、整树复读与哈希核对与带内容的普查完全相同。只由 Node 端只读复核路径请求。',
+    '  static bool HashOnly=false;',
+    ''].join('\n');
+  const hashOnlyArgs = [
+    '    object content=null;HashOnly=args.TryGetValue("content",out content)&&content is string&&(string)content=="hash";',
+    '    if(content!=null&&!HashOnly)Reject("census_content");',
+    ''].join('\n');
+  for (const [current, previous] of [
+    [beatBlock, ''],
+    ['      Beat(); byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;', '      byte[] buffer = new byte[Math.Min(65536, result.Length - used)]; uint got;'],
+    ['      Beat(); byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];', '      byte[] buffer = new byte[Math.Min(65536, bytes.Length - offset)];'],
+    ['    path=NativePath(path); Beat();\n', '    path=NativePath(path);\n'],
+    ['          if (HashOnly) { AddTransport(192 + JsonBytes(streamName)); streams.Add(new Dictionary<string,object> { { "name", streamName }, { "size", bytes.Length }, { "hash", Hash(bytes) } }); }\n'
+      + '          else { AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));\n          streams.Add(',
+      '          AddTransport(192 + JsonBytes(streamName) + 4L * ((bytes.Length + 2) / 3));\n          streams.Add('],
+    ['{ "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } }); }', '{ "hash", Hash(bytes) }, { "data", Convert.ToBase64String(bytes) } });'],
+    [hashOnlyBlock, ''],
+    [hashOnlyArgs, ''],
+    ['finally {PreserveTimeHandles=previous;HashOnly=false;}}', 'finally {PreserveTimeHandles=previous;}}'],
+    ['Console.OutputEncoding = new UTF8Encoding(false); BeatEnabled = true;', 'Console.OutputEncoding = new UTF8Encoding(false);'],
+  ]) {
+    assert.equal(native.split(current).length, 2, 'unique native heartbeat/hash-only change');
+    native = native.replace(current, previous);
+  }
+  return native;
+}
+
 // 150 W3: the data-root census budget (entries/bytes/file/transport/depth with
 // typed census_*_limit refusals, areas, and the MaxJsonLength reply guard)
 // replaced the fixed 10,000-entry / 96,000,000-byte native caps. Exact reviewed inverse.
@@ -336,6 +379,7 @@ function removeNativeCensusBudget(native) {
 
 function restorePreRelativeOpenNative(native) {
   for (const undo of [
+    removeNativeHeartbeatAndHashOnly,
     removeNativeCensusBudget,
     removeForwardPlainPublication,
     removePreservedCloseCertification,

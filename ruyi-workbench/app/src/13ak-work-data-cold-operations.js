@@ -109,7 +109,13 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
   const recoveredFailures = new WeakSet();
   function create(host) {
     if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'fullSnapshot', 'captureRehearsal', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
+    // 151 阶段 3D v2:整次冷操作期间让刷盘助手常驻(一次编译、多次刷盘);操作结束(成功或失败)立即解除驻留,
+    // 空闲的助手随即退出。驻留只影响进程复用,不改变任何一次刷盘的失败语义。
     async function execute(context) {
+      const releaseResident = typeof WorkDataNativePublish !== 'undefined' && typeof WorkDataNativePublish?.holdResident === 'function' ? WorkDataNativePublish.holdResident() : null;
+      try { return await executeOperation(context); } finally { if (releaseResident) releaseResident(); }
+    }
+    async function executeOperation(context) {
       const base = p.resolve(context.base), id = context.id;
       if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
       // The handoff claim is a bounded capability: finish/abandon only. This body

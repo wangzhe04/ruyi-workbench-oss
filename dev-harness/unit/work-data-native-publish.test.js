@@ -33,7 +33,10 @@ function fixture(mode = 'no-close', text = source) {
   };
   const api = vm.runInNewContext(text + '\nWorkDataNativePublish;', context);
   // 151 阶段 3A(W8):第三个导出是 flush 失败分类器(纯函数,不起进程、不授予任何权限)。
-  assert.deepEqual(Object.keys(api), ['create', 'createFlush', 'classifyFlushFailure']);
+  // 151 阶段 3D(W11):第四个导出是常驻刷盘助手的计数(只读快照:起过几个进程、跑过几条命令),第五个是冷端操作用的
+  // 驻留期(holdResident:只决定空闲助手是否留着复用),二者都不授予任何权限。
+  // v3:第六个导出是一次刷盘的合法时长上界(纯数值,13ai 的 arm 上限由它推出)。
+  assert.deepEqual(Object.keys(api), ['create', 'createFlush', 'classifyFlushFailure', 'flushStats', 'holdResident', 'FLUSH_BOUND_MS']);
   const publish = api.create(); assert.equal(hooks.publish, publish, 'Windows registration uses the same factory publisher');
   const promise = publish(args); let settled = false;
   promise.then(() => { settled = true; }, () => { settled = true; });

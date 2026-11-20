@@ -179,8 +179,9 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
       // Execute 01w's actual failure/2-second non-close path. Only its subprocess
       // and clock are modeled; no PowerShell or native helper runs in this unit.
       const child = new EventEmitter(); child.pid = 1234; child.stdin = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
-      child.stdin.end = () => {}; child.kill = () => false;
-      imports.set('node:child_process', { spawn: () => { queueMicrotask(() => child.emit('spawn')); return child; } });
+      // 151 阶段 3D:01w 的刷盘助手常驻,先回一行 ready 才收命令;这里只模拟这一行协议,失败路径照旧。
+      child.stdin.end = () => {}; child.stdin.write = (text, done) => { done?.(); return true; }; child.kill = () => false;
+      imports.set('node:child_process', { spawn: () => { queueMicrotask(() => { child.emit('spawn'); child.stdout.emit('data', Buffer.from('{"ready":true}\r\n')); }); return child; } });
       vm.runInContext(constBlock(fs.readFileSync(path.join(sourceRoot, '01w-work-data-native-publish.js'), 'utf8'), 'WorkDataNativePublish'), context);
       const flush = vm.runInContext('WorkDataNativePublish.createFlush()', context);
       return { child, flush, fail() { child.stdout.emit('error', Error('modeled pipe failure')); },

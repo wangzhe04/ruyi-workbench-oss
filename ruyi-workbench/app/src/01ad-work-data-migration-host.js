@@ -257,11 +257,15 @@ const WorkDataMigrationHost = ((io,p,c) => {
       });
     }
     function codecGrant(plan,captured) {
+      // 151 阶段 3D:按折叠后的路径建一次索引(原来每次授予都线性扫两份清单,10 万文件是平方级)。
+      // 同名折叠冲突在普查里已被拒(namespace_conflict),所以「第一个命中」与原来的 find 语义一致。
+      const index=rows=>{const map=new Map();for(const row of rows){const folded=key(row.path);if(!map.has(folded))map.set(folded,row);}return map;};
+      const priors=index(plan.sourceProof.sourceFiles),capturedRows=index(captured.files);
       return async file=>{
         if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
         const name=p.relative(base,file).split(p.sep).join('/'),relative=p.relative(captured.root,file).split(p.sep).join('/');
-        const prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name));
-        const row=captured.files.find(row=>key(row.path)===key(relative));
+        const prior=priors.get(key(name));
+        const row=capturedRows.get(key(relative));
         if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
         const stat=await io.lstat(file,{bigint:true});
         if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))
@@ -282,7 +286,29 @@ const WorkDataMigrationHost = ((io,p,c) => {
         });
       }};
     }
+    // 151 阶段 3D(150 号文 W11):旧的明文根(第 0 代)以前对每一个编解码行各做一遍整根捕获+整根复核
+    // (每行两次整根原生普查,1 万个会话就是 2 万次整根普查)。这里改成整轮只捕获一次:候选代已经分配,
+    // 捕获带着候选边界(候选子树只作为一个不透明的边界对象出现,循环里写进候选的东西不改变这份证明);
+    // 循环前做一次 validateSource,全部读取在同一个 readCapturedScope 里,作用域结束时整根复核一次,
+    // 复核不过就抛错 —— 与已发布代的分支(下面)同一种「一次捕获、离开前闭合整份物理证明」的形状。
+    // 循环里只有候选子树被写入;源根其余部分(含意向文件)在循环中不变,变了就在最后的复核里被拒。
+    function legacyTransformSourceScope(plan,work){
+      return (async()=>{
+        await current(plan.expected);await assertPlanIntent(plan);
+        return usingSource(await capturePlanBase(plan),async captured=>{
+          await validateSource(plan,captured);
+          const grant=codecGrant(plan,captured);
+          const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work({
+            withSourceReadScope:async read=>{await current(plan.expected);await assertPlanIntent(plan);return read(grant);},
+          }));
+          // v2(审查):不再在这里第二次 validateSource —— 它核对的仍是同一份内存捕获。离开 readCapturedScope 时
+          // 已对源根做了整根复核(与捕获逐项比对身份、大小、哈希,并比对原生指纹),源根的任何变化都在那里被拒。
+          return result;
+        });
+      })();
+    }
     function transformSourceScope(plan,work){
+      if(preservedRead!==undefined&&plan.expected.id===null&&plan.candidate&&typeof manifest.candidateBoundary==='function')return legacyTransformSourceScope(plan,work);
       if(preservedRead===undefined||plan.expected.id===null)return work(codecSourceScope(plan));
       // A published generation is disjoint from all writes in this loop. Use
       // its existing capture and close the full physical proof before advancing.
