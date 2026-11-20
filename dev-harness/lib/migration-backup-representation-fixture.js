@@ -41,7 +41,9 @@ function createRepresentationFixture(root,overrides={}){
  f.replace('migrationCapsuleCapture',capture);f.replace('migrationCapsuleCapturePreserved',capture);
  // Native-only seam. Codecs, intent state, fingerprint guards, binding lookup and
  // durable typed-history publication remain the actual source implementation.
+ const restoreArchive=evaluate('migrationCapsuleRestore');
  f.replace('migrationCapsuleRestore',async(descriptor,snapshot,intent,undo)=>{
+  if(intent.archiveOnly)return restoreArchive(descriptor,snapshot,intent,undo);
   assert.equal(undo,true);const dest=path.join(selected.root,'skills',descriptor.id),retired=path.join(descriptor.backup,'retired');
   const restored=path.join(descriptor.backup,'restored');fs.mkdirSync(restored,{recursive:true});
   const roots=[];for(const root of [descriptor.plainRoot,path.join(restored,intent.oldRoot)].filter(Boolean))if(fs.existsSync(root)&&id(root)===intent.oldRoot)roots.push(root);

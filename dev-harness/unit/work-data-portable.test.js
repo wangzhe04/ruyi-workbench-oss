@@ -56,6 +56,18 @@ function withPortableDurability(f){
  return f;
 }
 
+async function createOwnedPortable(f, { root, snapshot, revision }) {
+ for (const row of [...snapshot.entries].sort((a, b) => a.rel.length - b.rel.length)) {
+  const target = path.join(root, ...row.rel.split('/'));
+  if (row.dir) await fsp.mkdir(target);
+  else await fsp.writeFile(target, Buffer.from(row.streams.find(stream => stream.name === '').data, 'base64'), { flag: 'wx' });
+  const id = f.special.nativeId(target);
+  f.special.metadata.set(id, { attrs: row.attrs, times: row.times, shortName: row.shortName });
+  f.special.streams.set(id, new Map(row.streams.filter(stream => stream.name !== '').map(stream => [stream.name, Buffer.from(stream.data, 'base64')])));
+ }
+ return f.special.native.capture(root, revision);
+}
+
 test('actual empty V3 store exports authenticated exact closed portable records without source changes',async t=>{
  const f=await portableFixture(t),{captured,request}=await f.capture();try{const before=await f.tree.verify(captured),portable=await f.owner.capturePortable(request);assert.equal(portable.type,'skill-backup-portable');assert.equal(portable.sourceSha256,request.source.sourceSha256);const value=await f.owner.validatePortable({...request,data:portable.data});assert.equal(value.records.length,3);assert.equal(value.profile.originalObjects,'refused');assert.equal(value.authority.id,f.selected.id);assert.equal((await f.tree.verify(captured)).sha256,before.sha256);portable.release();assert.equal(portable.data.every(n=>n===0),true);}finally{captured.release();}
 });
@@ -95,16 +107,7 @@ test('catalogued nonempty capsule migrates through durable prepared and ready ho
  const sourceProof=await fullPortableOwner(f).seal({password:'synthetic nonempty migration password',appVersion:'3.0.1',generation:selected.generation});
  assert.equal(sourceProof.specialCoverage.originalObjects,'new-owned-portable');
  withPortableDurability(f);
- f.special.native.createOwnedPortable=async({root,snapshot:input,revision})=>{
-  for(const row of [...input.entries].sort((a,b)=>a.rel.length-b.rel.length)){
-   const target=path.join(root,...row.rel.split('/')),data=row.streams.find(stream=>stream.name==='');
-   if(row.dir)await fsp.mkdir(target);else await fsp.writeFile(target,Buffer.from(data.data,'base64'),{flag:'wx'});
-   const id=f.special.nativeId(target);
-   f.special.metadata.set(id,{attrs:row.attrs,times:row.times,shortName:row.shortName});
-   f.special.streams.set(id,new Map(row.streams.filter(stream=>stream.name!=='').map(stream=>[stream.name,Buffer.from(stream.data,'base64')])));
-  }
-  return f.special.native.capture(root,revision);
- };
+ f.special.native.createOwnedPortable=request=>createOwnedPortable(f,request);
  const restoredRoot=path.join(f.root,'stable-native-portable-target'),restoreOwner={roots:[restoredRoot]};
  const staged=await fullPortableOwner(f).restore({serialized:sourceProof.serialized,password:'synthetic nonempty migration password',target:restoredRoot,targetOwnership:restoreOwner});
  assert.equal(staged.specialProfile.originalObjects,'new-owned-portable');
@@ -267,6 +270,137 @@ test('portable stage cannot overwrite or alias source/target and rejects owner l
 
 test('actual fullsnapshot exports after enable and restores native new-base empty store plus cold foreign-account keys',async t=>{
  const f=withPortableDurability(await portableFixture(t));await fsp.unlink(path.join(f.base,'.work-data','maintenance-v1.json'));const id='a'.repeat(48),result={schema:1,id,operation:'enable',finishedAt:new Date().toISOString(),state:'published',sourceAuthority:{generation:0,id:null,mode:'plain',sha256:null},authority:{generation:1,id:f.selected.id,mode:'encrypted',sha256:f.selected.proof.sha256},backup:{path:path.join(f.root,'missing-old-machine','ruyi-work-data-'+id+'.ruyi-backup'),sha256:'b'.repeat(64),bytes:1,identity:{dev:'1',ino:'2'}}},resultBytes=Buffer.from(JSON.stringify(result));await f.write('.work-data/maintenance-result-v1.json',resultBytes);const owner=fullPortableOwner(f),source=await f.tree.capture(f.base),before=await f.tree.verify(source);try{const sealed=await owner.seal({password:'synthetic portable package password',appVersion:'3.0.1',generation:1});assert.equal(sealed.specialCoverage.type,'skill-backup-portable');const target=path.join(f.root,'foreign-account-target'),native=targetProtector(target);let restored;await assert.doesNotReject(async()=>{restored=await fullPortableOwner(f,native).restore({serialized:sealed.serialized,password:'synthetic portable package password',target,targetOwnership:{roots:[target]}});});assert.match(restored.nativeMetadata,/new native store identity/);assert.equal(restored.specialProfile.originalObjects,'refused');assert.deepEqual(await fsp.readFile(path.join(target,'.work-data','maintenance-result-v1.json')),resultBytes);native.state.guard=false;const manifest=f.api.WorkDataManifest.create({base:target,publish:()=>{throw Error('read-only');}}),selected=await manifest.readActive(),header=JSON.parse(await fsp.readFile(path.join(selected.root,'work-data-key-v1.json'),'utf8')),keys=f.api.WorkDataKeys.create({protector:native,enabled:()=>true,store:{read:async()=>header}}),cold=f.special.api.hooks.createBackupOwner({base:target,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys,native:f.special.native});assert.equal((await cold.verifyPublished({expected:selected})).generationId,selected.id);assert.equal((await f.tree.verify(source)).sha256,before.sha256);assert.ok(restored.stagedStates.some(row=>row.path==='.work-data/skill-backups/catalog-v1.sealed'&&row.sourceSha256!==row.stagedSha256));keys.clear();}finally{source.release();}
+});
+
+test('archive-only skill backups survive full restore and retain eligible, edited and gone Undo outcomes', async t => {
+ const f = withPortableDurability(await portableFixture(t));
+ const { api, context, native } = f.special;
+ const evaluate = name => vm.runInNewContext(name, context);
+ f.special.fx.store.Hooks.keys = f.keys;
+ await fsp.unlink(path.join(f.base, '.work-data', 'maintenance-v1.json'));
+ const authority = await f.owner.activate();
+ const maker = f.api.WorkDataKeys.create({ protector: f.protector, enabled: () => false, store: { read: async () => f.api.WorkDataKeys.empty() } });
+ const previous = await maker.stageNew();
+ previous.lease.release();
+ await f.write('work-data-key-v1.json.prev', JSON.stringify(previous.header));
+ const previousKeys = f.api.WorkDataKeys.create({ protector: f.protector, enabled: () => true, store: { read: async () => previous.header } });
+ t.after(() => { previousKeys.clear(); maker.clear(); });
+ const stamp = '2026-10-24T00-00-00-000Z', revision = '4'.repeat(64);
+ const files = [], originalBytes = Buffer.from([0, 255, 128, 10, 13]);
+ const provenance = { schema: 1, source: 'codex', plugin: '', sourcePath: 'SYNTHETIC_ARCHIVE_SOURCE', importedAt: 'then', sourceTreeHash: 'before', copyTreeHash: 'before' };
+ let editedProvenance;
+ for (const skillId of ['eligible', 'edited', 'gone']) {
+  const original = path.join(f.root, 'archive-' + skillId);
+  const live = path.join(f.selected.root, 'skills', skillId);
+  await fsp.mkdir(path.join(original, 'empty'), { recursive: true });
+  await fsp.writeFile(path.join(original, 'SKILL.md'), 'Original ' + skillId);
+  await fsp.writeFile(path.join(original, 'payload.bin'), originalBytes);
+  if (skillId === 'eligible') f.special.fx.store.Hooks.keys = previousKeys;
+  try { await api.writeSkillImportRecord(original, provenance, skillId); }
+  finally { f.special.fx.store.Hooks.keys = f.keys; }
+  if (skillId === 'edited') editedProvenance = hash(await fsp.readFile(path.join(original, '.ruyi-import.json')));
+  const snapshot = await native.capture(original, revision);
+  await fsp.mkdir(live, { recursive: true });
+  await fsp.writeFile(path.join(live, 'SKILL.md'), 'Replacement ' + skillId);
+  await api.writeSkillImportRecord(live, provenance, skillId);
+  const newTree = api.migrationCapsuleFingerprint(await native.capture(live, revision));
+  const copyTreeHash = await api.migrationTreeHash(await api.migrationSkillTree(live));
+  const backup = path.join(authority.root, stamp, skillId);
+  await fsp.mkdir(backup, { recursive: true });
+  await fsp.writeFile(path.join(backup, '.ruyi-capsule-v1'), '{"version":1}');
+  const descriptor = { ...api.migrationCapsuleDescriptor(backup), archiveKeys: f.keys, intentKeys: f.keys };
+  await api.migrationCapsuleArchive(descriptor).write(require('node:zlib').gzipSync(JSON.stringify(snapshot)));
+  await api.migrationCapsuleWriteIntent(descriptor, {
+   schema: 1, id: skillId, stamp, revision, phase: 'published', archiveOnly: true,
+   oldRoot: snapshot.entries[0].id, newTree, sourceStage: '.ruyi-copy-' + skillId + '-' + stamp,
+  });
+  files.push({ file: live, kind: 'skill-copy', backup, backupRef: await f.owner.ref(stamp, skillId, authority.storeId), items: [{ id: skillId, action: 'updated', copyTreeHash }] });
+  if (skillId === 'edited') await fsp.writeFile(path.join(live, 'SKILL.md'), 'USER EDIT');
+  if (skillId === 'gone') {
+   await fsp.unlink(path.join(live, 'SKILL.md'));
+   await fsp.unlink(path.join(live, '.ruyi-import.json'));
+   await fsp.rmdir(live);
+  }
+ }
+ await evaluate('writeMigrationLog')({ schema: 1, id: stamp, type: 'skill-copy', files });
+ const allocated = [];
+ native.createOwnedPortable = request => {
+  allocated.push(request.root);
+  return createOwnedPortable(f, request);
+ };
+ const owner = fullPortableOwner(f);
+ const password = 'synthetic archive-only recovery password';
+ const options = { password, appVersion: '3.0.1', generation: f.selected.generation };
+ const unexpected = path.join(authority.root, stamp, 'eligible', 'objects');
+ await fsp.mkdir(unexpected);
+ await assert.rejects(() => owner.seal(options), { code: 'work_data_backup.portable_unknown' });
+ await fsp.rmdir(unexpected);
+ const source = await f.tree.capture(f.base);
+ t.after(() => source.release());
+ const baseline = await f.tree.verify(source);
+ const sealed = await owner.seal(options);
+ const packaged = await f.api.WorkDataRecovery.open(sealed.serialized, password);
+ try {
+  assert.equal(packaged.snapshot.keys.length, 2);
+  const archive = packaged.snapshot.files.find(row => row.path.endsWith('/eligible/archive'));
+  assert.equal(archive.keyRefs.length, 2, 'export binds the retained master used inside the encrypted archive');
+ } finally { packaged.release(); }
+ const target = path.join(f.root, 'archive-only-target'), protector = targetProtector(target);
+ await fullPortableOwner(f, protector).restore({ serialized: sealed.serialized, password, target, targetOwnership: { roots: [target] } });
+ assert.equal(allocated.filter(root => root.includes(`${path.sep}.owned-originals${path.sep}`)).length, 0);
+ assert.equal((await f.tree.verify(source)).sha256, baseline.sha256);
+
+ protector.state.guard = false;
+ const manifest = f.api.WorkDataManifest.create({ base: target, publish: () => assert.fail('read-only manifest') });
+ const selected = await manifest.readActive();
+ const header = JSON.parse(await fsp.readFile(path.join(selected.root, 'work-data-key-v1.json'), 'utf8'));
+ const keys = f.api.WorkDataKeys.create({ protector, enabled: () => true, store: { read: async () => header } });
+ t.after(() => keys.clear());
+ f.special.fx.store.Hooks.keys = keys;
+ const cold = api.hooks.createBackupOwner({ base: target, readActive: () => manifest.readActive(), sourceKeys: keys, targetKeys: keys, native });
+ const reopened = await cold.activate();
+ const [restoredLog] = await evaluate('migrationLogs()');
+ assert.equal(restoredLog.files[0].file, path.join(selected.root, 'skills', 'eligible'));
+ assert.equal(restoredLog.files[0].backup, path.join(reopened.root, stamp, 'eligible'));
+ for (const skillId of ['eligible', 'edited', 'gone']) {
+  assert.deepEqual((await fsp.readdir(path.join(reopened.root, stamp, skillId))).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+ }
+ const edited = await api.migrationCapsuleRead(api.migrationCapsuleDescriptor(path.join(reopened.root, stamp, 'edited')));
+ const editedRecord = edited.snapshot.entries.find(row => row.rel === '.ruyi-import.json');
+ assert.equal(editedRecord.streams.find(stream => stream.name === '').hash, editedProvenance, 'provenance already bound to the active master keeps its ciphertext bytes');
+ const result = await api.hooks.undo({ id: stamp });
+ assert.equal(result.ok, true, JSON.stringify(result));
+ assert.equal(result.restored, 1);
+ assert.equal(result.skipped, 2);
+ assert.deepEqual(Array.from(result.skills, row => [row.id, row.outcome, row.reason]), [
+  ['eligible', 'restored-previous', undefined], ['edited', 'kept', 'edited'], ['gone', 'kept', 'gone'],
+ ]);
+ const eligible = path.join(selected.root, 'skills', 'eligible');
+ assert.equal(await fsp.readFile(path.join(eligible, 'SKILL.md'), 'utf8'), 'Original eligible');
+ assert.deepEqual(await fsp.readFile(path.join(eligible, 'payload.bin')), originalBytes);
+ assert.deepEqual(await fsp.readdir(path.join(eligible, 'empty')), []);
+ assert.deepEqual({ ...await api.readSkillImportRecord(eligible) }, provenance);
+ assert.equal(await fsp.readFile(path.join(selected.root, 'skills', 'edited', 'SKILL.md'), 'utf8'), 'USER EDIT');
+ assert.equal(fs.existsSync(path.join(selected.root, 'skills', 'gone')), false);
+ assert.equal((await api.hooks.undo({ id: stamp })).error, 'already-undone');
+
+ const restoredOwner = fullPortableOwner({ ...f, base: target }, protector);
+ const completedDescriptor = api.migrationCapsuleDescriptor(path.join(reopened.root, stamp, 'eligible'));
+ const completedRecord = await api.migrationCapsuleRead(completedDescriptor);
+ const retired = path.join(path.dirname(eligible), '.ruyi-copy-undo-' + completedRecord.intent.archiveRestore.token + '-retired');
+ await fsp.mkdir(retired);
+ await assert.rejects(() => restoredOwner.seal(options), { code: 'work_data_full.special_owner_required' });
+ await fsp.rmdir(retired);
+ const completed = await restoredOwner.seal({ password, appVersion: '3.0.1', generation: selected.generation });
+ const secondTarget = path.join(f.root, 'archive-only-completed-target');
+ await restoredOwner.restore({ serialized: completed.serialized, password, target: secondTarget, targetOwnership: { roots: [secondTarget] } });
+ const terminal = path.join(secondTarget, path.relative(target, reopened.root), stamp, 'eligible');
+ const descriptor = { ...api.migrationCapsuleDescriptor(path.join(reopened.root, stamp, 'eligible')), backup: terminal, archiveKeys: keys, intentKeys: keys };
+ const terminalRecord = await api.migrationCapsuleRead(descriptor);
+ assert.equal(terminalRecord.intent.phase, 'complete');
+ assert.equal(hash(JSON.stringify(terminalRecord.snapshot)), hash(JSON.stringify(completedRecord.snapshot)));
+ assert.equal(terminalRecord.intent.archiveRestore, undefined, 'completed archives carry no source directory identities');
+ assert.deepEqual((await fsp.readdir(terminal)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
 });
 test('snapshot result metadata uses actual static schema and never exempts an unknown wx stage',async t=>{
  for(const kind of['bad-result','stage']){const f=await portableFixture(t);await fsp.unlink(path.join(f.base,'.work-data','maintenance-v1.json'));await f.write('.work-data/'+(kind==='bad-result'?'maintenance-result-v1.json':'.maintenance-result-v1.stage-'+'1'.repeat(48)),'{}');await assert.rejects(()=>fullPortableOwner(f).seal({password:'synthetic portable package password',appVersion:'3.0.1',generation:1}));assert.equal((await f.manifest.readActive()).generation,1);}

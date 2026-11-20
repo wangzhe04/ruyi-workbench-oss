@@ -2173,10 +2173,10 @@ function migrationCapsuleIntentShape(value, descriptor) {
     || !/^[a-f0-9]{48}$/.test(value.historyPublish.name || '') || !/^[a-f0-9]{24}$/.test(value.historyPublish.id || ''))) return false;
   const restore = value?.archiveRestore;
   if (value?.archiveOnly !== undefined) {
-    if (value.archiveOnly !== true || descriptor.plainRoot || descriptor.generationLocal || converted
+    if (value.archiveOnly !== true || descriptor.plainRoot || descriptor.generationLocal
       || !['published', 'restoring', 'complete'].includes(value.phase)) return false;
     if (value.phase === 'published') { if (restore !== undefined) return false; }
-    else {
+    else if (value.phase === 'restoring' || restore !== undefined) {
       if (!restore || !/^[a-f0-9]{48}$/.test(restore.token || '')) return false;
       if (restore.ownerIdentity !== undefined && !/^\d+:\d+$/.test(restore.ownerIdentity)) return false;
       if ((restore.identity !== undefined || restore.replacedIdentity !== undefined || value.phase === 'complete')
@@ -3432,7 +3432,7 @@ async function migrationRecoverSkillBackup(descriptor, snapshot, intent) {
   const dest = migrationSkillTarget(descriptor.id);
   if (intent.archiveOnly) {
     if (intent.phase === 'restoring') return migrationCapsuleRestoreArchive(descriptor, snapshot, intent, dest);
-    if (intent.phase === 'complete') await migrationArchiveRestoreRetire(dest, intent);
+    if (intent.phase === 'complete' && intent.archiveRestore) await migrationArchiveRestoreRetire(dest, intent);
     return;
   }
   const stat = await migrationLstat(dest);
@@ -5610,6 +5610,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     return result;
   }
   const portableLegacySource=value=>value.authority.id===null&&portableFold(value.source.sourcePath)==='migrations/skill-backups';
+  const portableActiveKeyPath=authority=>'.work-data/generations/'+authority.id+'/work-data-key-v1.json';
   function portableWitnessDigest(value){
     // Newly sampled opaque names belong only to the capture transport. Archived
     // opaque names are semantic addresses and remain in value.records.
@@ -5772,6 +5773,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     : migrationCapsuleCapturePreserved(root, revision);
   async function collectPortable(request,sourceBase,evidence,nativeView) {
     const input=portableInput(request),remaining=new Map(input.scoped),claimedDirectories=new Set(),records=[],histories=new Map();
+    const capsuleInstances=new Map();
     const take=name=>{const row=remaining.get(portableFold(name));if(!row)migrationCapsuleFail('portable_source');remaining.delete(portableFold(name));return row;};
     const dir=name=>{const actual=input.dirs.get(portableFold(name));if(!actual)migrationCapsuleFail('portable_source');claimedDirectories.add(portableFold(name));return actual;};
     const ancestors=name=>{let current=name;for(;;){if(input.dirs.has(portableFold(current)))claimedDirectories.add(portableFold(current));const at=current.lastIndexOf('/');if(at<0)break;current=current.slice(0,at);}};
@@ -5780,6 +5782,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if(kind==='capsule-archive'||kind==='capsule-intent'){
         const end=row.data.indexOf(10),header=end>=0&&end<=16*1024?safeJsonParse(row.data.subarray(0,end).toString('utf8'),null):null,privateKind=kind==='capsule-archive'?'archive':'intent',descriptor={scopeId,recordId:privateKind==='archive'?recordId.slice(0,-8):recordId.split(':intent')[0],...(privateKind==='intent'?{intentRecordId:recordId}:{})};
         if(!migrationCapsuleCarrierHeaderValid(header,descriptor,privateKind))migrationCapsuleFail('carrier');
+        capsuleInstances.set(row.path,header.instanceId);
       }
       const result=await input.read(row,{purpose:'backup',schema:1,scopeId,recordId,chunked:true,maxPlaintextBytes:256*1024*1024});
       if (!result || typeof result.text !== 'string' || result.authenticated !== (mode==='encrypted')) migrationCapsuleFail('portable_carrier');
@@ -5836,6 +5839,13 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     // Fixed published capsule families. Other representation/pending forms stay
     // explicit special-owner-required until their complete private closure exists.
     const originalPattern=new RegExp('^(?:(?:\\.work-data/generations/[a-f0-9]{48}/)?migrations/skill-backups|\\.work-data/skill-backups/objects-v1)/([0-9TZ-]+)/([A-Za-z0-9_-]{1,64})/\\.ruyi-capsule-v1$',process.platform==='win32'?'i':'');
+    const restoreSiblings=new Set(request.directories.map(name=>portableFold(path.posix.basename(name)))
+      .filter(name=>name.startsWith(MIGRATION_SKILL_STAGE_PREFIX+'undo-')));
+    const assertArchiveRestoreSettled=intent=>{
+      if(!intent.archiveRestore)return;
+      const prefix=MIGRATION_SKILL_STAGE_PREFIX+'undo-'+intent.archiveRestore.token;
+      if(restoreSiblings.has(prefix+'-stage')||restoreSiblings.has(prefix+'-retired'))migrationCapsuleFail('portable_pending');
+    };
     if(evidence!==undefined&&!Array.isArray(evidence))migrationCapsuleFail('portable_native_evidence');
     const nativeEvidence=[],providedEvidence=evidence===undefined?null:new Map((Array.isArray(evidence)?evidence:[]).map(row=>[portableFold(row.path),row]));
     if(providedEvidence&&providedEvidence.size!==evidence.length)migrationCapsuleFail('portable_source');
@@ -5862,6 +5872,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const zipped=Buffer.from(archive.value.data,'base64');let snapshot;try{if(zipped.toString('base64')!==archive.value.data)migrationCapsuleFail('portable_archive');snapshot=migrationCapsuleDecode(zipped);}finally{zipped.fill(0);}if(!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_snapshot_owner_required');archive.value=snapshot;
       const intent=await read(wrapper+'/intent','capsule-intent',source.recordId+':intent',value=>migrationCapsuleIntentShape(value,source),{scopeId:source.scopeId});
       if(!['published','complete','aborted'].includes(intent.value.phase)||intent.value.revision!==snapshot.revision||intent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_original_capsule_required');
+      const archiveOnly=intent.value.archiveOnly===true;
       const selectedEntry=activeBinding?.value.entries.find(entry=>entry.ref.backupId===backupRef.backupId&&entry.ref.stamp===stamp&&entry.ref.skillId===portableFold(skillId));
       let selectedIntent=intent;
       if(selectedEntry){
@@ -5873,20 +5884,33 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       }
       const terminal=['complete','aborted'].includes(selectedIntent.value.phase)?selectedIntent.value.phase:null;
       if(!terminal&&intent.value.phase!=='published'||terminal&&intent.value.phase!=='published'&&intent.value.phase!==terminal)migrationCapsuleFail('portable_binding');
-      await provenanceRefs(snapshot,slot,archive.path);const objects=wrapper+'/objects';dir(objects);
-      const physical=await evidenceFor(objects,hash('portable-objects:'+wrapper));
-      if(physical.entries.some(entry=>entry.rel===''?entry.streams.length!==0:entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
-      if(terminal){if(physical.entries.length!==1||physical.entries[0].rel!==''||!physical.entries[0].dir||physical.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}
-      else if(physical.entries.length!==snapshot.entries.length+1)migrationCapsuleFail('portable_objects');
-      for(const original of terminal?[]:snapshot.entries){const opaque=objects+'/'+original.opaque,current=physical.entries.find(entry=>entry.rel===original.opaque);
-        if(!current||current.id!==original.id||current.dir!==original.dir||current.streams.some(stream=>stream.name!==''||stream.size!==0))migrationCapsuleFail('portable_objects');
-        if(original.dir)dir(opaque);else if(take(opaque).data.length)migrationCapsuleFail('portable_objects');
+      if((selectedIntent.value.archiveOnly===true)!==archiveOnly)migrationCapsuleFail('portable_binding');
+      await provenanceRefs(snapshot,slot,archive.path);
+      if(archiveOnly){
+        if(authority.mode!=='encrypted'||!portableFold(wrapper).startsWith(controlPrefix+'/objects-v1/'))migrationCapsuleFail('portable_original_capsule_required');
+        const keyHeader=input.files.get(portableFold(portableActiveKeyPath(authority)));
+        const instanceId=keyHeader&&safeJsonParse(keyHeader.data.toString('utf8'),null)?.instanceId;
+        if(!instanceId||[archive,selectedIntent].some(record=>capsuleInstances.get(record.path)!==instanceId))migrationCapsuleFail('portable_keys');
+        const header=safeJsonParse(marker.data.toString('utf8'),null);
+        if(!exact(header,'version')||header.version!==1)migrationCapsuleFail('portable_shape');
+        assertArchiveRestoreSettled(intent.value);
+        assertArchiveRestoreSettled(selectedIntent.value);
+      }else{
+        const objects=wrapper+'/objects';dir(objects);
+        const physical=await evidenceFor(objects,hash('portable-objects:'+wrapper));
+        if(physical.entries.some(entry=>entry.rel===''?entry.streams.length!==0:entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+        if(terminal){if(physical.entries.length!==1||physical.entries[0].rel!==''||!physical.entries[0].dir||physical.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}
+        else if(physical.entries.length!==snapshot.entries.length+1)migrationCapsuleFail('portable_objects');
+        for(const original of terminal?[]:snapshot.entries){const opaque=objects+'/'+original.opaque,current=physical.entries.find(entry=>entry.rel===original.opaque);
+          if(!current||current.id!==original.id||current.dir!==original.dir||current.streams.some(stream=>stream.name!==''||stream.size!==0))migrationCapsuleFail('portable_objects');
+          if(original.dir)dir(opaque);else if(take(opaque).data.length)migrationCapsuleFail('portable_objects');
+        }
+        if(terminal){const restored=wrapper+'/restored';if(input.dirs.has(portableFold(restored))){dir(restored);const empty=await evidenceFor(restored,hash('portable-terminal-restored:'+wrapper));if(empty.entries.length!==1||empty.entries[0].rel!==''||!empty.entries[0].dir||empty.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}}
       }
-      if(terminal){const restored=wrapper+'/restored';if(input.dirs.has(portableFold(restored))){dir(restored);const empty=await evidenceFor(restored,hash('portable-terminal-restored:'+wrapper));if(empty.entries.length!==1||empty.entries[0].rel!==''||!empty.entries[0].dir||empty.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}}
       const livePrefix=authority.id?'.work-data/generations/'+authority.id+'/':'',liveName=livePrefix+'skills/'+skillId;let live=null;
       if(request.directories.some(name=>portableFold(name)===portableFold(liveName))){const actualName=request.directories.find(name=>portableFold(name)===portableFold(liveName));if(!liveTrees.has(portableFold(actualName))){live=await evidenceFor(actualName,hash('portable-live:'+actualName));await provenanceRefs(live,slot,archive.path);liveTrees.set(portableFold(actualName),{path:actualName,snapshot:live});}else live=liveTrees.get(portableFold(actualName)).snapshot;}
       let eligibility=terminal?'terminal':selectedIntent.value.conversion?.eligibility;if(!terminal&&!['edited','gone'].includes(eligibility))eligibility=live&&migrationCapsuleSame(live,selectedIntent.value.newTree)?'eligible':live?'edited':'gone';
-      const original={wrapper,stamp,skillId,backupId:backupRef.backupId,archive:archive.path,intent:intent.path,marker:{path:marker.path,sha256:hash(marker.data)},live:live?liveName:null,eligibility,...(terminal?{phase:terminal}:{})};
+      const original={wrapper,stamp,skillId,backupId:backupRef.backupId,archive:archive.path,intent:intent.path,marker:{path:marker.path,sha256:hash(marker.data)},live:live?liveName:null,eligibility,...(archiveOnly?{archiveOnly}:{}),...(terminal?{phase:terminal}:{})};
       if(originalByRef.has(stamp+'/'+portableFold(skillId)))migrationCapsuleFail('portable_binding');originalByRef.set(stamp+'/'+portableFold(skillId),original);originalSources.set(original,{snapshot,live});(terminal?terminalCapsules:originals).push(original);ancestors(wrapper);
     }
     // Whole raw legacy backups are user trees, not capsule/control records.
@@ -5925,7 +5949,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const zipped=Buffer.from(archive.value.data,'base64');let snapshot;try{if(zipped.toString('base64')!==archive.value.data)migrationCapsuleFail('portable_archive');snapshot=migrationCapsuleDecode(zipped);}finally{zipped.fill(0);}
       if(!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_snapshot_owner_required');archive.value=snapshot;archive.kind=plain?'plain-archive':'representation-archive';
       const intentId=d.recordId+':intent'+(generationId?':'+generationId:''),intent=await read(wrapper+'/intent','capsule-intent',intentId,value=>migrationCapsuleIntentShape(value,{...d,...(plain?{plainRoot:path.join(sourceBase,...(controlPrefix+'/objects-v1/'+slot.stamp+'/'+slot.skillId).split('/'))}:{}),...(generationId?{generationId}:{})}),{scopeId:d.scopeId});intent.kind=plain?'plain-intent':'representation-intent';
-      if(!['published','complete','aborted'].includes(intent.value.phase)||intent.value.revision!==snapshot.revision||intent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_representation_unsettled');
+      if(intent.value.archiveOnly||!['published','complete','aborted'].includes(intent.value.phase)||intent.value.revision!==snapshot.revision||intent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_representation_unsettled');
       if(!plain){const marker=take(wrapper+'/'+MIGRATION_CAPSULE_MARKER);if(!exact(safeJsonParse(marker.data.toString('utf8'),null),'version')||safeJsonParse(marker.data.toString('utf8'),null).version!==1)migrationCapsuleFail('portable_shape');}
       dir(wrapper);await emptyPortable(wrapper+'/objects');await emptyPortable(wrapper+'/restored');ancestors(wrapper);await provenanceRefs(snapshot,slot,archive.path);
       const value={wrapper,stamp:slot.stamp,skillId:slot.skillId,backupId:hash(slot.stamp+'/'+portableFold(slot.skillId)),archive:archive.path,intent:intent.path,generationId,snapshot,phase:intent.value.phase,plain};
@@ -5996,6 +6020,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if(!['published','complete','aborted'].includes(intent.value.phase)||!records.some(record=>['capsule-archive','representation-archive','plain-archive'].includes(record.kind)&&record.value.revision===intent.value.revision&&rootId(record.value)===intent.value.oldRoot))migrationCapsuleFail('portable_binding');
     }
     for(const row of settledRepresentations){
+      if(originalByRef.get(row.stamp+'/'+portableFold(row.skillId))?.archiveOnly)migrationCapsuleFail('portable_representation_unsettled');
       const record=records.find(record=>record.path===row.path).value,archiveCandidates=records.filter(item=>['capsule-archive','representation-archive','plain-archive','history'].includes(item.kind)&&hash(input.files.get(portableFold(item.path)).data)===record.archiveSha),intentCandidates=records.filter(item=>['capsule-intent','representation-intent','plain-intent','representation-variant'].includes(item.kind)&&hash(input.files.get(portableFold(item.path)).data)===record.intentSha);
       if(record.oldType==='history'){
         const marker=[...input.files.values()].find(file=>hash(file.data)===record.intentSha&&file.path.endsWith('/'+MIGRATION_BACKUP_HISTORY_MARKER));if(!marker||!archiveCandidates.length)migrationCapsuleFail('portable_representation_carrier');row.archive=archiveCandidates[0].path;row.intent=marker.path;
@@ -6031,7 +6056,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if(!record){if(!remaining.has(portableFold(relative)))migrationCapsuleFail('portable_binding');record=await read(relative,'capsule-intent',source.recordId+':intent:'+generationId,value=>migrationCapsuleIntentShape(value,variant),{scopeId:source.scopeId});}
       const snapshot=originalSources.get(original).snapshot;
       if(!['capsule-intent','representation-variant'].includes(record.kind)||record.recordId!==source.recordId+':intent:'+generationId||record.scopeId!==source.scopeId
-        ||!migrationCapsuleIntentShape(record.value,variant)||!(original.phase?['published',original.phase].includes(record.value.phase):record.value.phase==='published')||record.value.revision!==snapshot.revision||record.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_binding');
+        ||!migrationCapsuleIntentShape(record.value,variant)||(record.value.archiveOnly===true)!==(original.archiveOnly===true)
+        ||!(original.phase?['published',original.phase].includes(record.value.phase):record.value.phase==='published')||record.value.revision!==snapshot.revision||record.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_binding');
+      if(original.archiveOnly)assertArchiveRestoreSettled(record.value);
       return record;
     };
     for(const binding of bindings){const seen=new Set();for(const entry of binding.value.entries){
@@ -6142,13 +6169,15 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     return portableClone(collected);
   }
   async function stagePortableOriginals({target,keysFor,assertTargetExclusive,targetOwnership,assertTargetExclusiveSync,request,value}) {
-    if(typeof conversionNative.createOwnedPortable!=='function')migrationCapsuleFail('portable_native_create_required');
     const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
     await admission();await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');
     const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex')),input=portableInput(request),replacements=[],mappings=[],moves=[];let mutated=false;
     const originals=value.originals,terminals=value.terminalCapsules||[],rawTrees=value.rawTrees||[],physicalTrees=[...value.liveTrees,...rawTrees],archives=new Map(),liveTrees=new Map(),recordByPath=new Map(value.records.map(row=>[portableFold(row.path),row]));
+    const nativeOriginals=originals.filter(row=>!row.archiveOnly);
+    const needsNativeCreate=physicalTrees.length||nativeOriginals.length||terminals.some(row=>!row.archiveOnly)||value.settledRepresentations?.length;
+    if(needsNativeCreate&&typeof conversionNative.createOwnedPortable!=='function')migrationCapsuleFail('portable_native_create_required');
     const inside=(name,root)=>portableFold(name)===portableFold(root)||portableFold(name).startsWith(portableFold(root)+'/');
-    const oldOpaque=name=>originals.some(original=>{const snapshot=recordByPath.get(portableFold(original.archive)).value;return snapshot.entries.some(entry=>inside(name,original.wrapper+'/objects/'+entry.opaque));});
+    const oldOpaque=name=>nativeOriginals.some(original=>{const snapshot=recordByPath.get(portableFold(original.archive)).value;return snapshot.entries.some(entry=>inside(name,original.wrapper+'/objects/'+entry.opaque));});
     const catalog=value.records.find(row=>row.kind==='catalog'),roots=[catalog?input.source.directories.find(name=>portableFold(name)==='.work-data/skill-backups/objects-v1'):null,
       ...input.source.directories.filter(name=>/^(?:\.work-data\/generations\/[a-f0-9]{48}\/)?migrations\/skill-backups$/i.test(name)),...value.liveTrees.map(row=>row.path),...(((value.settledRepresentations||[]).length||(value.plainBackups||[]).length||(value.retainedCapsules||[]).length)?['.work-data/skill-backups/representations-v1','.work-data/skill-backups/plain-v1','.work-data/skill-backups/intents'].filter(name=>input.dirs.has(portableFold(name))):[])].filter(Boolean);
     const parents=new Set([path.dirname(stageRoot)]),stagePath=name=>path.join(stageRoot,...name.split('/'));
@@ -6159,6 +6188,44 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const result=portableClone(before);result.revision=actual.revision;
       for(const entry of result.entries){const replacement=actual.entries.find(row=>row.rel===entry.rel);if(!replacement||replacement.dir!==entry.dir)migrationCapsuleFail('portable_create_changed');entry.id=replacement.id;entry.opaque=replacement.opaque;}
       if(!migrationCapsulePortableShape(result))migrationCapsuleFail('portable_create_changed');return result;
+    };
+    const rebindArchiveProvenance=async(row,source)=>{
+      const snapshot=portableClone(source);
+      const file=snapshot.entries.find(entry=>portableFold(entry.rel)===portableFold(SKILL_IMPORT_RECORD));
+      if(!file)return snapshot;
+      const stream=file.streams.find(stream=>stream.name===''),ciphertext=Buffer.from(stream.data,'base64');
+      const binding={purpose:'backup',schema:1,scopeId:'skills',recordId:'skill-import:'+portableFold(row.skillId),chunked:true,maxPlaintextBytes:16*1024};
+      try{
+        const opened=await input.read({path:row.archive,data:ciphertext},binding);
+        if(!opened||typeof opened.text!=='string'||!importShape(opened.text))migrationCapsuleFail('portable_provenance');
+        if(!opened.authenticated)return snapshot;
+        const keyHeader=input.files.get(portableFold(portableActiveKeyPath(value.authority)));
+        const lease=await WorkDataStore.acquireSnapshot(await keysFor(keyHeader.path));
+        try{
+          const text=ciphertext.toString('utf8');
+          const header=safeJsonParse(text.split('\n',1)[0],null)||safeJsonParse(text,null);
+          if(header?.instanceId===lease.instanceId)return snapshot;
+          const context={...binding,instanceId:lease.instanceId,seq:1};
+          const sealed=WorkDataChunks.sealFactory(opened.text,lease.key,context,binding.maxPlaintextBytes);
+          try{
+            const lines=[];
+            for await(const line of sealed())lines.push(line);
+            const data=Buffer.from(lines.join(''),'utf8');
+            try{stream.size=data.length;stream.hash=hash(data);stream.data=data.toString('base64');}finally{data.fill(0);}
+          }finally{sealed.dispose();}
+        }finally{await lease.release();}
+        if(!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_create_changed');
+        return snapshot;
+      }finally{ciphertext.fill(0);}
+    };
+    const stageArchive=async(row,snapshot)=>{
+      const source=descriptor('',row.stamp,row.skillId);
+      const copy={...source,backup:stagePath(row.wrapper),archiveKeys:await keysFor(row.archive)};
+      const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));
+      try{await admission();await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
+      const reopened=await migrationCapsuleArchive(copy).read();
+      try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(snapshot))migrationCapsuleFail('portable_create_changed');}finally{reopened.fill(0);}
+      archives.set(portableFold(row.archive),snapshot);
     };
     const extraArchive=async row=>{
       const record=recordByPath.get(portableFold(row.archive)),snapshot=translatedSnapshot(record.value),source=descriptor('',row.stamp,row.skillId),copy={...source,backup:stagePath(row.wrapper),archiveKeys:await keysFor(row.archive)};
@@ -6204,29 +6271,34 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_create_changed');liveTrees.set(portableFold(row.path),snapshot);if(rawTrees.includes(row))rememberOriginal(row.snapshot,snapshot);
       }
       for(const original of originals){
-        const record=recordByPath.get(portableFold(original.archive)),old=record.value,scratch='.owned-originals/'+crypto.randomBytes(24).toString('hex');await make(scratch);const root=stagePath(scratch+'/'+original.skillId);await admission();
+        const old=recordByPath.get(portableFold(original.archive)).value;
+        const marker=input.files.get(portableFold(original.marker.path));
+        if(original.archiveOnly){
+          await write(marker.path,marker.data);
+          await stageArchive(original,await rebindArchiveProvenance(original,old));
+          continue;
+        }
+        const scratch='.owned-originals/'+crypto.randomBytes(24).toString('hex');await make(scratch);const root=stagePath(scratch+'/'+original.skillId);await admission();
         const snapshot=await conversionNative.createOwnedPortable({root,snapshot:old,revision:hash('portable-new-original:'+crypto.randomBytes(32).toString('hex'))});if(!migrationCapsuleShape(snapshot)||snapshot.entries.length!==old.entries.length)migrationCapsuleFail('portable_create_changed');
-        rememberOriginal(old,snapshot);archives.set(portableFold(original.archive),snapshot);await make(original.wrapper+'/objects');await admission();await conversionNative.seal({root,container:stagePath(original.wrapper+'/objects'),snapshot});
+        rememberOriginal(old,snapshot);await make(original.wrapper+'/objects');await admission();await conversionNative.seal({root,container:stagePath(original.wrapper+'/objects'),snapshot});
         // This maps only owned opaque object names; semantic skill IDs stay exact.
         for(const entry of old.entries){const next=snapshot.entries.find(row=>row.rel===entry.rel);if(!next||next.dir!==entry.dir)migrationCapsuleFail('portable_create_changed');mappings.push({source:original.wrapper+'/objects/'+entry.opaque,target:original.wrapper+'/objects/'+next.opaque,dir:entry.dir});}
-        const marker=input.files.get(portableFold(original.marker.path));await write(marker.path,marker.data);
-        const source=descriptor('',original.stamp,original.skillId),keys=await keysFor(original.archive),targetDescriptor={...source,backup:stagePath(original.wrapper),archiveKeys:keys};
-        const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(targetDescriptor).write(bytes);}finally{bytes.fill(0);}
-        const reopened=await migrationCapsuleArchive(targetDescriptor).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(snapshot))migrationCapsuleFail('portable_create_changed');}finally{reopened.fill(0);}
+        await write(marker.path,marker.data);
+        await stageArchive(original,snapshot);
       }
       // Terminal capsules retain authenticated historical snapshots and IDs.
       // They never enter createOwnedPortable/seal: only their real current live
       // tree (if any) is newly owned. Every intent is terminalized below.
       for(const terminal of terminals){
-        const record=recordByPath.get(portableFold(terminal.archive)),source=descriptor('',terminal.stamp,terminal.skillId),keys=await keysFor(terminal.archive),copy={...source,backup:stagePath(terminal.wrapper),archiveKeys:keys};
-        const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(record.value)));try{await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
-        const reopened=await migrationCapsuleArchive(copy).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(record.value))migrationCapsuleFail('portable_terminal_changed');}finally{reopened.fill(0);}
+        const snapshot=recordByPath.get(portableFold(terminal.archive)).value;
+        await stageArchive(terminal,terminal.archiveOnly?await rebindArchiveProvenance(terminal,snapshot):snapshot);
       }
       // Rebind every fixed intent to the staged originals. Only the selected
       // live generation can retain eligible undo; older views become edited.
       for(const record of value.records.filter(row=>row.kind==='capsule-intent')){
-        const original=[...originals,...terminals].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id);if(!original)migrationCapsuleFail('portable_binding');const snapshot=original.phase?recordByPath.get(portableFold(original.archive)).value:archives.get(portableFold(original.archive)),live=original.live?liveTrees.get(portableFold(original.live)):null;
+        const original=[...originals,...terminals].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id);if(!original)migrationCapsuleFail('portable_binding');const snapshot=archives.get(portableFold(original.archive)),live=original.live?liveTrees.get(portableFold(original.live)):null;
         const isCurrent=record.value.generationId===undefined||record.value.generationId===value.authority.id,eligibility=isCurrent?original.eligibility:'edited',staged=original.phase?{...portableClone(record.value),phase:original.phase}:{...portableClone(record.value),revision:snapshot.revision,oldRoot:rootId(snapshot),newTree:live?migrationCapsuleFingerprint(live):[],conversion:{schema:1,operationId:crypto.randomBytes(24).toString('hex'),eligibility:live?eligibility:'gone'}};
+        if(original.archiveOnly&&original.phase)delete staged.archiveRestore;
         const keys=await keysFor(record.path),descriptor={id:original.skillId,stamp:original.stamp,backup:stagePath(original.wrapper),scopeId:record.scopeId,recordId:'skill-backup:'+portableFold(original.skillId),intentFile:stagePath(record.path),intentRecordId:record.recordId,intentKeys:keys,...(record.value.generationId?{generationId:record.value.generationId}:{})};
         await make(record.path.slice(0,record.path.lastIndexOf('/')));await admission();await migrationCapsuleIntent(descriptor).write(portableJSON(staged));const checked=safeJsonParse(await migrationCapsuleIntent(descriptor).read(),null);if(portableJSON(checked)!==portableJSON(staged))migrationCapsuleFail('portable_binding');
       }
@@ -6246,7 +6318,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
 
         for(const record of value.records.filter(row=>row.kind==='capsule-intent')){
           const original=[...originals,...terminals].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id),source=descriptor('',original.stamp,original.skillId),copy={...source,backup:path.join(root,...original.wrapper.split('/')),archiveKeys:await keysFor(original.archive),intentKeys:await keysFor(record.path),intentFile:path.join(root,...record.path.split('/')),intentRecordId:record.recordId,...(record.value.generationId?{generationId:record.value.generationId}:{})};
-          const current=await migrationCapsuleRead(capturedDescriptor(copy)),expected=original.phase?recordByPath.get(portableFold(original.archive)).value:archives.get(portableFold(original.archive));if(portableJSON(current.snapshot)!==portableJSON(expected)||current.intent.oldRoot!==rootId(expected)||original.phase&&current.intent.phase!==original.phase)migrationCapsuleFail('portable_binding');
+          const current=await migrationCapsuleRead(capturedDescriptor(copy)),expected=archives.get(portableFold(original.archive));if(portableJSON(current.snapshot)!==portableJSON(expected)||current.intent.oldRoot!==rootId(expected)||(current.intent.archiveOnly===true)!==(original.archiveOnly===true)||original.phase&&current.intent.phase!==original.phase)migrationCapsuleFail('portable_binding');
         }
       };await verifyCopies(stageRoot);
       let objectsInfo=null;if(catalog)objectsInfo=await platform.info(stagePath(roots.find(root=>portableFold(root)==='.work-data/skill-backups/objects-v1')));
