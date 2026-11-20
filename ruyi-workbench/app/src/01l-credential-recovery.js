@@ -6,6 +6,11 @@ const CredentialRecovery = ((cryptoApi) => {
     // A portable package can restore credentials into a fresh profile, but replacing
     // this profile's master key would orphan its conversation reference mappings.
     // Never present an incorrect backup password or an unrelated failure as DPAPI loss.
+    // 150 P15: a helper that timed out or was blocked says nothing about the key; never suggest a new data root.
+    if (error?.code === 'credential_vault.unlock_timeout') return '本地凭据库解锁超时（credential_vault.unlock_timeout）：Windows 的 PowerShell 解锁助手没有按时完成，常见于开机后系统繁忙或安全软件正在扫描。'
+      + '密钥和数据没有损坏，请稍后重新启动如意；不要更换数据目录，也不要删除密钥或凭据库。';
+    if (error?.code === 'credential_vault.helper_unavailable') return '本地凭据库的 PowerShell 解锁助手没能运行（credential_vault.helper_unavailable），常见原因是组策略、AppLocker 或受限语言模式禁止了 PowerShell。'
+      + '密钥和数据没有损坏；请让管理员允许 Windows 自带的 powershell.exe 运行后重新启动如意，不要更换数据目录，也不要删除密钥或凭据库。';
     if (error?.code !== 'credential_vault.unlock_failed') return '';
     return '本地凭据库无法在当前 Windows 账户或系统环境下解锁（credential_vault.unlock_failed）。'
       + '请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'

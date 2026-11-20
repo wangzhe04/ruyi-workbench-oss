@@ -816,6 +816,13 @@ function normalizeConfig(raw, opts = {}) {
   if (!Array.isArray(config.privacyRulesV1)) { config.privacyRulesV1 = []; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
   if (typeof config.privacyPolicyRecoveryRequiredV1 !== 'boolean') { config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.createDetector({ rules: config.privacyRulesV1 });
+  // 150 P17: optional per-rule switches of the built-in catalog ({ ruleId: boolean }). Absent means none;
+  // an invalid value is dropped and the privacy policy waits for confirmation, as for the other keys.
+  if (Object.hasOwn(config, 'privacyRuleOverridesV1')) {
+    let valid = !!config.privacyRuleOverridesV1 && typeof config.privacyRuleOverridesV1 === 'object' && !Array.isArray(config.privacyRuleOverridesV1);
+    if (valid && typeof PrivacyCore !== 'undefined') { try { PrivacyCore.createDetector({ ruleOverrides: config.privacyRuleOverridesV1 }); } catch { valid = false; } }
+    if (!valid) { delete config.privacyRuleOverridesV1; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  }
   if (typeof config.credentialEncryptionV1 !== 'boolean') { config.credentialEncryptionV1 = base.credentialEncryptionV1; changed = true; }
   // Earlier defaults could omit the encryption flag while privacy was selected. Do not
   // initialize a vault without consent under the new opt-in default. Hydrated references
@@ -2090,6 +2097,8 @@ function cliPathsProvisionalActive() {
   const token = cliPathsProvisionalScope.getStore();
   return !!(token && token.provisional);
 }
+// 150 P15: the withheld-credential positions last logged (dedupes the log across config re-reads).
+let credentialWithheldLogged = '';
 async function readConfig(options) {
   let generation = configReadGeneration;
   const current = () => generation === configReadGeneration;
@@ -2176,6 +2185,13 @@ async function readConfig(options) {
   if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.hydrateConfig) {
     const hydrated = await PrivacyCore.configHooks.hydrateConfig(raw);
     raw = hydrated.raw; credentialsNeedMigration = hydrated.needsMigration;
+    // 150 P15: a credential whose provider/server settings were edited by hand is withheld, not a startup
+    // failure. The log names positions only; the privacy status lists them for the settings page.
+    const withheldPointers = Array.isArray(hydrated.withheld) ? hydrated.withheld.map(row => row.pointer).slice(0, 16) : [];
+    if (current() && withheldPointers.length && withheldPointers.join('\n') !== credentialWithheldLogged) {
+      credentialWithheldLogged = withheldPointers.join('\n');
+      try { logEvent({ kind: 'credential_withheld', count: hydrated.withheld.length, pointers: withheldPointers }); } catch { /* 日志是旁路 */ }
+    }
   }
     normalized = normalizeConfig(raw);
   } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }

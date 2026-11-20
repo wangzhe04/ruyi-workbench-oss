@@ -3,7 +3,9 @@
 const PrivacyRuleCatalog = (() => {
   // 6: 3.1 phase 1 (150 号文 §4 P2/P3/P4) changed built-in detection in PrivacyCore; bumping invalidates
   // rule-bound derived artifacts (rulesHash / ruleVersion) produced under the previous detection.
-  const version = 6;
+  // 7: 3.1 phase 4 (150 号文 §4 P12/P13/P17): bank-account prose, IPv6, grouped/full-width/zero-width
+  // mobile numbers and e-mail, Luhn card numbers, bare-field full-width punctuation.
+  const version = 7;
   const rules = [];
   const add = (id, category, tier, pattern, capture = 0) => rules.push(Object.freeze({ id, category, tier, pattern, capture }));
   // Quoted JSON/property labels and prose labels carry the same privacy evidence. The optional
@@ -30,7 +32,8 @@ const PrivacyRuleCatalog = (() => {
   add('credential.sql-password', 'CREDENTIAL', 'basic', combine(
     /\b(?:Password|Pwd)[ \t]*=[ \t]*"([^"\r\n]+)(?:"|(?=\r?\n|$))/gi,
     /\b(?:Password|Pwd)[ \t]*=[ \t]*'([^'\r\n]+)(?:'|(?=\r?\n|$))/gi,
-    /\b(?:Password|Pwd)[ \t]*=[ \t]*([^\s;"'\r\n][^;"'\r\n]*)/gi), 1);
+    // 150 P17: an unquoted value also ends at CJK punctuation; prose after "password=x，" is not the value.
+    /\b(?:Password|Pwd)[ \t]*=[ \t]*([^\s;"'\r\n，；。！？](?:[^;"'\r\n，；。！？]|[，；。！？](?=[A-Za-z0-9!@#$%^*_+=.\/-]))*)/gi), 1);
   add('credential.xml-secret', 'CREDENTIAL', 'basic', /<(?:password|passwd|apiKey|api_key|client_secret|access_token|refresh_token)\b[^>]{0,256}>([^<]+)/gi, 1);
   add('credential.docker-auth', 'CREDENTIAL', 'basic', /"auth"\s*:\s*"([A-Za-z0-9+/]{8,}={0,2})"/g, 1);
   add('credential.ssh-password', 'CREDENTIAL', 'basic', /\bsshpass\s+-p\s+(?:'([^'\r\n]+)'?|"([^"\r\n]+)"?|([^\s"';&|]+))/g, 1);
@@ -60,7 +63,14 @@ const PrivacyRuleCatalog = (() => {
   add('personal.social-security', 'IDENTITY', 'enhanced', combine(labelled('\\bSSN\\b|\\bsocial[ ._-]security(?:[ ._-]number)?\\b', '\\d{3}[- ]?\\d{2}[- ]?\\d{4}'), chineseLabelled('社保卡号|社保(?:个人)?(?:账号|编号|号码)|医保(?:卡号|个人编号|号码|账号)|公积金(?:账号|个人编号|号码)', '[A-Za-z0-9][A-Za-z0-9 -]{4,39}')), 1);
   add('personal.driver-license', 'IDENTITY', 'enhanced', labelled('驾驶证(?:号码|号)|\\bdriver[ ._-]?s?[ ._-]licen[sc]e(?:[ ._-]number)?\\b', '[A-Za-z0-9-]{5,24}'), 1);
   add('personal.tax-id', 'IDENTITY', 'enhanced', combine(labelled('税号|纳税人识别号|\\btax[ ._-]id\\b|\\bTIN\\b', '[A-Za-z0-9-]{8,24}'), chineseLabelled('统一社会信用代码|社会信用代码|纳税人识别号|税号', '[A-Za-z0-9-]{8,24}')), 1);
-  add('personal.bank-account', 'PAYMENT', 'enhanced', combine(labelled('银行账号|银行账户|\\bbank[ ._-]account(?:[ ._-]number)?\\b|\\baccount[ ._-]number\\b', '[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]'), chineseLabelled('开户行|开票(?:账号|账户)|收款(?:账号|账户)|账号', '(?:[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]|[\\u4e00-\\u9fff][^\\r\\n,，;；<>"\']{1,79})')), 1);
+  // 150 P12: only a bank branch (开户行) is a CJK value. After an account label (账号) CJK prose is not an
+  // account; a bank name is accepted only before the account digits and after an explicit separator.
+  const accountValue = '[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]';
+  add('personal.bank-account', 'PAYMENT', 'enhanced', combine(labelled('银行账号|银行账户|\\bbank[ ._-]account(?:[ ._-]number)?\\b|\\baccount[ ._-]number\\b', accountValue),
+    chineseLabelled('开户行', '(?:' + accountValue + '|[\\u4e00-\\u9fff][^\\r\\n,，;；<>"\']{1,79})'),
+    chineseLabelled('开票(?:账号|账户)|收款(?:账号|账户)|账号', accountValue),
+    // 4B review v2/v3: the bank name may carry a bracketed branch and be set off from the digits by ·・,，、-/:：.
+    labelled('开票(?:账号|账户)|收款(?:账号|账户)|账号', '[\\u4e00-\\u9fff]{1,16}(?:[（(][\\u4e00-\\u9fff]{1,16}[）)])?[ \\t·・,，、/:：-]{0,3}[0-9][0-9 -]{3,32}[0-9]')), 1);
   add('personal.payment-security', 'CREDENTIAL', 'basic', combine(labelled('\\bCVV2?\\b|\\bCVC2?\\b|支付密码|取款密码', '\\d{3,8}'), /\b(?:CVV2?|CVC2?)\b[ \t]*(?:在背面(?:的)?|[=:：])[ \t]*(\d{3,8})/gi), 1);
   add('personal.payment-expiry', 'PAYMENT', 'enhanced', chineseLabelled('(?:信用卡|银行卡|卡片)?有效期|卡到期日', '(?:[0-9]{1,2}[/.-][0-9]{2,4}|[0-9]{4}[/.-][0-9]{1,2})'), 1);
   add('personal.birth-date', 'INTERNAL', 'enhanced', combine(labelled('出生日期|生日|\\bdate[ ._-]of[ ._-]birth\\b|\\bDOB\\b', '\\d{4}[-/.年]\\d{1,2}[-/.月]\\d{1,2}日?'), chineseLabelled('出生日期|生日', '\\d{4}[-/.年]\\d{1,2}[-/.月]\\d{1,2}日?'),
@@ -76,6 +86,12 @@ const PrivacyRuleCatalog = (() => {
   // Optional technical privacy is not enabled merely by enabling personal data protection.
   add('technical.ipv4', 'INTERNAL', 'technical', combine(/(?<![\d.])((?:10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}))(?![\d.])/g,
     labelled('\\b(?:client[ _-]?ip|xff|x[ _-]?forwarded[ _-]?for|remote[ _-]?addr|ip[ _-]?address)\\b', '(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9.])')), 1);
+  // 150 P13: IPv6 mirrors the IPv4 rule: unique-local (fc00::/7) and link-local (fe80::/10) addresses
+  // anywhere, any address after an IP label. Candidates are validated by the IPv6 parser, so times
+  // (12:30:45), C++ scopes (std::vector) and MAC addresses never qualify.
+  const ipv6 = '(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}';
+  add('technical.ipv6', 'INTERNAL', 'technical', combine(new RegExp('(?<![0-9A-Za-z_:.])((?:f[cd][0-9A-Fa-f]{2}|fe[89ab][0-9A-Fa-f]):(?:[0-9A-Fa-f]{0,4}:){1,6}[0-9A-Fa-f]{0,4})(?![0-9A-Za-z_:])', 'gi'),
+    labelled('\\b(?:client[ _-]?ip|xff|x[ _-]?forwarded[ _-]?for|remote[ _-]?addr|ip[ _-]?address|ipv6(?:[ _-]?address)?)\\b', ipv6 + '(?![0-9A-Za-z_:])')), 1);
   add('technical.mac', 'INTERNAL', 'technical', /\b(?:[A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}\b/g);
   add('technical.windows-user-path', 'PATH', 'technical', /\b[A-Za-z]:[\\/]Users[\\/]([^\\/\r\n:*?"<>|]{1,128})/gi, 1);
   add('technical.posix-user-path', 'PATH', 'technical', /\/(?:home|Users)\/([^/\r\n\s]{1,128})/g, 1);
@@ -196,6 +212,10 @@ const PrivacyRuleCatalog = (() => {
   const alreadyMasked = (text, type) => /^(?:EMAIL|PHONE|IDENTITY|PAYMENT)$/.test(type)
     && /(?:\*{2,}|[＊×]{2,}|•{2,})/.test(text)
     || type === 'INTERNAL' && /^[\u4e00-\u9fff]{1,2}[*＊×•]{1,4}[\u4e00-\u9fff]{0,2}[。.]?$/.test(text.trim());
+  const isIPv6 = value => require('node:net').isIPv6(value);
+  // 150 P12: an account number ends at its digits; only a CJK-led value (a bank branch or bank name)
+  // continues through letters. Trailing separators are never part of the value.
+  const accountContinuation = /[A-Za-z0-9 -]/, cjkLead = /^[\u4e00-\u9fff]/;
   function scan(inputText, options, emitRaw) {
     const emit = (start, end, type, id) => { if (!alreadyMasked(inputText.slice(start, end), type)) emitRaw(start, end, type, id); };
     const overrides = options.ruleOverrides || {};
@@ -213,9 +233,10 @@ const PrivacyRuleCatalog = (() => {
       while ((match = regex.exec(inputText)) !== null) {
         const value = rule.capture ? match.slice(rule.capture).find(part => typeof part === 'string' && part.length) : match[0]; if (!value) continue;
         if (rule.id === 'technical.ipv4' && value.split('.').some(part => Number(part) > 255)) continue;
+        if (rule.id === 'technical.ipv6' && !isIPv6(value)) continue;
         const start = match.index + (rule.capture ? match[0].lastIndexOf(value) : 0);
         let end = start + value.length;
-        const continuation = continuations[rule.id];
+        const continuation = rule.id === 'personal.bank-account' && (!cjkLead.test(value) || /[0-9]$/.test(value)) ? accountContinuation : continuations[rule.id];
         if (continuation) while (end < inputText.length) {
           if (rule.id === 'personal.contact-name' && /[:：]/.test(inputText[end])) break;
           if (rule.id === 'personal.contact-name' && /^[ \t]+(?:手机|电话|座机|邮箱)/.test(inputText.slice(end, end + 16))) break;
@@ -226,6 +247,7 @@ const PrivacyRuleCatalog = (() => {
             || /[\p{L}\p{N}]/u.test(inputText[end + 1] || ''))) { end++; continue; }
           break;
         }
+        if (rule.id === 'personal.bank-account') while (end > start + value.length && /[ -]/.test(inputText[end - 1])) end--;
         emit(start, end, rule.category, rule.id);
         // An extended run is already fully covered. Re-entering it at another token-looking
         // prefix would rescan the same suffix repeatedly and turn a linear scan into O(n²).

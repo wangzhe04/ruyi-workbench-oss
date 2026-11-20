@@ -9,6 +9,23 @@ PrivacyGateway.setHost({ data: paths.data, planDisclosure: planPrivacyToolDisclo
   defaultValue: () => ({}), validate: value => value.version === 1 && typeof value.instanceId === 'string' && !!value.envelope,
 }) });
 PrivacyCore.configHooks.isBusy = () => activeChildren.size > 0 || turnSettlers.size > 0;
+// 150 P16: a settings change from the settings page waits (bounded, cancelled with its request) for running
+// turns to end instead of failing at once; a running turn still never sees its policy change underneath it.
+// Only privacy.busy is retried, and only before anything was written. After the wait the caller learns how
+// many turns were still running (privacy.turns_running). Without waitMs the result is unchanged.
+const PRIVACY_IDLE_WAIT_MS = 20000;
+async function privacyWhenIdle(work, { waitMs = 0, signal } = {}) {
+  const deadline = Date.now() + waitMs;
+  const running = () => Object.assign(new Error('privacy.turns_running'), { code: 'privacy.turns_running', turns: Math.max(1, turnSettlers.size) });
+  for (;;) {
+    if (!PrivacyCore.configHooks.isBusy()) {
+      try { return await work(); }
+      catch (error) { if (error?.code !== 'privacy.busy' || !waitMs) throw error; if (Date.now() >= deadline || signal?.aborted) throw running(); }
+    } else if (!waitMs) return work();
+    else if (Date.now() >= deadline || signal?.aborted) throw running();
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
 // One validator/transaction for the settings page and the steward. Pending drafts are
 // process-local and owned by one turn; they never change that turn's privacy policy.
 const PrivacySettings = (() => {
@@ -17,7 +34,14 @@ const PrivacySettings = (() => {
   const draft = body => {
     if (!['off', 'basic', 'enhanced', 'strict'].includes(body.mode) || typeof body.technical !== 'boolean' || !Array.isArray(body.rules) || body.rules.length > 100) fail('privacy.settings_invalid');
     PrivacyRegex.validateSchema(body.rules);
-    return { privacyModeV1: body.mode, privacyTechnicalV1: body.technical, privacyRulesV1: structuredClone(body.rules) };
+    // 150 P17: built-in rule switches are optional; a body without them keeps the saved ones.
+    if (Object.hasOwn(body, 'ruleOverrides')) {
+      const value = body.ruleOverrides;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) fail('privacy.settings_invalid');
+      try { PrivacyCore.createDetector({ ruleOverrides: value }); } catch { fail('privacy.settings_invalid'); }
+    }
+    return { privacyModeV1: body.mode, privacyTechnicalV1: body.technical, privacyRulesV1: structuredClone(body.rules),
+      ...(Object.hasOwn(body, 'ruleOverrides') ? { privacyRuleOverridesV1: { ...body.ruleOverrides } } : {}) };
   };
   async function apply(body) {
     if (PrivacyCore.configHooks.isBusy()) fail('privacy.busy');
@@ -25,6 +49,7 @@ const PrivacySettings = (() => {
     const conditional = Object.hasOwn(body, 'expectedRuleVersion') || Object.hasOwn(body, 'expectedEncryption');
     if (conditional && (!/^[a-f0-9]{16}$/.test(body.expectedRuleVersion || '') || typeof body.expectedEncryption !== 'boolean')) fail('privacy.settings_invalid');
     await PrivacyRegex.validate(body.rules);
+    let savedVersion = PrivacyGateway.ruleVersion(policy);
     await mutateConfig(current => {
       if (PrivacyCore.configHooks.isBusy()) fail('privacy.busy');
       if (conditional && (body.expectedRuleVersion !== PrivacyGateway.ruleVersion(current) || body.expectedEncryption !== (current.credentialEncryptionV1 === true))) fail('privacy.settings_changed');
@@ -38,9 +63,11 @@ const PrivacySettings = (() => {
       if (body.mode !== 'off' && current.credentialEncryptionV1 !== true) fail('privacy.encryption_required');
       Object.assign(current, policy);
       current.privacyPolicyRecoveryRequiredV1 = false;
+      // The saved version includes switches this body kept (150 P17), exactly as GET reports it.
+      savedVersion = PrivacyGateway.ruleVersion(current);
       return {};
     }, { credentialEncryptionDisable: body.encryption === false && body.confirmPlaintext === true });
-    return { ok: true, ruleVersion: PrivacyGateway.ruleVersion(policy) };
+    return { ok: true, ruleVersion: savedVersion };
   }
   const inspect = config => ({ mode: config.privacyModeV1, technical: config.privacyTechnicalV1 === true,
     encryption: config.credentialEncryptionV1 === true, rules: (config.privacyRulesV1 || []).map(rule => rule.kind === 'literal'
@@ -113,6 +140,8 @@ PrivacyCore.configHooks.settleStewardPrivacy = PrivacySettings.settle;
 // Text copies have one host boundary. Proofs contain assertions, not private mappings.
 const PrivacyTextExports = (() => {
   const proofs = new Map(), omitted = '[来源无法核验，内容未导出 / Unverified source: content withheld]';
+  // 150 P11: the user's own copy names a value of the copied thread by its category, not as another thread's.
+  const OWN_LABELS = Object.freeze({ ownLabels: true });
   const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const fail = code => { throw Object.assign(new Error(code), { code }); };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -145,12 +174,15 @@ const PrivacyTextExports = (() => {
   async function prepareOnce(body, retainProof, guard) {
     const configGeneration = configReadGeneration;
     const config = await readConfig(); guard();
-    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [] };
+    // Review 4B-S3: built-in rule switches belong to the policy a preview was made under (only when set).
+    const overrides = config.privacyRuleOverridesV1 && typeof config.privacyRuleOverridesV1 === 'object' && Object.keys(config.privacyRuleOverridesV1).length ? config.privacyRuleOverridesV1 : null;
+    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [], ...(overrides ? { ruleOverrides: overrides } : {}) };
     if ((Object.hasOwn(body, 'expectedPrivacy') || body.kind === 'mermaid-document') && JSON.stringify(body.expectedPrivacy) !== JSON.stringify(privacySnapshot)) fail('privacy.export_source_changed');
     if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
     const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
     const sourceGuards = []; let mappingGuardCount = 0;
     let value, scopes = [], source, check, format = body.format, missing = false;
+    const degraded = { degrade: true, onWithheld: () => { missing = true; } };
     if (body.kind === 'session') {
       const id = safeSessionId(body.sessionId);
       if (!id || !(source = await loadSession(id))) fail('privacy.export_source_missing');
@@ -160,7 +192,9 @@ const PrivacyTextExports = (() => {
       scopes = [id];
       let session = source;
       if (plaintext || !enabled) {
-        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source)
+        // 150 P7: a cut or malformed reference no longer fails the whole plaintext copy; only that fragment
+        // becomes a marker and the artifact says content was withheld.
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source, false, degraded)
           : PrivacyGateway.displayEnvelope(id, { session: source }));
         session = plaintext ? local.value : local.value.session; sourceGuards.push(local.assert);
       }
@@ -202,7 +236,7 @@ const PrivacyTextExports = (() => {
         const displayedDocument = selectDocument(local.value[0]);
         if (hash(displayedDocument) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
         if (plaintext) {
-          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }));
+          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }, false, degraded));
           document = plain.value.document; sourceGuards.push(plain.assert);
         } else if (!enabled) document = displayedDocument;
       }
@@ -247,14 +281,14 @@ const PrivacyTextExports = (() => {
       if (hash(stringify(view)) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
       let logical = { source: raw, metadata: { slot: body.slot, ...(body.toolId ? { id: body.toolId, name: body.toolName } : {}) } };
       if (plaintext) {
-        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical));
+        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical, false, degraded));
         logical = plain.value; sourceGuards.push(plain.assert);
       } else if (!enabled) logical.source = view;
       else {
         // Native tool field rules retain their original logical root (for example
         // /secret), rather than acquiring a /logical/source wrapper prefix.
         // Markdown/code documents likewise project in full before fence extraction.
-        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) });
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) }, OWN_LABELS);
         logical.source = copy.value; sourceGuards.push(copy.assert); mappingGuardCount++;
       }
       if (Buffer.byteLength(JSON.stringify(logical)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
@@ -300,7 +334,7 @@ const PrivacyTextExports = (() => {
         if (enabled && (!ids.length || valid.length !== new Set(ids).size)) {
           missing = true; entries.push({ id: entry.id, state: entry.state, contentWithheld: true, text: omitted });
         } else if (enabled && !plaintext) {
-          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) });
+          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) }, OWN_LABELS);
           mappingGuardCount += new Set([STEWARD_SESSION_ID, ...valid]).size;
           entries.push(copy.value); sourceGuards.push(copy.assert);
         } else { entries.push(entry); scopes.push(...valid); }
@@ -334,7 +368,7 @@ const PrivacyTextExports = (() => {
         }
       }
       for (const [id, group] of groups) {
-        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) });
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) }, OWN_LABELS);
         mappingGuardCount++;
         group.forEach((row, index) => { events[row.index] = copy.value[index]; }); sourceGuards.push(copy.assert);
       }
@@ -346,7 +380,7 @@ const PrivacyTextExports = (() => {
     if (enabled && !plaintext && Buffer.byteLength(JSON.stringify(value)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
     const binding = { recipient: 'user-file-copy', purpose: 'text-export:' + body.kind, sourceHash: hash(source) };
     const sourceGuard = plaintext && enabled ? await PrivacyGateway.prepareMultiSourceDisclosure(null, scopes, binding) : null;
-    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding);
+    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding, OWN_LABELS);
     mappingGuardCount += scopes.length;
     value = prepared.value;
     let content, mime;
@@ -404,15 +438,17 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   try {
     if (req.method === 'GET') {
       const config = await readConfig();
-      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
+      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), credentialWithheld: PrivacyCore.configHooks.credentialWithheld?.() || [], mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
         { id: 'nativeText', supported: true }, { id: 'managedMcpText', supported: true },
         { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'authenticatedMcpText', supported: true }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
       ] });
-      else if (req.method === 'GET' && pathname === '/api/privacy/settings') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, technical: config.privacyTechnicalV1, rules: config.privacyRulesV1, ruleVersion: PrivacyGateway.ruleVersion(config), regexLimits: PrivacyRegex.LIMITS, catalog: PrivacyRuleCatalog.list() });
+      else if (req.method === 'GET' && pathname === '/api/privacy/settings') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, technical: config.privacyTechnicalV1, rules: config.privacyRulesV1, ruleOverrides: config.privacyRuleOverridesV1 || {}, ruleVersion: PrivacyGateway.ruleVersion(config), regexLimits: PrivacyRegex.LIMITS, catalog: PrivacyRuleCatalog.list() });
       else return false;
       return true;
     }
     if (req.method !== 'POST') return false;
+    const gone = new AbortController(), requestGone = gone.signal;
+    if (typeof res.once === 'function') res.once('close', () => gone.abort());
     const cap = 2 * 1024 * 1024;
     if (Number(req.headers['content-length'] || 0) > cap) throw Object.assign(new Error(), { code: 'privacy.body_limit' });
     const chunks = []; let bytes = 0;
@@ -427,25 +463,25 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
       const response = json(prepared.artifact || { ok: true }, 200, { 'cache-control': 'no-store' });
       prepared.assert(); send(res, response);
     } else if (req.method === 'POST' && pathname === '/api/privacy/settings') {
-      reply(await PrivacySettings.apply(body));
+      reply(await privacyWhenIdle(() => PrivacySettings.apply(body), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone }));
     } else if (req.method === 'POST' && pathname === '/api/privacy/encryption') {
-      await mutateConfig(current => {
+      await privacyWhenIdle(() => mutateConfig(current => {
         if (PrivacyCore.configHooks.isBusy()) throw Object.assign(new Error(), { code: 'privacy.busy' });
         encryption(current, body.enabled, body.confirmPlaintext);
         return {};
-      }, { credentialEncryptionDisable: body.enabled === false && body.confirmPlaintext === true });
+      }, { credentialEncryptionDisable: body.enabled === false && body.confirmPlaintext === true }), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone });
       reply({ ok: true, encryption: body.enabled });
     } else if (req.method === 'POST' && pathname === '/api/privacy/rules/test') {
       const policy = draft(body);
       reply({ ok: true, ...await PrivacyGateway.preview({ ...await readConfig(), ...policy }, body.sample) });
     } else if (req.method === 'POST' && pathname === '/api/privacy/use-native') {
-      await mutateConfig(current => {
+      await privacyWhenIdle(() => mutateConfig(current => {
         if (PrivacyCore.configHooks.isBusy()) throw Object.assign(new Error(), { code: 'privacy.busy' });
         if (typeof body.providerId !== 'string' || !nativeProviders(current).some(provider => provider.id === body.providerId)) throw Object.assign(new Error(), { code: 'privacy.provider_invalid' });
         current.activeProvider = body.providerId;
         current.lastUsedEngineRoute = sessionEngineRouteFromConfig(current);
         return {};
-      }); reply({ ok: true });
+      }), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone }); reply({ ok: true });
     } else if (req.method === 'POST' && pathname === '/api/privacy/backup/export') {
       if ((await readConfig()).credentialEncryptionV1 !== true) throw Object.assign(new Error(), { code: 'privacy.encryption_required' });
       reply({ ok: true, backup: await PrivacyCore.configHooks.exportBackup(body.password) });
@@ -457,6 +493,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
     if (String(error && error.code || '').startsWith('work_data')) { res.setHeader('cache-control', 'no-store'); sendError(res, error); return true; }
     const code = /^(?:privacy|credential_vault|credential_recovery)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed';
     const params = typeof error.ruleId === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(error.ruleId) ? { ruleId: error.ruleId } : {};
+    if (code === 'privacy.turns_running' && Number.isSafeInteger(error.turns)) params.turns = error.turns;
     const response = apiFailure(code, params, code, code === 'privacy.body_limit' ? 413 : 409);
     response.headers['cache-control'] = 'no-store'; send(res, response);
   }

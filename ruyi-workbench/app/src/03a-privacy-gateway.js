@@ -6,6 +6,28 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
   let policyEpoch = 0;
+  // 150 P5: a reference the model wrote badly (a bracket short, or cut) is one fragment: the prefix,
+  // category letters, one colon, hex digits and at most two closing brackets. Nothing after that belongs
+  // to it, so local display and history replace only the fragment and keep the following text. A
+  // fragment with its complete 32-digit id that only lacks brackets is that reference (repaired); a
+  // longer hex run is not a reference with a missing bracket.
+  // Real categories are short; a longer letter run (up to 64) is still one fragment, never a visible tail.
+  const FRAGMENT = /\[\[RUYI_PVT:([A-Z]{0,64})(:?)([a-f0-9]{0,32})(\]{0,2})/y;
+  function referenceFragment(text, at) {
+    FRAGMENT.lastIndex = at;
+    const match = FRAGMENT.exec(text), end = at + match[0].length;
+    const exact = match[1].length > 0 && match[2] === ':' && match[3].length === 32 && match[4] === ']]';
+    const complete = match[1].length > 0 && match[2] === ':' && match[3].length === 32 && !/[a-f0-9]/.test(text[at + 11 + match[1].length + 1 + 32] || '');
+    const token = exact ? match[0] : complete ? PREFIX + match[1] + ':' + match[3] + ']]' : null;
+    return { end, exact, token, open: !exact && end === text.length };
+  }
+  // 150 P17: a reference the model lower-cased, markdown-escaped or wrote with full-width brackets or
+  // colons is still that reference for local display; the id stays the only authority.
+  const VARIANT = /(?:\\\[|\[|［){2}ruyi_pvt[:：]([a-z]{1,16})[:：]([a-f0-9]{32})(?:\\\]|\]|］){2}/gi;
+  const displayVariants = value => /ruyi_pvt/i.test(value) ? value.replace(VARIANT, (whole, category, id) => {
+    const token = PREFIX + category.toUpperCase() + ':' + id.toLowerCase() + ']]';
+    return whole === token ? whole : token;
+  }) : value;
   // 150 P14: process-memory cache of unchanged history slots (request messages/input items and
   // host-history verdicts). Never persisted or logged; keys hold digests and policy signatures,
   // never originals. A slot is reused only under the same scope object and revision, policy
@@ -158,9 +180,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     }
     return [...result];
   }
+  // 150 P17: built-in rule switches from the configuration. Only a non-empty set joins the detector options,
+  // so policy signatures, scope signatures and cache digests of configurations without switches are unchanged.
+  function ruleOverridesOf(config) {
+    const value = config?.privacyRuleOverridesV1;
+    return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length ? { ruleOverrides: { ...value } } : {};
+  }
   function options(config) {
     return { personal: ['enhanced', 'strict'].includes(config.privacyModeV1), confidential: config.privacyModeV1 === 'strict', technical: config.privacyTechnicalV1 === true,
-      knownSecrets: secrets(config), rules: config.privacyRulesV1 || [] };
+      knownSecrets: secrets(config), rules: config.privacyRulesV1 || [], ...ruleOverridesOf(config) };
   }
   function configure(config) {
     try {
@@ -487,20 +515,49 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   // Export capabilities bind persisted mapping identities across LRU eviction.
   // Client scope declarations are never restoration authority.
-  async function prepareMultiSourceDisclosure(value, scopeIds, binding) {
+  // 150 P11: options.ownLabels (copies for the user: exports and the clipboard) labels a value that belongs
+  // to one of the listed source scopes with its category word (〔邮箱〕/[email]…), because it is that
+  // thread's own private value, not another thread's. Every other reference keeps the foreign placeholder.
+  // Ownership is a live check in each listed scope; the output still contains no reference and no value.
+  const categoryOf = token => token.slice(PREFIX.length).split(':')[0];
+  function collectReferenceTokens(value, tokens, depth = 0) {
+    if (depth > 32 || tokens.size > 10000) return;
+    if (typeof value === 'string') { if (value.includes(PREFIX)) for (const match of value.matchAll(pattern())) tokens.add(match[0]); return; }
+    if (Array.isArray(value)) { for (const row of value) collectReferenceTokens(row, tokens, depth + 1); return; }
+    if (value && typeof value === 'object') for (const [key, row] of Object.entries(value)) { collectReferenceTokens(key, tokens, depth + 1); collectReferenceTokens(row, tokens, depth + 1); }
+  }
+  async function prepareMultiSourceDisclosure(value, scopeIds, binding, options = {}) {
     if (!Array.isArray(scopeIds) || scopeIds.length > 2048 || scopeIds.some(id => typeof id !== 'string' || !id || id.length > 160)) fail('scope_invalid');
     const policyGuard = disclosurePolicyGuard();
     if (currentPolicy.mode === 'off') return { value: structuredClone(value), assert: policyGuard };
     if (!scopeIds.length) fail('scope_invalid');
-    const policy = currentPolicy.signature, proofs = [];
-    let copy = foreignView(structuredClone(value));
-    for (const id of [...new Set(scopeIds)]) {
+    const policy = currentPolicy.signature, proofs = [], ids = [...new Set(scopeIds)], ownLabels = options.ownLabels === true;
+    const owned = new Map();
+    if (ownLabels) {
+      const tokens = new Set(); collectReferenceTokens(value, tokens);
+      for (const id of ids) {
+        if (owned.size === tokens.size) break;
+        await withPolicy(id, async () => {
+          if (policy !== currentPolicy.signature) fail('policy_changed');
+          const scope = active()?.scope; if (!scope) return;
+          for (const token of tokens) {
+            if (owned.has(token)) continue;
+            try { scope.validateProtected(token); owned.set(token, categoryOf(token)); } catch (error) { if (!historyReferenceError(error)) throw error; }
+          }
+        });
+      }
+    }
+    const sourceLabel = fragment => fragment.exact && owned.has(fragment.token) ? labelWord(owned.get(fragment.token)) : FOREIGN_PLACEHOLDER;
+    // References a pass just issued belong to that pass's scope, the source being disclosed.
+    const passLabel = fragment => fragment.exact ? labelWord(categoryOf(fragment.token)) : FOREIGN_PLACEHOLDER;
+    let copy = ownLabels ? foreignView(structuredClone(value), sourceLabel) : foreignView(structuredClone(value));
+    for (const id of ids) {
       await withPolicy(id, async () => {
         if (policy !== currentPolicy.signature) fail('policy_changed');
         const prepared = await prepareDisclosure(copy, binding);
         assertDisclosure(prepared.receipt, binding);
         proofs.push(mappingGuard(active()));
-        copy = foreignView(prepared.value);
+        copy = ownLabels ? foreignView(prepared.value, passLabel) : foreignView(prepared.value);
       });
     }
     if (policy !== currentPolicy.signature) fail('policy_changed');
@@ -566,13 +623,24 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // Host-only cross-thread metadata projection. These aliases belong to the source
   // transcript, so never resolve or admit them into another conversation's scope.
   // Project before summary budgets; legacy summaries may already end mid-reference.
-  function foreignView(value) {
+  const FOREIGN_PLACEHOLDER = '[其他线程的隐私内容已省略]';
+  // 150 P5/P7: each reference fragment is replaced on its own; a malformed one no longer swallows the
+  // rest of its line. replace(fragment) chooses the text (P11: own-scope references in a user copy).
+  function replaceReferences(text, replace) {
+    let out = '', from = 0;
+    for (let at = text.indexOf(PREFIX); at >= 0; at = text.indexOf(PREFIX, from)) {
+      out += text.slice(from, at);
+      const fragment = referenceFragment(text, at);
+      out += replace(fragment); from = fragment.end;
+    }
+    return out + text.slice(from);
+  }
+  function foreignView(value, replace = () => FOREIGN_PLACEHOLDER) {
     if (currentPolicy.mode === 'off') return value;
     let nodes = 0;
     const visit = (item, depth) => {
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
-      if (typeof item === 'string') return item.includes(PREFIX)
-        ? item.replace(/\[\[RUYI_PVT:[^\r\n]*?(?:\]\]|(?=\r?\n|$))/g, '[其他线程的隐私内容已省略]') : item;
+      if (typeof item === 'string') return item.includes(PREFIX) ? replaceReferences(item, replace) : item;
       if (Array.isArray(item)) { const next = item.map(row => visit(row, depth + 1)); return next.some((row, i) => row !== item[i]) ? next : item; }
       if (item && typeof item === 'object') {
         const next = Object.create(null); let changed = false;
@@ -943,6 +1011,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const historyBindings = new WeakMap();
   const HISTORY_REFUSED = '[Local privacy validation refused an unavailable reference in an earlier model message. No value was recovered; inspect the original local transcript and tool error before retrying.]';
   const HISTORY_USER_REFUSED = '[A historical input contains a local privacy reference that is no longer usable. Its content is unavailable in this model view. Do not retry its former operation; follow the current user instruction.]';
+  // Replaces one unusable reference fragment inside earlier model narration (150 P5); carries no value.
+  const HISTORY_REFERENCE_OMITTED = '[unavailable local privacy reference omitted]';
   const historyReferenceError = error => ['privacy.reference_unknown', 'privacy.reference_expired', 'privacy.reference_revoked', 'privacy.reference_malformed', 'privacy.credential_context'].includes(error?.code);
   function bindHostHistory(owner, history) {
     const context = active(); if (!context) return;
@@ -1033,13 +1103,42 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       const issue = contentIssue(value, historical);
       return issue === 'limit' ? DATA_WITHHELD : issue === 'reference' ? unavailable : value;
     };
+    // 150 P5: model narration (an earlier assistant answer or its reasoning) with one badly written or
+    // no longer usable reference loses only that fragment, not the whole message. Prose only: JSON text
+    // and every other role keep whole-slot refusal. The repaired copy is inspected again with the same
+    // rules (scope validity and credential context); anything still unavailable refuses the slot.
+    const repairNarration = value => {
+      if (typeof value !== 'string' || !value.includes(PREFIX)) return null;
+      if (/^\s*[\[{"]/.test(value)) { try { JSON.parse(value); return null; } catch { /* prose */ } }
+      let out = '', from = 0;
+      for (let at = value.indexOf(PREFIX); at >= 0; at = value.indexOf(PREFIX, from)) {
+        out += value.slice(from, at);
+        const fragment = referenceFragment(value, at);
+        let usable = false;
+        if (fragment.token && scope) { try { scope.validateProtected(fragment.token); usable = true; } catch (error) { if (!historyReferenceError(error)) throw error; } }
+        out += usable ? fragment.token : HISTORY_REFERENCE_OMITTED;
+        from = fragment.end;
+      }
+      out += value.slice(from);
+      // The original slot was already counted against the request budgets; its repaired copy is not counted twice.
+      const counted = [nodes, bytes];
+      // Near the request limits the re-inspection itself may not fit: the slot is then refused whole, as before.
+      try { return inspect(out) ? null : out; }
+      catch (error) { if (['privacy.aggregate_limit', 'privacy.structure_limit', 'privacy.text_limit'].includes(error?.code)) return null; throw error; }
+      finally { [nodes, bytes] = counted; }
+    };
+    const narrationText = (value, historical) => {
+      const issue = contentIssue(value, historical);
+      if (issue !== 'reference') return issue === 'limit' ? DATA_WITHHELD : value;
+      return repairNarration(value) ?? HISTORY_REFUSED;
+    };
     const narration = (value, historical) => {
-      if (typeof value === 'string') return projectText(value, historical);
+      if (typeof value === 'string') return narrationText(value, historical);
       if (!Array.isArray(value)) return value;
       return value.map(part => {
         if (!part || typeof part !== 'object') return part;
         const next = { ...part };
-        for (const key of ['text', 'thinking']) if (typeof part[key] === 'string') next[key] = projectText(part[key], historical);
+        for (const key of ['text', 'thinking']) if (typeof part[key] === 'string') next[key] = narrationText(part[key], historical);
         if (part.type === 'tool_use' && contentIssue(part.input, true, historical)) next.input = {};
         return next;
       });
@@ -1496,10 +1595,14 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       });
     } finally { scope.clear(); }
   }
-  const ruleVersion = config => cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.privacyModeV1, config.privacyTechnicalV1, config.privacyRulesV1])).digest('hex').slice(0, 16);
+  const ruleVersion = config => cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.privacyModeV1, config.privacyTechnicalV1, config.privacyRulesV1,
+    ...(ruleOverridesOf(config).ruleOverrides ? [ruleOverridesOf(config).ruleOverrides] : [])])).digest('hex').slice(0, 16);
   // Host-only, read-only display copies. Never pass their output to a model or mutate canonical history.
   // Ordinary text is identity, including the default disabled path; no vault key/map is created here.
   const DISPLAY_UNAVAILABLE = '[隐私引用不可用 / private reference unavailable]';
+  // 150 P16: while the privacy policy awaits confirmation (recovery required) no mapping is opened. The
+  // values are not lost: the marker says why they are hidden and that confirming the settings shows them.
+  const DISPLAY_PAUSED = '[隐私设置待确认，暂不显示原值 / private value hidden until privacy settings are confirmed]';
   const DISPLAY_LIMIT = '[隐私显示达到上限 / private display limit]';
   async function displayCacheKey(scopeId) {
     if (currentPolicy.mode !== 'off') return 'private';
@@ -1543,9 +1646,9 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     const reference = async token => {
       if (closed || limited) return '';
-      if (unavailable) return DISPLAY_UNAVAILABLE;
+      if (unavailable) return DISPLAY_PAUSED;
       try {
-        const value = await scope(); if (closed) return ''; if (!value || unavailable) return DISPLAY_UNAVAILABLE;
+        const value = await scope(); if (closed) return ''; if (unavailable) return DISPLAY_PAUSED; if (!value) return DISPLAY_UNAVAILABLE;
         return value.restoreForTool(token, { scopeId: getId(), tool: 'privacy_display', pointer: '/display',
           destination: 'local-user-interface', purpose: 'host-display-copy', allowCredentialEmbedding: true, authorize: () => true });
       } catch { return DISPLAY_UNAVAILABLE; }
@@ -1554,7 +1657,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (typeof value !== 'string') return value;
       value = displayDiagnostics(value);
       const encodedJson = json && value.includes('\\') && /^\s*[\[{"]/.test(value);
-      if (!value.includes(PREFIX) && !encodedJson) return value;
+      if (!value.includes(PREFIX) && !encodedJson && !/ruyi_pvt/i.test(value)) return value;
       if (!await eligible()) return value;
       if (closed || limited || ++nodes > 50000 || depth > 32 || Buffer.byteLength(value) > 1024 * 1024) return DISPLAY_LIMIT;
       // Preserve JSON escaping for steward/structured display text. Tool arguments never enter this API.
@@ -1577,18 +1680,16 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           return Buffer.byteLength(output) > 1024 * 1024 ? account(DISPLAY_LIMIT) : output;
         }
       }
+      value = displayVariants(value);   // prose only: a JSON spelling escapes the backslash of an escaped variant
       if (!value.includes(PREFIX)) return value;
       const chunks = []; let from = 0, outputBytes = 0;
       const append = part => { outputBytes += Buffer.byteLength(part); if (outputBytes > 1024 * 1024) return false; chunks.push(part); return true; };
       while (from < value.length) {
         const at = value.indexOf(PREFIX, from); if (at < 0) { append(value.slice(from)); break; }
         if (!append(value.slice(from, at))) break;
-        const end = value.indexOf(']]', at + PREFIX.length);
-        const finish = end >= 0 && end - at <= 128 ? end + 2 : Math.min(value.length, at + 128);
-        const token = value.slice(at, finish);
-        const exact = /^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]$/.test(token);
-        if (!append(exact ? await reference(token) : DISPLAY_UNAVAILABLE)) break;
-        from = finish;
+        const fragment = referenceFragment(value, at);
+        if (!append(fragment.token ? await reference(fragment.token) : DISPLAY_UNAVAILABLE)) break;
+        from = fragment.end;
       }
       if (outputBytes > 1024 * 1024) return account(DISPLAY_LIMIT);
       return account(chunks.join(''));
@@ -1597,7 +1698,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   async function displayText(scopeId, displayInput, options = {}) {
     if (typeof displayInput === 'string') displayInput = displayDiagnostics(displayInput);
-    if (typeof displayInput !== 'string' || (!displayInput.includes(PREFIX) && !(options.json === true && displayInput.includes('\\') && /^\s*[\[{"]/.test(displayInput)))) return displayInput;
+    if (typeof displayInput !== 'string' || (!displayInput.includes(PREFIX) && !/ruyi_pvt/i.test(displayInput) && !(options.json === true && displayInput.includes('\\') && /^\s*[\[{"]/.test(displayInput)))) return displayInput;
     const context = displayContext(scopeId);
     try { return await context.text(displayInput, options.json === true); } finally { context.close(); }
   }
@@ -1731,7 +1832,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         if (channel !== undefined && String(pending.event.subagentId || '') !== channel) continue;
         // An incomplete ordinary bracket/phrase is not evidence of an internal
         // diagnostic. Only complete diagnostics are translated by consume().
-        if (pending.text) await emitDisplayEvent({ ...pending.event, text: pending.text.startsWith('[[RUYI') && await context.eligible() ? DISPLAY_UNAVAILABLE : pending.text });
+        // A reference whose stream ended right after its id (brackets missing) is still repaired.
+        if (pending.text) {
+          let text = pending.text;
+          if (text.startsWith('[[RUYI') && await context.eligible()) {
+            const fragment = text.startsWith(PREFIX) ? referenceFragment(text, 0) : null;
+            text = fragment?.token ? context.account(await context.reference(fragment.token)) + text.slice(fragment.end) : DISPLAY_UNAVAILABLE;
+          }
+          await emitDisplayEvent({ ...pending.event, text });
+        }
         buffers.delete(key);
       }
     };
@@ -1750,12 +1859,12 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           output += value.slice(from, value.length - keep); from = value.length - keep; break;
         }
         output += value.slice(from, at);
-        const end = value.indexOf(']]', at + PREFIX.length);
-        if (end < 0 && value.length - at < 128) { from = at; break; }
-        const finish = end >= 0 && end - at <= 128 ? end + 2 : at + 128;
-        const token = value.slice(at, finish);
-        output += !await context.eligible() ? token : /^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]$/.test(token) ? await context.reference(token) : DISPLAY_UNAVAILABLE;
-        from = finish;
+        // 150 P5: wait only while the fragment can still grow into a reference; a malformed one ends
+        // at its last reference character, and the text after it is shown, not swallowed.
+        const fragment = referenceFragment(value, at);
+        if (fragment.open) { from = at; break; }
+        output += !await context.eligible() ? value.slice(at, fragment.end) : fragment.token ? await context.reference(fragment.token) : DISPLAY_UNAVAILABLE;
+        from = fragment.end;
         if (Buffer.byteLength(output) > 1024 * 1024) { output = DISPLAY_LIMIT; from = value.length; break; }
       }
       const pending = value.slice(from);
@@ -1802,7 +1911,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // A user may disable privacy and continue a task whose *stored* tool history contains references.
   // Migrate that history once before constructing the next request; the disabled tool path stays identity.
   // This capability is for host-loaded history only, never for a new model/tool/user input.
-  async function restoreHistory(scopeId, history, hostProjection = false) {
+  // 150 P7: options.degrade (explicit plaintext exports only) turns an unusable or malformed reference into a
+  // marker for just that fragment and reports it through options.onWithheld, instead of failing the copy.
+  async function restoreHistory(scopeId, history, hostProjection = false, options = {}) {
+    const degrade = options.degrade === true, withheld = () => { if (typeof options.onWithheld === 'function') options.onWithheld(); return DISPLAY_UNAVAILABLE; };
     // OFF must not apply the enabled scanner's history limits when there is
     // nothing to migrate. Unicode JSON escapes can conceal any marker character,
     // so those candidates retain the bounded decoder below rather than guessing.
@@ -1850,7 +1962,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         scope = core.createScope({ scopeId, detector: { detect: () => [] }, ttlMs: 365 * 86400000 });
         temporary = true; scope.importState(snapshot);
       } catch (error) {
-        if (error.code === 'ENOENT' && hostProjection) {
+        if (error.code === 'ENOENT' && (hostProjection || degrade)) {
           scope = core.createScope({ scopeId, detector: { detect: () => [] }, ttlMs: 365 * 86400000 }); temporary = true;
         } else if (error.code === 'ENOENT') fail('reference_unknown');
         else throw error;
@@ -1872,6 +1984,17 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         });
       }
       if (!value.includes(PREFIX)) return value;
+      if (degrade) {
+        let out = '', from = 0;
+        for (let at = value.indexOf(PREFIX); at >= 0; at = value.indexOf(PREFIX, from)) {
+          out += value.slice(from, at);
+          const fragment = referenceFragment(value, at);
+          let restored = null;
+          if (fragment.token) { try { restored = restore(fragment.token); } catch (error) { if (!historyReferenceError(error)) throw error; } }
+          out += restored ?? withheld(); from = fragment.end;
+        }
+        return out + value.slice(from);
+      }
       try { return restore(value); }
       catch (error) { if (hostProjection && historyReferenceError(error)) return HISTORY_REFUSED; throw error; }
     };
@@ -2099,7 +2222,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const epoch = policyEpoch, signature = currentPolicy.signature, scopeId = context.scopeId;
     const config = structuredClone(options(currentPolicy.config));
     const snapshot = Object.freeze({ config, hash: cryptoApi.createHash('sha256').update(JSON.stringify(config)).digest('hex'),
-      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules])).digest('hex'), revision: signature,
+      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules, ...(config.ruleOverrides ? [config.ruleOverrides] : [])])).digest('hex'), revision: signature,
       scopeId, async prepareDetector(inputs, { signal, deadline } = {}) {
         snapshot.assert();
         if (!Array.isArray(inputs) || inputs.some(value => typeof value !== 'string')) fail('image_recognition_invalid');
@@ -2116,7 +2239,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       } });
     return snapshot;
   }
-  return Object.freeze({ captureMediaPolicy, projectionCacheStats: () => projectionCache.stats(), enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ captureMediaPolicy, projectionCacheStats: () => projectionCache.stats(), enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView: value => foreignView(value), preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

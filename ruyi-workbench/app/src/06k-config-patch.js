@@ -32,7 +32,7 @@ async function applyConfigPatch(rawBody, options = {}) {
   delete body.confirm;
   // Only the authenticated HTTP route can convey this request-only intent via options.
   delete body.selectFirstChatProvider;
-  if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
+  if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyRuleOverridesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
   // M3-2: 工作数据加密开关不走通用配置补丁 —— 它换的是磁盘存储格式与密钥生命周期，只能由本地启用流程

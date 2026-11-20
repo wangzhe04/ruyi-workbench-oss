@@ -72,8 +72,12 @@ test('worker jobs, input and match budgets refuse overflow; cancellation release
   const first = regex.scan([rule('(a+)+$')], ['a'.repeat(40000) + '!'], { signal: a.signal });
   const second = regex.scan([rule('(a+)+$')], ['a'.repeat(40000) + '!'], { signal: b.signal });
   const settled = Promise.allSettled([first, second]);
-  await assert.rejects(regex.scan([rule('safe')], ['safe']), /regex_busy/);
+  // 150 P9: a third job waits for a worker instead of failing with regex_busy at once.
+  const third = regex.scan([rule('safe')], ['safe while queued']);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(regex.queued(), 1);
   a.abort(); b.abort();
   assert.ok((await settled).every(result => result.status === 'rejected' && result.reason.code === 'privacy.regex_aborted'));
-  assert.equal(regex.activeJobs(), 0);
+  assert.equal((await third).get('safe while queued').length, 1);
+  assert.equal(regex.activeJobs(), 0); assert.equal(regex.queued(), 0);
 });

@@ -8,6 +8,7 @@ const LocalSecretCrypto = (() => {
   const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $PSModuleAutoLoadingPreference='None'
+$stage='host'
 try {
   [void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')
   [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
@@ -15,6 +16,7 @@ try {
   $op = [Console]::In.ReadLine()
   $bytes = [Convert]::FromBase64String([Console]::In.ReadLine())
   $entropy = [Convert]::FromBase64String([Console]::In.ReadLine())
+  $stage='dpapi'
   if ($op -eq 'protect') {
     $result = [Security.Cryptography.ProtectedData]::Protect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
   } elseif ($op -eq 'unprotect') {
@@ -24,7 +26,7 @@ try {
   [Array]::Clear($bytes,0,$bytes.Length)
   [Array]::Clear($result,0,$result.Length)
   exit 0
-} catch { [Console]::Out.Write('{"ok":false}'); exit 1 }`;
+} catch { [Console]::Out.Write('{"ok":false,"stage":"'+$stage+'"}'); exit 1 }`;
   function run(op, value, entropy) {
     if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
     if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
@@ -77,7 +79,11 @@ try {
           const bytes = Buffer.concat(output);
           try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
           finally { bytes.fill(0); }
-          if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
+          // 150 P15: only a failure inside ProtectedData itself is a DPAPI verdict. A helper that could not load
+          // .NET or read its input (constrained language mode, policy) is helper_blocked, never decrypt_failed.
+          // A reply without a stage comes from an older helper shape and keeps the old classification.
+          if (exact(response, ['ok', 'stage']) && response.ok === false && response.stage === 'host') { finish('helper_blocked'); return; }
+          if (code !== 0 || !exact(response, ['ok', 'value', 'stage']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' && response?.ok === false ? 'decrypt_failed' : 'process_failed'); return; }
           finish(null, Buffer.from(response.value, 'base64'));
         });
         // Three ASCII lines need neither pipe EOF nor cmdlet/module discovery (Add-Type/JSON).

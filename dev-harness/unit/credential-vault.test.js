@@ -49,7 +49,12 @@ test('configuration target/identity changes and swapping a referenced id cannot 
   const f = fixture(), raw = JSON.parse(await f.api.protectConfig(JSON.stringify(config())));
   for (const mutate of [r => { r.providers[0].baseUrl = 'https://other.test/v1'; }, r => { r.providers[0].id = 'different'; },
     r => { r.credentialRefsV1.slots[0].id = r.credentialRefsV1.slots[1].id; }]) {
-    const attempt = clone(raw); mutate(attempt); await fails(() => f.api.hydrateConfig(attempt), 'binding_mismatch');
+    // 150 P15: the credential is withheld (its slot stays empty and is reported) instead of failing the
+    // whole configuration; it is still never handed to the changed target or identity.
+    const attempt = clone(raw); mutate(attempt);
+    const hydrated = await f.api.hydrateConfig(attempt);
+    assert.equal(JSON.stringify(hydrated.raw).includes('fixture-api-key'), false);
+    assert.ok(hydrated.withheld.length >= 1);
   }
   const attempt = clone(raw); attempt.providers[0].apiKey = 'injected';
   await fails(() => f.api.hydrateConfig(attempt), 'reference_collision');
@@ -180,7 +185,7 @@ test('every executable catalog rule has a positive fixture and all profiles pres
     'personal.address': '家庭住址: 合成测试地址一号', 'personal.health-record': '病历号: FIXTURE1234',
     'personal.diagnosis': '诊断结果: 合成测试诊断',
     'personal.vehicle': '车架号 TESTVIN00000000001', 'personal.work-identifier': '工号 EMP-99881',
-    'personal.profile-url': '领英 linkedin.com/in/synthetic-vault-fixture', 'technical.ipv4': '192.168.1.8',
+    'personal.profile-url': '领英 linkedin.com/in/synthetic-vault-fixture', 'technical.ipv4': '192.168.1.8', 'technical.ipv6': 'fd00::25',
     'technical.mac': '02:00:00:00:00:01', 'technical.windows-user-path': 'C:\\Users\\fixture\\test.txt',
     'technical.posix-user-path': '/home/fixture/test.txt', 'internal.classified-line': '保密代号: 合成代号',
   };

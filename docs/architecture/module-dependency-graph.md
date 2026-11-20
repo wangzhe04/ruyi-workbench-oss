@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4449 | 4393 | 968 | 67 | 0 | 1 |
+| 145 | 4452 | 4393 | 968 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `01h-privacy-core.js` | foundation | 1 | 1 | 1 |
 | 10 | `01m-privacy-regex.js` | foundation | 1 | 1 | 1 |
 | 11 | `01j-local-crypto.js` | foundation | 1 | 0 | 0 |
-| 12 | `01-config.js` | foundation | 209 | 65 | 13 |
+| 12 | `01-config.js` | foundation | 210 | 65 | 13 |
 | 13 | `01k-credential-vault.js` | foundation | 1 | 8 | 4 |
 | 14 | `01l-credential-recovery.js` | foundation | 2 | 13 | 3 |
 | 15 | `01n-work-data-crypto.js` | foundation | 1 | 1 | 1 |
@@ -129,7 +129,7 @@
 | 111 | `13x-external-channel-delivery.js` | transport | 1 | 0 | 0 |
 | 112 | `13y-external-bot-credentials.js` | transport | 1 | 8 | 4 |
 | 113 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 114 | `13ab-privacy-api.js` | unclassified | 2 | 37 | 16 |
+| 114 | `13ab-privacy-api.js` | unclassified | 4 | 37 | 16 |
 | 115 | `13w-external-bots.js` | transport | 130 | 26 | 10 |
 | 116 | `13w1-external-remote-views.js` | unclassified | 1 | 57 | 10 |
 | 117 | `13ac-mcp-consumer.js` | unclassified | 2 | 40 | 12 |

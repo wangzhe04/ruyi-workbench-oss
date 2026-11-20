@@ -2707,7 +2707,9 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
 const PrivacyRuleCatalog = (() => {
   // 6: 3.1 phase 1 (150 号文 §4 P2/P3/P4) changed built-in detection in PrivacyCore; bumping invalidates
   // rule-bound derived artifacts (rulesHash / ruleVersion) produced under the previous detection.
-  const version = 6;
+  // 7: 3.1 phase 4 (150 号文 §4 P12/P13/P17): bank-account prose, IPv6, grouped/full-width/zero-width
+  // mobile numbers and e-mail, Luhn card numbers, bare-field full-width punctuation.
+  const version = 7;
   const rules = [];
   const add = (id, category, tier, pattern, capture = 0) => rules.push(Object.freeze({ id, category, tier, pattern, capture }));
   // Quoted JSON/property labels and prose labels carry the same privacy evidence. The optional
@@ -2734,7 +2736,8 @@ const PrivacyRuleCatalog = (() => {
   add('credential.sql-password', 'CREDENTIAL', 'basic', combine(
     /\b(?:Password|Pwd)[ \t]*=[ \t]*"([^"\r\n]+)(?:"|(?=\r?\n|$))/gi,
     /\b(?:Password|Pwd)[ \t]*=[ \t]*'([^'\r\n]+)(?:'|(?=\r?\n|$))/gi,
-    /\b(?:Password|Pwd)[ \t]*=[ \t]*([^\s;"'\r\n][^;"'\r\n]*)/gi), 1);
+    // 150 P17: an unquoted value also ends at CJK punctuation; prose after "password=x，" is not the value.
+    /\b(?:Password|Pwd)[ \t]*=[ \t]*([^\s;"'\r\n，；。！？](?:[^;"'\r\n，；。！？]|[，；。！？](?=[A-Za-z0-9!@#$%^*_+=.\/-]))*)/gi), 1);
   add('credential.xml-secret', 'CREDENTIAL', 'basic', /<(?:password|passwd|apiKey|api_key|client_secret|access_token|refresh_token)\b[^>]{0,256}>([^<]+)/gi, 1);
   add('credential.docker-auth', 'CREDENTIAL', 'basic', /"auth"\s*:\s*"([A-Za-z0-9+/]{8,}={0,2})"/g, 1);
   add('credential.ssh-password', 'CREDENTIAL', 'basic', /\bsshpass\s+-p\s+(?:'([^'\r\n]+)'?|"([^"\r\n]+)"?|([^\s"';&|]+))/g, 1);
@@ -2764,7 +2767,14 @@ const PrivacyRuleCatalog = (() => {
   add('personal.social-security', 'IDENTITY', 'enhanced', combine(labelled('\\bSSN\\b|\\bsocial[ ._-]security(?:[ ._-]number)?\\b', '\\d{3}[- ]?\\d{2}[- ]?\\d{4}'), chineseLabelled('社保卡号|社保(?:个人)?(?:账号|编号|号码)|医保(?:卡号|个人编号|号码|账号)|公积金(?:账号|个人编号|号码)', '[A-Za-z0-9][A-Za-z0-9 -]{4,39}')), 1);
   add('personal.driver-license', 'IDENTITY', 'enhanced', labelled('驾驶证(?:号码|号)|\\bdriver[ ._-]?s?[ ._-]licen[sc]e(?:[ ._-]number)?\\b', '[A-Za-z0-9-]{5,24}'), 1);
   add('personal.tax-id', 'IDENTITY', 'enhanced', combine(labelled('税号|纳税人识别号|\\btax[ ._-]id\\b|\\bTIN\\b', '[A-Za-z0-9-]{8,24}'), chineseLabelled('统一社会信用代码|社会信用代码|纳税人识别号|税号', '[A-Za-z0-9-]{8,24}')), 1);
-  add('personal.bank-account', 'PAYMENT', 'enhanced', combine(labelled('银行账号|银行账户|\\bbank[ ._-]account(?:[ ._-]number)?\\b|\\baccount[ ._-]number\\b', '[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]'), chineseLabelled('开户行|开票(?:账号|账户)|收款(?:账号|账户)|账号', '(?:[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]|[\\u4e00-\\u9fff][^\\r\\n,，;；<>"\']{1,79})')), 1);
+  // 150 P12: only a bank branch (开户行) is a CJK value. After an account label (账号) CJK prose is not an
+  // account; a bank name is accepted only before the account digits and after an explicit separator.
+  const accountValue = '[A-Za-z0-9][A-Za-z0-9 -]{3,32}[A-Za-z0-9]';
+  add('personal.bank-account', 'PAYMENT', 'enhanced', combine(labelled('银行账号|银行账户|\\bbank[ ._-]account(?:[ ._-]number)?\\b|\\baccount[ ._-]number\\b', accountValue),
+    chineseLabelled('开户行', '(?:' + accountValue + '|[\\u4e00-\\u9fff][^\\r\\n,，;；<>"\']{1,79})'),
+    chineseLabelled('开票(?:账号|账户)|收款(?:账号|账户)|账号', accountValue),
+    // 4B review v2/v3: the bank name may carry a bracketed branch and be set off from the digits by ·・,，、-/:：.
+    labelled('开票(?:账号|账户)|收款(?:账号|账户)|账号', '[\\u4e00-\\u9fff]{1,16}(?:[（(][\\u4e00-\\u9fff]{1,16}[）)])?[ \\t·・,，、/:：-]{0,3}[0-9][0-9 -]{3,32}[0-9]')), 1);
   add('personal.payment-security', 'CREDENTIAL', 'basic', combine(labelled('\\bCVV2?\\b|\\bCVC2?\\b|支付密码|取款密码', '\\d{3,8}'), /\b(?:CVV2?|CVC2?)\b[ \t]*(?:在背面(?:的)?|[=:：])[ \t]*(\d{3,8})/gi), 1);
   add('personal.payment-expiry', 'PAYMENT', 'enhanced', chineseLabelled('(?:信用卡|银行卡|卡片)?有效期|卡到期日', '(?:[0-9]{1,2}[/.-][0-9]{2,4}|[0-9]{4}[/.-][0-9]{1,2})'), 1);
   add('personal.birth-date', 'INTERNAL', 'enhanced', combine(labelled('出生日期|生日|\\bdate[ ._-]of[ ._-]birth\\b|\\bDOB\\b', '\\d{4}[-/.年]\\d{1,2}[-/.月]\\d{1,2}日?'), chineseLabelled('出生日期|生日', '\\d{4}[-/.年]\\d{1,2}[-/.月]\\d{1,2}日?'),
@@ -2780,6 +2790,12 @@ const PrivacyRuleCatalog = (() => {
   // Optional technical privacy is not enabled merely by enabling personal data protection.
   add('technical.ipv4', 'INTERNAL', 'technical', combine(/(?<![\d.])((?:10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}))(?![\d.])/g,
     labelled('\\b(?:client[ _-]?ip|xff|x[ _-]?forwarded[ _-]?for|remote[ _-]?addr|ip[ _-]?address)\\b', '(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9.])')), 1);
+  // 150 P13: IPv6 mirrors the IPv4 rule: unique-local (fc00::/7) and link-local (fe80::/10) addresses
+  // anywhere, any address after an IP label. Candidates are validated by the IPv6 parser, so times
+  // (12:30:45), C++ scopes (std::vector) and MAC addresses never qualify.
+  const ipv6 = '(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}';
+  add('technical.ipv6', 'INTERNAL', 'technical', combine(new RegExp('(?<![0-9A-Za-z_:.])((?:f[cd][0-9A-Fa-f]{2}|fe[89ab][0-9A-Fa-f]):(?:[0-9A-Fa-f]{0,4}:){1,6}[0-9A-Fa-f]{0,4})(?![0-9A-Za-z_:])', 'gi'),
+    labelled('\\b(?:client[ _-]?ip|xff|x[ _-]?forwarded[ _-]?for|remote[ _-]?addr|ip[ _-]?address|ipv6(?:[ _-]?address)?)\\b', ipv6 + '(?![0-9A-Za-z_:])')), 1);
   add('technical.mac', 'INTERNAL', 'technical', /\b(?:[A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}\b/g);
   add('technical.windows-user-path', 'PATH', 'technical', /\b[A-Za-z]:[\\/]Users[\\/]([^\\/\r\n:*?"<>|]{1,128})/gi, 1);
   add('technical.posix-user-path', 'PATH', 'technical', /\/(?:home|Users)\/([^/\r\n\s]{1,128})/g, 1);
@@ -2900,6 +2916,10 @@ const PrivacyRuleCatalog = (() => {
   const alreadyMasked = (text, type) => /^(?:EMAIL|PHONE|IDENTITY|PAYMENT)$/.test(type)
     && /(?:\*{2,}|[＊×]{2,}|•{2,})/.test(text)
     || type === 'INTERNAL' && /^[\u4e00-\u9fff]{1,2}[*＊×•]{1,4}[\u4e00-\u9fff]{0,2}[。.]?$/.test(text.trim());
+  const isIPv6 = value => require('node:net').isIPv6(value);
+  // 150 P12: an account number ends at its digits; only a CJK-led value (a bank branch or bank name)
+  // continues through letters. Trailing separators are never part of the value.
+  const accountContinuation = /[A-Za-z0-9 -]/, cjkLead = /^[\u4e00-\u9fff]/;
   function scan(inputText, options, emitRaw) {
     const emit = (start, end, type, id) => { if (!alreadyMasked(inputText.slice(start, end), type)) emitRaw(start, end, type, id); };
     const overrides = options.ruleOverrides || {};
@@ -2917,9 +2937,10 @@ const PrivacyRuleCatalog = (() => {
       while ((match = regex.exec(inputText)) !== null) {
         const value = rule.capture ? match.slice(rule.capture).find(part => typeof part === 'string' && part.length) : match[0]; if (!value) continue;
         if (rule.id === 'technical.ipv4' && value.split('.').some(part => Number(part) > 255)) continue;
+        if (rule.id === 'technical.ipv6' && !isIPv6(value)) continue;
         const start = match.index + (rule.capture ? match[0].lastIndexOf(value) : 0);
         let end = start + value.length;
-        const continuation = continuations[rule.id];
+        const continuation = rule.id === 'personal.bank-account' && (!cjkLead.test(value) || /[0-9]$/.test(value)) ? accountContinuation : continuations[rule.id];
         if (continuation) while (end < inputText.length) {
           if (rule.id === 'personal.contact-name' && /[:：]/.test(inputText[end])) break;
           if (rule.id === 'personal.contact-name' && /^[ \t]+(?:手机|电话|座机|邮箱)/.test(inputText.slice(end, end + 16))) break;
@@ -2930,6 +2951,7 @@ const PrivacyRuleCatalog = (() => {
             || /[\p{L}\p{N}]/u.test(inputText[end + 1] || ''))) { end++; continue; }
           break;
         }
+        if (rule.id === 'personal.bank-account') while (end > start + value.length && /[ -]/.test(inputText[end - 1])) end--;
         emit(start, end, rule.category, rule.id);
         // An extended run is already fully covered. Re-entering it at another token-looking
         // prefix would rescan the same suffix repeatedly and turn a linear scan into O(n²).
@@ -2965,6 +2987,26 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
   const opaqueIntervals = Symbol('validated privacy reference intervals');
   const lexicalJsonSource = Symbol('JSON source matching provenance');
   const decodedSource = Symbol('one-level encoded privacy discovery');
+  const normalizedSource = Symbol('zero-width / full-width normalized discovery');
+  // 150 P13: zero-width characters inside a value and full-width ASCII letters, digits and the
+  // characters of e-mail addresses (＠ ． － ＿ ＋) hide a value from every rule. Detection also runs
+  // once on a normalized view (zero-width removed, those full-width characters mapped to ASCII) and
+  // maps spans back to original coordinates. Full-width punctuation such as ：，（） is not mapped:
+  // the rules already accept their CJK spellings, and mapping them would merge prose into values.
+  // A byte-order mark at the very start of a text is file syntax and does not trigger the view.
+  const VIEW_SOURCE = '[\\u00ad\\u200b-\\u200d\\u2060\\uff0b\\uff0d\\uff0e\\uff10-\\uff19\\uff20-\\uff3a\\uff3f\\uff41-\\uff5a]|(?<!^)\\ufeff';
+  const VIEW_CHARS = new RegExp(VIEW_SOURCE), ZERO_WIDTH = /^[\u00ad\u200b-\u200d\u2060\ufeff]$/;
+  function normalizedView(text) {
+    if (!VIEW_CHARS.test(text)) return null;
+    const removed = [];
+    const view = text.replace(new RegExp(VIEW_SOURCE, 'g'), (char, offset) => {
+      if (ZERO_WIDTH.test(char)) { removed.push(offset); return ''; }
+      return String.fromCharCode(char.charCodeAt(0) - 0xfee0);
+    });
+    // View index -> original index: removed[j] - j is non-decreasing, so binary search counts removals.
+    const original = at => { let low = 0, high = removed.length; while (low < high) { const mid = (low + high) >>> 1; if (removed[mid] - mid <= at) low = mid + 1; else high = mid; } return at + low; };
+    return { text: view, span: (start, end) => ({ start: original(start), end: original(end - 1) + 1 }) };
+  }
   const insideOpaque = (start, end, intervals = []) => {
     let low = 0, high = intervals.length - 1, candidate = -1;
     while (low <= high) { const mid = (low + high) >>> 1; if (intervals[mid].start <= start) { candidate = mid; low = mid + 1; } else high = mid - 1; }
@@ -3128,7 +3170,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
           add(at, at + rule.value.length, rule.category, rule.id); from = at + 1;
         }
       }
-      if (context[decodedSource] !== true && context[lexicalJsonSource] !== 'automatic' && rules.some(rule => rule.kind === 'regex')) {
+      if (context[decodedSource] !== true && context[normalizedSource] !== true && context[lexicalJsonSource] !== 'automatic' && rules.some(rule => rule.kind === 'regex')) {
         if (typeof options.regexMatches !== 'function') fail('regex_worker_required');
         for (const item of options.regexMatches(privacyText)) {
           if (!Number.isSafeInteger(item.start) || !Number.isSafeInteger(item.end) || item.start < 0 || item.end > privacyText.length || item.start >= item.end || !Array.isArray(item.ruleIds)) fail('regex_result_invalid');
@@ -3245,7 +3287,9 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       // Match field names exactly at their suffix. maxTokens/tokenCount stay intact.
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*"([^"\r\n]+)"/gi, 'CREDENTIAL', 'builtin.quoted-field', 1);
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*'([^'\r\n]+)'/gi, 'CREDENTIAL', 'builtin.single-field', 1);
-      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*([^\s"'{}\[\],;&|]+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1, value => !placeholderValue(value));
+      // 150 P17: a bare value also ends at full-width (CJK) punctuation, as the CJK label rules do, unless the mark
+      // sits inside the value ("password=hun，ter2": an ASCII value character follows it directly).
+      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*((?:[^\s"'{}\[\],;&|，；。！？、）】」』]|[，；。！？、](?=[A-Za-z0-9!@#$%^*_+=.\/-]))+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1, value => !placeholderValue(value));
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?["“]([^"”\r\n]+)["”]/gi, 'CREDENTIAL', 'builtin.cn-secret-double', 1);
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?['‘]([^'’\r\n]+)['’]/gi, 'CREDENTIAL', 'builtin.cn-secret-single', 1);
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?([^\s"'“”‘’{}\[\],，;；&|<>]+)/gi, 'CREDENTIAL', 'builtin.cn-secret-bare', 1, value => !placeholderValue(value));
@@ -3275,8 +3319,29 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         // already learned private values still protect their exact duplicates.
         const businessField = /^(?:order[_ -]?(?:id|no|number)|tracking[_ -]?(?:id|no|number)|订单(?:号|编号)?|运单(?:号|编号)?|快递单号?|流水号?|计数|条码|isbn|学号|发票(?:号码|号|代码)?|票号)$/i;
         const businessLabel = /(?:订单(?:号|编号)?|运单(?:号|编号)?|快递单号?|流水号?|计数|条码|ISBN|学号|发票(?:号码|号|代码)?|票号|\border[_ -]?(?:id|no|number)|\btracking[_ -]?(?:id|no|number))[ \t]*(?:是|为|is|[:：=])?[ \t]*[:：=]?[ \t]*$/i;
+        // 150 P12: a phone-shaped count or amount ("库存 13800138000 件") is not a phone number unless a
+        // phone label is nearby. Only bare (unlabelled) discovery consults this; labels still win.
+        const phoneLabel = /(?:手机|电话|联系|微信|号码|来电|致电|拨打|咨询|询|面议|联|找|\bphone\b|\bmobile\b|\btel\b|\bcall\b|\bcontact\b)[^\r\n]{0,24}$/i;
+        // 4B review v2: a quantity word counts only when nothing but separators stands between it and the number
+        // ("库存 13800138000 件", "数量：…", "共 …"). Prices, amounts and counts are not excluded: a phone after them
+        // is likelier than an 11-digit price ("售价 13800138000", "count: 13800138000" stay phones).
+        const quantityBefore = /(?:库存|数量|总数|总量|合计|共计|总计|累计|销量|次数|\bqty\b|\bquantity\b|\bstock\b)[ \t:：=为是]{0,3}$/iu;
+        // 共/一共/总共 alone ("总共 13800138000") is no evidence; with a measure word after the number it is ("共 … 次请求").
+        const totalBefore = /(?:一|总)?共(?:有)?[ \t:：]{0,3}$/u, measureAfter = /^[ \t]*\p{Script=Han}/u;
+        // A unit counts only as a word of its own ("13800138000 张三"/"本人"/"位于" stay phones). Currency and person
+        // units (元/块/人/名) are not units here: "13800138000人" and "金额：13800138000元" stay phones.
+        const quantityAfter = /^[ \t]*(?:(?:件|个|台|次|条|箱|吨|公斤|千克|斤|份|张|本|股|只|辆|套|瓶|包|盒|笔|单|页|行|字节|字|人次|位|天|秒|分钟|小时|毫秒)(?![\p{L}\p{N}])|(?:kg|pcs|items?|units?|times|bytes?|[KMGT]i?B)(?![A-Za-z]))/iu;
+        const quantity = (value, at) => {
+          const lead = privacyText.slice(Math.max(0, at - 32), at);
+          const after = privacyText.slice(at + value.length, at + value.length + 8);
+          return !phoneLabel.test(lead) && (quantityBefore.test(lead) || quantityAfter.test(after) || totalBefore.test(lead) && measureAfter.test(after));
+        };
         const phoneEvidence = (value, at) => !businessField.test(field) && !businessLabel.test(privacyText.slice(Math.max(0, at - 80), at));
-        scan(/(?<!\d)(?:\+?86[ -]?)?1[3-9]\d{9}(?!\d)/g, 'PHONE', 'builtin.cn-mobile', 0, phoneEvidence);
+        const barePhoneEvidence = (value, at) => phoneEvidence(value, at) && !quantity(value, at);
+        scan(/(?<!\d)(?:\+?86[ -]?)?1[3-9]\d{9}(?!\d)/g, 'PHONE', 'builtin.cn-mobile', 0, barePhoneEvidence);
+        // 150 P13: the 3-4-4 grouping with one consistent space or hyphen is specific to mobile numbers;
+        // a fourth group ("158 0123 4567 8") is a business number, not a phone.
+        scan(/(?<![0-9A-Za-z_]|[0-9][ -])(?:\+?86[ -]?)?1[3-9][0-9](?<sep>[ -])[0-9]{4}\k<sep>[0-9]{4}(?![0-9A-Za-z_]|[ -][0-9])/g, 'PHONE', 'builtin.cn-mobile', 0, barePhoneEvidence);
         // Preserve original spelling and coordinates; these are eleven-digit mobile
         // forms, never a blanket normalization of business numbers or ordinary prose.
         scan(/(?<![0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖][ \t-]{0,3})[1１一幺壹][3-9３-９三四五六七八九叁肆伍陆柒捌玖](?:[ \t-]{0,3}[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]){9}(?![ \t-]{0,3}[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖])/g, 'PHONE', 'builtin.cn-mobile', 0,
@@ -3294,6 +3359,21 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         // to disclose labelled personal data. Keep original text coordinates and spelling intact.
         scan(/(?:居民)?身份证(?:号码|号)?["']?[ \t]*(?:[^0-9０-９\r\n:=：,，;；。!?？！"'“”]{1,24}[:=：][ \t]*)?(?:是|为|[:=：])?[ \t]*(?:[:=：][ \t]*)?["'“”]?([0-9０-９](?:[ \t\u00a0\u3000-]{0,3}[0-9０-９]){16}[ \t\u00a0\u3000-]{0,3}[0-9０-９XxＸｘ]|[0-9０-９](?:[ \t\u00a0\u3000-]{0,3}[0-9０-９]){14})(?![ \t\u00a0\u3000-]{0,3}[0-9０-９XxＸｘ])/g, 'IDENTITY', 'builtin.cn-identity-labelled', 1);
         scan(/(?:银行卡(?:号)?|卡号|card(?:\s*number)?|pan)["']?[ \t]*(?:是|为|[:=：])[ \t]*["'“”]?([\d][\d -]{11,}\d)(?!\d)/gi, 'PAYMENT', 'builtin.payment', 1);
+        // 150 P13: an unlabelled card number. Luhn alone passes one random number in ten, so the value
+        // must also carry a card-network prefix, contiguous or in groups of four with one separator,
+        // not be a valid resident identity number and not follow a business-number label.
+        // 4B review v3: identifiers named id / trace / request / span (trace_id=…) and logistics numbers are not cards,
+        // nor is a number in a column whose header line names an order or other business number.
+        const cardBusiness = /(?:编号|编码|条码|序列号|单号|工单|交易号|流水|批次|版本|物流|\b(?:SN|IMEI|MEID|ID|SKU|EAN|UPC|serial|order|tracking|invoice|trace|request|span)\b|\b(?:trace|request|span|order|tracking|transaction|session|user)[_ -]?id\b)[ \t]*(?:是|为|is|[:：=#])?[ \t]*$/i;
+        const cardHeader = /订单号|单号|编号|流水号|交易号|物流|\border[_ -]?(?:id|no)\b|\btracking\b|\btrace[_ -]?id\b|\brequest[_ -]?id\b/i;
+        const cardHeaderLine = at => { const lineStart = privacyText.lastIndexOf('\n', at - 1); if (lineStart < 0) return false; const previous = privacyText.lastIndexOf('\n', lineStart - 1); return cardHeader.test(privacyText.slice(previous + 1, lineStart)); };
+        const cardNetwork = /^(?:4|5[1-5]|2[2-7]|3[47]|35|30[0-5]|3[68]|6)/;
+        scan(/(?<![0-9A-Za-z_.]|[0-9][ -])(?:[0-9]{4}(?<sep>[ -])[0-9]{4}(?:\k<sep>[0-9]{4}){1,2}(?:\k<sep>[0-9]{1,4})?|[0-9]{13,19})(?![0-9A-Za-z_]|[ -][0-9])/g, 'PAYMENT', 'builtin.payment-card', 0,
+          (value, at) => {
+            const digits = value.replace(/[ -]/g, '');
+            return digits.length >= 13 && digits.length <= 19 && cardNetwork.test(digits) && luhn(digits) && !isIdentityNumber(digits)
+              && phoneEvidence(value, at) && !cardBusiness.test(privacyText.slice(Math.max(0, at - 32), at)) && !cardHeaderLine(at);
+          });
         scan(/(?:居民)?身份证(?:号码|号)?[^0-9０-９\r\n:：]{0,24}[:：][ \t]*([1-9１-９](?:[ \t/\r\n-]{0,5}[0-9０-９]){16}[ \t/\r\n-]{0,5}[0-9０-９XxＸｘ])(?![0-9０-９XxＸｘ])/g, 'IDENTITY', 'builtin.cn-identity-labelled', 1);
       }
       if (ruleCatalog) ruleCatalog.scan(privacyText, { ...catalogOptions, pointer: context.pointer }, add);
@@ -3329,6 +3409,23 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         };
         for (const m of privacyText.matchAll(/[A-Za-z0-9+/]+={0,2}/g)) inspectEncoded(m[0], m.index, 'base64');
         for (const m of privacyText.matchAll(/[A-Za-z0-9_~+./%:-]+/g)) inspectEncoded(m[0], m.index, 'uri');
+      }
+      // 150 P13: one normalized pass (no recursion, no custom regex, no encoded decoding). Spans the
+      // original pass already covers are not added twice, so the match limit is not spent on duplicates.
+      if (context[normalizedSource] !== true && context[decodedSource] !== true && !context[lexicalJsonSource]) {
+        const view = normalizedView(privacyText);
+        if (view) {
+          const covered = mergeMatches(found.map(item => ({ ...item })));
+          const inside = (start, end) => {
+            let low = 0, high = covered.length - 1;
+            while (low <= high) { const mid = (low + high) >>> 1; if (covered[mid].start <= start) { if (end <= covered[mid].end) return true; low = mid + 1; } else high = mid - 1; }
+            return false;
+          };
+          for (const match of detect(view.text, { ...context, [normalizedSource]: true, [opaqueIntervals]: undefined })) {
+            const { start, end } = view.span(match.start, match.end);
+            if (!inside(start, end)) add(start, end, match.category, match.ruleIds[0]);
+          }
+        }
       }
 
       // Interval union avoids exposing an overlapping secret's suffix. Credential classification wins.
@@ -3798,15 +3895,69 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
 })(require('node:crypto'), typeof PrivacyRuleCatalog === 'undefined' ? null : PrivacyRuleCatalog);
 
 // P3: Custom RegExp executes only in a disposable, bounded worker. No user code enters eval source.
-const PrivacyRegex = ((workerThreads, core) => {
-  const LIMITS = Object.freeze({ rules: 20, source: 1024, bytes: 8 * 1024 * 1024, sample: 1024 * 1024, samples: 50000, matches: 10000, jobs: 2, startupMs: 3000, runMs: 250 });
+// 150 P9 (3.1 phase 4): a busy pool queues instead of refusing, the run budget grows with the input
+// size, results already scanned under the same rules are reused, saving probes every rule for
+// zero-width matches position by position, and a timeout names the rule that was running.
+const PrivacyRegex = ((workerThreads, core, cryptoApi) => {
+  const LIMITS = Object.freeze({ rules: 20, source: 1024, bytes: 8 * 1024 * 1024, sample: 1024 * 1024, samples: 50000, matches: 10000, jobs: 2, startupMs: 3000, runMs: 250,
+    runMsPerKiB: 8, runMsMax: 5000, queue: 32, queueMs: 10000, cacheEntries: 8192, cacheRows: 200000, probeBytes: 4096 });
   let activeJobs = 0;
+  const waiting = [];
   const fail = (code, ruleId) => Object.assign(new Error('privacy.' + code), { code: 'privacy.' + code, ...(ruleId ? { ruleId } : {}) });
   function validateSchema(rules) {
     core.createDetector({ rules });
     const selected = rules.filter(rule => rule.kind === 'regex');
     if (selected.length > LIMITS.rules) throw fail('regex_rules_limit');
     return selected.map(rule => ({ id: rule.id, category: rule.category, value: rule.value, flags: rule.flags || '' }));
+  }
+  // The run budget scales with the bytes actually sent to the worker: a fixed 250 ms for a whole
+  // request made ordinary backtracking rules time out on a 30 KB history (150 P9).
+  const runBudget = bytes => Math.min(LIMITS.runMsMax, LIMITS.runMs + Math.ceil(bytes / 1024) * LIMITS.runMsPerKiB);
+  // Two workers at most. Further jobs wait in a bounded FIFO (abortable, bounded in time) instead of
+  // failing the turn with regex_busy the moment two other requests are scanning.
+  function acquire(signal) {
+    if (activeJobs < LIMITS.jobs) { activeJobs++; return Promise.resolve(); }
+    if (waiting.length >= LIMITS.queue) return Promise.reject(fail('regex_busy'));
+    return new Promise((resolve, reject) => {
+      const entry = {};
+      const detach = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); const at = waiting.indexOf(entry); if (at >= 0) waiting.splice(at, 1); };
+      const abort = () => { detach(); reject(fail('regex_aborted')); };
+      const timer = setTimeout(() => { detach(); reject(fail('regex_busy')); }, LIMITS.queueMs);
+      entry.grant = () => { detach(); resolve(); };   // the releasing job hands its slot over unchanged
+      signal?.addEventListener('abort', abort, { once: true });
+      waiting.push(entry);
+    });
+  }
+  function release() { const next = waiting.shift(); if (next) next.grant(); else activeJobs--; }
+  // Results depend only on (rule set, input). Entries hold a digest of the input and the match
+  // coordinates, never the text itself; the bounded LRU drops the oldest entries.
+  const cache = new Map(); let cachedRows = 0;
+  const digest = value => cryptoApi.createHash('sha256').update(value).digest('base64');
+  const cacheGet = key => { const rows = cache.get(key); if (rows) { cache.delete(key); cache.set(key, rows); } return rows; };
+  const cacheDrop = key => { const rows = cache.get(key); if (rows) { cachedRows -= rows.length; cache.delete(key); } };
+  const cachePut = (key, rows) => {
+    cacheDrop(key); cache.set(key, rows); cachedRows += rows.length;
+    while (cache.size > LIMITS.cacheEntries || cachedRows > LIMITS.cacheRows) cacheDrop(cache.keys().next().value);
+  };
+  const freeze = rows => Object.freeze(rows.map(row => Object.freeze({ ...row, ruleIds: Object.freeze([...row.ruleIds]) })));
+  // 150 P9: a lookahead such as (?=secret) never matches the empty input but matches empty before every
+  // "secret", so a saved rule failed every later turn. Saving probes each rule at every position of
+  // synthetic samples built from fixed text and from the literal runs of the rule's own source.
+  function probeSamples(selected) {
+    const base = 'abc ABC xyz 0123456789 中文样例 x@y.z -_/:;,.!?#=&+%()[]{}<>"\' \t\nend';
+    const samples = new Set(['', base]);
+    for (const rule of selected) {
+      // Literal runs are everything between regex syntax (escapes, metacharacters, whitespace), so CJK and
+      // full-width punctuation such as "密码：" or "（编号）" stay part of the probe (4B review v2); the group
+      // prefixes ?: ?= ?! ?<= ?<! are syntax, not text.
+      const literals = rule.value.replace(/\\[pPu]\{[^}]*\}|\\[^]/g, ' ').split(/[\\^$.|?*+()[\]{}\s]+/)
+        .map(run => run.replace(/^(?:<?[=!]|:|<[A-Za-z_$][\w$]*>)/, '')).filter(Boolean).map(run => run.slice(0, 64));
+      for (const literal of literals.slice(0, 32)) { samples.add(literal); samples.add(' ' + literal + ' '); samples.add(base + literal + base); }
+      if (literals.length) { samples.add(literals.join('')); samples.add(literals.join(' ')); }
+    }
+    const result = []; let bytes = 0;
+    for (const sample of samples) { if ((bytes += Buffer.byteLength(sample)) > LIMITS.probeBytes) break; result.push(sample); }
+    return result;
   }
   // pkg bytecode strips function source: Function#toString returns [native code].
   // Keep this trusted program as literal data; user patterns enter only postMessage.
@@ -3820,20 +3971,25 @@ const PrivacyRegex = ((workerThreads, core) => {
           ruleId = rule.id;
           const regex = new RegExp(rule.value, rule.flags.replace(/g/g, '') + 'g');
           if (regex.test('')) throw { safe: 'regex_empty_match' };
-          return { ...rule, regex };
+          return { ...rule, regex, sticky: job.probes ? new RegExp(rule.value, rule.flags.replace(/g/g, '') + 'y') : null };
         });
-        const rows = []; let count = 0;
-        for (const input of job.inputs) {
-          const matches = [];
-          for (const rule of rules) {
-            ruleId = rule.id; rule.regex.lastIndex = 0; let found;
+        const rows = job.inputs.map(() => []); let count = 0;
+        for (const rule of rules) {
+          ruleId = rule.id;
+          parentPort.postMessage({ progress: rule.id });
+          if (rule.sticky) for (const input of job.probes) for (let at = 0; at <= input.length; at++) {
+            rule.sticky.lastIndex = at; const found = rule.sticky.exec(input);
+            if (found && !found[0].length) throw { safe: 'regex_empty_match' };
+          }
+          for (let i = 0; i < job.inputs.length; i++) {
+            const input = job.inputs[i];
+            rule.regex.lastIndex = 0; let found;
             while ((found = rule.regex.exec(input)) !== null) {
               if (!found[0].length) throw { safe: 'regex_empty_match' };
               if (++count > job.matches) throw { safe: 'regex_matches_limit' };
-              matches.push({ start: found.index, end: found.index + found[0].length, category: rule.category, ruleIds: [rule.id] });
+              rows[i].push({ start: found.index, end: found.index + found[0].length, category: rule.category, ruleIds: [rule.id] });
             }
           }
-          rows.push(matches);
         }
         parentPort.postMessage({ ok: true, rows });
       } catch (error) {
@@ -3843,22 +3999,44 @@ const PrivacyRegex = ((workerThreads, core) => {
     parentPort.postMessage({ ready: true });
   })();
 `;
-  async function scan(rules, inputs, { signal } = {}) {
+  async function scan(rules, inputs, { signal, probe = false } = {}) {
     const selected = validateSchema(rules);
     if (!Array.isArray(inputs) || inputs.length > LIMITS.samples) throw fail('regex_input_limit');
     let bytes = 0;
     for (const input of inputs) { if (typeof input !== 'string' || Buffer.byteLength(input) > LIMITS.sample || (bytes += Buffer.byteLength(input)) > LIMITS.bytes) throw fail('regex_input_limit'); }
     if (signal?.aborted) throw fail('regex_aborted');
     if (!selected.length) return new Map(inputs.map(input => [input, []]));
-    if (activeJobs >= LIMITS.jobs) throw fail('regex_busy');
-    activeJobs++;
-    let worker, timer, abort, settled = false;
+    const rulesKey = digest(JSON.stringify(selected)) + ':';
+    const keys = new Map(), result = new Map(), pending = [];
+    for (const input of inputs) {
+      if (keys.has(input)) continue;
+      const key = rulesKey + digest(input); keys.set(input, key);
+      const rows = probe ? undefined : cacheGet(key);
+      if (rows) result.set(input, rows); else pending.push(input);
+    }
+    if (!pending.length) return new Map(inputs.map(input => [input, result.get(input)]));
+    const scanned = await runWorker(selected, pending, signal, probe ? probeSamples(selected) : null);
+    let count = 0;
+    for (const rows of result.values()) count += rows.length;
+    for (const [input, rows] of scanned) {
+      if ((count += rows.length) > LIMITS.matches) throw fail('regex_matches_limit');
+      const stored = freeze(rows); result.set(input, stored); if (!probe) cachePut(keys.get(input), stored);
+    }
+    return new Map(inputs.map(input => [input, result.get(input)]));
+  }
+  async function runWorker(selected, inputs, signal, probes) {
+    await acquire(signal);
+    let worker, timer, abort, settled = false, running;
+    const jobInputs = inputs;
+    // A save-time probe walks every position of its samples; it gets the largest budget once.
+    const budget = probes ? LIMITS.runMsMax : runBudget(inputs.reduce((sum, input) => sum + Buffer.byteLength(input), 0));
     try {
+      if (signal?.aborted) throw fail('regex_aborted');
       return await new Promise((resolve, reject) => {
-        const finish = async (error, result) => {
+        const finish = async (error, value) => {
           if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort);
           try { if (worker) await worker.terminate(); } catch { /* error still fails closed */ }
-          error ? reject(error) : resolve(result);
+          error ? reject(error) : resolve(value);
         };
         abort = () => { void finish(fail('regex_aborted')); };
         signal?.addEventListener('abort', abort, { once: true });
@@ -3869,30 +4047,32 @@ const PrivacyRegex = ((workerThreads, core) => {
         worker.on('error', () => { void finish(fail('regex_worker_failed')); });
         worker.on('exit', () => { if (!settled) void finish(fail('regex_worker_failed')); });
         let started = false;
-        worker.on('message', result => {
+        const known = id => selected.some(rule => rule.id === id) ? id : undefined;
+        worker.on('message', message => {
           if (settled) return;
-          if (result?.ready === true && !started) {
-            started = true; clearTimeout(timer); timer = setTimeout(() => { void finish(fail('regex_timeout')); }, LIMITS.runMs);
-            worker.postMessage({ rules: selected, inputs, matches: LIMITS.matches }); return;
+          if (message?.ready === true && !started) {
+            started = true; clearTimeout(timer); timer = setTimeout(() => { void finish(fail('regex_timeout', running)); }, budget);
+            worker.postMessage({ rules: selected, inputs: jobInputs, probes: probes || null, matches: LIMITS.matches }); return;
           }
-          if (!started || !result?.ok) { void finish(fail(['regex_invalid', 'regex_empty_match', 'regex_matches_limit'].includes(result?.code) ? result.code : 'regex_worker_failed', selected.some(rule => rule.id === result?.ruleId) ? result.ruleId : undefined)); return; }
-          if (!Array.isArray(result.rows) || result.rows.length !== inputs.length) { void finish(fail('regex_result_invalid')); return; }
+          if (started && typeof message?.progress === 'string' && !Object.hasOwn(message, 'ok')) { running = known(message.progress); return; }
+          if (!started || !message?.ok) { void finish(fail(['regex_invalid', 'regex_empty_match', 'regex_matches_limit'].includes(message?.code) ? message.code : 'regex_worker_failed', known(message?.ruleId))); return; }
+          if (!Array.isArray(message.rows) || message.rows.length !== jobInputs.length) { void finish(fail('regex_result_invalid')); return; }
           let count = 0;
-          for (let i = 0; i < result.rows.length; i++) {
-            if (!Array.isArray(result.rows[i])) { void finish(fail('regex_result_invalid')); return; }
-            for (const match of result.rows[i]) {
+          for (let i = 0; i < message.rows.length; i++) {
+            if (!Array.isArray(message.rows[i])) { void finish(fail('regex_result_invalid')); return; }
+            for (const match of message.rows[i]) {
               const rule = selected.find(item => item.id === match.ruleIds?.[0]);
-              if (++count > LIMITS.matches || !rule || rule.category !== match.category || !Number.isSafeInteger(match.start) || !Number.isSafeInteger(match.end) || match.start < 0 || match.end > inputs[i].length || match.start >= match.end) { void finish(fail('regex_result_invalid')); return; }
+              if (++count > LIMITS.matches || !rule || rule.category !== match.category || !Number.isSafeInteger(match.start) || !Number.isSafeInteger(match.end) || match.start < 0 || match.end > jobInputs[i].length || match.start >= match.end) { void finish(fail('regex_result_invalid')); return; }
             }
           }
-          void finish(null, new Map(inputs.map((input, i) => [input, result.rows[i]])));
+          void finish(null, new Map(inputs.map((input, i) => [input, message.rows[i]])));
         });
       });
-    } finally { activeJobs--; }
+    } finally { release(); }
   }
-  const validate = rules => scan(rules, ['']).then(() => true);
-  return Object.freeze({ LIMITS, scan, validate, validateSchema, activeJobs: () => activeJobs });
-})(require('node:worker_threads'), PrivacyCore);
+  const validate = rules => scan(rules, [''], { probe: true }).then(() => true);
+  return Object.freeze({ LIMITS, scan, validate, validateSchema, activeJobs: () => activeJobs, queued: () => waiting.length, cacheSize: () => cache.size, runBudget });
+})(require('node:worker_threads'), PrivacyCore, require('node:crypto'));
 
 // 81-P1: Shared bounded Windows DPAPI helper. Secrets travel only over stdin/stdout.
 const LocalSecretCrypto = (() => {
@@ -3904,6 +4084,7 @@ const LocalSecretCrypto = (() => {
   const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $PSModuleAutoLoadingPreference='None'
+$stage='host'
 try {
   [void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')
   [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
@@ -3911,6 +4092,7 @@ try {
   $op = [Console]::In.ReadLine()
   $bytes = [Convert]::FromBase64String([Console]::In.ReadLine())
   $entropy = [Convert]::FromBase64String([Console]::In.ReadLine())
+  $stage='dpapi'
   if ($op -eq 'protect') {
     $result = [Security.Cryptography.ProtectedData]::Protect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
   } elseif ($op -eq 'unprotect') {
@@ -3920,7 +4102,7 @@ try {
   [Array]::Clear($bytes,0,$bytes.Length)
   [Array]::Clear($result,0,$result.Length)
   exit 0
-} catch { [Console]::Out.Write('{"ok":false}'); exit 1 }`;
+} catch { [Console]::Out.Write('{"ok":false,"stage":"'+$stage+'"}'); exit 1 }`;
   function run(op, value, entropy) {
     if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
     if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
@@ -3973,7 +4155,11 @@ try {
           const bytes = Buffer.concat(output);
           try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
           finally { bytes.fill(0); }
-          if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
+          // 150 P15: only a failure inside ProtectedData itself is a DPAPI verdict. A helper that could not load
+          // .NET or read its input (constrained language mode, policy) is helper_blocked, never decrypt_failed.
+          // A reply without a stage comes from an older helper shape and keeps the old classification.
+          if (exact(response, ['ok', 'stage']) && response.ok === false && response.stage === 'host') { finish('helper_blocked'); return; }
+          if (code !== 0 || !exact(response, ['ok', 'value', 'stage']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' && response?.ok === false ? 'decrypt_failed' : 'process_failed'); return; }
           finish(null, Buffer.from(response.value, 'base64'));
         });
         // Three ASCII lines need neither pipe EOF nor cmdlet/module discovery (Add-Type/JSON).
@@ -4802,6 +4988,13 @@ function normalizeConfig(raw, opts = {}) {
   if (!Array.isArray(config.privacyRulesV1)) { config.privacyRulesV1 = []; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
   if (typeof config.privacyPolicyRecoveryRequiredV1 !== 'boolean') { config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.createDetector({ rules: config.privacyRulesV1 });
+  // 150 P17: optional per-rule switches of the built-in catalog ({ ruleId: boolean }). Absent means none;
+  // an invalid value is dropped and the privacy policy waits for confirmation, as for the other keys.
+  if (Object.hasOwn(config, 'privacyRuleOverridesV1')) {
+    let valid = !!config.privacyRuleOverridesV1 && typeof config.privacyRuleOverridesV1 === 'object' && !Array.isArray(config.privacyRuleOverridesV1);
+    if (valid && typeof PrivacyCore !== 'undefined') { try { PrivacyCore.createDetector({ ruleOverrides: config.privacyRuleOverridesV1 }); } catch { valid = false; } }
+    if (!valid) { delete config.privacyRuleOverridesV1; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  }
   if (typeof config.credentialEncryptionV1 !== 'boolean') { config.credentialEncryptionV1 = base.credentialEncryptionV1; changed = true; }
   // Earlier defaults could omit the encryption flag while privacy was selected. Do not
   // initialize a vault without consent under the new opt-in default. Hydrated references
@@ -6076,6 +6269,8 @@ function cliPathsProvisionalActive() {
   const token = cliPathsProvisionalScope.getStore();
   return !!(token && token.provisional);
 }
+// 150 P15: the withheld-credential positions last logged (dedupes the log across config re-reads).
+let credentialWithheldLogged = '';
 async function readConfig(options) {
   let generation = configReadGeneration;
   const current = () => generation === configReadGeneration;
@@ -6162,6 +6357,13 @@ async function readConfig(options) {
   if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.hydrateConfig) {
     const hydrated = await PrivacyCore.configHooks.hydrateConfig(raw);
     raw = hydrated.raw; credentialsNeedMigration = hydrated.needsMigration;
+    // 150 P15: a credential whose provider/server settings were edited by hand is withheld, not a startup
+    // failure. The log names positions only; the privacy status lists them for the settings page.
+    const withheldPointers = Array.isArray(hydrated.withheld) ? hydrated.withheld.map(row => row.pointer).slice(0, 16) : [];
+    if (current() && withheldPointers.length && withheldPointers.join('\n') !== credentialWithheldLogged) {
+      credentialWithheldLogged = withheldPointers.join('\n');
+      try { logEvent({ kind: 'credential_withheld', count: hydrated.withheld.length, pointers: withheldPointers }); } catch { /* 日志是旁路 */ }
+    }
   }
     normalized = normalizeConfig(raw);
   } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
@@ -8221,6 +8423,18 @@ const CredentialVault = ((cryptoApi) => {
   const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
   const fail = suffix => { throw Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix, apiCode: 'credential_vault.' + suffix, statusCode: 503 }); };
   const empty = () => ({ schema: 1, instanceId: '', protectedKey: '', records: [] });
+  // 150 P15: only a DPAPI verdict on the wrapped key is unlock_failed (another account, a reset password).
+  // A helper that timed out, could not start or was blocked by policy says nothing about the key: those are
+  // unlock_timeout / helper_unavailable, retryable as they are, and the guidance never suggests a new data
+  // root. A helper that may still be running keeps that marker for the callers that must hold ownership.
+  const unlockFailure = error => {
+    const code = error?.code, uncertain = error?.helperMayStillRun === true ? { helperMayStillRun: true } : {};
+    const suffix = code === 'local_crypto.process_timeout' ? 'unlock_timeout'
+      : ['local_crypto.process_failed', 'local_crypto.process_capacity', 'local_crypto.helper_blocked'].includes(code) ? 'helper_unavailable'
+      : String(code || '').startsWith('credential_vault.') ? null : 'unlock_failed';
+    if (!suffix) return error;
+    return Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix, apiCode: 'credential_vault.' + suffix, statusCode: 503, ...uncertain });
+  };
   function validate(state) {
     if (!object(state) || Object.keys(state).sort().join(',') !== 'instanceId,protectedKey,records,schema' || state.schema !== 1 || !Array.isArray(state.records) || state.records.length > MAX.records) return false;
     if (!state.instanceId && !state.protectedKey) return state.records.length === 0;
@@ -8249,39 +8463,62 @@ const CredentialVault = ((cryptoApi) => {
       return !!(url.username || url.password) || [...url.searchParams.keys()].some(key => /(?:key|token|secret|credential|signature|^sig$|password)/i.test(key));
     } catch { return false; }
   }
+  // Every position a credential can occupy, with the binding its record is owned under. kind 'url' and
+  // 'urls' positions hold a credential only when the URL itself carries one. One table serves both the
+  // slots that are encrypted (slots) and the positions a moved credential may be found at (150 P15).
+  function sites(config, visit) {
+    for (const [i, provider] of (Array.isArray(config.providers) ? config.providers : []).entries()) {
+      if (!object(provider) || typeof provider.id !== 'string') continue;
+      const binding = ['provider', provider.id, provider.baseUrl || '', provider.audioBaseUrl || '', provider.extraBaseUrls || [], provider.apiStyle || 'chat'];
+      visit(['providers', i, 'apiKey'], provider.apiKey, binding, 'value');
+      visit(['providers', i, 'extraHeaders'], provider.extraHeaders, binding, 'value');
+      for (const name of ['baseUrl', 'audioBaseUrl']) visit(['providers', i, name], provider[name], binding, 'url');
+      visit(['providers', i, 'extraBaseUrls'], provider.extraBaseUrls, binding, 'urls');
+    }
+    visit(['privacyRulesV1'], config.privacyRulesV1, ['privacy-rules-v1'], 'value');
+    visit(['modelsApiKey'], config.modelsApiKey, ['claude', config.modelsApiBase || ''], 'value');
+    visit(['modelsApiBase'], config.modelsApiBase, ['claude', config.modelsApiBase], 'url');
+    if (object(config.searchBackend)) {
+      const binding = ['search', config.searchBackend.baseUrl || '', config.searchBackend.type || ''];
+      visit(['searchBackend', 'apiKey'], config.searchBackend.apiKey, binding, 'value');
+      visit(['searchBackend', 'baseUrl'], config.searchBackend.baseUrl, binding, 'url');
+    }
+    for (const [i, server] of (Array.isArray(config.externalMcpServers) ? config.externalMcpServers : []).entries()) {
+      if (!object(server) || typeof server.id !== 'string') continue;
+      const binding = ['mcp', server.id, server.url || '', server.command || '', server.args || [], server.cwd || ''];
+      for (const name of ['env', 'headers', 'args']) visit(['externalMcpServers', i, name], server[name], binding, 'value');
+      visit(['externalMcpServers', i, 'url'], server.url, binding, 'url');
+    }
+  }
   function slots(config) {
     const out = [];
-    const add = (parts, value, binding) => {
+    sites(config, (parts, value, binding, kind) => {
+      if (kind === 'url' && !secretUrl(value) || kind === 'urls' && !(Array.isArray(value) && value.some(secretUrl))) return;
       if (value === '' || value === null || value === undefined) return;
       if (object(value) && !Object.keys(value).length || Array.isArray(value) && !value.length) return;
       const serialized = JSON.stringify(value);
       if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > MAX.value) fail('value_limit');
       if (out.length >= MAX.slots) fail('slots_limit');
       out.push({ pointer: pointer(parts), serialized, binding });
-    };
-    for (const [i, provider] of (Array.isArray(config.providers) ? config.providers : []).entries()) {
-      if (!object(provider) || typeof provider.id !== 'string') continue;
-      const binding = ['provider', provider.id, provider.baseUrl || '', provider.audioBaseUrl || '', provider.extraBaseUrls || [], provider.apiStyle || 'chat'];
-      add(['providers', i, 'apiKey'], provider.apiKey, binding);
-      add(['providers', i, 'extraHeaders'], provider.extraHeaders, binding);
-      for (const name of ['baseUrl', 'audioBaseUrl']) if (secretUrl(provider[name])) add(['providers', i, name], provider[name], binding);
-      if (Array.isArray(provider.extraBaseUrls) && provider.extraBaseUrls.some(secretUrl)) add(['providers', i, 'extraBaseUrls'], provider.extraBaseUrls, binding);
-    }
-    add(['privacyRulesV1'], config.privacyRulesV1, ['privacy-rules-v1']);
-    add(['modelsApiKey'], config.modelsApiKey, ['claude', config.modelsApiBase || '']);
-    if (secretUrl(config.modelsApiBase)) add(['modelsApiBase'], config.modelsApiBase, ['claude', config.modelsApiBase]);
-    if (object(config.searchBackend)) {
-      const binding = ['search', config.searchBackend.baseUrl || '', config.searchBackend.type || ''];
-      add(['searchBackend', 'apiKey'], config.searchBackend.apiKey, binding);
-      if (secretUrl(config.searchBackend.baseUrl)) add(['searchBackend', 'baseUrl'], config.searchBackend.baseUrl, binding);
-    }
-    for (const [i, server] of (Array.isArray(config.externalMcpServers) ? config.externalMcpServers : []).entries()) {
-      if (!object(server) || typeof server.id !== 'string') continue;
-      const binding = ['mcp', server.id, server.url || '', server.command || '', server.args || [], server.cwd || ''];
-      for (const name of ['env', 'headers', 'args']) add(['externalMcpServers', i, name], server[name], binding);
-      if (secretUrl(server.url)) add(['externalMcpServers', i, 'url'], server.url, binding);
-    }
+    });
     return out;
+  }
+  // 150 P15: a trailing slash added to or removed from a bound URL does not change the service. A binding
+  // is also tried with each of its URLs (at most four) toggled; the host and path otherwise stay exact.
+  function bindingVariants(binding) {
+    const urls = [];
+    binding.forEach((item, i) => {
+      if (typeof item === 'string' && /^[a-z][a-z0-9+.-]*:\/\/[^/]/i.test(item)) urls.push([i]);
+      else if (Array.isArray(item)) item.forEach((url, j) => { if (typeof url === 'string' && /^[a-z][a-z0-9+.-]*:\/\/[^/]/i.test(url)) urls.push([i, j]); });
+    });
+    const toggle = url => url.endsWith('/') ? url.replace(/\/+$/, '') : url + '/';
+    const variants = [];
+    for (let mask = 1; mask < 1 << Math.min(urls.length, 4); mask++) {
+      const copy = binding.map(item => Array.isArray(item) ? [...item] : item);
+      urls.slice(0, 4).forEach(([i, j], bit) => { if (mask & 1 << bit) { if (j === undefined) copy[i] = toggle(copy[i]); else copy[i][j] = toggle(copy[i][j]); } });
+      variants.push(copy);
+    }
+    return variants;
   }
   function create(host) {
     const { store, core, protector } = host;
@@ -8309,7 +8546,7 @@ const CredentialVault = ((cryptoApi) => {
           state.instanceId = instanceId; state.protectedKey = wrapped.toString('base64'); wrapped.fill(0);
           keyCache = { binding: state.instanceId + ':' + state.protectedKey, key };
           return key;
-        } catch { key.fill(0); fail('unlock_failed'); }
+        } catch (error) { key.fill(0); throw unlockFailure(error); }
       }
       const binding = state.instanceId + ':' + state.protectedKey;
       if (keyCache?.binding === binding) return keyCache.key;
@@ -8318,41 +8555,160 @@ const CredentialVault = ((cryptoApi) => {
         if (key.length !== 32) { key.fill(0); fail('unlock_failed'); }
         if (keyCache) keyCache.key.fill(0);
         keyCache = { binding, key }; return key;
-      } catch { fail('unlock_failed'); }
+      } catch (error) { throw unlockFailure(error); }
     }
     const aad = (state, recordId, purpose = 'credential') => ({ instanceId: state.instanceId, recordId, purpose });
-    function hydrate(raw, state, key) {
-      const refs = raw.credentialRefsV1;
-      if (!refs) return raw;
-      if (!object(refs) || refs.version !== 1 || !Array.isArray(refs.slots) || refs.slots.length > MAX.slots || Object.keys(refs).sort().join(',') !== 'slots,version') fail('reference_invalid');
-      const seen = new Set(), used = [];
-      for (const ref of refs.slots) {
+    // 150 P15: a hand edit of config.json used to fail the whole configuration (binding_mismatch) when it
+    // only reordered or removed a provider or toggled a trailing slash. Records stay owned by the pointer
+    // and binding they were sealed under; hydration now finds each record's owner:
+    //   1. at its recorded pointer, with the exact binding or a trailing-slash variant;
+    //   2. otherwise at the same field of another entry of the same list (a moved provider or MCP server)
+    //      whose binding matches, while that position is still empty (fields bound to each other move together);
+    //   3. otherwise the credential is withheld: it is never given to a service it was not bound to. Withheld
+    //      references are kept in their own list (credentialWithheldRefsV1), not in a slot, so a value typed
+    //      into the old position does not destroy them and undoing the hand edit restores them (4B review v2).
+    //      Decryption, integrity and a value typed over a live reference (reference_collision) fail closed as before.
+    const WITHHELD_KEY = 'credentialWithheldRefsV1', WITHHELD_MAX = 32;
+    function hydrate(raw, state, key, report = null) {
+      const refs = raw.credentialRefsV1, kept = raw[WITHHELD_KEY];
+      delete raw[WITHHELD_KEY];
+      if (!refs && !Array.isArray(kept)) return raw;
+      if (refs && (!object(refs) || refs.version !== 1 || !Array.isArray(refs.slots) || refs.slots.length > MAX.slots || Object.keys(refs).sort().join(',') !== 'slots,version')) fail('reference_invalid');
+      const open = record => {
+        let value;
+        try { value = JSON.parse(core.open(record.envelope, key, aad(state, record.id), 'master-v1')); }
+        catch { fail('decrypt_failed'); }
+        if (hash(key, record.owner + ':' + JSON.stringify(value)) !== record.fingerprint) fail('integrity_failed');
+        return value;
+      };
+      const seen = new Set(), entries = [];
+      for (const ref of refs ? refs.slots : []) {
         if (!object(ref) || Object.keys(ref).sort().join(',') !== 'id,pointer' || !id(ref.id) || seen.has(ref.pointer)) fail('reference_invalid');
         seen.add(ref.pointer);
-        const slot = at(raw, ref.pointer); if (slot.value !== '') fail('reference_collision');
+        if (typeof ref.pointer !== 'string' || !ref.pointer.startsWith('/') || ref.pointer.length > 1024) fail('reference_invalid');
         const record = state.records.find(row => row.id === ref.id); if (!record) fail('reference_missing');
-        try { slot.parent[slot.key] = JSON.parse(core.open(record.envelope, key, aad(state, record.id), 'master-v1')); }
-        catch { fail('decrypt_failed'); }
-        used.push({ ref, record });
+        entries.push({ ref, record, value: open(record), at: null, kept: false });
       }
-      const recognized = new Map(slots(raw).map(slot => [slot.pointer, slot]));
-      for (const { ref, record } of used) {
-        const slot = recognized.get(ref.pointer); if (!slot || hash(key, JSON.stringify([slot.pointer, slot.binding])) !== record.owner) fail('binding_mismatch');
-        if (hash(key, record.owner + ':' + slot.serialized) !== record.fingerprint) fail('integrity_failed');
+      // A kept (withheld) reference was never in use: a malformed, vanished or unreadable one is dropped quietly.
+      for (const ref of Array.isArray(kept) ? kept.slice(0, WITHHELD_MAX) : []) {
+        const shape = object(ref) ? Object.keys(ref).sort().join(',') : '';
+        if (!['id,pointer', 'id,ownerId,pointer'].includes(shape) || !id(ref.id) || typeof ref.pointer !== 'string' || !ref.pointer.startsWith('/') || ref.pointer.length > 1024
+          || shape === 'id,ownerId,pointer' && !(typeof ref.ownerId === 'string' && ref.ownerId.length > 0 && ref.ownerId.length <= 128)) continue;
+        if (entries.some(entry => entry.ref.id === ref.id && entry.ref.pointer === ref.pointer)) continue;
+        const record = state.records.find(row => row.id === ref.id); if (!record) continue;
+        let value; try { value = open(record); } catch { continue; }
+        entries.push({ ref: { pointer: ref.pointer, id: ref.id }, record, value, at: null, kept: true, ownerId: typeof ref.ownerId === 'string' ? ref.ownerId : null });
+      }
+      const locate = p => { try { return at(raw, p); } catch (error) { if (error?.code === 'credential_vault.reference_invalid') return null; throw error; } };
+      const put = (entry, p) => { const slot = locate(p); slot.parent[slot.key] = structuredClone(entry.value); entry.at = p; };
+      const clear = entry => { const slot = locate(entry.at); if (slot) slot.parent[slot.key] = ''; entry.at = null; };
+      for (const entry of entries) {
+        if (entry.kept) continue;
+        const slot = locate(entry.ref.pointer);
+        if (slot && slot.value !== '') fail('reference_collision');
+        if (slot) put(entry, entry.ref.pointer);
+      }
+      const owns = (entry, binding, exactOnly = false) => [binding, ...(exactOnly ? [] : bindingVariants(binding))]
+        .some(candidate => hash(key, JSON.stringify([entry.ref.pointer, candidate])) === entry.record.owner);
+      const recognized = () => new Map(slots(raw).map(slot => [slot.pointer, slot]));
+      // A wrongly placed value changes no binding but its own slot's; settle placements to a fixed point.
+      for (let round = 0, changed = true; changed && round <= entries.length; round++) {
+        changed = false; const current = recognized();
+        for (const entry of entries) if (entry.at && !(current.has(entry.at) && owns(entry, current.get(entry.at).binding))) { clear(entry); changed = true; }
+      }
+      let moved = false;
+      for (const entry of entries) if (entry.at && !owns(entry, recognized().get(entry.at).binding, true)) moved = true;
+      const listParts = entry => { const parts = entry.ref.pointer.slice(1).split('/'); return parts.length === 3 && ['providers', 'externalMcpServers'].includes(parts[0]) ? parts : null; };
+      // A field that is part of its own binding (an MCP server's args/url, a provider's URLs) is relocated
+      // first, so the other fields of the same entry see their real binding (review 4B-S1). Each candidate
+      // is tried by placing the value there and reading that position's binding back.
+      const selfBound = new Set(['args', 'url', 'baseUrl', 'audioBaseUrl', 'extraBaseUrls']);
+      const fieldOf = entry => entry.ref.pointer.slice(1).split('/')[2];
+      // Fields that are part of each other's binding (a secret URL and args of one MCP server) can only prove
+      // their owner together: the unplaced entries of one original entry first move as a group to every
+      // candidate entry of the same list (4B review round 2); single fields that remain are tried one by one.
+      const groups = new Map();
+      for (const entry of entries) {
+        const parts = listParts(entry); if (entry.at || !parts) continue;
+        const group = groups.get(parts[0] + '/' + parts[1]) || []; group.push(entry); groups.set(parts[0] + '/' + parts[1], group);
+      }
+      for (const group of groups.values()) {
+        const root = listParts(group[0])[0], list = Array.isArray(raw[root]) ? raw[root] : [], hits = [];
+        for (let i = 0; i < list.length; i++) {
+          const targets = group.map(entry => pointer([root, i, fieldOf(entry)]));
+          if (new Set(targets).size !== targets.length || targets.some(p => { const slot = locate(p); return !slot || slot.value !== '' || entries.some(other => other.at === p); })) continue;
+          group.forEach((entry, j) => put(entry, targets[j]));
+          const current = recognized(), proven = group.every((entry, j) => current.has(targets[j]) && owns(entry, current.get(targets[j]).binding));
+          group.forEach(clear);
+          if (proven) hits.push(targets);
+        }
+        if (hits.length === 1) { group.forEach((entry, j) => put(entry, hits[0][j])); moved = true; }
+      }
+      const pending = entries.filter(entry => !entry.at).sort((a, b) => Number(!selfBound.has(fieldOf(a))) - Number(!selfBound.has(fieldOf(b))));
+      for (const entry of pending) {
+        if (entries.some(other => other !== entry && other.at === entry.ref.pointer)) continue;
+        const parts = listParts(entry), candidates = [];
+        // A position outside the provider/server lists has one possible place: its own pointer, when empty.
+        if (!parts) { const slot = locate(entry.ref.pointer); if (slot && slot.value === '') candidates.push(entry.ref.pointer); }
+        else sites(raw, (siteParts, value) => {
+          if (siteParts[0] !== parts[0] || siteParts[2] !== parts[2] || value !== '') return;
+          const p = pointer(siteParts);
+          if (!entries.some(other => other.at === p)) candidates.push(p);
+        });
+        const found = candidates.filter(p => { put(entry, p); const slot = recognized().get(p), hit = !!slot && owns(entry, slot.binding); clear(entry); return hit; });
+        if (found.length === 1) { put(entry, found[0]); moved = true; }
+      }
+      // A relocated value is accepted only if its final position still proves the same owner.
+      const final = recognized();
+      for (const entry of entries) if (entry.at && !(final.has(entry.at) && owns(entry, final.get(entry.at).binding))) clear(entry);
+      if (report) {
+        report.moved ||= moved;
+        const containerOf = p => { const parts = p.slice(1).split('/'); return parts.length === 3 ? '/' + parts.slice(0, 2).join('/') : null; };
+        // The entry now at an old position is named as the owner of a withheld value only with proof: another
+        // credential sealed at that same position is still verified there in place (4B review v2). Otherwise
+        // the owner is unknown (null): after a reorder the occupant is usually someone else.
+        const provenHomes = new Set(entries.filter(entry => entry.at && entry.at === entry.ref.pointer).map(entry => containerOf(entry.ref.pointer)).filter(Boolean));
+        // 4B review v3: a withheld entry remembers the id of the provider/server it was first withheld from, when
+        // that is known (proven as above, or nothing in this load moved). Once no entry with that id is left (the
+        // provider was deleted), the reference is retired: re-adding the same id and URL later starts empty.
+        const reordered = entries.some(entry => entry.at && entry.at !== entry.ref.pointer);
+        for (const entry of entries) {
+          if (entry.at || report.withheld.length >= WITHHELD_MAX) continue;
+          const home = containerOf(entry.ref.pointer), container = home ? locate(home) : null;
+          if (home && !container) continue;   // the list entry it belonged to no longer exists: nothing to restore
+          const occupant = typeof container?.value?.id === 'string' ? container.value.id : null;
+          const ownerId = entry.kept ? entry.ownerId : home && (provenHomes.has(home) || !reordered) ? occupant : null;
+          if (ownerId && home) {
+            const list = raw[home.slice(1).split('/')[0]];
+            if (!Array.isArray(list) || !list.some(item => object(item) && item.id === ownerId)) continue;
+          }
+          const slot = locate(entry.ref.pointer);
+          report.withheld.push({ pointer: entry.ref.pointer, id: entry.ref.id, ownerId,
+            containerId: home && provenHomes.has(home) ? occupant : null,
+            // Shown to the user only while its old position is empty; a value typed there keeps it silently.
+            shown: !!slot && slot.value === '' });
+        }
       }
       delete raw.credentialRefsV1;
       raw.credentialEncryptionV1 = true;
       raw.configExplicitKeysV1 = [...new Set([...(Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : []), 'credentialEncryptionV1'])].sort();
       return raw;
     }
+    // Withheld references of the last configuration this vault hydrated (pointers and record ids only).
+    let withheldMemory = [];
+    const shownWithheld = rows => rows.filter(row => row.shown).map(({ pointer: p, containerId }) => ({ pointer: p, containerId }));
     async function hydrateConfig(raw) {
       if (!object(raw)) return { raw, needsMigration: false };
       return serial(async () => {
         const clone = structuredClone(raw);
-        if (clone.credentialRefsV1) {
-          const state = await stateRead(), key = await master(state, false);
-          return { raw: hydrate(clone, state, key), needsMigration: false };
+        if (clone.credentialRefsV1 || Array.isArray(clone[WITHHELD_KEY])) {
+          const state = await stateRead(), key = await master(state, false), report = { moved: false, withheld: [] };
+          const hydrated = hydrate(clone, state, key, report);
+          withheldMemory = report.withheld;
+          // A moved or restored credential is rewritten at its position once; withheld ones are carried by protectConfig.
+          return { raw: hydrated, needsMigration: report.moved, withheld: shownWithheld(report.withheld) };
         }
+        withheldMemory = [];
         const enabled = clone.credentialEncryptionV1 === true;
         return { raw: clone, needsMigration: enabled && slots(clone).length > 0 };
       });
@@ -8362,13 +8718,25 @@ const CredentialVault = ((cryptoApi) => {
       let raw; try { raw = JSON.parse(serialized); } catch { fail('config_invalid'); }
       if (!object(raw)) fail('config_invalid');
       let state, key;
-      if (raw.credentialRefsV1) { state = await stateRead(); key = await master(state, false); raw = hydrate(raw, state, key); }
+      const report = { moved: false, withheld: [] }, ownRefs = !!raw.credentialRefsV1 || Array.isArray(raw[WITHHELD_KEY]);
+      if (ownRefs) { state = await stateRead(); key = await master(state, false); raw = hydrate(raw, state, key, report); }
+      delete raw[WITHHELD_KEY];
       const enabled = force || raw.credentialEncryptionV1 === true;
       if (!enabled) {
         if (!allowPlaintext && await host.size() > 0) fail('disable_requires_migration');
         return JSON.stringify(raw, null, 2);
       }
-      const selected = slots(raw); if (!selected.length) return JSON.stringify(raw, null, 2);
+      // 150 P15 + 4B review v2: withheld references travel in their own list. A configuration with references
+      // carries its own; the runtime (hydrated) configuration carries those of the last load of this vault.
+      let carried = [];
+      for (const item of ownRefs ? report.withheld : withheldMemory) {
+        // The owner was deleted in this write (no entry with its id left in its list): the reference is retired.
+        const root = item.pointer.slice(1).split('/')[0];
+        if (item.ownerId && !(Array.isArray(raw[root]) && raw[root].some(row => object(row) && row.id === item.ownerId))) continue;
+        if (!carried.some(row => row.pointer === item.pointer && row.id === item.id)) carried.push({ pointer: item.pointer, id: item.id, ...(item.ownerId ? { ownerId: item.ownerId } : {}) });
+      }
+      if (carried.length) { const known = state || await stateRead(); carried = carried.filter(item => known.records.some(row => row.id === item.id)).slice(0, WITHHELD_MAX); }
+      const selected = slots(raw); if (!selected.length && !carried.length) return JSON.stringify(raw, null, 2);
       if (!state) { state = await stateRead(); key = await master(state, true); }
       const refs = [];
       let dirty = false;
@@ -8392,6 +8760,7 @@ const CredentialVault = ((cryptoApi) => {
       raw.credentialEncryptionV1 = true;
       raw.configExplicitKeysV1 = [...new Set([...(Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : []), 'credentialEncryptionV1'])].sort();
       raw.credentialRefsV1 = { version: 1, slots: refs };
+      if (carried.length) raw[WITHHELD_KEY] = carried;
       return JSON.stringify(raw, null, 2);
     }
     const protectConfig = (serialized, options = {}) => serial(() => protectUnlocked(serialized, options.force === true, options.allowPlaintext === true));
@@ -8453,7 +8822,7 @@ const CredentialVault = ((cryptoApi) => {
         wrapped = Buffer.from(state.protectedKey, 'base64'); domain = entropy(state.instanceId);
         // Own this key directly. master(false) exposes the cache Buffer, whose clear() lifecycle
         // must not zero a pending recovery snapshot with no records but live privacy mappings.
-        try { key = await protector.run('unprotect', wrapped, domain); } catch { fail('unlock_failed'); }
+        try { key = await protector.run('unprotect', wrapped, domain); } catch (error) { throw unlockFailure(error); }
         if (!Buffer.isBuffer(key) || key.length !== 32) fail('unlock_failed');
         verifyRecoveryRecords(state, key);
         const after = recoveryStateCopy(await stateRead());
@@ -8481,7 +8850,7 @@ const CredentialVault = ((cryptoApi) => {
         verifyRecoveryRecords(state, key);
         if (!protector.supported()) fail('unsupported');
         protectInput = Buffer.from(key); protectDomain = entropy(state.instanceId);
-        try { wrapped = await protector.run('protect', protectInput, protectDomain); } catch { fail('unlock_failed'); }
+        try { wrapped = await protector.run('protect', protectInput, protectDomain); } catch (error) { throw unlockFailure(error); }
         if (!Buffer.isBuffer(wrapped) || !wrapped.length || wrapped.length > 65536) fail('unlock_failed');
         const next = { ...state, protectedKey: wrapped.toString('base64') };
         recoveryStateCopy(next);
@@ -8514,7 +8883,10 @@ const CredentialVault = ((cryptoApi) => {
         hydrate(structuredClone(config), state, key); // Verify every reference before producing a recovery package.
         const salt = cryptoApi.randomBytes(16), exportId = cryptoApi.randomBytes(16).toString('hex'), derived = await backupKey(password, salt);
         try {
-          const referenced = new Set(config.credentialRefsV1.slots.map(slot => slot.id));
+          // 4B review v3: withheld references travel with the package, so undoing the hand edit after a restore
+          // still brings them back; they stay bound to the endpoint they were sealed for.
+          const withheldIds = Array.isArray(config.credentialWithheldRefsV1) ? config.credentialWithheldRefsV1.map(row => row?.id).filter(id) : [];
+          const referenced = new Set([...config.credentialRefsV1.slots.map(slot => slot.id), ...withheldIds]);
           const payload = JSON.stringify({ schema: 1, config, instanceId: state.instanceId, master: key.toString('base64'), records: state.records.filter(record => referenced.has(record.id)) });
           if (Buffer.byteLength(payload) > core.LIMITS.bytes) fail('backup_capacity');
           return JSON.stringify({ schema: 1, kdf: { name: 'scrypt', N: 32768, r: 8, p: 1, salt: salt.toString('base64') }, exportId,
@@ -8539,7 +8911,7 @@ const CredentialVault = ((cryptoApi) => {
         if (!object(payload) || payload.schema !== 1 || !id(payload.instanceId) || typeof payload.master !== 'string' || !object(payload.config)) fail('backup_invalid');
         key = Buffer.from(payload.master, 'base64'); if (key.length !== 32 || key.toString('base64') !== payload.master) fail('backup_invalid');
         if (!protector.supported()) fail('unsupported');
-        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch { fail('unlock_failed'); }
+        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch (error) { throw unlockFailure(error); }
         const state = { schema: 1, instanceId: payload.instanceId, protectedKey: wrapped.toString('base64'), records: payload.records }; wrapped.fill(0);
         if (!validate(state) || Buffer.byteLength(JSON.stringify(state)) > MAX.bytes) fail('backup_invalid');
         const runtime = hydrate(structuredClone(payload.config), state, key);
@@ -8580,7 +8952,9 @@ const CredentialVault = ((cryptoApi) => {
       if (!value || value.version !== 1 || value.instanceId !== state.instanceId) fail('binding_mismatch');
       try { return core.open(value.envelope, key, aad(state, recordId, purpose), 'master-v1'); } catch { fail('decrypt_failed'); }
     });
-    return Object.freeze({ protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, snapshotForWorkDataRecovery, stageRecoveredForWorkData, clear });
+    // Positions only (never values): the settings page names which credentials need re-entry.
+    const credentialWithheld = () => shownWithheld(withheldMemory);
+    return Object.freeze({ protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, snapshotForWorkDataRecovery, stageRecoveredForWorkData, clear, credentialWithheld });
   }
   return Object.freeze({ create, validate, empty, MAX });
 })(require('node:crypto'));
@@ -8613,6 +8987,11 @@ const CredentialRecovery = ((cryptoApi) => {
     // A portable package can restore credentials into a fresh profile, but replacing
     // this profile's master key would orphan its conversation reference mappings.
     // Never present an incorrect backup password or an unrelated failure as DPAPI loss.
+    // 150 P15: a helper that timed out or was blocked says nothing about the key; never suggest a new data root.
+    if (error?.code === 'credential_vault.unlock_timeout') return '本地凭据库解锁超时（credential_vault.unlock_timeout）：Windows 的 PowerShell 解锁助手没有按时完成，常见于开机后系统繁忙或安全软件正在扫描。'
+      + '密钥和数据没有损坏，请稍后重新启动如意；不要更换数据目录，也不要删除密钥或凭据库。';
+    if (error?.code === 'credential_vault.helper_unavailable') return '本地凭据库的 PowerShell 解锁助手没能运行（credential_vault.helper_unavailable），常见原因是组策略、AppLocker 或受限语言模式禁止了 PowerShell。'
+      + '密钥和数据没有损坏；请让管理员允许 Windows 自带的 powershell.exe 运行后重新启动如意，不要更换数据目录，也不要删除密钥或凭据库。';
     if (error?.code !== 'credential_vault.unlock_failed') return '';
     return '本地凭据库无法在当前 Windows 账户或系统环境下解锁（credential_vault.unlock_failed）。'
       + '请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'
@@ -9079,6 +9458,8 @@ const WorkDataKeyRewrap = ((cryptoApi) => {
       try { snap = await host.vault.snapshot(); }
       catch (error) {
         rethrowUncertain(error);
+        // 150 P15: a helper timeout or a blocked helper says nothing about the vault; it is not damage.
+        if (['credential_vault.unlock_timeout', 'credential_vault.helper_unavailable'].includes(error?.code)) return { status: 'unavailable', bytes };
         if (error?.code !== 'credential_vault.unlock_failed') return { status: 'damaged', bytes };
         let state; try { state = JSON.parse(bytes.toString('utf8')); } catch { return { status: 'damaged', bytes }; }
         return { status: 'locked', bytes, state };
@@ -24776,6 +25157,28 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
   let policyEpoch = 0;
+  // 150 P5: a reference the model wrote badly (a bracket short, or cut) is one fragment: the prefix,
+  // category letters, one colon, hex digits and at most two closing brackets. Nothing after that belongs
+  // to it, so local display and history replace only the fragment and keep the following text. A
+  // fragment with its complete 32-digit id that only lacks brackets is that reference (repaired); a
+  // longer hex run is not a reference with a missing bracket.
+  // Real categories are short; a longer letter run (up to 64) is still one fragment, never a visible tail.
+  const FRAGMENT = /\[\[RUYI_PVT:([A-Z]{0,64})(:?)([a-f0-9]{0,32})(\]{0,2})/y;
+  function referenceFragment(text, at) {
+    FRAGMENT.lastIndex = at;
+    const match = FRAGMENT.exec(text), end = at + match[0].length;
+    const exact = match[1].length > 0 && match[2] === ':' && match[3].length === 32 && match[4] === ']]';
+    const complete = match[1].length > 0 && match[2] === ':' && match[3].length === 32 && !/[a-f0-9]/.test(text[at + 11 + match[1].length + 1 + 32] || '');
+    const token = exact ? match[0] : complete ? PREFIX + match[1] + ':' + match[3] + ']]' : null;
+    return { end, exact, token, open: !exact && end === text.length };
+  }
+  // 150 P17: a reference the model lower-cased, markdown-escaped or wrote with full-width brackets or
+  // colons is still that reference for local display; the id stays the only authority.
+  const VARIANT = /(?:\\\[|\[|［){2}ruyi_pvt[:：]([a-z]{1,16})[:：]([a-f0-9]{32})(?:\\\]|\]|］){2}/gi;
+  const displayVariants = value => /ruyi_pvt/i.test(value) ? value.replace(VARIANT, (whole, category, id) => {
+    const token = PREFIX + category.toUpperCase() + ':' + id.toLowerCase() + ']]';
+    return whole === token ? whole : token;
+  }) : value;
   // 150 P14: process-memory cache of unchanged history slots (request messages/input items and
   // host-history verdicts). Never persisted or logged; keys hold digests and policy signatures,
   // never originals. A slot is reused only under the same scope object and revision, policy
@@ -24928,9 +25331,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     }
     return [...result];
   }
+  // 150 P17: built-in rule switches from the configuration. Only a non-empty set joins the detector options,
+  // so policy signatures, scope signatures and cache digests of configurations without switches are unchanged.
+  function ruleOverridesOf(config) {
+    const value = config?.privacyRuleOverridesV1;
+    return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length ? { ruleOverrides: { ...value } } : {};
+  }
   function options(config) {
     return { personal: ['enhanced', 'strict'].includes(config.privacyModeV1), confidential: config.privacyModeV1 === 'strict', technical: config.privacyTechnicalV1 === true,
-      knownSecrets: secrets(config), rules: config.privacyRulesV1 || [] };
+      knownSecrets: secrets(config), rules: config.privacyRulesV1 || [], ...ruleOverridesOf(config) };
   }
   function configure(config) {
     try {
@@ -25257,20 +25666,49 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   // Export capabilities bind persisted mapping identities across LRU eviction.
   // Client scope declarations are never restoration authority.
-  async function prepareMultiSourceDisclosure(value, scopeIds, binding) {
+  // 150 P11: options.ownLabels (copies for the user: exports and the clipboard) labels a value that belongs
+  // to one of the listed source scopes with its category word (〔邮箱〕/[email]…), because it is that
+  // thread's own private value, not another thread's. Every other reference keeps the foreign placeholder.
+  // Ownership is a live check in each listed scope; the output still contains no reference and no value.
+  const categoryOf = token => token.slice(PREFIX.length).split(':')[0];
+  function collectReferenceTokens(value, tokens, depth = 0) {
+    if (depth > 32 || tokens.size > 10000) return;
+    if (typeof value === 'string') { if (value.includes(PREFIX)) for (const match of value.matchAll(pattern())) tokens.add(match[0]); return; }
+    if (Array.isArray(value)) { for (const row of value) collectReferenceTokens(row, tokens, depth + 1); return; }
+    if (value && typeof value === 'object') for (const [key, row] of Object.entries(value)) { collectReferenceTokens(key, tokens, depth + 1); collectReferenceTokens(row, tokens, depth + 1); }
+  }
+  async function prepareMultiSourceDisclosure(value, scopeIds, binding, options = {}) {
     if (!Array.isArray(scopeIds) || scopeIds.length > 2048 || scopeIds.some(id => typeof id !== 'string' || !id || id.length > 160)) fail('scope_invalid');
     const policyGuard = disclosurePolicyGuard();
     if (currentPolicy.mode === 'off') return { value: structuredClone(value), assert: policyGuard };
     if (!scopeIds.length) fail('scope_invalid');
-    const policy = currentPolicy.signature, proofs = [];
-    let copy = foreignView(structuredClone(value));
-    for (const id of [...new Set(scopeIds)]) {
+    const policy = currentPolicy.signature, proofs = [], ids = [...new Set(scopeIds)], ownLabels = options.ownLabels === true;
+    const owned = new Map();
+    if (ownLabels) {
+      const tokens = new Set(); collectReferenceTokens(value, tokens);
+      for (const id of ids) {
+        if (owned.size === tokens.size) break;
+        await withPolicy(id, async () => {
+          if (policy !== currentPolicy.signature) fail('policy_changed');
+          const scope = active()?.scope; if (!scope) return;
+          for (const token of tokens) {
+            if (owned.has(token)) continue;
+            try { scope.validateProtected(token); owned.set(token, categoryOf(token)); } catch (error) { if (!historyReferenceError(error)) throw error; }
+          }
+        });
+      }
+    }
+    const sourceLabel = fragment => fragment.exact && owned.has(fragment.token) ? labelWord(owned.get(fragment.token)) : FOREIGN_PLACEHOLDER;
+    // References a pass just issued belong to that pass's scope, the source being disclosed.
+    const passLabel = fragment => fragment.exact ? labelWord(categoryOf(fragment.token)) : FOREIGN_PLACEHOLDER;
+    let copy = ownLabels ? foreignView(structuredClone(value), sourceLabel) : foreignView(structuredClone(value));
+    for (const id of ids) {
       await withPolicy(id, async () => {
         if (policy !== currentPolicy.signature) fail('policy_changed');
         const prepared = await prepareDisclosure(copy, binding);
         assertDisclosure(prepared.receipt, binding);
         proofs.push(mappingGuard(active()));
-        copy = foreignView(prepared.value);
+        copy = ownLabels ? foreignView(prepared.value, passLabel) : foreignView(prepared.value);
       });
     }
     if (policy !== currentPolicy.signature) fail('policy_changed');
@@ -25336,13 +25774,24 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // Host-only cross-thread metadata projection. These aliases belong to the source
   // transcript, so never resolve or admit them into another conversation's scope.
   // Project before summary budgets; legacy summaries may already end mid-reference.
-  function foreignView(value) {
+  const FOREIGN_PLACEHOLDER = '[其他线程的隐私内容已省略]';
+  // 150 P5/P7: each reference fragment is replaced on its own; a malformed one no longer swallows the
+  // rest of its line. replace(fragment) chooses the text (P11: own-scope references in a user copy).
+  function replaceReferences(text, replace) {
+    let out = '', from = 0;
+    for (let at = text.indexOf(PREFIX); at >= 0; at = text.indexOf(PREFIX, from)) {
+      out += text.slice(from, at);
+      const fragment = referenceFragment(text, at);
+      out += replace(fragment); from = fragment.end;
+    }
+    return out + text.slice(from);
+  }
+  function foreignView(value, replace = () => FOREIGN_PLACEHOLDER) {
     if (currentPolicy.mode === 'off') return value;
     let nodes = 0;
     const visit = (item, depth) => {
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
-      if (typeof item === 'string') return item.includes(PREFIX)
-        ? item.replace(/\[\[RUYI_PVT:[^\r\n]*?(?:\]\]|(?=\r?\n|$))/g, '[其他线程的隐私内容已省略]') : item;
+      if (typeof item === 'string') return item.includes(PREFIX) ? replaceReferences(item, replace) : item;
       if (Array.isArray(item)) { const next = item.map(row => visit(row, depth + 1)); return next.some((row, i) => row !== item[i]) ? next : item; }
       if (item && typeof item === 'object') {
         const next = Object.create(null); let changed = false;
@@ -25713,6 +26162,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const historyBindings = new WeakMap();
   const HISTORY_REFUSED = '[Local privacy validation refused an unavailable reference in an earlier model message. No value was recovered; inspect the original local transcript and tool error before retrying.]';
   const HISTORY_USER_REFUSED = '[A historical input contains a local privacy reference that is no longer usable. Its content is unavailable in this model view. Do not retry its former operation; follow the current user instruction.]';
+  // Replaces one unusable reference fragment inside earlier model narration (150 P5); carries no value.
+  const HISTORY_REFERENCE_OMITTED = '[unavailable local privacy reference omitted]';
   const historyReferenceError = error => ['privacy.reference_unknown', 'privacy.reference_expired', 'privacy.reference_revoked', 'privacy.reference_malformed', 'privacy.credential_context'].includes(error?.code);
   function bindHostHistory(owner, history) {
     const context = active(); if (!context) return;
@@ -25803,13 +26254,42 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       const issue = contentIssue(value, historical);
       return issue === 'limit' ? DATA_WITHHELD : issue === 'reference' ? unavailable : value;
     };
+    // 150 P5: model narration (an earlier assistant answer or its reasoning) with one badly written or
+    // no longer usable reference loses only that fragment, not the whole message. Prose only: JSON text
+    // and every other role keep whole-slot refusal. The repaired copy is inspected again with the same
+    // rules (scope validity and credential context); anything still unavailable refuses the slot.
+    const repairNarration = value => {
+      if (typeof value !== 'string' || !value.includes(PREFIX)) return null;
+      if (/^\s*[\[{"]/.test(value)) { try { JSON.parse(value); return null; } catch { /* prose */ } }
+      let out = '', from = 0;
+      for (let at = value.indexOf(PREFIX); at >= 0; at = value.indexOf(PREFIX, from)) {
+        out += value.slice(from, at);
+        const fragment = referenceFragment(value, at);
+        let usable = false;
+        if (fragment.token && scope) { try { scope.validateProtected(fragment.token); usable = true; } catch (error) { if (!historyReferenceError(error)) throw error; } }
+        out += usable ? fragment.token : HISTORY_REFERENCE_OMITTED;
+        from = fragment.end;
+      }
+      out += value.slice(from);
+      // The original slot was already counted against the request budgets; its repaired copy is not counted twice.
+      const counted = [nodes, bytes];
+      // Near the request limits the re-inspection itself may not fit: the slot is then refused whole, as before.
+      try { return inspect(out) ? null : out; }
+      catch (error) { if (['privacy.aggregate_limit', 'privacy.structure_limit', 'privacy.text_limit'].includes(error?.code)) return null; throw error; }
+      finally { [nodes, bytes] = counted; }
+    };
+    const narrationText = (value, historical) => {
+      const issue = contentIssue(value, historical);
+      if (issue !== 'reference') return issue === 'limit' ? DATA_WITHHELD : value;
+      return repairNarration(value) ?? HISTORY_REFUSED;
+    };
     const narration = (value, historical) => {
-      if (typeof value === 'string') return projectText(value, historical);
+      if (typeof value === 'string') return narrationText(value, historical);
       if (!Array.isArray(value)) return value;
       return value.map(part => {
         if (!part || typeof part !== 'object') return part;
         const next = { ...part };
-        for (const key of ['text', 'thinking']) if (typeof part[key] === 'string') next[key] = projectText(part[key], historical);
+        for (const key of ['text', 'thinking']) if (typeof part[key] === 'string') next[key] = narrationText(part[key], historical);
         if (part.type === 'tool_use' && contentIssue(part.input, true, historical)) next.input = {};
         return next;
       });
@@ -26266,10 +26746,14 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       });
     } finally { scope.clear(); }
   }
-  const ruleVersion = config => cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.privacyModeV1, config.privacyTechnicalV1, config.privacyRulesV1])).digest('hex').slice(0, 16);
+  const ruleVersion = config => cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.privacyModeV1, config.privacyTechnicalV1, config.privacyRulesV1,
+    ...(ruleOverridesOf(config).ruleOverrides ? [ruleOverridesOf(config).ruleOverrides] : [])])).digest('hex').slice(0, 16);
   // Host-only, read-only display copies. Never pass their output to a model or mutate canonical history.
   // Ordinary text is identity, including the default disabled path; no vault key/map is created here.
   const DISPLAY_UNAVAILABLE = '[隐私引用不可用 / private reference unavailable]';
+  // 150 P16: while the privacy policy awaits confirmation (recovery required) no mapping is opened. The
+  // values are not lost: the marker says why they are hidden and that confirming the settings shows them.
+  const DISPLAY_PAUSED = '[隐私设置待确认，暂不显示原值 / private value hidden until privacy settings are confirmed]';
   const DISPLAY_LIMIT = '[隐私显示达到上限 / private display limit]';
   async function displayCacheKey(scopeId) {
     if (currentPolicy.mode !== 'off') return 'private';
@@ -26313,9 +26797,9 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     const reference = async token => {
       if (closed || limited) return '';
-      if (unavailable) return DISPLAY_UNAVAILABLE;
+      if (unavailable) return DISPLAY_PAUSED;
       try {
-        const value = await scope(); if (closed) return ''; if (!value || unavailable) return DISPLAY_UNAVAILABLE;
+        const value = await scope(); if (closed) return ''; if (unavailable) return DISPLAY_PAUSED; if (!value) return DISPLAY_UNAVAILABLE;
         return value.restoreForTool(token, { scopeId: getId(), tool: 'privacy_display', pointer: '/display',
           destination: 'local-user-interface', purpose: 'host-display-copy', allowCredentialEmbedding: true, authorize: () => true });
       } catch { return DISPLAY_UNAVAILABLE; }
@@ -26324,7 +26808,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (typeof value !== 'string') return value;
       value = displayDiagnostics(value);
       const encodedJson = json && value.includes('\\') && /^\s*[\[{"]/.test(value);
-      if (!value.includes(PREFIX) && !encodedJson) return value;
+      if (!value.includes(PREFIX) && !encodedJson && !/ruyi_pvt/i.test(value)) return value;
       if (!await eligible()) return value;
       if (closed || limited || ++nodes > 50000 || depth > 32 || Buffer.byteLength(value) > 1024 * 1024) return DISPLAY_LIMIT;
       // Preserve JSON escaping for steward/structured display text. Tool arguments never enter this API.
@@ -26347,18 +26831,16 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           return Buffer.byteLength(output) > 1024 * 1024 ? account(DISPLAY_LIMIT) : output;
         }
       }
+      value = displayVariants(value);   // prose only: a JSON spelling escapes the backslash of an escaped variant
       if (!value.includes(PREFIX)) return value;
       const chunks = []; let from = 0, outputBytes = 0;
       const append = part => { outputBytes += Buffer.byteLength(part); if (outputBytes > 1024 * 1024) return false; chunks.push(part); return true; };
       while (from < value.length) {
         const at = value.indexOf(PREFIX, from); if (at < 0) { append(value.slice(from)); break; }
         if (!append(value.slice(from, at))) break;
-        const end = value.indexOf(']]', at + PREFIX.length);
-        const finish = end >= 0 && end - at <= 128 ? end + 2 : Math.min(value.length, at + 128);
-        const token = value.slice(at, finish);
-        const exact = /^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]$/.test(token);
-        if (!append(exact ? await reference(token) : DISPLAY_UNAVAILABLE)) break;
-        from = finish;
+        const fragment = referenceFragment(value, at);
+        if (!append(fragment.token ? await reference(fragment.token) : DISPLAY_UNAVAILABLE)) break;
+        from = fragment.end;
       }
       if (outputBytes > 1024 * 1024) return account(DISPLAY_LIMIT);
       return account(chunks.join(''));
@@ -26367,7 +26849,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   async function displayText(scopeId, displayInput, options = {}) {
     if (typeof displayInput === 'string') displayInput = displayDiagnostics(displayInput);
-    if (typeof displayInput !== 'string' || (!displayInput.includes(PREFIX) && !(options.json === true && displayInput.includes('\\') && /^\s*[\[{"]/.test(displayInput)))) return displayInput;
+    if (typeof displayInput !== 'string' || (!displayInput.includes(PREFIX) && !/ruyi_pvt/i.test(displayInput) && !(options.json === true && displayInput.includes('\\') && /^\s*[\[{"]/.test(displayInput)))) return displayInput;
     const context = displayContext(scopeId);
     try { return await context.text(displayInput, options.json === true); } finally { context.close(); }
   }
@@ -26501,7 +26983,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         if (channel !== undefined && String(pending.event.subagentId || '') !== channel) continue;
         // An incomplete ordinary bracket/phrase is not evidence of an internal
         // diagnostic. Only complete diagnostics are translated by consume().
-        if (pending.text) await emitDisplayEvent({ ...pending.event, text: pending.text.startsWith('[[RUYI') && await context.eligible() ? DISPLAY_UNAVAILABLE : pending.text });
+        // A reference whose stream ended right after its id (brackets missing) is still repaired.
+        if (pending.text) {
+          let text = pending.text;
+          if (text.startsWith('[[RUYI') && await context.eligible()) {
+            const fragment = text.startsWith(PREFIX) ? referenceFragment(text, 0) : null;
+            text = fragment?.token ? context.account(await context.reference(fragment.token)) + text.slice(fragment.end) : DISPLAY_UNAVAILABLE;
+          }
+          await emitDisplayEvent({ ...pending.event, text });
+        }
         buffers.delete(key);
       }
     };
@@ -26520,12 +27010,12 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           output += value.slice(from, value.length - keep); from = value.length - keep; break;
         }
         output += value.slice(from, at);
-        const end = value.indexOf(']]', at + PREFIX.length);
-        if (end < 0 && value.length - at < 128) { from = at; break; }
-        const finish = end >= 0 && end - at <= 128 ? end + 2 : at + 128;
-        const token = value.slice(at, finish);
-        output += !await context.eligible() ? token : /^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]$/.test(token) ? await context.reference(token) : DISPLAY_UNAVAILABLE;
-        from = finish;
+        // 150 P5: wait only while the fragment can still grow into a reference; a malformed one ends
+        // at its last reference character, and the text after it is shown, not swallowed.
+        const fragment = referenceFragment(value, at);
+        if (fragment.open) { from = at; break; }
+        output += !await context.eligible() ? value.slice(at, fragment.end) : fragment.token ? await context.reference(fragment.token) : DISPLAY_UNAVAILABLE;
+        from = fragment.end;
         if (Buffer.byteLength(output) > 1024 * 1024) { output = DISPLAY_LIMIT; from = value.length; break; }
       }
       const pending = value.slice(from);
@@ -26572,7 +27062,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // A user may disable privacy and continue a task whose *stored* tool history contains references.
   // Migrate that history once before constructing the next request; the disabled tool path stays identity.
   // This capability is for host-loaded history only, never for a new model/tool/user input.
-  async function restoreHistory(scopeId, history, hostProjection = false) {
+  // 150 P7: options.degrade (explicit plaintext exports only) turns an unusable or malformed reference into a
+  // marker for just that fragment and reports it through options.onWithheld, instead of failing the copy.
+  async function restoreHistory(scopeId, history, hostProjection = false, options = {}) {
+    const degrade = options.degrade === true, withheld = () => { if (typeof options.onWithheld === 'function') options.onWithheld(); return DISPLAY_UNAVAILABLE; };
     // OFF must not apply the enabled scanner's history limits when there is
     // nothing to migrate. Unicode JSON escapes can conceal any marker character,
     // so those candidates retain the bounded decoder below rather than guessing.
@@ -26620,7 +27113,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         scope = core.createScope({ scopeId, detector: { detect: () => [] }, ttlMs: 365 * 86400000 });
         temporary = true; scope.importState(snapshot);
       } catch (error) {
-        if (error.code === 'ENOENT' && hostProjection) {
+        if (error.code === 'ENOENT' && (hostProjection || degrade)) {
           scope = core.createScope({ scopeId, detector: { detect: () => [] }, ttlMs: 365 * 86400000 }); temporary = true;
         } else if (error.code === 'ENOENT') fail('reference_unknown');
         else throw error;
@@ -26642,6 +27135,17 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         });
       }
       if (!value.includes(PREFIX)) return value;
+      if (degrade) {
+        let out = '', from = 0;
+        for (let at = value.indexOf(PREFIX); at >= 0; at = value.indexOf(PREFIX, from)) {
+          out += value.slice(from, at);
+          const fragment = referenceFragment(value, at);
+          let restored = null;
+          if (fragment.token) { try { restored = restore(fragment.token); } catch (error) { if (!historyReferenceError(error)) throw error; } }
+          out += restored ?? withheld(); from = fragment.end;
+        }
+        return out + value.slice(from);
+      }
       try { return restore(value); }
       catch (error) { if (hostProjection && historyReferenceError(error)) return HISTORY_REFUSED; throw error; }
     };
@@ -26869,7 +27373,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const epoch = policyEpoch, signature = currentPolicy.signature, scopeId = context.scopeId;
     const config = structuredClone(options(currentPolicy.config));
     const snapshot = Object.freeze({ config, hash: cryptoApi.createHash('sha256').update(JSON.stringify(config)).digest('hex'),
-      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules])).digest('hex'), revision: signature,
+      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules, ...(config.ruleOverrides ? [config.ruleOverrides] : [])])).digest('hex'), revision: signature,
       scopeId, async prepareDetector(inputs, { signal, deadline } = {}) {
         snapshot.assert();
         if (!Array.isArray(inputs) || inputs.some(value => typeof value !== 'string')) fail('image_recognition_invalid');
@@ -26886,7 +27390,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       } });
     return snapshot;
   }
-  return Object.freeze({ captureMediaPolicy, projectionCacheStats: () => projectionCache.stats(), enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ captureMediaPolicy, projectionCacheStats: () => projectionCache.stats(), enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView: value => foreignView(value), preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, safePrefixEnd, safePrefix, legacyLabelGuard, safeLabel, labelSubstance, displayLabels, displayLabelsStamped, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
@@ -53162,7 +53666,7 @@ async function applyConfigPatch(rawBody, options = {}) {
   delete body.confirm;
   // Only the authenticated HTTP route can convey this request-only intent via options.
   delete body.selectFirstChatProvider;
-  if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
+  if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyRuleOverridesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
   // M3-2: 工作数据加密开关不走通用配置补丁 —— 它换的是磁盘存储格式与密钥生命周期，只能由本地启用流程
@@ -109439,6 +109943,23 @@ PrivacyGateway.setHost({ data: paths.data, planDisclosure: planPrivacyToolDisclo
   defaultValue: () => ({}), validate: value => value.version === 1 && typeof value.instanceId === 'string' && !!value.envelope,
 }) });
 PrivacyCore.configHooks.isBusy = () => activeChildren.size > 0 || turnSettlers.size > 0;
+// 150 P16: a settings change from the settings page waits (bounded, cancelled with its request) for running
+// turns to end instead of failing at once; a running turn still never sees its policy change underneath it.
+// Only privacy.busy is retried, and only before anything was written. After the wait the caller learns how
+// many turns were still running (privacy.turns_running). Without waitMs the result is unchanged.
+const PRIVACY_IDLE_WAIT_MS = 20000;
+async function privacyWhenIdle(work, { waitMs = 0, signal } = {}) {
+  const deadline = Date.now() + waitMs;
+  const running = () => Object.assign(new Error('privacy.turns_running'), { code: 'privacy.turns_running', turns: Math.max(1, turnSettlers.size) });
+  for (;;) {
+    if (!PrivacyCore.configHooks.isBusy()) {
+      try { return await work(); }
+      catch (error) { if (error?.code !== 'privacy.busy' || !waitMs) throw error; if (Date.now() >= deadline || signal?.aborted) throw running(); }
+    } else if (!waitMs) return work();
+    else if (Date.now() >= deadline || signal?.aborted) throw running();
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
 // One validator/transaction for the settings page and the steward. Pending drafts are
 // process-local and owned by one turn; they never change that turn's privacy policy.
 const PrivacySettings = (() => {
@@ -109447,7 +109968,14 @@ const PrivacySettings = (() => {
   const draft = body => {
     if (!['off', 'basic', 'enhanced', 'strict'].includes(body.mode) || typeof body.technical !== 'boolean' || !Array.isArray(body.rules) || body.rules.length > 100) fail('privacy.settings_invalid');
     PrivacyRegex.validateSchema(body.rules);
-    return { privacyModeV1: body.mode, privacyTechnicalV1: body.technical, privacyRulesV1: structuredClone(body.rules) };
+    // 150 P17: built-in rule switches are optional; a body without them keeps the saved ones.
+    if (Object.hasOwn(body, 'ruleOverrides')) {
+      const value = body.ruleOverrides;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) fail('privacy.settings_invalid');
+      try { PrivacyCore.createDetector({ ruleOverrides: value }); } catch { fail('privacy.settings_invalid'); }
+    }
+    return { privacyModeV1: body.mode, privacyTechnicalV1: body.technical, privacyRulesV1: structuredClone(body.rules),
+      ...(Object.hasOwn(body, 'ruleOverrides') ? { privacyRuleOverridesV1: { ...body.ruleOverrides } } : {}) };
   };
   async function apply(body) {
     if (PrivacyCore.configHooks.isBusy()) fail('privacy.busy');
@@ -109455,6 +109983,7 @@ const PrivacySettings = (() => {
     const conditional = Object.hasOwn(body, 'expectedRuleVersion') || Object.hasOwn(body, 'expectedEncryption');
     if (conditional && (!/^[a-f0-9]{16}$/.test(body.expectedRuleVersion || '') || typeof body.expectedEncryption !== 'boolean')) fail('privacy.settings_invalid');
     await PrivacyRegex.validate(body.rules);
+    let savedVersion = PrivacyGateway.ruleVersion(policy);
     await mutateConfig(current => {
       if (PrivacyCore.configHooks.isBusy()) fail('privacy.busy');
       if (conditional && (body.expectedRuleVersion !== PrivacyGateway.ruleVersion(current) || body.expectedEncryption !== (current.credentialEncryptionV1 === true))) fail('privacy.settings_changed');
@@ -109468,9 +109997,11 @@ const PrivacySettings = (() => {
       if (body.mode !== 'off' && current.credentialEncryptionV1 !== true) fail('privacy.encryption_required');
       Object.assign(current, policy);
       current.privacyPolicyRecoveryRequiredV1 = false;
+      // The saved version includes switches this body kept (150 P17), exactly as GET reports it.
+      savedVersion = PrivacyGateway.ruleVersion(current);
       return {};
     }, { credentialEncryptionDisable: body.encryption === false && body.confirmPlaintext === true });
-    return { ok: true, ruleVersion: PrivacyGateway.ruleVersion(policy) };
+    return { ok: true, ruleVersion: savedVersion };
   }
   const inspect = config => ({ mode: config.privacyModeV1, technical: config.privacyTechnicalV1 === true,
     encryption: config.credentialEncryptionV1 === true, rules: (config.privacyRulesV1 || []).map(rule => rule.kind === 'literal'
@@ -109543,6 +110074,8 @@ PrivacyCore.configHooks.settleStewardPrivacy = PrivacySettings.settle;
 // Text copies have one host boundary. Proofs contain assertions, not private mappings.
 const PrivacyTextExports = (() => {
   const proofs = new Map(), omitted = '[来源无法核验，内容未导出 / Unverified source: content withheld]';
+  // 150 P11: the user's own copy names a value of the copied thread by its category, not as another thread's.
+  const OWN_LABELS = Object.freeze({ ownLabels: true });
   const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const fail = code => { throw Object.assign(new Error(code), { code }); };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -109575,12 +110108,15 @@ const PrivacyTextExports = (() => {
   async function prepareOnce(body, retainProof, guard) {
     const configGeneration = configReadGeneration;
     const config = await readConfig(); guard();
-    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [] };
+    // Review 4B-S3: built-in rule switches belong to the policy a preview was made under (only when set).
+    const overrides = config.privacyRuleOverridesV1 && typeof config.privacyRuleOverridesV1 === 'object' && Object.keys(config.privacyRuleOverridesV1).length ? config.privacyRuleOverridesV1 : null;
+    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [], ...(overrides ? { ruleOverrides: overrides } : {}) };
     if ((Object.hasOwn(body, 'expectedPrivacy') || body.kind === 'mermaid-document') && JSON.stringify(body.expectedPrivacy) !== JSON.stringify(privacySnapshot)) fail('privacy.export_source_changed');
     if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
     const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
     const sourceGuards = []; let mappingGuardCount = 0;
     let value, scopes = [], source, check, format = body.format, missing = false;
+    const degraded = { degrade: true, onWithheld: () => { missing = true; } };
     if (body.kind === 'session') {
       const id = safeSessionId(body.sessionId);
       if (!id || !(source = await loadSession(id))) fail('privacy.export_source_missing');
@@ -109590,7 +110126,9 @@ const PrivacyTextExports = (() => {
       scopes = [id];
       let session = source;
       if (plaintext || !enabled) {
-        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source)
+        // 150 P7: a cut or malformed reference no longer fails the whole plaintext copy; only that fragment
+        // becomes a marker and the artifact says content was withheld.
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source, false, degraded)
           : PrivacyGateway.displayEnvelope(id, { session: source }));
         session = plaintext ? local.value : local.value.session; sourceGuards.push(local.assert);
       }
@@ -109632,7 +110170,7 @@ const PrivacyTextExports = (() => {
         const displayedDocument = selectDocument(local.value[0]);
         if (hash(displayedDocument) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
         if (plaintext) {
-          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }));
+          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }, false, degraded));
           document = plain.value.document; sourceGuards.push(plain.assert);
         } else if (!enabled) document = displayedDocument;
       }
@@ -109677,14 +110215,14 @@ const PrivacyTextExports = (() => {
       if (hash(stringify(view)) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
       let logical = { source: raw, metadata: { slot: body.slot, ...(body.toolId ? { id: body.toolId, name: body.toolName } : {}) } };
       if (plaintext) {
-        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical));
+        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical, false, degraded));
         logical = plain.value; sourceGuards.push(plain.assert);
       } else if (!enabled) logical.source = view;
       else {
         // Native tool field rules retain their original logical root (for example
         // /secret), rather than acquiring a /logical/source wrapper prefix.
         // Markdown/code documents likewise project in full before fence extraction.
-        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) });
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) }, OWN_LABELS);
         logical.source = copy.value; sourceGuards.push(copy.assert); mappingGuardCount++;
       }
       if (Buffer.byteLength(JSON.stringify(logical)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
@@ -109730,7 +110268,7 @@ const PrivacyTextExports = (() => {
         if (enabled && (!ids.length || valid.length !== new Set(ids).size)) {
           missing = true; entries.push({ id: entry.id, state: entry.state, contentWithheld: true, text: omitted });
         } else if (enabled && !plaintext) {
-          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) });
+          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) }, OWN_LABELS);
           mappingGuardCount += new Set([STEWARD_SESSION_ID, ...valid]).size;
           entries.push(copy.value); sourceGuards.push(copy.assert);
         } else { entries.push(entry); scopes.push(...valid); }
@@ -109764,7 +110302,7 @@ const PrivacyTextExports = (() => {
         }
       }
       for (const [id, group] of groups) {
-        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) });
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) }, OWN_LABELS);
         mappingGuardCount++;
         group.forEach((row, index) => { events[row.index] = copy.value[index]; }); sourceGuards.push(copy.assert);
       }
@@ -109776,7 +110314,7 @@ const PrivacyTextExports = (() => {
     if (enabled && !plaintext && Buffer.byteLength(JSON.stringify(value)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
     const binding = { recipient: 'user-file-copy', purpose: 'text-export:' + body.kind, sourceHash: hash(source) };
     const sourceGuard = plaintext && enabled ? await PrivacyGateway.prepareMultiSourceDisclosure(null, scopes, binding) : null;
-    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding);
+    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding, OWN_LABELS);
     mappingGuardCount += scopes.length;
     value = prepared.value;
     let content, mime;
@@ -109834,15 +110372,17 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   try {
     if (req.method === 'GET') {
       const config = await readConfig();
-      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
+      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), credentialWithheld: PrivacyCore.configHooks.credentialWithheld?.() || [], mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
         { id: 'nativeText', supported: true }, { id: 'managedMcpText', supported: true },
         { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'authenticatedMcpText', supported: true }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
       ] });
-      else if (req.method === 'GET' && pathname === '/api/privacy/settings') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, technical: config.privacyTechnicalV1, rules: config.privacyRulesV1, ruleVersion: PrivacyGateway.ruleVersion(config), regexLimits: PrivacyRegex.LIMITS, catalog: PrivacyRuleCatalog.list() });
+      else if (req.method === 'GET' && pathname === '/api/privacy/settings') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, technical: config.privacyTechnicalV1, rules: config.privacyRulesV1, ruleOverrides: config.privacyRuleOverridesV1 || {}, ruleVersion: PrivacyGateway.ruleVersion(config), regexLimits: PrivacyRegex.LIMITS, catalog: PrivacyRuleCatalog.list() });
       else return false;
       return true;
     }
     if (req.method !== 'POST') return false;
+    const gone = new AbortController(), requestGone = gone.signal;
+    if (typeof res.once === 'function') res.once('close', () => gone.abort());
     const cap = 2 * 1024 * 1024;
     if (Number(req.headers['content-length'] || 0) > cap) throw Object.assign(new Error(), { code: 'privacy.body_limit' });
     const chunks = []; let bytes = 0;
@@ -109857,25 +110397,25 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
       const response = json(prepared.artifact || { ok: true }, 200, { 'cache-control': 'no-store' });
       prepared.assert(); send(res, response);
     } else if (req.method === 'POST' && pathname === '/api/privacy/settings') {
-      reply(await PrivacySettings.apply(body));
+      reply(await privacyWhenIdle(() => PrivacySettings.apply(body), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone }));
     } else if (req.method === 'POST' && pathname === '/api/privacy/encryption') {
-      await mutateConfig(current => {
+      await privacyWhenIdle(() => mutateConfig(current => {
         if (PrivacyCore.configHooks.isBusy()) throw Object.assign(new Error(), { code: 'privacy.busy' });
         encryption(current, body.enabled, body.confirmPlaintext);
         return {};
-      }, { credentialEncryptionDisable: body.enabled === false && body.confirmPlaintext === true });
+      }, { credentialEncryptionDisable: body.enabled === false && body.confirmPlaintext === true }), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone });
       reply({ ok: true, encryption: body.enabled });
     } else if (req.method === 'POST' && pathname === '/api/privacy/rules/test') {
       const policy = draft(body);
       reply({ ok: true, ...await PrivacyGateway.preview({ ...await readConfig(), ...policy }, body.sample) });
     } else if (req.method === 'POST' && pathname === '/api/privacy/use-native') {
-      await mutateConfig(current => {
+      await privacyWhenIdle(() => mutateConfig(current => {
         if (PrivacyCore.configHooks.isBusy()) throw Object.assign(new Error(), { code: 'privacy.busy' });
         if (typeof body.providerId !== 'string' || !nativeProviders(current).some(provider => provider.id === body.providerId)) throw Object.assign(new Error(), { code: 'privacy.provider_invalid' });
         current.activeProvider = body.providerId;
         current.lastUsedEngineRoute = sessionEngineRouteFromConfig(current);
         return {};
-      }); reply({ ok: true });
+      }), { waitMs: PRIVACY_IDLE_WAIT_MS, signal: requestGone }); reply({ ok: true });
     } else if (req.method === 'POST' && pathname === '/api/privacy/backup/export') {
       if ((await readConfig()).credentialEncryptionV1 !== true) throw Object.assign(new Error(), { code: 'privacy.encryption_required' });
       reply({ ok: true, backup: await PrivacyCore.configHooks.exportBackup(body.password) });
@@ -109887,6 +110427,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
     if (String(error && error.code || '').startsWith('work_data')) { res.setHeader('cache-control', 'no-store'); sendError(res, error); return true; }
     const code = /^(?:privacy|credential_vault|credential_recovery)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed';
     const params = typeof error.ruleId === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(error.ruleId) ? { ruleId: error.ruleId } : {};
+    if (code === 'privacy.turns_running' && Number.isSafeInteger(error.turns)) params.turns = error.turns;
     const response = apiFailure(code, params, code, code === 'privacy.body_limit' ? 413 : 409);
     response.headers['cache-control'] = 'no-store'; send(res, response);
   }
@@ -110863,6 +111404,11 @@ function externalBotBoundReplyText(text) {
   if (text.length <= 1700 && Buffer.byteLength(text, 'utf8') <= 5500) return text;
   let out = '';
   for (const point of text) { if ((out + point + tail).length > 1700 || Buffer.byteLength(out + point + tail, 'utf8') > 5500) break; out += point; }
+  // 150 P17: the cut never leaves half a privacy reference in the platform message. A reference (or the
+  // start of its marker) that does not fit is dropped whole; the tail already says the reply was cut.
+  const marker = '[[RUYI_PVT:', rest = text.slice(out.length), open = out.lastIndexOf(marker);
+  if (open >= 0 && !/^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/.test(out.slice(open))) out = out.slice(0, open);
+  else for (let n = Math.min(marker.length - 1, out.length); n > 0; n--) if ((out.slice(-n) + rest).startsWith(marker)) { out = out.slice(0, -n); break; }
   return out + tail;
 }
 function externalBotResultUncertain(result) {

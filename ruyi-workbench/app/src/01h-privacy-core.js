@@ -8,6 +8,26 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
   const opaqueIntervals = Symbol('validated privacy reference intervals');
   const lexicalJsonSource = Symbol('JSON source matching provenance');
   const decodedSource = Symbol('one-level encoded privacy discovery');
+  const normalizedSource = Symbol('zero-width / full-width normalized discovery');
+  // 150 P13: zero-width characters inside a value and full-width ASCII letters, digits and the
+  // characters of e-mail addresses (＠ ． － ＿ ＋) hide a value from every rule. Detection also runs
+  // once on a normalized view (zero-width removed, those full-width characters mapped to ASCII) and
+  // maps spans back to original coordinates. Full-width punctuation such as ：，（） is not mapped:
+  // the rules already accept their CJK spellings, and mapping them would merge prose into values.
+  // A byte-order mark at the very start of a text is file syntax and does not trigger the view.
+  const VIEW_SOURCE = '[\\u00ad\\u200b-\\u200d\\u2060\\uff0b\\uff0d\\uff0e\\uff10-\\uff19\\uff20-\\uff3a\\uff3f\\uff41-\\uff5a]|(?<!^)\\ufeff';
+  const VIEW_CHARS = new RegExp(VIEW_SOURCE), ZERO_WIDTH = /^[\u00ad\u200b-\u200d\u2060\ufeff]$/;
+  function normalizedView(text) {
+    if (!VIEW_CHARS.test(text)) return null;
+    const removed = [];
+    const view = text.replace(new RegExp(VIEW_SOURCE, 'g'), (char, offset) => {
+      if (ZERO_WIDTH.test(char)) { removed.push(offset); return ''; }
+      return String.fromCharCode(char.charCodeAt(0) - 0xfee0);
+    });
+    // View index -> original index: removed[j] - j is non-decreasing, so binary search counts removals.
+    const original = at => { let low = 0, high = removed.length; while (low < high) { const mid = (low + high) >>> 1; if (removed[mid] - mid <= at) low = mid + 1; else high = mid; } return at + low; };
+    return { text: view, span: (start, end) => ({ start: original(start), end: original(end - 1) + 1 }) };
+  }
   const insideOpaque = (start, end, intervals = []) => {
     let low = 0, high = intervals.length - 1, candidate = -1;
     while (low <= high) { const mid = (low + high) >>> 1; if (intervals[mid].start <= start) { candidate = mid; low = mid + 1; } else high = mid - 1; }
@@ -171,7 +191,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
           add(at, at + rule.value.length, rule.category, rule.id); from = at + 1;
         }
       }
-      if (context[decodedSource] !== true && context[lexicalJsonSource] !== 'automatic' && rules.some(rule => rule.kind === 'regex')) {
+      if (context[decodedSource] !== true && context[normalizedSource] !== true && context[lexicalJsonSource] !== 'automatic' && rules.some(rule => rule.kind === 'regex')) {
         if (typeof options.regexMatches !== 'function') fail('regex_worker_required');
         for (const item of options.regexMatches(privacyText)) {
           if (!Number.isSafeInteger(item.start) || !Number.isSafeInteger(item.end) || item.start < 0 || item.end > privacyText.length || item.start >= item.end || !Array.isArray(item.ruleIds)) fail('regex_result_invalid');
@@ -288,7 +308,9 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       // Match field names exactly at their suffix. maxTokens/tokenCount stay intact.
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*"([^"\r\n]+)"/gi, 'CREDENTIAL', 'builtin.quoted-field', 1);
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*'([^'\r\n]+)'/gi, 'CREDENTIAL', 'builtin.single-field', 1);
-      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*([^\s"'{}\[\],;&|]+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1, value => !placeholderValue(value));
+      // 150 P17: a bare value also ends at full-width (CJK) punctuation, as the CJK label rules do, unless the mark
+      // sits inside the value ("password=hun，ter2": an ASCII value character follows it directly).
+      scan(/(?:^|[\s{,;])(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))\s*[:=]\s*((?:[^\s"'{}\[\],;&|，；。！？、）】」』]|[，；。！？、](?=[A-Za-z0-9!@#$%^*_+=.\/-]))+)/gi, 'CREDENTIAL', 'builtin.bare-field', 1, value => !placeholderValue(value));
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?["“]([^"”\r\n]+)["”]/gi, 'CREDENTIAL', 'builtin.cn-secret-double', 1);
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?['‘]([^'’\r\n]+)['’]/gi, 'CREDENTIAL', 'builtin.cn-secret-single', 1);
       scan(/(?:API[ _-]?密钥|访问(?:令牌|密钥)|刷新令牌|密码|口令|密钥|令牌)["']?[ \t]*(?:是|为|[:=：])[ \t]*(?:[:=：][ \t]*)?([^\s"'“”‘’{}\[\],，;；&|<>]+)/gi, 'CREDENTIAL', 'builtin.cn-secret-bare', 1, value => !placeholderValue(value));
@@ -318,8 +340,29 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         // already learned private values still protect their exact duplicates.
         const businessField = /^(?:order[_ -]?(?:id|no|number)|tracking[_ -]?(?:id|no|number)|订单(?:号|编号)?|运单(?:号|编号)?|快递单号?|流水号?|计数|条码|isbn|学号|发票(?:号码|号|代码)?|票号)$/i;
         const businessLabel = /(?:订单(?:号|编号)?|运单(?:号|编号)?|快递单号?|流水号?|计数|条码|ISBN|学号|发票(?:号码|号|代码)?|票号|\border[_ -]?(?:id|no|number)|\btracking[_ -]?(?:id|no|number))[ \t]*(?:是|为|is|[:：=])?[ \t]*[:：=]?[ \t]*$/i;
+        // 150 P12: a phone-shaped count or amount ("库存 13800138000 件") is not a phone number unless a
+        // phone label is nearby. Only bare (unlabelled) discovery consults this; labels still win.
+        const phoneLabel = /(?:手机|电话|联系|微信|号码|来电|致电|拨打|咨询|询|面议|联|找|\bphone\b|\bmobile\b|\btel\b|\bcall\b|\bcontact\b)[^\r\n]{0,24}$/i;
+        // 4B review v2: a quantity word counts only when nothing but separators stands between it and the number
+        // ("库存 13800138000 件", "数量：…", "共 …"). Prices, amounts and counts are not excluded: a phone after them
+        // is likelier than an 11-digit price ("售价 13800138000", "count: 13800138000" stay phones).
+        const quantityBefore = /(?:库存|数量|总数|总量|合计|共计|总计|累计|销量|次数|\bqty\b|\bquantity\b|\bstock\b)[ \t:：=为是]{0,3}$/iu;
+        // 共/一共/总共 alone ("总共 13800138000") is no evidence; with a measure word after the number it is ("共 … 次请求").
+        const totalBefore = /(?:一|总)?共(?:有)?[ \t:：]{0,3}$/u, measureAfter = /^[ \t]*\p{Script=Han}/u;
+        // A unit counts only as a word of its own ("13800138000 张三"/"本人"/"位于" stay phones). Currency and person
+        // units (元/块/人/名) are not units here: "13800138000人" and "金额：13800138000元" stay phones.
+        const quantityAfter = /^[ \t]*(?:(?:件|个|台|次|条|箱|吨|公斤|千克|斤|份|张|本|股|只|辆|套|瓶|包|盒|笔|单|页|行|字节|字|人次|位|天|秒|分钟|小时|毫秒)(?![\p{L}\p{N}])|(?:kg|pcs|items?|units?|times|bytes?|[KMGT]i?B)(?![A-Za-z]))/iu;
+        const quantity = (value, at) => {
+          const lead = privacyText.slice(Math.max(0, at - 32), at);
+          const after = privacyText.slice(at + value.length, at + value.length + 8);
+          return !phoneLabel.test(lead) && (quantityBefore.test(lead) || quantityAfter.test(after) || totalBefore.test(lead) && measureAfter.test(after));
+        };
         const phoneEvidence = (value, at) => !businessField.test(field) && !businessLabel.test(privacyText.slice(Math.max(0, at - 80), at));
-        scan(/(?<!\d)(?:\+?86[ -]?)?1[3-9]\d{9}(?!\d)/g, 'PHONE', 'builtin.cn-mobile', 0, phoneEvidence);
+        const barePhoneEvidence = (value, at) => phoneEvidence(value, at) && !quantity(value, at);
+        scan(/(?<!\d)(?:\+?86[ -]?)?1[3-9]\d{9}(?!\d)/g, 'PHONE', 'builtin.cn-mobile', 0, barePhoneEvidence);
+        // 150 P13: the 3-4-4 grouping with one consistent space or hyphen is specific to mobile numbers;
+        // a fourth group ("158 0123 4567 8") is a business number, not a phone.
+        scan(/(?<![0-9A-Za-z_]|[0-9][ -])(?:\+?86[ -]?)?1[3-9][0-9](?<sep>[ -])[0-9]{4}\k<sep>[0-9]{4}(?![0-9A-Za-z_]|[ -][0-9])/g, 'PHONE', 'builtin.cn-mobile', 0, barePhoneEvidence);
         // Preserve original spelling and coordinates; these are eleven-digit mobile
         // forms, never a blanket normalization of business numbers or ordinary prose.
         scan(/(?<![0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖][ \t-]{0,3})[1１一幺壹][3-9３-９三四五六七八九叁肆伍陆柒捌玖](?:[ \t-]{0,3}[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]){9}(?![ \t-]{0,3}[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖])/g, 'PHONE', 'builtin.cn-mobile', 0,
@@ -337,6 +380,21 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         // to disclose labelled personal data. Keep original text coordinates and spelling intact.
         scan(/(?:居民)?身份证(?:号码|号)?["']?[ \t]*(?:[^0-9０-９\r\n:=：,，;；。!?？！"'“”]{1,24}[:=：][ \t]*)?(?:是|为|[:=：])?[ \t]*(?:[:=：][ \t]*)?["'“”]?([0-9０-９](?:[ \t\u00a0\u3000-]{0,3}[0-9０-９]){16}[ \t\u00a0\u3000-]{0,3}[0-9０-９XxＸｘ]|[0-9０-９](?:[ \t\u00a0\u3000-]{0,3}[0-9０-９]){14})(?![ \t\u00a0\u3000-]{0,3}[0-9０-９XxＸｘ])/g, 'IDENTITY', 'builtin.cn-identity-labelled', 1);
         scan(/(?:银行卡(?:号)?|卡号|card(?:\s*number)?|pan)["']?[ \t]*(?:是|为|[:=：])[ \t]*["'“”]?([\d][\d -]{11,}\d)(?!\d)/gi, 'PAYMENT', 'builtin.payment', 1);
+        // 150 P13: an unlabelled card number. Luhn alone passes one random number in ten, so the value
+        // must also carry a card-network prefix, contiguous or in groups of four with one separator,
+        // not be a valid resident identity number and not follow a business-number label.
+        // 4B review v3: identifiers named id / trace / request / span (trace_id=…) and logistics numbers are not cards,
+        // nor is a number in a column whose header line names an order or other business number.
+        const cardBusiness = /(?:编号|编码|条码|序列号|单号|工单|交易号|流水|批次|版本|物流|\b(?:SN|IMEI|MEID|ID|SKU|EAN|UPC|serial|order|tracking|invoice|trace|request|span)\b|\b(?:trace|request|span|order|tracking|transaction|session|user)[_ -]?id\b)[ \t]*(?:是|为|is|[:：=#])?[ \t]*$/i;
+        const cardHeader = /订单号|单号|编号|流水号|交易号|物流|\border[_ -]?(?:id|no)\b|\btracking\b|\btrace[_ -]?id\b|\brequest[_ -]?id\b/i;
+        const cardHeaderLine = at => { const lineStart = privacyText.lastIndexOf('\n', at - 1); if (lineStart < 0) return false; const previous = privacyText.lastIndexOf('\n', lineStart - 1); return cardHeader.test(privacyText.slice(previous + 1, lineStart)); };
+        const cardNetwork = /^(?:4|5[1-5]|2[2-7]|3[47]|35|30[0-5]|3[68]|6)/;
+        scan(/(?<![0-9A-Za-z_.]|[0-9][ -])(?:[0-9]{4}(?<sep>[ -])[0-9]{4}(?:\k<sep>[0-9]{4}){1,2}(?:\k<sep>[0-9]{1,4})?|[0-9]{13,19})(?![0-9A-Za-z_]|[ -][0-9])/g, 'PAYMENT', 'builtin.payment-card', 0,
+          (value, at) => {
+            const digits = value.replace(/[ -]/g, '');
+            return digits.length >= 13 && digits.length <= 19 && cardNetwork.test(digits) && luhn(digits) && !isIdentityNumber(digits)
+              && phoneEvidence(value, at) && !cardBusiness.test(privacyText.slice(Math.max(0, at - 32), at)) && !cardHeaderLine(at);
+          });
         scan(/(?:居民)?身份证(?:号码|号)?[^0-9０-９\r\n:：]{0,24}[:：][ \t]*([1-9１-９](?:[ \t/\r\n-]{0,5}[0-9０-９]){16}[ \t/\r\n-]{0,5}[0-9０-９XxＸｘ])(?![0-9０-９XxＸｘ])/g, 'IDENTITY', 'builtin.cn-identity-labelled', 1);
       }
       if (ruleCatalog) ruleCatalog.scan(privacyText, { ...catalogOptions, pointer: context.pointer }, add);
@@ -372,6 +430,23 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         };
         for (const m of privacyText.matchAll(/[A-Za-z0-9+/]+={0,2}/g)) inspectEncoded(m[0], m.index, 'base64');
         for (const m of privacyText.matchAll(/[A-Za-z0-9_~+./%:-]+/g)) inspectEncoded(m[0], m.index, 'uri');
+      }
+      // 150 P13: one normalized pass (no recursion, no custom regex, no encoded decoding). Spans the
+      // original pass already covers are not added twice, so the match limit is not spent on duplicates.
+      if (context[normalizedSource] !== true && context[decodedSource] !== true && !context[lexicalJsonSource]) {
+        const view = normalizedView(privacyText);
+        if (view) {
+          const covered = mergeMatches(found.map(item => ({ ...item })));
+          const inside = (start, end) => {
+            let low = 0, high = covered.length - 1;
+            while (low <= high) { const mid = (low + high) >>> 1; if (covered[mid].start <= start) { if (end <= covered[mid].end) return true; low = mid + 1; } else high = mid - 1; }
+            return false;
+          };
+          for (const match of detect(view.text, { ...context, [normalizedSource]: true, [opaqueIntervals]: undefined })) {
+            const { start, end } = view.span(match.start, match.end);
+            if (!inside(start, end)) add(start, end, match.category, match.ruleIds[0]);
+          }
+        }
       }
 
       // Interval union avoids exposing an overlapping secret's suffix. Credential classification wins.

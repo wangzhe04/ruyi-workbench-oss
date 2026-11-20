@@ -968,6 +968,11 @@ function externalBotBoundReplyText(text) {
   if (text.length <= 1700 && Buffer.byteLength(text, 'utf8') <= 5500) return text;
   let out = '';
   for (const point of text) { if ((out + point + tail).length > 1700 || Buffer.byteLength(out + point + tail, 'utf8') > 5500) break; out += point; }
+  // 150 P17: the cut never leaves half a privacy reference in the platform message. A reference (or the
+  // start of its marker) that does not fit is dropped whole; the tail already says the reply was cut.
+  const marker = '[[RUYI_PVT:', rest = text.slice(out.length), open = out.lastIndexOf(marker);
+  if (open >= 0 && !/^\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/.test(out.slice(open))) out = out.slice(0, open);
+  else for (let n = Math.min(marker.length - 1, out.length); n > 0; n--) if ((out.slice(-n) + rest).startsWith(marker)) { out = out.slice(0, -n); break; }
   return out + tail;
 }
 function externalBotResultUncertain(result) {

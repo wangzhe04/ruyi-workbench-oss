@@ -254,6 +254,9 @@ async function selectCardAction(fx,label,keyboard=false){
       const fileBefore=fs.readFileSync(path.join(fx.home,'config.json'),'utf8');
       const privacyActionFocused=await selectCardAction(fx,strings['privacy.failure.openSettings'],true);
       t.ok(privacyActionFocused&&await fx.waitForEval(`!document.getElementById('privacyPolicyRecoveryNotice').hidden&&!document.getElementById('privacySave').disabled&&!!document.activeElement?.closest('#settingsModal')`),locale+': focused recovery action opens the existing form with Enter and moves focus into settings');
+      // 150 P16: the paused notice also says that earlier private values are hidden until confirmation, not lost.
+      t.ok(await fx.evaluate(`document.getElementById('privacyPolicyRecoveryNotice').textContent===${JSON.stringify(strings['privacy.policyRecoveryRequired'])}`)&&/隐私设置待确认|hidden until you confirm/.test(strings['privacy.policyRecoveryRequired']),locale+': recovery notice explains hidden history values (150 P16)');
+      if(process.env.RUYI_E2E_SHOT_DIR)fs.writeFileSync(path.join(process.env.RUYI_E2E_SHOT_DIR,'privacy-recovery-notice-'+locale+'.png'),await fx.screenshot());
       t.ok(fs.readFileSync(path.join(fx.home,'config.json'),'utf8')===fileBefore&&providerRequests===beforeRecovery,locale+': opening privacy settings makes no configuration/business change');
       t.ok(await fx.evaluate(`document.getElementById('privacyMode').value!=='off'&&document.getElementById('privacyEncryption').checked`),locale+': recovered form preserves protected encrypted settings for review');
       await click(fx,'#privacyCompatibility > summary');

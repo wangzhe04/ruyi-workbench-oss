@@ -1,0 +1,11 @@
+{
+  "note": "151 phase 4 (4B, 150 P17): externalBotBoundReplyText never leaves half a privacy reference.",
+  "sha256": "39efa03789859b0846102c129ea21ecf473b844bb9d4898add605d430e59bf57",
+  "baseSha256": "3d55ac5bb0f0a92851323b4a8d208d419ee37ae9565da32a51f67f5246bec826",
+  "inverseSpans": [
+    {
+      "before": "  // 150 P17: the cut never leaves half a privacy reference in the platform message. A reference (or the\n  // start of its marker) that does not fit is dropped whole; the tail already says the reply was cut.\n  const marker = '[[RUYI_PVT:', rest = text.slice(out.length), open = out.lastIndexOf(marker);\n  if (open >= 0 && !/^\\[\\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\\]\\]/.test(out.slice(open))) out = out.slice(0, open);\n  else for (let n = Math.min(marker.length - 1, out.length); n > 0; n--) if ((out.slice(-n) + rest).startsWith(marker)) { out = out.slice(0, -n); break; }\n",
+      "after": ""
+    }
+  ]
+}

@@ -6,11 +6,20 @@ import { apiErrorCopyKey } from './api-error-i18n.js';
 
 // 151 阶段 1 · P10：设置页自己的几条措辞（规则草稿语境）优先；其余码走与聊天同一张隐私失败表、再走接口码表，
 // 最后才落到 privacy.failed。修前 privacy.busy、credential_vault.* 都落成「请检查规则格式、密码或恢复包」。
-const SETTINGS_FAILURE_KEYS = Object.freeze({ 'privacy.regex_timeout': 'regexTimeout', 'privacy.regex_startup_timeout': 'regexTimeout', 'privacy.regex_invalid': 'regexInvalid', 'privacy.regex_empty_match': 'regexEmpty', 'privacy.regex_busy': 'regexBusy', 'privacy.regex_input_limit': 'regexLimit', 'privacy.regex_matches_limit': 'regexLimit', 'privacy.regex_rules_limit': 'regexLimit', 'privacy.preview_input_limit': 'regexLimit', 'privacy.json_sensitive_structure': 'jsonStructure', 'privacy.numeric_sensitive': 'numericSensitive', 'privacy.typed_sensitive': 'typedSensitive', 'privacy.encryption_required': 'encryptionRequired', 'privacy.plaintext_confirmation_required': 'plaintextRequired', 'credential_vault.unsupported': 'encryptionUnsupported', 'privacy.settings_changed': 'settingsChanged', 'privacy.config_changed': 'settingsChanged', 'privacy.settings_conflict': 'settingsChanged', 'privacy.busy': 'busy', 'privacy.policy_unavailable': 'policyRecoveryRequired' });
+const SETTINGS_FAILURE_KEYS = Object.freeze({ 'privacy.regex_timeout': 'regexTimeout', 'privacy.regex_startup_timeout': 'regexTimeout', 'privacy.regex_invalid': 'regexInvalid', 'privacy.regex_empty_match': 'regexEmpty', 'privacy.regex_busy': 'regexBusy', 'privacy.regex_input_limit': 'regexLimit', 'privacy.regex_matches_limit': 'regexLimit', 'privacy.regex_rules_limit': 'regexLimit', 'privacy.preview_input_limit': 'regexLimit', 'privacy.json_sensitive_structure': 'jsonStructure', 'privacy.numeric_sensitive': 'numericSensitive', 'privacy.typed_sensitive': 'typedSensitive', 'privacy.encryption_required': 'encryptionRequired', 'privacy.plaintext_confirmation_required': 'plaintextRequired', 'credential_vault.unsupported': 'encryptionUnsupported', 'privacy.settings_changed': 'settingsChanged', 'privacy.config_changed': 'settingsChanged', 'privacy.settings_conflict': 'settingsChanged', 'privacy.busy': 'busy', 'privacy.turns_running': 'turnsRunning', 'privacy.policy_unavailable': 'policyRecoveryRequired' });
 export function privacySettingsFailureKey(code) {
   const value = typeof code === 'string' ? code : '';
   if (Object.hasOwn(SETTINGS_FAILURE_KEYS, value)) return 'privacy.' + SETTINGS_FAILURE_KEYS[value];
   return (value && privacyFailure(value)?.key) || apiErrorCopyKey(value) || 'privacy.failed';
+}
+// 150 P9/P16：规则失败带上是哪条规则（ruleId 只是规则编号，不含样本或正则原文）；回合仍在运行时说出还有几个。
+export function privacySettingsFailureText(detail) {
+  const code = typeof detail?.code === 'string' ? detail.code : '';
+  const params = detail?.params && typeof detail.params === 'object' ? detail.params : {};
+  const turns = Number.isSafeInteger(params.turns) && params.turns > 0 ? params.turns : 1;
+  const text = t(privacySettingsFailureKey(code), { turns });
+  const ruleId = typeof params.ruleId === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(params.ruleId) ? params.ruleId : '';
+  return ruleId && code.startsWith('privacy.regex_') ? text + ' ' + t('privacy.failedRule', { ruleId }) : text;
 }
 // U12：解锁并预览前要有恰好一个不超过 2 MiB 的文件和一个至少 12 个字符的密码；缺什么就地说什么，不发请求。
 export function recoveryPreviewBlocker(files, password) {
@@ -63,6 +72,8 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
   let busy = false, saved = null, liveSaved = null, loaded = false, ticket = '', supported = false, manualEncryption = false, conflict = false, summaryUnknown = false;
   const summary = node('div', null, 'privacy-summary'); summary.id = 'privacySavedSummary'; summary.setAttribute('role', 'status'); summary.setAttribute('aria-live', 'polite');
   const recoveryNotice = node('p', 'policyRecoveryRequired', 'privacy-recovery'); recoveryNotice.id = 'privacyPolicyRecoveryNotice'; recoveryNotice.hidden = true;
+  // 150 P15：手改过服务商设置后，绑定对不上的加密凭据被暂扣（不再整份配置读不出来）；说出是哪几个、怎么恢复。
+  const withheldNotice = node('p', null, 'privacy-recovery'); withheldNotice.id = 'privacyCredentialWithheldNotice'; withheldNotice.hidden = true;
   const mode = node('select'); mode.id = 'privacyMode'; mode.hidden = true; mode.setAttribute('aria-hidden', 'true'); mode.tabIndex = -1;
   for (const value of MODES) { const option = node('option', value); option.value = value; mode.append(option); }
   const levels = node('fieldset', null, 'privacy-levels'); levels.id = 'privacyLevels'; levels.append(node('legend', 'chooseLevel'));
@@ -189,7 +200,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
       const detail = apiErrorInfo(error);
       if (!loaded) { summaryUnknown = true; renderSummary(); }
       if (['privacy.settings_changed', 'privacy.config_changed', 'privacy.settings_conflict'].includes(detail.code)) conflict = true;
-      status.textContent = t(error instanceof SyntaxError ? 'privacy.rulesInvalid' : privacySettingsFailureKey(detail.code));
+      status.textContent = error instanceof SyntaxError ? t('privacy.rulesInvalid') : privacySettingsFailureText(detail);
     } finally { busy = false; render(); }
   }
   async function load() {
@@ -204,6 +215,11 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
       editingRule = null; renderRuleList();
       clearTrial(); version.textContent = t('privacy.savedVersion') + ' ' + saved.ruleVersion; invalidateTicket();
     }
+    const withheld = Array.isArray(state.credentialWithheld) ? state.credentialWithheld : [];
+    const owners = [...new Set(withheld.map(row => typeof row?.containerId === 'string' ? row.containerId : '').filter(Boolean))].slice(0, 8);
+    withheldNotice.hidden = !withheld.length;
+    // The owner is named only when the server could prove it (after a reorder it is usually unknown).
+    withheldNotice.textContent = !withheld.length ? '' : owners.length ? t('privacy.credentialWithheld', { count: withheld.length, owners: owners.join(', ') }) : t('privacy.credentialWithheldUnknown', { count: withheld.length });
     renderSummary(); coverage.replaceChildren();
     for (const channel of state.channels || []) { const row = node('li'); row.textContent = t('privacy.channel.' + channel.id) + ' · ' + t(channel.supported ? 'privacy.supportedText' : 'privacy.blocked'); coverage.append(row); }
     loaded = true; render();
@@ -278,7 +294,7 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
   const securityTab = host.closest('.settings-tab');
   const footerVisibility = () => { const active = securityTab.classList.contains('active'); savebar.hidden = !active; footer.classList.toggle('privacy-footer-active', active); };
   new MutationObserver(footerVisibility).observe(securityTab, { attributes: true, attributeFilter: ['class'] }); footerVisibility();
-  host.append(node('h4', 'title'), summary, recoveryNotice, mode, levels, dependency, platformNotice, check('technical', technical), check('encryptionToggle', encryption), encryptionState, plaintextRow, advanced, trialFold, channels, backup);
+  host.append(node('h4', 'title'), summary, recoveryNotice, withheldNotice, mode, levels, dependency, platformNotice, check('technical', technical), check('encryptionToggle', encryption), encryptionState, plaintextRow, advanced, trialFold, channels, backup);
   const open = () => { if (!busy) void action(async () => { await load(); status.textContent = conflict ? t('privacy.settingsChanged') : ''; summary.tabIndex = -1; summary.focus({ preventScroll: true }); const body = document.getElementById('settingsBody'); if (body) body.scrollTop = 0; }); };
   document.querySelector('[data-stab="security"]')?.addEventListener('click', open);
   window.addEventListener('privacy:open', open);

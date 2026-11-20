@@ -50,6 +50,8 @@ function jobEnv(root) {
   Object.assign(env, {
     WCW_TEST_NO_NET_ANCHORS: '1', WCW_NO_BROWSER: '1',
     XG_RUN_ROOT: root, XG_REAL_HOME: os.homedir(), RUYI_REAL_HOME: os.homedir(),
+    // Same yardstick on a pre-change build: lib/server-internals.js loads this server.js instead.
+    ...(process.env.RUYI_TEST_SERVER_JS ? { RUYI_TEST_SERVER_JS: path.resolve(process.env.RUYI_TEST_SERVER_JS) } : {}),
   });
   return env;
 }

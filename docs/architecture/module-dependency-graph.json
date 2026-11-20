@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4449,
+    "providedSymbols": 4452,
     "requiredSymbols": 4393,
     "edges": 968,
     "forwardEdges": 67,
@@ -567,6 +567,7 @@
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
+        "credentialWithheldLogged",
         "decodeClaudeCliStream",
         "decodeClaudeCliText",
         "defaultConfig",
@@ -27723,8 +27724,10 @@
       "layer": "unclassified",
       "note": "81-P2: token-authenticated security settings and recovery API",
       "provides": [
+        "PRIVACY_IDLE_WAIT_MS",
         "PrivacySettings",
-        "PrivacyTextExports"
+        "PrivacyTextExports",
+        "privacyWhenIdle"
       ],
       "requires": [
         {

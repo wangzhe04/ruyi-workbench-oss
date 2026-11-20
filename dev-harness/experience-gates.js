@@ -53,6 +53,10 @@
 //   api-error-i18n 与 privacy-failure 两个模块取它们的真表)。门值 = A 级(HTTP 必达)+ B 级(隐私族)里没有码专属
 //   中英文案的码数;C 级(work_data_* / semantic.* 出错语境字面量)另列,不进门值。通用兜底句(「操作失败」「请求失败」
 //   或把原码塞进模板)不算这个码的文案。
+// G-privacy-short-learned(3.1 阶段 4 补):进程内真网关 enhanced 档(映射落盘、DPAPI 加密),15 个短值 × 两种标签,
+//   第一回合带值、第二回合带历史与 file_read 工具定义再发;门值 = 第二回合被整轮拒掉的数目。
+// G-privacy-detect-miss / -false(3.1 阶段 4 补,150 P12/P13):privacy-31 全部语料过真 PrivacyCore;漏报 = 正例值没被一个
+//   匹配完整覆盖,误报 = 反例在同档位下有任何匹配。RUYI_TEST_SERVER_JS 指到修前产物即同尺量修前。
 // G-privacy-trunc(截断边界残片):进程内装真 server.js 的 PrivacyCore(enhanced 档的探测器参数:personal:true),
 //   语料 = 身份证/邮箱/sk- 密钥/手机号 × 带标签/不带标签 × 起始位置逐字扫过截断点两侧(标题 60 字:40–66;摘要 160 字:
 //   140–166;最近请求 240 字:220–246,最后一处直接调真 sessionRecentUserRequest)。A 路(生产顺序)= 先按生产表达式截断、
@@ -245,6 +249,24 @@ function privacyGate(job) {
       truncateThenDetect: s.truncateThenDetect, detectThenTruncate: s.detectThenTruncate, byKind: s.byKind, examples: s.examples })) } })];
 }
 
+// 3.1 阶段 4(4B)补的两个隐私门,量法见 lib/experience-gates-worker.js 的 runPrivacyLearned / runPrivacyDetect 头注。
+function privacyLearnedGate(job) {
+  const r = job && job.result;
+  if (!r || r.fatal || !Array.isArray(r.rows)) return [errored('G-privacy-short-learned', '短学习值不致整轮失败', 'PrivacyGateway', job)];
+  return [valueGate({ id: 'G-privacy-short-learned', title: '短学习值不致整轮失败', condition: 'enhanced 档真网关,15 个短值 × 「token: 」/「密码：」两种标签;第一回合带值,第二回合带历史、普通问句与 file_read 工具定义;计第二回合被整轮拒掉的数目',
+    value: r.failedSecond, target: 0, unit: 'turns', samples: r.cases,
+    details: { failedFirst: r.failedFirst, failures: r.rows.filter(row => row.first !== 'ok' || row.second !== 'ok') } })];
+}
+function privacyDetectGates(job) {
+  const r = job && job.result;
+  if (!r || r.fatal || !r.total) return [errored('G-privacy-detect-miss', '检出语料正例完整覆盖', 'PrivacyCore', job), errored('G-privacy-detect-false', '检出语料反例零误报', 'PrivacyCore', job)];
+  const sets = Object.fromEntries(Object.entries(r.sets).map(([name, b]) => [name, { covered: b.covered, positives: b.positives, falsePositives: b.falsePositives, negatives: b.negatives, missed: b.missed }]));
+  return [
+    valueGate({ id: 'G-privacy-detect-miss', title: '检出语料正例完整覆盖(漏报 0)', condition: 'privacy-31 全部语料的正例:值被一个匹配完整覆盖;档位按语料标注', value: r.total.positives - r.total.covered, target: 0, unit: 'values', samples: r.total.positives, details: { ruleCatalogVersion: r.ruleCatalogVersion, sets } }),
+    valueGate({ id: 'G-privacy-detect-false', title: '检出语料反例零误报', condition: 'privacy-31 全部语料的反例:同档位下 0 个匹配', value: r.total.falsePositives, target: 0, unit: 'samples', samples: r.total.negatives, details: { sets } }),
+  ];
+}
+
 function codesGate(scan, error) {
   if (!scan) return [{ id: 'G-codes', title: '已知失败码有中英文案', status: 'error', pass: null, reason: String(error && error.message || error) }];
   return [valueGate({ id: 'G-codes', title: '已知失败码有中英文案(静态)', condition: 'A 级(apiFailure/apiCode 字面量,HTTP 必达)+ B 级(隐私族 fail()/字面量);对照 api-error-i18n 与 privacy-failure 的运行时表、两份 locale、public/ 里的字面量',
@@ -263,8 +285,6 @@ const NOT_IMPLEMENTED = [
     '复用 work-data-production-host-fixture 的维护进程夹具:每个注入点一个样本,量「从失败到 /api/status 正常 + 面板可操作」是否不经 doctor --recover-work-data-source 达成,记成功占比。'),
   notImplemented('G-encrypt-backup-no-plaintext', '加密失败后备份目录不留明文', '工作数据加密', '同上,需要真实演练/备份流程(150 W7)。',
     '在上面每个失败样本后扫备份目录,按种子明文的特征串计数命中文件(期望 0)。'),
-  notImplemented('G-privacy-short-learned', '短学习值不致整轮失败', '隐私网关', '要走 enhanced 档的完整网关与映射落盘(150 P4:token: on 让 on 成为凭据、命中协议键名时整次请求 control_field_sensitive),本轮未接。',
-    '本量具的 send 夹具加 privacyModeV1:enhanced:第一条消息「token: on」,第二条普通消息;量第二条是否到达 provider(期望到达)与受影响回合数。'),
   notImplemented('G-load-semantic-3x', '4 路并发下语义相关 e2e 连续 3 轮通过', '回归负载', '这是回归门而非单点测量,一轮就超出本量具 10 分钟预算。',
     'node dev-harness/run-all.js --parallel 4 只跑 memory-semantic / memory-explicit-semantic / semantic-retrieval / memory-recall-injection 等语义件,连跑 3 轮,记每轮通过数与 CPU 忙闲;另在本量具里加一个「后台并发压测」选项复用 G-send 量语义预算被吃掉的比例。'),
 ];
@@ -324,6 +344,8 @@ async function main() {
   }
   // 2) G-privacy-trunc
   if (wanted(args.only, 'G-privacy-trunc')) gates.push(...privacyGate(await run('privacy', 'privacy', {}, 90000)));
+  if (wanted(args.only, 'G-privacy-short-learned')) gates.push(...privacyLearnedGate(await run('privacy-learned', 'privacy-learned', {}, 180000)));
+  if (wanted(args.only, 'G-privacy-detect')) gates.push(...privacyDetectGates(await run('privacy-detect', 'privacy-detect', {}, 90000)));
   // 3) G-send(明文)
   if (wanted(args.only, 'G-send')) {
     const sizes = args.quick ? [0, 200] : [0, 200, 1000];

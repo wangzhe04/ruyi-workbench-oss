@@ -164,6 +164,9 @@ const FAILURES = Object.freeze({
   'credential_vault.slots_limit': ['vaultSlotsLimit', 'privacy'],
   'credential_vault.storage_unavailable': ['vaultStorage', 'privacy'],
   'credential_vault.unlock_failed': ['vaultUnlock', 'privacy'],
+  'credential_vault.unlock_timeout': ['vaultUnlockTimeout', 'privacy'],
+  'credential_vault.helper_unavailable': ['vaultHelper', 'privacy'],
+  'privacy.turns_running': ['turnsRunning', 'privacy'],
   'credential_vault.value_limit': ['vaultValueLimit', 'privacy'],
 });
 export function privacyFailure(value) {

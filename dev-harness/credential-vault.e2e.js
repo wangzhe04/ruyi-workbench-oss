@@ -117,7 +117,8 @@ async function main() {
     const recovered = await run(); t.ok(recovered.ok && recovered.matches, 'A8 encrypted previous config restores its original immutable credential revision');
     const before = fs.readFileSync(configFile, 'utf8'), changed = JSON.parse(before); changed.providers[0].baseUrl = 'https://other.test/v1';
     fs.writeFileSync(configFile, JSON.stringify(changed));
-    const swapped = await run(); t.ok(!swapped.ok && swapped.code === 'credential_vault.binding_mismatch', 'A9 changing the destination cannot carry the prior credential to a new service');
+    // 150 P15: the changed destination no longer fails the whole configuration; the credential is withheld.
+    const swapped = await run(); t.ok(swapped.ok && !swapped.matches && !swapped.headersMatch, 'A9 changing the destination cannot carry the prior credential to a new service (withheld, config still loads)');
     fs.writeFileSync(configFile, before);
     const goodVault = fs.readFileSync(vaultFile, 'utf8'), broken = JSON.parse(goodVault);
     const tag = Buffer.from(broken.records[0].envelope.tag, 'base64'); tag[0] ^= 1; broken.records[0].envelope.tag = tag.toString('base64');

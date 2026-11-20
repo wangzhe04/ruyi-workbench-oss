@@ -640,8 +640,65 @@ async function runPrivacy() {
   return out;
 }
 
+// 151 §4.2「隐私」后半句 + 150 P12/P13(3.1 阶段 4 补的量具)。两件事都在进程里装真 server.js:
+// ① 短学习值:enhanced 档真网关(映射照常落盘、加密走本机 DPAPI),每个短值一个线程:第一回合「token: <值>」/「密码：<值>」,
+//    第二回合带历史、普通问句与 file_read 工具定义再发一次;记第二回合被整轮拒掉的数目(期望 0)。
+// ② 检出语料:privacy-31 下全部语料(合成目录、校验、混合、第二/三场景、格式缺口、阶段 4)过真 PrivacyCore,
+//    记正例完整覆盖数与反例误报数;RUYI_TEST_SERVER_JS 指到修前产物即可同尺量修前。
+async function runPrivacyLearned() {
+  const api = loadServer(['PrivacyCore', 'PrivacyGateway']);
+  const config = { privacyModeV1: 'enhanced', privacyTechnicalV1: false, privacyRulesV1: [], providers: [], credentialEncryptionV1: true };
+  api.PrivacyGateway.configure(config);
+  const values = ['on', 'a', '1', 'ok', 'x', 'id', 'no', 'read', 'role', 'type', 'content', 'user', 'string', 'name', 'Qz7k'];
+  const tools = [{ type: 'function', function: { name: 'file_read', description: 'Read a file', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path'] } } }];
+  const rows = [];
+  for (const [index, value] of values.entries()) for (const lead of ['token: ', '密码：']) {
+    const scopeId = 'xg-short-' + index + '-' + (lead === 'token: ' ? 't' : 'p'), first = lead + value;
+    const row = { value, lead: lead.trim(), first: 'ok', second: 'ok' };
+    try { await api.PrivacyGateway.run(scopeId, config, () => api.PrivacyGateway.beforeModelRequest({ model: 'fixture', messages: [{ role: 'user', content: first }], tools })); }
+    catch (error) { row.first = String(error && error.code || error); }
+    try {
+      await api.PrivacyGateway.run(scopeId, config, () => api.PrivacyGateway.beforeModelRequest({ model: 'fixture', tools, messages: [
+        { role: 'user', content: first }, { role: 'assistant', content: 'ok, noted.' },
+        { role: 'user', content: 'Please read the file and summarise its content for the user; the name and type of each record matter.' }] }));
+    } catch (error) { row.second = String(error && error.code || error); }
+    rows.push(row);
+  }
+  return { mode: 'privacy-learned', rows, cases: rows.length, failedSecond: rows.filter(row => row.second !== 'ok').length, failedFirst: rows.filter(row => row.first !== 'ok').length };
+}
+async function runPrivacyDetect() {
+  const api = loadServer(['PrivacyCore']);
+  const core = api.PrivacyCore, dir = path.join(REPO, 'dev-harness', 'privacy-31');
+  const all = { personal: true, technical: true, confidential: true }, personal = { personal: true };
+  const tier = name => name === 'basic' ? {} : name === 'technical' ? { personal: true, technical: true } : personal;
+  const sets = {};
+  const bucket = name => sets[name] ||= { positives: 0, covered: 0, negatives: 0, falsePositives: 0, missed: [], falseSamples: [] };
+  const positive = (name, id, sample, secret, options) => {
+    const b = bucket(name), start = sample.indexOf(secret); b.positives++;
+    if (start >= 0 && core.createDetector(options).detect(sample).some(m => m.start <= start && m.end >= start + secret.length)) b.covered++; else b.missed.push(id);
+  };
+  const negative = (name, sample, options) => { const b = bucket(name); b.negatives++; if (core.createDetector(options).detect(sample).length) { b.falsePositives++; b.falseSamples.push(sample.length); } };
+  const { createCorpus, createMixedCorpus } = require(path.join(dir, 'synthetic-catalog-corpus.js'));
+  for (const row of createCorpus('experience-gate')) positive('synthetic-catalog', row.id, row.sample, row.secret, all);
+  for (const row of createMixedCorpus().rows) for (const secret of row.secrets || [row.secret]) positive('mixed', row.id, row.sample, secret, tier(row.tier));
+  const second = require(path.join(dir, 'second-scenario-corpus.js')).createSecondCorpus();
+  for (const row of second.cases) positive('second', row.id, row.sample, row.secret, row.tier === 'basic' ? {} : personal);
+  for (const sample of second.negatives) negative('second', sample, { personal: true, confidential: true });
+  const third = require(path.join(dir, 'third-scenario-corpus.js')).createThirdCorpus();
+  for (const row of third.cases) positive('third', row.id, row.sample, row.secret, row.tier === 'basic' ? {} : personal);
+  for (const sample of third.negatives) negative('third', sample, personal);
+  const gap = require(path.join(dir, 'format-gap-corpus.js')).createFormatGapCorpus();
+  for (const row of gap.cases) positive('format-gap', row.id, row.sample, row.secret, row.tier === 'basic' ? {} : personal);
+  for (const sample of gap.negatives) negative('format-gap', sample, personal);
+  const phase4 = require(path.join(dir, 'phase4-detection-corpus.js')).createPhase4Corpus();
+  for (const row of phase4.cases) positive('phase4', row.id, row.sample, row.secret, tier(row.tier));
+  for (const row of phase4.negatives) negative('phase4', row.sample, tier(row.tier));
+  const total = Object.values(sets).reduce((t, b) => ({ positives: t.positives + b.positives, covered: t.covered + b.covered, negatives: t.negatives + b.negatives, falsePositives: t.falsePositives + b.falsePositives }), { positives: 0, covered: 0, negatives: 0, falsePositives: 0 });
+  return { mode: 'privacy-detect', ruleCatalogVersion: core.ruleCatalogVersion, sets, total };
+}
+
 // ── 入口 ─────────────────────────────────────────────────────────────────────────────────────
-const MODES = { send: runSend, first: runFirst, search: runSearch, bigtext: runBigtext, semdown: runSemdown, privacy: runPrivacy };
+const MODES = { send: runSend, first: runFirst, search: runSearch, bigtext: runBigtext, semdown: runSemdown, privacy: runPrivacy, 'privacy-learned': runPrivacyLearned, 'privacy-detect': runPrivacyDetect };
 if (require.main === module) (async () => {
   const problems = isolationProblems();
   if (problems.length) { emit('XG_REFUSED', { problems }); process.exitCode = 3; return; }

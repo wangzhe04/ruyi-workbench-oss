@@ -119,8 +119,8 @@ function verify(sample, secret, options = all, context = {}) {
 
 const baseline = createCorpus('adversarial-catalog-only');
 test('every executable catalog rule has synthetic positive, negative, boundary and tier coverage', () => {
-  assert.equal(metadata.size, 45);
-  assert.equal(catalog.version, 6); // 5 -> 6: 3.1 phase 1 built-in detection changes (P2/P3/P4)
+  assert.equal(metadata.size, 46); // +technical.ipv6 (150 P13)
+  assert.equal(catalog.version, 7); // 5 -> 6: 3.1 phase 1 built-in detection changes (P2/P3/P4); 6 -> 7: phase 4 (P12/P13/P17)
   assert.deepEqual(baseline.map(row => row.id).sort(), [...metadata.keys()].sort());
   assert.deepEqual(createValidationCorpus().map(row => row.id).sort(), [...metadata.keys()].sort());
 });

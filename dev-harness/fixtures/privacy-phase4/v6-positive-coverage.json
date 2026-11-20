@@ -1,0 +1,4093 @@
+{
+ "note": "Rule catalog v6 coverage (45aed447) of every positive privacy sample; regenerate only from that baseline.",
+ "catalogVersion": 6,
+ "rows": [
+  {
+   "key": "catalog:credential.gitlab",
+   "sha256": "5562b78ac85a1459",
+   "spans": [
+    [
+     0,
+     46,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.npm",
+   "sha256": "722ca7cea4eb78c0",
+   "spans": [
+    [
+     0,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.pypi",
+   "sha256": "5dfd8c58aca1075a",
+   "spans": [
+    [
+     0,
+     69,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.huggingface",
+   "sha256": "0c4fbdc2c01a96c9",
+   "spans": [
+    [
+     0,
+     43,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.google-api",
+   "sha256": "3714e2c1b2c4aee5",
+   "spans": [
+    [
+     0,
+     39,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.google-oauth",
+   "sha256": "25b3da898f175205",
+   "spans": [
+    [
+     0,
+     45,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.stripe",
+   "sha256": "ed1ddeaf9dec9148",
+   "spans": [
+    [
+     0,
+     48,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.sendgrid",
+   "sha256": "d53eaa02822f7c9b",
+   "spans": [
+    [
+     0,
+     60,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.slack-webhook",
+   "sha256": "4766ea69251fd1be",
+   "spans": [
+    [
+     0,
+     107,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.discord-webhook",
+   "sha256": "70c9a7b26b0c350c",
+   "spans": [
+    [
+     0,
+     84,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.teams-webhook",
+   "sha256": "a9665debce3ef475",
+   "spans": [
+    [
+     0,
+     87,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.aws-temporary-id",
+   "sha256": "97b810a957df0f1f",
+   "spans": [
+    [
+     0,
+     20,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.azure-sas",
+   "sha256": "5be4598ba4bcd1b2",
+   "spans": [
+    [
+     38,
+     68,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.signed-query",
+   "sha256": "9473220b155ef520",
+   "spans": [
+    [
+     53,
+     86,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.redis-auth",
+   "sha256": "629c8703e06d76d4",
+   "spans": [
+    [
+     9,
+     60,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.sql-password",
+   "sha256": "120880b70a35f4de",
+   "spans": [
+    [
+     38,
+     68,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.xml-secret",
+   "sha256": "f472c5468b4371e1",
+   "spans": [
+    [
+     10,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.docker-auth",
+   "sha256": "5c0c9559e42f9c1b",
+   "spans": [
+    [
+     26,
+     62,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.ssh-password",
+   "sha256": "950292eb1587b4fa",
+   "spans": [
+    [
+     12,
+     42,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.otp",
+   "sha256": "ac8f59e51920bf8e",
+   "spans": [
+    [
+     4,
+     10,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.recovery-code",
+   "sha256": "8c9546dabf3367d9",
+   "spans": [
+    [
+     4,
+     30,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.wallet-private",
+   "sha256": "bf3f65b9ed15c840",
+   "spans": [
+    [
+     5,
+     71,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:credential.integration-secret",
+   "sha256": "baf33f2e52c1a59b",
+   "spans": [
+    [
+     9,
+     65,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.cn-landline",
+   "sha256": "1e6f3b7bd2acc9f1",
+   "spans": [
+    [
+     3,
+     15,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.international-phone",
+   "sha256": "d953f8b485f7fe69",
+   "spans": [
+    [
+     7,
+     22,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.passport-labelled",
+   "sha256": "a60ed0c1445d7a6c",
+   "spans": [
+    [
+     10,
+     20,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.social-security",
+   "sha256": "c336286a41340bfe",
+   "spans": [
+    [
+     5,
+     16,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.driver-license",
+   "sha256": "81fb0048974545a9",
+   "spans": [
+    [
+     5,
+     23,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.tax-id",
+   "sha256": "82983627e8e9ccd3",
+   "spans": [
+    [
+     3,
+     24,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.bank-account",
+   "sha256": "328cb53c2a00e6c7",
+   "spans": [
+    [
+     5,
+     25,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.payment-security",
+   "sha256": "c05a275238fdf0e3",
+   "spans": [
+    [
+     5,
+     8,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.payment-expiry",
+   "sha256": "a00cd12493fa295f",
+   "spans": [
+    [
+     7,
+     12,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.birth-date",
+   "sha256": "e03b57629362d534",
+   "spans": [
+    [
+     5,
+     15,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.contact-name",
+   "sha256": "4f55c8dfc2b937db",
+   "spans": [
+    [
+     3,
+     24,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.address",
+   "sha256": "6463bb0e25891732",
+   "spans": [
+    [
+     5,
+     29,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.health-record",
+   "sha256": "191126dae931db51",
+   "spans": [
+    [
+     4,
+     28,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.diagnosis",
+   "sha256": "93a97b8f71f6c355",
+   "spans": [
+    [
+     5,
+     27,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.vehicle",
+   "sha256": "29a10a898294553b",
+   "spans": [
+    [
+     4,
+     21,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.work-identifier",
+   "sha256": "2130b58fd24ef8c2",
+   "spans": [
+    [
+     3,
+     12,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:personal.profile-url",
+   "sha256": "73bf8bd67d171581",
+   "spans": [
+    [
+     0,
+     54,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:technical.ipv4",
+   "sha256": "95b10cbe17f25513",
+   "spans": [
+    [
+     0,
+     13,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:technical.ipv6",
+   "sha256": "db6d8a870ed8320f",
+   "spans": []
+  },
+  {
+   "key": "catalog:technical.mac",
+   "sha256": "9a53f61747facf49",
+   "spans": [
+    [
+     0,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:technical.windows-user-path",
+   "sha256": "4908f5f37ff23c5e",
+   "spans": [
+    [
+     9,
+     36,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:technical.posix-user-path",
+   "sha256": "63a30f1cd51d9e79",
+   "spans": [
+    [
+     6,
+     35,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "catalog:internal.classified-line",
+   "sha256": "403f960d05a5f823",
+   "spans": [
+    [
+     5,
+     27,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.gitlab:0",
+   "sha256": "089584f897247e08",
+   "spans": [
+    [
+     0,
+     268,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.gitlab:1",
+   "sha256": "cdd8900684b9143b",
+   "spans": [
+    [
+     0,
+     26,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.npm:0",
+   "sha256": "6e606faed011b86b",
+   "spans": [
+    [
+     0,
+     261,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.npm:1",
+   "sha256": "4f1a3310c48c5b57",
+   "spans": [
+    [
+     0,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.pypi:0",
+   "sha256": "dde5c5ede34dee07",
+   "spans": [
+    [
+     0,
+     2059,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.pypi:1",
+   "sha256": "e2ca835a939ad0a3",
+   "spans": [
+    [
+     0,
+     55,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.huggingface:0",
+   "sha256": "dd1e073b995f708e",
+   "spans": [
+    [
+     0,
+     260,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.huggingface:1",
+   "sha256": "4cde59937c985443",
+   "spans": [
+    [
+     0,
+     23,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.google-api:0",
+   "sha256": "78e6bfd8a628a898",
+   "spans": [
+    [
+     0,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.google-api:1",
+   "sha256": "b62246d9aec15541",
+   "spans": [
+    [
+     0,
+     39,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.google-oauth:0",
+   "sha256": "2146966b99c67fd7",
+   "spans": [
+    [
+     0,
+     2059,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.google-oauth:1",
+   "sha256": "f48fbcf2edc7452c",
+   "spans": [
+    [
+     0,
+     25,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.stripe:0",
+   "sha256": "8bed6996dabb9bee",
+   "spans": [
+    [
+     0,
+     265,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.stripe:1",
+   "sha256": "f18f3253cd461ec3",
+   "spans": [
+    [
+     0,
+     24,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.sendgrid:0",
+   "sha256": "2155b3cbbe494315",
+   "spans": [
+    [
+     0,
+     282,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.sendgrid:1",
+   "sha256": "8ad8fa9e203069d5",
+   "spans": [
+    [
+     0,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.slack-webhook:0",
+   "sha256": "e423a2a8daa10be2",
+   "spans": [
+    [
+     0,
+     180,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.slack-webhook:1",
+   "sha256": "03352d8b0ad4fc6a",
+   "spans": [
+    [
+     0,
+     67,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.discord-webhook:0",
+   "sha256": "4f23f5440c4fac34",
+   "spans": [
+    [
+     0,
+     309,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.discord-webhook:1",
+   "sha256": "adbcf7fa51c3ccb5",
+   "spans": [
+    [
+     0,
+     64,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.teams-webhook:0",
+   "sha256": "621636d311c5ddc2",
+   "spans": [
+    [
+     0,
+     2096,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.teams-webhook:1",
+   "sha256": "5d2677604a41a3e6",
+   "spans": [
+    [
+     0,
+     65,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.aws-temporary-id:0",
+   "sha256": "3597567a7011b27f",
+   "spans": [
+    [
+     0,
+     21,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.aws-temporary-id:1",
+   "sha256": "f3c13e1d1dd5514a",
+   "spans": [
+    [
+     0,
+     20,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.azure-sas:0",
+   "sha256": "b66b40cacdb07f6c",
+   "spans": [
+    [
+     26,
+     4131,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.azure-sas:1",
+   "sha256": "c2fdb552d1141be0",
+   "spans": [
+    [
+     5,
+     13,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.azure-sas:2",
+   "sha256": "768dbf1b20a4e67a",
+   "spans": [
+    [
+     5,
+     11,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.signed-query:0",
+   "sha256": "7950d896bf96ac18",
+   "spans": [
+    [
+     36,
+     4141,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.signed-query:1",
+   "sha256": "7b5f5e736098a8e6",
+   "spans": [
+    [
+     15,
+     16,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.redis-auth:0",
+   "sha256": "4c356c5479319cda",
+   "spans": [
+    [
+     10,
+     4117,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.redis-auth:1",
+   "sha256": "316ab381170fd8d7",
+   "spans": [
+    [
+     9,
+     23,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.redis-auth:2",
+   "sha256": "a0636393896a7fd3",
+   "spans": [
+    [
+     9,
+     28,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.sql-password:0",
+   "sha256": "3e5fe6c608a9e111",
+   "spans": [
+    [
+     24,
+     4131,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.sql-password:1",
+   "sha256": "86609218a4ebba9c",
+   "spans": [
+    [
+     4,
+     5,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.xml-secret:0",
+   "sha256": "98d027cfe16b5193",
+   "spans": [
+    [
+     15,
+     4122,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.xml-secret:1",
+   "sha256": "3290cfad4b76f278",
+   "spans": [
+    [
+     10,
+     11,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.xml-secret:2",
+   "sha256": "034512f4f6c34a3e",
+   "spans": [
+    [
+     10,
+     29,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.docker-auth:0",
+   "sha256": "5d48df91baac4dbb",
+   "spans": [
+    [
+     9,
+     4108,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.docker-auth:1",
+   "sha256": "57383eec43c865f2",
+   "spans": [
+    [
+     9,
+     17,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.ssh-password:0",
+   "sha256": "c1646c746bad725d",
+   "spans": [
+    [
+     12,
+     4128,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.ssh-password:1",
+   "sha256": "627ae172aa19b2b8",
+   "spans": [
+    [
+     11,
+     12,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.ssh-password:2",
+   "sha256": "9f3b788dbabd3644",
+   "spans": [
+    [
+     12,
+     22,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.ssh-password:3",
+   "sha256": "4b2618154d815aec",
+   "spans": [
+    [
+     12,
+     31,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.otp:0",
+   "sha256": "effd8fe4c2b6b92b",
+   "spans": [
+    [
+     22,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.otp:1",
+   "sha256": "335d7b62332b6db0",
+   "spans": [
+    [
+     5,
+     9,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.recovery-code:0",
+   "sha256": "1abd451a4065bdb9",
+   "spans": [
+    [
+     18,
+     153,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.recovery-code:1",
+   "sha256": "642aa5421373bd1f",
+   "spans": [
+    [
+     13,
+     19,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.wallet-private:0",
+   "sha256": "cb9c6f1dd5c7853c",
+   "spans": [
+    [
+     16,
+     83,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.wallet-private:1",
+   "sha256": "c37b1c115f2c39e7",
+   "spans": [
+    [
+     13,
+     77,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:0",
+   "sha256": "250b6b1df37070d8",
+   "spans": [
+    [
+     9,
+     4116,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:1",
+   "sha256": "5b4949f5a10ed92a",
+   "spans": [
+    [
+     0,
+     91,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:2",
+   "sha256": "9e6a1b5dc76b0019",
+   "spans": [
+    [
+     0,
+     81,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:3",
+   "sha256": "f81f6f384dbbb2f7",
+   "spans": [
+    [
+     10,
+     31,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:4",
+   "sha256": "140c7e9e8b61c289",
+   "spans": [
+    [
+     10,
+     25,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:credential.integration-secret:5",
+   "sha256": "67bd8aa6dfa4dc36",
+   "spans": [
+    [
+     20,
+     91,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.cn-landline:0",
+   "sha256": "ca7f45ecd1f8cec1",
+   "spans": [
+    [
+     7,
+     24,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.cn-landline:1",
+   "sha256": "efd89668772dbea3",
+   "spans": [
+    [
+     3,
+     37,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.cn-landline:2",
+   "sha256": "00c7d971e4ae8e65",
+   "spans": [
+    [
+     3,
+     15,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.cn-landline:3",
+   "sha256": "81a91d08812e1151",
+   "spans": [
+    [
+     2,
+     19,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.international-phone:0",
+   "sha256": "962e754bed18ab11",
+   "spans": [
+    [
+     10,
+     28,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.international-phone:1",
+   "sha256": "ea00279a26ff9fca",
+   "spans": [
+    [
+     7,
+     50,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.international-phone:2",
+   "sha256": "7cc7dc0f1356296c",
+   "spans": [
+    [
+     4,
+     17,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.international-phone:3",
+   "sha256": "3c2bd89a018c5b8d",
+   "spans": [
+    [
+     4,
+     17,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.international-phone:4",
+   "sha256": "0dce1d28ad8a1f5f",
+   "spans": [
+    [
+     5,
+     21,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.passport-labelled:0",
+   "sha256": "bb5140d40555df54",
+   "spans": [
+    [
+     20,
+     38,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.passport-labelled:1",
+   "sha256": "191f8eca081e1df2",
+   "spans": [
+    [
+     5,
+     11,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.social-security:0",
+   "sha256": "d9c72e2c774055f8",
+   "spans": [
+    [
+     8,
+     19,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.social-security:1",
+   "sha256": "dc5a6b6b73448732",
+   "spans": [
+    [
+     5,
+     15,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.driver-license:0",
+   "sha256": "82956aeeaf582242",
+   "spans": [
+    [
+     26,
+     57,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.driver-license:1",
+   "sha256": "73baafaaf77beb3c",
+   "spans": [
+    [
+     6,
+     11,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.tax-id:0",
+   "sha256": "4255ae0947f6bd07",
+   "spans": [
+    [
+     11,
+     42,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.tax-id:1",
+   "sha256": "cf00035ff6e77538",
+   "spans": [
+    [
+     7,
+     15,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.bank-account:0",
+   "sha256": "2ecc908f989f1c5d",
+   "spans": [
+    [
+     17,
+     57,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.bank-account:1",
+   "sha256": "b252844ac788ab9e",
+   "spans": [
+    [
+     5,
+     10,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.payment-security:0",
+   "sha256": "8f06e8324a4a7505",
+   "spans": [
+    [
+     8,
+     11,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.payment-security:1",
+   "sha256": "86cf3a3c2a7ca1f6",
+   "spans": [
+    [
+     5,
+     14,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.payment-expiry:0",
+   "sha256": "c827118b94f4c451",
+   "spans": [
+    [
+     4,
+     9,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.birth-date:0",
+   "sha256": "11ac9c61dcb00b8f",
+   "spans": [
+    [
+     18,
+     28,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.birth-date:1",
+   "sha256": "539e5631306b47c9",
+   "spans": [
+    [
+     3,
+     12,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.birth-date:2",
+   "sha256": "153b85cb0b9b8e8e",
+   "spans": [
+    [
+     10,
+     20,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.contact-name:0",
+   "sha256": "51e563bbab6bf070",
+   "spans": [
+    [
+     14,
+     15,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.contact-name:1",
+   "sha256": "30731b17891cac8c",
+   "spans": [
+    [
+     3,
+     84,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.contact-name:2",
+   "sha256": "310cfe5993cc23d0",
+   "spans": [
+    [
+     3,
+     6,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.contact-name:3",
+   "sha256": "2c2a725c1506c37e",
+   "spans": [
+    [
+     4,
+     11,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.address:0",
+   "sha256": "7e4c2bd32bd988d8",
+   "spans": [
+    [
+     17,
+     279,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.address:1",
+   "sha256": "0738d7c195d1e21f",
+   "spans": [
+    [
+     5,
+     9,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.health-record:0",
+   "sha256": "c4a4c63034e57b73",
+   "spans": [
+    [
+     15,
+     60,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.health-record:1",
+   "sha256": "2a6515fe99d564e1",
+   "spans": [
+    [
+     4,
+     7,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.diagnosis:0",
+   "sha256": "18ff9f49fbbdbfa5",
+   "spans": [
+    [
+     14,
+     275,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.diagnosis:1",
+   "sha256": "baa97be195c5d834",
+   "spans": [
+    [
+     5,
+     7,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.vehicle:0",
+   "sha256": "139737217522c57b",
+   "spans": [
+    [
+     3,
+     11,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.work-identifier:0",
+   "sha256": "e395042eb565b1fb",
+   "spans": [
+    [
+     3,
+     48,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.profile-url:0",
+   "sha256": "bfe09e5e60fa5395",
+   "spans": [
+    [
+     0,
+     295,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:personal.profile-url:1",
+   "sha256": "585495a3b2b32bba",
+   "spans": [
+    [
+     3,
+     46,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.ipv4:0",
+   "sha256": "01d21595f62b5709",
+   "spans": [
+    [
+     7,
+     21,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.ipv4:1",
+   "sha256": "f5047344122f0dee",
+   "spans": [
+    [
+     0,
+     8,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.ipv6:0",
+   "sha256": "042acb0cc12980c8",
+   "spans": []
+  },
+  {
+   "key": "validation:technical.ipv6:1",
+   "sha256": "c26ea1db813f7893",
+   "spans": []
+  },
+  {
+   "key": "validation:technical.ipv6:2",
+   "sha256": "fda794dcdfb13f5e",
+   "spans": []
+  },
+  {
+   "key": "validation:technical.mac:0",
+   "sha256": "b3a30b3113b7322b",
+   "spans": [
+    [
+     0,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.mac:1",
+   "sha256": "c27c02f297b7a634",
+   "spans": [
+    [
+     0,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.windows-user-path:0",
+   "sha256": "832fa6e6999c7a7a",
+   "spans": [
+    [
+     9,
+     13,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.windows-user-path:1",
+   "sha256": "7fcdaaeb95c0dac7",
+   "spans": [
+    [
+     9,
+     147,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.posix-user-path:0",
+   "sha256": "6cc9ad72f9b29795",
+   "spans": [
+    [
+     7,
+     16,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "validation:technical.posix-user-path:1",
+   "sha256": "55bfa9d46f2200f6",
+   "spans": [
+    [
+     6,
+     144,
+     "PATH"
+    ]
+   ]
+  },
+  {
+   "key": "validation:internal.classified-line:0",
+   "sha256": "cfdbe099f9ac4f88",
+   "spans": [
+    [
+     23,
+     284,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "validation:internal.classified-line:1",
+   "sha256": "3d69b99b032aea24",
+   "spans": [
+    [
+     5,
+     6,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.aws-id",
+   "sha256": "fd24fe082377d308",
+   "spans": [
+    [
+     20,
+     41,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.aws-secret",
+   "sha256": "69979805550f71c5",
+   "spans": [
+    [
+     24,
+     60,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.qiniu-ak",
+   "sha256": "7d44d1e90bf7b61f",
+   "spans": [
+    [
+     9,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.qiniu-sk",
+   "sha256": "36b03c015f464da2",
+   "spans": [
+    [
+     9,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.app-secret",
+   "sha256": "63b1c119e8f1504c",
+   "spans": [
+    [
+     11,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.smtp-password",
+   "sha256": "40430e029a50c4ca",
+   "spans": [
+    [
+     14,
+     34,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.database-password",
+   "sha256": "31c652146b0fa278",
+   "spans": [
+    [
+     23,
+     41,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.authorization",
+   "sha256": "ff98caa79e32fe45",
+   "spans": [
+    [
+     22,
+     57,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.mobile-old",
+   "sha256": "39511fbfd4399487",
+   "spans": [
+    [
+     5,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.mobile-new",
+   "sha256": "1c8dd0890a5fee2e",
+   "spans": [
+    [
+     4,
+     17,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.identity-grouped",
+   "sha256": "df1db9bc39f1b558",
+   "spans": [
+    [
+     13,
+     34,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.card-grouped",
+   "sha256": "28ba0df7978e62a9",
+   "spans": [
+    [
+     5,
+     28,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.cvv2",
+   "sha256": "ee78d4fde68f656d",
+   "spans": [
+    [
+     9,
+     12,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.expiry",
+   "sha256": "94e155b39cee3d12",
+   "spans": [
+    [
+     4,
+     9,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.social-card",
+   "sha256": "97852f5f1e0a5bfb",
+   "spans": [
+    [
+     5,
+     23,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.home-address",
+   "sha256": "ca027e06b1a2074a",
+   "spans": [
+    [
+     5,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.license-plate",
+   "sha256": "8968a9c5c7afacb4",
+   "spans": [
+    [
+     3,
+     11,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.vin",
+   "sha256": "675016a3de15052f",
+   "spans": [
+    [
+     4,
+     22,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.social-credit",
+   "sha256": "e504fd1ec1c5afa9",
+   "spans": [
+    [
+     9,
+     28,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.bank-branch",
+   "sha256": "106bb89f5b022806",
+   "spans": [
+    [
+     4,
+     14,
+     "PAYMENT"
+    ],
+    [
+     17,
+     19,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.invoice-account",
+   "sha256": "1befe698e7c25d7c",
+   "spans": [
+    [
+     3,
+     26,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.return-permit",
+   "sha256": "e231ecad144f2d02",
+   "spans": [
+    [
+     4,
+     13,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.taiwan-permit",
+   "sha256": "7476a997460ea500",
+   "spans": [
+    [
+     4,
+     14,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.passport",
+   "sha256": "68e14fe45c7d78bf",
+   "spans": [
+    [
+     3,
+     12,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.international-pair",
+   "sha256": "964d58c071d878a7",
+   "spans": [
+    [
+     5,
+     39,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.landline-extension",
+   "sha256": "c0065d768a5302fd",
+   "spans": [
+    [
+     4,
+     24,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.mother-landline",
+   "sha256": "00c7d971e4ae8e65",
+   "spans": [
+    [
+     3,
+     15,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.backup-landline",
+   "sha256": "81a91d08812e1151",
+   "spans": [
+    [
+     2,
+     19,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.birth-date",
+   "sha256": "9ab464aee5ee7ae0",
+   "spans": [
+    [
+     10,
+     21,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.emergency-contact",
+   "sha256": "0dfa1775d000f680",
+   "spans": [
+    [
+     6,
+     14,
+     "INTERNAL"
+    ],
+    [
+     17,
+     30,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.current-address",
+   "sha256": "9b39b5e29dca4210",
+   "spans": [
+    [
+     4,
+     16,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.registered-address",
+   "sha256": "f2d4cafa3bc12fa4",
+   "spans": [
+    [
+     4,
+     16,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.employee-id",
+   "sha256": "09bcfd7cbc947dd9",
+   "spans": [
+    [
+     3,
+     12,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.access-card",
+   "sha256": "51230852f526320a",
+   "spans": [
+    [
+     5,
+     21,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.housing-fund",
+   "sha256": "ad107384326bad12",
+   "spans": [
+    [
+     6,
+     24,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.medical-id",
+   "sha256": "4d70e3e74143ff0d",
+   "spans": [
+    [
+     7,
+     26,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.client-ip",
+   "sha256": "3511279c2acc3534",
+   "spans": [
+    [
+     10,
+     22,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.forwarded-ip",
+   "sha256": "e2b8b799b028ef81",
+   "spans": [
+    [
+     4,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.private-ip",
+   "sha256": "211c7882b12cdb69",
+   "spans": [
+    [
+     7,
+     18,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.short-signature",
+   "sha256": "1ee7fbc6a1d5514a",
+   "spans": [
+    [
+     41,
+     92,
+     "CREDENTIAL"
+    ],
+    [
+     97,
+     103,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.query-token",
+   "sha256": "1ee7fbc6a1d5514a",
+   "spans": [
+    [
+     41,
+     92,
+     "CREDENTIAL"
+    ],
+    [
+     97,
+     103,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.webhook-path",
+   "sha256": "67bd8aa6dfa4dc36",
+   "spans": [
+    [
+     20,
+     91,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.linkedin",
+   "sha256": "585495a3b2b32bba",
+   "spans": [
+    [
+     3,
+     46,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.email-underscore",
+   "sha256": "a45992893eeed7cb",
+   "spans": [
+    [
+     5,
+     32,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "mixed:mixed.email-plus",
+   "sha256": "6274ffdea1cab038",
+   "spans": [
+    [
+     5,
+     41,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "second:phone-grouped",
+   "sha256": "5672044795109e71",
+   "spans": [
+    [
+     5,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "second:email-alias",
+   "sha256": "e76e4c4d179fe3d3",
+   "spans": [
+    [
+     5,
+     36,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "second:identity-grouped",
+   "sha256": "0db6beff0b4b4b8a",
+   "spans": [
+    [
+     4,
+     26,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "second:card-unpunctuated",
+   "sha256": "37dedfa2c019c37a",
+   "spans": [
+    [
+     12,
+     35,
+     "PAYMENT"
+    ],
+    [
+     41,
+     44,
+     "CREDENTIAL"
+    ],
+    [
+     49,
+     54,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "second:cvv-context",
+   "sha256": "37dedfa2c019c37a",
+   "spans": [
+    [
+     41,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:expiry",
+   "sha256": "db87e83d9966f950",
+   "spans": [
+    [
+     4,
+     9,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "second:emergency-phone",
+   "sha256": "261acce7cb2e15ec",
+   "spans": [
+    [
+     6,
+     19,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "second:address-qualifier",
+   "sha256": "2375dae8825835d2",
+   "spans": [
+    [
+     8,
+     31,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:medical-personal-number",
+   "sha256": "c9a1953f2c50c0fc",
+   "spans": [
+    [
+     16,
+     33,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "second:medical-record",
+   "sha256": "c9dc93e45642e20e",
+   "spans": [
+    [
+     4,
+     18,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:medical-report",
+   "sha256": "019a20fc1c2dd83c",
+   "spans": [
+    [
+     7,
+     17,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:allergy",
+   "sha256": "d424606b22ee1015",
+   "spans": [
+    [
+     8,
+     13,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:contact-name",
+   "sha256": "40c42bec4ff6b89f",
+   "spans": [
+    [
+     9,
+     27,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:contact-name-phone",
+   "sha256": "40c42bec4ff6b89f",
+   "spans": [
+    [
+     9,
+     27,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:property-address",
+   "sha256": "9383585fb75ecc6b",
+   "spans": [
+    [
+     3,
+     25,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:plate",
+   "sha256": "9cdcbf2c96b3dd9a",
+   "spans": [
+    [
+     3,
+     11,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "second:vin",
+   "sha256": "68f1c3fd9f530a9d",
+   "spans": [
+    [
+     4,
+     21,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "second:api-v3-key",
+   "sha256": "f59c4ebdd2889a43",
+   "spans": [
+    [
+     12,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:api-key-prose",
+   "sha256": "72f435c596fcd0af",
+   "spans": [
+    [
+     22,
+     54,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:cos-secret-id",
+   "sha256": "0feb30002f45c824",
+   "spans": [
+    [
+     21,
+     57,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:cos-secret-key",
+   "sha256": "73837280f7f40d61",
+   "spans": [
+    [
+     12,
+     44,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:ali-access-id",
+   "sha256": "da5a4bcc89c92eb9",
+   "spans": [
+    [
+     18,
+     40,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:ali-access-secret",
+   "sha256": "5bd6d1996061f1cf",
+   "spans": [
+    [
+     18,
+     49,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:jdbc-password",
+   "sha256": "951be54875249eb1",
+   "spans": [
+    [
+     13,
+     36,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:redis-password",
+   "sha256": "44d5f6878d95c261",
+   "spans": [
+    [
+     8,
+     25,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:gitlab-token",
+   "sha256": "f0351fdd232e7ee8",
+   "spans": [
+    [
+     0,
+     26,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:wecom-webhook",
+   "sha256": "59ddd05cb9e1fdf3",
+   "spans": [
+    [
+     53,
+     87,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:signature-path",
+   "sha256": "50fb5dc21070c7e3",
+   "spans": [
+    [
+     16,
+     56,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:jwt",
+   "sha256": "483d29c4422fb79d",
+   "spans": [
+    [
+     7,
+     67,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:ssh-pem",
+   "sha256": "21f93ef2a79d870f",
+   "spans": [
+    [
+     0,
+     92,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "second:fullwidth-phone-valid",
+   "sha256": "97c221ce0514b512",
+   "spans": [
+    [
+     4,
+     15,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "second:chinese-phone-valid",
+   "sha256": "de64b6d0acf456f6",
+   "spans": [
+    [
+     4,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "second:email-bracket-at",
+   "sha256": "665f265cbd1e6cfb",
+   "spans": [
+    [
+     6,
+     31,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "second:email-at-dot",
+   "sha256": "d33ebe39bab3edf5",
+   "spans": [
+    [
+     3,
+     32,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "second:phone-line-split",
+   "sha256": "224fff0a62910073",
+   "spans": [
+    [
+     11,
+     26,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "second:identity-line-split",
+   "sha256": "7dc38c416d1509fa",
+   "spans": [
+    [
+     9,
+     33,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "third:receiving-card-bank-prefix",
+   "sha256": "9a4619aa9b64567e",
+   "spans": [
+    [
+     9,
+     32,
+     "PAYMENT"
+    ],
+    [
+     36,
+     42,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "third:insurance-policy-number",
+   "sha256": "135e5c11fab70009",
+   "spans": [
+    [
+     4,
+     18,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "third:owner-dialogue-name",
+   "sha256": "035009e16e1af17c",
+   "spans": [
+    [
+     3,
+     6,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:beneficiary-name",
+   "sha256": "9fac7ff8cb9bf6e4",
+   "spans": [
+    [
+     8,
+     11,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:medical-record-narrative",
+   "sha256": "5ed56acc92f3aeda",
+   "spans": [
+    [
+     13,
+     22,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:driver-file-number",
+   "sha256": "263101a9eb0a3a97",
+   "spans": [
+    [
+     10,
+     22,
+     "IDENTITY"
+    ]
+   ]
+  },
+  {
+   "key": "third:address-short-label",
+   "sha256": "3a381b7f9b21887b",
+   "spans": [
+    [
+     6,
+     31,
+     "INTERNAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:landline-parentheses",
+   "sha256": "643e0e240eb5cd01",
+   "spans": [
+    [
+     3,
+     24,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "third:otp-narrative",
+   "sha256": "3643aed5e2b666cf",
+   "spans": [
+    [
+     10,
+     16,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:wifi-password-history",
+   "sha256": "738f327cee25b72f",
+   "spans": [
+    [
+     19,
+     39,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:door-code",
+   "sha256": "17c49c45672a1428",
+   "spans": [
+    [
+     5,
+     11,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:telegram-bot-token",
+   "sha256": "ac39d2d0bd208890",
+   "spans": [
+    [
+     22,
+     77,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:aws-short-example-id",
+   "sha256": "e6e1ed96a319549d",
+   "spans": [
+    [
+     11,
+     62,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:aws-session-token-context",
+   "sha256": "e6e1ed96a319549d",
+   "spans": [
+    [
+     11,
+     62,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:db-pass-yaml",
+   "sha256": "2781cbcdc0032ccf",
+   "spans": [
+    [
+     51,
+     75,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:db-pass-json",
+   "sha256": "2e88e26de7c48dd2",
+   "spans": [
+    [
+     12,
+     36,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:base64-phone",
+   "sha256": "c4214396a86c740c",
+   "spans": [
+    [
+     20,
+     36,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "third:base64-email",
+   "sha256": "d105400b8ba07e5f",
+   "spans": [
+    [
+     7,
+     43,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "third:url-encoded-phone",
+   "sha256": "41f575d20f4cbe15",
+   "spans": [
+    [
+     11,
+     30,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "third:jwt-three-lines",
+   "sha256": "a07398ac4e5a5a48",
+   "spans": [
+    [
+     16,
+     125,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:military-phone",
+   "sha256": "8d292636c70fca2d",
+   "spans": [
+    [
+     8,
+     21,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "third:otp-short",
+   "sha256": "e17b17dd25a85496",
+   "spans": [
+    [
+     4,
+     8,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:github-fine-grained",
+   "sha256": "f190ceff1827651a",
+   "spans": [
+    [
+     7,
+     65,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:slack-bot",
+   "sha256": "833cb0dc35602cb5",
+   "spans": [
+    [
+     9,
+     65,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:stripe-key",
+   "sha256": "b5ab0c87e28891ac",
+   "spans": [
+    [
+     0,
+     32,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:nacos-password",
+   "sha256": "7fda70e286e7f029",
+   "spans": [
+    [
+     15,
+     35,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "third:feishu-webhook",
+   "sha256": "80aa62732a368fc9",
+   "spans": [
+    [
+     0,
+     78,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-at-sign",
+   "sha256": "e829f955fa78416d",
+   "spans": [
+    [
+     17,
+     30,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-colon",
+   "sha256": "11100a07e7b1e3bd",
+   "spans": [
+    [
+     18,
+     29,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-percent",
+   "sha256": "f83506b0254c9b9b",
+   "spans": [
+    [
+     14,
+     31,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-ipv6",
+   "sha256": "c97dd81ab8df2eca",
+   "spans": [
+    [
+     17,
+     30,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-email-user",
+   "sha256": "3c1f95afe2dad1ef",
+   "spans": [
+    [
+     23,
+     37,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-multi-first",
+   "sha256": "c893496df032d7b8",
+   "spans": [
+    [
+     21,
+     30,
+     "CREDENTIAL"
+    ],
+    [
+     68,
+     77,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-multi-second",
+   "sha256": "c893496df032d7b8",
+   "spans": [
+    [
+     21,
+     30,
+     "CREDENTIAL"
+    ],
+    [
+     68,
+     77,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-query-char",
+   "sha256": "fd35351f613acd57",
+   "spans": [
+    [
+     11,
+     27,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-slash-char",
+   "sha256": "d9dde2da29b51fc2",
+   "spans": [
+    [
+     8,
+     25,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-numeric-hash",
+   "sha256": "cf5e2da8dc936da0",
+   "spans": [
+    [
+     13,
+     22,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-jdbc-numeric-hash",
+   "sha256": "d8ff06e1ba488431",
+   "spans": [
+    [
+     18,
+     27,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-numeric-query",
+   "sha256": "1434791cf136cfac",
+   "spans": [
+    [
+     13,
+     19,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:url-password-hash-user",
+   "sha256": "38c86f06256b836b",
+   "spans": [
+    [
+     14,
+     27,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:pgp-private-key-block",
+   "sha256": "6146ccdc9d6b8f73",
+   "spans": [
+    [
+     7,
+     174,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:putty-ppk-file",
+   "sha256": "253255d8b2bfe2e4",
+   "spans": [
+    [
+     0,
+     304,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:putty-ppk-truncated",
+   "sha256": "6be144a3bdba1731",
+   "spans": [
+    [
+     0,
+     218,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:putty-private-lines-only",
+   "sha256": "eb429004ae13df71",
+   "spans": [
+    [
+     25,
+     94,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:azure-storage-account-key",
+   "sha256": "3c53b1d7fd72b34c",
+   "spans": [
+    [
+     64,
+     108,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:azure-servicebus-key",
+   "sha256": "4a4a30ad8745bfc0",
+   "spans": [
+    [
+     110,
+     150,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:azure-sas-connection",
+   "sha256": "b5534faee9d0fb6e",
+   "spans": [
+    [
+     72,
+     151,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:mysql-attached-password",
+   "sha256": "74251fc7537f0b98",
+   "spans": [
+    [
+     38,
+     54,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:mysqldump-quoted-password",
+   "sha256": "491ed9f60c21bb90",
+   "spans": [
+    [
+     23,
+     42,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "format-gap:mariadb-double-quoted-password",
+   "sha256": "f6d48beb6fe339fa",
+   "spans": [
+    [
+     18,
+     32,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:mobile-spaced-bare",
+   "sha256": "d00b9123994dbc2c",
+   "spans": []
+  },
+  {
+   "key": "phase4:mobile-dashed-bare",
+   "sha256": "033a76196393677b",
+   "spans": []
+  },
+  {
+   "key": "phase4:mobile-plus86-spaced",
+   "sha256": "bbfd1f974992dfd1",
+   "spans": []
+  },
+  {
+   "key": "phase4:mobile-full-width-bare",
+   "sha256": "30a0288f19482ec3",
+   "spans": []
+  },
+  {
+   "key": "phase4:mobile-zero-width",
+   "sha256": "5a46e869e166e0c8",
+   "spans": []
+  },
+  {
+   "key": "phase4:email-zero-width",
+   "sha256": "ff87c63387ddf543",
+   "spans": [
+    [
+     9,
+     33,
+     "EMAIL"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:email-full-width-at",
+   "sha256": "383d37d1a408952e",
+   "spans": []
+  },
+  {
+   "key": "phase4:email-full-width-all",
+   "sha256": "2e945636d3b9561a",
+   "spans": []
+  },
+  {
+   "key": "phase4:provider-key-zero-width",
+   "sha256": "e2334311a8f5d122",
+   "spans": []
+  },
+  {
+   "key": "phase4:provider-key-soft-hyphen",
+   "sha256": "039f4163e2bbff37",
+   "spans": []
+  },
+  {
+   "key": "phase4:card-grouped-bare",
+   "sha256": "d111d839efc2296f",
+   "spans": []
+  },
+  {
+   "key": "phase4:card-dashed-bare",
+   "sha256": "7d2fdd1cab9f9e7f",
+   "spans": []
+  },
+  {
+   "key": "phase4:card-contiguous-bare",
+   "sha256": "0afa5502a85f7163",
+   "spans": []
+  },
+  {
+   "key": "phase4:ipv6-unique-local",
+   "sha256": "4f0c45eac62feada",
+   "spans": []
+  },
+  {
+   "key": "phase4:ipv6-link-local",
+   "sha256": "3ce7c9cd428d0be8",
+   "spans": []
+  },
+  {
+   "key": "phase4:ipv6-labelled",
+   "sha256": "cdadcd486a6073b0",
+   "spans": []
+  },
+  {
+   "key": "phase4:bare-field-full-width-comma",
+   "sha256": "0e757c8fb5623040",
+   "spans": [
+    [
+     9,
+     29,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:bare-field-full-width-period",
+   "sha256": "a9468b600009f073",
+   "spans": [
+    [
+     6,
+     22,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:bank-branch-still-cjk",
+   "sha256": "ab63b70711da52ba",
+   "spans": [
+    [
+     4,
+     12,
+     "PAYMENT"
+    ],
+    [
+     15,
+     17,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-name-digits",
+   "sha256": "c80ffbf20e2321ba",
+   "spans": [
+    [
+     5,
+     37,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-digits-then-prose",
+   "sha256": "5577123617a9a969",
+   "spans": [
+    [
+     3,
+     26,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:labelled-phone-before-unit-word",
+   "sha256": "0751ae0eefa92129",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-before-name",
+   "sha256": "4221147a6368435b",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-glued-name",
+   "sha256": "2ec48b6c68b706a8",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-before-ben-ren",
+   "sha256": "aa30ca0b30d4a442",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-before-tian",
+   "sha256": "95fcab5e5070111c",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-before-wei-yu",
+   "sha256": "816ae49f5d1865fb",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-before-ming-xia",
+   "sha256": "bd3e254178f2183b",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:grouped-phone-before-name",
+   "sha256": "b2cb98a23895e33d",
+   "spans": []
+  },
+  {
+   "key": "phase4:phone-after-gong-gong",
+   "sha256": "e6bd64f83929af56",
+   "spans": [
+    [
+     7,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-after-gong-xiang",
+   "sha256": "01ce1130a4624e94",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-after-gong-yong",
+   "sha256": "49a1408b26b4500f",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:phone-after-zhong-gong",
+   "sha256": "e7b0a37054a913d0",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-price-negotiable",
+   "sha256": "9eb2711d0e180a9d",
+   "spans": [
+    [
+     6,
+     17,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-unit-price-ask",
+   "sha256": "0d4c8bd4afc62aae",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-sale-price",
+   "sha256": "21b4afb3ca0f6355",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-amount-ask-finance",
+   "sha256": "62974fc6fb074817",
+   "spans": [
+    [
+     8,
+     19,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-limited-quantity",
+   "sha256": "a9c048ce64c67bf1",
+   "spans": [
+    [
+     7,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-amount-yuan",
+   "sha256": "3d622dbdb87e6042",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-count-colon",
+   "sha256": "9ecdde04deb86235",
+   "spans": [
+    [
+     7,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-phone-ren",
+   "sha256": "c2a9fe716da9b05f",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-price-ask",
+   "sha256": "d580f174b8881781",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-phone-ming",
+   "sha256": "35ce7412ebb7ff47",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-total-contact",
+   "sha256": "e0808ea16f7a905d",
+   "spans": [
+    [
+     14,
+     25,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:v6-kept-price-contact",
+   "sha256": "4f543143fa4005c0",
+   "spans": [
+    [
+     11,
+     22,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-bracket-ascii",
+   "sha256": "de9b9019de5955fc",
+   "spans": [
+    [
+     5,
+     29,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-bracket-full",
+   "sha256": "9aca90d869173178",
+   "spans": [
+    [
+     5,
+     36,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-middle-dot",
+   "sha256": "48b3b24ae1444d97",
+   "spans": [
+    [
+     3,
+     25,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-comma",
+   "sha256": "da2f1f48d829b68d",
+   "spans": [
+    [
+     5,
+     9,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-name-card",
+   "sha256": "93fe2c843c9adb76",
+   "spans": [
+    [
+     3,
+     26,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-hyphen",
+   "sha256": "ace773b912e4f3e9",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-slash",
+   "sha256": "6d8d487ce8ce7a76",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:account-bank-colon",
+   "sha256": "20fc6dd3da6b1352",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "phase4:bare-field-inner-comma",
+   "sha256": "a7f5b1e7dd684baf",
+   "spans": [
+    [
+     6,
+     14,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "review:0",
+   "sha256": "9eb2711d0e180a9d",
+   "spans": [
+    [
+     6,
+     17,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:1",
+   "sha256": "0d4c8bd4afc62aae",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:2",
+   "sha256": "21b4afb3ca0f6355",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:3",
+   "sha256": "62974fc6fb074817",
+   "spans": [
+    [
+     8,
+     19,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:4",
+   "sha256": "a9c048ce64c67bf1",
+   "spans": [
+    [
+     7,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:5",
+   "sha256": "3d622dbdb87e6042",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:6",
+   "sha256": "9ecdde04deb86235",
+   "spans": [
+    [
+     7,
+     18,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:7",
+   "sha256": "c2a9fe716da9b05f",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:8",
+   "sha256": "35ce7412ebb7ff47",
+   "spans": [
+    [
+     0,
+     11,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:9",
+   "sha256": "d580f174b8881781",
+   "spans": [
+    [
+     5,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:10",
+   "sha256": "daaa9f394730a9af",
+   "spans": [
+    [
+     3,
+     14,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:11",
+   "sha256": "e0808ea16f7a905d",
+   "spans": [
+    [
+     14,
+     25,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:12",
+   "sha256": "4f543143fa4005c0",
+   "spans": [
+    [
+     11,
+     22,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:13",
+   "sha256": "8dcf6236768ee143",
+   "spans": [
+    [
+     12,
+     23,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:14",
+   "sha256": "de9b9019de5955fc",
+   "spans": [
+    [
+     5,
+     29,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:15",
+   "sha256": "9aca90d869173178",
+   "spans": [
+    [
+     5,
+     36,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:16",
+   "sha256": "1396e499878489bc",
+   "spans": [
+    [
+     5,
+     32,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:17",
+   "sha256": "93fe2c843c9adb76",
+   "spans": [
+    [
+     3,
+     26,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:18",
+   "sha256": "e1cc34fc5a41ef39",
+   "spans": [
+    [
+     3,
+     19,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:19",
+   "sha256": "9836532b1b3e4c9c",
+   "spans": [
+    [
+     5,
+     26,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:20",
+   "sha256": "7bcc5cf41a42484d",
+   "spans": [
+    [
+     4,
+     14,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:21",
+   "sha256": "10e83bb39dca6066",
+   "spans": [
+    [
+     3,
+     15,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:22",
+   "sha256": "afdcf5a55171c62c",
+   "spans": [
+    [
+     4,
+     13,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:23",
+   "sha256": "48b3b24ae1444d97",
+   "spans": [
+    [
+     3,
+     25,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:24",
+   "sha256": "da2f1f48d829b68d",
+   "spans": [
+    [
+     5,
+     9,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:25",
+   "sha256": "682a557ffdc66ce8",
+   "spans": [
+    [
+     5,
+     29,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:26",
+   "sha256": "79cb75207256976e",
+   "spans": [
+    [
+     5,
+     39,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:27",
+   "sha256": "bfe60f49305ae4c3",
+   "spans": [
+    [
+     3,
+     36,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:28",
+   "sha256": "3ef5e4afca7bac53",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:29",
+   "sha256": "8b5485a9a33330bf",
+   "spans": [
+    [
+     3,
+     28,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:30",
+   "sha256": "56735c190513ca4c",
+   "spans": [
+    [
+     3,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:31",
+   "sha256": "fae1c1ac6f99897f",
+   "spans": [
+    [
+     3,
+     16,
+     "PHONE"
+    ]
+   ]
+  },
+  {
+   "key": "review:32",
+   "sha256": "8a049f99ced18869",
+   "spans": [
+    [
+     9,
+     21,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "review:33",
+   "sha256": "b9e5979509a0903d",
+   "spans": [
+    [
+     9,
+     17,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "review:34",
+   "sha256": "f3033cac42489085",
+   "spans": [
+    [
+     8,
+     18,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "review:35",
+   "sha256": "dac9a16bcc50ff2b",
+   "spans": []
+  },
+  {
+   "key": "review:36",
+   "sha256": "85c57440e965d13c",
+   "spans": []
+  },
+  {
+   "key": "review:37",
+   "sha256": "1a7d1ea91e913ec9",
+   "spans": [
+    [
+     7,
+     14,
+     "CREDENTIAL"
+    ]
+   ]
+  },
+  {
+   "key": "review:38",
+   "sha256": "ace773b912e4f3e9",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:39",
+   "sha256": "6d8d487ce8ce7a76",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  },
+  {
+   "key": "review:40",
+   "sha256": "20fc6dd3da6b1352",
+   "spans": [
+    [
+     3,
+     24,
+     "PAYMENT"
+    ]
+   ]
+  }
+ ]
+}

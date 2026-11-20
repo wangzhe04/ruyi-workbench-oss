@@ -251,6 +251,8 @@ const WorkDataKeyRewrap = ((cryptoApi) => {
       try { snap = await host.vault.snapshot(); }
       catch (error) {
         rethrowUncertain(error);
+        // 150 P15: a helper timeout or a blocked helper says nothing about the vault; it is not damage.
+        if (['credential_vault.unlock_timeout', 'credential_vault.helper_unavailable'].includes(error?.code)) return { status: 'unavailable', bytes };
         if (error?.code !== 'credential_vault.unlock_failed') return { status: 'damaged', bytes };
         let state; try { state = JSON.parse(bytes.toString('utf8')); } catch { return { status: 'damaged', bytes }; }
         return { status: 'locked', bytes, state };

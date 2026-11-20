@@ -50,6 +50,7 @@ function createCorpus(marker) {
   add('personal.work-identifier', 'EMP-' + number(0, 5), '工号：');
   add('personal.profile-url', 'https://www.linkedin.com/in/synthetic-' + tag);
   add('technical.ipv4', '10.' + (16 + parseInt(hash.slice(0, 2), 16) % 200) + '.' + parseInt(hash.slice(2, 4), 16) + '.' + (1 + parseInt(hash.slice(4, 6), 16) % 254));
+  add('technical.ipv6', 'fd' + hash.slice(0, 2) + ':' + hash.slice(2, 6) + ':' + hash.slice(6, 10) + '::' + hash.slice(10, 13), '内网 ', ' 不通');
   add('technical.mac', ['02', ...hash.slice(0, 10).match(/../g)].join(':'));
   add('technical.windows-user-path', 'fixturewin_' + tag, 'C:\\Users\\', '\\synthetic-contact.txt');
   add('technical.posix-user-path', 'fixtureposix_' + tag, '/home/', '/synthetic-contact.txt');
@@ -62,7 +63,7 @@ function checkCorpus() {
   const read = name => fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src', name), 'utf8');
   const api = vm.runInNewContext(read('01i-privacy-rules.js') + '\n' + read('01h-privacy-core.js') + '\n({ catalog: PrivacyRuleCatalog, core: PrivacyCore })', { require, Buffer });
   const rows = createCorpus('catalog-check-synthetic'), ids = api.catalog.list().map(rule => rule.id).sort();
-  assert.equal(ids.length, 45, 'Update this full-catalog corpus when executable catalog rules change');
+  assert.equal(ids.length, 46, 'Update this full-catalog corpus when executable catalog rules change');
   assert.deepEqual(rows.map(row => row.id).sort(), Array.from(ids));
   const profiles = { personal: true, technical: true, confidential: true };
   const detector = api.core.createDetector(profiles);
@@ -80,7 +81,7 @@ function checkCorpus() {
       assert.ok(!visible.includes(row.secret), row.id + ': no original capture outside opaque references');
     } finally { scope.clear(); }
   }
-  console.log('SYNTHETIC CATALOG CORPUS: 45 rules, exact captures and full core coverage PASS');
+  console.log('SYNTHETIC CATALOG CORPUS: 46 rules, exact captures and full core coverage PASS');
 }
 
 // Independent format/label adversaries. These values are deliberately synthetic, including invalid
@@ -129,6 +130,7 @@ function createValidationCorpus() {
   add('personal.work-identifier', 'EMP-' + 'A'.repeat(41), '工号 ', '', ['门禁卡使用说明', 'employee documentation', 'order EMP-88421']);
   add('personal.profile-url', 'https://www.linkedin.com/in/synthetic-' + 'A'.repeat(257), '', '', ['https://linkedin.com.evil.test/in/synthetic-person', 'https://www.linkedin.com/company/synthetic-company', 'https://example.test/in/synthetic-person', 'fakelinkedin.com/in/synthetic-person', 'https://fakelinkedin.com/in/synthetic-person', 'user@linkedin.com/in/synthetic-person']);
   add('technical.ipv4', '172.31.255.254', 'http://', ':8080/a', ['10.256.0.1', '192.168.1.999', '8.8.8.8', '172.32.0.1', '110.1.1.1']);
+  add('technical.ipv6', 'fe80::1ff:fe23:4567:890a', 'http://[', ']:8080/a', ['12:30:45', 'std::vector', '2001:db8::1', 'fe80::zz', 'AB:CD:EF:01:23:45']);
   add('technical.mac', 'AB:CD:EF:01:23:45', '', '', ['AB:CD:EF:01:23', 'AB:CD:EF:01:23:GG']);
   add('technical.windows-user-path', '合成用户', 'c:/users/', '/file.txt', ['C:/ProgramData/fixture/file.txt', 'C:/Users/']);
   add('technical.posix-user-path', 'synthetic', '/Users/', '/file.txt', ['/usr/share/fixture.txt', '/home/']);
@@ -186,6 +188,8 @@ function createValidationCorpus() {
   extra('personal.health-record', 'ABC', '就诊号：');
   extra('personal.diagnosis', '合成', '疾病诊断：');
   extra('technical.ipv4', '10.0.0.1');
+  extra('technical.ipv6', '2001:db8::8a2e:370:7334', 'client_ip: ');
+  extra('technical.ipv6', 'FD00:0:0:0:0:0:0:25');
   extra('technical.mac', '02:00:00:00:00:01');
   extra('technical.windows-user-path', 'synthetic' + 'A'.repeat(129), 'C:\\Users\\', '\\file.txt');
   extra('technical.posix-user-path', 'synthetic' + 'A'.repeat(129), '/home/', '/file.txt');

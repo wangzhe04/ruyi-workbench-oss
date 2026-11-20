@@ -43,7 +43,8 @@ export async function downloadPrivacyExport(request) {
       || (sourceSnapshot !== null && sourceSnapshot !== JSON.stringify(state.currentSession))) throw new Error(t('privacy.export.changed'));
   };
   try {
-    const expectedPrivacy = { mode: state.config?.privacyModeV1 || 'off', technical: state.config?.privacyTechnicalV1 === true, rules: state.config?.privacyRulesV1 || [] };
+    const overrides = state.config?.privacyRuleOverridesV1 && typeof state.config.privacyRuleOverridesV1 === 'object' && Object.keys(state.config.privacyRuleOverridesV1).length ? state.config.privacyRuleOverridesV1 : null;
+    const expectedPrivacy = { mode: state.config?.privacyModeV1 || 'off', technical: state.config?.privacyTechnicalV1 === true, rules: state.config?.privacyRulesV1 || [], ...(overrides ? { ruleOverrides: overrides } : {}) };
     const artifact = await validatedCopy({ ...request, expectedPrivacy }, {
       unchanged,
       create: value => ({ url: URL.createObjectURL(new Blob([value.content], { type: value.mime })) }),
@@ -106,6 +107,7 @@ function clipboardIntent(bindSession = true) {
     privacy: {
     mode: Object.hasOwn(state.config || {}, 'privacyModeV1') ? state.config.privacyModeV1 : 'unknown',
     technical: state.config?.privacyTechnicalV1 === true, rules: structuredClone(state.config?.privacyRulesV1 || []),
+    ...(state.config?.privacyRuleOverridesV1 && typeof state.config.privacyRuleOverridesV1 === 'object' && Object.keys(state.config.privacyRuleOverridesV1).length ? { ruleOverrides: structuredClone(state.config.privacyRuleOverridesV1) } : {}),
   } };
 }
 function assertClipboardIntent(intent) {

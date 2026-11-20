@@ -7,12 +7,13 @@ const fixture = require('../fixtures/external-bots-remote-actions/human-history.
 const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/13w-external-bots.js'), 'utf8');
 const hash = b => crypto.createHash('sha256').update(b).digest('hex');
 test('typed human changes invert exactly through reviewed C1b to committed B2 without changing historical hashes', () => {
-  a.equal(hash(source), fixture.sha256);
+  // 151 phase 4 (4B): the newest layer (privacy-safe reply clip) is stripped first; the human-decision pin is unchanged.
+  a.equal(hash(history.beforePrivacyReplyClip(source)), fixture.sha256);
   const c1 = history.beforeHumanDecisions(source); a.equal(hash(c1), fixture.baseSha256);
   a.equal(hash(c1), require('../fixtures/external-bots-remote-actions/readonly-history.json').sha256);
   a.equal(hash(history.beforeRemoteActions(source)), require('../fixtures/external-bots-progress/deferred-wake-history.json').sha256);
   let forward = c1; for (const row of fixture.inverseSpans) { a.equal(forward.split(row.after).length, 2); forward = forward.replace(row.after, row.before); }
-  a.equal(forward, source);
+  a.equal(forward, history.beforePrivacyReplyClip(source));
 });
 test('human inverse refuses unrelated drift and a corrupted span cannot bypass the old C1/B2 proof', () => {
   for (const changed of [source + '\n', source.replace('externalBotVerifiedIngressTickets = new WeakMap()', 'externalBotVerifiedIngressTickets = new Map()')]) {
