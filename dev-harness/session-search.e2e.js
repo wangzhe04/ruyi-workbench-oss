@@ -155,6 +155,19 @@ try {
   const tokenOff = (await post(PORT_OFF, '/api/bootstrap', {}))?.token;
   ok(typeof token === 'string' && token.length > 0, 'S1 取到工作台 token');
   const auth = { 'x-wcw-token': token };
+  const gemma2 = process.env.RUYI_SEMANTIC_BACKEND === 'gemma2' && process.env.RUYI_DISABLE_SEMANTIC !== '1';
+  const semanticComplete = response => response.json?.semantic?.status === 'ready' && response.json.semantic.coverage === 'complete';
+  async function scoredSearch(query) {
+    const route = '/api/sessions/search?q=' + encodeURIComponent(query);
+    const deadline = Date.now() + 20000;
+    let response = await get(PORT, route, auth);
+    // 候选模型在加载期间只返回强词法证据。召回断言应检查首个完整语义回包。
+    while (gemma2 && response.status === 200 && response.json?.ok === true && !semanticComplete(response) && Date.now() < deadline) {
+      await sleep(200);
+      response = await get(PORT, route, auth);
+    }
+    return response;
+  }
 
   // ── A 鉴权与入参 ──────────────────────────────────────────────────────────────────────────
   const noToken = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('乱码'));
@@ -176,13 +189,13 @@ try {
   const hereString = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('here-string'), auth);
   ok((hereString.json?.results || [])[0]?.id === 'sess-beta', 'B3 ASCII 词命中正文');
 
-  const canary = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('流量 观察'), auth);
-  ok((canary.json?.results || []).some(r => r.id === 'sess-delta'), 'B4 多词查询命中');
+  const canary = await scoredSearch('流量 观察');
+  ok((!gemma2 || semanticComplete(canary)) && (canary.json?.results || []).some(r => r.id === 'sess-delta'),
+    `B4 多词查询命中(语义 ${canary.json?.semantic?.status}/${canary.json?.semantic?.coverage})`);
 
-  // 拼写漂移:词法子串必然落空,靠向量层的 3-gram 兜回来
-  const typo = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('powersell here string'), auth);
-  ok((typo.json?.results || []).some(r => r.id === 'sess-beta'),
-    `B5 拼写漂移(powersell)仍能命中(实得 ${JSON.stringify((typo.json?.results || []).map(r => r.id))})`);
+  const typo = await scoredSearch('powersell here string');
+  ok((!gemma2 || semanticComplete(typo)) && (typo.json?.results || []).some(r => r.id === 'sess-beta'),
+    `B5 拼写漂移(powersell)仍能命中(语义 ${typo.json?.semantic?.status}/${typo.json?.semantic?.coverage}，实得 ${JSON.stringify((typo.json?.results || []).map(r => r.id))})`);
 
   // ── C 脱敏:正文里粘过的密钥不能因为"搜了一下"就漏出去 ─────────────────────────────────
   const secret = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('provider 超时'), auth);
@@ -258,11 +271,11 @@ try {
     'F2 关闭时不建索引(零新增持久化面)');
   // ── G 116-5b 线程摘要:结果带名字与概括,且它们也进检索单元 ────────────────────────────
   const alphaRow = (bom.json?.results || []).find(r => r.id === 'sess-alpha') || {};
-  ok(alphaRow.briefTitle === 'CSV 导出乱码' && alphaRow.briefGist === '给导出的表格补上字节序标记',
-    `G1 有摘要的会话在结果里带 briefTitle/briefGist(实得 ${JSON.stringify({ briefTitle: alphaRow.briefTitle, briefGist: alphaRow.briefGist })})`);
+  ok(alphaRow.briefTitle === 'CSV 导出乱码' && alphaRow.briefGist === (gemma2 ? '' : '给导出的表格补上字节序标记'),
+    `G1 摘要字段遵循当前模式的来源准入(实得 ${JSON.stringify({ briefTitle: alphaRow.briefTitle, briefGist: alphaRow.briefGist })})`);
   ok(alphaRow.title === '无关标题甲', 'G1b title 仍是原话(它是权威,也是 hover 全文与回退)');
   const byBrief = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('字节序标记'), auth);
-  ok((byBrief.json?.results || [])[0]?.id === 'sess-alpha',
+  ok(byBrief.json?.results?.[0]?.id === 'sess-alpha' && byBrief.json.results[0].briefGist === '给导出的表格补上字节序标记',
     `G2 只出现在摘要里的词也能搜到(摘要进了检索单元,顺带提召回;实得 ${JSON.stringify((byBrief.json?.results || []).map(r => r.id))})`);
   const betaRow = (hereString.json?.results || []).find(r => r.id === 'sess-beta') || {};
   ok(!('briefTitle' in betaRow) && !('briefGist' in betaRow),
@@ -272,8 +285,13 @@ try {
   const middle = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('断点续传'), auth);
   ok((middle.json?.results || [])[0]?.id === 'sess-epsilon', `H1 长对话中间问过的事能搜到(${JSON.stringify((middle.json?.results || []).map(r => r.id))})`);
   ok(/断点续传/.test((middle.json?.results || [])[0]?.snippet || ''), 'H1b 摘录落在命中处');
-  const noise = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('噪声回执独有词 ZXQJ'), auth);
-  ok((noise.json?.results || []).length === 0, `H2 后台回执 / 系统行不进索引(${JSON.stringify((noise.json?.results || []).map(r => r.id))})`);
+  const noiseQuery = '噪声回执独有词 ZXQJ';
+  const noisePreview = await get(PORT, '/api/sessions/search?preview=1&q=' + encodeURIComponent(noiseQuery), auth);
+  ok(noisePreview.status === 200 && noisePreview.json?.lexicalPreview === true && noisePreview.json.coverage?.complete === true && noisePreview.json.results?.length === 0,
+    `H2 后台回执 / 系统行不进词法索引(HTTP ${noisePreview.status}，索引完整 ${noisePreview.json?.coverage?.complete})`);
+  const noise = await scoredSearch(noiseQuery);
+  ok((!gemma2 || semanticComplete(noise)) && noise.json?.results?.length === 0,
+    `H2b 无相关来源的查询不应召回(HTTP ${noise.status}，语义 ${noise.json?.semantic?.status}/${noise.json?.semantic?.coverage}，实得 ${JSON.stringify((noise.json?.results || []).map(r => ({ id: r.id, matchMode: r.matchMode, ordinal: r.reference?.messageOrdinal, score: r.semanticScore })))})`);
   // 只沾一个常见词的会话不算命中:「导出」只在 alpha 里出现,但查询另外两个词它都没有
   const weak = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('导出 季度报表 同比'), auth);
   ok(!(weak.json?.results || []).some(r => r.id === 'sess-alpha'), `H3 只沾一个词的会话不进结果(${JSON.stringify((weak.json?.results || []).map(r => r.id))})`);
