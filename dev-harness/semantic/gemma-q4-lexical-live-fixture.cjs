@@ -1,5 +1,0 @@
-'use strict';
-// Same audited UI private staged source, with fixture-only lexical owner binding.
-const fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto'),{compileFixture}=require('./owner-lexical-fixture-binding.cjs'),{createCoarsePolicy,CONTRACT}=require('./gemma-q4-live-policy.cjs');const hash=x=>crypto.createHash('sha256').update(x).digest('hex');
-async function fixture(options={}){if(options.scalarHost)throw Error('Gemma no scalar service');const f=await compileFixture(require.resolve('./ui-tentative-coverage-fixture.cjs'),options),source=fs.readFileSync('ruyi-workbench/app/src/13ap-session-fulltext-index.js','utf8');if(hash(source)!=='90a0191d29307ba1f5582f4073bb7a01dc311f5a72481bbc06b01ee3a084a15f'){await f.close();throw Error('producer drift');}const normalize=vm.runInNewContext(source.match(/^  const canonicalText=.*;$/m)[0]+'\n'+source.match(/^  const normalize=.*;$/m)[0]+'\nnormalize;');f.context.ResearchScalarComposite=createCoarsePolicy({identify:f.context.SemanticRetrieval.structuredIds,normalize,terms:f.api.terms});return f;}
-module.exports={fixture,CONTRACT};

@@ -27,5 +27,7 @@ ruyi-workbench/runtime/node/LICENSE binary
 # Preserve them exactly across checkout; do not rewrite their historical hashes.
 /docs/optimization-plan/evidence/semantic-retrieval-20261116/** -text whitespace=cr-at-eol
 /dev-harness/semantic/** -text whitespace=cr-at-eol
+# 151 阶段 5 P14:研究证据归档的清单与 SHA256SUMS 按原始字节钉 sha256,不做行尾转换(.tar.gz 已由 *.gz 声明为 binary)。
+/dev-harness/archive/semantic-research-* -text whitespace=cr-at-eol
 /ruyi-workbench/semantic-runtime/** -text whitespace=cr-at-eol
 /ruyi-workbench/runtime/node/** -text whitespace=cr-at-eol

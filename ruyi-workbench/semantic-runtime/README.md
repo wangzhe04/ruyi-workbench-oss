@@ -58,7 +58,11 @@ npm 包的许可证文件保留在 bundle，完整文件库存与 npm lock 可�
 
 ```powershell
 node dev-harness/semantic/download-candidates.cjs output/semantic-install-all
+# evaluate.cjs 是研究评测脚本，已随 dev-harness/semantic 研究证据归档（见 dev-harness/archive/README.md）；先原地复原再运行
+node dev-harness/research-archive.js extract --into .
 node dev-harness/semantic/evaluate.cjs output/semantic-bundle output/semantic-pilot.json
+# 用完收回:只删与归档逐字节相同的复原件，改过的保留并报告
+node dev-harness/research-archive.js clean --dir .
 $env:RUYI_SEMANTIC_TEST_ROOT=(Resolve-Path output/semantic-bundle).Path
 node --test dev-harness/unit/semantic-runtime.test.js
 ```

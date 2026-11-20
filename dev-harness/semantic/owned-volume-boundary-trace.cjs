@@ -1,3 +1,0 @@
-'use strict';
-const crypto=require('node:crypto'),H=x=>crypto.createHash('sha256').update(x).digest('hex');
-function transform(source){const before='    Check(GetVolumeInformationByHandleW(RootNode().Handle, null, 0, out serial, out component, out flags, filesystem, 64));',after='    ResearchRootPhase("immediately-before-volume");\n'+before+'\n    ResearchRootPhase("immediately-after-volume");';if(source.split(before).length!==2||!source.includes('static void ResearchRootPhase(string stage)'))throw Error('volume.trace.boundary');const out=source.replace(before,after);return{source:out,originalSha256:H(source),derivedSha256:H(out),edits:[[before,after]]};}module.exports={transform};

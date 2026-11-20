@@ -1,7 +1,0 @@
-'use strict';
-const {scriptClass}=require('./calibration-pair-script.cjs');
-function mean(rows){if(!rows.length)return null;const dimension=rows[0].vector.length,out=new Array(dimension).fill(0);for(const row of rows){if(row.vector.length!==dimension)throw Error('Dimension mismatch');for(let i=0;i<dimension;i++)out[i]+=row.vector[i]/rows.length;}return out;}
-function fit(rows){const global=mean(rows);if(!global)throw Error('Empty train role');return{global,script:Object.fromEntries(['cjk','latin'].map(label=>[label,mean(rows.filter(row=>scriptClass(row.text)===label))])),counts:{all:rows.length,cjk:rows.filter(row=>scriptClass(row.text)==='cjk').length,latin:rows.filter(row=>scriptClass(row.text)==='latin').length,uncertain:rows.filter(row=>scriptClass(row.text)==='uncertain').length}};}
-function transform(vector,text,role,mode){if(mode==='raw')return vector.slice();const center=mode==='role-only'?role.global:role.script[scriptClass(text)]||role.global,shifted=vector.map((x,i)=>x-center[i]),norm=Math.hypot(...shifted);return norm>1e-12&&Number.isFinite(norm)?shifted.map(x=>x/norm):null;}
-function trainingDocs(fixture){const split=new Map(fixture.queries.filter(q=>q.kind==='positive'&&q.relevant.length===1).map(q=>[q.relevant[0],q.split]));return fixture.documents.filter((doc,index)=>{const canonical=fixture.documents[index-index%2];if(index%2&&doc.id!==canonical.id+'-adjacent')throw Error('Unexpected fixture topic ownership');return split.get(canonical.id)==='train';});}
-module.exports={id:'train-role-script-center-v1',fit,transform,trainingDocs};

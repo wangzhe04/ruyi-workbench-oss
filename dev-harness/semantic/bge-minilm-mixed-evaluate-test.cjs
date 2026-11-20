@@ -1,6 +1,0 @@
-'use strict';
-const assert=require('node:assert/strict'),{fuse}=require('./bge-minilm-mixed-evaluate.cjs');const docs=['a','b','c'].map(id=>({id})),q={},profiles=[{name:'zh',k:1,cutoff:.53},{name:'en',k:1,cutoff:.46}];
-let ranks={zh:[{id:'a',score:.4,ordinal:0},{id:'b',score:.8,ordinal:1}],en:[{id:'a',score:.4,ordinal:0},{id:'b',score:.8,ordinal:1}]};assert.deepEqual(fuse(q,docs,ranks,{hits:[]},profiles),[]);
-ranks={zh:[{id:'a',score:.8,ordinal:0},{id:'b',score:.7,ordinal:1}],en:[{id:'b',score:.9,ordinal:1},{id:'a',score:.7,ordinal:0}]};let result=fuse(q,docs,ranks,{hits:[]},profiles);assert.deepEqual(result.map(x=>x.id),['a','b']);
-const weak=(id,rank)=>({fixtureDocumentId:id,strong:false,producerScore:2,producerExact:false,originalLexicalRank:rank});result=fuse(q,docs,ranks,{hits:[weak('a',3),weak('b',1)]},profiles.map(x=>({...x,k:0})));assert.deepEqual(result.map(x=>x.id),['b','a']);assert(result.every(x=>x.lexical&&!x.semantic));
-result=fuse(q,docs,ranks,{hits:[{...weak('a',0),strong:true,producerExact:true}]},profiles);assert.equal(result[0].id,'a');assert.equal(result.filter(x=>x.id==='a').length,1);assert.equal(result[0].semantic,false);console.log('fake fusion, no refill, weak OR, lexical rank and strong exemption: PASS');

@@ -1,2 +1,0 @@
-'use strict';
-const assert=require('node:assert/strict'),{preflight,compare,identity}=require('./multilingual-compact-smoke-receiver.cjs');let v=Array(384).fill(0);v[0]=1;assert.equal(compare(v,v),0);assert.throws(()=>compare([1],v));(async()=>{assert.equal(preflight().samples.length,11);assert.match(await identity(process.pid),/^\d+$/);assert.equal(await identity(2147483647),null);console.log('fake smoke preflight, vectors, identity: PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

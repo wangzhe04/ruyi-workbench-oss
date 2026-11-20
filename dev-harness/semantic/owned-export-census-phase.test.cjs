@@ -1,3 +1,0 @@
-'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{transform}=require('./owned-export-census-phase.cjs');
-test('all census entrances are tagged and original failure is preserved',()=>{const source=fs.readFileSync(path.join(__dirname,'original-01aa-work-data-tree.js'),'utf8'),v=transform(source,path.join(os.tmpdir(),'unused-phase.json'));let out=v.source;for(const[a,b]of v.edits.slice().reverse()){assert.equal(out.split(b).length,2);out=out.replace(b,a)}assert.equal(out,source);for(const phase of ['first-native','node-bind','final-native'])assert.ok(v.source.includes(phase));assert.ok(v.source.includes('catch{}failed=true;primary=cause;throw cause;'));});

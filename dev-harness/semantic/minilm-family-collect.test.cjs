@@ -1,6 +1,0 @@
-'use strict';
-const {test}=require('node:test'),a=require('node:assert/strict'),{validate,delta}=require('./minilm-family-collect.cjs');
-const good=()=>({ok:true,dimensions:384,modelFingerprint:'sha256:'+'a'.repeat(64),vectors:[[1,...Array(383).fill(0)]],tokenCounts:[4],encodedTokenCounts:[4],truncated:[false]});
-test('family output requires actual384 finite unit vectors and nonempty fixed fingerprint',()=>{a.equal(validate(good(),1).dimensions,384);for(const change of [r=>r.vectors[0].pop(),r=>r.vectors[0][0]=NaN,r=>r.vectors[0][0]=.5,r=>r.modelFingerprint='',r=>r.dimensions=1024]){const r=good();change(r);a.throws(()=>validate(r,1));}});
-test('token shape cannot hide truncation or encode count mismatch',()=>{for(const change of [r=>r.tokenCounts=[],r=>r.encodedTokenCounts=[0],r=>r.truncated=['false'],r=>r.encodedTokenCounts=[3]]){const r=good();change(r);a.throws(()=>validate(r,1));}const partial=good();partial.encodedTokenCounts=[3];partial.truncated=[true];a.equal(validate(partial,1).truncated[0],true);});
-test('repeat and lossy comparison preserve384 coordinates',()=>{const v=good().vectors[0];a.deepEqual(delta(v,v),{maxAbs:0,cosine:1});a.throws(()=>delta([1],v));const w=v.slice();w[1]=.1;a(delta(v,w).maxAbs>0);a(delta(v,w).cosine<1);});

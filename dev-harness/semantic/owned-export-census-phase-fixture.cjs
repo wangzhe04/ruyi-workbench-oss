@@ -1,2 +1,0 @@
-'use strict';
-function transform(source){const a='  const guardedIO={...io,async open(file,flags,...args){',b="  const guardedIO={...io,async lstat(file,...args){if(state.bindPhaseFailure&&state.native===1)throw Object.assign(Error('modeled bind failure'),{code:'work_data_tree.source_changed'});return io.lstat(file,...args);},async open(file,flags,...args){";if(source.split(a).length!==2)throw Error('phase fixture boundary');return{source:source.replace(a,b),edits:[[a,b]]};}module.exports={transform};

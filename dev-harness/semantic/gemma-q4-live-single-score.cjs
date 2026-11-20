@@ -1,3 +1,0 @@
-'use strict';
-function createSingleScoreFence(){let current=null;return Object.freeze({async attempt(id,work){if(current)throw Error('gemma.live.concurrent_attempt');const state={id,calls:0};current=state;try{return await work(state);}finally{if(current===state)current=null;}},wrap(namespace){return {...namespace,create:(...args)=>{const engine=namespace.create(...args);return {...engine,score:(...scoreArgs)=>{if(!current)throw Error('gemma.live.no_attempt');current.calls++;if(current.calls>1)throw Error('gemma.live.duplicate_score_refused');return engine.score(...scoreArgs);}};}};}});}
-module.exports={createSingleScoreFence};

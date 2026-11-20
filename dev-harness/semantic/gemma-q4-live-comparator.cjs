@@ -1,4 +1,0 @@
-'use strict';
-const crypto=require('node:crypto'),hash=x=>crypto.createHash('sha256').update(x).digest('hex');
-function observedEncoder(encoder,reference,counters,parity){return {...encoder,encode:async(texts,options)=>{counters.calls[options.role]++;counters.submitted[options.role]+=texts.length;const result=await encoder.encode(texts,options);if(result.ok){counters.completed[options.role]+=result.vectors.length;for(const [i,text]of texts.entries()){const ref=reference.get(options.role+'|'+hash(text));if(!ref){parity.unmatched++;continue;}const value=result.vectors[i];if(value.length!==ref.vector.length)throw Error('comparison dimension mismatch');const maxAbs=Math.max(...value.map((v,j)=>Math.abs(v-ref.vector[j])));parity.matched++;if(maxAbs!==0)parity.nonzero++;parity.maxAbs=Math.max(parity.maxAbs,maxAbs);parity.rows.push({role:options.role,textSha256:hash(text),referenceId:ref.id,maxAbs});}}return result;}};}
-module.exports={observedEncoder};

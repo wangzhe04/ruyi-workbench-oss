@@ -1,3 +1,0 @@
-'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{transform}=require('./owned-codec-scope-diagnostic.cjs');const src=fs.readFileSync('output/semantic-owned-prepare-cause-diagnostic-v4/source-input/ruyi-workbench/app/src/01ad-work-data-migration-host.js','utf8');
-test('all source scope stage markers reverse exactly and capture stays guarded',()=>{const x=transform(src);let s=x.source;for(const [a,b] of [...x.edits].reverse()){assert.equal(s.split(b).length,2);s=s.replace(b,a);}assert.equal(s,src);assert.ok(x.source.includes('codec-before-capture'));assert.ok(x.source.includes('readCapturedScope(captured,ownership'));assert.throws(()=>transform(src.replace("'before-transform','before-uploads'","'changed'")));});
