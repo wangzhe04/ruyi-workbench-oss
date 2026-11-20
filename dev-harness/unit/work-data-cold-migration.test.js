@@ -72,6 +72,7 @@ test('one cold enable authenticates, backs up and transforms every ordinary requ
   ['session-fulltext-state','sessions/_fulltext-index-v1/state.json'],
   ['session-fulltext-manifest','sessions/_fulltext-index-v1/sess_one/manifest.json'],
   ['session-fulltext-shard','sessions/_fulltext-index-v1/sess_one/'+'a'.repeat(32)+'.0.json'],
+  ['session-fulltext-vectors','sessions/_fulltext-index-v1/sess_one/vectors.json'],
  ];
  const marker='SYNTHETIC_M3_ALL_FAMILIES_PRIVATE';
  const makeText=(family,shape)=>{

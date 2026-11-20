@@ -2,11 +2,11 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 83,
+  "count": 84,
   "lifecycleCounts": {
     "dedicated-exemption": 29,
     "external-exemption": 10,
-    "regenerable-exemption": 12,
+    "regenerable-exemption": 13,
     "shared-lifecycle": 32
   },
   "entries": [
@@ -513,6 +513,20 @@
       "recovery": "restore complete encrypted records without sampling; source authority still belongs to fulltext owner",
       "lifecycle": "regenerable-exemption",
       "exemptionReason": "derived message text remains required encrypted storage; pending adapter acceptance"
+    },
+    {
+      "id": "session-fulltext-vectors",
+      "pattern": "<data>/sessions/_fulltext-index-v1/<safe-session-id>/vectors.json",
+      "owner": "13ap-session-fulltext-index.js",
+      "anchor": "const VECTOR_FILE=",
+      "schema": "object / Store schema1; payload schema1 {sessionId, model fingerprint, dims, entries: window key -> base64 float32}",
+      "writePrimitive": "WorkDataStore.createText chunked atomic write (background encoder, exclusive with search read leases); purpose search-index / sessions / fulltext-index:<sid>:vectors",
+      "corruption": "invalid shape, model mismatch or authenticated carrier failure is read as no vectors (lexical and disclosure unaffected); rewritten by the background encoder",
+      "capacity": "8MiB logical file (<=3584 windows); in-process decoded cache <=96MiB LRU",
+      "cache": "owner per-session decoded vectors; cleared on delete (that session only), pause, maintenance and runtime cache invalidation",
+      "recovery": "restore exact authenticated bytes; owner re-encodes missing or mismatched windows in the background",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "derived embeddings of sealed conversation text remain required encrypted storage; regenerable by re-encoding"
     },
     {
       "id": "session-v1-backup",

@@ -203,7 +203,7 @@ function searchGates(job, indexJob, { indexSkipped }) {
     if (!ir || ir.fatal || !ir.index) gates.push(errored('G-search-index', '400 会话后台索引', '400 会话,语义关', indexJob));
     else gates.push(valueGate({ id: 'G-search-index', title: '400 会话后台索引建完', condition: `${ir.sessions} 条会话,语义关;按前端节奏连发非 preview 搜索直到 coverage.complete;上限 ${Math.round(ir.index.capMs / 1000)} s(未完成记为上限值)`,
       value: ir.index.completeAtMs === null ? ir.index.capMs : ir.index.completeAtMs, target: 60000, unit: 'ms', samples: 1,
-      details: { complete: ir.index.completeAtMs !== null, polls: ir.index.polls, last: ir.index.last, trace: ir.index.trace } }));
+      details: { complete: ir.index.completeAtMs !== null, polls: ir.index.polls, firstFullMs: ir.index.firstFullMs ?? null, requestMsP50: ir.index.requestMsP50 ?? null, requestMsMax: ir.index.requestMsMax ?? null, last: ir.index.last, trace: ir.index.trace } }));
   }
   return gates;
 }

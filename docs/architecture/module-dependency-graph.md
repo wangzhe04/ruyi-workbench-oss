@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4452 | 4393 | 968 | 67 | 0 | 1 |
+| 145 | 4452 | 4396 | 969 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -146,7 +146,7 @@
 | 128 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
 | 129 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 9 |
 | 130 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 9 |
-| 131 | `13ap-session-fulltext-index.js` | unclassified | 1 | 28 | 12 |
+| 131 | `13ap-session-fulltext-index.js` | unclassified | 1 | 31 | 13 |
 | 132 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 28 | 13 |
 | 133 | `13ba-media-image-contract.js` | unclassified | 1 | 1 | 1 |
 | 134 | `13bb-media-derived-store.js` | unclassified | 1 | 2 | 2 |
@@ -731,12 +731,13 @@
 | `13ap-session-fulltext-index.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13ap-session-fulltext-index.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
 | `13ap-session-fulltext-index.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
-| `13ap-session-fulltext-index.js` | `02-session-store.js` | backward | `createSessionFullTextSource`, `workDataKeys` |
-| `13ap-session-fulltext-index.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName` |
+| `13ap-session-fulltext-index.js` | `02-session-store.js` | backward | `createSessionFullTextSource`, `sessionFullTextSourceSerial`, `workDataKeys` |
+| `13ap-session-fulltext-index.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName`, `turnSettlers` |
 | `13ap-session-fulltext-index.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |
 | `13ap-session-fulltext-index.js` | `06h9-semantic-policy.js` | backward | `SemanticOriginalWindows` |
 | `13ap-session-fulltext-index.js` | `06ha-semantic-retrieval.js` | backward | `SemanticPolicyConsumers`, `SemanticRetrieval`, `SemanticWindowPolicy` |
 | `13ap-session-fulltext-index.js` | `06hb-semantic-runtime.js` | backward | `SemanticRuntimeTransportProof` |
+| `13ap-session-fulltext-index.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13ap-session-fulltext-index.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `13ap-session-fulltext-index.js` | `13d-core-domain-routes.js` | backward | `sessionSearchRowIsNoise` |
 | `13aq-work-data-native-adapters.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `path` |

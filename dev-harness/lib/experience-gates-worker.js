@@ -454,7 +454,11 @@ async function runSearch() {
       if (cov && cov.complete === true) { completeAtMs = round(performance.now() - t0); break; }
       await sleep(500);
     }
-    out.index = { capMs, completeAtMs, polls: polls.length, last: polls[polls.length - 1] || null, trace: polls.filter((p, i) => i % 5 === 0 || i === polls.length - 1) };
+    // 151 阶段 4A:「首次搜索只付词法成本」—— 第一发非 preview 搜索的耗时,以及建索引期间每发搜索耗时的中位数/最大值
+    // (修前每发要在请求里建 1.5 s 的片;改后建索引在后台,每发只是一次词法检索)。
+    const full = polls.filter((p, i) => i > 0 && p.status === 200).map(p => p.ms).sort((x, y) => x - y);
+    const pick = q => full.length ? full[Math.min(full.length - 1, Math.floor(q * full.length))] : null;
+    out.index = { capMs, completeAtMs, polls: polls.length, firstFullMs: polls[1] ? polls[1].ms : null, requestMsP50: pick(0.5), requestMsMax: full.length ? full[full.length - 1] : null, last: polls[polls.length - 1] || null, trace: polls.filter((p, i) => i % 5 === 0 || i === polls.length - 1) };
   }
   await fake.close();
   return out;

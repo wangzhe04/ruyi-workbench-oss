@@ -30924,6 +30924,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionFullTextSourceSerial",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "workDataKeys",
           "kinds": [
             "read"
@@ -30934,6 +30941,13 @@
           "symbol": "sanitizeFsSegmentName",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -30974,6 +30988,13 @@
         {
           "provider": "06hb-semantic-runtime.js",
           "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
           "kinds": [
             "read"
           ]

@@ -52,7 +52,7 @@ function authorizedSearchBriefContract() {
   // 3.1：行装配按 windowPolicy（语义窗口策略是否在用）决定 reference.session 是否换成核对过的 meta；两支都要带 brief。
   for (const windowPolicy of [false, true]) for (const brief of [{ title: 'authorized generated name', gist: 'authorized gist' }, null]) {
     const meta = { id: 'owned', title: 'original title', ...(brief ? { brief } : {}) };
-    const context = { meta, safe: meta, excerpt: meta.title, requiredIds: [], rankScore: 1 / 61, windowPolicy, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
+    const context = { meta, safe: meta, excerpt: meta.title, requiredIds: [], rankScore: 1 / 61, metadataMode: 'lexical', windowPolicy, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
     for (const assembly of assemblers) {
       const row = vm.runInNewContext('(' + assembly + ')', context);
       if (row.title !== meta.title || (brief ? row.briefTitle !== brief.title || row.briefGist !== brief.gist : 'briefTitle' in row || 'briefGist' in row)) return false;

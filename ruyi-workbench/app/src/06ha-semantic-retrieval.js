@@ -44,6 +44,8 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const documentLimit=Math.max(4096,Math.min(16384,options.documentLimit||8192)),queryLimit=128;
     const documents=new Map(),queries=new Map();let cacheGeneration=0,codecToken=null;
     const clear=()=>{cacheGeneration++;documents.clear();queries.clear();};
+    // 151 阶段 4A(150 S14):删除一条会话只忘掉它自己的文档向量(调用方在 score 时按行给 owners),查询向量与别的会话不动。
+    const forget=owner=>{if(typeof owner!=='string'||!owner)return;for(const [k,row]of documents)if(row.owner===owner)documents.delete(k);};
     if(typeof runtime?.registerCache==='function')runtime.registerCache(clear);
     // Reserve measured call cost before starting another bounded batch. A native
     // deadline still kills its owner; routine tail-budget exhaustion must not.
@@ -59,7 +61,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,identities=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
@@ -82,6 +84,10 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
       const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(scopeId,model,['document',identities[n],text]));
       let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
+      // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。只给非 Gemma 模型用 ——
+      // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
+      if(typeof stored==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
+        if(typeof lookup==='function')for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
       async function encode(texts,role){
         if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
         if(beforeEncode)await beforeEncode();
@@ -95,8 +101,19 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         texts=texts.slice(0,encodedCount);
         const minimumBudgetMs=minimumBudget(role,texts.length);
         if(deadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
-        const began=Date.now();
-        const result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
+        let began=Date.now();
+        let result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
+        // 151 阶段 4A 二审 (e):运行时同一时刻只编一批,后台建索引的一小批(≤约 150 ms)占着时回 overloaded。前台在自己的期限内
+        // 每 25 ms 重试,至多 8 次;期限不够一批就照旧按 overloaded 回退。每次重试前照旧过 beforeEncode(撤权照常截住)。
+        for(let tries=0;result?.ok!==true&&result?.reason==='overloaded'&&tries<8&&typeof setTimeout==='function'&&deadline-Date.now()>minimumBudgetMs+30;tries++){
+          await new Promise(resolve=>setTimeout(resolve,25));
+          if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+          if(beforeEncode)await beforeEncode();
+          if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
+          // 4A 三审 P7:只量最后一次真正发出的那次,重试前的等待不进单条耗时估计(否则一次撞车就把预算越学越大)。
+          began=Date.now();
+          result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
+        }
         if(beforeEncode)await beforeEncode();
         if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
         if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
@@ -110,6 +127,8 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
       }
       if(!q){const result=await encode([query],'query');if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
+      // 维度与查询不符的持久向量(同指纹却换了维度只可能是坏件)当作没有,不进打分。
+      for(let n=0;n<vectors.length;n++)if(vectors[n]&&!cachedDocuments[n]&&vectors[n].length!==q.length)vectors[n]=null;
       const missing=[];for(let n=0;n<vectors.length;n++)if(!vectors[n])missing.push(n);
       const budget=Math.max(0,Math.min(128,Math.floor(Number(maxEncodeDocuments)||0)));
       const selected=missing.slice(0,budget);
@@ -129,7 +148,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         // Keep vectors aligned with the actual submitted source prefix. Entries
         // resolved but not executed remain pending, including gaps in usable rows.
         batch=batch.slice(0,result.encodedCount);
-        batch.forEach((n,i)=>{if(result.truncated?.[i]){status='truncated';return;}vectors[n]=result.vectors[i];encodedTexts[n]=texts[i];documents.delete(keys[n]);documents.set(keys[n],{vector:vectors[n].slice(),encodedText:encodedTexts[n]});while(documents.size>documentLimit)documents.delete(documents.keys().next().value);});
+        batch.forEach((n,i)=>{if(result.truncated?.[i]){status='truncated';return;}vectors[n]=result.vectors[i];encodedTexts[n]=texts[i];documents.delete(keys[n]);documents.set(keys[n],{vector:vectors[n].slice(),encodedText:encodedTexts[n],owner:typeof owners[n]==='string'?owners[n]:null});while(documents.size>documentLimit)documents.delete(documents.keys().next().value);});
         offset+=usable[result.encodedCount-1].position+1;
         if(Date.now()>=deadline){status='timeout';break;}
       }
@@ -145,7 +164,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
     }
-    return Object.freeze({score,clear});
+    return Object.freeze({score,clear,forget});
   }
 const SemanticWindowPolicy = (() => {
 // Unregistered research policy. Raw coarse rank is global to one complete

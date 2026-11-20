@@ -194,6 +194,20 @@
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .steward-board-sub:empty { display: none; }
+/* 151 阶段 4A(150 U5):搜索命中行摘录前的命中方式小标(关键词 / 按意思 / 关键词＋意思)。 */
+.rail-search-match {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-2);
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  vertical-align: baseline;
+}
+.rail-search-match-semantic,
+.rail-search-match-both { color: var(--accent); }
 .steward-board-sub.is-updating { opacity: .35; }
 
 /* 看板栏头里那枚「同时最多 ⟨n⟩」胶囊，以及三面共用的药丸与动作键。

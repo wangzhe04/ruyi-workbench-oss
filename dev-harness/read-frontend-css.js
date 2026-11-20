@@ -79,13 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 151 阶段 1 批 1D 续钉(前值 567eb433…):chat-composer.css 追加维护期输入框说明条两条规则(U3)、chat-live.css 追加记忆尾标六条规则(U4)、
-// settings.css 追加「需要重启如意」一条规则(U3)、tool-pane.css 的 .toast 一条规则改为 max-width:min(340px,100vw-36px) 并加 overflow-wrap/max-height(U3 toast 溢出)。
-// 算法自证:四层内存读取替回 HEAD 字节时精确复现 567eb433e320bb76d43488dd401ce3de4d983130b6a4b8e6c3332f951f09bb2f;反向检查:内存里改坏 .memory-check-badge 一条规则得到不同摘要。
-// 若同阶段其他批也改 CSS,由主会话合并后统一重钉。
-// 151 阶段 1 批 1E 续钉(前值 716d1eee…):仅 steward-conversation.css 追加一条规则 `.steward-composer > .maintenance-composer-notice`
-// (管家胶囊里的维护期说明条整行独占、圆角收进胶囊;复审建议 4),其余各层逐字未动。算法自证:只把 steward-conversation.css 的内存读取
-// 替回 HEAD 字节时精确复现 716d1eeeab9d05cf3382b100cabe1a8ac192510baf403f822a67a8eba280bf3f;反向检查:内存里把该规则 flex 改成 1 1 99% 得到不同摘要。
 // 151 阶段 3B 续钉(前值 683c4dc9…):仅 settings.css 追加三条规则(.work-data-confirm 启用加密二次确认、其 ul 与 .work-data-blockers 列表缩进、确认段内按钮行间距;150 W14)。
 // 算法自证:只把 settings.css 的内存读取替回 HEAD 字节时精确复现 683c4dc9bed7f2b60ccc9f63a0e231e7cd0c0c68e62210c778f7bb3c56a30e88;反向检查:内存里把 .work-data-confirm 的 display:grid 改成 flex 得到不同摘要。
 // 若同阶段其他批也改 CSS,由主会话合并后统一重钉。
@@ -93,7 +86,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // settings.css 的 .setcat-status 四条(150 U10 语义开关行的模型状态句)；tool-pane.css 的 .memory-search-note 一条(150 U7 搜索范围说明)。
 // 算法自证:只把这三层的内存读取替回 HEAD 字节时精确复现 9dea71e9220cc7e2a39d093371e78d8cd82b85493ba772349750c05055521a10;反向检查:内存里改坏一条规则即得不同摘要(D51/F3 当场红)。
 // 若同阶段其他批也改 CSS,由主会话合并后统一重钉。
-const LEGACY_STYLES_SHA256 = '37ea6107742af0d613e3f6ece9891c89030c75aef079d7878acf70a5e6ccb0d4';
+// 151 阶段 4A 续钉(前值 37ea6107…,即 4C 合入后的值):仅 views/steward-board.css 追加三条规则(.rail-search-match 命中方式小标与其
+// semantic/both 两色;150 U5),其余各层逐字未动。算法自证:只把 steward-board.css 的内存读取替回 HEAD 字节时精确复现
+// 37ea6107742af0d613e3f6ece9891c89030c75aef079d7878acf70a5e6ccb0d4;反向检查:锁值不符时 D51/F3 当场红(合并时以占位值实测)。
+const LEGACY_STYLES_SHA256 = 'ae5111011bae4b50b96a633c0508aef12ece7c98e5d38600190748b6befc9149';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

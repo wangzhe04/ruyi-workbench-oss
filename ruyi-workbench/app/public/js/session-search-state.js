@@ -8,6 +8,8 @@
 // dev-harness/unit/session-search-state.test.js 直接 import 跑真值表。
 
 export const SESSION_SEARCH_REFRESH_MS = 500;
+// 151 阶段 4A 二审 (d):后台在等(首屏静默期、回合在跑)时放慢续拉,别每 0.5 s 打一发只为看它还在等。
+export const SESSION_SEARCH_WAITING_MS = 2500;
 export const SESSION_SEARCH_MAX_REFRESH = 127;
 // 连续超时的退避：第 1、2、3、4 次超时之后分别等 0.5／1／2／4 s 再接着搜；第 5 次超时就停下，交给「继续搜索」。
 export const SESSION_SEARCH_TIMEOUT_BACKOFF_MS = Object.freeze([500, 1000, 2000, 4000]);
@@ -76,14 +78,20 @@ export function sessionSearchFollowUp({ response, previous, refreshAttempt = 0, 
   const semanticPending = Boolean(semantic && ['loading', 'partial', 'timeout'].includes(semantic.status)
     && !semantic.truncated && semantic.coverage !== 'complete');
   const lexicalPreview = Boolean(response && response.lexicalPreview === true);
+  // 151 阶段 4A:索引与语义向量改由后台建。后台还在建/编(哪怕这两发之间计数没涨,比如正在建一条大会话)就接着拉;
+  // 只剩被跳过的会话(超出预算,稍后自动重试)时不再空转。
+  const background = coverage && coverage.background;
+  const skippedOnly = Boolean(background && background.skippedSessions > 0 && coverage.pendingSessions <= background.skippedSessions);
+  const backgroundBusy = Boolean(background && ['building', 'encoding', 'waiting'].includes(background.state) && !skippedOnly
+    && (sourcePending || semanticPending));
   const canContinue = !['paused', 'disabled'].includes(coverage && coverage.phase)
-    && (lexicalPreview || sourceAdvanced || semanticAdvanced || (semantic && semantic.status === 'loading' && refreshAttempt < 3));
+    && (lexicalPreview || sourceAdvanced || semanticAdvanced || backgroundBusy || (semantic && semantic.status === 'loading' && refreshAttempt < 3));
   const timedOut = sessionSearchTimedOut(response);
   const backoffSpent = timedOut && timeouts > SESSION_SEARCH_TIMEOUT_BACKOFF_MS.length;
   if (canContinue && refreshAttempt < SESSION_SEARCH_MAX_REFRESH && !backoffSpent) {
     const delayMs = timedOut
       ? SESSION_SEARCH_TIMEOUT_BACKOFF_MS[Math.min(Math.max(timeouts, 1), SESSION_SEARCH_TIMEOUT_BACKOFF_MS.length) - 1]
-      : SESSION_SEARCH_REFRESH_MS;
+      : background && background.state === 'waiting' ? SESSION_SEARCH_WAITING_MS : SESSION_SEARCH_REFRESH_MS;
     return { next: true, delayMs };
   }
   return { next: false, resume: Boolean(timedOut || sourcePending || semanticPending) };
@@ -118,6 +126,8 @@ export function sessionSearchNotices(state) {
     return [known ? { key: 'session.searchTimeoutPaused', params: known } : { key: 'session.searchProgressUnavailable' }];
   }
   if (coverage && coverage.phase === 'paused') return [counts ? { key: 'session.searchIndexPaused', params: counts } : { key: 'session.searchPaused' }];
+  const skipped = coverage && coverage.background && coverage.background.skippedSessions > 0 ? coverage.background.skippedSessions : 0;
+  if (skipped && counts && coverage.complete === false) return [{ key: 'session.searchSkippedSessions', params: { ...counts, count: skipped } }];
   if (s.canResume && counts && coverage.complete === false) return [{ key: 'session.searchPartialResumable', params: counts }];
   if (semantic && !['disabled', 'deferred'].includes(semantic.status)) {
     if (semantic.status === 'loading') return [{ key: 'session.semanticLoading' }];

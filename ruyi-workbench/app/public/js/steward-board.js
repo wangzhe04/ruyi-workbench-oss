@@ -700,6 +700,7 @@ export function createStewardBoard({
   // 修两处「搜不全」:①后端命中与标题子串【并集】—— 修前后端结果一到就只认它(前 30 条),标题里明明有这个词的
   // 会话反而被滤掉;② 左栏只取了最新 200 条会话的行,更早的会话后端搜到了也画不出来 —— 缺的那几条按 id 补取
   // (loadSearchExtras),只在搜索时并进来。命中的摘录挂在行下面,看得出为什么搜到它。
+  const RAIL_MATCH_KEYS = { lexical: 'session.searchMatchLexical', semantic: 'session.searchMatchSemantic', both: 'session.searchMatchBoth' };
   function railFilter() {
     const input = byId('sessionSearch');
     const query = String((input && input.value) || '').trim().toLowerCase();
@@ -707,9 +708,11 @@ export function createStewardBoard({
     const snapshot = searchState() || null;
     const results = snapshot && Array.isArray(snapshot.results) && String(snapshot.query || '').toLowerCase() === query ? snapshot.results : null;
     const hit = results ? new Set(results.map(item => String((item && item.id) || ''))) : null;
-    const snippets = new Map();
+    const snippets = new Map(), modes = new Map();
     for (const item of results || []) if (item && item.id && item.snippet) snippets.set(String(item.id), String(item.snippet));
-    return { query, ids: hit, snippets };
+    // 151 阶段 4A(150 U5):每条命中标命中方式(关键词 / 按意思 / 两者),挂在摘录前面。
+    for (const item of results || []) if (item && item.id && RAIL_MATCH_KEYS[item.matchMode]) modes.set(String(item.id), item.matchMode);
+    return { query, ids: hit, snippets, modes };
   }
   function railRowMatches(row, filter) {
     if (!filter) return true;
@@ -1380,7 +1383,8 @@ export function createStewardBoard({
     const multi = group.rows.length > 1;
     const key = (multi ? 'm:' : 's:') + group.missionId;
     const snippet = !multi && filter ? filter.snippets.get(String(group.rows[0].sessionId || '')) : '';
-    const sig = railUnitSig(group, selected, snippet);
+    const matchMode = snippet && filter.modes ? filter.modes.get(String(group.rows[0].sessionId || '')) || '' : '';
+    const sig = railUnitSig(group, selected, matchMode ? snippet + '\u0001' + matchMode : snippet);
     const cached = railUnits.get(key);
     if (cached && cached.sig === sig && group.rows.every(row => {
       const chips = cached.chips.get(String(row.sessionId || ''));
@@ -1395,7 +1399,12 @@ export function createStewardBoard({
     if (multi) return [key, { sig, timeSig, chips, nodes: [railTaskRow(group, selected), railThreadList(group, selected, chips)] }];
     // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
     const threadRow = renderThreadRow(group.rows[0], { missionId: group.missionId, selected, facts: missionFacts(group), chips });
-    if (snippet) threadRow.appendChild(el('div', 'steward-board-sub rail-search-snippet', snippet));
+    if (snippet) {
+      const line = el('div', 'steward-board-sub rail-search-snippet');
+      if (matchMode) { const badge = el('span', 'rail-search-match rail-search-match-' + matchMode, t(RAIL_MATCH_KEYS[matchMode])); badge.dataset.matchMode = matchMode; line.appendChild(badge); }
+      line.appendChild(doc().createTextNode(snippet));
+      threadRow.appendChild(line);
+    }
     return [key, { sig, timeSig, chips, nodes: [threadRow] }];
   }
   // 按 wanted 的顺序对账 parent 的子节点：已在位的不动，其余插入／挪动，多出来的摘掉。

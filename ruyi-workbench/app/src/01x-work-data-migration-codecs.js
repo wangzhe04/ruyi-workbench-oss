@@ -31,6 +31,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     'sessions', m => 'fulltext-index:' + m[1] + ':manifest', { chunked: true, sessionId: true, maxPlaintextBytes: 4 * 1024 * 1024 });
   text('session-fulltext-shard', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/([a-f0-9]{32})\\.(0|[1-9][0-9]*)\\.json$'),
     'sessions', m => 'fulltext-index:' + m[1] + ':' + nativeIdentity(m[2]) + '.' + m[3], { chunked: true, sessionId: true, maxPlaintextBytes: 256 * 1024 });
+  // 151 阶段 4A(150 S14):后台编码落盘的语义向量,与 shard 同一 owner、同一 Store 载体,迁移时同样重封/解封。
+  text('session-fulltext-vectors', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/vectors\\.json$'),
+    'sessions', m => 'fulltext-index:' + m[1] + ':vectors', { chunked: true, sessionId: true, maxPlaintextBytes: 8 * 1024 * 1024 });
   text('pretender-index', 'search-index', /^sessions\/\.pretender\/projection-index\.json$/, 'global', 'pretender-index', { chunked: true });
   session('session-messages', 'messages', 'messages'); session('session-provider', 'provider', 'provider');
   session('session-interventions', 'interventions', 'interventions'); session('session-changes', 'changes', 'changes');

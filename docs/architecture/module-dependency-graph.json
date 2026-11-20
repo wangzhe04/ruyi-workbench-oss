@@ -5,8 +5,8 @@
   "summary": {
     "modules": 145,
     "providedSymbols": 4452,
-    "requiredSymbols": 4393,
-    "edges": 968,
+    "requiredSymbols": 4396,
+    "edges": 969,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -31198,6 +31198,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionFullTextSourceSerial",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "workDataKeys",
           "kinds": [
             "read"
@@ -31208,6 +31215,13 @@
           "symbol": "sanitizeFsSegmentName",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -31248,6 +31262,13 @@
         {
           "provider": "06hb-semantic-runtime.js",
           "symbol": "SemanticRuntimeTransportProof",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
           "kinds": [
             "read"
           ]
@@ -43068,6 +43089,7 @@
       "to": "02-session-store.js",
       "symbols": [
         "createSessionFullTextSource",
+        "sessionFullTextSourceSerial",
         "workDataKeys"
       ],
       "direction": "backward"
@@ -43076,7 +43098,8 @@
       "from": "13ap-session-fulltext-index.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "sanitizeFsSegmentName"
+        "sanitizeFsSegmentName",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -43111,6 +43134,14 @@
       "to": "06hb-semantic-runtime.js",
       "symbols": [
         "SemanticRuntimeTransportProof"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "activeAgentRuns"
       ],
       "direction": "backward"
     },
