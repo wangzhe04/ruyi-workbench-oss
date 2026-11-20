@@ -104,6 +104,124 @@ test('ON ordinary NTFS skill backs up every original object and DATA/ADS, then r
   assert.equal(f.state.acquires, f.state.releases);
 });
 
+async function archiveOnlyFixture(f, dest, id = 'one') {
+  // Use the real current writer to make the archive, then declare that only
+  // its authenticated bytes should be needed for restoration.
+  const row = f.row(id);
+  f.state.rows = [row];
+  const copied = await f.api.hooks.copySkills({ keys: [row.key], overwrite: true });
+  assert.equal(copied.copied, 1);
+  const descriptor = f.api.migrationCapsuleDescriptor(f.backup(copied.id, id));
+  const { intent } = await f.api.migrationCapsuleRead(descriptor);
+  await f.api.migrationCapsuleWriteIntent(descriptor, { ...intent, archiveOnly: true });
+  await fsp.rm(path.join(descriptor.backup, 'objects'), { recursive: true });
+  const [log] = await vm.runInNewContext('migrationLogs()', f.context);
+  assert.equal(log.files[0].file, dest);
+  return { descriptor, log, file: log.files[0] };
+}
+
+test('archive-only undo reads the existing encrypted archive and reconstructs names, DATA and sealed provenance without original objects', { skip: !win }, async () => {
+  const f = fixture(), dest = f.skill('one'), before = ids(dest);
+  const original = { schema: 1, source: 'codex', plugin: '', sourcePath: 'C:/old-skill', importedAt: '2026-10-22', sourceTreeHash: 'before', copyTreeHash: 'before' };
+  await f.api.writeSkillImportRecord(dest, original);
+  const provenance = await fsp.readFile(path.join(dest, '.ruyi-import.json'));
+  const deep = path.join('sub', '甲'.repeat(100), '庚'.repeat(100), '目录');
+  await fsp.mkdir(path.join(dest, deep, '空目录'), { recursive: true });
+  await fsp.writeFile(path.toNamespacedPath(path.join(dest, deep, 'CON')), Buffer.from([130, 0, 13, 10, 255]));
+  await fsp.writeFile(path.toNamespacedPath(path.join(dest, 'sub', 'binary.bin')) + ':private:$DATA', Buffer.from([255, 0, 254]));
+  await fsp.writeFile(path.toNamespacedPath(dest) + ':directory-private:$DATA', 'DIRECTORY ADS');
+  const { descriptor, log } = await archiveOnlyFixture(f, dest);
+  const originalBroker = f.api.migrationCapsuleBroker, commands = [];
+  f.replace('migrationCapsuleBroker', async () => {
+    const broker = await originalBroker();
+    return { ...broker, command: args => { commands.push(args.cmd); return broker.command(args); } };
+  });
+
+  const receipt = await f.api.hooks.undo({ id: log.id });
+  assert.equal(receipt.ok, true);
+  assert.equal(receipt.restored, 1);
+  assert.equal(receipt.skills[0].outcome, 'restored-previous');
+  assert.notEqual(ids(dest)[0][1], before[0][1], 'undo uses a new root inode');
+  assert.deepEqual(await fsp.readFile(path.toNamespacedPath(path.join(dest, deep, 'CON'))), Buffer.from([130, 0, 13, 10, 255]));
+  assert.deepEqual(await fsp.readdir(path.toNamespacedPath(path.join(dest, deep, '空目录'))), []);
+  assert.deepEqual(await fsp.readFile(path.join(dest, 'sub', 'binary.bin')), Buffer.from([0, 255, 13, 10, 128, 42]));
+  assert.deepEqual(await fsp.readFile(path.join(dest, 'sub', 'binary.bin') + ':private:$DATA'), Buffer.from([255, 0, 254]));
+  assert.equal(await fsp.readFile(dest + ':directory-private:$DATA', 'utf8'), 'DIRECTORY ADS');
+  assert.deepEqual(await fsp.readFile(path.join(dest, '.ruyi-import.json')), provenance);
+  assert.deepEqual({ ...await f.api.readSkillImportRecord(dest) }, original);
+  assert.ok(commands.length > 0 && commands.every(command => command === 'capture'), 'native code checks the replacement, but never creates or restores a backup object');
+  assert.deepEqual((await fsp.readdir(descriptor.backup)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+  assert.deepEqual(await fsp.readdir(f.paths.skills), ['one']);
+  assert.equal((await f.api.migrationCapsuleRead(descriptor)).intent.phase, 'complete');
+  const [completed] = await vm.runInNewContext('migrationLogs()', f.context);
+  assert.equal(completed.undoResult.restored, 1);
+  assert.equal(typeof completed.undoneAt, 'string');
+  assert.equal(completed.undoProgress, undefined);
+  assert.equal((await f.api.hooks.undo({ id: log.id })).error, 'already-undone');
+  assert.equal(f.state.acquires, f.state.releases);
+});
+
+test('archive-only undo resumes an interrupted publication and acknowledges the same restored root once', { skip: !win }, async () => {
+  const f = fixture(), dest = f.skill('one');
+  const { descriptor, file } = await archiveOnlyFixture(f, dest);
+  f.context.fsp = { ...fsp, writeFile: async (target, ...args) => {
+    if (path.basename(target) === 'binary.bin') throw Object.assign(Error('materialization interrupted'), { code: 'EIO' });
+    return fsp.writeFile(target, ...args);
+  } };
+  await assert.rejects(() => f.api.migrationUndoSkillCopy(file), { code: 'EIO', operationMayHaveExecuted: true });
+  const interrupted = (await f.api.migrationCapsuleRead(descriptor)).intent.archiveRestore;
+  assert.match(interrupted.ownerIdentity, /^\d+:\d+$/);
+  assert.equal(interrupted.identity, undefined);
+  assert.equal(await fsp.readFile(path.join(dest, 'SKILL.md'), 'utf8'), '# REPLACEMENT\n');
+
+  f.context.fsp = { ...fsp, rename: async (from, to) => {
+    if (path.basename(from) === 'tree' && to === dest) throw Object.assign(Error('publication interrupted'), { code: 'EIO' });
+    return fsp.rename(from, to);
+  } };
+  await assert.rejects(() => f.api.hooks.recover(), { code: 'EIO' });
+  assert.equal(fs.existsSync(dest), false);
+  const { intent } = await f.api.migrationCapsuleRead(descriptor);
+  assert.equal(intent.phase, 'restoring');
+  const rootAfter = intent.archiveRestore.identity.split(':')[1];
+  const siblings = await fsp.readdir(f.paths.skills);
+  assert.equal(siblings.length, 2);
+  assert.ok(siblings.every(name => name.startsWith('.ruyi-copy-undo-')));
+
+  f.context.fsp = fsp;
+  const stagedFile = path.join(f.paths.skills, siblings.find(name => name.endsWith('-stage')), 'tree', 'SKILL.md');
+  await fsp.writeFile(stagedFile + ':foreign:$DATA', 'A stream not in the archive');
+  await assert.rejects(() => f.api.hooks.recover(), { code: 'work_data_backup.archive_restore_bytes' });
+  assert.equal(fs.existsSync(dest), false);
+  assert.equal(await fsp.readFile(stagedFile + ':foreign:$DATA', 'utf8'), 'A stream not in the archive');
+  await fsp.unlink(stagedFile + ':foreign:$DATA');
+
+  const write = f.api.migrationCapsuleWriteIntent;
+  f.replace('migrationCapsuleWriteIntent', (target, value) => {
+    if (value.phase === 'complete') throw Object.assign(Error('completion interrupted'), { code: 'ENOSPC' });
+    return write(target, value);
+  });
+  await assert.rejects(() => f.api.hooks.recover(), { code: 'ENOSPC' });
+  assert.equal(ids(dest)[0][1], rootAfter);
+  assert.equal(await fsp.readFile(path.join(dest, 'SKILL.md'), 'utf8'), '# ORIGINAL PRIVATE NAME\n');
+  await fsp.appendFile(path.join(dest, 'SKILL.md'), 'EDIT AFTER PUBLICATION');
+
+  f.replace('migrationCapsuleWriteIntent', write);
+  const retired = path.join(f.paths.skills, siblings.find(name => name.endsWith('-retired')));
+  const unexpected = path.join(retired, 'unexpected.txt');
+  await fsp.writeFile(unexpected, 'An unrelated file');
+  await assert.rejects(() => f.api.hooks.recover(), { code: 'work_data_backup.live_changed' });
+  assert.equal(await fsp.readFile(unexpected, 'utf8'), 'An unrelated file');
+  await fsp.unlink(unexpected);
+  // Resume deletion after a cleanup had already removed one original file.
+  await fsp.unlink(path.join(retired, 'SKILL.md'));
+  await f.api.hooks.recover();
+  assert.equal((await f.api.migrationUndoSkillCopy(file)).outcome, 'restored-previous');
+  assert.equal(ids(dest)[0][1], rootAfter);
+  assert.equal(await fsp.readFile(path.join(dest, 'SKILL.md'), 'utf8'), '# ORIGINAL PRIVATE NAME\nEDIT AFTER PUBLICATION');
+  assert.deepEqual(await fsp.readdir(f.paths.skills), ['one']);
+  assert.deepEqual((await fsp.readdir(descriptor.backup)).sort(), ['.ruyi-capsule-v1', 'archive', 'intent']);
+});
+
 test('file and directory extended attributes refuse before archive/rename/clear', { skip: !win }, async () => {
   for (const relative of ['SKILL.md', 'sub']) {
     const f = fixture(), dest = f.skill('one'), row = f.row();
