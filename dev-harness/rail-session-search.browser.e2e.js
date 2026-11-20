@@ -91,8 +91,12 @@ function seedEarlySessions(fx) {
       window.fetch = async (...args) => {
         const response = await original(...args);
         if (String(args[0]).includes('/api/sessions/search?')) {
-          const value = await response.clone().json();
-          window.__searchReceipts.push({ status: response.status, code: value.code || (value.error && value.error.code) || undefined, partial: value.partial, reason: value.reason, coverage: value.coverage, semantic: value.semantic, count: value.results?.length });
+          const json = response.json.bind(response);
+          response.json = async () => {
+            const value = await json();
+            window.__searchReceipts.push({ status: response.status, code: value.code || (value.error && value.error.code) || undefined, partial: value.partial, reason: value.reason, coverage: value.coverage, semantic: value.semantic, count: value.results?.length });
+            return value;
+          };
         }
         return response;
       };
@@ -104,7 +108,7 @@ function seedEarlySessions(fx) {
       const snip = row.querySelector('.rail-search-snippet');
       return { snippet: snip ? snip.textContent : '' };
     })()`, 400);
-    console.log('SEARCH RECEIPTS ' + JSON.stringify(await fx.evaluate('window.__searchReceipts')));
+    console.log('RAIL-DIAG 最近搜索回包 ' + JSON.stringify(await fx.evaluate('window.__searchReceipts.slice(-3)')));
     ok(Boolean(found), 'S1 老会话中间那句搜得到,并且画进了左栏(按 id 补取了它的行)');
     ok(found && /断点续传/.test(found.snippet), `S2 命中行下挂着摘录(${found && found.snippet})`);
     const titledShown = await fx.evaluate(`Boolean(document.querySelector('#railList [data-session-id="${titled}"]'))`);
@@ -112,9 +116,12 @@ function seedEarlySessions(fx) {
     const filler = await fx.evaluate(`new Set([...document.querySelectorAll('#railList [data-session-id]')].map(n => n.dataset.sessionId)).size`);
     ok(filler === 2, `S4 搜索时只剩命中的两条会话(${filler} 条)`);
     ok(fx.exceptions.length === 0, `S5 页面无未捕获异常(${JSON.stringify(fx.exceptions.slice(0, 2))})`);
-    const coverageProbe = await fx.evaluate(`(() => {
+    const { coverageProbe, lastReceipt } = await fx.evaluate(`(() => {
       const node = document.querySelector('#sessionSearchCoverage');
-      return { shown: Boolean(node && !node.hidden && node.getAttribute('role') === 'status'), text: node ? node.textContent : null, hidden: node ? node.hidden : null };
+      return {
+        coverageProbe: { shown: Boolean(node && !node.hidden && node.getAttribute('role') === 'status'), text: node ? node.textContent : null, hidden: node ? node.hidden : null },
+        lastReceipt: window.__searchReceipts.at(-1) || null,
+      };
     })()`);
     const coverage = coverageProbe && coverageProbe.shown ? coverageProbe.text : '';
     // 151 阶段 2F:索引建得更快以后,S1 等到命中行时正文索引可能已经建完(最后一发 coverage.complete:true)而语义模型
@@ -122,7 +129,6 @@ function seedEarlySessions(fx) {
     // x / y」。没建完时照旧要求覆盖率数字;建完且最后一发回包的 semantic.status 是 loading 时,要求状态行逐字是
     // session.semanticLoading 那句(zh-CN 词条);建完且语义不可用(unavailable/timeout/overloaded、无已缓存片段)时要求逐字是
     // session.semanticFallback 那句(与 session-search-state 的 sessionSearchNotices 同一判据);建完的其他情形仍要求数字。
-    const lastReceipt = await fx.evaluate(`(window.__searchReceipts || []).slice(-1)[0] || null`);
     const indexComplete = !!(lastReceipt && lastReceipt.coverage && lastReceipt.coverage.complete === true);
     const lastSemantic = indexComplete && lastReceipt.semantic ? lastReceipt.semantic : null;
     const zhCopy = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
@@ -157,6 +163,11 @@ function seedEarlySessions(fx) {
         if (!String(args[0]).includes('/api/sessions/search?')) return inner(...args);
         window.__u2Calls += 1;
         const q = new URL(String(args[0]), location.href).searchParams.get('q');
+        if (window.__u2Mode === 'semantic-progress') {
+          if (++window.__semanticProbeCalls > 1) await new Promise(resolve => { window.__finishSemanticProbe = resolve; });
+          return reply({ ok: true, query: q, results: [], coverage: { phase: 'idle', complete: true, sessions: 300, indexedSessions: 300, pendingSessions: 0 },
+            semantic: window.__semanticProbe });
+        }
         if (window.__u2Mode === 'hit') {
           window.__u2Mode = 'timeout';
           return reply({ ok: true, query: q, results: ids.map(id => ({ id, title: '较早的线程', snippet: '命中的正文 ' + id, score: 1 })), indexed: 10,
@@ -189,6 +200,30 @@ function seedEarlySessions(fx) {
     const opened = await fx.waitForEval(`(() => Boolean(document.querySelector('#railList li.steward-board-thread.is-sel[data-session-id="${target}"]')))()`, 300);
     ok(Boolean(opened), `S13 点窗口外那一行能打开对应线程(${target} 成为选中行)`);
     ok(fx.exceptions.length === 0, `S14 页面无未捕获异常(${JSON.stringify(fx.exceptions.slice(0, 2))})`);
+
+    const semanticProbes = [
+      { label: 'S15 模型加载', semantic: { status: 'loading' }, text: zh['session.semanticLoading'] },
+      { label: 'S16 语义覆盖进度', semantic: { status: 'partial', coverage: 'partial', cachedFragments: 1, candidateFragments: 3 },
+        text: zh['session.semanticPartial'].replace('{{cached}}', '1').replace('{{total}}', '3') },
+    ];
+    for (const probe of semanticProbes) {
+      await fx.evaluate(`(() => {
+        window.__u2Mode = 'semantic-progress'; window.__semanticProbeCalls = 0;
+        window.__semanticProbe = ${JSON.stringify(probe.semantic)}; window.__finishSemanticProbe = null;
+        const s = document.getElementById('sessionSearch'); s.value = '语义进度探针'; s.dispatchEvent(new Event('input', { bubbles: true })); return true;
+      })()`);
+      const duringFollowUp = await fx.waitForEval(`(() => {
+        if (!window.__finishSemanticProbe) return null;
+        const notice = document.getElementById('sessionSearchCoverage');
+        return { shown: !notice.hidden && notice.getAttribute('role') === 'status', text: notice.textContent };
+      })()`, 200);
+      ok(duringFollowUp && duringFollowUp.shown && duringFollowUp.text === probe.text,
+        `${probe.label}提示在索引完成后的续查期间依然显示（实 ${JSON.stringify(duringFollowUp)}）`);
+      await fx.evaluate(`(() => {
+        const s = document.getElementById('sessionSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true }));
+        window.__finishSemanticProbe?.(); return true;
+      })()`);
+    }
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {

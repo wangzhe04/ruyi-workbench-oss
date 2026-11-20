@@ -111,7 +111,16 @@ test('[P] 说明:按状态互斥,只出一条主说明', async () => {
   assert.deepEqual(keys({ results: [], error: 'server' }), ['session.searchFailedEmpty']);
   assert.deepEqual(keys({ results: hits(['A']), error: 'server' }), ['session.searchFailed']);
   assert.deepEqual(keys({ results: hits(['A']), error: 'server', coverage: pendingCoverage(32, 207) }), ['session.searchFailedCoverage'], '出错时带上保留下来的覆盖率');
-  assert.deepEqual(keys({ results: [], semantic: { status: 'loading' }, coverage: { phase: 'complete', complete: true, sessions: 5, indexedSessions: 5 } }), ['session.semanticLoading']);
+  const loadingModel = { results: [], semantic: { status: 'loading' }, coverage: { phase: 'complete', complete: true, sessions: 5, indexedSessions: 5 } };
+  assert.deepEqual(keys({ ...loadingModel, lexicalPreview: true, continuing: true, semantic: { status: 'deferred' } }),
+    ['session.searchPreviewEmpty'], '索引已完成的关键词预览暂无命中时，仍提示等待续查');
+  assert.deepEqual(keys(loadingModel), ['session.semanticLoading']);
+  assert.deepEqual(keys({ ...loadingModel, continuing: true }), ['session.semanticLoading'], '等语义续查时仍显示模型加载');
+  assert.deepEqual(keys({ ...loadingModel, loading: true }), ['session.semanticLoading'], '语义续查在飞时仍显示模型加载');
+  const encoding = { ...loadingModel, semantic: { status: 'partial', coverage: 'partial', cachedFragments: 1, candidateFragments: 3 } };
+  assert.deepEqual(S.sessionSearchNotices({ ...encoding, continuing: true }), [{ key: 'session.semanticPartial', params: { cached: 1, total: 3 } }]);
+  assert.deepEqual(keys({ ...encoding, loading: true }), ['session.semanticPartial'], '续查在飞时仍显示已知语义进度');
+  assert.deepEqual(keys({ ...loadingModel, continuing: true, timedOut: true }), ['session.searchPreparing'], '整次续查超时时保留现有重试提示');
   assert.deepEqual(keys({}), []);
 });
 

@@ -652,6 +652,12 @@ const SessionFullTextIndex = ((io,p,c) => {
         const semanticDeadline=Math.min(Date.now()+1000,Number.isFinite(options.deadline)?options.deadline:Infinity),policyContext=typeof SemanticOriginalWindows!=='undefined'?SemanticOriginalWindows.createRequest({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}):null;
         const sourceExpired=Object.freeze({semanticSourceBudget:true}),sourceCheck=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw sourceExpired;};
         const originalFragments=new Map(),originalFields=new Map(),loadedSources=new Set(),sourceSequences=new Map(),sourceGuards=new Map();let activeSids=[],activeMetadata=new Set();
+        const bodyRows=new Map(),sourceEpochs=new Map();
+        semanticRows.forEach((entry,index)=>{
+          const sid=entry.hit.row.sessionId;
+          if(!sourceEpochs.has(sid))sourceEpochs.set(sid,entry.hit.epoch);
+          if(!entry.metadata){const rows=bodyRows.get(sid)||[];rows.push({entry,index});bodyRows.set(sid,rows);}
+        });
         // 150 S8:回验分两档。权威复核(重读会话头与 epoch、附件与元数据复核)只在来源解析时(host.scan 首尾读头并核 epoch)
         // 和整次 score 结束后各做一次;编码前后那几次(06ha 前后各一、06hb 写入前与回包后各一)改为同步的廉价比对:
         // scope、授权表、进程内 sequence —— 进程内任何写都推 sequence,撤权与改写在下一次比对就拦住;外部改盘由结束时
@@ -659,7 +665,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         // 自己的 start/finish 两次 verify 也走权威档,逐窗 resolved 那几次走廉价档。
         // 截止只由语义层自己判(06ha 每批前看期限、06hb 写入前看期限),回验不再抛「预算用完」—— 修前编码刚回来、回包后那次
         // 回验撞上截止就把刚算好的整批连同本次全部进度一起丢掉,回报 cached=0(S13)。
-        const sampleEpoch=sid=>semanticRows.find(entry=>entry.hit.row.sessionId===sid).hit.epoch,verifiedMetadata=new Set();
+        const verifiedMetadata=new Set();
         const beforeEncode=async()=>{
           check();
           if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
@@ -670,18 +676,21 @@ const SessionFullTextIndex = ((io,p,c) => {
           check();
           if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
           const sids=[...new Set([...loadedSources,...[...verifiedMetadata].map(item=>item.sid)])];
-          for(const sid of sids){if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
-            if(await host.epoch(sid)!==sampleEpoch(sid)||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
+          const {settled}=await orderedPool(sids,async sid=>{check();if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
+            if(await host.epoch(sid)!==sourceEpochs.get(sid)||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
             for(const guard of sourceGuards.get(sid)||[])if(!await guard())throw fail('source_changed');for(const item of verifiedMetadata)if(item.sid===sid&&!await options.verifyMetadata(item))throw fail('source_changed');
-          }
+          });
+          if(settled.some(row=>row.status==='rejected'))throw poolFailure(settled,options.timeout);
           if(host.assertScope(context,access)!==true||sids.some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sourceSequences.get(sid)))throw fail('disclosure_changed');
         };
         const resolveTexts=async indices=>{
           activeSids=[...new Set(indices.map(n=>semanticRows[n].hit.row.sessionId))];activeMetadata=new Set(indices.map(n=>semanticRows[n].metadata).filter(Boolean));
           for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));verifiedMetadata.add(meta);}
-          for(const n of indices){sourceCheck();if(semanticRows[n].metadata)continue;const sid=semanticRows[n].hit.row.sessionId;if(loadedSources.has(sid))continue;
+          const missing=[...new Set(indices.filter(n=>!semanticRows[n].metadata).map(n=>semanticRows[n].hit.row.sessionId))].filter(sid=>!loadedSources.has(sid));
+          const {settled}=await orderedPool(missing,async sid=>{
+            sourceCheck();
             if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
-            const rows=semanticRows.map((entry,index)=>({entry,index})).filter(item=>!item.entry.metadata&&item.entry.hit.row.sessionId===sid);
+            const rows=bodyRows.get(sid);
             const policy=attachmentSource&&rows.some(item=>attachmentField.test(item.entry.hit.row.source))?await host.enabled():null,budget=attachmentBudget();
             let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set(),fragments=new Map(),fields=new Map();
             const proof=await host.scan(sid,async(row,ordinal)=>{
@@ -703,10 +712,13 @@ const SessionFullTextIndex = ((io,p,c) => {
               }
             },{check:sourceCheck});
             if(!proof||rows.some(item=>item.entry.hit.epoch!==proof.epoch||item.entry.hit.sourceRevision!==proof.revision)||await host.epoch(sid)!==proof.epoch||host.assertScope(context,access)!==true)throw fail('source_changed');
-            // 原文片段只在整条来源回读完、epoch 与 revision 都核过之后才并入;中途撞截止的那条一字不留。
+            return {sid,fragments,fields,checks,sequence:host.sourceSequence(sid)};
+          },{onSettled:({sid,fragments,fields,checks,sequence})=>{
+            // 原文片段只在整条来源回读完、epoch 与 revision 都核过之后才并入;按原顺序交付,中途撞截止的来源一字不留。
             for(const [index,text]of fragments)originalFragments.set(index,text);for(const [index,text]of fields)originalFields.set(index,text);
-            sourceSequences.set(sid,host.sourceSequence(sid));sourceGuards.set(sid,checks);loadedSources.add(sid);
-          }
+            sourceSequences.set(sid,sequence);sourceGuards.set(sid,checks);loadedSources.add(sid);
+          }});
+          if(settled.some(row=>row.status==='rejected'))throw poolFailure(settled,sourceExpired);
           await beforeEncode();
           return indices.map(n=>semanticRows[n].metadata?semanticRows[n].text:(originalFragments.get(n)??null));
         };

@@ -147,7 +147,10 @@ const crashAfterWarmupWorker = `const readline=require('node:readline');console.
 readline.createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);if(++n>1)process.exit(3);console.log(JSON.stringify({ok:true,requestId:r.requestId,modelFingerprint:'${fingerprint}',vectors:r.texts.map(()=>[1,0,0,0,0,0,0,0])}));});`;
 
 function runtimeFixture({ retryMs = 60, worker = null, stableMs } = {}) {
-  const context = vm.createContext({ SemanticRuntimeHooks: {}, Buffer, setTimeout, clearTimeout, Date, require, process, __dirname, WeakRef });
+  let now = Date.now();
+  class RuntimeClock extends Date { static now() { return now; } }
+  // Drive the cooldown explicitly. Child I/O and its safety timers still run in real time.
+  const context = vm.createContext({ SemanticRuntimeHooks: {}, Buffer, setTimeout, clearTimeout, Date: RuntimeClock, require, process, __dirname, WeakRef });
   const api = vm.runInContext(runtimeSource + '\n;SemanticRuntimeClient;', context);
   const children = [];
   let assetsFixed = !!worker;
@@ -165,31 +168,34 @@ function runtimeFixture({ retryMs = 60, worker = null, stableMs } = {}) {
       return exited(child) ? { exists: false } : { exists: true, pid, creationFileTime: '133' + String(pid) };
     },
   });
-  return { client, children, launches: () => children.length, fixAssets: () => { assetsFixed = true; },
+  return { client, children, launches: () => children.length, fixAssets: () => { assetsFixed = true; }, advance: ms => { now += ms; },
     async close() { try { await client.stop('disabled'); } catch { /* cleanup below */ } for (const child of children) if (!exited(child)) killOwnTree(child); } };
 }
 
 test('S1 worker that exits before identity is an availability failure, retried after backoff, recovers without restart', async () => {
-  const f = runtimeFixture();
+  const retryMs = 60;
+  const f = runtimeFixture({ retryMs });
   try {
-    const first = await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 });
+    const first = await f.client.prepare({ budgetMs: 5000 });
     assert.equal(first.available, false, 'unavailable result instead of a thrown semantic.owner_identity');
     assert.equal(f.client.descriptor().state, 'failed');
     assert.equal(f.launches(), 1);
     // Inside the cooldown no new process is spawned and nothing throws.
+    f.advance(retryMs - 1);
     const cooled = await f.client.prepare({ budgetMs: 1000 });
     assert.equal(cooled.available, false); assert.equal(cooled.state, 'failed'); assert.equal(f.launches(), 1);
     const encoded = await f.client.encode(['query'], { role: 'query', budgetMs: 500 });
     assert.equal(encoded.ok, false); assert.equal(f.launches(), 1);
     // Still broken after the cooldown: one more attempt, still no throw, backoff grows.
-    await new Promise(resolve => setTimeout(resolve, 80));
-    assert.equal((await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 })).available, false);
+    f.advance(1);
+    assert.equal((await f.client.prepare({ budgetMs: 5000 })).available, false);
     assert.equal(f.launches(), 2);
+    f.advance(retryMs * 2 - 1);
     assert.equal((await f.client.prepare({ budgetMs: 1000 })).available, false); assert.equal(f.launches(), 2);
     // Assets repaired: the next attempt after the (doubled) cooldown starts a working worker.
     f.fixAssets();
-    await new Promise(resolve => setTimeout(resolve, 160));
-    const recovered = await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 });
+    f.advance(1);
+    const recovered = await f.client.prepare({ budgetMs: 5000 });
     assert.equal(recovered.available, true, 'recovered without restart()');
     assert.equal(f.launches(), 3);
     const result = await f.client.encode(['中文'], { role: 'query', budgetMs: 1000 });
@@ -202,7 +208,7 @@ test('S10 a worker that passes warmup but dies on its first real encode keeps do
   const retryMs = 300;
   const f = runtimeFixture({ retryMs, worker: crashAfterWarmupWorker });
   const crashOnce = async () => {
-    assert.equal((await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 })).available, true, 'warmup passes');
+    assert.equal((await f.client.prepare({ budgetMs: 5000 })).available, true, 'warmup passes');
     const encoded = await f.client.encode(['query'], { role: 'query', budgetMs: 1000 });
     assert.equal(encoded.ok, false, 'the real encode fails instead of throwing');
     for (let i = 0; i < 100 && f.client.descriptor().state !== 'failed'; i += 1) await new Promise(resolve => setTimeout(resolve, 10));
@@ -211,16 +217,16 @@ test('S10 a worker that passes warmup but dies on its first real encode keeps do
   try {
     await crashOnce();
     assert.equal(f.launches(), 1);
-    await new Promise(resolve => setTimeout(resolve, retryMs + 100));
+    f.advance(retryMs);
     await crashOnce();
     assert.equal(f.launches(), 2, 'first cooldown is the base interval');
     // Before the fix warmup reset the streak, so this second cooldown was the base interval again (restart twice a minute forever).
-    await new Promise(resolve => setTimeout(resolve, retryMs + 100));
+    f.advance(retryMs * 2 - 1);
     const cooled = await f.client.prepare({ budgetMs: 1000 });
     assert.equal(cooled.available, false);
     assert.equal(f.launches(), 2, 'second cooldown is at least twice the base interval');
-    await new Promise(resolve => setTimeout(resolve, retryMs + 100));
-    assert.equal((await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 })).available, true);
+    f.advance(1);
+    assert.equal((await f.client.prepare({ budgetMs: 5000 })).available, true);
     assert.equal(f.launches(), 3);
   } finally { await f.close(); }
 });
@@ -230,12 +236,12 @@ test('S10 a worker that stayed up for the stable window has its streak forgiven 
   const f = runtimeFixture({ retryMs, worker: crashAfterWarmupWorker, stableMs: 0 });
   try {
     for (let round = 1; round <= 3; round += 1) {
-      assert.equal((await f.client.prepare({ budgetMs: 5000, deadline: Date.now() + 5000 })).available, true);
+      assert.equal((await f.client.prepare({ budgetMs: 5000 })).available, true);
       assert.equal((await f.client.encode(['query'], { role: 'query', budgetMs: 1000 })).ok, false);
       for (let i = 0; i < 100 && f.client.descriptor().state !== 'failed'; i += 1) await new Promise(resolve => setTimeout(resolve, 10));
       assert.equal(f.launches(), round);
       // Forgiven each time, so every cooldown stays at the base interval.
-      await new Promise(resolve => setTimeout(resolve, retryMs + 100));
+      f.advance(retryMs);
     }
   } finally { await f.close(); }
 });

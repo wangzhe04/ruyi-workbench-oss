@@ -353,6 +353,7 @@ test('[C3] 两把 key 交替(桌面探测在飞 / 能力探测那一路)时,回�
 test('[C4] 桌面探测落定让 key 多出桌面条目:回合接着用不带它的那份目录、不等它起动;新配上的 MCP 仍给起动窗口', async () => {
   const forTurn = ev('collectBridgedToolsForTurn');
   const savedPending = ev('desktopMcpDetectionPending');
+  const scan = Promise.withResolvers();
   try {
     // 桌面条目用挂住的桩(显式 command,走 resolveExternalMcpServers 的显式分支),外加一个起得来的普通 MCP。
     writeConfig({ desktopMcp: { enabled: true, autodetect: false, command: process.execPath, args: [MCP.hang.args[0]] }, externalMcpServers: [MCP.fast] });
@@ -361,11 +362,25 @@ test('[C4] 桌面探测落定让 key 多出桌面条目:回合接着用不带它
     const pendingCatalog = await forTurn(config);
     assert.deepEqual(pendingCatalog.tools.map(t => t.function.name), ['fastmcp__fastmcp_tool']);
     ev('desktopMcpDetectionPending = () => false');  // 探测落定:key 里多出桌面条目(它握手挂住)
-    const t0 = Date.now();
-    const next = await forTurn(config);
-    assert.ok(Date.now() - t0 < 300, `不为刚有答案的桌面条目再等起动窗口(实测 ${Date.now() - t0} ms)`);
-    assert.equal(next, pendingCatalog, '接着用不带它的那份(当前 key 的真子集,只少不多)');
+    const waiting = Symbol('仍在等扫描');
+    const scans = [];
+    await withStubs({ collectBridgedTools: (_config, _force, entries) => {
+      scans.push(entries.map(entry => entry.id));
+      return scan.promise;
+    } }, async () => {
+      const next = await Promise.race([forTurn(config), new Promise(resolve => setImmediate(resolve, waiting))]);
+      assert.equal(next, pendingCatalog, '桌面目录还在扫描，回合就拿到原目录');
+      assert.deepEqual(scans, [['ai-computer-control', 'fastmcp']], '后台扫描包含刚落定的桌面条目');
+
+      const added = forTurn({ ...config, externalMcpServers: [...config.externalMcpServers, { ...MCP.fast, id: 'new-mcp' }] });
+      assert.equal(await Promise.race([added, waiting]), waiting, '新配置的 MCP 仍等扫描');
+      assert.deepEqual(scans[1], ['ai-computer-control', 'fastmcp', 'new-mcp']);
+      const newCatalog = { tools: [], route: {} };
+      scan.resolve(newCatalog);
+      assert.equal(await added, newCatalog, '扫描在起动窗口内结束时使用新目录');
+    });
   } finally {
+    scan.resolve();
     globalThis.__tslStub = savedPending; ev('desktopMcpDetectionPending = globalThis.__tslStub'); delete globalThis.__tslStub;
     writeConfig();
   }

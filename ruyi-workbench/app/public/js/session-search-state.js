@@ -103,7 +103,7 @@ function coverageCounts(coverage) {
 }
 
 // ③ 搜索框下的说明：返回 [{ key, params }]。第一条是【互斥】的主说明，按下面的先后只取一条：
-//   出错 → 准备中（请求在飞／两发之间等下一发／关键词预览）→ 超时已暂停可继续 → 索引已暂停 → 部分覆盖可继续 → 语义降级／不全 → 完成（覆盖率）。
+//   出错 → 准备中（关键词预览、索引尚未完成或在等整次超时的重试）→ 超时已暂停可继续 → 索引已暂停 → 部分覆盖可继续 → 语义加载／降级／不全 → 完成（覆盖率）。
 // 只有「完成」那一档才在后面附「另有 N 个附件／消息待验证」—— 它们与主说明不矛盾，其余各档不附，免得一句话压住列表。
 export function sessionSearchNotices(state) {
   const s = state && typeof state === 'object' ? state : {};
@@ -115,7 +115,8 @@ export function sessionSearchNotices(state) {
     // 保留下来的上一次覆盖率一并说出来:用户知道手上这批结果是在索引到哪一步时搜出来的。
     return [counts ? { key: 'session.searchFailedCoverage', params: counts } : { key: 'session.searchFailed' }];
   }
-  if (s.loading || s.continuing || (s.lexicalPreview && !s.canResume)) {
+  const waitingForIndex = (s.loading || s.continuing) && (coverage?.complete !== true || s.timedOut);
+  if (waitingForIndex || (s.lexicalPreview && !s.canResume)) {
     if (s.lexicalPreview && !(Array.isArray(s.results) && s.results.length)) return [{ key: 'session.searchPreviewEmpty' }];
     // 进度量得到(上一发带回了覆盖率)就并进同一句里说 —— 索引确实在推进,不让用户以为卡住了。
     const preparing = coverage && coverage.phase !== 'timeout' && coverage.complete === false ? counts : null;

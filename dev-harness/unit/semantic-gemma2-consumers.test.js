@@ -20,6 +20,41 @@ test('strong metadata belongs to the same coarse K pool and never refills to a l
 test('strong title does not promote sibling summary/gist/recent request into UI or mapped model context',async t=>{const {f}=await setup(t);await f.put('A',[{id:'m',role:'user',content:'ordinary'}],{head:{title:'cedar violet',summary:'cedar rejected context',threadBrief:{title:'identity label',gist:'cedar rejected gist'},recentUserRequest:{text:'UNREVIEWED REQUEST'},kind:'mission',cwd:f.directory}});const ui=await f.ui('cedar violet'),row=ui.results[0];a.equal(row.title,'cedar violet');a.equal(row.summary,'');a.equal(row.brief.gist,'');a.equal(row.briefGist,'');a.equal(row.recentUserRequest,undefined);a.doesNotMatch(JSON.stringify(ui),/rejected context|rejected gist|UNREVIEWED REQUEST/);const entry=f.installEntrypoints(),model=await entry.threadHistorySearch({q:'cedar violet'},f.ctx);a.equal(model.results[0].lastAssistantText,'');a.equal(model.results[0].brief.gist,'');a.equal(model.results[0].recentUserRequest,undefined);a.doesNotMatch(JSON.stringify(model),/rejected context|rejected gist|UNREVIEWED REQUEST/);});
 test('selected Gemma2 loading/unavailable/timeout/partial never enters legacy weak metadata mode',async t=>{const {f,setMode}=await setup(t);await f.put('A',[],{head:{title:'cedar violet',summary:'cedar UNREVIEWED CONTEXT'}});await f.put('Weak',[],{head:{title:'cedar unrelated'}});for(const mode of ['loading','unavailable','missing','timeout','partial']){setMode(mode);const value=await f.ui('cedar violet');a.deepEqual(Array.from(value.results,row=>row.id),['A'],mode);a.equal(value.results[0].summary,'',mode);a.equal(value.semantic.coverage,'partial',mode);a.doesNotMatch(JSON.stringify(value),/UNREVIEWED CONTEXT/);}});
 test('explicit legacy selection keeps its existing source metadata DTO contract',async t=>{const {f,setMode}=await setup(t);setMode('legacy');await f.put('A',[],{head:{title:'cedar violet',summary:'LEGACY CONTEXT'}});const value=await f.ui('cedar violet');a.equal(value.results[0].summary,'LEGACY CONTEXT');});
+
+test('reads different original sources concurrently before submitting a Gemma2 document batch', async t => {
+  const { f } = await setup(t);
+  await f.put('A', [{ id: 'a', role: 'user', content: 'accepted alternative subject' }], { head: { title: 'First' } });
+  await f.put('B', [{ id: 'b', role: 'user', content: 'unrelated material' }], { head: { title: 'Second' } });
+  const runtime = f.context.SemanticRuntimeHooks;
+  const encode = runtime.encode;
+  let readingDocuments = false;
+  let readers = 0;
+  let peak = 0;
+  runtime.encode = async (texts, options) => {
+    readingDocuments = options.role === 'query';
+    return encode(texts, options);
+  };
+  const source = f.api.source;
+  f.context.createSessionFullTextSource = () => ({
+    ...source,
+    async scan(...args) {
+      if (!readingDocuments) return source.scan(...args);
+      readers++;
+      peak = Math.max(peak, readers);
+      try {
+        await new Promise(resolve => setImmediate(resolve));
+        return await source.scan(...args);
+      } finally {
+        readers--;
+      }
+    },
+  });
+  const result = await f.ui('cedar violet');
+  a.equal(peak, 2, 'both authenticated source reads start before the first one resolves');
+  a.equal(result.semantic.coverage, 'complete');
+  a.deepEqual(Array.from(result.results, row => row.id), ['A']);
+});
+
 test('actual metadata planner distinguishes exactly256 eligible fields from257 before producer dispatch',async t=>{for(const extra of [false,true]){const {f}=await setup(t);for(let n=0;n<64;n++)await f.put('S'+n,[],{head:{title:'cedar title',summary:'cedar summary',threadBrief:{title:'cedar name',gist:'cedar gist'}}});if(extra)await f.put('Extra',[],{head:{title:'cedar extra'}});const original=f.context.SessionFullTextHooks.bindSessions,stop=Object.freeze({plannerProbe:true});let observed=null;f.context.SessionFullTextHooks.bindSessions=(...args)=>{const index=original(...args);return {...index,search:async(_q,_ctx,_limit,options)=>{observed={fields:options.metadataEntries.length,truncated:options.metadataEntriesTruncated,method:options.method};throw stop;}};};let caught;try{await f.ui('cedar violet');}catch(error){caught=error;}a.equal(caught,stop);a.equal(observed.fields,256);a.equal(observed.truncated,extra);a.ok(observed.method,'selected opaque method reaches producer independently of runtime state');}});
 test('actual producer marks over256 metadata windows partial even when eligible field count is only4',async t=>{const {f,setMode}=await setup(t);setMode('loading');const long='cedar '+ 'x'.repeat(5990);await f.put('A',[],{head:{title:long,summary:long,threadBrief:{title:long,gist:long}}});const value=await f.ui('cedar violet');a.equal(value.semantic.candidateFragments,256);a.equal(value.semantic.truncated,true);a.equal(value.semantic.coverage,'partial');a.equal(value.results.length,0);});
 test('strong summary is the admitted context; weak title/path remain source identification without a borrowed quote',async t=>{const {f}=await setup(t);await f.put('A',[],{head:{title:'cedar identifying label',summary:'cedar violet',threadBrief:{title:'cedar alternative label',gist:'cedar REJECTED GIST'},cwd:f.directory}});const value=await f.ui('cedar violet'),row=value.results[0];a.equal(row.snippet,'cedar violet');a.equal(row.summary,'cedar violet');a.equal(row.reference,null);a.equal(row.title,'cedar identifying label');a.equal(row.briefTitle,'cedar alternative label');a.equal(row.briefGist,'');a.notEqual(row.snippet,row.title);a.notEqual(row.snippet,row.cwd);});
