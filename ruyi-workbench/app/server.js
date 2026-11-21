@@ -115383,7 +115383,7 @@ function workDataPrepareInfrastructure({normalClose=false}={}){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');
   const phase=workDataMaintenance.status().phase;
   if(phase!=='idle'&&!(normalClose&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.normalCloseRequested?.()===true))throw Error('work_data.maintenance_not_idle');
-  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({});return workDataInfrastructureTicket;
+  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({normalClose});return workDataInfrastructureTicket;
 }
 function workDataResumeInfrastructure(ticket){
   if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
@@ -115393,6 +115393,13 @@ async function workDataCloseInfrastructure(ticket){
   if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
   workDataInfrastructurePhase='closing';
   try{
+    // Desktop normal close already stops the model before preparing this ticket.
+    // For a maintenance handoff, wait for the model while the old owner is alive.
+    if(!ticket.normalClose&&typeof SemanticRuntimeHooks!=='undefined'&&typeof SemanticRuntimeHooks.shutdown==='function'){
+      const semantic=await SemanticRuntimeHooks.shutdown();
+      if(semantic?.cleanupStatus!=='observed'||semantic?.workerExited!==true||semantic.cleanupFailed===true)
+        throw Object.assign(Error('work_data.maintenance_infrastructure_uncertain'),{code:'work_data.maintenance_infrastructure_uncertain'});
+    }
     PrivacyLocalDriveProbe.stopSync();
     await ToolboxHooks.stopAll();stopKimiModelProbes();await stopKimiServer({shutdown:true});
     killAllMcpClients();killAllShellSessions();
