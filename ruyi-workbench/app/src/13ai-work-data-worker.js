@@ -459,7 +459,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
     // that libuv job; this does NOT request CREATE_BREAKAWAY_FROM_JOB. An outer
     // desktop job is inherited and still kills the worker when the app closes.
     return require('node:child_process').spawn(command.command, command.args, {
-      env, detached: process.platform === 'win32', windowsHide: true,
+      // pkg otherwise passes its own executable path and interprets the
+      // private command as a script path. Re-enter the packaged app.
+      env: { ...env, PKG_EXECPATH: '' }, detached: process.platform === 'win32', windowsHide: true,
       stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
     });
   }
