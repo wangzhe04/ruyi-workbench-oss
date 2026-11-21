@@ -12,10 +12,11 @@ require('./lib/self-isolate-home.js');
 const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),cp=require('node:child_process'),http=require('node:http');
 const assert=require('node:assert/strict');
 const {createHash}=require('node:crypto');
-const execFile=require('node:util').promisify(cp.execFile);
 const {createRunner}=require('./lib/harness.js');
 const {fixtureChildEnv}=require('./lib/fixture-home.js');
 const {fixedSpawnCommandLine}=require('./lib/work-data-production-upload-process.js');
+const {processRows,sameProcess,processIdentity}=require('./lib/windows-lifetime-processes.cjs');
+const {requestJson}=require('./lib/lifetime-loopback-json.cjs');
 const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=p.join(root,'ruyi-workbench');
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
@@ -25,39 +26,6 @@ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui',
  throw Error('Use --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --idle, --window, or --window --hold-ui');
 if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
 else void main();
-async function processRows(pids,childrenOf){
- const filters=pids.map(pid=>'ProcessId='+pid);
- if(childrenOf)filters.push('ParentProcessId='+childrenOf);
- const command=[
-  "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)",
-  "$rows=@(Get-CimInstance Win32_Process -Filter '"+filters.join(' OR ')+"' | ForEach-Object {",
-  " $row=@{pid=[int]$_.ProcessId; parent=[int]$_.ParentProcessId; created=$_.CreationDate.ToFileTimeUtc().ToString()}",
-  ...(childrenOf?[
-   " $row.image=$_.ExecutablePath; $row.commandLine=$_.CommandLine",
-   " if($row.pid -eq "+childrenOf+") { $row.nativeCreated=(Get-Process -Id $row.pid).StartTime.ToFileTimeUtc().ToString() }"
-  ]:[]),
-  " $row", "}); ConvertTo-Json -InputObject $rows -Compress"
- ].join('\n');
- const powershell=p.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
- const result=await execFile(powershell,['-NoProfile','-NonInteractive','-Command',command],{windowsHide:true,timeout:10000,encoding:'utf8'});
- return JSON.parse(result.stdout);
-}
-function requestJson(url,token,route,input){
- return new Promise((resolve,reject)=>{
-  const headers={'x-wcw-token':token};
-  const bytes=input===undefined?null:Buffer.from(JSON.stringify(input));
-  if(bytes)Object.assign(headers,{'content-type':'application/json','content-length':bytes.length,origin:new URL(url).origin});
-  const request=http.request(new URL(route,url),{method:bytes?'POST':'GET',agent:false,headers},response=>{
-   let body='';response.setEncoding('utf8');response.on('data',chunk=>{body+=chunk;});
-   response.once('end',()=>{try{resolve({status:response.statusCode,value:JSON.parse(body)});}catch(error){reject(error);}});
-   response.once('error',reject);
-  });
-  request.once('error',reject);request.setTimeout(5000,()=>request.destroy(Error(route+' timeout')));
-  request.end(bytes);
- });
-}
-const sameProcess=(row,identity)=>row.pid===identity.pid&&row.created===identity.created;
-const processIdentity=({pid,parent,created,image})=>({pid,parent,created,image});
 const uncertain=row=>['uncertain','retained','unexpected-exit'].includes(row.phase);
 function prepareScene(dir){
  const data=p.join(dir,'data'),temp=p.join(dir,'temp');
