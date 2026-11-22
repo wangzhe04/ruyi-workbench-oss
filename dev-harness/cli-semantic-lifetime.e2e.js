@@ -18,6 +18,11 @@ const { requestJson } = require('./lib/lifetime-loopback-json.cjs');
 const assetProfile = process.env.RUYI_TEST_GEMMA2_ROOT;
 const workbench = path.resolve(__dirname, '../ruyi-workbench');
 const runner = createRunner('CLI SEMANTIC LIFETIME');
+const actionReceipts = {
+  'ctrl-c': 'ctrl-c-written',
+  terminate: 'cli-terminated',
+  'terminal-close': 'terminal-closed'
+};
 
 async function waitFor(read, timeout, label, failed = () => false) {
   const end = Date.now() + timeout;
@@ -39,6 +44,7 @@ function prepareScene(dir) {
   fs.mkdirSync(profile);
   fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({
     configSchema: 14, locale: 'en-US', semanticRetrievalV1: true, workDataEncryptionV1: false,
+    engineMode: 'print', claudePath: process.execPath, kimiPath: process.execPath,
     stewardEnabledV1: false, schedulerEnabledV1: false, autoImportClaudeCodeMcp: false,
     importAgentInstructions: false, includeWorkbenchMcp: false, externalMcpServers: [],
     desktopMcp: { enabled: false, autodetect: false }, providers: [], defaultWorkspace: dir
@@ -128,8 +134,9 @@ async function runMode(root, probe, entry, mode) {
   const dir = path.join(root, mode);
   fs.mkdirSync(dir);
   const scene = prepareScene(dir);
-  const ctrlC = mode === 'ctrl-c', maintenance = mode === 'maintenance';
-  const conpty = ctrlC || maintenance;
+  const maintenance = mode === 'maintenance', terminalClose = mode === 'terminal-close';
+  const abnormal = mode === 'terminate' || terminalClose;
+  const conpty = mode !== 'graceful';
   let args = entry.args;
   if (!conpty) {
     const preload = gracefulPreload(dir);
@@ -140,9 +147,12 @@ async function runMode(root, probe, entry, mode) {
   const child = spawn(conpty ? probe : entry.executable, conpty ? probeArgs : args,
     { cwd: entry.cwd, env: scene.env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const lines = [];
-  let terminal, spawnError, stderr = '', stdoutEOF = false, stderrEOF = false;
+  let terminal, spawnError, remaining, stderr = '', stdoutEOF = false, stderrEOF = false;
   const events = readline.createInterface({ input: child.stdout });
-  events.on('line', line => { if (/^(?:started |exited |ctrl-c-written$|console-released$|fixture-job-ended$|fixture-sigterm(?:-armed)?$)/.test(line)) lines.push(line); });
+  events.on('line', line => {
+    if (Object.values(actionReceipts).includes(line)
+      || /^(?:started |exited |console-released$|fixture-job-ended$|fixture-sigterm(?:-armed)?$)/.test(line)) lines.push(line);
+  });
   child.stdout.once('end', () => { stdoutEOF = true; });
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8192); });
@@ -179,44 +189,60 @@ async function runMode(root, probe, entry, mode) {
     checkpoint('before', { mode, port, launchMode: entry.launchMode, executableSha256: entry.sha256,
       originals, cliNativeCreated: cli.nativeCreated, state: 'ready', homeCount: 1 });
 
+    let cliExitCode;
     if (conpty) {
       assert.ok(!stopped() && !lines.some(line => line.startsWith('exited ')), 'ConPTY is active before the exit request');
       if (maintenance) {
         child.stdin.write('wait-maintenance\n');
         checkpoint('maintenance-accepted', await requestMaintenance(dir, 'http://127.0.0.1:' + port, token));
-      } else child.stdin.write('ctrl-c\n');
-      const exited = await waitFor(() => lines.find(line => line.startsWith('exited ')),
-        maintenance ? 65000 : 35000, 'CLI exits in active ConPTY', stopped);
-      assert.equal(lines.includes('ctrl-c-written'), ctrlC, 'only the Ctrl+C case sends Ctrl+C');
-      assert.equal(exited, 'exited 0', 'original CLI exits zero');
+      } else child.stdin.write(mode + '\n');
+      const exited = await waitFor(() => lines.map(line => /^exited (\d+)$/.exec(line)).find(Boolean),
+        maintenance ? 65000 : 35000, 'original CLI exits after ' + mode, stopped);
+      assert.deepEqual(lines.slice(0, lines.indexOf(exited[0])).filter(line => Object.values(actionReceipts).includes(line)),
+        maintenance ? [] : [actionReceipts[mode]], 'only the requested native exit action precedes CLI exit');
+      cliExitCode = Number(exited[1]);
+      if (!terminalClose) assert.equal(cliExitCode, abnormal ? 73 : 0, 'original CLI reports the requested exit code');
     } else {
       assert.ok(lines.includes('fixture-sigterm-armed'), 'fixture preloaded the graceful trigger');
       child.stdin.end();
       await waitFor(() => terminal, 30000, 'CLI exits after graceful shutdown request');
       assert.ok(lines.includes('fixture-sigterm'), 'fixture dispatched the production SIGTERM handler');
+      cliExitCode = terminal.code;
     }
-    const remaining = await processRows(originals.map(row => row.pid));
-    assert.ok(!originals.some(identity => remaining.some(row => sameProcess(row, identity))), 'original CLI and model both exited');
+    const exitedOriginals = async () => {
+      const rows = await processRows(originals.map(row => row.pid));
+      remaining = originals.filter(identity => rows.some(row => sameProcess(row, identity)));
+      return remaining.length === 0;
+    };
+    if (abnormal) await waitFor(exitedOriginals, 15000, 'original CLI and model exit after ' + mode, stopped);
+    else assert.ok(await exitedOriginals(), 'original CLI and model both exited');
     const remainingHomes = fs.readdirSync(scene.homeRoot);
     const homeCount = remainingHomes.length;
-    assert.ok(!remainingHomes.includes(homes[0]), 'original model resident home is removed by the CLI');
-    if (!maintenance) assert.equal(homeCount, 0, 'no model resident homes remain');
+    const originalHomeRemoved = !remainingHomes.includes(homes[0]);
+    if (!abnormal) assert.ok(originalHomeRemoved, 'original model resident home is removed by the CLI');
+    if (!maintenance && !abnormal) assert.equal(homeCount, 0, 'no model resident homes remain');
+    const exitProof = { cliExitCode, remaining, homeCount, originalHomeRemoved };
     if (conpty) {
-      assert.ok(!stopped() && !lines.includes('console-released'), 'process and home checks precede console release');
-      checkpoint('before-console-release', { observations: [...lines], remaining: [], homeCount, originalHomeRemoved: true });
+      assert.ok(!stopped() && !lines.includes('console-released'), 'process and home checks precede probe release');
+      checkpoint(terminalClose ? 'before-controller-release' : 'before-console-release', { observations: [...lines], ...exitProof });
       child.stdin.end('release\n');
       await waitFor(() => terminal, 15000, 'pseudoconsole release');
       assert.ok(lines.includes('console-released'), 'fixture releases its console after acceptance');
       if (maintenance) assert.ok(lines.includes('fixture-job-ended'), 'fixture job settles detached maintenance processes separately');
     }
-    assert.deepEqual(terminal, { code: 0, signal: null }, 'natural zero exit');
+    assert.deepEqual(terminal, { code: 0, signal: null }, conpty ? 'probe exits zero' : 'CLI exits zero');
     assert.ok(stdoutEOF && stderrEOF, 'both controller streams reached EOF');
-    checkpoint('after', { terminal, stdoutEOF, stderrEOF, remaining: [], homeCount, originalHomeRemoved: true, observations: lines });
-    runner.ok(true, maintenance ? 'production maintenance normally exits the original packaged CLI and cleans up its real model'
-      : ctrlC ? 'terminal Ctrl+C reaps the real CLI and model before closing the pseudoconsole'
-      : 'production graceful handler reaps the real CLI and model after fixture SIGTERM dispatch');
+    checkpoint('after', { terminal, stdoutEOF, stderrEOF, ...exitProof, observations: lines });
+    if (abnormal) {
+      console.log(mode + ': CLI exit ' + cliExitCode + ', resident home ' + (originalHomeRemoved ? 'removed' : 'retained'));
+      runner.ok(true, mode + ' leaves neither original CLI nor model process');
+    } else {
+      runner.ok(true, maintenance ? 'production maintenance normally exits the original packaged CLI and cleans up its real model'
+        : conpty ? 'terminal Ctrl+C reaps the real CLI and model before closing the pseudoconsole'
+        : 'production graceful handler reaps the real CLI and model after fixture SIGTERM dispatch');
+    }
   } catch (error) {
-    checkpoint('failure', { message: error.message, terminal, observations: lines, stderr, stdoutEOF, stderrEOF });
+    checkpoint('failure', { message: error.message, terminal, remaining, observations: lines, stderr, stdoutEOF, stderrEOF });
     child.stdin.end();
     child.unref();
     child.stdout.unref?.();
@@ -227,9 +253,9 @@ async function runMode(root, probe, entry, mode) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const packaged = args.length === 1 && args[0] === '--pkg';
-  assert.ok(args.length === 0 || packaged, 'use --pkg for the built dist/Ruyi.exe');
-  if (!packaged && (process.platform !== 'win32' || !assetProfile)) {
+  const packaged = args.includes('--pkg'), abnormal = args.includes('--abnormal');
+  assert.equal(args.length, Number(packaged) + Number(abnormal), 'use [--pkg] [--abnormal]');
+  if (!args.length && (process.platform !== 'win32' || !assetProfile)) {
     console.log('SKIP CLI SEMANTIC LIFETIME: requires Windows and RUYI_TEST_GEMMA2_ROOT');
     return;
   }
@@ -242,7 +268,8 @@ async function main() {
   const csc = path.join(process.env.WINDIR, 'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
   execFileSync(csc, ['/nologo', '/target:exe', '/platform:x64', '/out:' + probe, path.join(__dirname, 'fixtures/cli-console-probe.cs')],
     { windowsHide: true, timeout: 30000 });
-  for (const mode of [packaged ? 'maintenance' : 'graceful', 'ctrl-c']) {
+  const modes = abnormal ? ['terminate', 'terminal-close'] : [packaged ? 'maintenance' : 'graceful', 'ctrl-c'];
+  for (const mode of modes) {
     try { await runMode(dir, probe, entry, mode); }
     catch (error) { runner.fail(mode + ': ' + error.stack); }
   }

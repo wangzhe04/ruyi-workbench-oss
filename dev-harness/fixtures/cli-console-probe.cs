@@ -55,6 +55,8 @@ internal static class CliConsoleProbe
     private static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetExitCodeProcess(IntPtr process, out uint code);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool TerminateProcess(IntPtr process, uint code);
     [DllImport("kernel32.dll")]
     private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
     [DllImport("kernel32.dll")]
@@ -134,25 +136,46 @@ internal static class CliConsoleProbe
                         long creation, exit, kernel, user;
                         if (!GetProcessTimes(child.Process, out creation, out exit, out kernel, out user)) throw new Win32Exception();
                         Console.WriteLine("started {0} {1}", child.Pid, creation);
-                        if (job == IntPtr.Zero)
+                        string action = Console.ReadLine();
+                        if (job != IntPtr.Zero)
                         {
-                            if (Console.ReadLine() != "ctrl-c") throw new IOException("Ctrl+C input not requested");
-                            input.WriteByte(3);
-                            input.Flush();
-                            Console.WriteLine("ctrl-c-written");
+                            if (action != "wait-maintenance") throw new IOException("maintenance exit not requested");
                         }
-                        else if (Console.ReadLine() != "wait-maintenance") throw new IOException("maintenance exit not requested");
+                        else
+                        {
+                            if (WaitForSingleObject(child.Process, 0) != 258)
+                                throw new IOException("CLI exited before the requested action");
+                            switch (action)
+                            {
+                                case "ctrl-c":
+                                    input.WriteByte(3);
+                                    input.Flush();
+                                    Console.WriteLine("ctrl-c-written");
+                                    break;
+                                case "terminate":
+                                    if (!TerminateProcess(child.Process, 73)) throw new Win32Exception();
+                                    Console.WriteLine("cli-terminated");
+                                    break;
+                                case "terminal-close":
+                                    ClosePseudoConsole(console);
+                                    console = IntPtr.Zero;
+                                    Console.WriteLine("terminal-closed");
+                                    break;
+                                default: throw new IOException("CLI exit action not requested");
+                            }
+                        }
                         if (WaitForSingleObject(child.Process, job == IntPtr.Zero ? 30000U : 65000U) != 0)
                             throw new IOException("CLI did not exit after the requested action");
                         uint code;
                         if (!GetExitCodeProcess(child.Process, out code)) throw new Win32Exception();
                         Console.WriteLine("exited {0}", code);
-                        // The controller verifies the CLI and worker exited while this console remains open.
-                        if (Console.ReadLine() != "release") throw new IOException("console release before acceptance");
+                        // Retain the process handle and any open console until the
+                        // controller verifies the original CLI and worker exits.
+                        if (Console.ReadLine() != "release") throw new IOException("probe release before acceptance");
                     }
                     finally { CloseHandle(child.Process); }
                 }
-                finally { ClosePseudoConsole(console); }
+                finally { if (console != IntPtr.Zero) ClosePseudoConsole(console); }
                 if (!drain.Wait(10000)) throw new IOException("console output did not drain");
                 Console.WriteLine("console-released");
             }
